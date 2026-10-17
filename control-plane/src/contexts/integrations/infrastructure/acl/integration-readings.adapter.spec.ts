@@ -2,7 +2,7 @@ import type { LinkedHost } from '@integrations/application/ports/linked-hosts.po
 import { IntegrationReadings } from '@integrations/infrastructure/acl/integration-readings.adapter';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -28,7 +28,7 @@ describe('IntegrationReadings', () => {
       readings: new IntegrationReadings(
         { ofTeam, everywhere: vi.fn() },
         { ofTeam: vi.fn(async () => links) },
-        new IntegrationReader(expressions, operationsHolding()),
+        new IntegrationReader(expressions, operationsContaining()),
       ),
     };
   };

@@ -98,13 +98,13 @@ install_binary() {
   say "installed $BIN_DIR/spotlight"
 }
 
-held() { [ -f "$CONFIG" ] && sed -n "s/^$1=//p" "$CONFIG" | head -1 || true; }
+saved() { [ -f "$CONFIG" ] && sed -n "s/^$1=//p" "$CONFIG" | head -1 || true; }
 
 read_credentials() {
-  token="${SPOTLIGHT_TOKEN:-$(held SPOTLIGHT_TOKEN)}"
-  trust="${SPOTLIGHT_TRUST:-$(held SPOTLIGHT_TRUST)}"
-  token_file="${SPOTLIGHT_OIDC_TOKEN_FILE:-$(held SPOTLIGHT_OIDC_TOKEN_FILE)}"
-  capacity="${SPOTLIGHT_CAPACITY:-$(held SPOTLIGHT_CAPACITY)}"
+  token="${SPOTLIGHT_TOKEN:-$(saved SPOTLIGHT_TOKEN)}"
+  trust="${SPOTLIGHT_TRUST:-$(saved SPOTLIGHT_TRUST)}"
+  token_file="${SPOTLIGHT_OIDC_TOKEN_FILE:-$(saved SPOTLIGHT_OIDC_TOKEN_FILE)}"
+  capacity="${SPOTLIGHT_CAPACITY:-$(saved SPOTLIGHT_CAPACITY)}"
 
   if [ -z "$token" ] && [ -z "$trust" ]; then
     die "set SPOTLIGHT_TOKEN to a pull pool's token, or SPOTLIGHT_TRUST and SPOTLIGHT_OIDC_TOKEN_FILE to claim through a runner trust"

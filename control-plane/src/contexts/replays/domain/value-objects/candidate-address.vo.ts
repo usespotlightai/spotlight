@@ -16,8 +16,8 @@ export class CandidateAddress {
     return new CandidateAddress(station, name);
   }
 
-  static parse(held: string): CandidateAddress {
-    const [teamKey, lineKey, stationKey, name, ...rest] = held.split(SEPARATOR);
+  static parse(raw: string): CandidateAddress {
+    const [teamKey, lineKey, stationKey, name, ...rest] = raw.split(SEPARATOR);
     const station =
       teamKey && lineKey && stationKey
         ? StationAddress.of(teamKey, lineKey, stationKey)

@@ -44,10 +44,10 @@ export const layered = (
   const replaced: (readonly string[])[] = [];
 
   for (const [key, given] of Object.entries(over)) {
-    const held = value[key];
+    const existing = value[key];
 
-    if (isObject(held) && isObject(given)) {
-      const deeper = layered(held, given, [...at, key]);
+    if (isObject(existing) && isObject(given)) {
+      const deeper = layered(existing, given, [...at, key]);
       value[key] = deeper.value;
       replaced.push(...deeper.replaced);
     } else {

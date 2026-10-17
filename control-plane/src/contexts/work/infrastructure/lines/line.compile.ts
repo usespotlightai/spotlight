@@ -60,10 +60,10 @@ type Read<T> =
 const reasoned = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const addressOf = (held: unknown): string => {
+const addressOf = (input: unknown): string => {
   const key =
-    typeof held === 'object' && held !== null && 'key' in held
-      ? held.key
+    typeof input === 'object' && input !== null && 'key' in input
+      ? input.key
       : null;
 
   try {
@@ -281,11 +281,11 @@ const placed = (definition: LineFields, part: LinePart): FieldPath => {
   }
 };
 
-export const compileLine = (held: unknown): ParsedLine => {
-  const read = lineSchema.safeParse(held);
+export const compileLine = (input: unknown): ParsedLine => {
+  const read = lineSchema.safeParse(input);
 
   if (!read.success) {
-    const path = addressOf(held);
+    const path = addressOf(input);
 
     return {
       ok: false,
@@ -450,7 +450,7 @@ export const compileLine = (held: unknown): ParsedLine => {
 };
 
 export class LineCompiler implements LineCompilerPort {
-  compile(held: unknown): ParsedLine {
-    return compileLine(held);
+  compile(input: unknown): ParsedLine {
+    return compileLine(input);
   }
 }

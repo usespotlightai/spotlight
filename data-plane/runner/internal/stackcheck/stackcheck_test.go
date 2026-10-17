@@ -362,7 +362,7 @@ func TestPerformKeepsCheckingThroughARenewalThatCouldNotReachTheControlPlane(t *
 	}
 }
 
-func TestPerformStopsACheckItNoLongerHolds(t *testing.T) {
+func TestPerformStopsACheckItNoLongerLeases(t *testing.T) {
 	for name, told := range map[string]*reporter{
 		"told to stop": {stop: true},
 		"refused": {refusal: &control.Rejection{
@@ -385,7 +385,7 @@ func TestPerformStopsACheckItNoLongerHolds(t *testing.T) {
 				t.Errorf("kept checking for %s once the check was gone", took)
 			}
 			if len(told.recorded) != 0 {
-				t.Errorf("reported %+v for a check it no longer holds", told.recorded)
+				t.Errorf("reported %+v for a check it no longer leases", told.recorded)
 			}
 		})
 	}
@@ -466,7 +466,7 @@ func TestDiffGathersEverythingChangedSinceTheRunBegan(t *testing.T) {
 		}
 	}
 	if strings.Contains(diff, "deps/tool.txt") {
-		t.Errorf("diff holds an ignored file:\n%s", diff)
+		t.Errorf("diff contains an ignored file:\n%s", diff)
 	}
 	if after := git(t, checkout, "status", "--porcelain"); after != before {
 		t.Errorf("the checkout's index changed:\nbefore %q\nafter  %q", before, after)
@@ -492,7 +492,7 @@ func TestCommittedDiffsOnlyWhatWasCommittedSinceTheRunBegan(t *testing.T) {
 		t.Errorf("diff lacks what was committed:\n%s", diff)
 	}
 	if strings.Contains(diff, "lib.txt") {
-		t.Errorf("diff holds what was left in the working tree:\n%s", diff)
+		t.Errorf("diff contains what was left in the working tree:\n%s", diff)
 	}
 }
 

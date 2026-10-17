@@ -77,7 +77,7 @@ func TestFindsDockerHubUnderItsLegacyName(t *testing.T) {
 	}
 }
 
-func TestPullsAnonymouslyWhereNoCredentialsAreHeld(t *testing.T) {
+func TestPullsAnonymouslyWhereItHasNoCredentials(t *testing.T) {
 	credentials := configured(t, `{"auths":{"ghcr.io":{"auth":"eDp5"}}}`)
 
 	for _, image := range []string{"quay.io/acme/runner:1", "ubuntu:24.04"} {

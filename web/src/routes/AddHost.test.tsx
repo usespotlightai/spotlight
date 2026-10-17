@@ -27,7 +27,7 @@ const host = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const holding = (...hosts: unknown[]) =>
+const listing = (...hosts: unknown[]) =>
   fleet.mockReturnValue({ hosts, pools: [] });
 
 const poolCreated = () =>
@@ -72,7 +72,7 @@ describe('AddHost', () => {
     role.mockReturnValue('owner');
     creating.mockReturnValue({});
     create.mockClear();
-    holding();
+    listing();
     pools.mockReturnValue([]);
   });
 
@@ -253,7 +253,7 @@ describe('AddHost', () => {
 
   it('waits for a host in the new pool to connect', () => {
     poolCreated();
-    holding(
+    listing(
       host({ through: { kind: 'pool', key: 'build-farm' } }),
       host({ id: 'second', name: 'asleep', answering: false }),
     );
@@ -268,7 +268,7 @@ describe('AddHost', () => {
 
   it('goes to the runners once a host of the new pool connects', () => {
     poolCreated();
-    holding(host());
+    listing(host());
 
     renderPage();
 

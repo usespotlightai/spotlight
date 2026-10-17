@@ -109,7 +109,7 @@ const run = () =>
     }),
   }).claim(RUNNER, NOW);
 
-const held = () =>
+const handed = () =>
   Task.add({
     line,
     at: BUILD,
@@ -121,7 +121,7 @@ const held = () =>
   }).handedTo(RUN, line);
 
 const approvalAsked = () =>
-  held().clearFor(
+  handed().clearFor(
     ApprovalSubject.toolCall(
       ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
     ),
@@ -148,7 +148,7 @@ const ending = (input: {
   turnEnded({
     run: input.ran ?? run(),
     by: RUNNER,
-    task: input.task === undefined ? held() : input.task,
+    task: input.task === undefined ? handed() : input.task,
     line,
     outcome: input.outcome ?? CLEAN,
     report: HandoverReport.of({
@@ -166,7 +166,7 @@ describe('turnEnded', () => {
     expect(ended.waiting).toBe(true);
     expect(ended.run.state).toBe('waiting');
     expect(ended.task?.awaitingReview).toBe(true);
-    expect(ended.task?.heldBy(RUN)).toBe(true);
+    expect(ended.task?.hasCurrentRun(RUN)).toBe(true);
     expect(ended.task?.sessionId?.value).toBe('session_1');
     expect(ended.task?.notes[0]?.body.value).toBe('Which?');
   });
@@ -222,7 +222,7 @@ describe('turnEnded', () => {
     ) => ({
       run: over.ran ?? run(),
       by: RUNNER,
-      task: held(),
+      task: handed(),
       line,
       outcome: over.outcome ?? CLEAN,
       declared: declared ? Declaration.of(declared) : null,
@@ -235,7 +235,7 @@ describe('turnEnded', () => {
       expect(turnWaits(turn({ next: 'ship' }))).toBe(false);
     });
 
-    it('may wait where a hook could hold back the task being passed on', () => {
+    it('may wait where a hook could stop the task being passed on', () => {
       expect(turnWaits(turn({ next: 'ship' }, { mayBeWithheld: true }))).toBe(
         true,
       );
@@ -285,8 +285,10 @@ describe('turnEnded', () => {
 
   it('ends a turn whose task has moved on, or that works no task', () => {
     expect(
-      ending({ task: held().leaveRun(RUN, NOW), declared: { next: 'review' } })
-        .waiting,
+      ending({
+        task: handed().leaveRun(RUN, NOW),
+        declared: { next: 'review' },
+      }).waiting,
     ).toBe(false);
     expect(ending({ task: null, declared: { next: 'review' } }).waiting).toBe(
       false,

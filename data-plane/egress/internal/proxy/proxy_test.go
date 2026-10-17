@@ -334,7 +334,7 @@ func (opener) Open(sealed, _, _ string) (string, error) {
 func TestWearsWhatEgressRedeemedInPlaceOfWhatTheSandboxSent(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
 	list, _ := reach.Parse(nil)
-	held := wear.From(context.Background(), protocol.EgressRedemption{
+	wearing := wear.From(context.Background(), protocol.EgressRedemption{
 		RunID: "run_1",
 		Secrets: []protocol.RedeemedSecret{
 			{Secret: "LINEAR_API_KEY", Host: "mcp.example.com", Carrier: "header", Name: "authorization", Prefix: "Bearer ", Sealed: "sealed:lin_api_1"},
@@ -342,7 +342,7 @@ func TestWearsWhatEgressRedeemedInPlaceOfWhatTheSandboxSent(t *testing.T) {
 			{Secret: "MCP_KEY", Host: "mcp.example.com", Carrier: "query", Name: "key", Sealed: "sealed:k/1"},
 		},
 	}, nil, wear.Limits{Hosts: list}, opener{}, func() (wear.Reader, error) { return nil, nil }, quiet)
-	r := riggedWith(t, nil, held, held.Hosts())
+	r := riggedWith(t, nil, wearing, wearing.Hosts())
 
 	response, body := r.get(t, "https://mcp.example.com/", http.Header{
 		"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"},
@@ -369,10 +369,10 @@ func TestWearsWhatEgressRedeemedInPlaceOfWhatTheSandboxSent(t *testing.T) {
 
 	r.get(t, "https://mcp.example.com/", http.Header{"X-Api-Key": {"spotlight-egress:UNKNOWN"}})
 	if got := r.upstream.last().Header; got.Get("X-Api-Key") != "" || got.Get("Authorization") != "" {
-		t.Errorf("sent on a stand-in it does not hold, or wore a secret nobody asked for: %v", got)
+		t.Errorf("sent on a stand-in it has no value for, or wore a secret nobody asked for: %v", got)
 	}
 
-	held.Forget()
+	wearing.Forget()
 	r.get(t, "https://mcp.example.com/", http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"}})
 	if got := r.upstream.last().Header.Get("Authorization"); got != "" && got != "Bearer spotlight-egress:LINEAR_API_KEY" {
 		t.Errorf("wore %q after forgetting", got)
@@ -411,13 +411,13 @@ func TestTellsTheDialWhetherTheListNamesTheHostOnEveryPath(t *testing.T) {
 func TestSaysACallFailedWithoutEchoingTheAddressItWoreASecretIn(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
 	list, _ := reach.Parse(nil)
-	held := wear.From(context.Background(), protocol.EgressRedemption{
+	wearing := wear.From(context.Background(), protocol.EgressRedemption{
 		RunID: "run_1",
 		Secrets: []protocol.RedeemedSecret{
 			{Secret: "MAPS_KEY", Host: "maps.example.com", Carrier: "query", Name: "key", Sealed: "sealed:AIza-secret"},
 		},
 	}, nil, wear.Limits{Hosts: list}, opener{}, func() (wear.Reader, error) { return nil, nil }, quiet)
-	r := riggedWith(t, nil, held, held.Hosts())
+	r := riggedWith(t, nil, wearing, wearing.Hosts())
 	var logged strings.Builder
 	r.proxy.log = slog.New(slog.NewTextHandler(&logged, nil))
 	r.proxy.transport.DialContext = func(context.Context, string, string) (net.Conn, error) {
@@ -439,13 +439,13 @@ func TestSaysACallFailedWithoutEchoingTheAddressItWoreASecretIn(t *testing.T) {
 func TestHandsTheSandboxBackTheStandInWhereTheHostEchoesTheSecret(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
 	list, _ := reach.Parse(nil)
-	held := wear.From(context.Background(), protocol.EgressRedemption{
+	wearing := wear.From(context.Background(), protocol.EgressRedemption{
 		RunID: "run_1",
 		Secrets: []protocol.RedeemedSecret{
 			{Secret: "MAPS_KEY", Host: "maps.example.com", Carrier: "query", Name: "key", Sealed: "sealed:AIza/secret"},
 		},
 	}, nil, wear.Limits{Hosts: list}, opener{}, func() (wear.Reader, error) { return nil, nil }, quiet)
-	r := riggedWith(t, nil, held, held.Hosts())
+	r := riggedWith(t, nil, wearing, wearing.Hosts())
 	client := *r.client
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 

@@ -189,9 +189,9 @@ describe('Run', () => {
   });
 
   it('goes back on the queue for someone else, counting the attempt', () => {
-    const held = claimed();
+    const leased = claimed();
 
-    const again = held.requeue(held.leaseExpiresAt as Date);
+    const again = leased.requeue(leased.leaseExpiresAt as Date);
 
     expect(again.state).toBe('queued');
     expect(again.claimedBy).toBeNull();
@@ -215,23 +215,23 @@ describe('Run', () => {
     ).toBe(true);
   });
 
-  it('refuses to be requeued while its lease still holds', () => {
+  it('refuses to be requeued while its lease is still valid', () => {
     const run = claimed();
 
     expect(() => run.requeue(noon)).toThrow(InvalidRunTransitionError);
   });
 
-  it('lets the runner holding it push the lease out', () => {
-    const held = claimed();
+  it('lets the runner that leases it push the lease out', () => {
+    const leased = claimed();
 
-    const renewed = held.renewLease(runner(), at('2026-08-23T12:00:30.000Z'));
+    const renewed = leased.renewLease(runner(), at('2026-08-23T12:00:30.000Z'));
 
     expect((renewed.leaseExpiresAt as Date).getTime()).toBeGreaterThan(
-      (held.leaseExpiresAt as Date).getTime(),
+      (leased.leaseExpiresAt as Date).getTime(),
     );
   });
 
-  it('refuses a lease renewal from a runner that does not hold it', () => {
+  it('refuses a lease renewal from a runner that does not lease it', () => {
     const run = claimed();
 
     expect(() => run.renewLease(runner('someone_else'), noon)).toThrow(
@@ -239,7 +239,7 @@ describe('Run', () => {
     );
   });
 
-  it('refuses to be completed by a runner that does not hold it', () => {
+  it('refuses to be completed by a runner that does not lease it', () => {
     const run = claimed();
 
     expect(() =>
@@ -290,33 +290,33 @@ describe('Run', () => {
     );
   });
 
-  it('refuses anyone but its holder to act on it', () => {
+  it('refuses anyone but its runner to act on it', () => {
     const run = claimed(runner('runner_1'));
 
-    expect(() => run.assertHeldBy(runner('runner_2'))).toThrow(
+    expect(() => run.assertLeasedBy(runner('runner_2'))).toThrow(
       InvalidRunTransitionError,
     );
-    expect(() => run.assertHeldBy(runner('runner_1'))).not.toThrow();
+    expect(() => run.assertLeasedBy(runner('runner_1'))).not.toThrow();
   });
 
-  it('refuses anyone to act on a run nobody holds', () => {
-    expect(() => queued().assertHeldBy(runner())).toThrow(
+  it('refuses anyone to act on a run nobody leases', () => {
+    expect(() => queued().assertLeasedBy(runner())).toThrow(
       InvalidRunTransitionError,
     );
   });
 
-  it('lets its runner act on the attempt it holds, and on no attempt it has left behind', () => {
-    const held = claimed();
-    const first = held.currentAttempt;
-    const reclaimed = lostAndRequeued(held).claim(
+  it('lets its runner act on the attempt it leases, and on no attempt it has left behind', () => {
+    const leased = claimed();
+    const first = leased.currentAttempt;
+    const reclaimed = lostAndRequeued(leased).claim(
       runner(),
       at('2026-08-28T12:00:00.000Z'),
     );
 
-    expect(() => held.assertStillOn(first, runner())).not.toThrow();
-    expect(() => lostAndRequeued(held).assertStillOn(first, runner())).toThrow(
-      RunAttemptOverError,
-    );
+    expect(() => leased.assertStillOn(first, runner())).not.toThrow();
+    expect(() =>
+      lostAndRequeued(leased).assertStillOn(first, runner()),
+    ).toThrow(RunAttemptOverError);
     expect(() => reclaimed.assertStillOn(first, runner())).toThrow(
       RunAttemptOverError,
     );
@@ -324,25 +324,25 @@ describe('Run', () => {
       reclaimed.assertStillOn(reclaimed.currentAttempt, runner()),
     ).not.toThrow();
     expect(() =>
-      held.assertStillOn(first, RunnerId.of('runner_other')),
+      leased.assertStillOn(first, RunnerId.of('runner_other')),
     ).toThrow(RunAttemptOverError);
   });
 
   describe('keeping a journal', () => {
-    it('journals under the attempt its holder is working', () => {
+    it('journals under the attempt its runner is working', () => {
       const journal = claimed().journalFor(runner());
 
       expect(journal.runId.value).toBe('run_1');
       expect(journal.number).toBe(1);
     });
 
-    it('refuses a journal from a runner that does not hold it', () => {
+    it('refuses a journal from a runner that does not lease it', () => {
       expect(() => claimed().journalFor(runner('runner_2'))).toThrow(
         InvalidRunTransitionError,
       );
     });
 
-    it('refuses a journal for a run nobody holds', () => {
+    it('refuses a journal for a run nobody leases', () => {
       expect(() => queued().journalFor(runner())).toThrow(
         InvalidRunTransitionError,
       );
@@ -449,19 +449,19 @@ describe('Run', () => {
         }),
       });
 
-    it('wears them for the runner holding it', () => {
+    it('wears them for the runner that leases it', () => {
       expect(wearing().claim(runner(), noon).secretsWornFor(runner())).toEqual([
         SecretName.of('LINEAR_API_KEY'),
       ]);
     });
 
     it('wears nothing for another runner, while it waits, or once it has ended', () => {
-      const held = wearing().claim(runner(), noon);
+      const leased = wearing().claim(runner(), noon);
 
-      expect(held.secretsWornFor(runner('runner_2'))).toEqual([]);
+      expect(leased.secretsWornFor(runner('runner_2'))).toEqual([]);
       expect(wearing().secretsWornFor(runner())).toEqual([]);
       expect(
-        held
+        leased
           .complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }))
           .secretsWornFor(runner()),
       ).toEqual([]);
@@ -485,16 +485,16 @@ describe('Run', () => {
       expect(queued().pullEvents()).toEqual([]);
     });
 
-    it('is held only by the runner that claimed it, and only until it ends', () => {
-      const held = claimed();
+    it('is leased only by the runner that claimed it, and only until it ends', () => {
+      const leased = claimed();
 
-      expect(held.isHeldBy(runner())).toBe(true);
-      expect(held.isHeldBy(runner('runner_2'))).toBe(false);
-      expect(queued().isHeldBy(runner())).toBe(false);
+      expect(leased.isLeasedBy(runner())).toBe(true);
+      expect(leased.isLeasedBy(runner('runner_2'))).toBe(false);
+      expect(queued().isLeasedBy(runner())).toBe(false);
       expect(
-        held
+        leased
           .complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }))
-          .isHeldBy(runner()),
+          .isLeasedBy(runner()),
       ).toBe(false);
     });
 
@@ -564,17 +564,17 @@ describe('Run', () => {
     });
 
     it('names the attempt its runner worked, also once it has ended, but none after the runner lost it', () => {
-      const held = claimed();
-      const ended = held.complete(
+      const leased = claimed();
+      const ended = leased.complete(
         runner(),
         RunOutcome.of({ exitCode: 0, failed: false }),
       );
 
-      expect(ended.attemptWorkedBy(runner())?.equals(held.currentAttempt)).toBe(
-        true,
-      );
+      expect(
+        ended.attemptWorkedBy(runner())?.equals(leased.currentAttempt),
+      ).toBe(true);
       expect(ended.attemptWorkedBy(runner('runner_2'))).toBeNull();
-      expect(lostAndRequeued(held).attemptWorkedBy(runner())).toBeNull();
+      expect(lostAndRequeued(leased).attemptWorkedBy(runner())).toBeNull();
     });
   });
 
@@ -601,7 +601,7 @@ describe('Run', () => {
       expect((completed as RunCompleted).workedBy).toBeNull();
     });
 
-    it('cannot be refused once a runner holds it', () => {
+    it('cannot be refused once a runner leases it', () => {
       expect(() => claimed().refused(LAPSED)).toThrow(
         InvalidRunTransitionError,
       );
@@ -896,12 +896,12 @@ describe('Run', () => {
     });
 
     it('leaves the run it was completed from with nothing to announce', () => {
-      const held = claimed();
+      const leased = claimed();
 
-      held.complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }));
+      leased.complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }));
 
-      expect(held.pullEvents()).toHaveLength(0);
-      expect(held.state).toBe('claimed');
+      expect(leased.pullEvents()).toHaveLength(0);
+      expect(leased.state).toBe('claimed');
     });
   });
 
@@ -910,7 +910,7 @@ describe('Run', () => {
     const reserved = () =>
       queued().reservedFor(runner('pooled_1'), PoolId.of('burst'), noon);
 
-    it('holds itself for the provisioned runner for five minutes', () => {
+    it('reserves itself for the provisioned runner for five minutes', () => {
       const run = reserved();
 
       expect(run.reservation?.runner.value).toBe('pooled_1');
@@ -932,13 +932,13 @@ describe('Run', () => {
       ).toThrow(InvalidRunTransitionError);
     });
 
-    it('refuses to be reserved once a runner holds it', () => {
+    it('refuses to be reserved once a runner leases it', () => {
       expect(() =>
         claimed().reservedFor(runner('pooled_1'), PoolId.of('burst'), noon),
       ).toThrow(InvalidRunTransitionError);
     });
 
-    it('refuses another runner while the reservation holds', () => {
+    it('refuses another runner while the reservation is active', () => {
       expect(() => reserved().claim(runner('runner_9'), later(1_000))).toThrow(
         InvalidRunTransitionError,
       );
@@ -1021,7 +1021,7 @@ describe('Run', () => {
       expect(run.unreservedFor(runner('pooled_1'))).toBe(run);
     });
 
-    it('is left as it is when unreserved once a runner holds it', () => {
+    it('is left as it is when unreserved once a runner leases it', () => {
       const run = claimed(runner('pooled_1'));
 
       expect(run.unreservedFor(runner('pooled_1'))).toBe(run);
@@ -1117,7 +1117,7 @@ describe('Run', () => {
       expect(run.provisionFailed(pooled, refused, noon)).toBe(run);
     });
 
-    it('counts no failure once a runner holds it', () => {
+    it('counts no failure once a runner leases it', () => {
       const run = claimed(pooled);
 
       expect(run.provisionFailed(pooled, refused, noon)).toBe(run);
@@ -1144,11 +1144,11 @@ describe('Run', () => {
       expect(claimed().ranIn).toBeNull();
     });
 
-    it('keeps the image its holder says it started in', () => {
+    it('keeps the image its runner says it started in', () => {
       expect(claimed().startedIn(runner(), pinned, noon).ranIn).toBe(pinned);
     });
 
-    it('refuses the image from a runner that does not hold it, or while nobody does', () => {
+    it('refuses the image from a runner that does not lease it, or while nobody does', () => {
       expect(() =>
         claimed().startedIn(runner('runner_2'), pinned, noon),
       ).toThrow(InvalidRunTransitionError);
@@ -1228,7 +1228,7 @@ describe('Run', () => {
       expect(superseded.supersededByItsTask()).toBe(superseded);
     });
 
-    it('ends failed, not superseded, when it exits badly while its task still holds it', () => {
+    it('ends failed, not superseded, when it exits badly while its task still has it as its current run', () => {
       expect(failedRun().state).toBe('failed');
       expect(failedRun().outcome?.failure?.code).toBe('exited');
     });

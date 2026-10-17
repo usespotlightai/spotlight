@@ -11,7 +11,7 @@ export interface ForgottenPort {
 
   forgetWorkspace(workspaceId: WorkspaceId): Promise<void>;
 
-  holding(
+  lockForgetting(
     workspaceId: WorkspaceId,
     taskId: TaskId | null,
     teamId?: TeamId | null,
@@ -23,7 +23,7 @@ export interface ForgottenPort {
     teamId?: TeamId | null,
   ): Promise<boolean>;
 
-  holdingPullRequest(
+  lockForgettingPullRequest(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
   ): Promise<void>;

@@ -111,14 +111,14 @@ const reaction = (
 ) => ReactionFor.happened({ task, line: LINE, payload: heard, said });
 
 const destination = (outcome: Outcome) =>
-  outcome.kind === 'moves' || outcome.kind === 'heldBack'
+  outcome.kind === 'moves' || outcome.kind === 'deferredMove'
     ? outcome.to.id
     : null;
 
-const held = (stationId: string) => standing(stationId).handedTo(RUN, LINE);
+const handed = (stationId: string) => standing(stationId).handedTo(RUN, LINE);
 
 const paused = (stationId: string) =>
-  held(stationId).putToAPerson(RUN, {
+  handed(stationId).putToAPerson(RUN, {
     station: StationName.of('Implementation'),
     body: TaskNoteBody.of('Which queue should I drain?'),
     at: NOW,
@@ -126,54 +126,54 @@ const paused = (stationId: string) =>
   });
 
 describe('ReactionFor.happened', () => {
-  it('moves a task no run holds to the station the rule names', () => {
+  it('moves a task with no current run to the station the rule names', () => {
     const outcome = reaction(standing('station_1'), commented);
 
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
   });
 
-  it('moves a task no run holds to the end of the line when the pull request merges', () => {
+  it('moves a task with no current run to the end of the line when the pull request merges', () => {
     const outcome = reaction(standing('station_1'), merged);
 
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(StationId.of('station_3'));
   });
 
-  it('holds back a move while a run holds the task, noted where the task stands', () => {
+  it('defers a move while the task has a current run, noted where the task stands', () => {
     const outcome = reaction(
-      held('station_1'),
+      handed('station_1'),
       commented,
       Said.of({ body: 'This retries forever.', path: 'upload.ts', from: 12 }),
     );
 
-    expect(outcome.kind).toBe('heldBack');
+    expect(outcome.kind).toBe('deferredMove');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
     expect(outcome).toMatchObject({
       station: StationName.of('Implementation'),
     });
   });
 
-  it('notes what was heard while a run held the task, and where it moves once the run ends', () => {
+  it('notes what was heard while a run worked on the task, and where it moves once the run ends', () => {
     const said = Said.of({ body: 'This retries forever.' });
-    const outcome = reaction(held('station_1'), commented, said);
+    const outcome = reaction(handed('station_1'), commented, said);
 
-    expect(outcome.kind === 'heldBack' && outcome.body.value).toBe(
-      'Heard while a run held the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nThis retries forever.',
+    expect(outcome.kind === 'deferredMove' && outcome.body.value).toBe(
+      'Heard while a run worked on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nThis retries forever.',
     );
-    expect(outcome.kind === 'heldBack' && outcome.said).toBe(said);
+    expect(outcome.kind === 'deferredMove' && outcome.said).toBe(said);
   });
 
-  it('holds back a spoken word with nothing said as what happened', () => {
-    const outcome = reaction(held('station_1'), commented);
+  it('defers a spoken word with nothing said as what happened', () => {
+    const outcome = reaction(handed('station_1'), commented);
 
-    expect(outcome.kind === 'heldBack' && outcome.body.value).toContain(
+    expect(outcome.kind === 'deferredMove' && outcome.body.value).toContain(
       'moves to Code Review when the run ends.\n\nThe pull request was commented on.',
     );
   });
 
-  it('interrupts the run and puts it to a person where a merge would finish the task a run holds', () => {
-    const outcome = reaction(held('station_2'), merged);
+  it('interrupts the run and puts it to a person where a merge would finish a task that has a current run', () => {
+    const outcome = reaction(handed('station_2'), merged);
 
     expect(outcome.kind).toBe('interrupts');
     expect(outcome).toMatchObject({ station: StationName.of('Code Review') });
@@ -184,7 +184,7 @@ describe('ReactionFor.happened', () => {
 
   it('says what closed the pull request when it interrupts a run', () => {
     const outcome = reaction(
-      held('station_1'),
+      handed('station_1'),
       payloadOf(CLOSED, 'The pull request was closed without being merged.'),
     );
 
@@ -193,10 +193,10 @@ describe('ReactionFor.happened', () => {
     );
   });
 
-  it('holds back a move while the run holding the task waits on a person', () => {
+  it('defers a move while the current run of the task waits on a person', () => {
     const outcome = reaction(paused('station_1'), commented);
 
-    expect(outcome.kind).toBe('heldBack');
+    expect(outcome.kind).toBe('deferredMove');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
   });
 
@@ -210,7 +210,7 @@ describe('ReactionFor.happened', () => {
   });
 
   it('says the station was working where the task awaits only a tool approval', () => {
-    const asking = held('station_2').putToAPerson(RUN, {
+    const asking = handed('station_2').putToAPerson(RUN, {
       station: StationName.of('Code Review'),
       body: TaskNoteBody.of('Approve linear.comment?'),
       at: NOW,
@@ -266,7 +266,7 @@ describe('ReactionFor.happened', () => {
     const said = Said.of({ body: 'Pin it to a version.' });
 
     expect(reaction(standing('station_2'), commented, said).kind).toBe('stays');
-    expect(reaction(held('station_2'), commented, said).kind).toBe('stays');
+    expect(reaction(handed('station_2'), commented, said).kind).toBe('stays');
   });
 
   it('says nothing to a task that has landed at the end of the line', () => {

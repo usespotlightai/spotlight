@@ -40,7 +40,7 @@ export class HookCallbackGrants {
     return token;
   }
 
-  async heldBy(token: string): Promise<HookCallbackGrant | null> {
+  async findByToken(token: string): Promise<HookCallbackGrant | null> {
     const grant = await this.grants.withToken(
       TokenHash.of(this.mint.hash(token)),
     );

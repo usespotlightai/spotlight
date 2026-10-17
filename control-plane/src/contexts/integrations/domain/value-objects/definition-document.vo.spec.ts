@@ -2,7 +2,7 @@ import { DefinitionDocument } from '@integrations/domain/value-objects/definitio
 import { describe, expect, it } from 'vitest';
 
 describe('DefinitionDocument', () => {
-  it('says what a field holds', () => {
+  it('says what a field contains', () => {
     const document = DefinitionDocument.of({ key: 'delivery' });
 
     expect(document.says('key', 'delivery')).toBe(true);
@@ -10,7 +10,7 @@ describe('DefinitionDocument', () => {
     expect(document.says('name', 'delivery')).toBe(false);
   });
 
-  it('holds a copy that nothing can change afterwards', () => {
+  it('keeps a copy that nothing can change afterwards', () => {
     const written = { key: 'delivery', stations: [{ key: 'backlog' }] };
     const document = DefinitionDocument.of(written);
 

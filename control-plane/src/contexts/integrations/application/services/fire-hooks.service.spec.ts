@@ -372,7 +372,7 @@ describe('FireHooks.before', () => {
     expect(runtime.step).toHaveBeenCalledTimes(1);
   });
 
-  it('skips hooks whose match does not hold', async () => {
+  it('skips hooks whose match does not apply', async () => {
     const { hooked, runtime } = setUp(
       [hookNamed('audit', ['tell'])],
       () => done('tell'),
@@ -986,7 +986,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(asked).toEqual(['added']);
   });
 
-  it('stops delivering once another worker holds the firing', async () => {
+  it('stops delivering once another worker has the lease on the firing', async () => {
     const asked: string[] = [];
     const { hooked, firings, last } = setUp(
       [hookNamed('audit', ['a', 'b'])],

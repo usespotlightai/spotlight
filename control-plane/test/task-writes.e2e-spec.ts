@@ -26,23 +26,23 @@ const DONE = {
   configured: true,
 };
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let tasks: DrizzleTaskRepository;
 
 beforeAll(async () => {
-  held = await openDatabase('task_writes');
-  db = held.db;
+  database = await openDatabase('task_writes');
+  db = database.db;
   tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
-const heldBy = (task: Task, runId: RunId): Task =>
+const withCurrentRun = (task: Task, runId: RunId): Task =>
   Task.rehydrate({ ...task, currentRunId: runId });
 
 describe('writing a task somebody else has written', () => {
@@ -77,7 +77,7 @@ describe('writing a task somebody else has written', () => {
   it('refuses the second, rather than laying it over the first', async () => {
     const { one, other } = await opened();
 
-    await tasks.save(heldBy(one, RunId.of(randomUUID())));
+    await tasks.save(withCurrentRun(one, RunId.of(randomUUID())));
 
     await expect(tasks.save(settled(other))).rejects.toBeInstanceOf(
       TaskVersionConflictError,
@@ -88,7 +88,7 @@ describe('writing a task somebody else has written', () => {
     const { one, other } = await opened();
     const runId = RunId.of(randomUUID());
 
-    await tasks.save(heldBy(one, runId));
+    await tasks.save(withCurrentRun(one, runId));
     await tasks.save(settled(other)).catch(() => {});
 
     const read = await tasks.find(one.id);
@@ -99,7 +99,7 @@ describe('writing a task somebody else has written', () => {
   it('takes the same change once it is read again', async () => {
     const { one, other } = await opened();
 
-    await tasks.save(heldBy(one, RunId.of(randomUUID())));
+    await tasks.save(withCurrentRun(one, RunId.of(randomUUID())));
     await tasks.save(settled(other)).catch(() => {});
 
     const again = await tasks.find(one.id);
@@ -120,7 +120,7 @@ describe('writing a task somebody else has written', () => {
     await tasks.save(settled(one));
 
     await expect(
-      tasks.save(heldBy(one, RunId.of(randomUUID()))),
+      tasks.save(withCurrentRun(one, RunId.of(randomUUID()))),
     ).rejects.toBeInstanceOf(TaskVersionConflictError);
   });
 });

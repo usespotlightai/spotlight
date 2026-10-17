@@ -17,7 +17,7 @@ export interface OAuth2ClientsPort {
     server: AuthorizationServer | null,
   ): Promise<OAuth2Client | null>;
 
-  heldFor(
+  existingFor(
     teamId: TeamId,
     source: SourceKey,
     server: AuthorizationServer | null,

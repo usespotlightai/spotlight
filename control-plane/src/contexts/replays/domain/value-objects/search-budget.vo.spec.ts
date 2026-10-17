@@ -15,17 +15,17 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const splitOf = (runs: number): HeldOutSplit => {
-  const holding = Math.ceil(0.3 * runs);
+  const heldOutCount = Math.ceil(0.3 * runs);
   const entry = (at: number) => ({
     runId: RunId.of(`run_${at}`),
     taskId: TaskId.of(`task_${at}`),
   });
 
   return HeldOutSplit.rehydrate({
-    searched: Array.from({ length: runs - holding }, (_, at) =>
-      entry(holding + at),
+    searched: Array.from({ length: runs - heldOutCount }, (_, at) =>
+      entry(heldOutCount + at),
     ),
-    heldOut: Array.from({ length: holding }, (_, at) => entry(at)),
+    heldOut: Array.from({ length: heldOutCount }, (_, at) => entry(at)),
   });
 };
 

@@ -64,7 +64,7 @@ export class DrizzleForgotten implements ForgottenPort {
       .where(eq(forgottenPullRequest.workspaceId, workspaceId.value));
   }
 
-  async holding(
+  async lockForgetting(
     workspaceId: WorkspaceId,
     taskId: TaskId | null,
     teamId: TeamId | null = null,
@@ -125,7 +125,7 @@ export class DrizzleForgotten implements ForgottenPort {
     return task !== undefined;
   }
 
-  async holdingPullRequest(
+  async lockForgettingPullRequest(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
   ): Promise<void> {
@@ -211,7 +211,7 @@ export class DrizzleForgotten implements ForgottenPort {
 
   private refuseOutsideTransaction(): void {
     if (!this.context.transacting) {
-      throw new Error('Holding what outcomes forgot needs a transaction');
+      throw new Error('A lock on what outcomes forgot needs a transaction');
     }
   }
 }

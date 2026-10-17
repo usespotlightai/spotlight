@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 
-const held = Run.enqueue({
+const leased = Run.enqueue({
   id: RunId.of('run_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   harness: HarnessId.of('dev'),
@@ -31,9 +31,9 @@ const delivering = () => {
     deliverUpTo: async (position: number) => void delivered.push(position),
   } as unknown as RunWork;
   const works = {
-    heldBy: async (_runId: string, runnerId: string) => {
-      held.assertHeldBy(RunnerId.of(runnerId));
-      return { run: held, work };
+    leasedBy: async (_runId: string, runnerId: string) => {
+      leased.assertLeasedBy(RunnerId.of(runnerId));
+      return { run: leased, work };
     },
   } as unknown as RunWorks;
 
@@ -44,7 +44,7 @@ const delivering = () => {
 };
 
 describe('DeliverSaidHandler', () => {
-  it('marks what the runner holding the run handed the agent as delivered', async () => {
+  it('marks what the runner that leases the run handed the agent as delivered', async () => {
     const { handler, delivered } = delivering();
 
     await handler.execute(new DeliverSaidCommand('run_1', 'runner_1', 3));

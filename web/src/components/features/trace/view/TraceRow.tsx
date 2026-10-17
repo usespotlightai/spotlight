@@ -12,7 +12,7 @@ type TraceRowProps = {
   node: TraceNode;
   teamId: string;
   depth: number;
-  holding: number;
+  childCount: number;
   trace: Trace;
   picked: boolean;
   open: boolean;
@@ -24,7 +24,7 @@ export const TraceRow = memo(function TraceRow({
   node,
   teamId,
   depth,
-  holding,
+  childCount,
   trace,
   picked,
   open,
@@ -44,7 +44,7 @@ export const TraceRow = memo(function TraceRow({
         className="flex min-w-0 shrink-0 items-center gap-1 pr-3"
         style={{ width: 'var(--names)', paddingLeft: depth * INDENT + 8 }}
       >
-        {holding > 0 ? (
+        {childCount > 0 ? (
           <button
             type="button"
             onClick={() => onToggle(node.id)}

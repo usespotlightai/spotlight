@@ -1,8 +1,8 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type {
+  ActiveConnection,
   Credentials,
-  HeldConnection,
   Reach,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
@@ -29,7 +29,7 @@ export interface RunReaching {
 
 export type ConnectionFound =
   | {
-      readonly kind: 'held';
+      readonly kind: 'chosen';
       readonly holder: ConnectionHolder;
       readonly connection: HostConnection | null;
     }
@@ -54,7 +54,7 @@ export class HostReach {
       : null;
 
     return {
-      connection: connection ? this.held(connection) : null,
+      connection: connection ? this.active(connection) : null,
       credentials: new SpotlightCredentials(this.injection, () =>
         this.workspaceOf(teamId),
       ),
@@ -68,7 +68,7 @@ export class HostReach {
   ): Promise<ConnectionFound> {
     if (!integration.connects) {
       return {
-        kind: 'held',
+        kind: 'chosen',
         holder: ConnectionHolder.team(),
         connection: null,
       };
@@ -77,7 +77,7 @@ export class HostReach {
     const chosen = ConnectionChoice.choose(integration, {
       personId: requester,
       member:
-        requester !== null && integration.holding.byRequester
+        requester !== null && integration.holder.byRequester
           ? (await this.access.onTeam(teamId.value, requester)) !== null
           : false,
     });
@@ -95,7 +95,7 @@ export class HostReach {
 
     return wanted
       ? { kind: 'wanted', wanted }
-      : { kind: 'held', holder: chosen.holder, connection: found };
+      : { kind: 'chosen', holder: chosen.holder, connection: found };
   }
 
   async forRun(
@@ -114,12 +114,12 @@ export class HostReach {
     const credentials: Credentials = new RunCredentials(this.injection, run);
 
     return {
-      connection: connection ? this.held(connection) : null,
+      connection: connection ? this.active(connection) : null,
       credentials,
     };
   }
 
-  private held(connection: HostConnection): HeldConnection {
+  private active(connection: HostConnection): ActiveConnection {
     return {
       token: connection.accessToken,
       holder: connection.holder,
@@ -140,7 +140,7 @@ export class HostReach {
     if (!team) {
       throw new InconsistentStateError(
         'integration',
-        `belongs to team ${teamId.value}, which no workspace holds`,
+        `belongs to team ${teamId.value}, which no workspace has`,
       );
     }
 

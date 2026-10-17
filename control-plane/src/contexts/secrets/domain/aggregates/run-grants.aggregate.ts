@@ -1,9 +1,9 @@
 import { RedemptionRecipientPinnedError } from '@secrets/domain/exceptions/redemption-recipient-pinned.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
-import { RunHoldOverError } from '@secrets/domain/exceptions/run-hold-over.error';
+import { RunLeaseOverError } from '@secrets/domain/exceptions/run-lease-over.error';
 import type { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import type { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -13,11 +13,11 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 const KEPT_MS = 7 * 24 * 60 * 60_000;
 
 interface State {
-  readonly hold: RunHold;
+  readonly lease: RunLease;
   readonly workspaceId: WorkspaceId;
   readonly grants: readonly SecretGrant[];
   readonly redeemer: Redeemer | null;
-  readonly holdLost: boolean;
+  readonly leaseLost: boolean;
   readonly endedAt: Date | null;
   readonly version: number;
 }
@@ -30,13 +30,13 @@ export class RunGrants extends EventRecorder {
     super();
   }
 
-  static start(hold: RunHold, workspaceId: WorkspaceId): RunGrants {
+  static start(lease: RunLease, workspaceId: WorkspaceId): RunGrants {
     return new RunGrants({
-      hold,
+      lease,
       workspaceId,
       grants: [],
       redeemer: null,
-      holdLost: false,
+      leaseLost: false,
       endedAt: null,
       version: 0,
     });
@@ -50,10 +50,10 @@ export class RunGrants extends EventRecorder {
       );
     }
 
-    if ((kept.endedAt || kept.holdLost) && kept.grants.length > 0) {
+    if ((kept.endedAt || kept.leaseLost) && kept.grants.length > 0) {
       throw new InconsistentStateError(
         'run grants',
-        'kept secrets granted to a hold that is over',
+        'kept secrets granted to a lease that is over',
       );
     }
 
@@ -64,58 +64,61 @@ export class RunGrants extends EventRecorder {
     return new Date(now.getTime() - KEPT_MS);
   }
 
-  grant(hold: RunHold, grants: readonly SecretGrant[]): RunGrants {
-    const held = this.heldAt(hold);
+  grant(lease: RunLease, grants: readonly SecretGrant[]): RunGrants {
+    const current = this.atLease(lease);
     const fresh: SecretGrant[] = [];
 
     for (const grant of grants) {
-      held.guardOwn(grant);
+      current.guardOwn(grant);
 
-      if (!held.holds(grant) && !fresh.some((each) => each.equals(grant))) {
+      if (
+        !current.includes(grant) &&
+        !fresh.some((each) => each.equals(grant))
+      ) {
         fresh.push(grant);
       }
     }
 
     return fresh.length === 0
-      ? held
-      : held.with({ grants: [...held.state.grants, ...fresh] });
+      ? current
+      : current.with({ grants: [...current.state.grants, ...fresh] });
   }
 
-  allows(hold: RunHold, grant: SecretGrant): boolean {
+  allows(lease: RunLease, grant: SecretGrant): boolean {
     return (
-      this.isStandingAt(hold) &&
+      this.isStandingAt(lease) &&
       grant.workspaceId.equals(this.workspaceId) &&
-      this.holds(grant)
+      this.includes(grant)
     );
   }
 
-  redeemFor(hold: RunHold, redeemer: Redeemer): RunGrants {
-    const held = this.heldAt(hold);
-    const pinned = held.state.redeemer;
+  redeemFor(lease: RunLease, redeemer: Redeemer): RunGrants {
+    const current = this.atLease(lease);
+    const pinned = current.state.redeemer;
 
     if (!pinned) {
-      return held.with({ redeemer });
+      return current.with({ redeemer });
     }
 
     if (!redeemer.mayFollow(pinned)) {
-      throw new RedemptionRecipientPinnedError(this.runId.value, hold.attempt);
+      throw new RedemptionRecipientPinnedError(this.runId.value, lease.attempt);
     }
 
-    return pinned.equals(redeemer) ? held : held.with({ redeemer });
+    return pinned.equals(redeemer) ? current : current.with({ redeemer });
   }
 
-  loseHold(hold: RunHold): RunGrants {
-    this.guardRun(hold);
+  loseLease(lease: RunLease): RunGrants {
+    this.guardRun(lease);
 
     if (
       this.isEnded ||
-      hold.precedes(this.state.hold) ||
-      (hold.equals(this.state.hold) && this.state.holdLost)
+      lease.precedes(this.state.lease) ||
+      (lease.equals(this.state.lease) && this.state.leaseLost)
     ) {
       return this;
     }
 
-    return this.with({ hold, grants: [], redeemer: null, holdLost: true });
+    return this.with({ lease, grants: [], redeemer: null, leaseLost: true });
   }
 
   end(now: Date): RunGrants {
@@ -144,11 +147,11 @@ export class RunGrants extends EventRecorder {
   }
 
   get runId(): RunId {
-    return this.state.hold.runId;
+    return this.state.lease.runId;
   }
 
-  get hold(): RunHold {
-    return this.state.hold;
+  get lease(): RunLease {
+    return this.state.lease;
   }
 
   get workspaceId(): WorkspaceId {
@@ -167,8 +170,8 @@ export class RunGrants extends EventRecorder {
     return this.state.redeemer?.recipient ?? null;
   }
 
-  get isHoldLost(): boolean {
-    return this.state.holdLost;
+  get isLeaseLost(): boolean {
+    return this.state.leaseLost;
   }
 
   get endedAt(): Date | null {
@@ -187,40 +190,40 @@ export class RunGrants extends EventRecorder {
     return this.state.version === 0;
   }
 
-  private heldAt(hold: RunHold): RunGrants {
-    this.guardRun(hold);
+  private atLease(lease: RunLease): RunGrants {
+    this.guardRun(lease);
 
     if (this.isEnded) {
       throw new RunGrantsEndedError(this.runId.value);
     }
 
     if (
-      hold.precedes(this.state.hold) ||
-      (hold.equals(this.state.hold) && this.state.holdLost)
+      lease.precedes(this.state.lease) ||
+      (lease.equals(this.state.lease) && this.state.leaseLost)
     ) {
-      throw new RunHoldOverError(this.runId.value, hold.attempt);
+      throw new RunLeaseOverError(this.runId.value, lease.attempt);
     }
 
-    return hold.equals(this.state.hold)
+    return lease.equals(this.state.lease)
       ? this
-      : this.with({ hold, grants: [], redeemer: null, holdLost: false });
+      : this.with({ lease, grants: [], redeemer: null, leaseLost: false });
   }
 
-  private isStandingAt(hold: RunHold): boolean {
+  private isStandingAt(lease: RunLease): boolean {
     return (
-      !this.isEnded && !this.state.holdLost && hold.equals(this.state.hold)
+      !this.isEnded && !this.state.leaseLost && lease.equals(this.state.lease)
     );
   }
 
-  private holds(grant: SecretGrant): boolean {
+  private includes(grant: SecretGrant): boolean {
     return this.state.grants.some((each) => each.equals(grant));
   }
 
-  private guardRun(hold: RunHold): void {
-    if (!hold.isOfRun(this.runId)) {
+  private guardRun(lease: RunLease): void {
+    if (!lease.isOfRun(this.runId)) {
       throw new InconsistentStateError(
         'run grants',
-        'was handed a hold of another run',
+        'was handed a lease of another run',
       );
     }
   }

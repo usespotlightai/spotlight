@@ -11,7 +11,7 @@ import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
+import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
@@ -82,13 +82,13 @@ const MOMENT: HookMoment = {
 const tool = (
   call: ReachableTool['call'],
   approval: { because: string } | null = null,
-  holding: ConnectionHolding = ConnectionHolding.team(),
+  holder: ConnectionHolderRule = ConnectionHolderRule.team(),
 ): ReachableTool =>
   ({
     integration: Integration.of({
       source: SourceKey.of('slack'),
-      connects: holding.byRequester,
-      holding,
+      connects: holder.byRequester,
+      holder,
     }),
     offered: OfferedTool.of({
       source: SourceKey.of('slack'),
@@ -277,7 +277,9 @@ describe('CompiledHookRuntime', () => {
 
   it('refuses to call a tool that acts as the person who started a task', async () => {
     const call = vi.fn();
-    const { hooked } = setUp(tool(call, null, ConnectionHolding.requester()));
+    const { hooked } = setUp(
+      tool(call, null, ConnectionHolderRule.requester()),
+    );
 
     const taken = await hooked.step(await asking(hooked, 'notify'));
 

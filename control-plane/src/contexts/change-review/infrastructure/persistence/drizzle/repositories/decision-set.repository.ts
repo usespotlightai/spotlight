@@ -224,8 +224,8 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
       await this.context.db.insert(decision).values(rows);
     }
 
-    const disputes = set.decisions.flatMap((held) =>
-      held.disputes.map((each) => ({ decisionId: held.id.value, each })),
+    const disputes = set.decisions.flatMap((entity) =>
+      entity.disputes.map((each) => ({ decisionId: entity.id.value, each })),
     );
 
     if (disputes.length > 0) {

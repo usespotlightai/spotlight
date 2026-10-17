@@ -11,17 +11,17 @@ import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 
 type Properties = Readonly<Record<string, unknown>>;
 
-const isHeld = (value: unknown): value is Properties =>
+const isProperties = (value: unknown): value is Properties =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const descriptionOf = (schema: unknown): string | null =>
-  isHeld(schema) && typeof schema.description === 'string'
+  isProperties(schema) && typeof schema.description === 'string'
     ? schema.description.trim() || null
     : null;
 
 const recordOf = (tool: Tool): OperationRecord | string => {
   const name = toolWordsOf(tool.name);
-  const properties = isHeld(tool.inputSchema.properties)
+  const properties = isProperties(tool.inputSchema.properties)
     ? tool.inputSchema.properties
     : {};
   const required = tool.inputSchema.required ?? [];

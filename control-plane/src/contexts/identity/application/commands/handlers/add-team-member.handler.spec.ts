@@ -69,7 +69,7 @@ describe('AddTeamMemberHandler', () => {
     await expect(handler.execute(add('user_ada'))).resolves.toBe(true);
 
     const saved = save.mock.calls[0]?.[0];
-    expect(saved?.holds(ADA)).toBe(true);
+    expect(saved?.hasMember(ADA)).toBe(true);
     expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
       'team.member-joined',
     ]);

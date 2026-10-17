@@ -115,7 +115,7 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
 
 const MAX_BRIEFED = 4;
 
-const heldAt = (memory: MemoryRecord, at: string): boolean =>
+const standsAt = (memory: MemoryRecord, at: string): boolean =>
   memory.approvedAt <= at &&
   (memory.retirement === null || memory.retirement.at > at);
 
@@ -155,7 +155,7 @@ const briefedFor = (runId: string): TeamMemoryResponseDto[] => {
   return run
     ? (MEMORY_SEED[run.teamId] ?? [])
         .filter(
-          (memory) => heldAt(memory, run.startedAt) && reaches(memory, run),
+          (memory) => standsAt(memory, run.startedAt) && reaches(memory, run),
         )
         .slice(0, MAX_BRIEFED)
         .map(briefedOf)

@@ -1,7 +1,7 @@
 import { ForgetRunGrants } from '@secrets/application/services/forget-run-grants.service';
 import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import {
   clockAt,
   InMemoryGrants,
@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 const WEEK = 7 * 24 * 60 * 60_000;
 
 const kept = (runId: string, workspaceId = 'ws_1') =>
-  RunGrants.start(RunHold.of(RunId.of(runId), 1), WorkspaceId.of(workspaceId));
+  RunGrants.start(RunLease.of(RunId.of(runId), 1), WorkspaceId.of(workspaceId));
 
 const keeping = async () => {
   const grants = new InMemoryGrants();
@@ -89,7 +89,7 @@ describe('ForgetRunGrants', () => {
     ]);
   });
 
-  it('forgets every grant a closed workspace’s runs held, ended or not', async () => {
+  it('forgets every grant a closed workspace’s runs had, ended or not', async () => {
     const grants = await keeping();
 
     await forgettingBy(grants).ofWorkspace(WorkspaceId.of('ws_1'));

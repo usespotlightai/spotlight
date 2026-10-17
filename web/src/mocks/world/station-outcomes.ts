@@ -135,8 +135,8 @@ export const stationRuns = (
 const tallyOf = (
   runs: readonly StationRunOutcomeResponseDto[],
 ): RunTallyResponseDto => {
-  const count = (holds: (run: StationRunOutcomeResponseDto) => boolean) =>
-    runs.filter(holds).length;
+  const count = (matches: (run: StationRunOutcomeResponseDto) => boolean) =>
+    runs.filter(matches).length;
   const failed = count((run) => run.ending === 'failed');
   const took = runs.flatMap((run) => (run.cost?.ms ? [run.cost.ms] : []));
   const priced = runs.filter((run) => run.cost?.cost != null);

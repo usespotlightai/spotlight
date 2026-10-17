@@ -31,11 +31,11 @@ import type {
   ArchiveGrantDto,
   WorkspaceArchiveAnswer,
 } from '@work/application/dto/workspace-archive.dto';
-import { HeldWorkspaceArchiveQuery } from '@work/application/queries/held-workspace-archive.query';
+import { StoredWorkspaceArchiveQuery } from '@work/application/queries/stored-workspace-archive.query';
 import { GrantWorkspaceArchiveRequestDto } from '@work/presentation/http/dto/workspace-archive.request.dto';
 import {
   ArchiveGrantResponseDto,
-  HeldArchiveResponseDto,
+  StoredArchiveResponseDto,
 } from '@work/presentation/http/dto/workspace-archive.response.dto';
 
 interface Answerable {
@@ -60,22 +60,22 @@ export class WorkspaceArchiveController {
     summary:
       'The archive to restore before the run starts: the workspace the conversation it carries on was left in',
   })
-  @ApiOkResponse({ type: HeldArchiveResponseDto })
+  @ApiOkResponse({ type: StoredArchiveResponseDto })
   @ApiNoContentResponse({
     description: 'Nothing to restore: the run starts its work afresh',
   })
   @ApiNotFoundResponse({ description: 'Not this runner’s run' })
-  async held(
+  async storedArchive(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
     @Res({ passthrough: true }) response: Answerable,
-  ): Promise<HeldArchiveResponseDto | undefined> {
+  ): Promise<StoredArchiveResponseDto | undefined> {
     const answer = await this.queryBus.execute<
-      HeldWorkspaceArchiveQuery,
+      StoredWorkspaceArchiveQuery,
       WorkspaceArchiveAnswer
-    >(new HeldWorkspaceArchiveQuery(runId, runnerId));
+    >(new StoredWorkspaceArchiveQuery(runId, runnerId));
 
-    if (!answer.held) {
+    if (!answer.leased) {
       throw new NotFoundException();
     }
 
@@ -86,7 +86,7 @@ export class WorkspaceArchiveController {
 
     const { id, url, size, sha256 } = answer.archive;
 
-    return new HeldArchiveResponseDto(id, url, size, sha256);
+    return new StoredArchiveResponseDto(id, url, size, sha256);
   }
 
   @Post()

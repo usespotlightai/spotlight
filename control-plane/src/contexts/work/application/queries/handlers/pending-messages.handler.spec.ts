@@ -54,7 +54,7 @@ const reading = (run: Run = working()) =>
   );
 
 describe('PendingMessagesHandler', () => {
-  it('hands the runner holding the run what was said to it, with where its files lie', async () => {
+  it('hands the runner that leases the run what was said to it, with where its files lie', async () => {
     const pending = await reading().execute(
       new PendingMessagesQuery('run_1', 'runner_1'),
     );
@@ -88,7 +88,7 @@ describe('PendingMessagesHandler', () => {
     ).resolves.toHaveLength(1);
   });
 
-  it('refuses a runner that does not hold the run', async () => {
+  it('refuses a runner that does not lease the run', async () => {
     await expect(
       reading().execute(new PendingMessagesQuery('run_1', 'runner_2')),
     ).rejects.toMatchObject({ kind: 'not-found' });

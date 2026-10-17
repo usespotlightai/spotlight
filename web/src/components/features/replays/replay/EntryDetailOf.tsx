@@ -19,13 +19,13 @@ export function EntryDetailOf({
   counterpartLabel,
   onClose,
 }: EntryDetailOfProps) {
-  const held = useLingering(chosen, LEAVING);
+  const lingering = useLingering(chosen, LEAVING);
 
-  return held ? (
+  return lingering ? (
     <EntryDetail
       slug={slug}
       teamId={teamId}
-      row={held}
+      row={lingering}
       counterpartLabel={counterpartLabel}
       open={chosen !== null}
       onClose={onClose}

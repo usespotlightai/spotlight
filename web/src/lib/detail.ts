@@ -50,28 +50,28 @@ export interface Field {
   readonly kind: 'string' | 'number' | 'boolean' | 'null';
 }
 
-const leaf = (path: string, held: unknown): Field => {
-  if (held === null) {
+const leaf = (path: string, raw: unknown): Field => {
+  if (raw === null) {
     return { path, value: 'null', kind: 'null' };
   }
-  if (typeof held === 'string') {
-    return { path, value: `"${held}"`, kind: 'string' };
+  if (typeof raw === 'string') {
+    return { path, value: `"${raw}"`, kind: 'string' };
   }
-  if (typeof held === 'boolean') {
-    return { path, value: String(held), kind: 'boolean' };
+  if (typeof raw === 'boolean') {
+    return { path, value: String(raw), kind: 'boolean' };
   }
-  return { path, value: String(held), kind: 'number' };
+  return { path, value: String(raw), kind: 'number' };
 };
 
-const walked = (held: unknown, at: string): Field[] => {
-  if (Array.isArray(held)) {
-    return held.length === 0
+const walked = (raw: unknown, at: string): Field[] => {
+  if (Array.isArray(raw)) {
+    return raw.length === 0
       ? [leaf(at, '[]')]
-      : held.flatMap((each, i) => walked(each, `${at}[${i}]`));
+      : raw.flatMap((each, i) => walked(each, `${at}[${i}]`));
   }
 
-  if (held !== null && typeof held === 'object') {
-    const entries = Object.entries(held);
+  if (raw !== null && typeof raw === 'object') {
+    const entries = Object.entries(raw);
 
     return entries.length === 0
       ? [leaf(at, '{}')]
@@ -80,19 +80,21 @@ const walked = (held: unknown, at: string): Field[] => {
         );
   }
 
-  return [leaf(at, held)];
+  return [leaf(at, raw)];
 };
 
 export const shaped = (body: string): Field[] | null => {
-  let held: unknown;
+  let parsed: unknown;
 
   try {
-    held = JSON.parse(body);
+    parsed = JSON.parse(body);
   } catch {
     return null;
   }
 
-  return held !== null && typeof held === 'object' ? walked(held, '') : null;
+  return parsed !== null && typeof parsed === 'object'
+    ? walked(parsed, '')
+    : null;
 };
 
 const LABELS: Record<string, string> = {
@@ -103,13 +105,13 @@ const LABELS: Record<string, string> = {
   hook: 'Hooks',
 };
 
-export interface Holding {
+export interface Contents {
   readonly rows: number;
   readonly faults: number;
   readonly kinds: ReadonlyMap<string, number>;
 }
 
-export const holdings = (node: TraceNode): Holding => {
+export const contentsOf = (node: TraceNode): Contents => {
   const kinds = new Map<string, number>();
   let rows = 0;
   let faults = 0;
@@ -164,10 +166,10 @@ export const reported = (
   );
 
   for (const name of names) {
-    const held = values.get(name);
+    const value = values.get(name);
 
-    if (held !== undefined) {
-      return held;
+    if (value !== undefined) {
+      return value;
     }
   }
 

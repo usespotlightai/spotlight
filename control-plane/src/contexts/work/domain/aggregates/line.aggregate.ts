@@ -616,7 +616,7 @@ export class Line extends EventRecorder {
     return this.stations.find((each) => each.key.equals(key)) ?? null;
   }
 
-  holds(stationId: StationId): boolean {
+  hasStation(stationId: StationId): boolean {
     return this.stationAt(stationId) !== null;
   }
 

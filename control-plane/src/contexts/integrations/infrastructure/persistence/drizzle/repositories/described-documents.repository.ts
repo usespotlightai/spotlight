@@ -43,8 +43,8 @@ const rowOf = (operation: DescribedOperation): OperationRow => ({
   call: operation.call,
 });
 
-const operationOf = (name: string, held: unknown): DescribedOperation => {
-  const row = held as OperationRow;
+const operationOf = (name: string, raw: unknown): DescribedOperation => {
+  const row = raw as OperationRow;
 
   return DescribedOperation.of({
     name,

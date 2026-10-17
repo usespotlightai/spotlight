@@ -67,12 +67,12 @@ export class GradeRunHandler
           rubricVersion: terms.rubricVersion,
           at: this.clock.now(),
         };
-        const held = await this.scores.gradeBy(run.record.runId, access.by);
+        const existing = await this.scores.gradeBy(run.record.runId, access.by);
 
-        if (held) {
-          const regraded = held.regrade(graded);
+        if (existing) {
+          const regraded = existing.regrade(graded);
 
-          if (regraded !== held) {
+          if (regraded !== existing) {
             await this.scores.save(regraded);
           }
           return;

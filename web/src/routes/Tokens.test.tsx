@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Tokens } from '@/routes/Tokens';
 
-const held = vi.fn();
+const listed = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
 const workspace = vi.fn();
@@ -22,8 +22,8 @@ vi.mock('@/hooks/api/useWorkspaceTokens', () => ({
     asked(workspaceId);
 
     return {
-      data: held(),
-      isPending: held() === undefined,
+      data: listed(),
+      isPending: listed() === undefined,
       errorUpdateCount: failing() ? 1 : 0,
       isFetching: false,
       refetch,
@@ -84,7 +84,7 @@ const openCreate = async () => {
 
 describe('Tokens', () => {
   beforeEach(() => {
-    held.mockReturnValue([]);
+    listed.mockReturnValue([]);
     failing.mockReturnValue(false);
     workspace.mockReturnValue({ id: 'workspace_acme', role: 'owner' });
     for (const each of [refetch, asked, create, revoke]) {
@@ -92,8 +92,8 @@ describe('Tokens', () => {
     }
   });
 
-  it('holds the shape of a token while they load, keeping what never changes', () => {
-    held.mockReturnValue(undefined);
+  it('keeps the shape of a token while they load, keeping what never changes', () => {
+    listed.mockReturnValue(undefined);
 
     renderPage();
 
@@ -108,7 +108,7 @@ describe('Tokens', () => {
 
   it('says the tokens could not be loaded, and tries again when asked', async () => {
     const person = userEvent.setup();
-    held.mockReturnValue(undefined);
+    listed.mockReturnValue(undefined);
     failing.mockReturnValue(true);
 
     renderPage();
@@ -142,7 +142,7 @@ describe('Tokens', () => {
   });
 
   it('counts the tokens beside the section’s name, and says of each when it was made, when it expires and what it may do', () => {
-    held.mockReturnValue([
+    listed.mockReturnValue([
       token(),
       token({
         id: 'token_2',
@@ -261,7 +261,7 @@ describe('Tokens', () => {
 
   it('revokes a token only once the person confirms', async () => {
     const person = userEvent.setup();
-    held.mockReturnValue([token()]);
+    listed.mockReturnValue([token()]);
 
     renderPage();
 
@@ -288,7 +288,7 @@ describe('Tokens', () => {
 
   it('keeps a token the person decides to keep', async () => {
     const person = userEvent.setup();
-    held.mockReturnValue([token()]);
+    listed.mockReturnValue([token()]);
 
     renderPage();
 

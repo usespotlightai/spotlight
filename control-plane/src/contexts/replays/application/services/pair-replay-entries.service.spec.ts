@@ -33,7 +33,7 @@ const live = candidateOf('live', 'candidate_live', RUBRIC);
 let memory: InMemoryReplays;
 let outcomes: FakeOutcomes;
 
-const held = async (replay: Replay) => {
+const stored = async (replay: Replay) => {
   await memory.replayRepository.add(replay);
 };
 
@@ -54,12 +54,12 @@ beforeEach(async () => {
   outcomes.accepted.add('original_0');
   outcomes.accepted.add('original_1');
   await memory.candidateRepository.add(proposed);
-  await held(
+  await stored(
     concludedAll(
       aReplay({ id: 'baseline_1', count: 2, baseline: true, candidate: live }),
     ),
   );
-  await held(
+  await stored(
     concludedAll(
       aReplay({
         id: 'replay_1',

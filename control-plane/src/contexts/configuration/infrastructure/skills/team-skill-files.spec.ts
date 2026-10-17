@@ -116,7 +116,7 @@ describe('TeamSkillFiles', () => {
       );
     });
 
-    it('holds no more than is laid for a run', () => {
+    it('contains no more than is laid for a run', () => {
       const found = read(
         file('.spotlight/skills/big/SKILL.md', SKILL('big')),
         ...Array.from({ length: 50 }, (_, at) =>

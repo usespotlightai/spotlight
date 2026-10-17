@@ -63,7 +63,7 @@ export class ScoreScale {
     return this.kind === 'claims';
   }
 
-  holds(value: number): boolean {
+  includes(value: number): boolean {
     return this.byClaims
       ? Number.isFinite(value) && value >= NO && value <= YES
       : this.values.includes(value);
@@ -83,7 +83,7 @@ export class ScoreScale {
       );
     }
 
-    if (typeof raw !== 'number' || !this.holds(raw)) {
+    if (typeof raw !== 'number' || !this.includes(raw)) {
       throw new InvalidScoreError(
         `on a number scale must be a whole number from ${LOWEST} to ${HIGHEST}`,
       );

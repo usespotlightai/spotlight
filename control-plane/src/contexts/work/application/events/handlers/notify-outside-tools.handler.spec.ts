@@ -51,7 +51,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     ],
   });
 
-const held = () =>
+const handed = () =>
   Task.add({
     line: delivery(WORKSPACE.value, STATION.value),
     at: STATION,
@@ -62,13 +62,13 @@ const held = () =>
   });
 
 const notifying = (marks: readonly Mark[] = [], wearer: Task | null = null) => {
-  const task = held();
+  const task = handed();
   const save = vi.fn(async (_: Task) => {});
   const notify = vi.fn(async () => marks);
   const handler = new NotifyOutsideTools(
     {
       find: async () => task,
-      holding: async () => wearer,
+      findByMarks: async () => wearer,
       save,
     } as unknown as TaskRepository,
     { notify } satisfies OutboundTaskNotifierPort,

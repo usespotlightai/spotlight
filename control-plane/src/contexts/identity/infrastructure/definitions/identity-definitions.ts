@@ -99,8 +99,8 @@ const workspaceTokenTrustSchema = z
   });
 
 export class IdentityDefinitions implements IdentityDefinitionsPort {
-  workspace(held: unknown): ParsedWorkspace {
-    const read = workspaceSchema.safeParse(held);
+  workspace(input: unknown): ParsedWorkspace {
+    const read = workspaceSchema.safeParse(input);
 
     return read.success
       ? {
@@ -111,8 +111,8 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
       : { ok: false, problems: problemsIn(WORKSPACE, read.error) };
   }
 
-  team(held: unknown): ParsedTeam {
-    const read = teamSchema.safeParse(held);
+  team(input: unknown): ParsedTeam {
+    const read = teamSchema.safeParse(input);
 
     return read.success
       ? {
@@ -123,8 +123,8 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
       : { ok: false, problems: problemsIn(TEAM, read.error) };
   }
 
-  workspaceToken(held: unknown): ParsedWorkspaceToken {
-    const read = workspaceTokenSchema.safeParse(held);
+  workspaceToken(input: unknown): ParsedWorkspaceToken {
+    const read = workspaceTokenSchema.safeParse(input);
 
     return read.success
       ? {
@@ -142,8 +142,8 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
       : { ok: false, problems: problemsIn(WORKSPACE_TOKEN, read.error) };
   }
 
-  workspaceTokenTrust(held: unknown): ParsedWorkspaceTokenTrust {
-    const read = workspaceTokenTrustSchema.safeParse(held);
+  workspaceTokenTrust(input: unknown): ParsedWorkspaceTokenTrust {
+    const read = workspaceTokenTrustSchema.safeParse(input);
 
     return read.success
       ? {

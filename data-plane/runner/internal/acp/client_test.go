@@ -308,7 +308,7 @@ func TestForgottenTellsAMissingSessionFromAnyOtherRefusal(t *testing.T) {
 		t.Errorf("a missing session did not read as forgotten: %v", missing)
 	}
 
-	other := client.Resume(ctx, "held")
+	other := client.Resume(ctx, "refused")
 	if other == nil || acp.Forgotten(other) {
 		t.Errorf("an unrelated refusal read as forgotten: %v", other)
 	}

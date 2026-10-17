@@ -4,7 +4,7 @@ import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/
 import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/update-workspace.handler';
 import { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
-import { HoldingsRegistry } from '@identity/application/services/holdings-registry.service';
+import { DependentsRegistry } from '@identity/application/services/dependents-registry.service';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import {
@@ -88,7 +88,7 @@ describe('CreateWorkspaceHandler', () => {
     expect(kept.add).not.toHaveBeenCalled();
   });
 
-  it('says a slug somebody holds is taken', async () => {
+  it('says a slug that another workspace uses is taken', async () => {
     expect(await creating({ taken: true }).create(ACME)).toEqual({
       outcome: 'taken',
       address: 'acme',
@@ -179,25 +179,25 @@ describe('UpdateWorkspaceHandler', () => {
 describe('DeleteWorkspaceHandler', () => {
   const deleting = (
     over: {
-      held?: boolean;
+      hasTeam?: boolean;
       issued?: boolean;
       trusted?: boolean;
       minting?: boolean;
-      holding?: readonly string[];
+      dependents?: readonly string[];
     } = {},
   ) => {
     const kept = workspaces({ standing: workspaceAt(3) });
-    const holdings = new HoldingsRegistry<WorkspaceId>();
-    holdings.register({ heldBy: async () => over.holding ?? [] });
+    const registry = new DependentsRegistry<WorkspaceId>();
+    registry.register({ dependentsOf: async () => over.dependents ?? [] });
     const handler = new DeleteWorkspaceHandler(
       kept,
       teamKeys(
-        over.held ? ['core'] : [],
+        over.hasTeam ? ['core'] : [],
         over.issued ? ['ci'] : [],
         over.trusted ? ['github-main'] : [],
         over.minting ? ['github-main'] : [],
       ),
-      holdings,
+      registry,
       transaction,
     );
 
@@ -208,15 +208,15 @@ describe('DeleteWorkspaceHandler', () => {
     };
   };
 
-  it('closes a workspace that holds no team', async () => {
+  it('closes a workspace that has no team', async () => {
     const { remove, kept } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
     expect((kept.save.mock.calls[0] as [Workspace])[0].isClosed).toBe(true);
   });
 
-  it('will not close a workspace that still holds a team', async () => {
-    const { remove, kept } = deleting({ held: true });
+  it('will not close a workspace that still has a team', async () => {
+    const { remove, kept } = deleting({ hasTeam: true });
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
@@ -225,7 +225,7 @@ describe('DeleteWorkspaceHandler', () => {
     expect(kept.save).not.toHaveBeenCalled();
   });
 
-  it('will not close a workspace that still holds a token', async () => {
+  it('will not close a workspace that still has a token', async () => {
     const { remove, kept } = deleting({ issued: true });
 
     expect(await remove()).toMatchObject({
@@ -235,7 +235,7 @@ describe('DeleteWorkspaceHandler', () => {
     expect(kept.save).not.toHaveBeenCalled();
   });
 
-  it('will not close a workspace that still holds a token trust', async () => {
+  it('will not close a workspace that still has a token trust', async () => {
     const { remove, kept } = deleting({ trusted: true });
 
     expect(await remove()).toMatchObject({
@@ -245,7 +245,7 @@ describe('DeleteWorkspaceHandler', () => {
     expect(kept.save).not.toHaveBeenCalled();
   });
 
-  it('will not close a workspace that still holds tokens minted through a trust withdrawn a moment ago', async () => {
+  it('will not close a workspace that still has tokens minted through a trust withdrawn a moment ago', async () => {
     const { remove, kept } = deleting({ minting: true });
 
     expect(await remove()).toMatchObject({
@@ -255,8 +255,10 @@ describe('DeleteWorkspaceHandler', () => {
     expect(kept.save).not.toHaveBeenCalled();
   });
 
-  it('will not close a workspace another context still holds something in', async () => {
-    const { remove, kept } = deleting({ holding: ['secret LINEAR_API_KEY'] });
+  it('will not close a workspace in which another context still has something', async () => {
+    const { remove, kept } = deleting({
+      dependents: ['secret LINEAR_API_KEY'],
+    });
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',

@@ -22,7 +22,7 @@ import { UnreadableSecretError } from '@secrets/domain/exceptions/unreadable-sec
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -61,7 +61,7 @@ export class RunRedemptions implements RunRedemptionsPort {
     const recipient = this.sealing.recipientOf(redemption.recipient);
     const workspaceId = WorkspaceId.of(redemption.workspaceId);
     const runId = RunId.of(redemption.runId);
-    const hold = RunHold.of(runId, redemption.attempt);
+    const lease = RunLease.of(runId, redemption.attempt);
     const granting: Granting[] = [];
     const withheld: WithheldSecret[] = [];
 
@@ -82,14 +82,14 @@ export class RunRedemptions implements RunRedemptionsPort {
       }
     }
 
-    await this.kept.changed({ hold, workspaceId }, (held) =>
-      held
+    await this.kept.changed({ lease, workspaceId }, (current) =>
+      current
         .grant(
-          hold,
+          lease,
           granting.flatMap((each) => each.grants),
         )
         .redeemFor(
-          hold,
+          lease,
           Redeemer.of(
             RedemptionRecipient.of(recipient.key),
             redemption.sharedEgress,

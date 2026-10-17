@@ -64,11 +64,11 @@ import {
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
 import { RUN_TOKENS } from '@identity/application/ports/run-tokens.port';
+import { TEAM_DEPENDENTS } from '@identity/application/ports/team-dependents.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
-import { TEAM_HOLDINGS } from '@identity/application/ports/team-holdings.port';
 import { TOKEN_TRUST_CONFIGURATION } from '@identity/application/ports/token-trust-configuration.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
-import { WORKSPACE_HOLDINGS } from '@identity/application/ports/workspace-holdings.port';
+import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
 import { WORKSPACE_PROVISIONING } from '@identity/application/ports/workspace-provisioning.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
@@ -117,8 +117,8 @@ import {
   ListWorkspaceTokenTrustResourcesQuery,
   ReadWorkspaceTokenTrustQuery,
 } from '@identity/application/queries/workspace-token-trust.queries';
+import { DependentsRegistry } from '@identity/application/services/dependents-registry.service';
 import { FirstTeam } from '@identity/application/services/first-team.service';
-import { HoldingsRegistry } from '@identity/application/services/holdings-registry.service';
 import { InviteMemberships } from '@identity/application/services/invite-memberships.service';
 import { InviteSending } from '@identity/application/services/invite-sending.service';
 import { MintedTokens } from '@identity/application/services/minted-tokens.service';
@@ -228,10 +228,13 @@ const adapters: Provider[] = [
   { provide: MEMBER_DIRECTORY, useClass: DrizzleMemberDirectory },
   { provide: INVITE_READER, useClass: DrizzleInviteReader },
   { provide: IDENTITY_DEFINITIONS, useClass: IdentityDefinitions },
-  { provide: TEAM_HOLDINGS, useFactory: () => new HoldingsRegistry<TeamId>() },
   {
-    provide: WORKSPACE_HOLDINGS,
-    useFactory: () => new HoldingsRegistry<WorkspaceId>(),
+    provide: TEAM_DEPENDENTS,
+    useFactory: () => new DependentsRegistry<TeamId>(),
+  },
+  {
+    provide: WORKSPACE_DEPENDENTS,
+    useFactory: () => new DependentsRegistry<WorkspaceId>(),
   },
   { provide: IDENTITY_RESOURCES, useClass: DrizzleIdentityResources },
   { provide: CONFIGURATION_AUDIT, useClass: DrizzleConfigurationAudit },
@@ -347,7 +350,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(DeleteWorkspaceCommand, DeleteWorkspaceHandler, [
     DrizzleWorkspaceRepository,
     IDENTITY_RESOURCES,
-    WORKSPACE_HOLDINGS,
+    WORKSPACE_DEPENDENTS,
     TRANSACTION,
   ]),
   ...bindQueryHandler(ReadWorkspaceQuery, ReadWorkspaceHandler, [
@@ -380,7 +383,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(DeleteTeamCommand, DeleteTeamHandler, [
     WORKSPACE_ACCESS,
     DrizzleTeamRepository,
-    TEAM_HOLDINGS,
+    TEAM_DEPENDENTS,
     TRANSACTION,
   ]),
   ...bindQueryHandler(ReadTeamQuery, ReadTeamHandler, [

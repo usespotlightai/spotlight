@@ -71,7 +71,7 @@ const scoresAbout = async (asideId: string) => {
 describe('the mock inbox', () => {
   serveMockApi();
 
-  it('holds open and settled work across both teams', async () => {
+  it('contains open and settled work across both teams', async () => {
     const entries = await inbox();
     const ids = entries.map((entry) => entry.id);
 
@@ -390,7 +390,7 @@ const statusOf = async (call: Promise<{ response?: Response }>) =>
 describe('the mock inbox in an empty workspace', () => {
   serveMockApi('empty');
 
-  it('holds only the open setup of the new team', async () => {
+  it('contains only the open setup of the new team', async () => {
     const { data: journal } = await readTaskJournal({
       path: { slug: SLUG, taskId: 'task_setup_platform' },
       throwOnError: true,

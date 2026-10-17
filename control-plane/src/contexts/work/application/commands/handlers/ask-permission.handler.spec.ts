@@ -108,7 +108,7 @@ const runOf = (
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
-const heldBy = (runId: string) =>
+const withRun = (runId: string) =>
   Task.rehydrate({
     ...Task.add({
       line: LINE,
@@ -147,7 +147,7 @@ const asking = (start: Task, subject?: RunSubject) => {
             newId: () => 'chat_1',
           }).handedTo(RunId.of('run_1'), NOW),
       } as unknown as ChatRepository,
-      { holding: async () => LINE } as unknown as LineRepository,
+      { findByStation: async () => LINE } as unknown as LineRepository,
       { of: async () => null },
       { now: () => NOW, sleep: async () => {} },
     ),
@@ -192,7 +192,7 @@ const asking = (start: Task, subject?: RunSubject) => {
 
 describe('AskPermissionHandler', () => {
   it('puts what the harness asks to a person, the run keeping the task while it waits and carrying its session', async () => {
-    const { ask, standing } = asking(heldBy('run_1'));
+    const { ask, standing } = asking(withRun('run_1'));
 
     await expect(ask()).resolves.toBe('asked');
 
@@ -207,7 +207,7 @@ describe('AskPermissionHandler', () => {
   });
 
   it('records the MCP tool a permission names, so a refusal is counted against it', async () => {
-    const { ask, standing } = asking(heldBy('run_1'));
+    const { ask, standing } = asking(withRun('run_1'));
 
     await ask({ ...PUSH, title: 'mcp__linear__create_issue' });
 
@@ -217,7 +217,7 @@ describe('AskPermissionHandler', () => {
   });
 
   it('lets the run that takes the task up again do it once a person approves', async () => {
-    const { ask, decide, takenUpBy, standing } = asking(heldBy('run_1'));
+    const { ask, decide, takenUpBy, standing } = asking(withRun('run_1'));
 
     await ask();
     decide('granted');
@@ -232,7 +232,7 @@ describe('AskPermissionHandler', () => {
   });
 
   it('asks again for a second go, since an approval is spent once', async () => {
-    const { ask, decide, takenUpBy } = asking(heldBy('run_1'));
+    const { ask, decide, takenUpBy } = asking(withRun('run_1'));
 
     await ask();
     decide('granted');
@@ -243,7 +243,7 @@ describe('AskPermissionHandler', () => {
   });
 
   it('refuses what a person rejected', async () => {
-    const { ask, decide, takenUpBy } = asking(heldBy('run_1'));
+    const { ask, decide, takenUpBy } = asking(withRun('run_1'));
 
     await ask();
     decide('refused');
@@ -253,14 +253,14 @@ describe('AskPermissionHandler', () => {
   });
 
   it('refuses a run its task has let go of', async () => {
-    const { ask } = asking(heldBy('run_other'));
+    const { ask } = asking(withRun('run_other'));
 
     await expect(ask()).resolves.toBe('reject');
   });
 
   it('refuses a chat, which has nobody to ask', async () => {
     const { ask } = asking(
-      heldBy('run_1'),
+      withRun('run_1'),
       RunSubject.chat(ChatId.of('chat_1')),
     );
 

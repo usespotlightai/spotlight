@@ -14,7 +14,7 @@ export type RunRouting =
       readonly line: Line;
     }
   | {
-      readonly kind: 'heldBack';
+      readonly kind: 'deferredMove';
       readonly to: Station;
       readonly line: Line;
     };
@@ -28,7 +28,7 @@ const failureOf = (handover: Handover): TaskFailure | null =>
 export const routeAfterRun = (
   handover: Handover,
   line: Line | null,
-  task: Pick<Task, 'awaitingReview' | 'heldBackTo'>,
+  task: Pick<Task, 'awaitingReview' | 'deferredMoveTo'>,
 ): RunRouting => {
   const passedTo =
     handover.kind === 'pass' && !task.awaitingReview
@@ -39,10 +39,12 @@ export const routeAfterRun = (
     return { kind: 'advance', to: passedTo, line };
   }
 
-  const heldBack = task.heldBackTo ? line?.stationAt(task.heldBackTo) : null;
+  const deferredTo = task.deferredMoveTo
+    ? line?.stationAt(task.deferredMoveTo)
+    : null;
 
-  if (heldBack && line) {
-    return { kind: 'heldBack', to: heldBack, line };
+  if (deferredTo && line) {
+    return { kind: 'deferredMove', to: deferredTo, line };
   }
 
   if (task.awaitingReview) {

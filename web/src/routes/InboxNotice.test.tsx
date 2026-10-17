@@ -73,7 +73,7 @@ describe('InboxNotice', () => {
     settle.mockClear();
   });
 
-  it('holds the notice’s place while the inbox loads', () => {
+  it('keeps the notice’s place while the inbox loads', () => {
     waiting.mockReturnValue(undefined);
     renderNotice();
 

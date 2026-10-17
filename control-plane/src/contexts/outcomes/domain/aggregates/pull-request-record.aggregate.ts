@@ -101,7 +101,7 @@ export class PullRequestRecord {
     return this.owner !== null || this.reviewTasks.length > 0;
   }
 
-  get holdsNothing(): boolean {
+  get isEmpty(): boolean {
     return (
       (this.seen === null || this.githubForgotAt !== null) &&
       !this.outlivesGitHub
@@ -183,7 +183,7 @@ export class PullRequestRecord {
   }
 
   private keptAtAll(): PullRequestRecord | null {
-    return this.holdsNothing ? null : this;
+    return this.isEmpty ? null : this;
   }
 
   private with(

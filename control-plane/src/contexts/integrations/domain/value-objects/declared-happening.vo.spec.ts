@@ -17,7 +17,7 @@ const declaring = (over: Record<string, unknown> = {}) =>
   });
 
 describe('DeclaredHappening', () => {
-  it('holds what a person picking one of these reads', () => {
+  it('contains what a person picking one of these reads', () => {
     expect(declaring().label).toBe('Issue completed');
     expect(declaring().told).toBe('The issue was moved to Done.');
   });

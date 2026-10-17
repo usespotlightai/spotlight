@@ -8,16 +8,16 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 
 beforeAll(async () => {
-  held = await openDatabase('runner_placement');
-  db = held.db;
+  database = await openDatabase('runner_placement');
+  db = database.db;
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const WIDGETS = 'ghcr.io/acme/widgets:1';

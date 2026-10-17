@@ -26,12 +26,13 @@ const claimedBy = (id: string, runner: string, at = NOON) =>
     }),
   }).claim(RunnerId.of(runner), at);
 
-const holding = (held: Run[], conflicting: string[] = []) => {
+const leasing = (stored: Run[], conflicting: string[] = []) => {
   const saved: Run[] = [];
   const runs = {
-    lapsedClaims: async (now: Date) => held.filter((each) => each.lapsed(now)),
+    lapsedClaims: async (now: Date) =>
+      stored.filter((each) => each.lapsed(now)),
     claimedBy: async (runner: RunnerId) =>
-      held.filter((each) => each.wasWorkedBy(runner)),
+      stored.filter((each) => each.wasWorkedBy(runner)),
     save: async (run: Run) => {
       if (conflicting.includes(run.id.value)) {
         throw new RunVersionConflictError(run.id.value);
@@ -45,7 +46,7 @@ const holding = (held: Run[], conflicting: string[] = []) => {
 
 describe('RunLeases', () => {
   it('puts a run whose lease lapsed back on the queue', async () => {
-    const { leases, saved } = holding([claimedBy('run_1', 'runner_1')]);
+    const { leases, saved } = leasing([claimedBy('run_1', 'runner_1')]);
 
     const requeued = await leases.requeueLapsed(LATER);
 
@@ -54,7 +55,7 @@ describe('RunLeases', () => {
   });
 
   it('saves that the run lapsed on its runner, for the runner to be let go', async () => {
-    const { leases, saved } = holding([claimedBy('run_1', 'runner_1')]);
+    const { leases, saved } = leasing([claimedBy('run_1', 'runner_1')]);
 
     await leases.requeueLapsed(LATER);
 
@@ -70,7 +71,7 @@ describe('RunLeases', () => {
   });
 
   it('leaves alone a run that changed while it was being requeued', async () => {
-    const { leases, saved } = holding(
+    const { leases, saved } = leasing(
       [claimedBy('run_1', 'runner_1'), claimedBy('run_2', 'runner_1')],
       ['run_1'],
     );

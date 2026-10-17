@@ -30,7 +30,7 @@ export function NewChatComposer({
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();
-  const [held, remember] = useRemembered(CHAT_HARNESS_KEY, '');
+  const [remembered, remember] = useRemembered(CHAT_HARNESS_KEY, '');
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
   const [repositories, setRepositories] = useState<string[]>([]);
@@ -40,8 +40,8 @@ export function NewChatComposer({
     ...handed.map(traceReference),
   ]);
 
-  const harness = harnesses?.some((each) => each.id === held)
-    ? held
+  const harness = harnesses?.some((each) => each.id === remembered)
+    ? remembered
     : (harnesses?.[0]?.id ?? '');
 
   const choose = (next: string) => {

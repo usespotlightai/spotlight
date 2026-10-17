@@ -19,5 +19,5 @@ export interface RunnerRepository {
 
   standingIn(poolId: RunnerPoolId, now: Date): Promise<readonly Runner[]>;
 
-  holding(work: RunnerWork): Promise<readonly Runner[]>;
+  findByWork(work: RunnerWork): Promise<readonly Runner[]>;
 }

@@ -149,7 +149,7 @@ export class WorkspaceController {
     operationId: 'changeMemberRole',
     summary: 'Set what somebody is in this workspace',
     description:
-      'Roles are given downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not hold. The last owner keeps the workspace.',
+      'Roles are given downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not have. The last owner keeps the workspace.',
   })
   @ApiParam({ name: 'slug', example: 'acme-inc' })
   @ApiParam({ name: 'userId' })

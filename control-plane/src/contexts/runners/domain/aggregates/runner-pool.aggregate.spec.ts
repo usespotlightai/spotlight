@@ -190,7 +190,7 @@ describe('RunnerPool', () => {
     expect(pulled.retire(BY).startVerdict('pull', 0)).toBe('gone');
   });
 
-  it('always holds its provision secret sealed, even when kept from a redefinition that gave none', () => {
+  it('always keeps its provision secret sealed, even when kept from a redefinition that gave none', () => {
     const kept = aPushPool().redefinedAs(
       keeping('sandboxes'),
       {

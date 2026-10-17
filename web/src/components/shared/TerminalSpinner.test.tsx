@@ -26,7 +26,7 @@ describe('TerminalSpinner', () => {
     expect(container.textContent).toBe('⠙');
   });
 
-  it('holds one frame for someone who prefers less motion', () => {
+  it('shows one frame for someone who prefers less motion', () => {
     vi.useFakeTimers();
     preferringStill(true);
     const { container } = render(<TerminalSpinner />);

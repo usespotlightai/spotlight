@@ -82,10 +82,10 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
     workspaceId: WorkspaceId,
     wrapped: string,
   ): Promise<Uint8Array> {
-    const held = this.#unwrapped.get(wrapped);
+    const cached = this.#unwrapped.get(wrapped);
 
-    if (held) {
-      return held;
+    if (cached) {
+      return cached;
     }
 
     const plain = await this.kms.unwrap(wrapped, contextFor(workspaceId));

@@ -131,7 +131,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       intent.source,
     );
     const client = oauth2
-      ? await this.clients.heldFor(
+      ? await this.clients.existingFor(
           teamId,
           SourceKey.of(intent.source),
           authorizationServerOf(oauth2),

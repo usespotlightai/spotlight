@@ -2,16 +2,16 @@ import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import type { PullRequestTombstone } from '@outcomes/domain/services/pull-request-tombstone';
 
 export const forgottenInMemory = (): ForgottenPort & {
-  readonly holds: string[];
+  readonly locks: string[];
 } => {
   const tasks = new Set<string>();
   const teams = new Set<string>();
   const workspaces = new Set<string>();
   const pullRequests = new Map<string, PullRequestTombstone>();
-  const holds: string[] = [];
+  const locks: string[] = [];
 
   return {
-    holds,
+    locks,
     forgetTask: async (_workspaceId, taskId) => {
       tasks.add(taskId.value);
     },
@@ -27,8 +27,8 @@ export const forgottenInMemory = (): ForgottenPort & {
         }
       }
     },
-    holding: async (workspaceId, taskId, teamId) => {
-      holds.push(
+    lockForgetting: async (workspaceId, taskId, teamId) => {
+      locks.push(
         [workspaceId.value, teamId?.value, taskId?.value]
           .filter((each) => each !== undefined && each !== null)
           .join(' '),
@@ -40,14 +40,17 @@ export const forgottenInMemory = (): ForgottenPort & {
       (teamId !== undefined &&
         teamId !== null &&
         teams.has(`${workspaceId.value} ${teamId.value}`)),
-    holdingPullRequest: async (workspaceId, pullRequest) => {
-      holds.push(`${workspaceId.value} ${pullRequest.value}`);
+    lockForgettingPullRequest: async (workspaceId, pullRequest) => {
+      locks.push(`${workspaceId.value} ${pullRequest.value}`);
     },
     forgetPullRequest: async (workspaceId, pullRequest, tombstone) => {
       const key = `${workspaceId.value} ${pullRequest.value}`;
-      const held = pullRequests.get(key);
+      const existing = pullRequests.get(key);
 
-      if (!held || held.updatedAt.getTime() < tombstone.updatedAt.getTime()) {
+      if (
+        !existing ||
+        existing.updatedAt.getTime() < tombstone.updatedAt.getTime()
+      ) {
         pullRequests.set(key, tombstone);
       }
     },

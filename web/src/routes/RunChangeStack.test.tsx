@@ -273,7 +273,7 @@ describe('RunChangeStack', () => {
       const [controller] = within(files).getAllByRole('article');
       expect(
         within(controller as HTMLElement).getByText(
-          'Adds the invite and accept endpoints. Only admins may invite; anyone holding a token may accept.',
+          'Adds the invite and accept endpoints. Only admins may invite; anyone with a token may accept.',
         ),
       ).toBeInTheDocument();
     });

@@ -33,8 +33,8 @@ const skillSchema = z.object({
   files: z.record(filePath, z.string()),
 });
 
-export const compileSkill = (held: unknown): ParsedSkill => {
-  const read = skillSchema.safeParse(held);
+export const compileSkill = (input: unknown): ParsedSkill => {
+  const read = skillSchema.safeParse(input);
 
   if (!read.success) {
     return { ok: false, problems: problemsIn(SKILLS, read.error) };
@@ -49,7 +49,7 @@ export const compileSkill = (held: unknown): ParsedSkill => {
   if (!(SKILL_FILE in files)) {
     return refused(
       FieldPath.of(['files']),
-      `holds no ${SKILL_FILE}. Spotlight reads each skill from its ${SKILL_FILE}`,
+      `has no ${SKILL_FILE}. Spotlight reads each skill from its ${SKILL_FILE}`,
     );
   }
 
@@ -75,7 +75,7 @@ export const compileSkill = (held: unknown): ParsedSkill => {
 };
 
 export class SkillCompiler implements SkillCompilerPort {
-  compile(held: unknown): ParsedSkill {
-    return compileSkill(held);
+  compile(input: unknown): ParsedSkill {
+    return compileSkill(input);
   }
 }

@@ -10,7 +10,7 @@ import type {
   InsightsPeriod,
 } from '@/lib/insights';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -18,7 +18,7 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (data: unknown): Held => ({
+const queried = (data: unknown): Queried => ({
   data,
   isPending: data === undefined,
   isFetching: false,
@@ -27,12 +27,12 @@ const held = (data: unknown): Held => ({
 });
 
 const asked: { tab: string; period: InsightsPeriod }[] = [];
-const answers: Record<string, Held> = {};
+const answers: Record<string, Queried> = {};
 
 const answering =
   (tab: string) => (_teamId: string, period: InsightsPeriod) => {
     asked.push({ tab, period });
-    return answers[tab] ?? held(undefined);
+    return answers[tab] ?? queried(undefined);
   };
 
 vi.mock('@/hooks/api/useInsightsOverview', () => ({
@@ -88,7 +88,7 @@ vi.mock('@/hooks/api/useInsightsRuns', () => ({
     answering('runs')(teamId, period),
 }));
 vi.mock('@/hooks/api/useInsightsPullRequestList', () => ({
-  useInsightsPullRequestList: () => held(undefined),
+  useInsightsPullRequestList: () => queried(undefined),
 }));
 vi.mock('@/hooks/api/useConfigOrigins', () => ({
   useConfigOrigins: () => ({ origins: [], failed: false, retry: vi.fn() }),
@@ -257,7 +257,7 @@ beforeEach(() => {
   for (const tab of Object.keys(answers)) {
     delete answers[tab];
   }
-  answers.overview = held(OVERVIEW);
+  answers.overview = queried(OVERVIEW);
 });
 
 describe('TeamInsights', () => {
@@ -483,8 +483,8 @@ describe('TeamInsights', () => {
     ).toBeInTheDocument();
   });
 
-  it('holds the shape of the overview while it loads', () => {
-    answers.overview = held(undefined);
+  it('keeps the shape of the overview while it loads', () => {
+    answers.overview = queried(undefined);
 
     showing();
 
@@ -495,7 +495,7 @@ describe('TeamInsights', () => {
 
   it('says the overview could not be loaded, and tries again', async () => {
     const failing = {
-      ...held(undefined),
+      ...queried(undefined),
       isPending: true,
       errorUpdateCount: 1,
     };
@@ -511,7 +511,7 @@ describe('TeamInsights', () => {
   });
 
   it('says there were no runs in the period, and offers the board', () => {
-    answers.overview = held({
+    answers.overview = queried({
       ...OVERVIEW,
       headline: headline({ runs: 0, mergedPullRequests: 0 }),
     });
@@ -526,7 +526,7 @@ describe('TeamInsights', () => {
   });
 
   it('says plainly why there is no spend to break down', () => {
-    answers.cost = held({
+    answers.cost = queried({
       ...MIXED_COST,
       cost: { ...MIXED_COST.cost, mixedCurrencies: true },
     });
@@ -539,7 +539,7 @@ describe('TeamInsights', () => {
   });
 
   it('leaves daily spend out of the overview, saying why, when the period’s prices came in more than one currency', () => {
-    answers.overview = held({
+    answers.overview = queried({
       ...OVERVIEW,
       outputCurrency: null,
       outputMixedCurrencies: true,
@@ -555,7 +555,7 @@ describe('TeamInsights', () => {
   });
 
   it('says when nothing in the period was priced', () => {
-    answers.cost = held({
+    answers.cost = queried({
       ...MIXED_COST,
       cost: { ...MIXED_COST.cost, unpriced: 3 },
     });
@@ -566,7 +566,7 @@ describe('TeamInsights', () => {
   });
 
   it('reads cache share as not reported where it is unknown', () => {
-    answers.cost = held({
+    answers.cost = queried({
       ...MIXED_COST,
       cost: {
         ...MIXED_COST.cost,
@@ -599,7 +599,7 @@ describe('TeamInsights', () => {
   });
 
   it('drills from people’s load into the runs that asked them', () => {
-    answers.people = held({
+    answers.people = queried({
       period: { name: '30d' },
       load: {
         asks: 4,

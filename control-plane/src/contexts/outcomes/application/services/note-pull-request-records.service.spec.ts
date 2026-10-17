@@ -41,7 +41,7 @@ const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/7');
 const SEEN_AT = new Date('2026-09-28T09:00:00.000Z');
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const heldFor = () => ({
+const repositoriesInMemory = () => ({
   records: new RunRecordsInMemory(),
   deliveries: new TaskDeliveriesInMemory(),
   judgings: new JudgingsInMemory(),
@@ -59,11 +59,15 @@ const heldFor = () => ({
   forgotten: forgottenInMemory(),
 });
 
-const noting = (held: ReturnType<typeof heldFor>) =>
-  new NotePullRequestRecords(held.pullRequests, held.forgotten, inTransaction);
+const noting = (repositories: ReturnType<typeof repositoriesInMemory>) =>
+  new NotePullRequestRecords(
+    repositories.pullRequests,
+    repositories.forgotten,
+    inTransaction,
+  );
 
-const forgetting = (held: ReturnType<typeof heldFor>) =>
-  new ForgetOutcomes(held, inTransaction);
+const forgetting = (repositories: ReturnType<typeof repositoriesInMemory>) =>
+  new ForgetOutcomes(repositories, inTransaction);
 
 const ENDED = {
   runId: 'run_1',
@@ -86,21 +90,21 @@ const SHAPED = {
 };
 
 describe('noting every pull request', () => {
-  it('holds the workspace and the pull request before it checks what was forgotten', async () => {
-    const held = heldFor();
+  it('locks the workspace and the pull request before it checks what was forgotten', async () => {
+    const repositories = repositoriesInMemory();
 
-    await noting(held).seen({
+    await noting(repositories).seen({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       seen: seenOf(),
     });
-    await noting(held).forgottenByGitHub({
+    await noting(repositories).forgottenByGitHub({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       updatedAt: SEEN_AT,
     });
 
-    expect(held.forgotten.holds).toEqual([
+    expect(repositories.forgotten.locks).toEqual([
       WORKSPACE.value,
       `${WORKSPACE.value} ${PULL.value}`,
       WORKSPACE.value,
@@ -108,22 +112,22 @@ describe('noting every pull request', () => {
     ]);
   });
 
-  it('holds the task, its team and the pull request before it notes who owns or reviewed it', async () => {
-    const held = heldFor();
+  it('locks the task, its team and the pull request before it notes who owns or reviewed it', async () => {
+    const repositories = repositoriesInMemory();
 
-    await noting(held).owned({
+    await noting(repositories).owned({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       taskId: TASK,
       teamId: TEAM,
     });
-    await noting(held).reviewed({
+    await noting(repositories).reviewed({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       taskId: TaskId.of('task_2'),
     });
 
-    expect(held.forgotten.holds).toEqual([
+    expect(repositories.forgotten.locks).toEqual([
       `${WORKSPACE.value} ${TEAM.value} ${TASK.value}`,
       `${WORKSPACE.value} ${PULL.value}`,
       `${WORKSPACE.value} task_2`,
@@ -132,99 +136,103 @@ describe('noting every pull request', () => {
   });
 
   it('turns away what GitHub said no later than it forgot the pull request', async () => {
-    const held = heldFor();
-    await noting(held).forgottenByGitHub({
+    const repositories = repositoriesInMemory();
+    await noting(repositories).forgottenByGitHub({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       updatedAt: SEEN_AT,
     });
 
-    await noting(held).seen({
+    await noting(repositories).seen({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       seen: seenOf({ updatedAt: SEEN_AT, version: 9 }),
     });
 
-    expect(await held.pullRequests.at(WORKSPACE, PULL)).toBeNull();
+    expect(await repositories.pullRequests.at(WORKSPACE, PULL)).toBeNull();
   });
 
   it('keeps no word of GitHub forgetting a pull request of a closed workspace', async () => {
-    const held = heldFor();
-    await forgetting(held).pullRequestsOfWorkspace(WORKSPACE);
+    const repositories = repositoriesInMemory();
+    await forgetting(repositories).pullRequestsOfWorkspace(WORKSPACE);
 
-    await noting(held).forgottenByGitHub({
+    await noting(repositories).forgottenByGitHub({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       updatedAt: SEEN_AT,
     });
 
-    expect(await held.forgotten.tombstoneOf(WORKSPACE, PULL)).toBeNull();
+    expect(
+      await repositories.forgotten.tombstoneOf(WORKSPACE, PULL),
+    ).toBeNull();
   });
 
   it('records no owner from a disbanded team', async () => {
-    const held = heldFor();
-    await forgetting(held).pullRequestsOfTeam(WORKSPACE, TEAM);
+    const repositories = repositoriesInMemory();
+    await forgetting(repositories).pullRequestsOfTeam(WORKSPACE, TEAM);
 
-    await noting(held).owned({
+    await noting(repositories).owned({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       taskId: TASK,
       teamId: TEAM,
     });
 
-    expect(await held.pullRequests.at(WORKSPACE, PULL)).toBeNull();
+    expect(await repositories.pullRequests.at(WORKSPACE, PULL)).toBeNull();
   });
 });
 
 describe('noting the shape of a task’s change', () => {
-  it('holds the task and its team before it checks whether they were forgotten', async () => {
-    const held = heldFor();
+  it('locks the task and its team before it checks whether they were forgotten', async () => {
+    const repositories = repositoriesInMemory();
 
     await new NoteChangeShaped(
       work,
-      held.shapes,
-      held.forgotten,
+      repositories.shapes,
+      repositories.forgotten,
       inTransaction,
     ).shaped(SHAPED);
 
-    expect(held.forgotten.holds).toEqual([
+    expect(repositories.forgotten.locks).toEqual([
       `${WORKSPACE.value} ${TEAM.value} ${TASK.value}`,
     ]);
-    expect(await held.shapes.forTask(TASK)).not.toBeNull();
+    expect(await repositories.shapes.forTask(TASK)).not.toBeNull();
   });
 
   it('records no shape for a disbanded team', async () => {
-    const held = heldFor();
-    await forgetting(held).pullRequestsOfTeam(WORKSPACE, TEAM);
+    const repositories = repositoriesInMemory();
+    await forgetting(repositories).pullRequestsOfTeam(WORKSPACE, TEAM);
 
     await new NoteChangeShaped(
       work,
-      held.shapes,
-      held.forgotten,
+      repositories.shapes,
+      repositories.forgotten,
       inTransaction,
     ).shaped(SHAPED);
 
-    expect(await held.shapes.forTask(TASK)).toBeNull();
+    expect(await repositories.shapes.forTask(TASK)).toBeNull();
   });
 });
 
 describe('forgetting a task’s or a team’s pull requests', () => {
   it('lets go of each pull request on its own, trying again where it changed meanwhile', async () => {
-    const held = heldFor();
+    const repositories = repositoriesInMemory();
     const people = PullRequestUrl.of('https://github.com/acme/api/pull/8');
-    await held.pullRequests.add(
+    await repositories.pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, PULL)
         .seenAs(seenOf())
         .assignOwner({ taskId: TASK, teamId: TEAM }),
     );
-    await held.pullRequests.add(
+    await repositories.pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, people)
         .seenAs(seenOf({ number: 8 }))
         .recordReview(TASK),
     );
-    const saving = held.pullRequests.save.bind(held.pullRequests);
+    const saving = repositories.pullRequests.save.bind(
+      repositories.pullRequests,
+    );
     let collisions = 1;
-    held.pullRequests.save = async (record) => {
+    repositories.pullRequests.save = async (record) => {
       if (collisions > 0) {
         collisions -= 1;
         throw new PullRequestRecordVersionConflictError(
@@ -234,27 +242,33 @@ describe('forgetting a task’s or a team’s pull requests', () => {
       await saving(record);
     };
 
-    await forgetting(held).pullRequestsOfTask(WORKSPACE, TASK);
+    await forgetting(repositories).pullRequestsOfTask(WORKSPACE, TASK);
 
-    expect((await held.pullRequests.at(WORKSPACE, PULL))?.owner).toBeNull();
     expect(
-      (await held.pullRequests.at(WORKSPACE, people))?.reviewTasks,
+      (await repositories.pullRequests.at(WORKSPACE, PULL))?.owner,
+    ).toBeNull();
+    expect(
+      (await repositories.pullRequests.at(WORKSPACE, people))?.reviewTasks,
     ).toEqual([]);
-    expect(await held.forgotten.forgot(WORKSPACE, TASK)).toBe(true);
+    expect(await repositories.forgotten.forgot(WORKSPACE, TASK)).toBe(true);
   });
 
   it('marks a team forgotten before letting go of its pull requests', async () => {
-    const held = heldFor();
-    await held.pullRequests.add(
+    const repositories = repositoriesInMemory();
+    await repositories.pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, PULL)
         .seenAs(seenOf())
         .assignOwner({ taskId: TASK, teamId: TEAM }),
     );
 
-    await forgetting(held).pullRequestsOfTeam(WORKSPACE, TEAM);
+    await forgetting(repositories).pullRequestsOfTeam(WORKSPACE, TEAM);
 
-    expect(await held.forgotten.forgot(WORKSPACE, null, TEAM)).toBe(true);
-    expect((await held.pullRequests.at(WORKSPACE, PULL))?.owner).toBeNull();
+    expect(await repositories.forgotten.forgot(WORKSPACE, null, TEAM)).toBe(
+      true,
+    );
+    expect(
+      (await repositories.pullRequests.at(WORKSPACE, PULL))?.owner,
+    ).toBeNull();
   });
 });
 

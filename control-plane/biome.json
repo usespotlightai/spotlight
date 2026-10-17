@@ -130,7 +130,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The shared kernel’s domain holds identifiers and event plumbing, and depends on nothing else."
+                    "message": "The shared kernel’s domain contains identifiers and event plumbing, and depends on nothing else."
                   }
                 ]
               }
@@ -150,7 +150,7 @@
                 "patterns": [
                   {
                     "group": ["**", "!@shared-kernel/**", "!./**", "!vitest"],
-                    "message": "The shared kernel’s application layer holds the ports and faults every context shares, and depends only on the shared kernel."
+                    "message": "The shared kernel’s application layer contains the ports and faults every context shares, and depends only on the shared kernel."
                   }
                 ]
               }
@@ -893,7 +893,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'identity' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'identity' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -919,7 +919,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'github' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'github' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -945,7 +945,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'secrets' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'secrets' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -971,7 +971,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'catalog' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'catalog' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -997,7 +997,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'runners' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'runners' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1023,7 +1023,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'work' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'work' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1049,7 +1049,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'configuration' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'configuration' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1075,7 +1075,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'change-review' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'change-review' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1101,7 +1101,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'memory' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'memory' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1127,7 +1127,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'outcomes' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'outcomes' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1153,7 +1153,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'replays' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'replays' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1179,7 +1179,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer holds the model: 'integrations' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'integrations' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }

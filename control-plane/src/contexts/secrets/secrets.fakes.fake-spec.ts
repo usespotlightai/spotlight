@@ -67,24 +67,24 @@ export class InMemoryCreates implements IdempotentCreatesPort {
   async claim(create: IdempotentCreate): Promise<IdempotentClaim> {
     const key = `${create.by}:${create.key.value}`;
     const request = JSON.stringify(create.request);
-    const held = this.#made.get(key);
+    const stored = this.#made.get(key);
 
-    if (!held) {
+    if (!stored) {
       this.#made.set(key, { request, id: null });
       return { kind: 'fresh' };
     }
 
-    return held.request === request && held.id
-      ? { kind: 'replay', createdId: held.id }
+    return stored.request === request && stored.id
+      ? { kind: 'replay', createdId: stored.id }
       : { kind: 'reused' };
   }
 
   async created(create: IdempotentCreate, id: string): Promise<void> {
     const key = `${create.by}:${create.key.value}`;
-    const held = this.#made.get(key);
+    const stored = this.#made.get(key);
 
-    if (held) {
-      this.#made.set(key, { ...held, id });
+    if (stored) {
+      this.#made.set(key, { ...stored, id });
     }
   }
 
@@ -221,11 +221,11 @@ export class InMemorySecrets implements SecretRepository {
 
 const keptCopy = (grants: RunGrants, version: number): RunGrants =>
   RunGrants.rehydrate({
-    hold: grants.hold,
+    lease: grants.lease,
     workspaceId: grants.workspaceId,
     grants: grants.grants,
     redeemer: grants.redeemer,
-    holdLost: grants.isHoldLost,
+    leaseLost: grants.isLeaseLost,
     endedAt: grants.endedAt,
     version,
   });
@@ -294,20 +294,20 @@ export class InMemoryStore implements SecretSourcePort {
   }
 
   async read(secret: SecretReference): Promise<SecretValue> {
-    const held = this.#values.get(secret.id.value);
+    const stored = this.#values.get(secret.id.value);
 
-    if (held === undefined) {
+    if (stored === undefined) {
       throw new UnreadableSecretError(secret.name.value, 'no value is kept');
     }
 
-    return SecretValue.of(held);
+    return SecretValue.of(stored);
   }
 
   async forget(secret: SecretReference): Promise<void> {
     this.#values.delete(secret.id.value);
   }
 
-  holds(secretId: SecretId): boolean {
+  has(secretId: SecretId): boolean {
     return this.#values.has(secretId.value);
   }
 }
@@ -316,12 +316,12 @@ export const readingFrom = (
   values: Readonly<Record<string, string>>,
 ): SecretSourcePort => ({
   read: async (secret) => {
-    const held = values[secret.source.secretId ?? ''];
+    const stored = values[secret.source.secretId ?? ''];
 
-    if (held === undefined) {
-      throw new UnreadableSecretError(secret.name.value, 'AWS holds nothing');
+    if (stored === undefined) {
+      throw new UnreadableSecretError(secret.name.value, 'AWS has nothing');
     }
 
-    return SecretValue.of(held);
+    return SecretValue.of(stored);
   },
 });

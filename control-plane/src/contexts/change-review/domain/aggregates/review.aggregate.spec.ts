@@ -71,7 +71,7 @@ describe('Review', () => {
     ]);
   });
 
-  it('refuses drafts another review already holds, so a second submit posts nothing twice', () => {
+  it('refuses drafts that another review already contains, so a second submit posts nothing twice', () => {
     const claimed = draftBy(ADA).submittedIn(ReviewId.of('review_0'));
 
     expect(() => submit({ drafts: [claimed] })).toThrow(InvalidReviewError);
@@ -154,13 +154,13 @@ describe('Review', () => {
     expect(() => failed.postedAs(99, NOW)).toThrow(InvalidReviewError);
   });
 
-  it('is withdrawn only once every comment it held is gone and it says nothing else', () => {
+  it('is withdrawn only once every comment it contained is gone and it says nothing else', () => {
     const review = submit({ drafts: [draftBy(ADA)] });
-    const held = draftBy(ADA).submittedIn(review.id);
+    const submitted = draftBy(ADA).submittedIn(review.id);
     review.pullEvents();
 
-    expect(review.silentWith([held])).toBe(false);
-    expect(() => review.withdraw([held])).toThrow(InvalidReviewError);
+    expect(review.silentWith([submitted])).toBe(false);
+    expect(() => review.withdraw([submitted])).toThrow(InvalidReviewError);
     expect(review.silentWith([])).toBe(true);
 
     const withdrawn = review.withdraw([]);

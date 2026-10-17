@@ -51,7 +51,7 @@ const REDEEMED = {
   withheld: [{ secret: 'GONE', reason: 'no such secret' }],
 };
 
-const heldRun = (
+const leasedRun = (
   workspace = 'ws_1',
   by = RUNNER,
   over: { spotlightApi?: boolean; wears?: string[] } = {},
@@ -74,14 +74,14 @@ const heldRun = (
 const CHAT = { startedBy: UserId.of('user_1') } as unknown as Chat;
 
 const lapsedRun = () => {
-  const held = heldRun();
+  const leased = leasedRun();
 
-  return held.requeue(held.leaseExpiresAt as Date);
+  return leased.requeue(leased.leaseExpiresAt as Date);
 };
 
 const redeeming = (
   admitted: EgressFor | null,
-  run: Run | null = heldRun(),
+  run: Run | null = leasedRun(),
   after: Run | null = run,
   shared: SharedEgressFor | null = null,
 ) => {
@@ -113,8 +113,8 @@ const redeeming = (
       sealedFor: (sealed) => `sealed(${sealed.name}=${sealed.value})`,
     } as RunRedemptionsPort,
     {
-      holdLost: async (hold) => {
-        lost.push(`${hold.workspaceId}/${hold.runId}#${hold.attempt}`);
+      leaseLost: async (lease) => {
+        lost.push(`${lease.workspaceId}/${lease.runId}#${lease.attempt}`);
       },
       endedFor: async () => undefined,
     },
@@ -142,15 +142,15 @@ const redeeming = (
   return { handler, through, asked, lost, minted, revoked };
 };
 
-const HOLDING_RUN: EgressFor = {
+const LEASED_RUN: EgressFor = {
   runnerId: RUNNER,
   workspaceId: 'ws_1',
   work: { kind: 'run', id: 'run_1' },
 };
 
 describe('RedeemEgressHandler', () => {
-  it('redeems the secrets the held run wears, for the recipient egress named', async () => {
-    const { handler, asked } = redeeming(HOLDING_RUN);
+  it('redeems the secrets the leased run wears, for the recipient egress named', async () => {
+    const { handler, asked } = redeeming(LEASED_RUN);
 
     await expect(
       handler.execute(new RedeemEgressCommand('egress-token', 'recipient-key')),
@@ -175,7 +175,7 @@ describe('RedeemEgressHandler', () => {
   });
 
   it('refuses a token that admits no egress', async () => {
-    const { handler, asked } = redeeming(HOLDING_RUN);
+    const { handler, asked } = redeeming(LEASED_RUN);
 
     await expect(
       handler.execute(new RedeemEgressCommand('other', 'recipient-key')),
@@ -185,7 +185,7 @@ describe('RedeemEgressHandler', () => {
 
   it('gives a check only what every sandbox reaches', async () => {
     const { handler, asked } = redeeming({
-      ...HOLDING_RUN,
+      ...LEASED_RUN,
       work: { kind: 'check', id: 'stack_1' },
     });
 
@@ -203,9 +203,13 @@ describe('RedeemEgressHandler', () => {
     expect(asked).toEqual([]);
   });
 
-  it('redeems nothing for a run another runner holds, or one in another workspace', async () => {
-    for (const run of [heldRun('ws_1', 'runner_2'), heldRun('ws_2'), null]) {
-      const { handler, asked } = redeeming(HOLDING_RUN, run);
+  it('redeems nothing for a run another runner leases, or one in another workspace', async () => {
+    for (const run of [
+      leasedRun('ws_1', 'runner_2'),
+      leasedRun('ws_2'),
+      null,
+    ]) {
+      const { handler, asked } = redeeming(LEASED_RUN, run);
 
       await expect(
         handler.execute(
@@ -216,9 +220,9 @@ describe('RedeemEgressHandler', () => {
     }
   });
 
-  it('redeems for the attempt that holds the run, once it is held again', async () => {
+  it('redeems for the attempt that leases the run, once it is leased again', async () => {
     const again = lapsedRun().claim(RunnerId.of(RUNNER), NOW);
-    const { handler, asked } = redeeming(HOLDING_RUN, again);
+    const { handler, asked } = redeeming(LEASED_RUN, again);
 
     await expect(
       handler.execute(new RedeemEgressCommand('egress-token', 'recipient-key')),
@@ -226,8 +230,8 @@ describe('RedeemEgressHandler', () => {
     expect(asked.map((each) => each.attempt)).toEqual([2]);
   });
 
-  it('lets the hold’s grants go when the run ends or is let go while it redeems', async () => {
-    const ended = heldRun().complete(
+  it('lets the lease’s grants go when the run ends or is let go while it redeems', async () => {
+    const ended = leasedRun().complete(
       RunnerId.of(RUNNER),
       RunOutcome.of({ exitCode: 0, failed: false }),
     );
@@ -235,7 +239,11 @@ describe('RedeemEgressHandler', () => {
     const reclaimed = lapsedRun().claim(RunnerId.of(RUNNER), NOW);
 
     for (const after of [ended, lapsed, reclaimed]) {
-      const { handler, asked, lost } = redeeming(HOLDING_RUN, heldRun(), after);
+      const { handler, asked, lost } = redeeming(
+        LEASED_RUN,
+        leasedRun(),
+        after,
+      );
 
       await expect(
         handler.execute(
@@ -253,8 +261,8 @@ describe('RedeemEgressHandler', () => {
 
   it('mints a plan token for a run that reaches Spotlight’s API, as whoever started its chat, sealed to egress', async () => {
     const { handler, minted } = redeeming(
-      HOLDING_RUN,
-      heldRun('ws_1', RUNNER, { spotlightApi: true, wears: [] }),
+      LEASED_RUN,
+      leasedRun('ws_1', RUNNER, { spotlightApi: true, wears: [] }),
     );
 
     await expect(
@@ -276,10 +284,13 @@ describe('RedeemEgressHandler', () => {
     ]);
   });
 
-  it('revokes the earlier token of the hold before it mints another', async () => {
-    const reaching = heldRun('ws_1', RUNNER, { spotlightApi: true, wears: [] });
+  it('revokes the earlier token of the lease before it mints another', async () => {
+    const reaching = leasedRun('ws_1', RUNNER, {
+      spotlightApi: true,
+      wears: [],
+    });
     const { handler, revoked, minted } = redeeming(
-      HOLDING_RUN,
+      LEASED_RUN,
       reaching,
       reaching,
     );
@@ -293,7 +304,7 @@ describe('RedeemEgressHandler', () => {
   });
 
   it('mints no token for a run that does not reach Spotlight’s API', async () => {
-    const { handler, minted } = redeeming(HOLDING_RUN);
+    const { handler, minted } = redeeming(LEASED_RUN);
 
     await expect(
       handler.execute(new RedeemEgressCommand('egress-token', 'recipient-key')),
@@ -303,9 +314,9 @@ describe('RedeemEgressHandler', () => {
 
   it('revokes the token it minted when the run is let go while it redeems', async () => {
     const reaching = () =>
-      heldRun('ws_1', RUNNER, { spotlightApi: true, wears: [] });
+      leasedRun('ws_1', RUNNER, { spotlightApi: true, wears: [] });
     const lapsed = reaching().requeue(reaching().leaseExpiresAt as Date);
-    const { handler, revoked } = redeeming(HOLDING_RUN, reaching(), lapsed);
+    const { handler, revoked } = redeeming(LEASED_RUN, reaching(), lapsed);
 
     await expect(
       handler.execute(new RedeemEgressCommand('egress-token', 'recipient-key')),
@@ -315,10 +326,15 @@ describe('RedeemEgressHandler', () => {
 });
 
 describe('RedeemThroughEgressHandler', () => {
-  const SHARED: SharedEgressFor = { ...HOLDING_RUN, egressId: 'egress_1' };
+  const SHARED: SharedEgressFor = { ...LEASED_RUN, egressId: 'egress_1' };
 
   it('redeems for the run of the proxy credential, pinned to the shared egress', async () => {
-    const { through, asked } = redeeming(null, heldRun(), heldRun(), SHARED);
+    const { through, asked } = redeeming(
+      null,
+      leasedRun(),
+      leasedRun(),
+      SHARED,
+    );
 
     await expect(
       through.execute(
@@ -343,7 +359,12 @@ describe('RedeemThroughEgressHandler', () => {
       ['other', 'proxy-credential'],
       ['shared-token', 'another-credential'],
     ]) {
-      const { through, asked } = redeeming(null, heldRun(), heldRun(), SHARED);
+      const { through, asked } = redeeming(
+        null,
+        leasedRun(),
+        leasedRun(),
+        SHARED,
+      );
 
       await expect(
         through.execute(
@@ -354,10 +375,10 @@ describe('RedeemThroughEgressHandler', () => {
     }
   });
 
-  it('tells egress to wait while the runner holds no run, or has lost it', async () => {
+  it('tells egress to wait while the runner has no run, or has lost it', async () => {
     for (const [admitted, run] of [
-      [{ ...SHARED, work: null }, heldRun()],
-      [SHARED, heldRun('ws_1', 'runner_2')],
+      [{ ...SHARED, work: null }, leasedRun()],
+      [SHARED, leasedRun('ws_1', 'runner_2')],
     ] as const) {
       const { through, asked } = redeeming(null, run, run, admitted);
 
@@ -374,8 +395,8 @@ describe('RedeemThroughEgressHandler', () => {
     }
   });
 
-  it('answers a held run that wears nothing, so egress stops asking', async () => {
-    const plain = heldRun('ws_1', RUNNER, { wears: [] });
+  it('answers a leased run that wears nothing, so egress stops asking', async () => {
+    const plain = leasedRun('ws_1', RUNNER, { wears: [] });
     const { through } = redeeming(null, plain, plain, SHARED);
 
     await expect(
@@ -394,7 +415,10 @@ describe('RedeemThroughEgressHandler', () => {
   });
 
   it('binds the control plane host when the run reaches Spotlight’s API', async () => {
-    const reaching = heldRun('ws_1', RUNNER, { spotlightApi: true, wears: [] });
+    const reaching = leasedRun('ws_1', RUNNER, {
+      spotlightApi: true,
+      wears: [],
+    });
     const { through } = redeeming(null, reaching, reaching, SHARED);
 
     await expect(
@@ -412,7 +436,7 @@ describe('RedeemThroughEgressHandler', () => {
   });
 
   it('never takes the egress token of the egress beside a sandbox', async () => {
-    const { through } = redeeming(HOLDING_RUN, heldRun(), heldRun(), SHARED);
+    const { through } = redeeming(LEASED_RUN, leasedRun(), leasedRun(), SHARED);
 
     await expect(
       through.execute(

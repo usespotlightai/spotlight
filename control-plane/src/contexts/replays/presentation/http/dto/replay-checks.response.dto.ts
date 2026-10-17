@@ -53,7 +53,7 @@ export class StartReplayCheckRequestDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The station block as the plan would apply it, as the line resource holds a station; its check, judge, diffs and runners are replaced by the live station’s, since a planned change is scored as, and runs where, the live station does',
+      'The station block as the plan would apply it, as the line resource stores a station; its check, judge, diffs and runners are replaced by the live station’s, since a planned change is scored as, and runs where, the live station does',
     example: {
       key: 'build',
       name: 'Build',
@@ -69,7 +69,7 @@ export class StartReplayCheckRequestDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The line’s settings that change how its stations run, as the plan would apply them: its repositories, each with its image and setup, as the line resource holds them',
+      'The line’s settings that change how its stations run, as the plan would apply them: its repositories, each with its image and setup, as the line resource stores them',
     example: { repositories: [{ name: 'acme/api', setup: 'npm ci' }] },
   })
   readonly line?: Record<string, unknown>;

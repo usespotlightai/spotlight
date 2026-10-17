@@ -136,8 +136,8 @@ const replayedCandidate = (
   const onCompared = rateOfEntries(versus.compared);
   const liveOnCompared = rateOfEntries(versus.liveCompared);
   const finished = replay.state === 'finished';
-  const heldScored = heldOut ? scoredEntries(heldOut) : [];
-  const held = rateOfEntries(heldScored);
+  const heldOutScored = heldOut ? scoredEntries(heldOut) : [];
+  const heldOutRate = rateOfEntries(heldOutScored);
   const basis = versus.compared.length > 0 ? 'compared' : 'overall';
 
   return {
@@ -159,8 +159,8 @@ const replayedCandidate = (
       ? {
           replayId: heldOut.id,
           state: heldOut.state,
-          score: held.rate,
-          interval: held.interval,
+          score: heldOutRate.rate,
+          interval: heldOutRate.interval,
           tasks: heldOut.runs.length,
           runs: heldOut.runs.length,
         }

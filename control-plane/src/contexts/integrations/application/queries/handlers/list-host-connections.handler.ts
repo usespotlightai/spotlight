@@ -38,12 +38,12 @@ export class ListHostConnectionsHandler
 
       const teamId = TeamId.of(query.teamId);
       const viewer = UserId.of(query.viewerId);
-      const [held, defined, policies] = await Promise.all([
+      const [connected, defined, policies] = await Promise.all([
         this.roster.ofTeam(teamId),
         this.defined.ofTeam(teamId),
         this.policies.ofPerson(teamId, viewer),
       ]);
-      const mine = held
+      const mine = connected
         .filter((each) => each.personId === query.viewerId)
         .map(({ source, handle, connectedAt }) => {
           const policy = policies.find((each) => each.source.value === source);
@@ -66,14 +66,14 @@ export class ListHostConnectionsHandler
       }
 
       const named = await this.people.findMany(
-        [...new Set(held.map((each) => each.personId))].map((id) =>
+        [...new Set(connected.map((each) => each.personId))].map((id) =>
           UserId.of(id),
         ),
       );
 
       return {
         mine,
-        people: held.map((each) => ({
+        people: connected.map((each) => ({
           source: each.source,
           personId: each.personId,
           name: named.get(each.personId)?.name ?? '',

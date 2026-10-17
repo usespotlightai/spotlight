@@ -10,21 +10,21 @@ const keyOf = (teamId: TeamId, personId: UserId, source: SourceKey): string =>
   [teamId.value, personId.value, source.value].join(':');
 
 export class InMemoryPersonToolPolicies implements PersonToolPolicyRepository {
-  readonly held = new Map<string, PersonToolPolicy>();
+  readonly stored = new Map<string, PersonToolPolicy>();
 
   async of(
     teamId: TeamId,
     personId: UserId,
     source: SourceKey,
   ): Promise<PersonToolPolicy | null> {
-    return this.held.get(keyOf(teamId, personId, source)) ?? null;
+    return this.stored.get(keyOf(teamId, personId, source)) ?? null;
   }
 
   async ofPerson(
     teamId: TeamId,
     personId: UserId,
   ): Promise<readonly PersonToolPolicy[]> {
-    return [...this.held.values()].filter(
+    return [...this.stored.values()].filter(
       (each) => each.teamId.equals(teamId) && each.personId.equals(personId),
     );
   }
@@ -32,11 +32,11 @@ export class InMemoryPersonToolPolicies implements PersonToolPolicyRepository {
   async save(policy: PersonToolPolicy): Promise<void> {
     const key = keyOf(policy.teamId, policy.personId, policy.source);
 
-    if ((this.held.get(key)?.version ?? 0) !== policy.version) {
+    if ((this.stored.get(key)?.version ?? 0) !== policy.version) {
       throw new PersonToolPolicyVersionConflictError(policy.source.value);
     }
 
-    this.held.set(
+    this.stored.set(
       key,
       PersonToolPolicy.rehydrate({
         teamId: policy.teamId,
@@ -49,9 +49,9 @@ export class InMemoryPersonToolPolicies implements PersonToolPolicyRepository {
   }
 
   async forgetTeam(teamId: TeamId): Promise<void> {
-    for (const [key, each] of this.held) {
+    for (const [key, each] of this.stored) {
       if (each.teamId.equals(teamId)) {
-        this.held.delete(key);
+        this.stored.delete(key);
       }
     }
   }

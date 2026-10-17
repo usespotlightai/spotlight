@@ -32,11 +32,11 @@ const runs = (count: number, agreeing: number) =>
   });
 
 const reportOf = (count: number, agreeing: number) => {
-  const held = runs(count, agreeing);
-  const records = held.map((each) => each.record);
+  const judgedRuns = runs(count, agreeing);
+  const records = judgedRuns.map((each) => each.record);
 
   return judgeReportOf({
-    judged: held.map((each) => each.score),
+    judged: judgedRuns.map((each) => each.score),
     grades: [],
     records,
     covering: records,

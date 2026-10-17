@@ -165,15 +165,15 @@ export const fakeMcpServer = async (
     }
 
     const id = headerOf(request, 'mcp-session-id');
-    const held = id ? sessions.get(id) : undefined;
+    const existing = id ? sessions.get(id) : undefined;
 
-    if (id && !held) {
+    if (id && !existing) {
       reply.writeHead(404).end();
       return;
     }
 
     const transport =
-      held ??
+      existing ??
       new StreamableHTTPServerTransport({
         sessionIdGenerator: randomUUID,
         onsessioninitialized: (opened) => {
@@ -181,7 +181,7 @@ export const fakeMcpServer = async (
         },
       });
 
-    if (!held) {
+    if (!existing) {
       started += 1;
       await registered(
         new McpServer({ name: 'tracker', version: '1.0.0' }),

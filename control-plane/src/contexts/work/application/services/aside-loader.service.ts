@@ -20,7 +20,7 @@ export class AsideLoader {
     const viewer = UserId.of(them);
     const aside = await this.asides.find(TaskAsideId.of(asideId));
     const task = aside ? await this.tasks.find(aside.taskId) : null;
-    const line = task ? await this.lines.holding(task.stationId) : null;
+    const line = task ? await this.lines.findByStation(task.stationId) : null;
 
     if (
       !aside ||

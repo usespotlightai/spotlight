@@ -44,7 +44,7 @@ type worn struct {
 	bare     []byte
 	prefix   string
 	standIns []string
-	held     bool
+	fromHost bool
 	plainOn  string
 }
 
@@ -77,15 +77,15 @@ type Wearing struct {
 }
 
 func From(
-	ctx context.Context, redeemed protocol.EgressRedemption, held []protocol.HeldByTheHost, limits Limits,
+	ctx context.Context, redeemed protocol.EgressRedemption, hostCredentials []protocol.HostCredential, limits Limits,
 	opener Opener, reader func() (Reader, error), log *slog.Logger,
 ) *Wearing {
 	wearing := &Wearing{toward: map[string][]*worn{}, log: log}
 
-	for _, key := range held {
+	for _, key := range hostCredentials {
 		host, header := reach.Normal(key.Host), http.CanonicalHeaderKey(key.Header)
-		if refusal := heldRefusal(host, header, key, limits); refusal != "" {
-			log.Warn("egress will not wear a key the host holds", "key", key.Name, "host", host, "reason", refusal)
+		if refusal := hostCredentialRefusal(host, header, key, limits); refusal != "" {
+			log.Warn("egress will not wear a key the host has", "key", key.Name, "host", host, "reason", refusal)
 			continue
 		}
 		wearing.toward[host] = append(wearing.toward[host], &worn{
@@ -96,9 +96,9 @@ func From(
 			bare:     []byte(key.Value),
 			prefix:   key.Prefix,
 			standIns: []string{key.Prefix + protocol.StandInPrefix + key.Name},
-			held:     true,
+			fromHost: true,
 		})
-		log.Info("holds a key of the host's for the run", "key", key.Name, "host", host, "header", key.Header)
+		log.Info("keeps a host key for the run", "key", key.Name, "host", host, "header", key.Header)
 	}
 
 	for _, withheld := range redeemed.Withheld {
@@ -116,10 +116,10 @@ func From(
 
 		value, err := valueOf(ctx, redeemed.RunID, secret, opener, reader)
 		if err == nil && strings.ContainsAny(value, "\r\n\x00") {
-			err = fmt.Errorf("it holds more than one line, so it cannot be worn in a request")
+			err = fmt.Errorf("it has more than one line, so it cannot be worn in a request")
 		}
 		if err != nil {
-			log.Warn("could not hold a secret the run wears", "secret", secret.Secret, "host", secret.Host, "error", err)
+			log.Warn("could not keep a secret the run wears", "secret", secret.Secret, "host", secret.Host, "error", err)
 			continue
 		}
 
@@ -133,13 +133,13 @@ func From(
 			prefix:   secret.Prefix,
 			standIns: slices.Compact([]string{standIn, secret.Prefix + standIn}),
 		})
-		log.Info("holds a secret for the run", "secret", secret.Secret, "host", host, "carrier", carrier, "name", name)
+		log.Info("keeps a secret for the run", "secret", secret.Secret, "host", host, "carrier", carrier, "name", name)
 	}
 
 	return wearing
 }
 
-func heldRefusal(host, header string, key protocol.HeldByTheHost, limits Limits) string {
+func hostCredentialRefusal(host, header string, key protocol.HostCredential, limits Limits) string {
 	switch {
 	case !limits.Hosts.Admits(host):
 		return "the host's allow-list does not admit " + host
@@ -154,8 +154,8 @@ func (w *Wearing) refusal(host, carrier, name string, secret protocol.RedeemedSe
 	slot := (&worn{carrier: carrier, name: name}).slot()
 
 	switch {
-	case slices.ContainsFunc(w.toward[host], func(each *worn) bool { return each.held }):
-		return "the host holds a key of its own for " + host
+	case slices.ContainsFunc(w.toward[host], func(each *worn) bool { return each.fromHost }):
+		return "the host has a key of its own for " + host
 	case !limits.Hosts.Admits(host):
 		return "the host's allow-list does not admit " + host
 	case secret.ReadInNetwork != nil && !limits.reads(secret.ReadInNetwork.SecretID):
@@ -201,8 +201,8 @@ func (w *Wearing) TowardControlPlane(api *protocol.SpotlightAPI, controlPlane *u
 
 	slot := (&worn{carrier: protocol.CarriedInHeader, name: header}).slot()
 	for _, each := range w.toward[host] {
-		if each.held {
-			return fmt.Errorf("the host holds a key of its own for %s", host)
+		if each.fromHost {
+			return fmt.Errorf("the host has a key of its own for %s", host)
 		}
 		if each.slot() == slot {
 			return fmt.Errorf("another secret is already worn in %s toward %s", slot, host)
@@ -224,7 +224,7 @@ func (w *Wearing) TowardControlPlane(api *protocol.SpotlightAPI, controlPlane *u
 		standIns: []string{protocol.SpotlightAPIStandIn, prefix + protocol.SpotlightAPIStandIn},
 		plainOn:  plainPort(controlPlane),
 	})
-	w.log.Info("holds the run's Spotlight token", "host", host)
+	w.log.Info("keeps the run's Spotlight token", "host", host)
 
 	return nil
 }
@@ -276,14 +276,14 @@ func (w *Wearing) Onto(host string, r *http.Request) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	held := w.toward[reach.Normal(host)]
-	w.ontoHeader(host, held, r.Header)
-	w.ontoQuery(host, held, r.URL)
+	secrets := w.toward[reach.Normal(host)]
+	w.ontoHeader(host, secrets, r.Header)
+	w.ontoQuery(host, secrets, r.URL)
 }
 
-func (w *Wearing) ontoHeader(host string, held []*worn, header http.Header) {
+func (w *Wearing) ontoHeader(host string, secrets []*worn, header http.Header) {
 	var wearing []*worn
-	for _, each := range held {
+	for _, each := range secrets {
 		if each.inPlaceOf(header) {
 			wearing = append(wearing, each)
 		}
@@ -295,7 +295,7 @@ func (w *Wearing) ontoHeader(host string, held []*worn, header http.Header) {
 	for name, values := range header {
 		if slices.ContainsFunc(values, standsIn) {
 			delete(header, name)
-			w.log.Warn("took a stand-in egress does not hold off a request", "host", host, "header", name)
+			w.log.Warn("took a stand-in that egress has no value for off a request", "host", host, "header", name)
 		}
 	}
 	for _, each := range wearing {
@@ -303,7 +303,7 @@ func (w *Wearing) ontoHeader(host string, held []*worn, header http.Header) {
 	}
 }
 
-func (w *Wearing) ontoQuery(host string, held []*worn, target *url.URL) {
+func (w *Wearing) ontoQuery(host string, secrets []*worn, target *url.URL) {
 	if target.RawQuery == "" {
 		return
 	}
@@ -318,13 +318,13 @@ func (w *Wearing) ontoQuery(host string, held []*worn, target *url.URL) {
 			continue
 		}
 
-		index := slices.IndexFunc(held, func(each *worn) bool { return each.standsIn(name, value) })
+		index := slices.IndexFunc(secrets, func(each *worn) bool { return each.standsIn(name, value) })
 		if index < 0 {
-			w.log.Warn("took a stand-in egress does not hold off a request", "host", host, "parameter", name)
+			w.log.Warn("took a stand-in that egress has no value for off a request", "host", host, "parameter", name)
 			continue
 		}
 
-		kept = append(kept, rawName+"="+url.QueryEscape(string(held[index].value)))
+		kept = append(kept, rawName+"="+url.QueryEscape(string(secrets[index].value)))
 	}
 
 	target.RawQuery = strings.Join(kept, "&")
@@ -347,8 +347,8 @@ func (w *Wearing) Forget() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	for host, held := range w.toward {
-		for _, each := range held {
+	for host, secrets := range w.toward {
+		for _, each := range secrets {
 			clear(each.value)
 			clear(each.bare)
 		}

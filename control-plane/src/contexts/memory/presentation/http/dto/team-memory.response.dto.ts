@@ -240,7 +240,7 @@ export class WriteMemoryRequestDto {
 export class RetireMemoryRequestDto {
   @ApiProperty({
     example: 'The retry worker was removed.',
-    description: 'Why it no longer holds',
+    description: 'Why it no longer applies',
   })
   readonly reason!: string;
 }

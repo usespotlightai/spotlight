@@ -29,9 +29,9 @@ const linked = (holder: ConnectionHolder) => {
 
 const disconnecting = (member = true) => {
   const connections = new InMemoryHostConnections();
-  connections.hold(linked(ConnectionHolder.person(UserId.of('user_1'))));
-  connections.hold(linked(ConnectionHolder.person(UserId.of('user_2'))));
-  connections.hold(linked(ConnectionHolder.team()));
+  connections.add(linked(ConnectionHolder.person(UserId.of('user_1'))));
+  connections.add(linked(ConnectionHolder.person(UserId.of('user_2'))));
+  connections.add(linked(ConnectionHolder.team()));
 
   return {
     connections,

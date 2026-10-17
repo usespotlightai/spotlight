@@ -1235,7 +1235,7 @@ export class CandidateResponseDto {
   @ApiProperty({
     type: 'object',
     additionalProperties: true,
-    description: 'The station block, as the line resource holds it',
+    description: 'The station block, as the line resource stores it',
   })
   readonly station: Record<string, unknown>;
 

@@ -92,7 +92,7 @@ describe('StopLetGoRun', () => {
     expect(save.mock.calls[0]?.[0].outcome?.failed).toBe(false);
   });
 
-  it('ends a parked run as its turn ended, since no runner holds it', async () => {
+  it('ends a parked run as its turn ended, since no runner leases it', async () => {
     const { handler, save } = stopping(waitingForAPerson().park(RUNNER, NOW));
 
     await handler.on(letGo);

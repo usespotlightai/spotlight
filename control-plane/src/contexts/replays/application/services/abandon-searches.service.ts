@@ -28,7 +28,7 @@ export class AbandonSearches {
   }
 
   async search(id: SearchId): Promise<void> {
-    const held = await this.transaction.inTransaction(async () => {
+    const activeRun = await this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(id);
 
       if (!search) {
@@ -37,11 +37,11 @@ export class AbandonSearches {
 
       await this.searches.save(search.abandon());
 
-      return search.heldRun;
+      return search.activeRun;
     });
 
-    if (held) {
-      await this.work.withdrawSearch(held);
+    if (activeRun) {
+      await this.work.withdrawSearch(activeRun);
     }
   }
 

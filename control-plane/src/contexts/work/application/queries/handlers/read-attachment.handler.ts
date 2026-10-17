@@ -19,18 +19,18 @@ export class ReadAttachmentHandler
 
   async execute(query: ReadAttachmentQuery): Promise<string | null> {
     try {
-      const [workspace, held] = await Promise.all([
+      const [workspace, found] = await Promise.all([
         this.workspaces.findForMember(query.slug, UserId.of(query.viewerId)),
         this.attachments.find(query.attachmentId),
       ]);
 
-      if (!workspace || held?.workspaceId !== workspace.id) {
+      if (!workspace || found?.workspaceId !== workspace.id) {
         return null;
       }
 
       return await this.files.link(
-        WorkspaceId.of(held.workspaceId),
-        Attachment.rehydrate(held),
+        WorkspaceId.of(found.workspaceId),
+        Attachment.rehydrate(found),
         query.download ? 'saved' : 'shown',
       );
     } catch (error) {

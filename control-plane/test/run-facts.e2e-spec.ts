@@ -39,7 +39,7 @@ const HOUR = 60 * 60_000;
 const NOW = Date.now();
 const at = (hoursAgo: number) => new Date(NOW - hoursAgo * HOUR);
 
-let held: TestDatabase;
+let database: TestDatabase;
 let facts: DrizzleRunFactProjection;
 let records: DrizzleRunRecordRepository;
 let touches: DrizzleTaskTouchesRepository;
@@ -126,7 +126,7 @@ const merged = (taskId: string, teamId: TeamId): TaskDelivery =>
   }).close({ pullRequest: PULL, merged: true, at: at(0.1) });
 
 const elsewhere = () => {
-  const context = new DrizzleContext(held.db);
+  const context = new DrizzleContext(database.db);
   const quiet = {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher;
@@ -140,8 +140,8 @@ const elsewhere = () => {
   };
 };
 
-const whileHeld = async (
-  held: (first: ReturnType<typeof elsewhere>) => Promise<void>,
+const whileLocked = async (
+  lock: (first: ReturnType<typeof elsewhere>) => Promise<void>,
   meanwhile: () => Promise<void>,
 ): Promise<void> => {
   const first = elsewhere();
@@ -149,7 +149,7 @@ const whileHeld = async (
   let waiting: Promise<void> = Promise.resolve();
 
   await first.context.inTransaction(async () => {
-    await held(first);
+    await lock(first);
     waiting = meanwhile().finally(() => {
       settled = true;
     });
@@ -161,7 +161,7 @@ const whileHeld = async (
 };
 
 const factOf = async (runId: string) => {
-  const [row] = await held.db
+  const [row] = await database.db
     .select()
     .from(runFact)
     .where(eq(runFact.runId, runId));
@@ -170,11 +170,11 @@ const factOf = async (runId: string) => {
 };
 
 const allFacts = () =>
-  held.db.select().from(runFact).orderBy(asc(runFact.runId));
+  database.db.select().from(runFact).orderBy(asc(runFact.runId));
 
 beforeAll(async () => {
-  held = await openDatabase('run_facts');
-  const context = new DrizzleContext(held.db);
+  database = await openDatabase('run_facts');
+  const context = new DrizzleContext(database.db);
   const quiet = {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher;
@@ -186,14 +186,14 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 beforeEach(async () => {
-  await held.db.delete(runRecord);
-  await held.db.delete(taskTouches);
-  await held.db.delete(taskDelivery);
-  await held.db.delete(runFact);
+  await database.db.delete(runRecord);
+  await database.db.delete(taskTouches);
+  await database.db.delete(taskDelivery);
+  await database.db.delete(runFact);
 });
 
 describe('run facts', () => {
@@ -217,9 +217,11 @@ describe('run facts', () => {
       cost: null,
     });
 
-    const held1 = await records.of(RunId.of('run_1'));
+    const recorded = await records.of(RunId.of('run_1'));
     await records.save(
-      digested(held1 as RunRecord).recordAction(NextAct.of('closed', at(0.5))),
+      digested(recorded as RunRecord).recordAction(
+        NextAct.of('closed', at(0.5)),
+      ),
     );
 
     expect(await factOf('run_1')).toMatchObject({
@@ -355,7 +357,7 @@ describe('run facts', () => {
     )) as TaskDelivery;
     const second = elsewhere();
 
-    await whileHeld(
+    await whileLocked(
       async (first) =>
         first.records.save(
           digested((await first.records.of(RunId.of('run_1'))) as RunRecord),
@@ -387,7 +389,7 @@ describe('run facts', () => {
     )) as TaskDelivery;
     const second = elsewhere();
 
-    await whileHeld(
+    await whileLocked(
       (first) => first.records.add(ended('run_1', 'task_1')),
       () =>
         second.deliveries.save(
@@ -448,7 +450,7 @@ describe('run facts', () => {
     )) as TaskDelivery;
     const second = elsewhere();
 
-    await whileHeld(
+    await whileLocked(
       (first) => first.records.removeForTeam(WORKSPACE, TEAM),
       () =>
         second.deliveries.save(
@@ -464,7 +466,7 @@ describe('run facts', () => {
     await deliveries.add(merged('task_1', TEAM));
     const second = elsewhere();
 
-    await whileHeld(
+    await whileLocked(
       (first) => first.deliveries.removeForTeam(WORKSPACE, TEAM),
       () => second.touches.add(opening('task_1', NEXT_DOOR)),
     );
@@ -497,12 +499,12 @@ describe('run facts', () => {
     await records.add(ended('run_old', 'task_4', { endedHoursAgo: 24 * 10 }));
     const healthy = await allFacts();
 
-    await held.db
+    await database.db
       .update(runFact)
       .set({ cost: 99 })
       .where(eq(runFact.runId, 'run_1'));
-    await held.db.delete(runFact).where(eq(runFact.runId, 'run_2'));
-    await held.db
+    await database.db.delete(runFact).where(eq(runFact.runId, 'run_2'));
+    await database.db
       .update(runFact)
       .set({ cost: 99 })
       .where(eq(runFact.runId, 'run_old'));
@@ -527,7 +529,7 @@ describe('run facts', () => {
   });
 
   it('rebuilds a workspace from its runs, in chunks', async () => {
-    await held.db.insert(runRecord).values(
+    await database.db.insert(runRecord).values(
       Array.from({ length: 1_205 }, (_, index) => ({
         runId: `run_${String(index).padStart(5, '0')}`,
         workspaceId: WORKSPACE.value,
@@ -544,7 +546,7 @@ describe('run facts', () => {
       })),
     );
     await records.add(ended('run_gone', 'task_gone'));
-    await held.db.delete(runRecord).where(eq(runRecord.runId, 'run_gone'));
+    await database.db.delete(runRecord).where(eq(runRecord.runId, 'run_gone'));
 
     const rebuilt = await facts.rebuild({
       kind: 'workspace',

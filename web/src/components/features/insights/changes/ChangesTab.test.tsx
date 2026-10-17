@@ -9,7 +9,7 @@ import type { InsightsCandidates } from '@/lib/insights-candidates';
 import type { InsightsChanges, InsightsSetups } from '@/lib/insights-changes';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -17,7 +17,7 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (data: unknown, errorUpdateCount = 0): Held => ({
+const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
   data,
   isPending: data === undefined && errorUpdateCount === 0,
   isFetching: false,
@@ -26,14 +26,14 @@ const held = (data: unknown, errorUpdateCount = 0): Held => ({
 });
 
 const answer: {
-  changes: Held;
-  setups: Held;
-  candidates: Held;
+  changes: Queried;
+  setups: Queried;
+  candidates: Queried;
   asked: unknown[];
 } = {
-  changes: held(undefined),
-  setups: held(undefined),
-  candidates: held(undefined),
+  changes: queried(undefined),
+  setups: queried(undefined),
+  candidates: queried(undefined),
   asked: [],
 };
 
@@ -264,15 +264,15 @@ const showing = () =>
   );
 
 beforeEach(() => {
-  answer.changes = held(CHANGES);
-  answer.setups = held(SETUPS);
-  answer.candidates = held(REPLAYED);
+  answer.changes = queried(CHANGES);
+  answer.setups = queried(SETUPS);
+  answer.candidates = queried(REPLAYED);
   answer.asked = [];
 });
 
 describe('the Changes tab', () => {
   it('shows a faithful skeleton while it loads', () => {
-    answer.changes = held(undefined);
+    answer.changes = queried(undefined);
 
     showing();
 
@@ -282,7 +282,7 @@ describe('the Changes tab', () => {
   });
 
   it('offers to try again where it could not load', async () => {
-    answer.changes = held(undefined, 1);
+    answer.changes = queried(undefined, 1);
 
     showing();
 
@@ -292,8 +292,8 @@ describe('the Changes tab', () => {
   });
 
   it('leads to creating a task where nothing ran', () => {
-    answer.changes = held({ ...CHANGES, markers: [], judges: [] });
-    answer.setups = held({ ...SETUPS, setups: [], judges: [] });
+    answer.changes = queried({ ...CHANGES, markers: [], judges: [] });
+    answer.setups = queried({ ...SETUPS, setups: [], judges: [] });
 
     showing();
 
@@ -379,7 +379,7 @@ describe('the Changes tab', () => {
   });
 
   it('leaves judge scores out of the table until a station is picked', async () => {
-    answer.setups = held({
+    answer.setups = queried({
       ...SETUPS,
       stationId: null,
       judgeWithheld: 'no_station',
@@ -463,7 +463,7 @@ describe('the Changes tab', () => {
   });
 
   it('leaves out replayed candidates priced in another currency than the setups', async () => {
-    answer.setups = held({ ...SETUPS, currency: 'EUR' });
+    answer.setups = queried({ ...SETUPS, currency: 'EUR' });
 
     showing();
     await narrowingTo('Implementation');
@@ -504,7 +504,7 @@ describe('the Changes tab', () => {
   });
 
   it('says so where the station’s replayed candidates have no priced live setup to sit beside', async () => {
-    answer.setups = held({
+    answer.setups = queried({
       ...SETUPS,
       setups: SETUPS.setups.map((each) => ({ ...each, costPerRun: null })),
     });
@@ -520,7 +520,7 @@ describe('the Changes tab', () => {
   });
 
   it('keeps the tab whole when the replayed candidates could not be loaded', async () => {
-    answer.candidates = held(undefined, 1);
+    answer.candidates = queried(undefined, 1);
 
     showing();
     await narrowingTo('Implementation');
@@ -546,7 +546,7 @@ describe('the Changes tab', () => {
       before: tally({ runs }),
       after: tally({ runs }),
     });
-    answer.changes = held({
+    answer.changes = queried({
       ...CHANGES,
       markers: [
         returned('run_2', '2026-09-20T10:00:00.000Z', 11),

@@ -79,7 +79,7 @@ const READER: DiffReaderPort = {
     const files = texts.get(text);
 
     if (!files) {
-      throw new InvalidDiffError('holds no changes');
+      throw new InvalidDiffError('has no changes');
     }
 
     return {

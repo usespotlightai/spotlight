@@ -12,9 +12,8 @@ const takeable = (run: Run, by: Claimant, now: Date): boolean =>
   run.workspaceId.equals(by.workspaceId) &&
   by.harnesses.some((each) => each.equals(run.harness)) &&
   (by.claims === 'reserved'
-    ? run.isReservedAt(now) && (run.reservation?.heldFor(by.runner) ?? false)
-    : !run.isReservedAt(now) ||
-      (run.reservation?.heldFor(by.runner) ?? false)) &&
+    ? run.isReservedAt(now) && (run.reservation?.isFor(by.runner) ?? false)
+    : !run.isReservedAt(now) || (run.reservation?.isFor(by.runner) ?? false)) &&
   run.placement.admits(by.terms);
 
 const sooner = (a: WaitingRun, b: WaitingRun): number =>

@@ -5,7 +5,7 @@ import { HarnessProfileRetired } from '@configuration/domain/events/harness-prof
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
 import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
-import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
+import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
@@ -61,7 +61,7 @@ describe('HarnessProfile', () => {
       id: ID,
       teamId: TEAM,
       by: BY,
-      held: [],
+      existingSecrets: [],
     });
 
     expect(defined.isNew).toBe(true);
@@ -144,7 +144,7 @@ describe('HarnessProfile', () => {
     ]);
   });
 
-  it('names only secrets the workspace holds in its MCP servers’ env', () => {
+  it('names only secrets the workspace has in its MCP servers’ env', () => {
     const wearing = {
       key: ProfileKey.of('careful'),
       settings: ProfileSettings.written({
@@ -160,7 +160,7 @@ describe('HarnessProfile', () => {
         native: {},
       }),
     };
-    const held = [SecretName.of('LINEAR_API_KEY')];
+    const existing = [SecretName.of('LINEAR_API_KEY')];
 
     expect(() =>
       HarnessProfile.define({
@@ -168,16 +168,16 @@ describe('HarnessProfile', () => {
         id: ID,
         teamId: TEAM,
         by: BY,
-        held: [],
+        existingSecrets: [],
       }),
-    ).toThrow(SecretsUnheldError);
+    ).toThrow(MissingSecretsError);
     expect(() => kept().redefinedAs(wearing, BY, [])).toThrow(
-      SecretsUnheldError,
+      MissingSecretsError,
     );
     expect(
       kept()
-        .redefinedAs(wearing, BY, held)
-        .settings.wears(held[0] as SecretName),
+        .redefinedAs(wearing, BY, existing)
+        .settings.wears(existing[0] as SecretName),
     ).toBe(true);
   });
 });

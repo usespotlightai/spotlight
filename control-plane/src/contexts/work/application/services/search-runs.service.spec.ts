@@ -43,32 +43,34 @@ const SEARCHING = RunSubject.search(
 
 const NO_FACTS = { of: async () => [] };
 
-const holding = (run: Run | null) =>
+const leasedSearchRunOf = (run: Run | null) =>
   new SearchRuns(
     {
       findById: async () => run,
     } as unknown as RunRepository,
     NO_FACTS,
-  ).heldSearchRun('run_9', RUNNER.value);
+  ).leasedSearchRun('run_9', RUNNER.value);
 
 describe('SearchRuns', () => {
-  it('names the search and iteration of a search run its runner holds', async () => {
-    expect(await holding(queued(SEARCHING, true).claim(RUNNER, NOW))).toEqual({
+  it('names the search and iteration of a search run its runner leases', async () => {
+    expect(
+      await leasedSearchRunOf(queued(SEARCHING, true).claim(RUNNER, NOW)),
+    ).toEqual({
       searchId: 'search_1',
       iteration: 3,
     });
   });
 
-  it('names nothing for a search run nobody holds, one another runner holds, or a run that is no search', async () => {
-    expect(await holding(null)).toBeNull();
-    expect(await holding(queued(SEARCHING, true))).toBeNull();
+  it('names nothing for a search run nobody leases, one another runner leases, or a run that is no search', async () => {
+    expect(await leasedSearchRunOf(null)).toBeNull();
+    expect(await leasedSearchRunOf(queued(SEARCHING, true))).toBeNull();
     expect(
-      await holding(
+      await leasedSearchRunOf(
         queued(SEARCHING, true).claim(RunnerId.of('runner_2'), NOW),
       ),
     ).toBeNull();
     expect(
-      await holding(
+      await leasedSearchRunOf(
         queued(
           RunSubject.task(
             TaskId.of('task_1'),

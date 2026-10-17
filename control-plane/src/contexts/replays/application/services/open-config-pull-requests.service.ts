@@ -96,29 +96,32 @@ export class OpenConfigPullRequests implements OwedWorkPort {
       throw error;
     }
 
-    let held = await this.pullRequests.find(due.id);
+    let pullRequest = await this.pullRequests.find(due.id);
 
-    if (!held) {
+    if (!pullRequest) {
       return;
     }
 
     const committed = async (commit: string) => {
-      const next = (held as ConfigPullRequest).commit(commit, this.clock.now());
+      const next = (pullRequest as ConfigPullRequest).commit(
+        commit,
+        this.clock.now(),
+      );
 
       await this.saved(next);
-      held = (await this.pullRequests.find(next.id)) ?? next;
+      pullRequest = (await this.pullRequests.find(next.id)) ?? next;
     };
     let opened: Opened;
 
     try {
-      opened = await this.opening(held, committed);
+      opened = await this.opening(pullRequest, committed);
     } catch (error) {
       if (!(error instanceof ConfigRepositoryRefusedError)) {
         this.logger.warn(
-          { err: error, pullRequestId: held.id.value },
+          { err: error, pullRequestId: pullRequest.id.value },
           'Opening a config pull request failed; it will be tried again',
         );
-        await this.saved(held.tried(because(error), this.clock.now()));
+        await this.saved(pullRequest.tried(because(error), this.clock.now()));
         return;
       }
 
@@ -127,8 +130,8 @@ export class OpenConfigPullRequests implements OwedWorkPort {
 
     await this.saved(
       'url' in opened
-        ? held.open(opened.url, opened.proposing, this.clock.now())
-        : held.refused(opened.reason, this.clock.now()),
+        ? pullRequest.open(opened.url, opened.proposing, this.clock.now())
+        : pullRequest.refused(opened.reason, this.clock.now()),
     );
   }
 

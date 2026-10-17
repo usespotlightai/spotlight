@@ -9,7 +9,7 @@ export class RenewalClaim {
     return new RenewalClaim(until);
   }
 
-  heldAt(now: Date): boolean {
+  isActiveAt(now: Date): boolean {
     return this.until.getTime() > now.getTime();
   }
 

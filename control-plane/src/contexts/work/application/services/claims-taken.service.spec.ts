@@ -32,7 +32,7 @@ const claimed = () =>
 const taking = (
   over: {
     refuses?: boolean;
-    held?: Run | null;
+    stored?: Run | null;
     clashes?: number;
     saveFails?: boolean;
   } = {},
@@ -42,7 +42,7 @@ const taking = (
   const warn = vi.fn();
   const runs = {
     findById: vi.fn(async () =>
-      over.held === undefined ? claimed() : over.held,
+      over.stored === undefined ? claimed() : over.stored,
     ),
     save: vi.fn(async (run: Run) => {
       if (over.saveFails) {
@@ -111,8 +111,8 @@ describe('ClaimsTaken', () => {
     expect(saved).toHaveLength(1);
   });
 
-  it('leaves a run its runner no longer holds as it is', async () => {
-    const { taken, saved } = taking({ refuses: true, held: null });
+  it('leaves a run its runner no longer leases as it is', async () => {
+    const { taken, saved } = taking({ refuses: true, stored: null });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(
       'pooled_1 is spent',

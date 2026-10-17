@@ -33,16 +33,16 @@ const refusedAt = (over: Partial<Parameters<typeof HostReport.of>[0]>) => {
 };
 
 describe('HostReport', () => {
-  it('holds what a host says of itself, trimmed', () => {
-    const held = report({ name: '  build-box  ' });
+  it('keeps what a host says of itself, trimmed', () => {
+    const parsed = report({ name: '  build-box  ' });
 
-    expect(held.name).toBe('build-box');
-    expect(held.release).toBe('0.9.0');
-    expect(held.executor).toBe('docker');
-    expect(held.capacity).toBe(4);
-    expect(held.running.map((each) => each.value)).toEqual(['runner_1']);
-    expect(held.images[0]?.image.value).toBe('ghcr.io/acme/runner:main');
-    expect(held.images[0]?.harnesses[0]?.version?.value).toBe('2.1.0');
+    expect(parsed.name).toBe('build-box');
+    expect(parsed.release).toBe('0.9.0');
+    expect(parsed.executor).toBe('docker');
+    expect(parsed.capacity).toBe(4);
+    expect(parsed.running.map((each) => each.value)).toEqual(['runner_1']);
+    expect(parsed.images[0]?.image.value).toBe('ghcr.io/acme/runner:main');
+    expect(parsed.images[0]?.harnesses[0]?.version?.value).toBe('2.1.0');
   });
 
   it('names each runner it is running once', () => {

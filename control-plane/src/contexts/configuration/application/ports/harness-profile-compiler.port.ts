@@ -8,7 +8,7 @@ export type ParsedProfile =
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 export interface HarnessProfileCompilerPort {
-  compile(held: unknown): ParsedProfile;
-  read(held: unknown): ParsedProfile;
+  compile(input: unknown): ParsedProfile;
+  read(input: unknown): ParsedProfile;
   warningsOf(read: ReadProfile): readonly ConfigurationProblem[];
 }

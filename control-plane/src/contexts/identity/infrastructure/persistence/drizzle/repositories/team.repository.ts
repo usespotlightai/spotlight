@@ -115,21 +115,25 @@ export class DrizzleTeamRepository implements TeamRepository {
         throw new TeamVersionConflictError(saved.id.value);
       }
 
-      const held = saved.members.map((member) => member.value);
+      const memberIds = saved.members.map((member) => member.value);
 
       await this.context.db
         .delete(teamMember)
         .where(
           and(
             eq(teamMember.teamId, saved.id.value),
-            held.length > 0 ? notInArray(teamMember.userId, held) : undefined,
+            memberIds.length > 0
+              ? notInArray(teamMember.userId, memberIds)
+              : undefined,
           ),
         );
 
-      if (held.length > 0) {
+      if (memberIds.length > 0) {
         await this.context.db
           .insert(teamMember)
-          .values(held.map((userId) => ({ teamId: saved.id.value, userId })))
+          .values(
+            memberIds.map((userId) => ({ teamId: saved.id.value, userId })),
+          )
           .onConflictDoNothing({
             target: [teamMember.teamId, teamMember.userId],
           });
@@ -173,12 +177,12 @@ export class DrizzleTeamRepository implements TeamRepository {
     );
   }
 
-  private written(held: Team) {
+  private written(record: Team) {
     return {
-      id: held.id.value,
-      workspaceId: held.workspaceId.value,
-      key: held.key.value,
-      name: held.name.value,
+      id: record.id.value,
+      workspaceId: record.workspaceId.value,
+      key: record.key.value,
+      name: record.name.value,
     };
   }
 

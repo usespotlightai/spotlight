@@ -24,7 +24,7 @@ describe('CausalChain', () => {
     const chain = CausalChain.none().followedBy(moved).followedBy(hook);
 
     expect(chain.depth).toBe(2);
-    expect(chain.holds(hook.key)).toBe(true);
+    expect(chain.contains(hook.key)).toBe(true);
     expect(chain.saying).toBe(
       'task.moved of t-1 from build to review → the hook notify',
     );
@@ -38,8 +38,8 @@ describe('CausalChain', () => {
 
     expect(chain.depth).toBe(40);
     expect(chain.links).toHaveLength(32);
-    expect(chain.holds('k-39')).toBe(true);
-    expect(chain.holds('k-0')).toBe(false);
+    expect(chain.contains('k-39')).toBe(true);
+    expect(chain.contains('k-0')).toBe(false);
     expect(chain.saying.startsWith('… → ')).toBe(true);
   });
 

@@ -243,25 +243,25 @@ func (p planned) wanted() int {
 
 func (c *checking) run(plan planned, options checkOptions, report *checkReport) {
 	for _, each := range plan.Stations {
-		held := &stationCheck{Station: each.Address, Resource: each.Resource, teamID: each.TeamID}
-		report.Stations = append(report.Stations, held)
+		checked := &stationCheck{Station: each.Address, Resource: each.Resource, teamID: each.TeamID}
+		report.Stations = append(report.Stations, checked)
 
 		if each.Undecided {
-			held.Status = checkUndecided
-			held.Message = each.Because
+			checked.Status = checkUndecided
+			checked.Message = each.Because
 			continue
 		}
 
-		c.start(held, each, options)
+		c.start(checked, each, options)
 	}
 
 	deadline := c.now().Add(options.timeout)
 	for {
 		waiting := false
-		for _, held := range report.Stations {
-			if held.pending {
-				c.follow(held)
-				waiting = waiting || held.pending
+		for _, checked := range report.Stations {
+			if checked.pending {
+				c.follow(checked)
+				waiting = waiting || checked.pending
 			}
 		}
 
@@ -271,24 +271,24 @@ func (c *checking) run(plan planned, options checkOptions, report *checkReport) 
 		}
 
 		wait := options.every
-		for _, held := range report.Stations {
-			if held.pending && held.misses > 0 {
-				wait = max(wait, backedOff(options.every, held.misses))
+		for _, checked := range report.Stations {
+			if checked.pending && checked.misses > 0 {
+				wait = max(wait, backedOff(options.every, checked.misses))
 			}
 		}
 		c.sleep(min(wait, left))
 	}
 
-	for _, held := range report.Stations {
-		if held.pending {
-			held.pending = false
-			held.Status = checkRunning
-			held.Message = fmt.Sprintf("still running after %s; it keeps running, so follow it at its link", options.timeout)
+	for _, checked := range report.Stations {
+		if checked.pending {
+			checked.pending = false
+			checked.Status = checkRunning
+			checked.Message = fmt.Sprintf("still running after %s; it keeps running, so follow it at its link", options.timeout)
 		}
 	}
 }
 
-func (c *checking) start(held *stationCheck, each plannedStation, options checkOptions) {
+func (c *checking) start(checked *stationCheck, each plannedStation, options checkOptions) {
 	reference := map[string]any{}
 	if options.commit != "" {
 		reference["commit"] = options.commit
@@ -316,45 +316,45 @@ func (c *checking) start(held *stationCheck, each plannedStation, options checkO
 	var refused *answered
 	switch {
 	case errors.As(err, &refused) && refused.said.Type == nothingToReplay:
-		held.Status = checkUnchanged
-		held.Message = refused.said.Detail
+		checked.Status = checkUnchanged
+		checked.Message = refused.said.Detail
 	case err != nil:
-		held.Status = checkRefused
-		held.Message = err.Error()
+		checked.Status = checkRefused
+		checked.Message = err.Error()
 	default:
-		c.settle(held, read)
+		c.settle(checked, read)
 	}
 }
 
-func (c *checking) follow(held *stationCheck) {
+func (c *checking) follow(checked *stationCheck) {
 	var read checkRead
-	err := c.api.get(teamPath(held.teamID)+"/replay-checks/"+url.PathEscape(held.Check.ID), &read)
+	err := c.api.get(teamPath(checked.teamID)+"/replay-checks/"+url.PathEscape(checked.Check.ID), &read)
 	if err != nil {
 		if !transient(err) {
-			held.pending = false
-			held.Status = checkRefused
-			held.Message = err.Error()
+			checked.pending = false
+			checked.Status = checkRefused
+			checked.Message = err.Error()
 			return
 		}
-		held.misses++
-		if held.misses >= maxFailures {
-			held.pending = false
-			held.Status = checkRefused
-			held.Message = fmt.Sprintf("gave up after %d failed tries in a row: %v", held.misses, err)
+		checked.misses++
+		if checked.misses >= maxFailures {
+			checked.pending = false
+			checked.Status = checkRefused
+			checked.Message = fmt.Sprintf("gave up after %d failed tries in a row: %v", checked.misses, err)
 		}
 		return
 	}
 
-	held.misses = 0
-	c.settle(held, read)
+	checked.misses = 0
+	c.settle(checked, read)
 }
 
-func (c *checking) settle(held *stationCheck, read checkRead) {
-	held.Check = &read
-	held.Status = read.Verdict
-	held.pending = read.Verdict == checkRunning
+func (c *checking) settle(checked *stationCheck, read checkRead) {
+	checked.Check = &read
+	checked.Status = read.Verdict
+	checked.pending = read.Verdict == checkRunning
 	if read.ReplayURL != nil {
-		held.URL = *read.ReplayURL
+		checked.URL = *read.ReplayURL
 	}
 }
 

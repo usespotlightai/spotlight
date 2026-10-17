@@ -57,7 +57,7 @@ describe('formatCrossing', () => {
     ).toBe('40% of the last 5 runs failed, up from 20% in the 5 before.');
   });
 
-  it('says the runs held level with the ones before when the server reads no move', () => {
+  it('says the runs stayed level with the ones before when the server reads no move', () => {
     expect(
       formatCrossing(
         alert({
@@ -172,7 +172,7 @@ describe('thresholdLine', () => {
 });
 
 describe('alertOnInsightsPath', () => {
-  it('opens the station on the Stations tab, over the period the server says holds the alert', () => {
+  it('opens the station on the Stations tab, over the period the server says contains the alert', () => {
     expect(
       alertOnInsightsPath(
         'acme',

@@ -241,7 +241,7 @@ describe('the runs tab', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it('holds the shape of the table while the runs load', () => {
+  it('keeps the shape of the table while the runs load', () => {
     runsState.data = undefined;
     runsState.isPending = true;
 

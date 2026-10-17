@@ -46,8 +46,8 @@ export function StartSearchDialog({
           <DialogDescription>
             An agent proposes configs for this station. Each config replays on
             most of the set’s tasks. Then the best configs replay on held-out
-            tasks to check that they hold up. The station doesn’t change until
-            you pick a config.
+            tasks to check that they still do well. The station doesn’t change
+            until you pick a config.
           </DialogDescription>
         </DialogHeader>
 

@@ -16,7 +16,7 @@ func (w *Workspace) Prune(dir string, keep []string) error {
 	dir = filepath.Clean(dir)
 
 	kept := map[string]bool{}
-	held := map[string]bool{}
+	parents := map[string]bool{}
 	for _, path := range keep {
 		if !filepath.IsLocal(path) {
 			return fmt.Errorf("%q escapes the workspace", path)
@@ -24,7 +24,7 @@ func (w *Workspace) Prune(dir string, keep []string) error {
 		path = filepath.Clean(path)
 		kept[path] = true
 		for parent := filepath.Dir(path); parent != "."; parent = filepath.Dir(parent) {
-			held[parent] = true
+			parents[parent] = true
 		}
 	}
 
@@ -50,10 +50,10 @@ func (w *Workspace) Prune(dir string, keep []string) error {
 		}
 	}
 
-	return prune(root, dir, kept, held)
+	return prune(root, dir, kept, parents)
 }
 
-func prune(root *os.Root, dir string, kept, held map[string]bool) error {
+func prune(root *os.Root, dir string, kept, parents map[string]bool) error {
 	opened, err := root.Open(dir)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", dir, err)
@@ -69,8 +69,8 @@ func prune(root *os.Root, dir string, kept, held map[string]bool) error {
 
 		switch {
 		case kept[path]:
-		case held[path] && entry.Type().IsDir():
-			if err := prune(root, path, kept, held); err != nil {
+		case parents[path] && entry.Type().IsDir():
+			if err := prune(root, path, kept, parents); err != nil {
 				return err
 			}
 		default:

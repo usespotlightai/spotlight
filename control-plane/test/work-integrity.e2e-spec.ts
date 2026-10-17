@@ -36,20 +36,20 @@ import { openTeam } from './support/team';
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 const quiet = { dispatch: async () => {} };
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let context: DrizzleContext;
 let tasks: DrizzleTaskRepository;
 
 beforeAll(async () => {
-  held = await openDatabase('work_integrity');
-  db = held.db;
+  database = await openDatabase('work_integrity');
+  db = database.db;
   context = new DrizzleContext(db);
   tasks = new DrizzleTaskRepository(context, quiet);
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const added = (
@@ -143,7 +143,7 @@ describe('a line that drops a station', () => {
     await expect(tasks.find(standing.id)).resolves.not.toBeNull();
   });
 
-  it('tallies what stands there while holding the stations', async () => {
+  it('tallies what stands there while it locks the stations', async () => {
     const { whole, reviewId } = await withReview();
     await tasks.add(added(whole, reviewId));
 
@@ -193,7 +193,9 @@ describe('a mark worn by one task and claimed by another', () => {
     });
 
     const concerns = Concerns.of({ marks: [thread] }) as Concerns;
-    await expect(tasks.holding(workspaceId, concerns)).resolves.toMatchObject({
+    await expect(
+      tasks.findByMarks(workspaceId, concerns),
+    ).resolves.toMatchObject({
       id: newest.id,
     });
     expect((await tasks.find(before.id))?.marks).toEqual([]);
@@ -230,7 +232,7 @@ describe('a file handed over twice', () => {
     await expect(tasks.save(again.assign(owner))).resolves.toBeUndefined();
   });
 
-  it('cannot be given to a chat once a task holds it', async () => {
+  it('cannot be given to a chat once a task has it', async () => {
     const { line, stationId, workspaceId, teamId, owner } = await openTeam(
       db,
       tasks,

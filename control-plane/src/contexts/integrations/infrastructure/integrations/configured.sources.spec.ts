@@ -7,7 +7,7 @@ import { ConfiguredSources } from '@integrations/infrastructure/integrations/con
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -43,13 +43,13 @@ webhook:
             value: \${{ body.data.identifier }}
 `;
 
-const holding = (
+const configured = (
   integrations: DefinedIntegration[],
-  held: Readonly<Record<string, string>> = {},
+  secrets: Readonly<Record<string, string>> = {},
 ) => {
   const { injection, forVerifying } = injecting(
     Object.fromEntries(
-      Object.entries(held).map(([name, value]) => [
+      Object.entries(secrets).map(([name, value]) => [
         name,
         { host: 'api.linear.app', value },
       ]),
@@ -63,7 +63,7 @@ const holding = (
         ofTeam: vi.fn(async () => integrations),
         everywhere: vi.fn(),
       } satisfies DefinedIntegrationsPort,
-      new IntegrationReader(expressions, operationsHolding()),
+      new IntegrationReader(expressions, operationsContaining()),
       { keys: async () => new Map() },
       new HttpOutbound([]),
       injection,
@@ -73,7 +73,7 @@ const holding = (
 
 describe('ConfiguredSources', () => {
   it('builds a source for every host the workspace declared', async () => {
-    const { sources } = holding([defined(linear())]);
+    const { sources } = configured([defined(linear())]);
 
     expect((await sources.all(TEAM)).map((each) => each.key)).toEqual([
       'linear',
@@ -81,14 +81,14 @@ describe('ConfiguredSources', () => {
   });
 
   it('finds one by the name the world addresses it with', async () => {
-    const { sources } = holding([defined(linear())]);
+    const { sources } = configured([defined(linear())]);
 
     expect((await sources.find(TEAM, 'linear'))?.key).toBe('linear');
     expect(await sources.find(TEAM, 'sentry')).toBeNull();
   });
 
-  it('verifies a delivery signed with the secret the workspace holds', async () => {
-    const { sources, forVerifying } = holding([defined(linear())], {
+  it('verifies a delivery signed with the secret the workspace has', async () => {
+    const { sources, forVerifying } = configured([defined(linear())], {
       LINEAR_WEBHOOK_SECRET: 'lin_wh_1',
     });
     const raw = Buffer.from('{"type":"Issue"}');
@@ -113,7 +113,7 @@ describe('ConfiguredSources', () => {
   });
 
   it('refuses a delivery signed with any other secret', async () => {
-    const { sources } = holding([defined(linear())], {
+    const { sources } = configured([defined(linear())], {
       LINEAR_WEBHOOK_SECRET: 'lin_wh_1',
     });
     const raw = Buffer.from('{}');
@@ -133,8 +133,8 @@ describe('ConfiguredSources', () => {
     ).toBe(false);
   });
 
-  it('fails to verify while the workspace holds no such secret', async () => {
-    const { sources } = holding([defined(linear())]);
+  it('fails to verify while the workspace has no such secret', async () => {
+    const { sources } = configured([defined(linear())]);
 
     const [source] = await sources.all(TEAM);
 
@@ -150,14 +150,14 @@ describe('ConfiguredSources', () => {
   });
 
   it('has no sources at all before anything has been defined', async () => {
-    const { sources } = holding([]);
+    const { sources } = configured([]);
 
     expect(await sources.all(TEAM)).toEqual([]);
     expect(await sources.find(TEAM, 'linear')).toBeNull();
   });
 
   it('builds nothing from a definition that will not read', async () => {
-    const { sources } = holding([
+    const { sources } = configured([
       defined('integration: BROKEN'),
       defined(linear()),
     ]);

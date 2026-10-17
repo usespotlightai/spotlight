@@ -209,7 +209,7 @@ describe('NetworkCall', () => {
     expect(answered.lapsed(later(60_000))).toBe(answered);
   });
 
-  it('will not be read back settled while still holding what it sent', () => {
+  it('will not be read back settled while it still has what it sent', () => {
     expect(() =>
       NetworkCall.rehydrate({
         id: NetworkCallId.of('call_1'),

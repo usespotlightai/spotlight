@@ -98,7 +98,7 @@ const provisioning = (
     readonly reserves?: boolean;
   } = {},
 ) => {
-  const held = new Map(queue.map((each) => [each.id.value, each]));
+  const stored = new Map(queue.map((each) => [each.id.value, each]));
   const awaitingProvision = vi.fn(
     async (
       workspaceId: WorkspaceId,
@@ -109,7 +109,7 @@ const provisioning = (
         readonly withSecrets: boolean;
       },
     ) =>
-      [...held.values()]
+      [...stored.values()]
         .filter(
           (each) =>
             each.workspaceId.equals(workspaceId) &&
@@ -119,14 +119,14 @@ const provisioning = (
   );
   const recorded: DomainEvent[] = [];
   const runs = {
-    findById: async (id: RunId) => held.get(id.value) ?? null,
+    findById: async (id: RunId) => stored.get(id.value) ?? null,
     save: async (run: Run) => {
       recorded.push(...run.pullEvents());
-      held.set(run.id.value, run);
+      stored.set(run.id.value, run);
     },
     awaitingProvision,
     withLapsedReservations: async (at: Date) =>
-      [...held.values()].filter((each) => each.reservationLapsedAt(at)),
+      [...stored.values()].filter((each) => each.reservationLapsedAt(at)),
   } as unknown as RunRepository;
   const provision = vi.fn(
     async (request: ProvisionRequest): Promise<ProvisionedRunner> =>
@@ -159,7 +159,7 @@ const provisioning = (
     recorded,
     checks,
     awaitingProvision,
-    run: (id: string) => held.get(id) as Run,
+    run: (id: string) => stored.get(id) as Run,
     provisioner: new ProvisionWork(
       runs,
       checks,
@@ -608,7 +608,7 @@ describe('ProvisionWork', () => {
     expect(provision).not.toHaveBeenCalled();
   });
 
-  it('keeps a reservation that still holds', async () => {
+  it('keeps a reservation that is still active', async () => {
     const { provisioner, letGo, run } = provisioning(
       [
         waiting('run_1').reservedFor(

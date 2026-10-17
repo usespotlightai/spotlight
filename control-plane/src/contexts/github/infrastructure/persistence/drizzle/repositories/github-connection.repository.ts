@@ -63,7 +63,7 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
     return found ? WorkspaceId.of(found.workspaceId) : null;
   }
 
-  async heldClaimantOf(
+  async lockedClaimantOf(
     installation: GitHubInstallation,
   ): Promise<WorkspaceId | null> {
     const [found] = await this.context.db

@@ -217,7 +217,7 @@ describe('StationOutcomes', () => {
     expect(groups[1]).not.toHaveTextContent('Never started');
   });
 
-  it('holds the shape of a config while they load', () => {
+  it('keeps the shape of a config while they load', () => {
     outcomes.mockReturnValue(undefined);
 
     showing();

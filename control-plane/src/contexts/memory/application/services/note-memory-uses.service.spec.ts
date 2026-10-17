@@ -27,7 +27,11 @@ const RUN = {
   taskId: TaskId.of('task_1'),
 };
 
-const held = (handle: MemoryHandle, stands: boolean, applies: boolean) => {
+const storedMemory = (
+  handle: MemoryHandle,
+  stands: boolean,
+  applies: boolean,
+) => {
   const memory = Memory.write({
     id: MemoryId.of(`memory_${handle.number}`),
     handle,
@@ -77,7 +81,7 @@ const noting = (
       withHandles: async (teamId: TeamId, handles: MemoryHandle[]) => {
         asked.push({ teamId, handles: handles.map((each) => each.value) });
         return handles.map((each) =>
-          held(each, standing(each.value), applies(each.value)),
+          storedMemory(each, standing(each.value), applies(each.value)),
         );
       },
     } as unknown as MemoryRepository,

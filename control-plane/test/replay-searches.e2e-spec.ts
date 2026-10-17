@@ -47,7 +47,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let searches: DrizzleSearchRepository;
 let sets: DrizzleReplaySetRepository;
 let candidates: DrizzleCandidateRepository;
@@ -55,8 +55,8 @@ let replays: DrizzleReplayRepository;
 const dispatched: DomainEvent[] = [];
 
 beforeAll(async () => {
-  held = await openDatabase('replay_searches');
-  const context = new DrizzleContext(held.db);
+  database = await openDatabase('replay_searches');
+  const context = new DrizzleContext(database.db);
   const dispatcher = {
     dispatch: async (events: readonly DomainEvent[]) => {
       dispatched.push(...events);
@@ -70,12 +70,12 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await held.close();
+  await database.close();
 });
 
 beforeEach(async () => {
   dispatched.length = 0;
-  await held.db.execute(
+  await database.db.execute(
     'truncate replay_search, replay_set, replay_candidate, replay cascade',
   );
 });
@@ -223,11 +223,11 @@ describe('DrizzleSearchRepository', () => {
         ),
       ],
       0.05,
-      () => ReplayId.of('held_terse'),
+      () => ReplayId.of('held_out_terse'),
       later(4),
     );
     search = search.recordReplayEnd(
-      ReplayId.of('held_terse'),
+      ReplayId.of('held_out_terse'),
       'over-budget',
       charged(1),
       later(5),
@@ -248,7 +248,7 @@ describe('DrizzleSearchRepository', () => {
     expect(await searches.activeAtStation(STATION.stationId)).toBeNull();
   });
 
-  it('holds one active search per station, and another once the first ended', async () => {
+  it('allows one active search per station, and another once the first ended', async () => {
     const first = aSearch();
 
     await searches.add(first);
@@ -392,7 +392,7 @@ describe('replays, candidates and sets a search keeps', () => {
     expect(await replays.ofSearch(SEARCH_ID)).toHaveLength(1);
   });
 
-  it('moves a set on when a search starts on it, so a writer holding an older copy is refused', async () => {
+  it('moves a set on when a search starts on it, so a writer with an older copy is refused', async () => {
     const set = aSet(10);
 
     await sets.add(set);

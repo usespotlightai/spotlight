@@ -294,7 +294,7 @@ type Parking struct {
 	Parked bool `json:"parked"`
 }
 
-type HeldArchive struct {
+type StoredArchive struct {
 	ID     string `json:"id"`
 	URL    string `json:"url"`
 	Size   int64  `json:"size"`

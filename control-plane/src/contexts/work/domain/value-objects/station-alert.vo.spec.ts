@@ -13,7 +13,7 @@ const refusal = (input: Parameters<typeof StationAlert.of>[0]) => {
 };
 
 describe('StationAlert', () => {
-  it('holds a rise to watch for over a number of runs', () => {
+  it('keeps a rise to watch for over a number of runs', () => {
     expect(
       StationAlert.of({ measure: 'sent_back_rate', risesBy: 0.2, over: 20 }),
     ).toMatchObject({
@@ -26,13 +26,13 @@ describe('StationAlert', () => {
     });
   });
 
-  it('holds a fall to watch for, for a measure that is better higher', () => {
+  it('keeps a fall to watch for, for a measure that is better higher', () => {
     expect(
       StationAlert.of({ measure: 'accepted_rate', fallsBy: 0.1, over: 20 }),
     ).toMatchObject({ measure: 'accepted_rate', risesBy: null, fallsBy: 0.1 });
   });
 
-  it('holds a floor to stay over, down to 0', () => {
+  it('keeps a floor to stay over, down to 0', () => {
     expect(
       StationAlert.of({ measure: 'merged_rate', below: 0.4, over: 20 }),
     ).toMatchObject({ measure: 'merged_rate', above: null, below: 0.4 });
@@ -41,7 +41,7 @@ describe('StationAlert', () => {
     ).toMatchObject({ below: 0 });
   });
 
-  it('holds a cost to stay under, in whatever amount it is', () => {
+  it('keeps a cost to stay under, in whatever amount it is', () => {
     expect(
       StationAlert.of({ measure: 'cost_per_run', above: 5, over: 10 }),
     ).toMatchObject({ measure: 'cost_per_run', risesBy: null, above: 5 });

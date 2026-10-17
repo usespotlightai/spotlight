@@ -28,7 +28,7 @@ const ENDED: RememberedRun = {
 const asking = (input: {
   run?: Partial<RememberedRun>;
   available?: boolean;
-  held?: MemoryDraft | null;
+  existing?: MemoryDraft | null;
 }) => {
   const added: MemoryDraft[] = [];
   const saved: MemoryDraft[] = [];
@@ -44,7 +44,7 @@ const asking = (input: {
       }),
     } as unknown as WorkPort,
     {
-      forTask: async () => input.held ?? null,
+      forTask: async () => input.existing ?? null,
       add: async (draft: MemoryDraft) => {
         added.push(draft);
       },
@@ -80,7 +80,7 @@ describe('asking for memories when a run ends', () => {
     const first = asking({});
     await first.runEnded();
 
-    const again = asking({ held: first.added[0] });
+    const again = asking({ existing: first.added[0] });
     await again.runEnded(RunId.of('run_2'));
 
     expect(again.added).toHaveLength(0);
@@ -107,7 +107,7 @@ describe('asking for memories when a run ends', () => {
     const first = asking({});
     await first.runEnded();
 
-    const again = asking({ held: first.added[0] });
+    const again = asking({ existing: first.added[0] });
     await again.runEnded();
 
     expect(again.saved).toHaveLength(0);

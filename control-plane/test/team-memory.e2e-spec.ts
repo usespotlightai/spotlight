@@ -122,7 +122,7 @@ describe('the team’s memory', () => {
     );
   });
 
-  it('holds a memory to a station and the paths of its line’s repository', async () => {
+  it('ties a memory to a station and the paths of its line’s repository', async () => {
     const written = await writing({
       kind: 'rationale',
       body: 'Uploads retry in the request, not from a queue.',
@@ -220,12 +220,12 @@ describe('the team’s memory', () => {
   });
 
   it('retires a memory only with a reason, and only once', async () => {
-    const held = (
+    const memory = (
       await writing({ kind: 'failure', body: 'The upload test flakes.' })
     ).body as MemoryBody;
     const retire = (reason: string) =>
       served(app)
-        .post(`${memories()}/${held.id}/retire`)
+        .post(`${memories()}/${memory.id}/retire`)
         .set(TEST_USER_HEADER, team.owner.value)
         .send({ reason });
 
@@ -241,7 +241,7 @@ describe('the team’s memory', () => {
       supersededBy: null,
     });
     expect(again.status).toBe(409);
-    expect((await listing()).map((each) => each.id)).not.toContain(held.id);
+    expect((await listing()).map((each) => each.id)).not.toContain(memory.id);
   });
 
   it('keeps one correction when two arrive at once, and refuses correcting a retired memory', async () => {
@@ -269,7 +269,7 @@ describe('the team’s memory', () => {
   });
 
   it('stops a retired memory reaching later runs', async () => {
-    const held = (
+    const memory = (
       await writing({ kind: 'environment', body: 'CI has no network.' })
     ).body as MemoryBody;
     const site = {
@@ -284,14 +284,14 @@ describe('the team’s memory', () => {
         .filter((each) => each.appliesAt(site))
         .map((each) => each.id.value);
 
-    expect(await applying()).toContain(held.id);
+    expect(await applying()).toContain(memory.id);
 
     await served(app)
-      .post(`${memories()}/${held.id}/retire`)
+      .post(`${memories()}/${memory.id}/retire`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ reason: 'CI has network now.' });
 
-    expect(await applying()).not.toContain(held.id);
+    expect(await applying()).not.toContain(memory.id);
   });
 
   it('knows no memory of another team', async () => {

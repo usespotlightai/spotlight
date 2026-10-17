@@ -39,14 +39,14 @@ const plainly = (value: Record<string, unknown> | undefined): string | null => {
     return null;
   }
 
-  for (const held of Object.values(value)) {
-    if (held === null || held === undefined) {
+  for (const entry of Object.values(value)) {
+    if (entry === null || entry === undefined) {
       continue;
     }
-    if (typeof held === 'object') {
-      return JSON.stringify(held);
+    if (typeof entry === 'object') {
+      return JSON.stringify(entry);
     }
-    return String(held);
+    return String(entry);
   }
 
   return null;

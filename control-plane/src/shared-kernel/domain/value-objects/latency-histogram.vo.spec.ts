@@ -26,7 +26,7 @@ describe('LatencyHistogram', () => {
     expect(counts[LATENCY_BUCKETS - 1]).toBe(1);
   });
 
-  it('estimates a percentile within the bucket that holds it', () => {
+  it('estimates a percentile within the bucket that contains it', () => {
     const histogram = LatencyHistogram.timing([200, 400, 900]);
 
     expect(histogram.percentile(50)).toBe(316);

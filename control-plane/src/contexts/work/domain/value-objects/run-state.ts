@@ -10,7 +10,7 @@ export const RUN_STATES = [
 
 export type RunState = (typeof RUN_STATES)[number];
 
-export const HELD_RUN_STATES = [
+export const LEASED_RUN_STATES = [
   'claimed',
   'waiting',
 ] as const satisfies readonly RunState[];

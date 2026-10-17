@@ -70,7 +70,7 @@ type TeamBetween<T> = (
   max: number,
 ) => Promise<readonly T[]>;
 
-export interface HistoryHeld {
+export interface HistoryRepositories {
   readonly records: Pick<
     RunRecordRepository,
     'lastConfigRunsBefore' | 'ofTasks'
@@ -91,23 +91,23 @@ export interface HistoryHeld {
   readonly chats: { readonly ofTeamBetween: TeamBetween<ChatRecord> };
 }
 
-export const heldHistoryOf = async (
-  held: HistoryHeld,
+export const storedHistoryOf = async (
+  repositories: HistoryRepositories,
   { workspaceId, teamId, period }: TeamInPeriod,
 ): Promise<TeamHistory> => {
   const window = { workspaceId, teamId, ...period.lookback };
 
   return {
-    records: await held.records.endedForTeam(window, ALL),
-    deliveries: await held.deliveries.ofTeamBetween(window, ALL),
-    touches: await held.touches.ofTeamBetween(window, ALL),
-    failures: await held.failures.ofTeamBetween(window, ALL),
-    chats: await held.chats.ofTeamBetween(window, ALL),
+    records: await repositories.records.endedForTeam(window, ALL),
+    deliveries: await repositories.deliveries.ofTeamBetween(window, ALL),
+    touches: await repositories.touches.ofTeamBetween(window, ALL),
+    failures: await repositories.failures.ofTeamBetween(window, ALL),
+    chats: await repositories.chats.ofTeamBetween(window, ALL),
   };
 };
 
-export const heldCarriedOf = async (
-  held: HistoryHeld,
+export const storedCarriedOf = async (
+  repositories: HistoryRepositories,
   team: TeamInPeriod,
   history: TeamHistory,
 ): Promise<CarriedConfigs> => {
@@ -115,16 +115,19 @@ export const heldCarriedOf = async (
 
   return {
     from,
-    lastRuns: await held.records.lastConfigRunsBefore(
+    lastRuns: await repositories.records.lastConfigRunsBefore(
       team.teamId,
       stationsOf(history.records).map(({ stationId }) => ({ stationId, from })),
     ),
   };
 };
 
-const openingsFor = async (held: HistoryHeld, history: TeamHistory) =>
+const openingsFor = async (
+  repositories: HistoryRepositories,
+  history: TeamHistory,
+) =>
   openingsOf(
-    await held.touches.forTasks([
+    await repositories.touches.forTasks([
       ...history.failures.map((each) => each.taskId),
       ...history.deliveries.map((each) => each.taskId),
     ]),
@@ -136,7 +139,7 @@ export interface PullRequestReach {
   readonly max: number;
 }
 
-export interface PullRequestsHeld {
+export interface PullRequestRepositories {
   readonly records: {
     readonly seenForTeamBetween: (
       window: TeamPullRequestWindow,
@@ -150,7 +153,7 @@ export interface PullRequestsHeld {
   };
 }
 
-const heldPullRequestOf = (
+const storedPullRequestOf = (
   record: PullRequestRecord,
   shape: TaskChangeShape | null,
   spends: readonly (Spend | null)[],
@@ -178,9 +181,9 @@ const heldPullRequestOf = (
   });
 };
 
-export const pullRequestsHeldIn = async (
+export const pullRequestsStoredIn = async (
   runs: Pick<RunRecordRepository, 'ofTasks'>,
-  pullRequests: PullRequestsHeld,
+  pullRequests: PullRequestRepositories,
   { workspaceId, teamId, period }: TeamInPeriod,
   reach: PullRequestReach,
 ): Promise<readonly TeamPullRequest[]> => {
@@ -204,7 +207,7 @@ export const pullRequestsHeldIn = async (
 
   return records.flatMap((record) => {
     const owner = record.owner?.taskId;
-    const view = heldPullRequestOf(
+    const view = storedPullRequestOf(
       record,
       (owner && shapes.find((each) => each.taskId.equals(owner))) || null,
       owner
@@ -268,19 +271,19 @@ const listedRunOf = (
 };
 
 export const runsListedIn = async (
-  held: Pick<HistoryHeld, 'records' | 'touches' | 'deliveries'>,
+  repositories: Pick<HistoryRepositories, 'records' | 'touches' | 'deliveries'>,
   listing: RunListing,
 ): Promise<RunsListed> => {
-  const listed = await held.records.listedForTeam(listing);
+  const listed = await repositories.records.listedForTeam(listing);
   const worked = tasksOf(listed.records).map((each) => TaskId.of(each));
   const openers = new Map(
-    (await held.touches.forTasks(worked)).map((each) => [
+    (await repositories.touches.forTasks(worked)).map((each) => [
       each.taskId.value,
       each.opening?.by?.value ?? null,
     ]),
   );
   const deliveries = new Map(
-    (await held.deliveries.forTasks(worked)).map((each) => [
+    (await repositories.deliveries.forTasks(worked)).map((each) => [
       each.taskId.value,
       each.state,
     ]),
@@ -302,26 +305,28 @@ export const runsListedIn = async (
 };
 
 export const insightsReaderInMemory = (
-  held: HistoryHeld,
+  historyRepositories: HistoryRepositories,
   scores: ScoreRepository = new ScoresInMemory(),
-  pullRequests: PullRequestsHeld = {
+  pullRequests: PullRequestRepositories = {
     records: new PullRequestRecordsInMemory(),
     shapes: new TaskChangeShapesInMemory(),
   },
 ): InsightsReaderPort => ({
   stationCounts: async (team) => {
-    const history = await heldHistoryOf(held, team);
+    const history = await storedHistoryOf(historyRepositories, team);
 
     return teamCountsOf(
       {
         ...history,
-        touches: [...(await openingsFor(held, history)).values()],
+        touches: [
+          ...(await openingsFor(historyRepositories, history)).values(),
+        ],
       },
       team.period,
     );
   },
   costCounts: async (team) => {
-    const history = await heldHistoryOf(held, team);
+    const history = await storedHistoryOf(historyRepositories, team);
 
     return {
       current: costCountsOf(history, team.period.current),
@@ -329,28 +334,41 @@ export const insightsReaderInMemory = (
     };
   },
   flowCounts: async (team) => {
-    const history = await heldHistoryOf(held, team);
+    const history = await storedHistoryOf(historyRepositories, team);
 
-    return flowCountsOf(history, team.period, await openingsFor(held, history));
+    return flowCountsOf(
+      history,
+      team.period,
+      await openingsFor(historyRepositories, history),
+    );
   },
   peopleCounts: async (team) =>
-    peopleCountsOf(await heldHistoryOf(held, team), team.period),
+    peopleCountsOf(
+      await storedHistoryOf(historyRepositories, team),
+      team.period,
+    ),
   overviewCounts: async (team) => {
-    const history = await heldHistoryOf(held, team);
+    const history = await storedHistoryOf(historyRepositories, team);
 
     return overviewCountsOf(
       history,
       team.period,
-      await heldCarriedOf(held, team, history),
-      await openingsFor(held, history),
+      await storedCarriedOf(historyRepositories, team, history),
+      await openingsFor(historyRepositories, history),
     );
   },
   toolCounts: async (team) =>
-    toolCountsOf(await heldHistoryOf(held, team), team.period.current),
+    toolCountsOf(
+      await storedHistoryOf(historyRepositories, team),
+      team.period.current,
+    ),
   memoryCounts: async (team) =>
-    memoryCountsOf(await heldHistoryOf(held, team), team.period.current),
+    memoryCountsOf(
+      await storedHistoryOf(historyRepositories, team),
+      team.period.current,
+    ),
   setupCounts: async (team, filter) => {
-    const history = await heldHistoryOf(held, team);
+    const history = await storedHistoryOf(historyRepositories, team);
     const records = setupRunsWithin(
       history.records,
       team.period.current,
@@ -370,19 +388,19 @@ export const insightsReaderInMemory = (
     );
   },
   changeCounts: async (team) => {
-    const history = await heldHistoryOf(held, team);
+    const history = await storedHistoryOf(historyRepositories, team);
 
     return changeCountsOf(
       history,
       team.period,
-      await heldCarriedOf(held, team, history),
+      await storedCarriedOf(historyRepositories, team, history),
       await scores.ofRuns(history.records.map((each) => each.runId)),
     );
   },
   pullRequestCounts: async (team, repositories) =>
     pullRequestCountsOf(
-      await pullRequestsHeldIn(
-        held.records,
+      await pullRequestsStoredIn(
+        historyRepositories.records,
         pullRequests,
         team,
         reachFrom(team.period.current.from, repositories),
@@ -391,8 +409,8 @@ export const insightsReaderInMemory = (
     ),
   pullRequestPage: async (team, { repositories, filter, page, size }) => {
     const listed = filteredPullRequests(
-      await pullRequestsHeldIn(
-        held.records,
+      await pullRequestsStoredIn(
+        historyRepositories.records,
         pullRequests,
         team,
         reachFrom(team.period.current.from, repositories),
@@ -406,10 +424,10 @@ export const insightsReaderInMemory = (
       pullRequests: listed.slice((page - 1) * size, page * size),
     };
   },
-  runPage: (listing) => runsListedIn(held, listing),
+  runPage: (listing) => runsListedIn(historyRepositories, listing),
   shippingCounts: async (team, repositories) => {
-    const reached = await pullRequestsHeldIn(
-      held.records,
+    const reached = await pullRequestsStoredIn(
+      historyRepositories.records,
       pullRequests,
       team,
       reachFrom(team.period.previous.from, repositories),
@@ -418,7 +436,7 @@ export const insightsReaderInMemory = (
     return shippingCountsOf(
       reached,
       pipelineCountsOf(
-        await heldHistoryOf(held, team),
+        await storedHistoryOf(historyRepositories, team),
         shippedTaskIdsOf(reached, team.period),
         team.period,
       ),

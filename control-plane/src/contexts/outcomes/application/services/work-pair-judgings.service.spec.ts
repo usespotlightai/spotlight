@@ -69,7 +69,7 @@ const working = async (
   const work = new WorkPairJudgings(
     judgings,
     {
-      holds: async () => true,
+      hasTask: async () => true,
       of: async (runId) => evidence[runId] ?? null,
       judgesOnTeam: async () => new Map(),
       judgeAt: async () => null,
@@ -152,10 +152,10 @@ describe('WorkPairJudgings', () => {
         ],
       };
     });
-    const [held] = [...judgings.held.values()];
+    const [judging] = [...judgings.stored.values()];
 
-    expect(held?.owesWork).toBe(true);
-    expect(held?.spent.costs).toEqual([{ amount: 0.02, currency: 'USD' }]);
+    expect(judging?.owesWork).toBe(true);
+    expect(judging?.spent.costs).toEqual([{ amount: 0.02, currency: 'USD' }]);
     expect(judgings.events).toEqual([]);
   });
 });

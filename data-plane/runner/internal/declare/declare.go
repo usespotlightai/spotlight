@@ -456,7 +456,7 @@ func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	if !jsonObject(proposal.Station) {
-		refuse(writer, http.StatusUnprocessableEntity, "the station block is a JSON object, as the line resource holds a station")
+		refuse(writer, http.StatusUnprocessableEntity, "the station block is a JSON object, as the line resource contains a station")
 		return
 	}
 

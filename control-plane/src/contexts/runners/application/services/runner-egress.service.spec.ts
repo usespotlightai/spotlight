@@ -41,7 +41,7 @@ const PLATFORM: PlatformEgressSettings = {
 };
 
 const egressOf = (
-  held: Runner | null,
+  stored: Runner | null,
   given: {
     pool?: RunnerPool | null;
     egress?: Egress | null;
@@ -52,9 +52,9 @@ const egressOf = (
   new RunnerEgress(
     {
       findByEgressTokenHash: async (hash: TokenHash) =>
-        held?.egressTokenHash?.equals(hash) ? held : null,
+        stored?.egressTokenHash?.equals(hash) ? stored : null,
       findByProxyCredentialHash: async (hash: TokenHash) =>
-        held?.proxyCredentialHash?.equals(hash) ? held : null,
+        stored?.proxyCredentialHash?.equals(hash) ? stored : null,
     } as unknown as RunnerRepository,
     {
       hash: (token: string) => (HASHES[token] ?? 'f').repeat(64),
@@ -80,7 +80,7 @@ const proxied = (pool: RunnerPool) =>
   aRunner({ through: pool, host: null, proxyCredentialHash: hashOf('d') });
 
 describe('RunnerEgress', () => {
-  it('admits the egress of a runner holding its work, for that work', async () => {
+  it('admits the egress of a runner with a lease on its work, for that work', async () => {
     const runner = aRunner().took(RunnerWork.run('run_1'), later(1));
 
     await expect(
@@ -92,7 +92,7 @@ describe('RunnerEgress', () => {
     });
   });
 
-  it('refuses no token, an unknown one, and a runner that holds nothing or has ended', async () => {
+  it('refuses no token, an unknown one, and a runner that leases nothing or has ended', async () => {
     const waiting = aRunner();
     const ended = waiting
       .took(RunnerWork.check('stack_1'), later(1))
@@ -197,30 +197,30 @@ describe('RunnerEgress', () => {
       const pool = throughShared();
       const runner = proxied(pool);
       const egress = { egressId: EGRESS_ID.value };
-      const held = { pool, egress: anEgress() };
+      const setting = { pool, egress: anEgress() };
 
       await expect(
-        egressOf(runner, held).admitThrough(egress, 'other', later(1)),
+        egressOf(runner, setting).admitThrough(egress, 'other', later(1)),
       ).resolves.toBeNull();
       await expect(
-        egressOf(runner, held).admitThrough(egress, '', later(1)),
+        egressOf(runner, setting).admitThrough(egress, '', later(1)),
       ).resolves.toBeNull();
       await expect(
-        egressOf(runner.ended(later(1)), held).admitThrough(
+        egressOf(runner.ended(later(1)), setting).admitThrough(
           egress,
           'proxy-credential',
           later(2),
         ),
       ).resolves.toBeNull();
       await expect(
-        egressOf(runner, held).admitThrough(
+        egressOf(runner, setting).admitThrough(
           { egressId: 'spotlight' },
           'proxy-credential',
           later(1),
         ),
       ).resolves.toBeNull();
       await expect(
-        egressOf(runner, held).admitThrough(
+        egressOf(runner, setting).admitThrough(
           { egressId: 'egress_2' },
           'proxy-credential',
           later(1),
@@ -234,10 +234,10 @@ describe('RunnerEgress', () => {
         .took(RunnerWork.run('run_1'), later(1))
         .ended(later(2));
       const egress = { egressId: EGRESS_ID.value };
-      const held = { pool, egress: anEgress() };
+      const setting = { pool, egress: anEgress() };
 
       await expect(
-        egressOf(ended, held).recordsThrough(
+        egressOf(ended, setting).recordsThrough(
           egress,
           'proxy-credential',
           later(2 + 120_000),
@@ -249,21 +249,21 @@ describe('RunnerEgress', () => {
         work: { kind: 'run', id: 'run_1' },
       });
       await expect(
-        egressOf(ended, held).recordsThrough(
+        egressOf(ended, setting).recordsThrough(
           egress,
           'proxy-credential',
           later(2 + 120_001),
         ),
       ).resolves.toBeNull();
       await expect(
-        egressOf(ended, held).recordsThrough(
+        egressOf(ended, setting).recordsThrough(
           { egressId: 'egress_2' },
           'proxy-credential',
           later(3),
         ),
       ).resolves.toBeNull();
       await expect(
-        egressOf(ended, held).admitThrough(
+        egressOf(ended, setting).admitThrough(
           egress,
           'proxy-credential',
           later(3),

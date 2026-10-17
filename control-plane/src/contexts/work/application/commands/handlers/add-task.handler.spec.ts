@@ -114,7 +114,7 @@ const tasks = () =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => null),
+    findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -143,7 +143,7 @@ const lines = (found: Line | null = line()) =>
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => found),
-    holding: vi.fn(async () => found),
+    findByStation: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
   }) satisfies LineRepository;
@@ -293,7 +293,7 @@ describe('AddTaskHandler', () => {
     expect(added?.currentRunId?.value).toBe('run_1');
   });
 
-  it('holds work back at a station no runners answer for', async () => {
+  it('keeps work back at a station no runners answer for', async () => {
     await addTask(
       new AddTaskCommand(
         'team_1',
@@ -309,7 +309,7 @@ describe('AddTaskHandler', () => {
     expect(added?.currentRunId).toBeNull();
   });
 
-  it('refuses a station the line does not hold', async () => {
+  it('refuses a station the line does not have', async () => {
     await expect(
       addTask(
         new AddTaskCommand(

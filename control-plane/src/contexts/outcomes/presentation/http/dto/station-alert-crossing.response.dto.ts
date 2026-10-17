@@ -115,7 +115,7 @@ export class StationAlertCrossingResponseDto {
     enum: INSIGHTS_PERIODS,
     example: '7d',
     description:
-      'The shortest Insights period whose days hold the moment the alert went off',
+      'The shortest Insights period whose days include the moment the alert went off',
   })
   readonly insightsPeriod: string;
 

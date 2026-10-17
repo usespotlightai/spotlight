@@ -18,8 +18,8 @@ const REPLAY_REFUSALS = [
 
 export type ReplayRefusal = (typeof REPLAY_REFUSALS)[number];
 
-export const isReplayRefusal = (held: string): held is ReplayRefusal =>
-  (REPLAY_REFUSALS as readonly string[]).includes(held);
+export const isReplayRefusal = (value: string): value is ReplayRefusal =>
+  (REPLAY_REFUSALS as readonly string[]).includes(value);
 
 export class UnreplayableRunError extends Error {
   readonly violation = 'conflict' as const;

@@ -100,7 +100,7 @@ describe('settling', () => {
     ).toBeNull();
   });
 
-  it('settles nothing on a task that never held a list', () => {
+  it('settles nothing on a task that never had a list', () => {
     expect(settling([note('asked')], done, NOW)).toBeNull();
   });
 

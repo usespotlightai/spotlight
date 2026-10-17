@@ -54,7 +54,7 @@ describe('WorkspaceGeneral', () => {
     expect(screen.getByText('usespotlight.ai/w/acme-inc')).toBeVisible();
   });
 
-  it('holds the place of the name while the workspace loads', () => {
+  it('keeps the place of the name while the workspace loads', () => {
     workspace.mockReturnValue(undefined);
 
     showing();

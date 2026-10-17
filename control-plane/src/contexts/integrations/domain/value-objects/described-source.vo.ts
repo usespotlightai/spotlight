@@ -61,7 +61,7 @@ export class DescribedSource {
     }
 
     if (document !== null && document.trim() === '') {
-      throw refuse('holds a document with nothing in it');
+      throw refuse('has a document with nothing in it');
     }
 
     if (input.kind !== 'openapi' && url === null) {

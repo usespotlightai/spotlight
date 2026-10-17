@@ -102,18 +102,18 @@ export class HandOver implements RunOutcomes {
     }
 
     const task = await this.tasks.find(ended.taskId);
-    if (!task?.heldBy(ended.runId)) {
+    if (!task?.hasCurrentRun(ended.runId)) {
       return null;
     }
 
     if (!task.standsAt(revision)) {
       throw new InconsistentStateError(
         'task',
-        'is held by a run handed a revision it has since moved on from',
+        'has a current run with a revision that the task has since moved on from',
       );
     }
 
-    return { task, line: await this.lines.holding(task.stationId) };
+    return { task, line: await this.lines.findByStation(task.stationId) };
   }
 
   private sayingOf(
@@ -167,7 +167,7 @@ export class HandOver implements RunOutcomes {
             Placement.atTheBack(ranks),
             saying,
           )
-        : task.movedAsHeldBack(
+        : task.moveAsDeferred(
             run,
             routing.line,
             routing.to.id,

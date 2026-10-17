@@ -12,16 +12,16 @@ const (
 )
 
 type EgressHanded struct {
-	URL        string          `json:"url"`
-	Token      string          `json:"token,omitempty"`
-	Credential string          `json:"credential"`
-	Allow      []string        `json:"allow,omitempty"`
-	Reads      []string        `json:"reads,omitempty"`
-	Held       []HeldByTheHost `json:"held,omitempty"`
-	Send       *HostCall       `json:"send,omitempty"`
+	URL             string           `json:"url"`
+	Token           string           `json:"token,omitempty"`
+	Credential      string           `json:"credential"`
+	Allow           []string         `json:"allow,omitempty"`
+	Reads           []string         `json:"reads,omitempty"`
+	HostCredentials []HostCredential `json:"hostCredentials,omitempty"`
+	Send            *HostCall        `json:"send,omitempty"`
 }
 
-type HeldByTheHost struct {
+type HostCredential struct {
 	Name   string `json:"name"`
 	Host   string `json:"host"`
 	Header string `json:"header"`
@@ -105,16 +105,16 @@ type EgressAdmitted struct {
 }
 
 const (
-	MaxHoldsAtOnce   = 500
+	MaxRunsAtOnce    = 500
 	MaxRecordsAtOnce = 2000
 )
 
-type EgressHolds struct {
+type ActiveRunsRequest struct {
 	ProxyCredentials []string `json:"proxyCredentials"`
 }
 
-type EgressHeld struct {
-	Held []string `json:"held"`
+type ActiveRunsResponse struct {
+	Active []string `json:"active"`
 }
 
 const (

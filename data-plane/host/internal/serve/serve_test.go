@@ -662,11 +662,11 @@ func servingWithin(t *testing.T, parent context.Context, opts serve.Options, eng
 	return cancel, stopped
 }
 
-func eventually(t *testing.T, what string, holds func() bool) {
+func eventually(t *testing.T, what string, isTrue func() bool) {
 	t.Helper()
 
 	deadline := time.Now().Add(3 * time.Second)
-	for !holds() {
+	for !isTrue() {
 		if time.Now().After(deadline) {
 			t.Fatalf("never saw: %s", what)
 		}
@@ -1089,7 +1089,7 @@ func TestLooksInsideAgainWhenATagMovesAndFailsARunItsHarnessLeft(t *testing.T) {
 	})
 
 	done, _ := pool.worker.completion("run-runner_1")
-	if !done.Failed || !done.Unprepared || !strings.Contains(done.Message, "no longer holds the claude-code harness") {
+	if !done.Failed || !done.Unprepared || !strings.Contains(done.Message, "no longer has the claude-code harness") {
 		t.Errorf("completed %+v", done)
 	}
 	if got := len(engine.workSandboxes()); got != 0 {
@@ -1164,7 +1164,7 @@ func TestDoesNotPullADigestItAlreadyHas(t *testing.T) {
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
 	if pulls := engine.pulled(); len(pulls) != 0 {
-		t.Errorf("pulled %v though it held the digest", pulls)
+		t.Errorf("pulled %v though it had the digest", pulls)
 	}
 }
 
@@ -1316,7 +1316,7 @@ func TestKeepsTheCheckLeasedWhileItPullsAndStarts(t *testing.T) {
 	}
 }
 
-func TestStartsNoSandboxForACheckItNoLongerHoldsWhileItPulls(t *testing.T) {
+func TestStartsNoSandboxForACheckItNoLongerLeasesWhileItPulls(t *testing.T) {
 	for name, gone := range map[string]func(w *worker){
 		"told to stop": func(w *worker) { w.checksGone = true },
 		"refused": func(w *worker) {
@@ -1354,12 +1354,12 @@ func TestStartsNoSandboxForACheckItNoLongerHoldsWhileItPulls(t *testing.T) {
 
 			time.Sleep(400 * time.Millisecond)
 			if started := engine.workSandboxes(); len(started) != 0 {
-				t.Errorf("started %v for a check it no longer holds", started)
+				t.Errorf("started %v for a check it no longer leases", started)
 			}
 			pool.worker.mu.Lock()
 			defer pool.worker.mu.Unlock()
 			if len(pool.worker.checked) != 0 {
-				t.Errorf("reported %v for a check it no longer holds", pool.worker.checked)
+				t.Errorf("reported %v for a check it no longer leases", pool.worker.checked)
 			}
 		})
 	}
@@ -1622,11 +1622,11 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 		}
 		return handed
 	}
-	wantHeld := []protocol.HeldByTheHost{{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-test"}}
+	wantHostCredentials := []protocol.HostCredential{{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-test"}}
 
 	_, runEgress, _ := engine.egressOf("runner_1")
-	if held := told(runEgress).Held; !slices.Equal(held, wantHeld) {
-		t.Errorf("the run's egress holds %+v", held)
+	if hostCredentials := told(runEgress).HostCredentials; !slices.Equal(hostCredentials, wantHostCredentials) {
+		t.Errorf("the run's egress has %+v", hostCredentials)
 	}
 
 	sandboxed := engine.sandbox(engine.workSandboxes()[0])
@@ -1636,7 +1636,7 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 		}
 	}
 	if slices.Contains(sandboxed.Env, "ANTHROPIC_API_KEY=sk-test") {
-		t.Error("the sandbox holds the harness key")
+		t.Error("the sandbox has the harness key")
 	}
 
 	engine.mu.Lock()
@@ -1658,7 +1658,7 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	for _, spec := range engine.egresses {
 		if spec.Labels[serve.LabelRunner] == "" {
 			probeEgress = true
-			if handed := told(spec); handed.Token != "" || !slices.Equal(handed.Held, wantHeld) {
+			if handed := told(spec); handed.Token != "" || !slices.Equal(handed.HostCredentials, wantHostCredentials) {
 				t.Errorf("the probe's egress was told %+v", handed)
 			}
 		}

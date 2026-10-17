@@ -225,8 +225,8 @@ describe('noting what a person did after a run', () => {
       server: 'linear',
     });
 
-    expect(noted.records.held.size).toBe(0);
-    expect(noted.forgotten.holds).toEqual(['ws_1 team_1 task_1']);
+    expect(noted.records.stored.size).toBe(0);
+    expect(noted.forgotten.locks).toEqual(['ws_1 team_1 task_1']);
   });
 
   it('ignores an act that names no run when the task has no ended run', async () => {
@@ -234,7 +234,7 @@ describe('noting what a person did after a run', () => {
 
     await noted.acted('closed', 11);
 
-    expect(noted.records.held.size).toBe(0);
+    expect(noted.records.stored.size).toBe(0);
   });
 
   it('ignores an act it does not know', async () => {
@@ -307,8 +307,8 @@ describe('noting how a run used its tools', () => {
       inTransaction,
     ).digested(digest('run_7'));
 
-    expect(records.held.size).toBe(0);
-    expect(forgotten.holds).toEqual(['ws_1 team_1 task_1']);
+    expect(records.stored.size).toBe(0);
+    expect(forgotten.locks).toEqual(['ws_1 team_1 task_1']);
   });
 
   it('keeps the tool use of a run heard before it ended', async () => {

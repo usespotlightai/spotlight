@@ -131,7 +131,7 @@ export class Decision {
     if (input.disputes.some((each) => !decision.bearsOn(each.path))) {
       throw new InconsistentStateError(
         'decision',
-        'holds a dispute about a file it does not bear on',
+        'has a dispute about a file it does not bear on',
       );
     }
 

@@ -3,11 +3,11 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
-  HeldRun,
-  HeldRunKind,
+  LeasedRun,
+  LeasedRunKind,
   RunnerActivityReaderPort,
 } from '@work/application/ports/runner-activity-reader.port';
-import { HELD_RUN_STATES } from '@work/domain/value-objects/run-state';
+import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import {
   line,
@@ -22,7 +22,7 @@ const kindOf = (row: {
   chatId: string | null;
   searchId: string | null;
   replayOfRunId: string | null;
-}): HeldRunKind => {
+}): LeasedRunKind => {
   if (row.chatId) {
     return 'chat';
   }
@@ -40,7 +40,7 @@ const kindOf = (row: {
 export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async heldIn(workspaceId: WorkspaceId): Promise<readonly HeldRun[]> {
+  async leasedIn(workspaceId: WorkspaceId): Promise<readonly LeasedRun[]> {
     const rows = await this.db
       .select({
         id: run.id,
@@ -67,7 +67,7 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
-          inArray(run.state, [...HELD_RUN_STATES]),
+          inArray(run.state, [...LEASED_RUN_STATES]),
           isNotNull(run.claimedBy),
         ),
       );

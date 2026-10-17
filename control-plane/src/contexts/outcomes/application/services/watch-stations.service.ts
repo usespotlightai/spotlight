@@ -24,7 +24,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 
 const UNSETTLED_SLACK = 4;
 
-export interface WatchHeld {
+export interface WatchRepositories {
   readonly records: RunRecordRepository;
   readonly deliveries: TaskDeliveryRepository;
   readonly watches: StationWatchRepository;
@@ -48,9 +48,9 @@ const newestAtEachStation = (
 
   for (const record of records) {
     const stationId = record.end?.place.stationId;
-    const held = stationId ? newest.get(stationId) : undefined;
+    const known = stationId ? newest.get(stationId) : undefined;
 
-    if (stationId && (!held || endedAt(record) > endedAt(held))) {
+    if (stationId && (!known || endedAt(record) > endedAt(known))) {
       newest.set(stationId, record);
     }
   }
@@ -71,7 +71,7 @@ const stationAt = (
 export class WatchStations {
   constructor(
     private readonly work: WorkPort,
-    private readonly held: WatchHeld,
+    private readonly repositories: WatchRepositories,
     private readonly transaction: TransactionPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -86,7 +86,7 @@ export class WatchStations {
   }
 
   async deliveryClosed(event: TaskDeliveryClosed): Promise<void> {
-    const records = await this.held.records.ofTasks([event.taskId]);
+    const records = await this.repositories.records.ofTasks([event.taskId]);
 
     for (const record of newestAtEachStation(records)) {
       if (record.end) {
@@ -111,15 +111,19 @@ export class WatchStations {
     const rules = (await this.work.alertsAt(station.stationId)) ?? [];
 
     await this.transaction.inTransaction(async () => {
-      await this.held.forgotten.holding(workspaceId, null, teamId);
+      await this.repositories.forgotten.lockForgetting(
+        workspaceId,
+        null,
+        teamId,
+      );
 
-      if (await this.held.forgotten.forgot(workspaceId, null, teamId)) {
+      if (await this.repositories.forgotten.forgot(workspaceId, null, teamId)) {
         return;
       }
 
-      const held = await this.held.watches.of(station.stationId);
+      const existing = await this.repositories.watches.of(station.stationId);
 
-      if (!held && rules.length === 0) {
+      if (!existing && rules.length === 0) {
         return;
       }
 
@@ -127,14 +131,14 @@ export class WatchStations {
       const records =
         max === 0
           ? []
-          : await this.held.records.lastAtStation({
+          : await this.repositories.records.lastAtStation({
               workspaceId,
               teamId,
               lineId: station.lineId,
               stationId: station.stationId,
               last: max * UNSETTLED_SLACK,
             });
-      const deliveries = await this.held.deliveries.forTasks(
+      const deliveries = await this.repositories.deliveries.forTasks(
         records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
       );
       const readings = await this.unforgotten(
@@ -144,7 +148,7 @@ export class WatchStations {
           reading: readingOf(rule, records, deliveries),
         })),
       );
-      const watch = held ?? StationWatch.start(station);
+      const watch = existing ?? StationWatch.start(station);
       const checked = watch.check(readings, this.clock.now(), () =>
         AlertId.of(this.ids.generate()),
       );
@@ -153,9 +157,9 @@ export class WatchStations {
         return;
       }
 
-      await (held
-        ? this.held.watches.save(checked)
-        : this.held.watches.add(checked));
+      await (existing
+        ? this.repositories.watches.save(checked)
+        : this.repositories.watches.add(checked));
     });
   }
 
@@ -175,14 +179,14 @@ export class WatchStations {
     for (const task of tasks) {
       const taskId = TaskId.of(task);
 
-      await this.held.forgotten.holding(
+      await this.repositories.forgotten.lockForgetting(
         station.workspaceId,
         taskId,
         station.teamId,
       );
 
       if (
-        await this.held.forgotten.forgot(
+        await this.repositories.forgotten.forgot(
           station.workspaceId,
           taskId,
           station.teamId,

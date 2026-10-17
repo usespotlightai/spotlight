@@ -62,7 +62,7 @@ const addressOf = (row: CandidateRow): StationAddress => {
   if (!address) {
     throw new InconsistentStateError(
       'replay candidate',
-      `is held at a station address that is no address: ${row.teamKey}/${row.lineKey}/${row.stationKey}`,
+      `is stored at a station address that is not valid: ${row.teamKey}/${row.lineKey}/${row.stationKey}`,
     );
   }
 

@@ -1,4 +1,4 @@
-import { MAX_HOLD_MS } from '@change-review/domain/value-objects/check-claim.vo';
+import { MAX_LEASE_MS } from '@change-review/domain/value-objects/check-claim.vo';
 import {
   type CheckStanding,
   checkStateAt,
@@ -13,7 +13,7 @@ const PAST_THE_HOUR = new Date(SINCE.getTime() + WAITING_LIMIT_MS + 1);
 const standing = (over: Partial<CheckStanding> = {}): CheckStanding => ({
   phase: 'waiting',
   waitingSince: SINCE,
-  hold: { leaseExpiresAt: null, claimedAt: null },
+  lease: { leaseExpiresAt: null, claimedAt: null },
   ...over,
 });
 
@@ -26,25 +26,25 @@ describe('checkStateAt', () => {
     expect(checkStateAt(standing(), PAST_THE_HOUR)).toBe('skipped');
   });
 
-  it('keeps waiting past the hour while a runner holds it, and is skipped once the hold lapses', () => {
-    const heldUntil = new Date(PAST_THE_HOUR.getTime() + 60_000);
-    const hold = { leaseExpiresAt: heldUntil, claimedAt: SINCE };
+  it('keeps waiting past the hour while a runner leases it, and is skipped once the lease lapses', () => {
+    const leasedUntil = new Date(PAST_THE_HOUR.getTime() + 60_000);
+    const lease = { leaseExpiresAt: leasedUntil, claimedAt: SINCE };
 
-    expect(checkStateAt(standing({ hold }), PAST_THE_HOUR)).toBe('waiting');
-    expect(checkStateAt(standing({ hold }), heldUntil)).toBe('skipped');
+    expect(checkStateAt(standing({ lease }), PAST_THE_HOUR)).toBe('waiting');
+    expect(checkStateAt(standing({ lease }), leasedUntil)).toBe('skipped');
   });
 
-  it('counts a check held past the ceiling as not held, however far its lease reaches', () => {
-    const ceiling = new Date(SINCE.getTime() + MAX_HOLD_MS);
-    const hold = {
+  it('counts a check leased past the ceiling as not leased, however far its lease reaches', () => {
+    const ceiling = new Date(SINCE.getTime() + MAX_LEASE_MS);
+    const lease = {
       leaseExpiresAt: new Date(ceiling.getTime() + 10 * 60_000),
       claimedAt: SINCE,
     };
 
     expect(
-      checkStateAt(standing({ hold }), new Date(ceiling.getTime() - 1)),
+      checkStateAt(standing({ lease }), new Date(ceiling.getTime() - 1)),
     ).toBe('waiting');
-    expect(checkStateAt(standing({ hold }), ceiling)).toBe('skipped');
+    expect(checkStateAt(standing({ lease }), ceiling)).toBe('skipped');
   });
 
   it('waits while it is reordered and keeps the state it settled in', () => {

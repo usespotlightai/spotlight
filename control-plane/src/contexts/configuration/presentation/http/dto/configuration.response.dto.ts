@@ -1,5 +1,5 @@
 import {
-  CONFIGURED_INTEGRATION_HOLDINGS,
+  CONFIGURED_INTEGRATION_HOLDER_RULES,
   CONFIGURED_INTEGRATION_STANDINGS,
   type DescriptionView,
   type IntegrationView,
@@ -70,10 +70,10 @@ export class IntegrationViewResponseDto {
   @ApiProperty({
     description:
       'Whose connection its tools act with: the team’s, or that of the person who started the task',
-    enum: CONFIGURED_INTEGRATION_HOLDINGS,
+    enum: CONFIGURED_INTEGRATION_HOLDER_RULES,
     example: 'team',
   })
-  readonly holding: IntegrationView['holding'];
+  readonly holder: IntegrationView['holder'];
 
   @ApiProperty({
     description: 'What the host calls the team once linked, where it says',
@@ -96,7 +96,7 @@ export class IntegrationViewResponseDto {
     this.name = integration.name;
     this.path = integration.path;
     this.standing = integration.standing;
-    this.holding = integration.holding;
+    this.holder = integration.holder;
     this.handle = integration.handle;
     this.described = integration.described
       ? new DescriptionViewResponseDto(integration.described)

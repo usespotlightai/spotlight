@@ -36,7 +36,7 @@ export class ReviewReactions {
   async onCommentPlaced(event: ReviewCommentPlaced): Promise<void> {
     const comment = await this.comments.find(event.commentId);
 
-    if (comment?.heldBy(event.reviewId)) {
+    if (comment?.belongsTo(event.reviewId)) {
       await this.comments.save(comment.postedAs(event.github));
     }
   }
@@ -44,7 +44,7 @@ export class ReviewReactions {
   async onCommentNotPosted(event: ReviewCommentNotPosted): Promise<void> {
     const comment = await this.comments.find(event.commentId);
 
-    if (comment?.heldBy(event.reviewId)) {
+    if (comment?.belongsTo(event.reviewId)) {
       await this.comments.save(comment.notPosted());
     }
   }

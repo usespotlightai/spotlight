@@ -34,8 +34,8 @@ export interface RunTally {
 
 const count = (
   records: readonly RunRecord[],
-  holds: (record: RunRecord) => boolean,
-): number => records.filter(holds).length;
+  matches: (record: RunRecord) => boolean,
+): number => records.filter(matches).length;
 
 export const runTally = (
   records: readonly RunRecord[],

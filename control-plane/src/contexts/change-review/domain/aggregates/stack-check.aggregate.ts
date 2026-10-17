@@ -1,9 +1,9 @@
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
-import { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
+import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import { StackCheckNotHeldError } from '@change-review/domain/exceptions/stack-check-not-held.error';
+import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
@@ -202,7 +202,7 @@ export class StackCheck extends EventRecorder {
       {
         phase: this.phase,
         waitingSince: this.waitingSince,
-        hold: this.claim,
+        lease: this.claim,
       },
       now,
     );
@@ -232,10 +232,10 @@ export class StackCheck extends EventRecorder {
     return (
       this.phase === 'waiting' &&
       this.stateAt(now) === 'waiting' &&
-      !this.claim.heldAt(now) &&
+      !this.claim.isLeasedAt(now) &&
       !this.claim.exhausted &&
       (!this.isReservedAt(now) ||
-        (by !== null && (this.reservation?.heldFor(by) ?? false)))
+        (by !== null && (this.reservation?.isFor(by) ?? false)))
     );
   }
 
@@ -257,7 +257,7 @@ export class StackCheck extends EventRecorder {
       );
     }
 
-    const unreserved = this.reservation?.heldFor(runner)
+    const unreserved = this.reservation?.isFor(runner)
       ? this.with({ reservation: null })
       : this.droppingReservation();
 
@@ -278,7 +278,7 @@ export class StackCheck extends EventRecorder {
   }
 
   beingCheckedBy(runner: RunnerId, now: Date): boolean {
-    return this.claim.heldBy(runner, now);
+    return this.claim.isLeasedBy(runner, now);
   }
 
   checkableAt(now: Date): boolean {
@@ -286,14 +286,14 @@ export class StackCheck extends EventRecorder {
   }
 
   isReservedAt(now: Date): boolean {
-    return this.reservation?.holdsAt(now) ?? false;
+    return this.reservation?.isActiveAt(now) ?? false;
   }
 
   reservationLapsedAt(now: Date): boolean {
     return (
       this.phase === 'waiting' &&
       this.reservation !== null &&
-      !this.reservation.holdsAt(now)
+      !this.reservation.isActiveAt(now)
     );
   }
 
@@ -318,9 +318,7 @@ export class StackCheck extends EventRecorder {
   }
 
   unreservedFor(runner: RunnerId): StackCheck {
-    return this.reservation?.heldFor(runner)
-      ? this.droppingReservation()
-      : this;
+    return this.reservation?.isFor(runner) ? this.droppingReservation() : this;
   }
 
   provisionFailed(
@@ -328,7 +326,7 @@ export class StackCheck extends EventRecorder {
     failure: ProvisionFailure,
     now: Date,
   ): StackCheck {
-    if (!this.reservation?.heldFor(runner) || this.claim.heldAt(now)) {
+    if (!this.reservation?.isFor(runner) || this.claim.isLeasedAt(now)) {
       return this;
     }
 
@@ -381,12 +379,12 @@ export class StackCheck extends EventRecorder {
   forgotten(now: Date): StackCheck {
     const forgotten = this.droppingReservation();
 
-    if (!this.claim.heldAt(now)) {
+    if (!this.claim.isLeasedAt(now)) {
       return forgotten;
     }
 
     const released = forgotten.with({ claim: this.claim.released() });
-    released.record(new HeldCheckForgotten(this.stackId));
+    released.record(new LeasedCheckForgotten(this.stackId));
 
     return released;
   }
@@ -546,7 +544,7 @@ export class StackCheck extends EventRecorder {
 
   private assertCheckedBy(runner: RunnerId, now: Date): void {
     if (!this.beingCheckedBy(runner, now)) {
-      throw new StackCheckNotHeldError(this.stackId.value);
+      throw new StackCheckNotLeasedError(this.stackId.value);
     }
   }
 

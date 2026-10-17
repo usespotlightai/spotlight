@@ -31,7 +31,7 @@ export class RunnerMemoryFilesController {
       'Every standing memory that applies to the run, as files to lay in its workspace',
   })
   @ApiOkResponse({ type: MemoryFileResponseDto, isArray: true })
-  @ApiNotFoundResponse({ description: 'No such run held by this runner' })
+  @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
   async files(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,

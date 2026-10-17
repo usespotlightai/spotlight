@@ -1,13 +1,13 @@
-import type { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import type { Dependents } from '@identity/domain/value-objects/dependents.vo';
 
 export class WorkspaceInUseError extends Error {
   readonly violation = 'conflict' as const;
 
-  constructor(slug: string, holdings: Holdings) {
+  constructor(slug: string, dependents: Dependents) {
     super(
-      holdings.isEmpty
+      dependents.isEmpty
         ? `Workspace ${slug} still has recent changes settling. Please try again shortly.`
-        : `Workspace ${slug} is not empty. Still holds: ${holdings.held.join(', ')}`,
+        : `Workspace ${slug} is not empty. It still has: ${dependents.names.join(', ')}`,
     );
     this.name = 'WorkspaceInUseError';
   }

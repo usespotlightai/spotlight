@@ -2,7 +2,7 @@ import { HostConnection } from '@integrations/domain/aggregates/host-connection.
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import { ConnectionChoice } from '@integrations/domain/services/connection-choice';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
+import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -14,8 +14,13 @@ const LINEAR = SourceKey.of('linear');
 const ALICE = UserId.of('user_alice');
 const NOW = new Date('2026-10-05T10:00:00.000Z');
 
-const integration = (holding = ConnectionHolding.requester()) =>
-  Integration.of({ source: LINEAR, name: 'Linear', connects: true, holding });
+const integration = (holder = ConnectionHolderRule.requester()) =>
+  Integration.of({
+    source: LINEAR,
+    name: 'Linear',
+    connects: true,
+    holder,
+  });
 
 const connected = (holder: ConnectionHolder) =>
   HostConnection.linkFrom({
@@ -31,7 +36,7 @@ describe('ConnectionChoice', () => {
     it('takes the team’s connection for an integration that acts as the team, whoever asked', () => {
       for (const personId of [ALICE, null]) {
         expect(
-          ConnectionChoice.choose(integration(ConnectionHolding.team()), {
+          ConnectionChoice.choose(integration(ConnectionHolderRule.team()), {
             personId,
             member: false,
           }),
@@ -90,7 +95,7 @@ describe('ConnectionChoice', () => {
       ).toBe('renewal-refused');
     });
 
-    it('uses a person’s connection they hold', () => {
+    it('uses a person’s connection they own', () => {
       expect(
         ConnectionChoice.usable(integration(), ALICES, connected(ALICES)),
       ).toBeNull();
@@ -99,7 +104,7 @@ describe('ConnectionChoice', () => {
     it('lets the team go on without a connection, as it always has', () => {
       expect(
         ConnectionChoice.usable(
-          integration(ConnectionHolding.team()),
+          integration(ConnectionHolderRule.team()),
           ConnectionHolder.team(),
           null,
         ),

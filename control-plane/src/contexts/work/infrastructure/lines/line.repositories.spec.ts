@@ -40,23 +40,23 @@ const compiled = (
   });
 
 const read = (...args: Parameters<typeof compiled>) => {
-  const held = compiled(...args);
+  const parsed = compiled(...args);
 
-  if (!held.ok) {
-    throw new Error(held.problems.map((each) => each.reason).join(', '));
+  if (!parsed.ok) {
+    throw new Error(parsed.problems.map((each) => each.reason).join(', '));
   }
 
-  return held.line;
+  return parsed.line;
 };
 
 const refusedAt = (...args: Parameters<typeof compiled>) => {
-  const held = compiled(...args);
+  const parsed = compiled(...args);
 
-  if (held.ok) {
+  if (parsed.ok) {
     throw new Error('was not refused');
   }
 
-  return held.problems.map((each) => dottedOf(each.field));
+  return parsed.problems.map((each) => dottedOf(each.field));
 };
 
 const DIGEST = `sha256:${'c'.repeat(64)}`;
@@ -105,11 +105,11 @@ describe('the repositories a line works', () => {
   });
 
   it('refuses two repositories that share a name', () => {
-    const held = compiled(['acme/api', 'other/api']);
+    const parsed = compiled(['acme/api', 'other/api']);
 
-    expect(held.ok).toBe(false);
-    if (!held.ok) {
-      expect(held.problems[0]?.reason).toContain('api');
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.problems[0]?.reason).toContain('api');
     }
   });
 

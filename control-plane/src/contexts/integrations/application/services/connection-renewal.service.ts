@@ -108,14 +108,14 @@ export class ConnectionRenewal {
       throw error;
     }
 
-    const held = await this.connections.of(
+    const current = await this.connections.of(
       claimed.teamId,
       claimed.source,
       claimed.holder,
     );
     const claim = claimed.renewalClaim;
 
-    return claim && held?.renewalClaim?.equals(claim) ? held : null;
+    return claim && current?.renewalClaim?.equals(claim) ? current : null;
   }
 
   private async renewing(claimed: HostConnection): Promise<AccessToken | null> {
@@ -141,8 +141,8 @@ export class ConnectionRenewal {
         refreshToken,
       );
     } catch (error) {
-      await this.settle(claimed, refreshToken, (held) =>
-        held.renewalReleased(),
+      await this.settle(claimed, refreshToken, (current) =>
+        current.renewalReleased(),
       );
       throw error;
     }
@@ -150,20 +150,20 @@ export class ConnectionRenewal {
     const at = this.clock.now();
 
     if (renewed.kind === 'renewed') {
-      await this.settle(claimed, refreshToken, (held) =>
-        held.renewedWith(renewed.grant),
+      await this.settle(claimed, refreshToken, (current) =>
+        current.renewedWith(renewed.grant),
       );
     }
 
     if (renewed.kind === 'refused') {
-      await this.settle(claimed, refreshToken, (held) =>
-        held.renewalRefused(at),
+      await this.settle(claimed, refreshToken, (current) =>
+        current.renewalRefused(at),
       );
     }
 
     if (renewed.kind === 'unrenewable') {
-      await this.settle(claimed, refreshToken, (held) =>
-        held.renewalReleased(),
+      await this.settle(claimed, refreshToken, (current) =>
+        current.renewalReleased(),
       );
     }
 
@@ -173,13 +173,13 @@ export class ConnectionRenewal {
   private async settle(
     claimed: HostConnection,
     used: AccessToken,
-    change: (held: HostConnection) => HostConnection,
+    change: (current: HostConnection) => HostConnection,
   ): Promise<void> {
-    let held: HostConnection | null = claimed;
+    let current: HostConnection | null = claimed;
 
-    for (let attempt = 1; held; attempt++) {
+    for (let attempt = 1; current; attempt++) {
       try {
-        await this.connections.save(change(held));
+        await this.connections.save(change(current));
         return;
       } catch (error) {
         if (
@@ -196,7 +196,7 @@ export class ConnectionRenewal {
         claimed.holder,
       );
 
-      held = reloaded?.refreshToken?.equals(used) ? reloaded : null;
+      current = reloaded?.refreshToken?.equals(used) ? reloaded : null;
     }
   }
 }

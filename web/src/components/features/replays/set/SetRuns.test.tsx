@@ -62,7 +62,7 @@ const SET: ReplaySet = {
   ],
 };
 
-const HELD =
+const FROZEN_BY_SEARCH =
   'A search of this set is running. Add or take out runs after the search ends or a person stops it.';
 
 const renderRuns = (frozen: boolean) =>
@@ -94,8 +94,8 @@ describe('SetRuns', () => {
       name: 'Take Split the invoice job out of the set',
     });
     expect(adding).toBeDisabled();
-    expect(adding).toHaveAccessibleDescription(HELD);
+    expect(adding).toHaveAccessibleDescription(FROZEN_BY_SEARCH);
     expect(removing).toBeDisabled();
-    expect(removing).toHaveAccessibleDescription(HELD);
+    expect(removing).toHaveAccessibleDescription(FROZEN_BY_SEARCH);
   });
 });

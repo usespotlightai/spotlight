@@ -39,9 +39,9 @@ const search = () =>
 
 const working = () => {
   const saved: Run[] = [];
-  const held = search();
-  let current: Run = held.renewLease(RUNNER, NOW);
-  const work = new SearchRunWork(held, {
+  const searched = search();
+  let current: Run = searched.renewLease(RUNNER, NOW);
+  const work = new SearchRunWork(searched, {
     findById: async () => current,
     save: async (run: Run) => {
       if (run.version !== current.version) {

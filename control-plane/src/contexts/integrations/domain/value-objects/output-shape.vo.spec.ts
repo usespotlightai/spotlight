@@ -138,10 +138,10 @@ describe('OutputShape', () => {
         () => ({ a: 1, b: [1, 2] }),
       ),
     }));
-    const count = (held: unknown): number =>
-      typeof held === 'object' && held !== null
-        ? ('kind' in held ? 1 : 0) +
-          Object.values(held).reduce<number>(
+    const count = (value: unknown): number =>
+      typeof value === 'object' && value !== null
+        ? ('kind' in value ? 1 : 0) +
+          Object.values(value).reduce<number>(
             (sum, each) => sum + count(each),
             0,
           )

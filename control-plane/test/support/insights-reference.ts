@@ -1,6 +1,6 @@
 import type {
-  HistoryHeld,
-  PullRequestsHeld,
+  HistoryRepositories,
+  PullRequestRepositories,
 } from '@outcomes/application/ports/insights-reader.fake-spec';
 import type { RunPage } from '@outcomes/domain/outcomes.fake-spec';
 import type {
@@ -49,7 +49,7 @@ import {
   sql,
 } from 'drizzle-orm';
 
-export interface HeldRepositories {
+export interface ReferenceRepositories {
   readonly db: DrizzleDatabase;
   readonly runs: DrizzleRunRecordRepository;
   readonly deliveries: DrizzleTaskDeliveryRepository;
@@ -132,7 +132,7 @@ const endedWithin = (window: Window | null): SQL | undefined =>
         lt(runRecord.endedAt, window.to),
       );
 
-const holding = (column: SQLWrapper, value: unknown): SQL =>
+const containing = (column: SQLWrapper, value: unknown): SQL =>
   sql`${column} @> ${JSON.stringify(value)}::jsonb`;
 
 const ranWhere = sql`${runRecord.ending}::text <> 'withdrawn'`;
@@ -148,7 +148,7 @@ const refusedServerOf = (server: Narrowing): { server?: string | null } => {
 const refusalWhere = (filter: RunFilter): SQL | undefined =>
   filter.refusedTool === null && filter.refusedServer.kind === 'any'
     ? undefined
-    : holding(runRecord.refusals, [
+    : containing(runRecord.refusals, [
         {
           ...(filter.refusedTool === null ? {} : { tool: filter.refusedTool }),
           ...refusedServerOf(filter.refusedServer),
@@ -159,13 +159,13 @@ const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
   const narrowed = [
     filter.skillGiven === null
       ? undefined
-      : holding(runRecord.skills, [filter.skillGiven]),
+      : containing(runRecord.skills, [filter.skillGiven]),
     filter.skillUsed === null
       ? undefined
-      : holding(sql`${runRecord.tools}->'skillsRead'`, [filter.skillUsed]),
+      : containing(sql`${runRecord.tools}->'skillsRead'`, [filter.skillUsed]),
     filter.server === null
       ? undefined
-      : holding(sql`${runRecord.tools}->'servers'`, [
+      : containing(sql`${runRecord.tools}->'servers'`, [
           { server: filter.server },
         ]),
     filter.serverFailed === null
@@ -176,7 +176,7 @@ const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
       : and(
           sql`${runRecord.ending}::text = 'failed'`,
           isNull(runRecord.supersededAt),
-          holding(sql`${runRecord.tools}->'servers'`, [
+          containing(sql`${runRecord.tools}->'servers'`, [
             { server: filter.failedAfter, lastCallFailed: true },
           ]),
         ),
@@ -266,14 +266,14 @@ const filtered = (
   ];
 };
 
-export const historyHeldIn = ({
+export const historyRepositoriesOf = ({
   db,
   runs,
   deliveries,
   touches,
   failures,
   chats,
-}: HeldRepositories): HistoryHeld => ({
+}: ReferenceRepositories): HistoryRepositories => ({
   records: {
     endedForTeam: async (window, max) => {
       const keys = await db
@@ -436,11 +436,11 @@ export const historyHeldIn = ({
   },
 });
 
-export const pullRequestsHeld = ({
+export const pullRequestRepositoriesOf = ({
   db,
   pullRequests,
   shapes,
-}: HeldRepositories): PullRequestsHeld => ({
+}: ReferenceRepositories): PullRequestRepositories => ({
   records: {
     seenForTeamBetween: async (window, max) => {
       const repositories = window.repositories.map((each) =>

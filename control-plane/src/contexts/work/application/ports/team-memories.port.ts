@@ -34,7 +34,7 @@ interface CutMemory {
 
 interface MemoryFolderRow {
   readonly folder: string;
-  readonly holds: string;
+  readonly level: string;
 }
 
 export interface MemoryFolder {

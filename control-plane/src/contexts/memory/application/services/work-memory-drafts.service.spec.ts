@@ -136,10 +136,10 @@ const working = (input: {
   steps?: readonly ReasonedStep[] | null;
   spoken?: readonly SpokenNote[];
   fromOutside?: boolean;
-  held?: MemoryDraft;
+  existing?: MemoryDraft;
 }) => {
   let stored =
-    input.held ??
+    input.existing ??
     MemoryDraft.open({
       id: MemoryDraftId.of('draft_1'),
       taskId: TASK,
@@ -160,7 +160,7 @@ const working = (input: {
     } as unknown as MemoryDraftRepository,
     {
       run: async () => null,
-      heldBy: async () => null,
+      leasedBy: async () => null,
       siteOfRun: async () => null,
       referencedUnder: async () => null,
       linesOf: async () => [],
@@ -263,7 +263,7 @@ describe('drafting what a run should leave the team remembering', () => {
     await first.tick();
 
     const later = working({
-      held: first.stored().asked(RunId.of('run_2'), NOW),
+      existing: first.stored().asked(RunId.of('run_2'), NOW),
       spoken: [
         ...SPOKEN,
         { position: 2, by: 'person', author: null, text: 'Use gzip.' },

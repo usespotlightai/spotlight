@@ -1,4 +1,4 @@
-import { CONNECTION_HOLDINGS } from '@integrations/domain/value-objects/connection-holding.vo';
+import { CONNECTION_HOLDER_RULES } from '@integrations/domain/value-objects/connection-holder-rule.vo';
 import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/offered-tool.vo';
 import {
   CATALOG_SOURCE,
@@ -304,7 +304,7 @@ const scheduleSchema = z.object({
 });
 
 const connectionSchema = z.object({
-  holder: z.enum(CONNECTION_HOLDINGS).default('team'),
+  holder: z.enum(CONNECTION_HOLDER_RULES).default('team'),
   oauth2: z
     .discriminatedUnion('discover', [
       z
@@ -395,13 +395,13 @@ export type GraphQlFile = z.infer<typeof graphqlSchema>;
 export type McpFile = z.infer<typeof mcpSchema>;
 export type ToolInputFile = z.infer<typeof toolInputSchema>;
 
-export const written = (held: string): string => {
-  const [, inside] = EXPRESSION.exec(held) ?? [];
+export const written = (raw: string): string => {
+  const [, inside] = EXPRESSION.exec(raw) ?? [];
 
-  return (inside ?? held).trim();
+  return (inside ?? raw).trim();
 };
 
-export const isExpression = (held: string): boolean => EXPRESSION.test(held);
+export const isExpression = (raw: string): boolean => EXPRESSION.test(raw);
 
 export const secretOf = (reference: string): string =>
   reference.slice('secret.'.length);

@@ -28,7 +28,7 @@ class SecretSourceResponseDto {
     type: String,
     nullable: true,
     example: null,
-    description: 'The key to read when that secret holds JSON',
+    description: 'The key to read when that secret contains JSON',
   })
   readonly field: string | null;
 

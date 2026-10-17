@@ -22,26 +22,28 @@ const refused = (kind: string, outcome: Refused): never => {
 
 export const found = <T, R>(
   kind: string,
-  held: T | null,
-  answer: (held: T) => R,
+  resource: T | null,
+  answer: (resource: T) => R,
 ): R => {
-  if (held === null) {
+  if (resource === null) {
     throw ProblemException.notFound(kind);
   }
 
-  return answer(held);
+  return answer(resource);
 };
 
 export const listed = <T, R extends { readonly address: string }>(
-  held: readonly T[] | null,
-  answer: (held: T) => R,
+  resources: readonly T[] | null,
+  answer: (resource: T) => R,
 ): ResourceList<R> => {
-  if (held === null) {
+  if (resources === null) {
     throw ProblemException.notFound('workspace');
   }
 
   return {
-    items: held.map(answer).sort(inCodePointOrderOf((each) => each.address)),
+    items: resources
+      .map(answer)
+      .sort(inCodePointOrderOf((each) => each.address)),
   };
 };
 

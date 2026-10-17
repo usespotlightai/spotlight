@@ -335,7 +335,7 @@ describe('Task, what it is doing', () => {
     expect(task.idle).toBe(true);
   });
 
-  it('is not idle while a run holds it', () => {
+  it('is not idle while it has a current run', () => {
     const task = raised().handedTo(RunId.of('run_1'), LINE);
 
     expect(task.running).toBe(true);
@@ -356,7 +356,7 @@ describe('Task, what it is doing', () => {
       expect(added().sessionId).toBeNull();
     });
 
-    it('is remembered once one has, with the runner that holds it', () => {
+    it('is remembered once one has, with the runner that leases it', () => {
       const worked = added().recordSession(session, runner);
 
       expect(worked.sessionId).toEqual(session);
@@ -535,7 +535,7 @@ describe('Task, what it is doing', () => {
       );
     });
 
-    it('says a conversation holds something unseen, until it is read', () => {
+    it('says a conversation has something unseen, until it is read', () => {
       expect(asked().unreadFrom(NotePosition.of(0))).toBe(true);
       expect(
         asked().read(NotePosition.of(0), READ).unreadFrom(NotePosition.of(0)),
@@ -652,7 +652,7 @@ describe('Task, what it is doing', () => {
     it('hands what a person says to the run still working it, wanting no second run', () => {
       const told = added().handedTo(RUN, LINE).spokenTo(RUN, aloud, here);
 
-      expect(told.heldBy(RUN)).toBe(true);
+      expect(told.hasCurrentRun(RUN)).toBe(true);
       expect(told.wantsRun(LINE)).toBe(false);
       expect(told.undelivered).toHaveLength(1);
     });
@@ -777,7 +777,7 @@ describe('Task, what it is doing', () => {
       ).toThrow(NoRepositoryError);
     });
 
-    it('answers only for the run that holds it', () => {
+    it('answers only for its current run', () => {
       const heard = opened().heard(spoken);
 
       expect(() =>
@@ -831,7 +831,7 @@ describe('Task, what it is doing', () => {
       ).toThrow(InvalidTaskTransitionError);
     });
 
-    it('will not be taken up by a second run while one holds it', () => {
+    it('will not be taken up by a second run while it has a current run', () => {
       expect(() =>
         added()
           .handedTo(RunId.of('run_1'), LINE)
@@ -917,16 +917,16 @@ describe('Task, what it is doing', () => {
         .filter((each) => each.kind === 'task.let-go-of-run')
         .map((each) => (each as TaskLetGoOfRun).runId);
 
-    const held = () => {
+    const handed = () => {
       const task = added().handedTo(RUN, LINE);
       task.pullEvents();
       return task;
     };
 
-    it('lets go of the run holding it when moved by hand', () => {
+    it('lets go of its current run when moved by hand', () => {
       expect(
         letGo(
-          held().moveTo(
+          handed().moveTo(
             LINE,
             StationId.of('station_0'),
             TaskRank.of('m'),
@@ -937,14 +937,14 @@ describe('Task, what it is doing', () => {
       ).toEqual([RUN]);
     });
 
-    it('lets go of the run holding it when deleted', () => {
-      const gone = held().deleted();
+    it('lets go of its current run when deleted', () => {
+      const gone = handed().deleted();
 
       expect(gone.currentRunId).toBeNull();
       expect(letGo(gone)).toEqual([RUN]);
     });
 
-    it('lets go of nothing when no run holds it', () => {
+    it('lets go of nothing when it has no current run', () => {
       expect(
         letGo(
           added().react(
@@ -958,10 +958,10 @@ describe('Task, what it is doing', () => {
       expect(letGo(added().deleted())).toEqual([]);
     });
 
-    it('lets go of nothing when the run holding it passes it on', () => {
+    it('lets go of nothing when its current run passes it on', () => {
       expect(
         letGo(
-          held().passedOn(
+          handed().passedOn(
             RUN,
             LINE,
             StationId.of('station_2'),
@@ -976,7 +976,7 @@ describe('Task, what it is doing', () => {
   describe('opening a pull request', () => {
     const url = PullRequestUrl.of('https://github.com/acme/widgets/pull/7');
 
-    it('is opened only for the run that holds it', () => {
+    it('is opened only for its current run', () => {
       expect(() => added().recordPullRequest(RUN, url, NOW, LINE)).toThrow(
         InvalidTaskTransitionError,
       );
@@ -1043,12 +1043,12 @@ describe('Task, what it is doing', () => {
   });
 
   describe('routed by a run', () => {
-    const held = () => added().handedTo(RUN, LINE);
+    const handed = () => added().handedTo(RUN, LINE);
     const other = RunId.of('run_2');
 
-    it('is passed on only by the run that holds it', () => {
+    it('is passed on only by its current run', () => {
       expect(() =>
-        held().passedOn(
+        handed().passedOn(
           other,
           LINE,
           StationId.of('station_2'),
@@ -1057,7 +1057,7 @@ describe('Task, what it is doing', () => {
         ),
       ).toThrow(InvalidTaskTransitionError);
       expect(
-        held().passedOn(
+        handed().passedOn(
           RUN,
           LINE,
           StationId.of('station_2'),
@@ -1069,7 +1069,7 @@ describe('Task, what it is doing', () => {
 
     it('is passed on only where the line leads from where it stands', () => {
       expect(() =>
-        held().passedOn(
+        handed().passedOn(
           RUN,
           LINE,
           StationId.of('station_0'),
@@ -1079,8 +1079,8 @@ describe('Task, what it is doing', () => {
       ).toThrow(InvalidTaskTransitionError);
     });
 
-    it('is finished only by the run that holds it', () => {
-      expect(() => held().finishHere(other, LINE, saying)).toThrow(
+    it('is finished only by its current run', () => {
+      expect(() => handed().finishHere(other, LINE, saying)).toThrow(
         InvalidTaskTransitionError,
       );
       expect(() => added().finishHere(RUN, LINE, saying)).toThrow(
@@ -1089,7 +1089,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('is finished only where its line ends', () => {
-      const passed = held()
+      const passed = handed()
         .passedOn(
           RUN,
           LINE,
@@ -1104,17 +1104,17 @@ describe('Task, what it is doing', () => {
       );
     });
 
-    it('is put to a person by the run that holds it, or by nobody while no run does', () => {
-      expect(() => held().askedAbout(saying, other)).toThrow(
+    it('is put to a person by its current run, or by nobody while no run does', () => {
+      expect(() => handed().askedAbout(saying, other)).toThrow(
         InvalidTaskTransitionError,
       );
-      expect(() => held().askedAbout(saying, null)).toThrow(
+      expect(() => handed().askedAbout(saying, null)).toThrow(
         InvalidTaskTransitionError,
       );
       expect(() => added().askedAbout(saying, RUN)).toThrow(
         InvalidTaskTransitionError,
       );
-      expect(held().askedAbout(saying, RUN).running).toBe(false);
+      expect(handed().askedAbout(saying, RUN).running).toBe(false);
     });
   });
 
@@ -1325,7 +1325,7 @@ describe('Task, what it is doing', () => {
       expect(added().wantsRun(LINE)).toBe(true);
     });
 
-    it('wants none while a run holds it, a person is asked, or it is finished', () => {
+    it('wants none while it has a current run, a person is asked, or it is finished', () => {
       expect(added().handedTo(RUN, LINE).wantsRun(LINE)).toBe(false);
       expect(added().askedAbout(saying, null).wantsRun(LINE)).toBe(false);
       expect(
@@ -1385,11 +1385,11 @@ describe('Task, what it is doing', () => {
     });
 
     it('says it moved when a run passes it on', () => {
-      const held = added().handedTo(RUN, LINE);
-      held.pullEvents();
+      const handed = added().handedTo(RUN, LINE);
+      handed.pullEvents();
 
       const [moved] = movedEvents(
-        held.passedOn(
+        handed.passedOn(
           RUN,
           LINE,
           StationId.of('station_2'),
@@ -1409,10 +1409,10 @@ describe('Task, what it is doing', () => {
     });
 
     it('says which run handed it on, from where to where and when', () => {
-      const held = added().handedTo(RUN, LINE);
-      held.pullEvents();
+      const handed = added().handedTo(RUN, LINE);
+      handed.pullEvents();
 
-      const handedOn = held
+      const handedOn = handed
         .passedOn(
           RUN,
           LINE,
@@ -1425,8 +1425,8 @@ describe('Task, what it is doing', () => {
 
       expect(handedOn).toEqual([
         new TaskHandedOn(
-          held.id,
-          held.workspaceId,
+          handed.id,
+          handed.workspaceId,
           RUN,
           HERE,
           StationId.of('station_2'),
@@ -1662,12 +1662,12 @@ describe('Task, its revision', () => {
   });
 });
 
-describe('Task and the happenings heard while a run holds it', () => {
+describe('Task and the happenings heard while it has a current run', () => {
   const world = { ...saying, voice: Voice.world() };
   const SPEC = StationId.of('station_2');
   const COMPLETED = StationId.of('completed_1');
 
-  const held = () => {
+  const handed = () => {
     const task = added().handedTo(RUN, LINE);
     task.pullEvents();
     return task;
@@ -1679,64 +1679,64 @@ describe('Task and the happenings heard while a run holds it', () => {
       .filter((each) => each.kind === 'task.let-go-of-run')
       .map((each) => (each as TaskLetGoOfRun).runId);
 
-  it('refuses to be moved by a happening while a run holds it', () => {
-    expect(() => held().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(
+  it('refuses to be moved by a happening while it has a current run', () => {
+    expect(() => handed().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(
       InvalidTaskTransitionError,
     );
   });
 
-  it('is moved by a happening while no run holds it, letting go of nothing', () => {
+  it('is moved by a happening while it has no current run, letting go of nothing', () => {
     const moved = added().react(LINE, SPEC, TaskRank.of('m'), world);
 
     expect(moved.stationId).toEqual(SPEC);
     expect(letGo(moved)).toEqual([]);
   });
 
-  it('holds a move back only while a run holds it, and never to where it stands', () => {
-    expect(() => added().heldBack(LINE, SPEC, world)).toThrow(
+  it('defers a move only while it has a current run, and never to where it stands', () => {
+    expect(() => added().deferMove(LINE, SPEC, world)).toThrow(
       InvalidTaskTransitionError,
     );
-    expect(() => held().heldBack(LINE, HERE, world)).toThrow(
+    expect(() => handed().deferMove(LINE, HERE, world)).toThrow(
       InvalidTaskTransitionError,
     );
   });
 
-  it('keeps the run and the station while a move is held back', () => {
-    const noted = held().heldBack(LINE, SPEC, world);
+  it('keeps the run and the station while a move is deferred', () => {
+    const noted = handed().deferMove(LINE, SPEC, world);
 
     expect(noted.stationId).toEqual(HERE);
     expect(noted.currentRunId).toEqual(RUN);
-    expect(noted.heldBackTo).toEqual(SPEC);
+    expect(noted.deferredMoveTo).toEqual(SPEC);
     expect(noted.pullEvents()).toEqual([]);
   });
 
-  it('holds back only the latest move', () => {
+  it('defers only the latest move', () => {
     expect(
-      held()
-        .heldBack(LINE, StationId.of('station_0'), world)
-        .heldBack(LINE, SPEC, world).heldBackTo,
+      handed()
+        .deferMove(LINE, StationId.of('station_0'), world)
+        .deferMove(LINE, SPEC, world).deferredMoveTo,
     ).toEqual(SPEC);
   });
 
-  it('holds nothing back once the run has passed it on, put it to a person, or a person moved it', () => {
-    const noted = held().heldBack(LINE, SPEC, world);
+  it('defers nothing once the run has passed it on, put it to a person, or a person moved it', () => {
+    const noted = handed().deferMove(LINE, SPEC, world);
 
     expect(
       noted.moveTo(LINE, StationId.of('station_0'), TaskRank.of('m'), saying, {
         mover: UserId.of('user_1'),
-      }).heldBackTo,
+      }).deferredMoveTo,
     ).toBeNull();
 
-    expect(noted.askedAbout(saying, RUN).heldBackTo).toBeNull();
+    expect(noted.askedAbout(saying, RUN).deferredMoveTo).toBeNull();
     expect(
-      noted.passedOn(RUN, LINE, SPEC, TaskRank.of('m'), saying).heldBackTo,
+      noted.passedOn(RUN, LINE, SPEC, TaskRank.of('m'), saying).deferredMoveTo,
     ).toBeNull();
-    expect(noted.heard(world).heldBackTo).toEqual(SPEC);
+    expect(noted.heard(world).deferredMoveTo).toEqual(SPEC);
   });
 
-  it('keeps a held-back move across a tool approval asked and granted while the run works', () => {
-    const asked = held()
-      .heldBack(LINE, SPEC, world)
+  it('keeps a deferred move across a tool approval asked and granted while the run works', () => {
+    const asked = handed()
+      .deferMove(LINE, SPEC, world)
       .clearFor(
         ApprovalSubject.toolCall(
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
@@ -1747,7 +1747,7 @@ describe('Task and the happenings heard while a run holds it', () => {
         null,
       ).task;
 
-    expect(asked.heldBackTo).toEqual(SPEC);
+    expect(asked.deferredMoveTo).toEqual(SPEC);
 
     const granted = asked.answer(
       NotePosition.of(1),
@@ -1755,9 +1755,9 @@ describe('Task and the happenings heard while a run holds it', () => {
       'granted',
     );
 
-    expect(granted.heldBackTo).toEqual(SPEC);
+    expect(granted.deferredMoveTo).toEqual(SPEC);
     expect(
-      granted.movedAsHeldBack(
+      granted.moveAsDeferred(
         RUN,
         LINE,
         SPEC,
@@ -1768,8 +1768,8 @@ describe('Task and the happenings heard while a run holds it', () => {
   });
 
   it('stops its run and asks over a pending tool approval when interrupted, since the run would work on once approved', () => {
-    const asking = held()
-      .heldBack(LINE, SPEC, world)
+    const asking = handed()
+      .deferMove(LINE, SPEC, world)
       .clearFor(
         ApprovalSubject.toolCall(
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
@@ -1794,11 +1794,11 @@ describe('Task and the happenings heard while a run holds it', () => {
     ]);
     expect(interrupted.awaitingReview).toBe(true);
     expect(interrupted.owesADecision).toBe(false);
-    expect(interrupted.heldBackTo).toBeNull();
+    expect(interrupted.deferredMoveTo).toBeNull();
   });
 
-  it('refuses to hold back a move to the end of its line', () => {
-    expect(() => held().heldBack(LINE, COMPLETED, world)).toThrow(
+  it('refuses to defer a move to the end of its line', () => {
+    expect(() => handed().deferMove(LINE, COMPLETED, world)).toThrow(
       InvalidTaskTransitionError,
     );
   });
@@ -1808,10 +1808,10 @@ describe('Task and the happenings heard while a run holds it', () => {
     handover,
   });
 
-  it('is moved where a move was held back to by the run that held it, saying why and in the run’s own words', () => {
-    const moved = held()
-      .heldBack(LINE, SPEC, world)
-      .movedAsHeldBack(
+  it('is moved where a move was deferred to by the run that deferred it, saying why and in the run’s own words', () => {
+    const moved = handed()
+      .deferMove(LINE, SPEC, world)
+      .moveAsDeferred(
         RUN,
         LINE,
         SPEC,
@@ -1835,11 +1835,11 @@ describe('Task and the happenings heard while a run holds it', () => {
     );
   });
 
-  it('keeps the failure of a run that failed when a held-back move takes the task on', () => {
+  it('keeps the failure of a run that failed when a deferred move takes the task on', () => {
     const failure = TaskFailure.fromRun('exited');
-    const moved = held()
-      .heldBack(LINE, SPEC, world)
-      .movedAsHeldBack(
+    const moved = handed()
+      .deferMove(LINE, SPEC, world)
+      .moveAsDeferred(
         RUN,
         LINE,
         SPEC,
@@ -1856,10 +1856,10 @@ describe('Task and the happenings heard while a run holds it', () => {
     expect(spoken?.body.value).toContain('The run failed: exit 1');
   });
 
-  it('says which run handed it on when a held-back move takes it on', () => {
-    const handedOn = held()
-      .heldBack(LINE, SPEC, world)
-      .movedAsHeldBack(
+  it('says which run handed it on when a deferred move takes it on', () => {
+    const handedOn = handed()
+      .deferMove(LINE, SPEC, world)
+      .moveAsDeferred(
         RUN,
         LINE,
         SPEC,
@@ -1874,10 +1874,10 @@ describe('Task and the happenings heard while a run holds it', () => {
     ]);
   });
 
-  it('counts a failure that repeats one a person already answered when a held-back move takes the task on', () => {
+  it('counts a failure that repeats one a person already answered when a deferred move takes the task on', () => {
     const exited = TaskFailure.fromRun('exited');
     const again = RunId.of('run_2');
-    const answered = held()
+    const answered = handed()
       .failed(
         exited,
         { ...saying, body: TaskNoteBody.of('Exit 1.') },
@@ -1893,8 +1893,8 @@ describe('Task and the happenings heard while a run holds it', () => {
     answered.pullEvents();
 
     const moved = answered
-      .heldBack(LINE, SPEC, world)
-      .movedAsHeldBack(
+      .deferMove(LINE, SPEC, world)
+      .moveAsDeferred(
         again,
         LINE,
         SPEC,
@@ -1911,12 +1911,12 @@ describe('Task and the happenings heard while a run holds it', () => {
     expect(moved.notes[moved.notes.length - 1]?.failure?.occurrences).toBe(2);
   });
 
-  it('is moved for a held-back move only by the run that holds it, and only to where the move was held back to', () => {
-    const noted = held().heldBack(LINE, SPEC, world);
+  it('is moved for a deferred move only by its current run, and only to where the move was deferred to', () => {
+    const noted = handed().deferMove(LINE, SPEC, world);
     const review = ending(Handover.review(TaskNoteBody.of('Look.')));
 
     expect(() =>
-      noted.movedAsHeldBack(
+      noted.moveAsDeferred(
         RunId.of('run_9'),
         LINE,
         SPEC,
@@ -1925,15 +1925,15 @@ describe('Task and the happenings heard while a run holds it', () => {
       ),
     ).toThrow(InvalidTaskTransitionError);
     expect(() =>
-      noted.movedAsHeldBack(RUN, LINE, COMPLETED, TaskRank.of('m'), review),
+      noted.moveAsDeferred(RUN, LINE, COMPLETED, TaskRank.of('m'), review),
     ).toThrow(InvalidTaskTransitionError);
     expect(() =>
-      held().movedAsHeldBack(RUN, LINE, SPEC, TaskRank.of('m'), review),
+      handed().moveAsDeferred(RUN, LINE, SPEC, TaskRank.of('m'), review),
     ).toThrow(InvalidTaskTransitionError);
   });
 
   it('lets go of the run and puts itself to a person when interrupted', () => {
-    const interrupted = held().interrupt(world);
+    const interrupted = handed().interrupt(world);
 
     expect(interrupted.stationId).toEqual(HERE);
     expect(interrupted.currentRunId).toBeNull();
@@ -1942,13 +1942,13 @@ describe('Task and the happenings heard while a run holds it', () => {
     expect(letGo(interrupted)).toEqual([RUN]);
   });
 
-  it('is interrupted only while a run holds it', () => {
+  it('is interrupted only while it has a current run', () => {
     expect(() => added().interrupt(world)).toThrow(InvalidTaskTransitionError);
   });
 
   describe('while its run waits on a person', () => {
     const paused = () => {
-      const task = held().putToAPerson(RUN, {
+      const task = handed().putToAPerson(RUN, {
         ...saying,
         voice: Voice.station(RUN),
       });
@@ -1956,14 +1956,14 @@ describe('Task and the happenings heard while a run holds it', () => {
       return task;
     };
 
-    it('holds a move back, keeping the run and the question', () => {
-      const noted = paused().heldBack(LINE, SPEC, world);
+    it('defers a move, keeping the run and the question', () => {
+      const noted = paused().deferMove(LINE, SPEC, world);
 
       expect(noted.stationId).toEqual(HERE);
       expect(noted.currentRunId).toEqual(RUN);
       expect(noted.awaitingReview).toBe(true);
       expect(noted.openConversation).toEqual({ from: 0, to: null });
-      expect(noted.heldBackTo).toEqual(SPEC);
+      expect(noted.deferredMoveTo).toEqual(SPEC);
       expect(noted.pullEvents()).toEqual([]);
     });
 
@@ -1986,17 +1986,19 @@ describe('Task and the happenings heard while a run holds it', () => {
       expect(interrupted.pullEvents()).toEqual([]);
     });
 
-    it('drops the moves held back before an interruption, leaving the person to decide', () => {
-      const interrupted = paused().heldBack(LINE, SPEC, world).interrupt(world);
+    it('drops the moves deferred before an interruption, leaving the person to decide', () => {
+      const interrupted = paused()
+        .deferMove(LINE, SPEC, world)
+        .interrupt(world);
 
-      expect(interrupted.heldBackTo).toBeNull();
-      expect(interrupted.notes[2]?.heldBack?.clears).toBe(true);
+      expect(interrupted.deferredMoveTo).toBeNull();
+      expect(interrupted.notes[2]?.deferredMove?.clears).toBe(true);
     });
 
-    it('is moved where a move was held back to once its run ends without passing it on', () => {
+    it('is moved where a move was deferred to once its run ends without passing it on', () => {
       const moved = paused()
-        .heldBack(LINE, SPEC, world)
-        .movedAsHeldBack(
+        .deferMove(LINE, SPEC, world)
+        .moveAsDeferred(
           RUN,
           LINE,
           SPEC,
@@ -2014,7 +2016,7 @@ describe('Task and the happenings heard while a run holds it', () => {
     const person = { ...saying, voice: Voice.person(UserId.of('user_1')) };
 
     it('takes a word in the run chat as the answer, wanting a run at its station again', () => {
-      const spoken = held().interrupt(world).spokenTo(RUN, person, HERE);
+      const spoken = handed().interrupt(world).spokenTo(RUN, person, HERE);
 
       expect(spoken.awaitingReview).toBe(false);
       expect(spoken.notes.map((each) => each.kind)).toEqual([
@@ -2025,9 +2027,9 @@ describe('Task and the happenings heard while a run holds it', () => {
     });
 
     it('will not take a word from the chat of a run at a station it has left', () => {
-      expect(() => held().interrupt(world).spokenTo(RUN, person, SPEC)).toThrow(
-        InvalidTaskTransitionError,
-      );
+      expect(() =>
+        handed().interrupt(world).spokenTo(RUN, person, SPEC),
+      ).toThrow(InvalidTaskTransitionError);
     });
   });
 });

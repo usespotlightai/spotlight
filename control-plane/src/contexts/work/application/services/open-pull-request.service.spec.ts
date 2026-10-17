@@ -94,12 +94,12 @@ const task = () => {
 };
 
 const lineWorking = (repositories: readonly string[]): Line => {
-  const held = LineRepositories.of(
+  const repositoriesOfLine = LineRepositories.of(
     repositories.map((each) => WorkedRepository.of(Repository.of(each))),
   );
 
   return {
-    opening: (name: string | null) => held.opening(name),
+    opening: (name: string | null) => repositoriesOfLine.opening(name),
   } as unknown as Line;
 };
 
@@ -124,7 +124,7 @@ const opening = (
   const asked: BeforeMoment[] = [];
   const compared: unknown[][] = [];
   const listened: [string, string][] = [];
-  let held: Task | null = null;
+  let stored: Task | null = null;
   const opened: Parameters<PullRequestPort['open']>[0][] = [];
 
   const pullRequests = {
@@ -133,8 +133,8 @@ const opening = (
         throw new NoGitHubInstallationError();
       }
       opened.push(asked);
-      if (held && over.meanwhile) {
-        held = over.meanwhile(held);
+      if (stored && over.meanwhile) {
+        stored = over.meanwhile(stored);
       }
       return { url: 'https://github.com/acme/widgets/pull/7' };
     },
@@ -144,8 +144,8 @@ const opening = (
     },
   } as unknown as PullRequestPort;
   const tasks = {
-    find: async () => held,
-    holding: async () => over.wearer ?? null,
+    find: async () => stored,
+    findByMarks: async () => over.wearer ?? null,
     save: async (each: Task) => {
       saved.push(each);
     },
@@ -153,7 +153,7 @@ const opening = (
   const line = lineWorking(over.repositories ?? ['acme/widgets']);
   const service = new OpenPullRequest(
     tasks,
-    { holding: async () => line } as unknown as LineRepository,
+    { findByStation: async () => line } as unknown as LineRepository,
     pullRequests,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     {
@@ -178,7 +178,7 @@ const opening = (
 
   return {
     open: (task: Task, asked = asking(), runId = RUN) => {
-      held = task;
+      stored = task;
       return service.open(
         { runId, taskId: task.id, stationId: task.stationId },
         asked,
@@ -394,7 +394,7 @@ describe('OpenPullRequest', () => {
       });
 
       await expect(open(task())).rejects.toThrow(
-        'A hook held back the pull request. No pull request was opened. The hook core/dba-review refused: migrations need a DBA.',
+        'A hook stopped the pull request. No pull request was opened. The hook core/dba-review refused: migrations need a DBA.',
       );
       expect(opened).toEqual([]);
       expect(saved).toEqual([]);

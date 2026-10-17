@@ -75,7 +75,7 @@ describe('MemorySource', () => {
     expect(screen.getByRole('link', { name: 'Open its task' })).toBeVisible();
   });
 
-  it('holds its place while it loads', () => {
+  it('keeps its place while it loads', () => {
     memoryState.data = undefined;
     memoryState.isPending = true;
     showing();

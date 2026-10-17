@@ -1,6 +1,6 @@
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { describe, expect, it } from 'vitest';
 
@@ -27,9 +27,10 @@ webhook:
 
 describe('IntegrationReader', () => {
   it('reads every integration a team defined', () => {
-    const read = new IntegrationReader(expressions, operationsHolding()).read([
-      defined(WHOLE),
-    ]);
+    const read = new IntegrationReader(
+      expressions,
+      operationsContaining(),
+    ).read([defined(WHOLE)]);
 
     expect(read.integrations.map((each) => each.source)).toEqual(['linear']);
     expect(read.integrations[0]?.path).toBe('integrations/linear');
@@ -38,7 +39,10 @@ describe('IntegrationReader', () => {
 
   it('says how many tools the API description it names gave, and when it was read', () => {
     const readAt = new Date('2026-10-05T12:00:00.000Z');
-    const read = new IntegrationReader(expressions, operationsHolding()).read([
+    const read = new IntegrationReader(
+      expressions,
+      operationsContaining(),
+    ).read([
       {
         ...defined(
           'integration: petstore\nopenapi:\n  url: https://petstore3.swagger.io/api/v3/openapi.json\n',
@@ -61,7 +65,7 @@ describe('IntegrationReader', () => {
 
   it('declares nothing the team’s integrations do not offer', async () => {
     expect(
-      await new IntegrationReader(expressions, operationsHolding()).declared(
+      await new IntegrationReader(expressions, operationsContaining()).declared(
         [defined(WHOLE)],
         ['linear.comment', 'sentry.comment'],
       ),
@@ -69,10 +73,10 @@ describe('IntegrationReader', () => {
   });
 
   it('keeps reading past a definition that will not', () => {
-    const read = new IntegrationReader(expressions, operationsHolding()).read([
-      defined('integration: sentry'),
-      defined(WHOLE),
-    ]);
+    const read = new IntegrationReader(
+      expressions,
+      operationsContaining(),
+    ).read([defined('integration: sentry'), defined(WHOLE)]);
 
     expect(read.integrations.map((each) => each.source)).toEqual(['linear']);
     expect(read.problems[0]?.path).toBe('integrations/sentry');
@@ -80,7 +84,7 @@ describe('IntegrationReader', () => {
 
   it('reads nothing at all from nothing at all', () => {
     expect(
-      new IntegrationReader(expressions, operationsHolding()).read([]),
+      new IntegrationReader(expressions, operationsContaining()).read([]),
     ).toEqual({
       integrations: [],
       problems: [],

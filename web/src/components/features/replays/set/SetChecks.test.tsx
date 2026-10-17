@@ -83,7 +83,7 @@ describe('SetChecks', () => {
     fetchNextPage.mockClear();
   });
 
-  it('holds the checks’ place while they load', () => {
+  it('keeps the checks’ place while they load', () => {
     render(
       <MemoryRouter>
         <SetChecks teamId="team_1" set={SET} replayCheck={null} />

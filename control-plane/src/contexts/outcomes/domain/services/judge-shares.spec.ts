@@ -31,7 +31,7 @@ describe('judgeShareFrom', () => {
     ]),
   );
 
-  it('averages the shares of the trusted rubric over the runs it holds', () => {
+  it('averages the shares of the trusted rubric over the runs it has', () => {
     expect(judgeShareFrom(rubrics, 'rubric_2')).toEqual({
       mean: 0.75,
       judged: 2,

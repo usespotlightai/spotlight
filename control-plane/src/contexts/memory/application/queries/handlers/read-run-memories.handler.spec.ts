@@ -79,7 +79,7 @@ const draftProposing = () =>
 
 const reading = (input: {
   teamOfRun: TeamId | null;
-  held: readonly Memory[];
+  stored: readonly Memory[];
   briefed: readonly Memory[];
   cut: readonly Memory[];
   recalled: readonly Memory[];
@@ -115,7 +115,7 @@ const reading = (input: {
   } as unknown as PeoplePort;
   const memories = {
     findAll: async (ids: readonly MemoryId[]) =>
-      ids.flatMap((id) => input.held.filter((each) => each.id.equals(id))),
+      ids.flatMap((id) => input.stored.filter((each) => each.id.equals(id))),
   } as unknown as MemoryRepository;
   const uses = {
     ofRun: async () =>
@@ -149,7 +149,7 @@ describe('ReadRunMemoriesHandler', () => {
 
     const read = await reading({
       teamOfRun: TEAM,
-      held: [briefed, cut, recalled, theirs],
+      stored: [briefed, cut, recalled, theirs],
       briefed: [briefed, theirs],
       cut: [cut],
       recalled: [recalled, recalled],
@@ -165,7 +165,7 @@ describe('ReadRunMemoriesHandler', () => {
   it('leads to the review of what the run proposed, naming the harness it ran on', async () => {
     const read = await reading({
       teamOfRun: TEAM,
-      held: [],
+      stored: [],
       briefed: [],
       cut: [],
       recalled: [],
@@ -181,7 +181,7 @@ describe('ReadRunMemoriesHandler', () => {
     await expect(
       reading({
         teamOfRun: TeamId.of('team_other'),
-        held: [],
+        stored: [],
         briefed: [],
         cut: [],
         recalled: [],

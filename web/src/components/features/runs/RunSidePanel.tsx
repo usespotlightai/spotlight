@@ -17,23 +17,23 @@ type Showing =
 
 export function RunSidePanel({ children }: { children: ReactNode }) {
   const [showing, setShowing] = useState<Showing | null>(null);
-  const held = useLingering(showing, LEAVING);
+  const lingering = useLingering(showing, LEAVING);
 
   const value = useMemo(() => {
     const aside =
-      held?.kind === 'change' ? (
+      lingering?.kind === 'change' ? (
         <ChangeDetail
           key="change"
-          file={held.file}
-          lines={held.lines}
-          open={showing === held}
+          file={lingering.file}
+          lines={lingering.lines}
+          open={showing === lingering}
           onClose={() => setShowing(null)}
         />
-      ) : held?.kind === 'remembered' ? (
+      ) : lingering?.kind === 'remembered' ? (
         <RememberedDetail
           key="remembered"
-          {...held.run}
-          open={showing === held}
+          {...lingering.run}
+          open={showing === lingering}
           onClose={() => setShowing(null)}
         />
       ) : null;
@@ -49,7 +49,7 @@ export function RunSidePanel({ children }: { children: ReactNode }) {
         setShowing({ kind: 'remembered', run }),
       close: () => setShowing(null),
     };
-  }, [showing, held]);
+  }, [showing, lingering]);
 
   return (
     <RunSidePanelContext value={value}>

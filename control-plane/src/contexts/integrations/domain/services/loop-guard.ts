@@ -23,7 +23,7 @@ export const loopStopFor = (input: {
     ? `${input.chain.saying} → ${input.firing.saying}`
     : input.firing.saying;
 
-  if (input.chain.holds(input.firing.key)) {
+  if (input.chain.contains(input.firing.key)) {
     return {
       kind: 'repeated',
       saying: `It would fire again for the change that caused it. Cause chain: ${named}`,

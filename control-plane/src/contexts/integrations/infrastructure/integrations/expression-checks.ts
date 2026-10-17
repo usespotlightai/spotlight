@@ -30,10 +30,10 @@ const LONGEST_REMEMBERED = 256 * 1024;
 const fieldsOf = (fields: SchemaFields): ExpressionDeclarationDto[] =>
   Object.entries(fields)
     .sort(([one], [other]) => one.localeCompare(other))
-    .map(([name, held]) =>
-      typeof held === 'string'
-        ? { name, type: held, fields: [] }
-        : { name, type: OBJECT, fields: fieldsOf(held) },
+    .map(([name, field]) =>
+      typeof field === 'string'
+        ? { name, type: field, fields: [] }
+        : { name, type: OBJECT, fields: fieldsOf(field) },
     );
 
 const declarationsOf = (
@@ -41,9 +41,9 @@ const declarationsOf = (
 ): ExpressionDeclarationDto[] =>
   fieldsOf(
     Object.fromEntries(
-      Object.entries(declared).map(([name, held]) => [
+      Object.entries(declared).map(([name, each]) => [
         name,
-        typeof held === 'string' ? held : held.schema,
+        typeof each === 'string' ? each : each.schema,
       ]),
     ),
   );
@@ -127,8 +127,8 @@ export class ExpressionChecks implements ExpressionChecksPort {
       : { outcome: 'no-expression-there' };
   }
 
-  private compiled(held: unknown): Compiled {
-    const key = JSON.stringify(held) ?? '';
+  private compiled(raw: unknown): Compiled {
+    const key = JSON.stringify(raw) ?? '';
     const known = this.remembered.get(key);
 
     if (known) {
@@ -138,7 +138,7 @@ export class ExpressionChecks implements ExpressionChecksPort {
       return known;
     }
 
-    const compiled = compileIntegration(held, this.expressions);
+    const compiled = compileIntegration(raw, this.expressions);
 
     if (key.length > LONGEST_REMEMBERED) {
       return compiled;

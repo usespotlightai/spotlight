@@ -201,7 +201,7 @@ describe('isLargeDiff', () => {
     ].join('\n'),
   });
 
-  it('holds back a diff over a thousand lines', () => {
+  it('hides a diff over a thousand lines', () => {
     expect(isLargeDiff([hunk(600), hunk(401)])).toBe(true);
   });
 

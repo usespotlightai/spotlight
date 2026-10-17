@@ -120,7 +120,7 @@ describe('TeamRuns', () => {
     expect(screen.queryByText('Upgrade the harness')).not.toBeInTheDocument();
   });
 
-  it('holds the shape of a run while they load, with the filters already there', () => {
+  it('keeps the shape of a run while they load, with the filters already there', () => {
     runs.mockReturnValue(undefined);
     showing();
 

@@ -105,7 +105,7 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
       return null;
     }
 
-    const { decisions, disputes } = await this.held([set.id]);
+    const { decisions, disputes } = await this.decisionRowsOf([set.id]);
 
     return {
       runId: set.decidedIn,
@@ -135,7 +135,7 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
       .orderBy(desc(decisionSet.mergedAt))
       .limit(sought.max);
 
-    const { decisions, disputes } = await this.held(
+    const { decisions, disputes } = await this.decisionRowsOf(
       sets.map((each) => each.id),
     );
 
@@ -146,11 +146,11 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
         return [];
       }
 
-      const held = decisionsIn(set, decisions, disputes, (each) =>
+      const matching = decisionsIn(set, decisions, disputes, (each) =>
         each.paths.some((path) => lies(path, sought.within)),
       );
 
-      return held.length > 0
+      return matching.length > 0
         ? [
             {
               taskId: set.taskId,
@@ -158,14 +158,14 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
               repository: merge.repository,
               commit: merge.commit,
               mergedAt: merge.at,
-              decisions: held,
+              decisions: matching,
             },
           ]
         : [];
     });
   }
 
-  private async held(setIds: readonly string[]): Promise<{
+  private async decisionRowsOf(setIds: readonly string[]): Promise<{
     decisions: DecisionRow[];
     disputes: DisputeRow[];
   }> {

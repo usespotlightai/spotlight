@@ -10,13 +10,13 @@ const MAX_RUNNING = 1_000;
 const MAX_IMAGES = 500;
 
 const bounded = (field: string, raw: string, max: number): string => {
-  const held = raw.trim();
+  const trimmed = raw.trim();
 
-  if (!held || held.length > max) {
+  if (!trimmed || trimmed.length > max) {
     throw new InvalidHostReportError(field, `must be 1 to ${max} characters`);
   }
 
-  return held;
+  return trimmed;
 };
 
 export class HostReport {

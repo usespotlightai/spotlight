@@ -7,7 +7,7 @@ import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type {
-  HeldRunStanding,
+  LeasedRunStanding,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
 import type { SearchSightPort } from '@work/application/ports/search-sight.port';
@@ -36,23 +36,23 @@ export class ReadRunnerTraceHandler
     try {
       const target = TaskId.of(query.taskId);
 
-      const [held, theirs] = await Promise.all([
-        this.traces.heldRunStanding(
+      const [leased, theirs] = await Promise.all([
+        this.traces.leasedRunStanding(
           RunId.of(query.runId),
           RunnerId.of(query.runnerId),
         ),
         this.traces.teamOfTask(target),
       ]);
 
-      if (held?.replaysFrom) {
+      if (leased?.replaysFrom) {
         throw new KeptFromReplaysError('read a task’s trace');
       }
 
-      if (!TraceAccess.sameTeam(held?.teamId ?? null, theirs)) {
+      if (!TraceAccess.sameTeam(leased?.teamId ?? null, theirs)) {
         return null;
       }
 
-      const sighted = await this.sightedBy(query.runId, held);
+      const sighted = await this.sightedBy(query.runId, leased);
 
       if (sighted.hides(query)) {
         return null;
@@ -95,9 +95,9 @@ export class ReadRunnerTraceHandler
 
   private async sightedBy(
     runId: string,
-    held: HeldRunStanding | null,
+    leased: LeasedRunStanding | null,
   ): Promise<SightedHistory> {
-    return held?.isSearch
+    return leased?.isSearch
       ? SightedHistory.through(await this.sights.of(runId))
       : SightedHistory.unsighted();
   }

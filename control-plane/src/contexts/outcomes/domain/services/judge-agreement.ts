@@ -140,9 +140,9 @@ const ranksOf = (values: readonly number[]): number[] => {
     const rank = (from + to) / 2 + 1;
 
     for (let at = from; at <= to; at += 1) {
-      const held = order[at];
-      if (held) {
-        ranks[held.at] = rank;
+      const item = order[at];
+      if (item) {
+        ranks[item.at] = rank;
       }
     }
 
@@ -328,15 +328,15 @@ export const trendOf = (entries: readonly TrendEntry[]): TrendPoint[] => {
     days.set(day, [...(days.get(day) ?? []), entry]);
   }
 
-  return [...days].map(([day, held]) => {
-    const labelled = held.flatMap((each) =>
+  return [...days].map(([day, onDay]) => {
+    const labelled = onDay.flatMap((each) =>
       each.human === null ? [] : [each.human],
     );
 
     return {
       day,
-      judged: held.length,
-      judge: meanOf(held.map((each) => each.judge)),
+      judged: onDay.length,
+      judge: meanOf(onDay.map((each) => each.judge)),
       labelled: labelled.length,
       people: labelled.length > 0 ? meanOf(labelled) : null,
     };

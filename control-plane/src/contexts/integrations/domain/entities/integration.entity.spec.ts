@@ -2,7 +2,7 @@ import { Integration } from '@integrations/domain/entities/integration.entity';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
+import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
@@ -32,7 +32,7 @@ const integration = (declares = [declared('linear.issue.completed')]) =>
   });
 
 describe('Integration', () => {
-  it('holds the words its host can raise', () => {
+  it('has the words its host can raise', () => {
     expect(integration().declares).toHaveLength(1);
     expect(
       integration().raises(HappeningName.of('linear.issue.completed')),
@@ -110,11 +110,11 @@ describe('Integration', () => {
   });
 });
 
-describe('Integration holding', () => {
+describe('Integration holder', () => {
   it('takes the team’s connection unless it says otherwise', () => {
-    expect(
-      Integration.of({ source: LINEAR, connects: true }).holding.kind,
-    ).toBe('team');
+    expect(Integration.of({ source: LINEAR, connects: true }).holder.kind).toBe(
+      'team',
+    );
   });
 
   it('takes each requester’s connection when it connects over oauth2', () => {
@@ -122,8 +122,8 @@ describe('Integration holding', () => {
       Integration.of({
         source: LINEAR,
         connects: true,
-        holding: ConnectionHolding.requester(),
-      }).holding.byRequester,
+        holder: ConnectionHolderRule.requester(),
+      }).holder.byRequester,
     ).toBe(true);
   });
 
@@ -131,7 +131,7 @@ describe('Integration holding', () => {
     expect(() =>
       Integration.of({
         source: LINEAR,
-        holding: ConnectionHolding.requester(),
+        holder: ConnectionHolderRule.requester(),
       }),
     ).toThrow(InvalidIntegrationError);
   });
@@ -158,7 +158,7 @@ describe('Integration connections', () => {
       Integration.of({
         source: LINEAR,
         connects: true,
-        holding: ConnectionHolding.requester(),
+        holder: ConnectionHolderRule.requester(),
       }).takesConnectionFrom(PERSON),
     ).toBe(true);
   });

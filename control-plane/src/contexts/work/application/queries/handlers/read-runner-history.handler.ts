@@ -21,7 +21,7 @@ import type {
   RunOutcomesPort,
 } from '@work/application/ports/run-outcomes.port';
 import type {
-  HeldRunStanding,
+  LeasedRunStanding,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
 import type { SearchSightPort } from '@work/application/ports/search-sight.port';
@@ -97,20 +97,20 @@ export class ReadRunnerHistoryHandler
 
   async execute(query: ReadRunnerHistoryQuery): Promise<RunnerHistoryAnswer> {
     try {
-      const held = await this.traces.heldRunStanding(
+      const leased = await this.traces.leasedRunStanding(
         RunId.of(query.runId),
         RunnerId.of(query.runnerId),
       );
 
-      if (!held) {
+      if (!leased) {
         return { kind: 'unknown' };
       }
 
-      const sighted = await this.sightedBy(query.runId, held);
+      const sighted = await this.sightedBy(query.runId, leased);
       const { wanted } = query;
       const keyed = (
         await this.stations.stationsKeyed(
-          held.teamId,
+          leased.teamId,
           wanted.station,
           wanted.line,
         )
@@ -133,14 +133,14 @@ export class ReadRunnerHistoryHandler
         await this.stations.endedAt(only.stationId, {
           fingerprint: wanted.fingerprint,
           since: sinceOf(wanted.since),
-          until: held.replaysFrom,
+          until: leased.replaysFrom,
           max: wanted.outcome ? HISTORY_RUNS.matched : last,
           excluding: sighted.hiddenTasks,
         })
       ).filter((each) => !sighted.hides(each));
       const outcomes = await this.outcomes.of(
         ended.map((each) => each.runId),
-        held.replaysFrom,
+        leased.replaysFrom,
       );
       const kept = ended
         .filter(
@@ -154,7 +154,7 @@ export class ReadRunnerHistoryHandler
         shown.length > 0
           ? await this.outcomes.of(
               shown.map((each) => each.runId),
-              held.replaysFrom,
+              leased.replaysFrom,
             )
           : new Map();
       const listed = [...kept, ...shown];
@@ -193,9 +193,9 @@ export class ReadRunnerHistoryHandler
 
   private async sightedBy(
     runId: string,
-    held: HeldRunStanding,
+    leased: LeasedRunStanding,
   ): Promise<SightedHistory> {
-    return held.isSearch
+    return leased.isSearch
       ? SightedHistory.through(await this.sights.of(runId))
       : SightedHistory.unsighted();
   }

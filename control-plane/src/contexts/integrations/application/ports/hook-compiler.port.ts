@@ -19,5 +19,5 @@ export type ParsedHookDefinition =
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 export interface HookCompilerPort {
-  compile(held: unknown): ParsedHookDefinition;
+  compile(raw: unknown): ParsedHookDefinition;
 }

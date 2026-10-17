@@ -43,7 +43,7 @@ const asking = (run: Run, task: Task | null = null) =>
   new TurnAsksAPersonHandler(
     { findById: async () => run } as unknown as RunRepository,
     { find: async () => task } as unknown as TaskRepository,
-    { holding: async () => null } as unknown as LineRepository,
+    { findByStation: async () => null } as unknown as LineRepository,
     {
       listens: async () => true,
       before: async () => ({ kind: 'allowed' }),
@@ -72,7 +72,7 @@ describe('TurnAsksAPersonHandler', () => {
     await expect(asking(waiting).execute(query())).resolves.toBe(true);
   });
 
-  it('refuses a runner that does not hold the run', async () => {
+  it('refuses a runner that does not lease the run', async () => {
     await expect(
       asking(claimed()).execute(query('runner_2')),
     ).rejects.toMatchObject({ kind: 'not-found' });

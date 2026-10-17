@@ -41,14 +41,14 @@ const drafted = (decisions: readonly DecisionDto[]): TaskDecisionsDto => ({
 });
 
 const announcing = (
-  held: TaskDecisionsDto | null,
+  stored: TaskDecisionsDto | null,
   task: Partial<ReviewedTask> = {},
 ) => {
   const kept: StandingComment[] = [];
   const withdrawn: StandingPlace[] = [];
 
   const service = new AnnounceDecisions(
-    { ofTask: async () => held } as unknown as DecisionReaderPort,
+    { ofTask: async () => stored } as unknown as DecisionReaderPort,
     {
       task: async (): Promise<ReviewedTask> => ({
         id: TASK,

@@ -75,7 +75,7 @@ export class MemoriesForBriefing
       chosen.briefed.map((each) => MemoryId.of(each.id)),
     );
     const applying = await this.inReach.at(site, asOf);
-    const held = new Map(
+    const teamMemories = new Map(
       kept
         .filter((each) => each.isTeams(place.teamId))
         .map((each) => [each.id.value, each]),
@@ -83,7 +83,7 @@ export class MemoriesForBriefing
 
     return {
       briefed: chosen.briefed.flatMap((each) => {
-        const memory = held.get(each.id);
+        const memory = teamMemories.get(each.id);
 
         return memory
           ? [
@@ -97,7 +97,7 @@ export class MemoriesForBriefing
           : [];
       }),
       cut: chosen.cut.map((each) => ({ id: each.id, handle: each.handle })),
-      folder: folderAt(site, applying.length > 0 || held.size > 0),
+      folder: folderAt(site, applying.length > 0 || teamMemories.size > 0),
     };
   }
 

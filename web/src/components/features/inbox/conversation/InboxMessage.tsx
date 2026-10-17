@@ -13,9 +13,9 @@ import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useSession } from '@/hooks/api/useSession';
 import {
   type Conversing,
-  HELD_AT_TOP,
   type InboxMessage as Message,
   type RunJournal,
+  STICKY_AT_TOP,
 } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 
@@ -43,9 +43,9 @@ export function InboxMessage({
   const written = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const held = written.current;
+    const element = written.current;
 
-    if (!held) {
+    if (!element) {
       return;
     }
 
@@ -61,9 +61,9 @@ export function InboxMessage({
       void navigate(href);
     };
 
-    held.addEventListener('click', following);
+    element.addEventListener('click', following);
 
-    return () => held.removeEventListener('click', following);
+    return () => element.removeEventListener('click', following);
   }, [navigate]);
 
   if (message.form === 'settled') {
@@ -90,7 +90,7 @@ export function InboxMessage({
 
   if (message.voice === 'person') {
     return (
-      <li data-note={message.position} className={HELD_AT_TOP}>
+      <li data-note={message.position} className={STICKY_AT_TOP}>
         <PersonSaid body={message.body} attachments={message.attachments} />
       </li>
     );

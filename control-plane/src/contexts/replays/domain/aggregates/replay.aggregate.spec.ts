@@ -963,7 +963,7 @@ describe('Replay', () => {
 
     it.each([
       ['none', []],
-      ['one its set never held', ['original_0', 'elsewhere']],
+      ['one its set never contained', ['original_0', 'elsewhere']],
       ['one twice', ['original_0', 'original_0']],
     ])('refuses to replay %s', (_, among) => {
       expect(() =>

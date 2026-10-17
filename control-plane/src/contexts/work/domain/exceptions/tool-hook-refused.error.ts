@@ -3,7 +3,7 @@ export class ToolHookRefusedError extends Error {
 
   constructor(tool: string, reason: string) {
     super(
-      [`${tool} was held back by a hook, so nothing was sent.`, reason.trim()]
+      [`A hook stopped ${tool}, so nothing was sent.`, reason.trim()]
         .filter(Boolean)
         .join(' '),
     );

@@ -78,13 +78,13 @@ describe('GitHubConnection', () => {
     ).toThrow(NotYoursToConnectError);
   });
 
-  it('refuses an installation another workspace already holds', () => {
+  it('refuses an installation another workspace already has', () => {
     expect(() =>
       none().connectTo(INSTALLED, { ...allowed, claimedBy: ELSEWHERE }),
     ).toThrow(InstallationClaimedError);
   });
 
-  it('takes again an installation it already holds itself', () => {
+  it('takes again an installation it already has itself', () => {
     expect(
       connected().connectTo(INSTALLED, { ...allowed, claimedBy: WORKSPACE })
         .installation,
@@ -117,7 +117,7 @@ describe('GitHubConnection', () => {
       expect(connection.disconnectFrom(REINSTALLED)).toBe(connection);
     });
 
-    it('says nothing where it held nothing', () => {
+    it('says nothing where it had nothing', () => {
       const connection = none();
 
       expect(connection.disconnectFrom(INSTALLED)).toBe(connection);

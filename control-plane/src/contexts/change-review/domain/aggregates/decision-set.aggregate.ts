@@ -76,7 +76,7 @@ export class DecisionSet
     if (input.decisions.length > 0 && !input.decidedIn) {
       throw new InconsistentStateError(
         'decision set',
-        'holds decisions without the run they were made in',
+        'has decisions without the run they were made in',
       );
     }
 
@@ -86,7 +86,7 @@ export class DecisionSet
     ) {
       throw new InconsistentStateError(
         'decision set',
-        'holds the same decision twice',
+        'has the same decision twice',
       );
     }
 
@@ -209,15 +209,15 @@ export class DecisionSet
     reason: string;
     now: Date;
   }): DecisionSet {
-    const held = this.decisions.find((each) =>
+    const target = this.decisions.find((each) =>
       each.id.equals(input.decisionId),
     );
 
-    if (!held) {
+    if (!target) {
       throw new UnknownDecisionError();
     }
 
-    const disputed = held.dispute(
+    const disputed = target.dispute(
       DecisionDispute.of({
         id: input.id,
         path: input.path,
@@ -228,11 +228,11 @@ export class DecisionSet
     );
     const changed = this.with({
       decisions: this.decisions.map((each) =>
-        each.equals(held) ? disputed : each,
+        each.equals(target) ? disputed : each,
       ),
     });
     changed.record(
-      new DecisionDisputed(this.id, this.taskId, held.id, input.path),
+      new DecisionDisputed(this.id, this.taskId, target.id, input.path),
     );
     return changed;
   }

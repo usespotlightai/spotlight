@@ -44,31 +44,34 @@ export class HeldOutSplit {
           textOrder(one.rank, other.rank) || textOrder(one.task, other.task),
       );
 
-    return HeldOutSplit.holding(
+    return HeldOutSplit.ofRanked(
       input.entries,
       ranked.map((each) => each.task),
     );
   }
 
-  private static holding(
+  private static ofRanked(
     given: readonly ReplaySetEntry[],
     ranked: readonly string[],
   ): HeldOutSplit {
-    const holding = Math.ceil(HELD_OUT_SHARE * ranked.length);
+    const heldOutCount = Math.ceil(HELD_OUT_SHARE * ranked.length);
 
-    if (holding < MIN_HELD_OUT || ranked.length - holding < MIN_SEARCHED) {
-      throw new SearchSetTooSmallError(ranked.length, holding);
+    if (
+      heldOutCount < MIN_HELD_OUT ||
+      ranked.length - heldOutCount < MIN_SEARCHED
+    ) {
+      throw new SearchSetTooSmallError(ranked.length, heldOutCount);
     }
 
-    const held = new Set(ranked.slice(0, holding));
+    const heldOutTasks = new Set(ranked.slice(0, heldOutCount));
     const entries = given.map((each) => ({
       runId: each.runId,
       taskId: each.taskId,
     }));
 
     return new HeldOutSplit(
-      entries.filter((each) => !held.has(each.taskId.value)),
-      entries.filter((each) => held.has(each.taskId.value)),
+      entries.filter((each) => !heldOutTasks.has(each.taskId.value)),
+      entries.filter((each) => heldOutTasks.has(each.taskId.value)),
     );
   }
 
@@ -77,11 +80,11 @@ export class HeldOutSplit {
     units: (searchedRuns: number, heldOutRuns: number) => number,
   ): HeldOutSplit {
     const tasks = [...tasksOf(entries)].sort(textOrder);
-    const holding = Math.ceil(HELD_OUT_SHARE * tasks.length);
+    const heldOutCount = Math.ceil(HELD_OUT_SHARE * tasks.length);
     const runsOf = (task: string) =>
       entries.filter((each) => each.taskId.value === task).length;
     const reach: Map<number, readonly string[]>[] = Array.from(
-      { length: holding + 1 },
+      { length: heldOutCount + 1 },
       () => new Map(),
     );
 
@@ -90,27 +93,27 @@ export class HeldOutSplit {
     for (const task of tasks) {
       const runs = runsOf(task);
 
-      for (let count = holding; count >= 1; count -= 1) {
-        for (const [held, chosen] of reach[count - 1] ?? []) {
+      for (let count = heldOutCount; count >= 1; count -= 1) {
+        for (const [heldOutRuns, chosen] of reach[count - 1] ?? []) {
           const into = reach[count];
 
-          if (into && !into.has(held + runs)) {
-            into.set(held + runs, [...chosen, task]);
+          if (into && !into.has(heldOutRuns + runs)) {
+            into.set(heldOutRuns + runs, [...chosen, task]);
           }
         }
       }
     }
 
-    const [costliest] = [...(reach[holding] ?? [])].sort(
+    const [costliest] = [...(reach[heldOutCount] ?? [])].sort(
       ([one], [other]) =>
         units(entries.length - other, other) -
           units(entries.length - one, one) || one - other,
     );
-    const held = costliest?.[1] ?? [];
+    const costliestTasks = costliest?.[1] ?? [];
 
-    return HeldOutSplit.holding(entries, [
-      ...held,
-      ...tasks.filter((each) => !held.includes(each)),
+    return HeldOutSplit.ofRanked(entries, [
+      ...costliestTasks,
+      ...tasks.filter((each) => !costliestTasks.includes(each)),
     ]);
   }
 
@@ -151,11 +154,11 @@ export class HeldOutSplit {
   }
 
   covers(runs: readonly RunId[]): boolean {
-    const held = [...this.searched, ...this.heldOut];
+    const all = [...this.searched, ...this.heldOut];
 
     return (
-      runs.length === held.length &&
-      runs.every((run) => held.some((each) => each.runId.equals(run)))
+      runs.length === all.length &&
+      runs.every((run) => all.some((each) => each.runId.equals(run)))
     );
   }
 

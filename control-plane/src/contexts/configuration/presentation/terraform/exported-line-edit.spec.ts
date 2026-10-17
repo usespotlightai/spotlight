@@ -1,4 +1,4 @@
-import { HELD } from '@configuration/presentation/terraform/held-configuration.fake-spec';
+import { CONFIGURATION } from '@configuration/presentation/terraform/exportable-configuration.fake-spec';
 import { workspaceTerraform } from '@configuration/presentation/terraform/terraform-configuration';
 import type { HclLiteral } from '@platform/hcl/hcl.parse';
 import {
@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = 'infra/spotlight';
 
-const EXPORTED = workspaceTerraform(HELD).map((each) => ({
+const EXPORTED = workspaceTerraform(CONFIGURATION).map((each) => ({
   path: `${ROOT}/${each.path}`,
   content: each.content,
 }));
@@ -45,19 +45,19 @@ const RULES: Readonly<Record<string, HclField['references']>> = {
   profile: {
     type: 'spotlight_harness_profile',
     attribute: 'key',
-    heldAt: 'key',
+    storedAt: 'key',
     tool: false,
   },
   skills: {
     type: 'spotlight_skill',
     attribute: 'key',
-    heldAt: 'key',
+    storedAt: 'key',
     tool: false,
   },
   tools: {
     type: 'spotlight_integration',
     attribute: 'source',
-    heldAt: 'definition.integration',
+    storedAt: 'definition.integration',
     tool: true,
   },
 };

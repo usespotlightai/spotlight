@@ -33,7 +33,7 @@ describe('WorkspaceRegistration', () => {
     expect(workspace.slug.value).toBe('acme-inc');
   });
 
-  it('says the workspace opened, naming the first team it should hold', async () => {
+  it('says the workspace opened, naming the first team it should have', async () => {
     const workspace = await register(registry(false), 'Payments');
 
     expect(workspace.pullEvents()).toEqual([

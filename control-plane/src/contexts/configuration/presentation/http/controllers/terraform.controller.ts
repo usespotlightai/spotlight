@@ -1,9 +1,9 @@
 import {
-  HELD_KINDS,
-  type HeldConfigurationDto,
-  type HeldKind,
-  type HeldResourceConfigurationDto,
-} from '@configuration/application/dto/held-configuration.dto';
+  EXPORTABLE_KINDS,
+  type ExportableConfigurationDto,
+  type ExportableKind,
+  type ExportableResourceConfigurationDto,
+} from '@configuration/application/dto/exportable-configuration.dto';
 import { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
 import { WorkspaceConfigurationQuery } from '@configuration/application/queries/workspace-configuration.query';
 import {
@@ -27,7 +27,7 @@ import { found } from '@platform/http/resources/resource-answers';
 import { RESOURCES } from '@platform/http/routes';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
-const COLLECTION_OF: Readonly<Record<HeldKind, string>> = {
+const COLLECTION_OF: Readonly<Record<ExportableKind, string>> = {
   workspace: 'workspaces',
   team: 'teams',
   line: 'lines',
@@ -43,8 +43,8 @@ const COLLECTION_OF: Readonly<Record<HeldKind, string>> = {
   'workspace-runners': 'workspace-runners',
 };
 
-const kindIn = (collection: string): HeldKind | undefined =>
-  HELD_KINDS.find((kind) => COLLECTION_OF[kind] === collection);
+const kindIn = (collection: string): ExportableKind | undefined =>
+  EXPORTABLE_KINDS.find((kind) => COLLECTION_OF[kind] === collection);
 
 @ConventionalApiController(RESOURCES, 'terraform')
 export class TerraformController {
@@ -70,9 +70,10 @@ export class TerraformController {
       'workspace',
       await this.queryBus.execute<
         WorkspaceConfigurationQuery,
-        HeldConfigurationDto | null
+        ExportableConfigurationDto | null
       >(new WorkspaceConfigurationQuery(id, principal)),
-      (held) => new WorkspaceTerraformResponseDto(workspaceTerraform(held)),
+      (configuration) =>
+        new WorkspaceTerraformResponseDto(workspaceTerraform(configuration)),
     );
   }
 
@@ -84,7 +85,7 @@ export class TerraformController {
   })
   @ApiParam({
     name: 'collection',
-    enum: HELD_KINDS.map((kind) => COLLECTION_OF[kind]),
+    enum: EXPORTABLE_KINDS.map((kind) => COLLECTION_OF[kind]),
   })
   @ApiParam({ name: 'id', example: '3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03' })
   @ApiOkResponse({ type: ResourceHclResponseDto })
@@ -101,12 +102,12 @@ export class TerraformController {
       kind
         ? await this.queryBus.execute<
             ResourceConfigurationQuery,
-            HeldResourceConfigurationDto | null
+            ExportableResourceConfigurationDto | null
           >(new ResourceConfigurationQuery(kind, id, principal))
         : null,
-      (held) =>
+      (exported) =>
         new ResourceHclResponseDto(
-          resourceHcl(held.configuration, held.resource),
+          resourceHcl(exported.configuration, exported.resource),
         ),
     );
   }

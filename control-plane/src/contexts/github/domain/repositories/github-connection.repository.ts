@@ -7,7 +7,9 @@ export interface GitHubConnectionRepository {
 
   claimantOf(installation: GitHubInstallation): Promise<WorkspaceId | null>;
 
-  heldClaimantOf(installation: GitHubInstallation): Promise<WorkspaceId | null>;
+  lockedClaimantOf(
+    installation: GitHubInstallation,
+  ): Promise<WorkspaceId | null>;
 
   save(connection: GitHubConnection): Promise<void>;
 }

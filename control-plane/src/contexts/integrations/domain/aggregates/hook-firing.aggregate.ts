@@ -75,7 +75,7 @@ const LEASE_MS = 10 * 60 * 1000;
 
 const KEPT_MS = 30 * 24 * 60 * 60 * 1000;
 
-const heldEvent = (
+const frozenEvent = (
   event: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> => deepFrozen(structuredClone(event));
 
@@ -93,7 +93,7 @@ export class HookFiring extends EventRecorder {
   static fire(input: Fired): HookFiring {
     return new HookFiring({
       ...input,
-      event: heldEvent(input.event),
+      event: frozenEvent(input.event),
       steps: [],
       progress: { kind: 'pending', dueAt: input.firedAt },
       attempts: 0,
@@ -134,7 +134,7 @@ export class HookFiring extends EventRecorder {
       );
     }
 
-    return new HookFiring({ ...state, event: heldEvent(state.event) });
+    return new HookFiring({ ...state, event: frozenEvent(state.event) });
   }
 
   static leaseLapsedBefore(now: Date): Date {
@@ -280,7 +280,7 @@ export class HookFiring extends EventRecorder {
       throw new InvalidHookFiringTransitionError('was already matched');
     }
 
-    return this.with({ event: heldEvent(event), matched: true });
+    return this.with({ event: frozenEvent(event), matched: true });
   }
 
   waitUntil(at: Date): HookFiring {

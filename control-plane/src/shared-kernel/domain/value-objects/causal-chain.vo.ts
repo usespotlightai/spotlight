@@ -34,7 +34,7 @@ export class CausalChain {
     if (!Number.isInteger(input.depth) || input.depth < input.links.length) {
       throw new InconsistentStateError(
         'causal chain',
-        `is ${input.depth} deep yet holds ${input.links.length} links`,
+        `is ${input.depth} deep but has ${input.links.length} links`,
       );
     }
 
@@ -65,7 +65,7 @@ export class CausalChain {
     if (!isKind(link?.kind) || !link.key || typeof link.saying !== 'string') {
       throw new InconsistentStateError(
         'causal chain',
-        'holds a link that says nothing of what it was',
+        'has a link that says nothing of what it was',
       );
     }
 
@@ -87,7 +87,7 @@ export class CausalChain {
     );
   }
 
-  holds(key: string): boolean {
+  contains(key: string): boolean {
     return this.links.some((each) => each.key === key.slice(0, MAX_KEY));
   }
 

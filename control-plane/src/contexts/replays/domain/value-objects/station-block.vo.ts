@@ -9,12 +9,14 @@ export class StationBlock {
     private readonly written: string,
   ) {}
 
-  static of(held: unknown): StationBlock {
-    if (!isBlock(held) || typeof held.key !== 'string') {
-      throw new InvalidCandidateError('must hold a station block with its key');
+  static of(raw: unknown): StationBlock {
+    if (!isBlock(raw) || typeof raw.key !== 'string') {
+      throw new InvalidCandidateError(
+        'must contain a station block with its key',
+      );
     }
 
-    const written = JSON.stringify(held);
+    const written = JSON.stringify(raw);
 
     if (written.length > MAX_CHARACTERS) {
       throw new InvalidCandidateError(
@@ -22,7 +24,7 @@ export class StationBlock {
       );
     }
 
-    return new StationBlock(held.key, written);
+    return new StationBlock(raw.key, written);
   }
 
   get value(): Block {

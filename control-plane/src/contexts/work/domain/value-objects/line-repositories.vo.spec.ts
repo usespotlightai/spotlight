@@ -20,7 +20,7 @@ const worked = (name: string, image?: string, setup?: string) =>
   });
 
 describe('LineRepositories', () => {
-  it('holds the repositories it is given', () => {
+  it('keeps the repositories it is given', () => {
     expect(of('acme/api', 'acme/web').all.map((each) => each.value)).toEqual([
       'acme/api',
       'acme/web',

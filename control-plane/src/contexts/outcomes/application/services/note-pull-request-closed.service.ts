@@ -18,18 +18,18 @@ export class NotePullRequestClosed {
 
   closed(closing: PullRequestClosing): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      const held = await this.deliveries.forPullRequest(
+      const existing = await this.deliveries.forPullRequest(
         closing.workspaceId,
         closing.pullRequest,
       );
 
-      if (!held) {
+      if (!existing) {
         return;
       }
 
-      const closed = held.close(closing);
+      const closed = existing.close(closing);
 
-      if (closed !== held) {
+      if (closed !== existing) {
         await this.deliveries.save(closed);
       }
     });

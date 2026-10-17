@@ -63,7 +63,7 @@ const merge = (repository: string, at: Date) =>
     at,
   });
 
-let held: TestDatabase;
+let database: TestDatabase;
 let sets: DrizzleDecisionSetRepository;
 let next = 0;
 
@@ -77,14 +77,14 @@ const opened = () => {
 };
 
 beforeAll(async () => {
-  held = await openDatabase('decision_sets');
-  sets = new DrizzleDecisionSetRepository(new DrizzleContext(held.db), {
+  database = await openDatabase('decision_sets');
+  sets = new DrizzleDecisionSetRepository(new DrizzleContext(database.db), {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher);
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('storing a task’s decisions', () => {
@@ -142,8 +142,8 @@ describe('storing a task’s decisions', () => {
     ]);
   });
 
-  it('hands out a set owing a draft once its lease runs out, and none while it holds', async () => {
-    await held.db.execute(sql`delete from decision_set`);
+  it('hands out a set owing a draft once its lease runs out, and none while the lease runs', async () => {
+    await database.db.execute(sql`delete from decision_set`);
     const set = opened().asked(FIRST, NOW);
     await sets.add(set);
 
@@ -193,7 +193,7 @@ describe('storing a task’s decisions', () => {
 
     expect(await sets.forTask(set.taskId)).toBeNull();
     const [left] = (
-      await held.db.execute(
+      await database.db.execute(
         sql`select count(*)::int as n from decision where set_id = ${set.id.value}`,
       )
     ).rows as { n: number }[];
@@ -252,7 +252,7 @@ describe('storing a task’s decisions', () => {
     ).toEqual([['user_maya', 'The client retries twice already.']]);
     expect(
       (
-        await new DrizzleDecisionReader(new DrizzleContext(held.db)).ofTask(
+        await new DrizzleDecisionReader(new DrizzleContext(database.db)).ofTask(
           set.taskId,
         )
       )?.decisions.find((each) => each.id === second.id.value)?.disputes,
@@ -290,7 +290,7 @@ describe('storing a task’s decisions', () => {
     );
 
     const found = await new DrizzleDecisionReader(
-      new DrizzleContext(held.db),
+      new DrizzleContext(database.db),
     ).ofTask(set.taskId);
 
     expect(found).toMatchObject({ runId: 'run_1', drafting: false });
@@ -304,7 +304,8 @@ describe('storing a task’s decisions', () => {
 
 describe('reading the decisions that shipped', () => {
   const WORKSPACE = WorkspaceId.of('ws_shipped');
-  const reader = () => new DrizzleDecisionReader(new DrizzleContext(held.db));
+  const reader = () =>
+    new DrizzleDecisionReader(new DrizzleContext(database.db));
 
   const shipped = async (
     repository: string,

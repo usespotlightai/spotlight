@@ -195,7 +195,7 @@ said = "turn " + globalThis.turns;`, "end_turn"), putToAPerson, func(o *runOptio
 func TestAResumedRunIsToldFirstWhatWasSaidSinceItWasParked(t *testing.T) {
 	written := run(t, harness(t, `said = msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
 		o.briefing = "review the queue"
-		o.continuity = protocol.Continuity{SessionID: "session_held", Resumes: true}
+		o.continuity = protocol.Continuity{SessionID: "session_known", Resumes: true}
 		o.said = [][]protocol.Said{{{Position: 7, Body: "yes, ship it"}}}
 	})
 
@@ -222,7 +222,7 @@ func TestAResumedRunWhoseSessionIsGoneIsBriefedThenToldWhatWasSaid(t *testing.T)
 func TestAResumedRunWithNothingSaidCarriesOnRatherThanBeingBriefedAgain(t *testing.T) {
 	written := run(t, harness(t, `said = msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
 		o.briefing = "review the queue"
-		o.continuity = protocol.Continuity{SessionID: "session_held", Resumes: true}
+		o.continuity = protocol.Continuity{SessionID: "session_known", Resumes: true}
 	})
 
 	if heard := said(t, written); strings.Contains(heard, "review the queue") || !strings.Contains(heard, "Carry on") {
@@ -298,7 +298,7 @@ func TestAWaitingRunItsTaskLetGoOfLetsTheSandboxGoWithoutCompletingAgain(t *test
 	})
 
 	if len(written.completions) != 1 || written.parks != 0 {
-		t.Errorf("completed %d times and parked %d times a run it no longer held", len(written.completions), written.parks)
+		t.Errorf("completed %d times and parked %d times a run it no longer leased", len(written.completions), written.parks)
 	}
 }
 
@@ -332,7 +332,7 @@ func TestAPausedRunsWorkspaceIsRestoredForTheRunnerThatTakesItUp(t *testing.T) {
 
 	resumed := run(t, harness(t, `said = require("node:fs").readFileSync("notes.md", "utf8") + " | " + msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
 		o.archives = kept
-		o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_held", Resumes: true}
+		o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known", Resumes: true}
 		o.said = [][]protocol.Said{{{Position: 3, Body: "go ahead"}}}
 	})
 

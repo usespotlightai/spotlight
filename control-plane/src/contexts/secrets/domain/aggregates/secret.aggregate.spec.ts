@@ -101,7 +101,7 @@ describe('Secret', () => {
       );
     });
 
-    it('takes no value when AWS Secrets Manager holds it', () => {
+    it('takes no value when AWS Secrets Manager keeps it', () => {
       expect(() => set({ source: AWS })).toThrow(
         /cannot be set on a secret read from AWS Secrets Manager/,
       );
@@ -171,7 +171,7 @@ describe('Secret', () => {
       ]);
     });
 
-    it('forgets the value it kept once AWS Secrets Manager holds it', () => {
+    it('forgets the value it kept once AWS Secrets Manager keeps it', () => {
       const moved = kept().redefinedAs(
         definition({ source: AWS, value: null }),
         BY,

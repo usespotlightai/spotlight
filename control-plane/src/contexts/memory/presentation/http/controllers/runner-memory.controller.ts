@@ -50,7 +50,7 @@ const optional = (value: unknown): string | null =>
   description: 'Missing, spent or wrong runner token',
 })
 @ApiParam({ name: 'runId', type: String })
-@ApiNotFoundResponse({ description: 'No such run held by this runner' })
+@ApiNotFoundResponse({ description: 'No such run leased by this runner' })
 @RunnerOnly()
 @Controller('runs/:runId/memories')
 export class RunnerMemoryController {

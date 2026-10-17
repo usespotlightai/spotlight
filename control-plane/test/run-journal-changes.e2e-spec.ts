@@ -20,14 +20,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let journal: DrizzleRunJournal;
 let reader: DrizzleRunJournalReader;
 
 beforeAll(async () => {
-  held = await openDatabase('run_journal_changes');
-  db = held.db;
+  database = await openDatabase('run_journal_changes');
+  db = database.db;
   journal = new DrizzleRunJournal(new DrizzleContext(db));
   reader = new DrizzleRunJournalReader(db, {
     mayView: async () => true,
@@ -35,7 +35,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const API = Repository.of('acme/api');

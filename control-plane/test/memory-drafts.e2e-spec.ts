@@ -46,7 +46,7 @@ const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   ...change,
 });
 
-let held: TestDatabase;
+let database: TestDatabase;
 let drafts: DrizzleMemoryDraftRepository;
 let memories: DrizzleMemoryRepository;
 let rejections: DrizzleRejectedMemories;
@@ -96,8 +96,8 @@ const stored = async (draft: MemoryDraft): Promise<MemoryDraft> => {
 };
 
 beforeAll(async () => {
-  held = await openDatabase('memory_drafts');
-  const context = new DrizzleContext(held.db);
+  database = await openDatabase('memory_drafts');
+  const context = new DrizzleContext(database.db);
   drafts = new DrizzleMemoryDraftRepository(context, {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher);
@@ -108,7 +108,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('storing a task’s memory draft', () => {
@@ -160,7 +160,7 @@ describe('storing a task’s memory draft', () => {
       (await stored(draft)).proposals.map((each) => each.body.value),
     ).toEqual(['The upload test flakes.']);
     const [{ n }] = (
-      await held.db.execute(
+      await database.db.execute(
         sql`select count(*)::int as n from memory_proposal where draft_id = ${draft.id.value}`,
       )
     ).rows as { n: number }[];
@@ -197,7 +197,7 @@ describe('storing a task’s memory draft', () => {
   });
 
   it('hands out the oldest draft that is due, and none that is waiting', async () => {
-    await held.db.execute(sql`delete from memory_draft`);
+    await database.db.execute(sql`delete from memory_draft`);
     const waiting = opened().asked(FIRST, NOW);
     const due = opened().asked(SECOND, LATER);
     await drafts.add(waiting);
@@ -208,7 +208,7 @@ describe('storing a task’s memory draft', () => {
         .failed(MemoryDraftingFailure.of('refused', NOW)),
     );
 
-    const handed = await held.db.transaction(async (tx) =>
+    const handed = await database.db.transaction(async (tx) =>
       new DrizzleMemoryDraftRepository(new DrizzleContext(tx), {
         dispatch: async () => {},
       } as unknown as DomainEventDispatcher).dueForWork(NOW),
@@ -226,7 +226,7 @@ describe('storing a task’s memory draft', () => {
 
     expect(await drafts.forTask(draft.taskId)).toBeNull();
     const [{ n }] = (
-      await held.db.execute(
+      await database.db.execute(
         sql`select count(*)::int as n from memory_proposal where draft_id = ${draft.id.value}`,
       )
     ).rows as { n: number }[];
@@ -245,7 +245,7 @@ describe('reading what the team already knows', () => {
       standing?: 'stands' | 'retired';
     },
   ) =>
-    held.db.execute(sql`
+    database.db.execute(sql`
       insert into memory (id, handle, workspace_id, kind, body, team_id, line_id, station_id, repository, paths,
         task_id, run_id, steps, notes, source, standing, approved_by, approved_at)
       values (${id}, nextval('memory_handle_seq'), 'ws_1', 'preference', ${`Memory ${id}`}, ${scope.team ?? 'team_1'},
@@ -288,10 +288,10 @@ describe('reading what the team already knows', () => {
       ]),
     );
     const [lately, longAgo] = (await stored(draft)).proposals;
-    await held.db.execute(
+    await database.db.execute(
       sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = ${LATER.toISOString()} where id = ${lately?.id.value ?? ''}`,
     );
-    await held.db.execute(
+    await database.db.execute(
       sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = '2026-01-01T00:00:00Z' where id = ${longAgo?.id.value ?? ''}`,
     );
 

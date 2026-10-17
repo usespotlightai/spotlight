@@ -209,7 +209,7 @@ describe('InviteDialog', () => {
     );
   });
 
-  it('holds the form while the invites are sent', () => {
+  it('locks the form while the invites are sent', () => {
     standing.mockReturnValue('pending');
     const dialog = opened();
 

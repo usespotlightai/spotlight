@@ -2,7 +2,7 @@ import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('SecretSource', () => {
-  it('is read in the network where an external store holds it, and there alone', () => {
+  it('is read in the network where an external store keeps it, and there alone', () => {
     expect(SecretSource.builtIn().readInNetwork).toBeNull();
     expect(
       SecretSource.awsSecretsManager({

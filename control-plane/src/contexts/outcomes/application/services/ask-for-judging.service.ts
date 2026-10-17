@@ -44,7 +44,7 @@ export class AskForJudging {
       return;
     }
 
-    const run = (await this.evidence.holds(heard.runId))
+    const run = (await this.evidence.hasTask(heard.runId))
       ? await this.work.endedRun(heard.runId)
       : null;
     const settings = run ? await this.evidence.judgeAt(run.stationId) : null;
@@ -69,7 +69,7 @@ export class AskForJudging {
       const taskId = TaskId.of(run.taskId);
       const teamId = TeamId.of(run.teamId);
 
-      await this.forgotten.holding(workspaceId, taskId, teamId);
+      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
 
       if (
         (await this.judgings.of(runId)) ||

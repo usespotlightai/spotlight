@@ -409,7 +409,7 @@ const using = (
       tasks,
       { find: async () => chat() } as unknown as ChatRepository,
       {
-        holding: async (stationId: StationId) =>
+        findByStation: async (stationId: StationId) =>
           stationId.value === lineAt ? LINE : null,
         ofTeam: async () => [LINE],
       } as unknown as LineRepository,
@@ -1153,7 +1153,7 @@ describe('UseToolHandler', () => {
       ).rejects.toMatchObject({
         kind: 'not-allowed',
         message:
-          'linear.comment was held back by a hook, so nothing was sent. The hook core/dba-review refused: not on a Friday.',
+          'A hook stopped linear.comment, so nothing was sent. The hook core/dba-review refused: not on a Friday.',
       });
       expect(called).toEqual([]);
       expect(hooked.after).toEqual([]);
@@ -1266,10 +1266,10 @@ describe('UseToolHandler', () => {
     });
 
     it('calls nothing where the run moved on to another attempt while the hooks were asked', async () => {
-      const held = claimed(['linear.comment']);
-      const { reach, called, hooked } = using(held, {
-        movedOnTo: held
-          .requeue(held.leaseExpiresAt as Date)
+      const leased = claimed(['linear.comment']);
+      const { reach, called, hooked } = using(leased, {
+        movedOnTo: leased
+          .requeue(leased.leaseExpiresAt as Date)
           .claim(RunnerId.of('runner_1'), NOW),
       });
 

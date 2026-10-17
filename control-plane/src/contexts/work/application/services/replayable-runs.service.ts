@@ -142,7 +142,9 @@ export class ReplayableRuns implements ReplayableRunsPort {
 
     const taskId = run.taskId?.value ?? null;
     const stationId = run.stationId?.value ?? null;
-    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    const line = run.stationId
+      ? await this.lines.findByStation(run.stationId)
+      : null;
 
     if (!line) {
       return refused(
@@ -150,7 +152,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
         taskId,
         stationId,
         'not-at-the-station',
-        'No line holds the station that it worked at.',
+        'No line has the station that it worked at.',
       );
     }
 

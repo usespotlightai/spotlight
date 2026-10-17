@@ -115,7 +115,7 @@ export type SearchRunQueued =
   | { readonly queued: true }
   | { readonly queued: false; readonly reason: string };
 
-export interface HeldSearchRun {
+export interface LeasedSearchRun {
   readonly searchId: SearchId;
   readonly iteration: number;
 }
@@ -187,7 +187,10 @@ export interface WorkPort {
 
   withdrawUnclaimedSearch(run: RunId): Promise<UnclaimedWithdrawal>;
 
-  heldSearchRun(run: RunId, runnerId: string): Promise<HeldSearchRun | null>;
+  leasedSearchRun(
+    run: RunId,
+    runnerId: string,
+  ): Promise<LeasedSearchRun | null>;
 
   searchRunStandings(
     runs: readonly RunId[],

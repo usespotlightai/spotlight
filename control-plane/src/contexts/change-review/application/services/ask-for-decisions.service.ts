@@ -38,10 +38,10 @@ export class AskForDecisions {
 
     await this.transaction.inTransaction(async () => {
       const now = this.clock.now();
-      const held = await this.sets.forTask(taskId);
+      const existing = await this.sets.forTask(taskId);
 
-      if (held) {
-        await this.sets.save(held.asked(runId, now));
+      if (existing) {
+        await this.sets.save(existing.asked(runId, now));
         return;
       }
 

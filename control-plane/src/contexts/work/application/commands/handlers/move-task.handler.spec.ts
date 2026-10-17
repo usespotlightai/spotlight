@@ -122,7 +122,7 @@ const tasks = (found: Task | null = standing()) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => null),
+    findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -134,7 +134,7 @@ const lines = (found: Line | null = line()) =>
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => found),
-    holding: vi.fn(async () => found),
+    findByStation: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
   }) satisfies LineRepository;
@@ -167,13 +167,13 @@ const people: PersonReaderPort = {
 const move = (
   stationId: string,
   board: LineRepository = lines(),
-  held: TaskRepository & TaskPlacementsPort = tasks(),
+  stored: TaskRepository & TaskPlacementsPort = tasks(),
   teamId = 'team_1',
   revision = 0,
 ) =>
   new MoveTaskHandler(
-    held,
-    held,
+    stored,
+    stored,
     new LineLoader(access(), board),
     transaction,
     dispatch(),
@@ -276,7 +276,7 @@ describe('MoveTaskHandler', () => {
     expect(dispatched).toEqual([]);
   });
 
-  it('holds work back at a station no runners answer for', async () => {
+  it('keeps work back at a station no runners answer for', async () => {
     await move('station_1', lines(), tasks(standing('station_2')));
 
     expect(dispatched).toEqual([]);
@@ -346,7 +346,7 @@ describe('MoveTaskHandler', () => {
     expect(saved?.assignee?.value).toBe('user_mover');
   });
 
-  it('leaves work its owner already holds with them when moved active', async () => {
+  it('leaves work its owner already has with them when moved active', async () => {
     const owned = standing('station_1').assign(UserId.of('user_other'));
 
     await move('station_2', lines(), tasks(owned));

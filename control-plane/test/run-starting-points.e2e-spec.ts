@@ -30,26 +30,26 @@ const NOW = new Date('2026-10-01T09:00:00.000Z');
 const STATION = randomUUID();
 const RUNNER = RunnerId.of('runner_1');
 
-let held: TestDatabase;
+let database: TestDatabase;
 let runs: DrizzleRunRepository;
 let briefedTasks: DrizzleBriefedTasks;
 
 beforeAll(async () => {
-  held = await openDatabase('run_starting_points');
-  runs = new DrizzleRunRepository(new DrizzleContext(held.db), {
+  database = await openDatabase('run_starting_points');
+  runs = new DrizzleRunRepository(new DrizzleContext(database.db), {
     dispatch: async () => {},
   });
-  briefedTasks = new DrizzleBriefedTasks(held.db);
+  briefedTasks = new DrizzleBriefedTasks(database.db);
 
   const lineId = randomUUID();
-  await held.db.insert(schema.line).values({
+  await database.db.insert(schema.line).values({
     id: lineId,
     key: 'delivery',
     workspaceId: 'ws_1',
     teamId: 'team_1',
     name: 'Delivery',
   });
-  await held.db.insert(schema.station).values({
+  await database.db.insert(schema.station).values({
     id: STATION,
     key: 'build',
     lineId,
@@ -59,7 +59,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const SCREENSHOT = Attachment.of({
@@ -125,7 +125,7 @@ describe('a task run’s starting point', () => {
   it('refuses to read a run that records only part of where it started', async () => {
     const run = aTaskRun();
     await runs.add(run);
-    await held.db
+    await database.db
       .update(schema.run)
       .set({ startedFromArchiveId: randomUUID() })
       .where(eq(schema.run.id, run.id.value));

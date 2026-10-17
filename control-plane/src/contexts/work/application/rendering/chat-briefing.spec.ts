@@ -217,10 +217,10 @@ describe('ChatBriefing', () => {
     const briefing = brief(started(), [], {
       path: '.spotlight/memory',
       layout: [
-        { folder: 'team/', holds: 'the whole team' },
+        { folder: 'team/', level: 'the whole team' },
         {
           folder: 'repositories/<owner>/<name>/<path>/',
-          holds: 'a repository, or a file or folder in it',
+          level: 'a repository, or a file or folder in it',
         },
       ],
       mirroring: 'repositories/',

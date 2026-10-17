@@ -31,14 +31,14 @@ const access = (db: DrizzleDatabase) =>
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let tasks: DrizzleTaskRepository;
 let board: DrizzleTaskReader;
 
 beforeAll(async () => {
-  held = await openDatabase('board_listing');
-  db = held.db;
+  database = await openDatabase('board_listing');
+  db = database.db;
   tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
@@ -55,7 +55,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('the tasks the board reads for a team', () => {

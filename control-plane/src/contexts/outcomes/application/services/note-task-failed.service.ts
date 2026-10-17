@@ -41,10 +41,10 @@ export class NoteTaskFailed {
     const teamId = TeamId.of(heard.teamId);
 
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(workspaceId, taskId, teamId);
-      const held = await this.failures.of(taskId);
+      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
+      const existing = await this.failures.of(taskId);
 
-      if (!held) {
+      if (!existing) {
         if (!(await this.forgotten.forgot(workspaceId, taskId, teamId))) {
           await this.failures.add(
             TaskFailures.heardOf(taskId, workspaceId, teamId).raise(occurrence),
@@ -53,9 +53,9 @@ export class NoteTaskFailed {
         return;
       }
 
-      const raised = held.raise(occurrence);
+      const raised = existing.raise(occurrence);
 
-      if (raised !== held) {
+      if (raised !== existing) {
         await this.failures.save(raised);
       }
     });

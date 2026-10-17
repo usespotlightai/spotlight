@@ -89,7 +89,7 @@ const team = async () => {
         : null,
     namesOf: async () => new Map(),
   };
-  const held = {
+  const historyRepositories = {
     records,
     deliveries: new TaskDeliveriesInMemory(),
     touches,
@@ -100,7 +100,7 @@ const team = async () => {
     now: () => NOW,
     sleep: async () => {},
   });
-  const reader = insightsReaderInMemory(held, undefined, {
+  const reader = insightsReaderInMemory(historyRepositories, undefined, {
     records: pullRequests,
     shapes,
   });

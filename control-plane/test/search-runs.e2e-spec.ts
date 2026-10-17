@@ -424,7 +424,7 @@ describe('a search run claimed by a runner', () => {
     expect(row?.briefedMemories).toEqual({ briefed: [], cut: [] });
   });
 
-  it('is named to the replays context by its search and iteration, only while its runner holds it', async () => {
+  it('is named to the replays context by its search and iteration, only while its runner has a lease on it', async () => {
     const { order: asked, runId } = await aClaimedSearch({ iteration: 3 });
     const searches = app.get<SearchRunsPort>(SEARCH_RUNS);
     const [host] = await db
@@ -432,11 +432,13 @@ describe('a search run claimed by a runner', () => {
       .from(schema.run)
       .where(eq(schema.run.id, runId));
 
-    expect(await searches.heldSearchRun(runId, host?.claimedBy ?? '')).toEqual({
+    expect(
+      await searches.leasedSearchRun(runId, host?.claimedBy ?? ''),
+    ).toEqual({
       searchId: asked.searchId,
       iteration: 3,
     });
-    expect(await searches.heldSearchRun(runId, randomUUID())).toBeNull();
+    expect(await searches.leasedSearchRun(runId, randomUUID())).toBeNull();
   });
 
   it('reaches no repository, uses no tool, answers no remark, takes up nothing said, keeps no workspace and reaches no memory', async () => {

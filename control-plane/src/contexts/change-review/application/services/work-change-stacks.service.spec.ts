@@ -100,11 +100,11 @@ const QUIET: LoggerPort = {
 };
 
 const working = (
-  held: ChangeStack,
+  initial: ChangeStack,
   answer: () => Promise<readonly ProposedCohort[]>,
   available = true,
 ) => {
-  let stored = held;
+  let stored = initial;
   let now = NOW;
   const draft = vi.fn(answer);
 

@@ -3,7 +3,7 @@ import type { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate'
 import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import {
   InMemoryGrants,
   NOW,
@@ -12,8 +12,8 @@ import {
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const HOLD = RunHold.of(RunId.of('run_1'), 1);
-const RUN = { hold: HOLD, workspaceId: WORKSPACE };
+const LEASE = RunLease.of(RunId.of('run_1'), 1);
+const RUN = { lease: LEASE, workspaceId: WORKSPACE };
 
 class Contended extends InMemoryGrants {
   constructor(private conflicts: number) {
@@ -30,9 +30,9 @@ class Contended extends InMemoryGrants {
   }
 }
 
-const pinning = (held: RunGrants) =>
-  held.redeemFor(
-    HOLD,
+const pinning = (current: RunGrants) =>
+  current.redeemFor(
+    LEASE,
     Redeemer.beside(RedemptionRecipient.of('recipient-key')),
   );
 
@@ -54,8 +54,8 @@ describe('RunGrantsKept', () => {
   it('writes nothing when the change leaves the grants as they were', async () => {
     const grants = new InMemoryGrants();
 
-    await new RunGrantsKept(grants).changed(RUN, (held) =>
-      held.grant(HOLD, []),
+    await new RunGrantsKept(grants).changed(RUN, (current) =>
+      current.grant(LEASE, []),
     );
 
     expect(grants.of('run_1')).toBeNull();
@@ -64,8 +64,8 @@ describe('RunGrantsKept', () => {
   it('ends nothing for a run that was never granted anything', async () => {
     const grants = new InMemoryGrants();
 
-    await new RunGrantsKept(grants).changedIfHeld(HOLD.runId, (held) =>
-      held.end(NOW),
+    await new RunGrantsKept(grants).changedIfExists(LEASE.runId, (current) =>
+      current.end(NOW),
     );
 
     expect(grants.of('run_1')).toBeNull();
@@ -77,10 +77,10 @@ describe('RunGrantsKept', () => {
 
     await kept.changed(RUN, pinning);
 
-    const held = (await grants.find(HOLD.runId)) as RunGrants;
+    const current = (await grants.find(LEASE.runId)) as RunGrants;
 
-    expect(await kept.settled(held, held.end(NOW))).toBe(true);
-    expect(await kept.settled(held, held.loseHold(HOLD))).toBe(false);
-    expect(await kept.settled(held, held)).toBe(false);
+    expect(await kept.settled(current, current.end(NOW))).toBe(true);
+    expect(await kept.settled(current, current.loseLease(LEASE))).toBe(false);
+    expect(await kept.settled(current, current)).toBe(false);
   });
 });

@@ -100,10 +100,10 @@ const firstOf = async (reply: Response): Promise<string> => {
   }
 
   const chunks: Uint8Array[] = [];
-  let held = 0;
+  let size = 0;
 
   try {
-    while (held < MAX_KEPT) {
+    while (size < MAX_KEPT) {
       const { done, value } = await reader.read();
 
       if (done) {
@@ -111,7 +111,7 @@ const firstOf = async (reply: Response): Promise<string> => {
       }
 
       chunks.push(value);
-      held += value.length;
+      size += value.length;
     }
   } catch {
     return Buffer.concat(chunks).toString('utf8');

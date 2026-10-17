@@ -57,7 +57,7 @@ class WindowTallies {
   #previous: TallyCounts | null = null;
   readonly #byDay = new Map<string, TallyCounts>();
 
-  hold(row: TallyRow): void {
+  add(row: TallyRow): void {
     if (row.all_days === 0 && row.day !== null) {
       if (row.is_current) {
         this.#byDay.set(row.day, tallyCountsOf(row));
@@ -190,11 +190,12 @@ export const stationCountsIn = async (
 
   for (const row of tallies) {
     if (row.all_stations === 1) {
-      teamTallies.hold(row);
+      teamTallies.add(row);
     } else if (row.station_id !== null) {
-      const held = stationTallies.get(row.station_id) ?? new WindowTallies();
-      held.hold(row);
-      stationTallies.set(row.station_id, held);
+      const windowTallies =
+        stationTallies.get(row.station_id) ?? new WindowTallies();
+      windowTallies.add(row);
+      stationTallies.set(row.station_id, windowTallies);
     }
   }
 

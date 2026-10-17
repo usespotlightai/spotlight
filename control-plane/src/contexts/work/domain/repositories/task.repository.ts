@@ -18,7 +18,10 @@ export interface TaskRepository {
   standingAt(stationId: StationId): Promise<Task[]>;
 
   // Locks the task until the transaction ends.
-  holding(workspaceId: WorkspaceId, concerns: Concerns): Promise<Task | null>;
+  findByMarks(
+    workspaceId: WorkspaceId,
+    concerns: Concerns,
+  ): Promise<Task | null>;
 
   settingUpFor(teamId: TeamId): Promise<Task | null>;
 

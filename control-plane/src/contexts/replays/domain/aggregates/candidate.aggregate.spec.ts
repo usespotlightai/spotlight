@@ -181,7 +181,7 @@ describe('Candidate', () => {
     expect(CandidateName.live(NOW).value).toBe('Live config, 2026-10-01');
   });
 
-  it('holds a station block with a key, and a SHA-256 fingerprint', () => {
+  it('has a station block with a key, and a SHA-256 fingerprint', () => {
     expect(() => StationBlock.of(['build'])).toThrow(InvalidCandidateError);
     expect(() => StationBlock.of({ name: 'Build' })).toThrow(
       InvalidCandidateError,

@@ -215,8 +215,8 @@ describe('comparedWith', () => {
   it('counts a drop in the judge’s score as a regression, even where both succeeded', () => {
     const judged = (replay: Replay, scores: readonly number[]) =>
       scores.reduce(
-        (held, score, at) =>
-          held.recordVerdict(run(at), scoredAs(score), null, later(90_000)),
+        (built, score, at) =>
+          built.recordVerdict(run(at), scoredAs(score), null, later(90_000)),
         replay,
       );
     const baseline = judged(
@@ -440,9 +440,9 @@ describe('results with repeats', () => {
     const firstOnly = reserved.entries
       .filter((each) => each.repeat === 1)
       .reduce(
-        (held, entry) =>
+        (built, entry) =>
           settledAs(
-            held,
+            built,
             entry.run as RunId,
             entry.original.value === 'original_0' ? 'failed' : 'completed',
             1,
@@ -460,9 +460,9 @@ describe('results with repeats', () => {
     const done = firstOnly.entries
       .filter((each) => each.repeat > 1)
       .reduce(
-        (held, entry) =>
+        (built, entry) =>
           settledAs(
-            held,
+            built,
             entry.run as RunId,
             entry.original.value === 'original_0' ? 'failed' : 'completed',
             1,

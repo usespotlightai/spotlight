@@ -137,7 +137,7 @@ describe('ChangeMemberRoleHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('takes a role somebody already holds for an answer', async () => {
+  it('takes a role somebody already has for an answer', async () => {
     const { handler, dispatched } = changing();
 
     await expect(

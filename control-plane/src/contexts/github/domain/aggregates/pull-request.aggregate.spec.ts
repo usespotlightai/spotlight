@@ -159,11 +159,11 @@ describe('PullRequest', () => {
     });
   });
 
-  it('changes nothing where it hears what it already holds', () => {
-    const held = opened();
-    const reviewed = stored(held.recordReview(review(1, 'approved', 9)));
+  it('changes nothing where it hears what it already has', () => {
+    const original = opened();
+    const reviewed = stored(original.recordReview(review(1, 'approved', 9)));
 
-    expect(held.describe(factsOf())).toBe(held);
+    expect(original.describe(factsOf())).toBe(original);
     expect(reviewed.recordReview(review(1, 'approved', 9))).toBe(reviewed);
   });
 
@@ -699,13 +699,13 @@ describe('PullRequest', () => {
     });
 
     it('marks no open pull request reverted, nor one reverting itself', () => {
-      const held = opened();
+      const original = opened();
 
       expect(
-        held.recordRevert(
+        original.recordRevert(
           PullRequestUrl.of('https://github.com/acme/api/pull/9'),
         ),
-      ).toBe(held);
+      ).toBe(original);
 
       const merged = opened({ state: 'merged', closedAt: MERGED });
       expect(merged.recordRevert(URL_7)).toBe(merged);

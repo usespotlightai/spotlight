@@ -132,9 +132,9 @@ func TestSaysWhenTheIterationHasProposedAllItMay(t *testing.T) {
 	}
 }
 
-func TestSaysWhenTheSearchNoLongerHoldsTheRun(t *testing.T) {
+func TestSaysWhenTheRunIsNoLongerTheActiveRunOfTheSearch(t *testing.T) {
 	for answer, want := range map[string]string{
-		`{}`: "the search no longer holds this run",
+		`{}`: "this run is no longer the active run of the search",
 		`{"status":404,"detail":"The search was stopped"}`: "The search was stopped",
 	} {
 		server, _ := proposing(t, http.StatusNotFound, answer)

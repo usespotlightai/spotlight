@@ -31,8 +31,8 @@ const withStation = (at: number, station: Record<string, unknown>) => ({
   ),
 });
 
-const refused = (held: unknown) => {
-  const compiled = compileLine(held);
+const refused = (input: unknown) => {
+  const compiled = compileLine(input);
 
   if (compiled.ok) {
     throw new Error('it compiled');

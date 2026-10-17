@@ -95,16 +95,16 @@ const threshold = (maxRegressions: number) =>
   });
 
 class InMemoryChecks implements ReplayCheckRepository {
-  readonly held = new Map<string, ReplayCheck>();
+  readonly stored = new Map<string, ReplayCheck>();
 
-  find = async (id: { value: string }) => this.held.get(id.value) ?? null;
+  find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
 
   matching = async (
     stationId: string,
     candidate: StationDigests,
     live: StationDigests,
   ) =>
-    [...this.held.values()].filter(
+    [...this.stored.values()].filter(
       (each) =>
         each.station.stationId === stationId &&
         each.candidateDigests.behaviour === candidate.behaviour &&
@@ -112,17 +112,17 @@ class InMemoryChecks implements ReplayCheckRepository {
     );
 
   awaitingBaseline = async () =>
-    [...this.held.values()].filter((each) => each.awaitsBaseline);
+    [...this.stored.values()].filter((each) => each.awaitsBaseline);
 
-  ofTeam = async () => [...this.held.values()];
+  ofTeam = async () => [...this.stored.values()];
 
-  ofSet = async () => [...this.held.values()];
+  ofSet = async () => [...this.stored.values()];
 
   pageOfSet = async (
     _setId: unknown,
     page: { before: { value: string } | null; limit: number },
   ) => {
-    const newest = [...this.held.values()].reverse();
+    const newest = [...this.stored.values()].reverse();
     const from = page.before
       ? newest.findIndex((each) => each.id.value === page.before?.value) + 1
       : 0;
@@ -134,14 +134,14 @@ class InMemoryChecks implements ReplayCheckRepository {
 
   add = async (check: ReplayCheck) => {
     memory.events.push(...check.pullEvents());
-    this.held.set(check.id.value, check);
+    this.stored.set(check.id.value, check);
   };
 
   save = async (check: ReplayCheck) => {
     if (check.isAbandoned) {
-      this.held.delete(check.id.value);
+      this.stored.delete(check.id.value);
     } else {
-      this.held.set(check.id.value, check);
+      this.stored.set(check.id.value, check);
     }
   };
 }
@@ -242,7 +242,8 @@ const idOf = (started: ReplayCheckStartedOutcome): string => {
   return started.id;
 };
 
-const checkOf = (id: string): ReplayCheck => checks.held.get(id) as ReplayCheck;
+const checkOf = (id: string): ReplayCheck =>
+  checks.stored.get(id) as ReplayCheck;
 
 const wantedBaselines = () =>
   memory.events.filter(
@@ -370,7 +371,7 @@ describe('StartReplayCheckHandler', () => {
 
     memory.sets.set(set.id.value, atVersion(set, set.version + 3));
     expect(await start()).toEqual({ outcome: 'reused', id: first });
-    expect(checks.held.size).toBe(1);
+    expect(checks.stored.size).toBe(1);
   });
 
   it('starts another attempt once the earlier one is undecided, the threshold changed, or the set changed', async () => {
@@ -499,7 +500,7 @@ describe('StartReplayCheckHandler', () => {
       }),
     );
     expect(await errorOf(start())).toBe('conflict');
-    expect(checks.held.size).toBe(0);
+    expect(checks.stored.size).toBe(0);
   });
 
   it('names each problem of a planned station the line would not take', async () => {

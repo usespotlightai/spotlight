@@ -120,7 +120,7 @@ export class ReplaySetsController {
     required: false,
     example: 'build',
     description:
-      'With line: the key of the station whose sets to list; a line or station the team does not hold is not found',
+      'With line: the key of the station whose sets to list; a line or station that the team does not own is not found',
   })
   @ApiOkResponse({ type: ReplaySetResponseDto, isArray: true })
   @ApiProblemResponse(

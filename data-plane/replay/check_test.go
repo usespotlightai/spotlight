@@ -472,17 +472,17 @@ func withoutUnknowns(t *testing.T, plan []byte) []byte {
 		unknowns := inner["after_unknown"].(map[string]any)
 		stations, unknownStations := []any{}, []any{}
 		for at, station := range after["station"].([]any) {
-			held := station.(map[string]any)
-			if held["key"] == "polish" {
+			values := station.(map[string]any)
+			if values["key"] == "polish" {
 				continue
 			}
-			if held["key"] == "review" {
-				held["prompt"] = "Review."
-				held["passes_to"] = []any{"completed"}
+			if values["key"] == "review" {
+				values["prompt"] = "Review."
+				values["passes_to"] = []any{"completed"}
 			}
 			unknown := unknowns["station"].([]any)[at].(map[string]any)
 			delete(unknown, "prompt")
-			stations = append(stations, held)
+			stations = append(stations, values)
 			unknownStations = append(unknownStations, unknown)
 		}
 		after["station"] = stations

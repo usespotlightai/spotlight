@@ -1,5 +1,5 @@
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
-import type { TeamHoldingsPort } from '@identity/application/ports/team-holdings.port';
+import type { TeamDependentsPort } from '@identity/application/ports/team-dependents.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
@@ -72,7 +72,7 @@ export const workspaces = (
 export const teams = (
   over: {
     standing?: Team | null;
-    held?: readonly Team[];
+    inWorkspace?: readonly Team[];
     refusing?: Error;
     thenAt?: Team | null;
   } = {},
@@ -82,7 +82,7 @@ export const teams = (
   return {
     find,
     named: find,
-    ofWorkspace: vi.fn(async () => over.held ?? []),
+    ofWorkspace: vi.fn(async () => over.inWorkspace ?? []),
     add: vi.fn(async (_: Team) => {
       if (over.refusing) {
         throw over.refusing;
@@ -120,9 +120,11 @@ export const teamKeys = (
     mintingTrustKeysIn: vi.fn(async () => minting),
   }) as unknown as IdentityResourcesPort;
 
-export const holdings = (held: readonly string[] = []): TeamHoldingsPort => ({
+export const dependents = (
+  names: readonly string[] = [],
+): TeamDependentsPort => ({
   register: vi.fn(),
-  of: vi.fn(async () => held),
+  of: vi.fn(async () => names),
 });
 
 export const creates = () =>

@@ -3,7 +3,7 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { PendingMessageDto } from '@work/application/dto/pending-message.dto';
-import type { HeldRunReaderPort } from '@work/application/ports/held-run-reader.port';
+import type { LeasedRunReaderPort } from '@work/application/ports/leased-run-reader.port';
 import type { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
 import { Attached } from '@work/application/rendering/attached';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
@@ -14,7 +14,7 @@ export class PendingMessagesHandler
 {
   constructor(
     private readonly runs: RunRepository,
-    private readonly held: HeldRunReaderPort,
+    private readonly leasedRuns: LeasedRunReaderPort,
   ) {}
 
   async execute(query: PendingMessagesQuery): Promise<PendingMessageDto[]> {
@@ -27,11 +27,11 @@ export class PendingMessagesHandler
         return [];
       }
 
-      const pending = await this.held.pendingFor(runId, runner);
+      const pending = await this.leasedRuns.pendingFor(runId, runner);
 
       if (!pending) {
         throw new UnknownRunError(
-          `Runner ${query.runnerId} holds no run ${query.runId}.`,
+          `Runner ${query.runnerId} has no lease on run ${query.runId}.`,
         );
       }
 

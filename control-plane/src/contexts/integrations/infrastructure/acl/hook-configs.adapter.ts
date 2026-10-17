@@ -13,29 +13,29 @@ import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo'
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-type Held = Readonly<Record<string, unknown>>;
+type Fields = Readonly<Record<string, unknown>>;
 
-const isHeld = (value: unknown): value is Held =>
+const isRecord = (value: unknown): value is Fields =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const heldIn = (value: unknown): Held => (isHeld(value) ? value : {});
+const fieldsIn = (value: unknown): Fields => (isRecord(value) ? value : {});
 
 const textsIn = (value: unknown): readonly string[] =>
   Array.isArray(value) ? value.map(String) : [];
 
 const textsBy = (value: unknown): Readonly<Record<string, string>> =>
   Object.fromEntries(
-    Object.entries(heldIn(value)).map(([name, each]) => [name, String(each)]),
+    Object.entries(fieldsIn(value)).map(([name, each]) => [name, String(each)]),
   );
 
-const stepOf = (step: Held): HookConfigStep => {
+const stepOf = (step: Fields): HookConfigStep => {
   const name = String(step.name ?? '');
 
   if (typeof step.call === 'string') {
-    return { name, call: step.call, with: { ...heldIn(step.with) } };
+    return { name, call: step.call, with: { ...fieldsIn(step.with) } };
   }
 
-  const request = heldIn(step.request);
+  const request = fieldsIn(step.request);
 
   return {
     name,
@@ -49,9 +49,9 @@ const stepOf = (step: Held): HookConfigStep => {
 };
 
 const signingOf = (value: unknown): HookConfigSigning | null => {
-  const signing = heldIn(value);
+  const signing = fieldsIn(value);
 
-  if (isHeld(signing.oidc)) {
+  if (isRecord(signing.oidc)) {
     return { oidc: { audience: String(signing.oidc.audience ?? '') } };
   }
 
@@ -60,16 +60,16 @@ const signingOf = (value: unknown): HookConfigSigning | null => {
     : null;
 };
 
-const heldOn = (teamKey: string, kept: HookRecord): HookConfig => {
-  const held = kept.definition;
-  const match = heldIn(held.match);
+const configOf = (teamKey: string, kept: HookRecord): HookConfig => {
+  const definition = kept.definition;
+  const match = fieldsIn(definition.match);
 
   return {
     id: kept.id,
     address: HookAddress.of(teamKey, HookKey.of(kept.key)).toString(),
     teamId: kept.teamId,
     key: kept.key,
-    on: String(held.on ?? ''),
+    on: String(definition.on ?? ''),
     match: {
       tools: textsIn(match.tools),
       lines: textsIn(match.lines),
@@ -77,15 +77,17 @@ const heldOn = (teamKey: string, kept: HookRecord): HookConfig => {
       repositories: textsIn(match.repositories),
       paths: textsIn(match.paths),
     },
-    when: typeof held.when === 'string' ? held.when : null,
-    vars: textsBy(held.vars),
-    steps: (Array.isArray(held.steps) ? held.steps : [])
-      .filter(isHeld)
+    when: typeof definition.when === 'string' ? definition.when : null,
+    vars: textsBy(definition.vars),
+    steps: (Array.isArray(definition.steps) ? definition.steps : [])
+      .filter(isRecord)
       .map(stepOf),
-    signing: signingOf(held.signing),
-    failure: typeof held.failure === 'string' ? held.failure : null,
+    signing: signingOf(definition.signing),
+    failure: typeof definition.failure === 'string' ? definition.failure : null,
     timeoutSeconds:
-      typeof held.timeoutSeconds === 'number' ? held.timeoutSeconds : null,
+      typeof definition.timeoutSeconds === 'number'
+        ? definition.timeoutSeconds
+        : null,
   };
 };
 
@@ -99,7 +101,7 @@ export class HookConfigs implements HookConfigsPort {
     const kept = await this.resources.withId(id);
     const team = kept && (await this.teams.find(kept.teamId));
 
-    return kept && team ? heldOn(team.key, kept) : null;
+    return kept && team ? configOf(team.key, kept) : null;
   }
 
   async ofTeam(teamId: TeamId): Promise<readonly HookConfig[]> {
@@ -107,7 +109,7 @@ export class HookConfigs implements HookConfigsPort {
 
     return team
       ? (await this.resources.ofTeam(teamId)).map((each) =>
-          heldOn(team.key, each),
+          configOf(team.key, each),
         )
       : [];
   }

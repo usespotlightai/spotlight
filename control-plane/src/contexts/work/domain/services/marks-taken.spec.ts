@@ -50,7 +50,7 @@ const delivery = Line.rehydrate({
 
 const task = (id: string, ...marks: Mark[]): Task => {
   const added = marks.reduce(
-    (held, mark) => held.markedBy(mark),
+    (marked, mark) => marked.markedBy(mark),
     Task.add({
       line: delivery,
       at: STATION,

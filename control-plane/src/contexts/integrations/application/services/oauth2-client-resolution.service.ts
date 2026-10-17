@@ -40,7 +40,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     private readonly callback: string,
   ) {}
 
-  async heldFor(
+  async existingFor(
     teamId: TeamId,
     source: SourceKey,
     server: AuthorizationServer | null,
@@ -51,10 +51,10 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       return configuredFor(configured, server);
     }
 
-    const held = await this.registrations.of(teamId, source);
+    const existing = await this.registrations.of(teamId, source);
 
-    return held?.liveAt(this.clock.now()) && held.servedBy(server)
-      ? clientOf(held)
+    return existing?.liveAt(this.clock.now()) && existing.servedBy(server)
+      ? clientOf(existing)
       : null;
   }
 
@@ -79,10 +79,10 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       redirectUri: this.callback,
       server,
     };
-    const held = await this.registrations.of(teamId, source);
+    const existing = await this.registrations.of(teamId, source);
 
-    if (held?.fits(wanted, this.clock.now())) {
-      return clientOf(held);
+    if (existing?.fits(wanted, this.clock.now())) {
+      return clientOf(existing);
     }
 
     const team = await this.teams.find(teamId);
@@ -106,7 +106,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
     try {
       await this.registrations.save(
-        held ? held.replaceWith(registered) : registered,
+        existing ? existing.replaceWith(registered) : registered,
       );
     } catch (error) {
       if (!(error instanceof OAuth2ClientRegistrationVersionConflictError)) {

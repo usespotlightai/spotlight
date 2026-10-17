@@ -8,5 +8,5 @@ export type ParsedSkill =
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 export interface SkillCompilerPort {
-  compile(held: unknown): ParsedSkill;
+  compile(input: unknown): ParsedSkill;
 }

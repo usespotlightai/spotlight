@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 
-const held = Run.enqueue({
+const leased = Run.enqueue({
   id: RunId.of('run_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   harness: HarnessId.of('dev'),
@@ -34,7 +34,7 @@ const journalling = () => {
   const published: string[] = [];
 
   const handler = new AppendRunJournalHandler(
-    { findById: async () => held } as unknown as RunRepository,
+    { findById: async () => leased } as unknown as RunRepository,
     {
       append: async (attempt, entries) =>
         void appended.push({ attempt, entries }),
@@ -54,7 +54,7 @@ const entry = {
 };
 
 describe('AppendRunJournalHandler', () => {
-  it('journals under the attempt the run is on, for the runner holding it', async () => {
+  it('journals under the attempt the run is on, for the runner that leases it', async () => {
     const { handler, appended, published } = journalling();
 
     await handler.execute(

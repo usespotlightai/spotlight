@@ -4,7 +4,7 @@ import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-gr
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import {
@@ -31,13 +31,13 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   }
 
   async runsIn(workspaceId: WorkspaceId): Promise<readonly RunId[]> {
-    const held = await this.context.db
+    const rows = await this.context.db
       .select({ runId: runGrants.runId })
       .from(runGrants)
       .where(eq(runGrants.workspaceId, workspaceId.value))
       .orderBy(asc(runGrants.runId));
 
-    return held.map((each) => RunId.of(each.runId));
+    return rows.map((each) => RunId.of(each.runId));
   }
 
   async endedBy(
@@ -124,10 +124,10 @@ export class DrizzleRunGrants implements RunGrantsRepository {
 
   private async stored(grants: RunGrants): Promise<void> {
     const fields = {
-      attempt: grants.hold.attempt,
+      attempt: grants.lease.attempt,
       recipient: grants.recipient?.key ?? null,
       redeemedThrough: grants.redeemer?.sharedEgress ?? null,
-      holdLost: grants.isHoldLost,
+      leaseLost: grants.isLeaseLost,
       endedAt: grants.endedAt,
     };
 
@@ -158,7 +158,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   }
 
   private async grantsStored(grants: RunGrants): Promise<void> {
-    const held = grants.grants.map((each) => ({
+    const wanted = grants.grants.map((each) => ({
       secretId: each.secretId.value,
       host: each.host,
     }));
@@ -166,10 +166,10 @@ export class DrizzleRunGrants implements RunGrantsRepository {
       .select({ secretId: secretGrant.secretId, host: secretGrant.host })
       .from(secretGrant)
       .where(eq(secretGrant.runId, grants.runId.value));
-    const heldKeys = new Set(held.map(keyOf));
+    const wantedKeys = new Set(wanted.map(keyOf));
     const keptKeys = new Set(kept.map(keyOf));
 
-    for (const gone of kept.filter((each) => !heldKeys.has(keyOf(each)))) {
+    for (const gone of kept.filter((each) => !wantedKeys.has(keyOf(each)))) {
       await this.context.db
         .delete(secretGrant)
         .where(
@@ -181,7 +181,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
         );
     }
 
-    const fresh = held.filter((each) => !keptKeys.has(keyOf(each)));
+    const fresh = wanted.filter((each) => !keptKeys.has(keyOf(each)));
 
     if (fresh.length > 0) {
       await this.context.db
@@ -207,7 +207,7 @@ const toGrants = (
   const workspaceId = WorkspaceId.of(row.workspaceId);
 
   return RunGrants.rehydrate({
-    hold: RunHold.of(runId, row.attempt),
+    lease: RunLease.of(runId, row.attempt),
     workspaceId,
     grants: granted.map((each) =>
       SecretGrant.of({
@@ -224,7 +224,7 @@ const toGrants = (
             RedemptionRecipient.of(row.recipient),
             row.redeemedThrough,
           ),
-    holdLost: row.holdLost,
+    leaseLost: row.leaseLost,
     endedAt: row.endedAt,
     version: row.version,
   });

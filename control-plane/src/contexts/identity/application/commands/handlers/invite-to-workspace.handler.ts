@@ -81,13 +81,13 @@ export class InviteToWorkspaceHandler
         return null;
       }
 
-      const held = await this.teams.ofWorkspace(workspace.id);
+      const workspaceTeams = await this.teams.ofWorkspace(workspace.id);
       const terms = workspace.inviteTerms({
         role: WorkspaceRole.of(command.role),
         teams: command.teamIds.map((teamId) => TeamId.of(teamId)),
-        among: held,
+        among: workspaceTeams,
       });
-      const joining = held.filter((team) => terms.joins(team.id));
+      const joining = workspaceTeams.filter((team) => terms.joins(team.id));
       const emails = distinct(command.emails.map(EmailAddress.of));
 
       if (emails.length === 0 || emails.length > MAX_INVITED_AT_ONCE) {

@@ -199,7 +199,7 @@ describe('RunSpecContract.ordered', () => {
     }
   });
 
-  it('holds a caller to the same rules as Spotlight', () => {
+  it('keeps a caller to the same rules as Spotlight', () => {
     expect(() =>
       RunSpecContract.ordered(
         { briefing: 'do it', checkouts: [{ remote: 'x', path: '../out' }] },

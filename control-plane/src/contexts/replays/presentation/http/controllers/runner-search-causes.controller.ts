@@ -57,7 +57,7 @@ export class RunnerSearchCausesController {
   @ApiCreatedResponse({ type: SearchCauseRecordedResponseDto })
   @ApiProblemResponse(
     HttpStatus.NOT_FOUND,
-    'The search no longer holds this run, it is no search run this runner holds, or the task is none the reflection looks into',
+    'This run is no longer the active run of the search, it is not a search run that this runner leases, or the reflection does not look into the task',
   )
   @ApiProblemResponse(
     HttpStatus.CONFLICT,

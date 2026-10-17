@@ -8,12 +8,12 @@ import { describe, expect, it, vi } from 'vitest';
 const WORKSPACE = WorkspaceId.of('ws_1');
 const INSTALLED = GitHubInstallation.of('158876513');
 
-const connections = (held: boolean) =>
+const connections = (claimed: boolean) =>
   new WorkspaceConnections({
-    claimantOf: vi.fn(async () => (held ? WORKSPACE : null)),
-    heldClaimantOf: vi.fn(async () => (held ? WORKSPACE : null)),
+    claimantOf: vi.fn(async () => (claimed ? WORKSPACE : null)),
+    lockedClaimantOf: vi.fn(async () => (claimed ? WORKSPACE : null)),
     of: vi.fn(async (id: WorkspaceId) =>
-      held
+      claimed
         ? GitHubConnection.rehydrate({
             workspaceId: id,
             installation: INSTALLED,

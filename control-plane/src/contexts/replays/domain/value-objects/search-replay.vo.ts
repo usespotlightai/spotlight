@@ -62,20 +62,20 @@ export class SearchReplay {
   }
 
   spentAs(charge: ReplayCharge): SearchReplay {
-    const held = this.spent;
+    const recorded = this.spent;
 
     if (
       this.end === null ||
-      held === null ||
-      !held.sameCurrencyAs(charge.spent)
+      recorded === null ||
+      !recorded.sameCurrencyAs(charge.spent)
     ) {
       return this;
     }
 
-    const spent = charge.spent.isWithin(held) ? held : charge.spent;
+    const spent = charge.spent.isWithin(recorded) ? recorded : charge.spent;
     const unpriced = Math.max(this.unpriced, charge.unpriced);
 
-    return spent === held && unpriced === this.unpriced
+    return spent === recorded && unpriced === this.unpriced
       ? this
       : new SearchReplay(this.replayId, this.end, spent, unpriced);
   }

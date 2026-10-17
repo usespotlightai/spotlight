@@ -842,8 +842,8 @@ describe('a task run’s change', () => {
       },
     });
 
-    const held = await claimed();
-    expect(held.runId).toBe(runId);
+    const leased = await claimed();
+    expect(leased.runId).toBe(runId);
 
     await db
       .update(schema.station)
@@ -851,7 +851,7 @@ describe('a task run’s change', () => {
       .where(eq(schema.station.id, BUILD));
 
     try {
-      await bearing(held.token)
+      await bearing(leased.token)
         .post(`/api/runs/${runId}/change-stacks`, {
           diff: diffOf('retry(upload)'),
           repository: 'api',

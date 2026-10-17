@@ -19,8 +19,8 @@ func causeCmd(args []string, out io.Writer) error {
 	flags.SetOutput(io.Discard)
 	task := flags.String("task", "", "the failing task the cause is for")
 	cause := flags.String("cause", "", "what made it fail")
-	evidence := flags.String("evidence", "", "what in the runs shows it, or @file holding it")
-	suggestion := flags.String("suggestion", "", "what to change, or @file holding it")
+	evidence := flags.String("evidence", "", "what in the runs shows it, or @file that contains it")
+	suggestion := flags.String("suggestion", "", "what to change, or @file that contains it")
 
 	if err := flags.Parse(args); err != nil || flags.NArg() > 0 {
 		return fmt.Errorf("%s", causeUsage)
@@ -87,7 +87,7 @@ func textOf(given, what string) (string, error) {
 
 	said := strings.TrimSpace(string(read))
 	if said == "" {
-		return "", fmt.Errorf("%s holds no %s", file, what)
+		return "", fmt.Errorf("%s contains no %s", file, what)
 	}
 
 	return said, nil

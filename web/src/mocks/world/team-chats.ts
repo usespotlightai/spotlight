@@ -217,7 +217,7 @@ const retriesChat = (): ChatRecord => {
           'run_chat_retries_1',
           secondsAfter(proposedAt, 2),
           proposalAt(PLATFORM_ID, 'station_spec', {
-            title: 'Alert when a retry queue holds jobs older than an hour',
+            title: 'Alert when a retry queue has jobs older than an hour',
             description:
               'Page whoever is on call when the oldest job in any retry queue is more than an hour old.',
           }),

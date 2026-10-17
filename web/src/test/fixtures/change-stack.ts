@@ -166,7 +166,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
           notes: [
             {
               path: 'control-plane/src/invitations/invitation.controller.ts',
-              note: 'Adds the invite and accept endpoints. Only admins may invite; anyone holding a token may accept.',
+              note: 'Adds the invite and accept endpoints. Only admins may invite; anyone with a token may accept.',
             },
             {
               path: 'control-plane/src/mail/invitation.mail.ts',

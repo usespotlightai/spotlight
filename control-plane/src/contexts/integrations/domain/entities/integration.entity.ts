@@ -1,7 +1,7 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { Binding } from '@integrations/domain/value-objects/binding.vo';
 import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
+import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
@@ -23,7 +23,7 @@ export class Integration {
     readonly bindings: readonly Binding[],
     readonly credentials: readonly SecretName[],
     readonly connects: boolean,
-    readonly holding: ConnectionHolding,
+    readonly holder: ConnectionHolderRule,
     readonly offers: readonly OfferedTool[],
   ) {}
 
@@ -37,7 +37,7 @@ export class Integration {
     bindings?: readonly Binding[];
     credentials?: readonly SecretName[];
     connects?: boolean;
-    holding?: ConnectionHolding;
+    holder?: ConnectionHolderRule;
     offers?: readonly OfferedTool[];
   }): Integration {
     const source = input.source;
@@ -119,9 +119,9 @@ export class Integration {
     }
 
     const connects = input.connects ?? false;
-    const holding = input.holding ?? ConnectionHolding.team();
+    const holder = input.holder ?? ConnectionHolderRule.team();
 
-    if (holding.byRequester && !connects) {
+    if (holder.byRequester && !connects) {
       throw new InvalidIntegrationError(
         source.value,
         'takes each person’s connection. A person can connect only over oauth2',
@@ -138,7 +138,7 @@ export class Integration {
       bindings,
       input.credentials ?? [],
       connects,
-      holding,
+      holder,
       offers,
     );
   }
@@ -169,7 +169,7 @@ export class Integration {
   }
 
   takesConnectionFrom(holder: ConnectionHolder): boolean {
-    return this.connects && (!holder.isPerson || this.holding.byRequester);
+    return this.connects && (!holder.isPerson || this.holder.byRequester);
   }
 
   offered(tool: string): OfferedTool | null {

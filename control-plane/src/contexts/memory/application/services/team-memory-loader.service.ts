@@ -13,13 +13,13 @@ export class TeamMemoryLoader {
   ) {}
 
   async memory(access: TeamAccess, memoryId: string): Promise<Memory> {
-    const held = await this.memories.find(MemoryId.of(memoryId));
+    const found = await this.memories.find(MemoryId.of(memoryId));
 
-    if (!held || !access.holds(held)) {
+    if (!found || !access.includes(found)) {
       throw new UnknownMemoryError(memoryId);
     }
 
-    return held;
+    return found;
   }
 
   async layoutOf(access: TeamAccess): Promise<TeamLayout> {

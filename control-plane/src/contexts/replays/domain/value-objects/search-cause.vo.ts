@@ -15,11 +15,11 @@ export type SearchCauseKind = (typeof SEARCH_CAUSES)[number];
 
 export const MAX_CAUSE_TEXT = 4_000;
 
-const isCause = (held: unknown): held is SearchCauseKind =>
-  (SEARCH_CAUSES as readonly unknown[]).includes(held);
+const isCause = (raw: unknown): raw is SearchCauseKind =>
+  (SEARCH_CAUSES as readonly unknown[]).includes(raw);
 
-const textOf = (held: unknown): string =>
-  typeof held === 'string' ? held.trim() : '';
+const textOf = (raw: unknown): string =>
+  typeof raw === 'string' ? raw.trim() : '';
 
 export class SearchCause {
   private constructor(

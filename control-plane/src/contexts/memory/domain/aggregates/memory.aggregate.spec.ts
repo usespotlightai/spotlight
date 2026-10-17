@@ -166,10 +166,10 @@ describe('Memory', () => {
   });
 
   it('is corrected by a successor that keeps what it rests on and stands to supersede it, leaving it untouched', () => {
-    const held = stood();
-    held.pullEvents();
+    const original = stood();
+    original.pullEvents();
 
-    const successor = held.correct({
+    const successor = original.correct({
       id: OLD,
       handle: MemoryHandle.of(3),
       kind: 'preference',
@@ -178,11 +178,13 @@ describe('Memory', () => {
       by: MemoryDecision.of({ by: UserId.of('user_bea'), at: LATER }),
     });
 
-    expect(held.standing).toBe('stands');
-    expect(held.pullEvents()).toEqual([]);
+    expect(original.standing).toBe('stands');
+    expect(original.pullEvents()).toEqual([]);
     expect(successor.supersedes?.equals(NEW)).toBe(true);
     expect(successor.source).toBe('person');
-    expect(successor.grounds?.equals(held.grounds as MemoryGrounds)).toBe(true);
+    expect(successor.grounds?.equals(original.grounds as MemoryGrounds)).toBe(
+      true,
+    );
     expect(successor.pullEvents()).toEqual([new MemoryStood(OLD, NEW)]);
   });
 

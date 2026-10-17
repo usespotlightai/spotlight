@@ -74,7 +74,7 @@ const said = (body: string, voice: Voice) => ({
   voice,
 });
 
-const held = () =>
+const handed = () =>
   Task.add({
     line,
     at: BUILD,
@@ -86,7 +86,7 @@ const held = () =>
   }).handedTo(RUN, line);
 
 const paused = () =>
-  held().putToAPerson(
+  handed().putToAPerson(
     RUN,
     said('Which queue should I drain?', Voice.station(RUN)),
   );
@@ -97,11 +97,11 @@ const answer = (task: Task) =>
     said('The default one.', Voice.person(UserId.of('user_1'))),
   );
 
-describe('a task put to a person by the run that holds it', () => {
-  it('stays held by the run while it waits on the person', () => {
+describe('a task put to a person by its current run', () => {
+  it('keeps its current run while it waits on the person', () => {
     const task = paused();
 
-    expect(task.heldBy(RUN)).toBe(true);
+    expect(task.hasCurrentRun(RUN)).toBe(true);
     expect(task.awaitingReview).toBe(true);
     expect(task.working).toBe(false);
     expect(task.idle).toBe(false);
@@ -116,9 +116,9 @@ describe('a task put to a person by the run that holds it', () => {
     );
   });
 
-  it('is put to a person only by the run holding it, and only once at a time', () => {
+  it('is put to a person only by its current run, and only once at a time', () => {
     expect(() =>
-      held().putToAPerson(
+      handed().putToAPerson(
         RunId.of('run_2'),
         said('Which?', Voice.station(RunId.of('run_2'))),
       ),
@@ -145,8 +145,8 @@ describe('a task put to a person by the run that holds it', () => {
     ).toHaveLength(0);
   });
 
-  it('hands an answer to the next run’s briefing where no run holds the task', () => {
-    const asked = held().askedAbout(
+  it('hands an answer to the next run’s briefing where the task has no current run', () => {
+    const asked = handed().askedAbout(
       said('Which queue should I drain?', Voice.station(RUN)),
       RUN,
     );
@@ -163,7 +163,7 @@ describe('a task put to a person by the run that holds it', () => {
     );
 
     expect(again.awaitingReview).toBe(true);
-    expect(again.heldBy(RUN)).toBe(true);
+    expect(again.hasCurrentRun(RUN)).toBe(true);
     expect(again.openConversation?.from).toBe(0);
   });
 
@@ -172,7 +172,9 @@ describe('a task put to a person by the run that holds it', () => {
 
     expect(task.running).toBe(false);
     expect(task.awaitingReview).toBe(true);
-    expect(paused().leaveRun(RunId.of('run_2'), NOW).heldBy(RUN)).toBe(true);
+    expect(paused().leaveRun(RunId.of('run_2'), NOW).hasCurrentRun(RUN)).toBe(
+      true,
+    );
   });
 
   it('takes a person speaking to the waiting run as their answer to its open question', () => {
@@ -190,7 +192,7 @@ describe('a task put to a person by the run that holds it', () => {
   });
 
   it('takes words to a run waiting on an approval as something said, leaving the approval to be decided', () => {
-    const approving = held().clearFor(
+    const approving = handed().clearFor(
       ApprovalSubject.toolCall(
         ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
       ),
@@ -215,7 +217,7 @@ describe('a task put to a person by the run that holds it', () => {
   });
 
   it('takes a person speaking to a working run as something said to it, answering nothing', () => {
-    const spoken = held().spokenTo(
+    const spoken = handed().spokenTo(
       RUN,
       said('Use the staging queue.', Voice.person(UserId.of('user_1'))),
       BUILD,
@@ -227,7 +229,7 @@ describe('a task put to a person by the run that holds it', () => {
     ).toBe(false);
   });
 
-  it('says it was answered for the run holding it, so that run is taken up', () => {
+  it('says it was answered for its current run, so that run is taken up', () => {
     const task = answer(paused());
 
     expect(task.pullEvents()).toContainEqual(

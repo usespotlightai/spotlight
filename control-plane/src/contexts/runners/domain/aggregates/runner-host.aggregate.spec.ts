@@ -258,7 +258,7 @@ describe('RunnerHost', () => {
     expect(RunnerHost.rememberedSince(later(DAY))).toEqual(FIRST_SEEN);
   });
 
-  it('tells whether a host last seen at a moment answers now, by the same rule as a host it holds', () => {
+  it('tells whether a host last seen at a moment answers now, by the same rule as a stored host', () => {
     expect(RunnerHost.answering(FIRST_SEEN, later(89_999))).toBe(true);
     expect(RunnerHost.answering(FIRST_SEEN, later(90_000))).toBe(false);
   });

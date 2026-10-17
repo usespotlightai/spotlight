@@ -60,7 +60,7 @@ func (a Allowed) Wanted(named []string) []Wanted {
 		if image == a.Default || !a.Admits(image) {
 			continue
 		}
-		if !slices.ContainsFunc(wanted, func(held Wanted) bool { return held.Image == image }) {
+		if !slices.ContainsFunc(wanted, func(each Wanted) bool { return each.Image == image }) {
 			wanted = append(wanted, Wanted{Image: image})
 		}
 	}

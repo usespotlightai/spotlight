@@ -19,9 +19,9 @@ var harnessKeys = map[string]harnessKey{
 	"CODEX_API_KEY":           {host: "api.openai.com", header: "authorization", prefix: "Bearer "},
 }
 
-func standInsFor(sandboxEnv []string) ([]string, []protocol.HeldByTheHost) {
+func standInsFor(sandboxEnv []string) ([]string, []protocol.HostCredential) {
 	env := make([]string, 0, len(sandboxEnv))
-	var held []protocol.HeldByTheHost
+	var hostCredentials []protocol.HostCredential
 
 	for _, entry := range sandboxEnv {
 		name, value, _ := strings.Cut(entry, "=")
@@ -32,10 +32,10 @@ func standInsFor(sandboxEnv []string) ([]string, []protocol.HeldByTheHost) {
 		}
 
 		env = append(env, name+"="+protocol.StandInPrefix+name)
-		held = append(held, protocol.HeldByTheHost{
+		hostCredentials = append(hostCredentials, protocol.HostCredential{
 			Name: name, Host: key.host, Header: key.header, Prefix: key.prefix, Value: value,
 		})
 	}
 
-	return env, held
+	return env, hostCredentials
 }

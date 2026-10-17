@@ -51,9 +51,9 @@ export class ReadRunMemoriesHandler
         .filter((each) => each.way === 'recalled')
         .map((each) => each.memoryId.value);
       const [briefed, cut, remembered, proposed] = await Promise.all([
-        this.held(access, run.briefed),
-        this.held(access, run.cut),
-        this.held(access, recalled),
+        this.teamMemories(access, run.briefed),
+        this.teamMemories(access, run.cut),
+        this.teamMemories(access, recalled),
         run.taskId ? this.proposedIn(run.taskId, runId) : [],
       ]);
       const reviewItemId =
@@ -73,7 +73,7 @@ export class ReadRunMemoriesHandler
     }
   }
 
-  private async held(
+  private async teamMemories(
     access: TeamAccess,
     ids: readonly string[],
   ): Promise<readonly Memory[]> {
@@ -81,7 +81,7 @@ export class ReadRunMemoriesHandler
       [...new Set(ids)].map((each) => MemoryId.of(each)),
     );
 
-    return found.filter((each) => access.holds(each));
+    return found.filter((each) => access.includes(each));
   }
 
   private async proposedIn(

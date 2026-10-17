@@ -2,10 +2,10 @@ import type { DescribedDocument } from '@integrations/domain/aggregates/describe
 import type { DescribedDocumentRepository } from '@integrations/domain/repositories/described-document.repository';
 import { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 
-export const documentsHolding = (
-  ...held: DescribedDocument[]
+export const documentsContaining = (
+  ...documents: DescribedDocument[]
 ): DescribedDocumentRepository & { readonly kept: DescribedDocument[] } => {
-  const kept = [...held];
+  const kept = [...documents];
   const withHash = (hash: string) =>
     kept.find((each) => each.hash.value === hash) ?? null;
 
@@ -22,6 +22,6 @@ export const documentsHolding = (
   };
 };
 
-export const operationsHolding = (
-  ...held: DescribedDocument[]
-): OperationCache => new OperationCache(documentsHolding(...held));
+export const operationsContaining = (
+  ...documents: DescribedDocument[]
+): OperationCache => new OperationCache(documentsContaining(...documents));

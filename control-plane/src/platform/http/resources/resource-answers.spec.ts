@@ -79,7 +79,7 @@ describe('resource answers', () => {
       409,
       'version-conflict',
     ],
-    [{ outcome: 'in-use' as const, reason: 'held' }, 409, 'in-use'],
+    [{ outcome: 'in-use' as const, reason: 'in use' }, 409, 'in-use'],
     [forbiddenTo('configure'), 403, 'forbidden'],
   ])('refuses an update that came to %j', async (outcome, status, slug) => {
     expect(
@@ -157,13 +157,13 @@ describe('resource answers', () => {
   });
 
   it('answers what it found, and 404 for nothing', async () => {
-    expect(found('line', { id: 'x' }, (held) => held.id)).toBe('x');
+    expect(found('line', { id: 'x' }, (row) => row.id)).toBe('x');
     expect(
-      await problemOf(() => found('line', null, (held) => held)),
+      await problemOf(() => found('line', null, (row) => row)),
     ).toMatchObject({ status: 404 });
   });
 
-  it('lists what it holds in address order, and 404 for a workspace it may not see', async () => {
+  it('lists what it found in address order, and 404 for a workspace it may not see', async () => {
     expect(
       listed(['core/b', 'ops/a', 'core/a', 'Core/c'], (address) => ({
         address,

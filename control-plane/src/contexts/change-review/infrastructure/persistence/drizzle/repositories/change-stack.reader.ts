@@ -54,7 +54,7 @@ const checkOf = (row: CheckRow | null, now: Date): StackCheckDto | null => {
     {
       phase: row.phase,
       waitingSince: row.waitingSince,
-      hold: { leaseExpiresAt: row.leaseExpiresAt, claimedAt: row.claimedAt },
+      lease: { leaseExpiresAt: row.leaseExpiresAt, claimedAt: row.claimedAt },
     },
     now,
   );

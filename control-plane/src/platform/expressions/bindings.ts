@@ -12,9 +12,9 @@ export type Bindings = Readonly<Record<string, unknown>>;
 export const bound = (value: unknown): unknown => {
   let nodes = 0;
 
-  const walk = (held: unknown, depth: number): unknown => {
+  const walk = (node: unknown, depth: number): unknown => {
     if (++nodes > MAX_NODES) {
-      throw new ExpressionError('the delivery', 'holds more than can be read');
+      throw new ExpressionError('the delivery', 'has more than can be read');
     }
 
     if (depth > MAX_DEPTH) {
@@ -24,24 +24,24 @@ export const bound = (value: unknown): unknown => {
       );
     }
 
-    if (held === null || typeof held !== 'object') {
-      return held;
+    if (node === null || typeof node !== 'object') {
+      return node;
     }
 
-    if (Array.isArray(held)) {
-      if (held.length > MAX_KEYS) {
+    if (Array.isArray(node)) {
+      if (node.length > MAX_KEYS) {
         throw new ExpressionError(
           'the delivery',
-          'holds a longer list than can be read',
+          'has a longer list than can be read',
         );
       }
 
-      return held.map((each) => walk(each, depth + 1));
+      return node.map((each) => walk(each, depth + 1));
     }
 
     const plain: Record<string, unknown> = Object.create(null);
 
-    for (const [key, each] of Object.entries(held).slice(0, MAX_KEYS)) {
+    for (const [key, each] of Object.entries(node).slice(0, MAX_KEYS)) {
       if (!RESERVED.has(key)) {
         plain[key] = walk(each, depth + 1);
       }

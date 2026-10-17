@@ -65,9 +65,9 @@ export const scopesOf = (
 ];
 
 export const scopesTold = (scopes: readonly TokenScope[]): string => {
-  const held = new Set(scopes);
+  const granted = new Set(scopes);
 
-  return SCOPES.filter((each) => held.has(each.id))
+  return SCOPES.filter((each) => granted.has(each.id))
     .map((each) => each.label)
     .join(', ');
 };

@@ -123,7 +123,7 @@ export interface ReplaysReactions {
   readonly pairing: PairReplayEntries;
   readonly askingPair: AskForPairJudging;
   readonly paired: NoteReplayPaired;
-  readonly holding: HoldSetStartingPoints;
+  readonly startingPointHolds: HoldSetStartingPoints;
   readonly lettingGo: LetReplayRunsGo;
   readonly abandoning: AbandonReplays;
   readonly redefining: NoteLineRedefined;
@@ -336,7 +336,7 @@ export const replaysSubscribers = (
       'replay-set.deleted',
       'replay-set.station-gone',
     ],
-    (event) => reactions.holding.changed(event.setId),
+    (event) => reactions.startingPointHolds.changed(event.setId),
   ),
   subscribing<ReplayStopped>(
     'replays.stop-runs-of-stopped-replay',

@@ -39,12 +39,12 @@ describe('workSubscribers', () => {
     });
   });
 
-  it('tells Secrets the hold of an attempt that lapsed is lost', async () => {
-    const holdLost = vi.fn(async () => undefined);
+  it('tells Secrets the lease of an attempt that lapsed is lost', async () => {
+    const leaseLost = vi.fn(async () => undefined);
     const losing = workSubscribers({
-      runGrants: { holdLost },
+      runGrants: { leaseLost: leaseLost },
     } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.lose-secret-hold-of-ended-attempt',
+      (each) => each.name === 'work.lose-secret-lease-of-ended-attempt',
     );
     const run = RunId.of('run_1');
     const workspace = WorkspaceId.of('ws_1');
@@ -70,7 +70,7 @@ describe('workSubscribers', () => {
     );
 
     expect(losing?.kinds).toEqual(['run.lapsed', 'run.parked']);
-    expect(holdLost.mock.calls).toEqual([
+    expect(leaseLost.mock.calls).toEqual([
       [{ workspaceId: 'ws_1', runId: 'run_1', attempt: 1 }],
       [{ workspaceId: 'ws_1', runId: 'run_1', attempt: 2 }],
     ]);

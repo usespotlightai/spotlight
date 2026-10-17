@@ -59,7 +59,7 @@ export interface Compiled {
 }
 
 export type SecretGiven =
-  | { readonly kind: 'given'; readonly held: VersionedSigningSecret }
+  | { readonly kind: 'given'; readonly versioned: VersionedSigningSecret }
   | { readonly kind: 'kept'; readonly version: number }
   | { readonly kind: 'none' };
 
@@ -115,29 +115,29 @@ const NOT_SIGNED: Signing = { signing: null, givenSecret: null };
 const signingFor = (
   hook: Hook,
   given: SecretGiven,
-  held: SigningVersion | null,
+  stored: SigningVersion | null,
 ): Signing => {
   if (hook.signing !== 'hmac') {
     return NOT_SIGNED;
   }
 
   if (given.kind === 'given') {
-    return held && given.held.version === held.version
-      ? { signing: held, givenSecret: null }
+    return stored && given.versioned.version === stored.version
+      ? { signing: stored, givenSecret: null }
       : {
-          signing: { version: given.held.version },
-          givenSecret: given.held.secret,
+          signing: { version: given.versioned.version },
+          givenSecret: given.versioned.secret,
         };
   }
 
-  if (held && (given.kind === 'none' || given.version === held.version)) {
-    return { signing: held, givenSecret: null };
+  if (stored && (given.kind === 'none' || given.version === stored.version)) {
+    return { signing: stored, givenSecret: null };
   }
 
-  if (held) {
+  if (stored) {
     throw new InvalidHookError(
       FieldPath.of(['signing', 'secret']),
-      `is required when secretVersion changes from ${held.version}`,
+      `is required when secretVersion changes from ${stored.version}`,
     );
   }
 

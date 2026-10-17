@@ -1,8 +1,8 @@
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import {
-  WORKSPACE_HOLDINGS,
-  type WorkspaceHoldingsPort,
-} from '@identity/application/ports/workspace-holdings.port';
+  WORKSPACE_DEPENDENTS,
+  type WorkspaceDependentsPort,
+} from '@identity/application/ports/workspace-dependents.port';
 import {
   WORKSPACE_READER,
   type WorkspaceReaderPort,
@@ -108,8 +108,8 @@ import { AbandonWorkspaceRunners } from '@runners/application/services/abandon-w
 import { ForgetHosts } from '@runners/application/services/forget-hosts.service';
 import { RunnerAdmissions } from '@runners/application/services/runner-admissions.service';
 import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
+import { RunnerDependents } from '@runners/application/services/runner-dependents.service';
 import { RunnerEgress } from '@runners/application/services/runner-egress.service';
-import { RunnerHoldings } from '@runners/application/services/runner-holdings.service';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import { RunnerPresence } from '@runners/application/services/runner-presence.service';
 import { Runners } from '@runners/application/services/runners.service';
@@ -170,7 +170,7 @@ import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 const RUNNERS_EVENTS = Symbol('RUNNERS_EVENTS');
 
-const RUNNERS_HOLDINGS = Symbol('RUNNERS_HOLDINGS');
+const RUNNERS_DEPENDENTS = Symbol('RUNNERS_DEPENDENTS');
 
 const PLATFORM_EGRESS = Symbol('PLATFORM_EGRESS');
 
@@ -244,23 +244,23 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     },
   },
   {
-    provide: RUNNERS_HOLDINGS,
+    provide: RUNNERS_DEPENDENTS,
     inject: [
-      WORKSPACE_HOLDINGS,
+      WORKSPACE_DEPENDENTS,
       DrizzleRunnerTrustRepository,
       DrizzleWorkspaceRunnersRepository,
       DrizzleRunnerPoolRepository,
       DrizzleEgressRepository,
     ],
     useFactory: (
-      holdings: WorkspaceHoldingsPort,
+      dependents: WorkspaceDependentsPort,
       trusts: DrizzleRunnerTrustRepository,
       declarations: DrizzleWorkspaceRunnersRepository,
       pools: DrizzleRunnerPoolRepository,
       egresses: DrizzleEgressRepository,
     ) => {
-      holdings.register(
-        new RunnerHoldings(trusts, declarations, pools, egresses),
+      dependents.register(
+        new RunnerDependents(trusts, declarations, pools, egresses),
       );
       return true;
     },

@@ -44,17 +44,20 @@ describe('AskPairJudging', () => {
     expect(await service.ask(ASK)).toBe('asked');
     expect(await service.ask(ASK)).toBe('asked');
 
-    const held = await judgings.of(RunId.of('replay_1'), RunId.of('replay_2'));
-    expect(judgings.held.size).toBe(1);
-    expect(held?.reference.value).toBe('original_1');
-    expect(held?.criteria.claims).toEqual(['It drains.']);
+    const judging = await judgings.of(
+      RunId.of('replay_1'),
+      RunId.of('replay_2'),
+    );
+    expect(judgings.stored.size).toBe(1);
+    expect(judging?.reference.value).toBe('original_1');
+    expect(judging?.criteria.claims).toEqual(['It drains.']);
   });
 
   it('says no judge is there to ask without one', async () => {
     const { judgings, service } = asking(false);
 
     expect(await service.ask(ASK)).toBe('unavailable');
-    expect(judgings.held.size).toBe(0);
+    expect(judgings.stored.size).toBe(0);
   });
 
   it('says it cannot read a judge with neither a rubric nor claims, or a pair of one run', async () => {

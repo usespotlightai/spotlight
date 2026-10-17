@@ -38,7 +38,7 @@ beforeEach(() => {
 });
 
 describe('TeamIndex', () => {
-  it('holds the bar of the page while the lines load', () => {
+  it('keeps the bar of the page while the lines load', () => {
     lines.mockReturnValue(undefined);
 
     const { container } = renderIndex();

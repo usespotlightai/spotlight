@@ -43,8 +43,8 @@ const problemAt = (
   reason: string,
 ): ConfigurationProblem => ConfigurationProblem.of({ path, at, reason });
 
-const isBlock = (held: unknown): held is Record<string, unknown> =>
-  typeof held === 'object' && held !== null && !Array.isArray(held);
+const isBlock = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const rerooted =
   (place: number) =>
@@ -120,9 +120,7 @@ export class CandidateLines {
     if (!isBlock(block)) {
       return {
         ok: false,
-        problems: [
-          problemAt('', STATION, 'is a station block, as a line holds it'),
-        ],
+        problems: [problemAt('', STATION, 'is a station block, as in a line')],
       };
     }
 

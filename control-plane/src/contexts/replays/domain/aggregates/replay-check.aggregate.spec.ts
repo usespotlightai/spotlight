@@ -71,7 +71,7 @@ describe('ReplayCheck', () => {
     expect(() => started({ attempt: 0 })).toThrow(InvalidReplayCheckError);
   });
 
-  it('is reused only for its own set holding the same runs, under the same threshold, while running, passed or failed', () => {
+  it('is reused only for its own set with the same runs, under the same threshold, while running, passed or failed', () => {
     const check = started({ setId: SET.id, setEntries: 'entries_1' });
     const threshold = ReplayThreshold.of({
       maxRegressions: 0,

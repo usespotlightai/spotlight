@@ -44,19 +44,19 @@ export class ForgetRunGrants {
   async ofWorkspace(workspaceId: WorkspaceId): Promise<void> {
     for (const runId of await this.grants.runsIn(workspaceId)) {
       if (await this.readable(runId)) {
-        await this.kept.changedIfHeld(runId, (kept) => kept.abandon());
+        await this.kept.changedIfExists(runId, (kept) => kept.abandon());
       }
     }
   }
 
   private async forgot(runId: RunId, now: Date): Promise<boolean> {
-    const held = await this.readable(runId);
+    const existing = await this.readable(runId);
 
-    if (!held?.isForgettableAt(now)) {
+    if (!existing?.isForgettableAt(now)) {
       return false;
     }
 
-    return this.kept.settled(held, held.purge(now));
+    return this.kept.settled(existing, existing.purge(now));
   }
 
   private async readable(runId: RunId): Promise<RunGrants | null> {

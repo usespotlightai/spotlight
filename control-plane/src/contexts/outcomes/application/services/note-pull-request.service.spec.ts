@@ -77,7 +77,7 @@ const delivering = () => {
 };
 
 describe('noting a task’s pull request', () => {
-  it('holds it open once the task opens it', async () => {
+  it('records it open once the task opens it', async () => {
     const noted = delivering();
 
     await noted.opened();
@@ -85,7 +85,7 @@ describe('noting a task’s pull request', () => {
     expect(await noted.state()).toBe('open');
   });
 
-  it('holds it merged once it merges', async () => {
+  it('records it merged once it merges', async () => {
     const noted = delivering();
     await noted.opened();
 
@@ -118,7 +118,7 @@ describe('noting a task’s pull request', () => {
 
 const touches = new TaskTouchesInMemory();
 
-const heldFor = () => ({
+const repositoriesInMemory = () => ({
   records: new RunRecordsInMemory(),
   deliveries: new TaskDeliveriesInMemory(),
   judgings: new JudgingsInMemory(),
@@ -136,20 +136,20 @@ const heldFor = () => ({
   forgotten: forgottenInMemory(),
 });
 
-const reviewing = (held: ReturnType<typeof heldFor>) =>
+const reviewing = (repositories: ReturnType<typeof repositoriesInMemory>) =>
   new NotePullRequestReviewed(
-    held.deliveries,
-    held.reviews,
-    held.forgotten,
+    repositories.deliveries,
+    repositories.reviews,
+    repositories.forgotten,
     inTransaction,
     CLOCK,
   );
 
-const opening = (held: ReturnType<typeof heldFor>) =>
+const opening = (repositories: ReturnType<typeof repositoriesInMemory>) =>
   new NotePullRequestOpened(
-    held.deliveries,
-    held.reviews,
-    held.forgotten,
+    repositories.deliveries,
+    repositories.reviews,
+    repositories.forgotten,
     inTransaction,
     CLOCK,
   );
@@ -162,110 +162,118 @@ const OPENING = {
   at: OPENED,
 };
 
-describe('holding a review heard before its task’s pull request', () => {
-  it('holds a person’s review until the pull request’s task is heard of, then dates the first review by it', async () => {
-    const held = heldFor();
+describe('keeping a review heard before its task’s pull request', () => {
+  it('keeps a person’s review until the pull request’s task is heard of, then dates the first review by it', async () => {
+    const repositories = repositoriesInMemory();
     const reviewedAt = new Date(OPENED.getTime() + 60_000);
 
-    await reviewing(held).reviewed({
+    await reviewing(repositories).reviewed({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       byBot: false,
       at: reviewedAt,
     });
-    await opening(held).opened(OPENING);
+    await opening(repositories).opened(OPENING);
 
-    expect((await held.deliveries.forTask(TASK))?.firstReviewAt).toEqual(
-      reviewedAt,
-    );
-    expect(held.reviews.held.size).toBe(0);
+    expect(
+      (await repositories.deliveries.forTask(TASK))?.firstReviewAt,
+    ).toEqual(reviewedAt);
+    expect(repositories.reviews.stored.size).toBe(0);
   });
 
-  it('holds no review by a bot, nor one that says no time', async () => {
-    const held = heldFor();
+  it('keeps no review by a bot, nor one that says no time', async () => {
+    const repositories = repositoriesInMemory();
 
-    await reviewing(held).reviewed({
+    await reviewing(repositories).reviewed({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       byBot: true,
       at: AT,
     });
-    await reviewing(held).reviewed({
+    await reviewing(repositories).reviewed({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       byBot: false,
       at: null,
     });
 
-    expect(held.reviews.held.size).toBe(0);
+    expect(repositories.reviews.stored.size).toBe(0);
   });
 
-  it('holds no review older than insights ever look back, and lets go of those held that long', async () => {
-    const held = heldFor();
+  it('keeps no review older than insights ever look back, and lets go of those kept that long', async () => {
+    const repositories = repositoriesInMemory();
     const longAgo = new Date(AT.getTime() - 200 * DAY_MS);
     const other = PullRequestUrl.of('https://github.com/acme/api/pull/8');
-    await held.reviews.hold(WORKSPACE, { pullRequest: other, at: longAgo });
+    await repositories.reviews.add(WORKSPACE, {
+      pullRequest: other,
+      at: longAgo,
+    });
 
-    await reviewing(held).reviewed({
+    await reviewing(repositories).reviewed({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       byBot: false,
       at: longAgo,
     });
 
-    expect(held.reviews.held.size).toBe(0);
+    expect(repositories.reviews.stored.size).toBe(0);
   });
 
-  it('dates no first review by a held review older than insights ever look back', async () => {
-    const held = heldFor();
-    await held.reviews.hold(WORKSPACE, {
+  it('dates no first review by a pending review older than insights ever look back', async () => {
+    const repositories = repositoriesInMemory();
+    await repositories.reviews.add(WORKSPACE, {
       pullRequest: PULL,
       at: new Date(AT.getTime() - 200 * DAY_MS),
     });
 
-    await opening(held).opened(OPENING);
+    await opening(repositories).opened(OPENING);
 
-    expect((await held.deliveries.forTask(TASK))?.firstReviewAt).toBeNull();
-    expect(held.reviews.held.size).toBe(0);
+    expect(
+      (await repositories.deliveries.forTask(TASK))?.firstReviewAt,
+    ).toBeNull();
+    expect(repositories.reviews.stored.size).toBe(0);
   });
 
-  it('lets go of the reviews held for a deleted task’s pull request', async () => {
-    const held = heldFor();
-    await opening(held).opened(OPENING);
-    await held.reviews.hold(WORKSPACE, { pullRequest: PULL, at: AT });
+  it('lets go of the pending reviews of a deleted task’s pull request', async () => {
+    const repositories = repositoriesInMemory();
+    await opening(repositories).opened(OPENING);
+    await repositories.reviews.add(WORKSPACE, { pullRequest: PULL, at: AT });
 
-    await new ForgetOutcomes(held, inTransaction).deliveryOfTask(
+    await new ForgetOutcomes(repositories, inTransaction).deliveryOfTask(
       WORKSPACE,
       TASK,
     );
 
-    expect(held.reviews.held.size).toBe(0);
+    expect(repositories.reviews.stored.size).toBe(0);
   });
 
-  it('lets go of the reviews held for a disbanded team’s pull requests', async () => {
-    const held = heldFor();
-    await opening(held).opened(OPENING);
-    await held.reviews.hold(WORKSPACE, { pullRequest: PULL, at: AT });
+  it('lets go of the pending reviews of a disbanded team’s pull requests', async () => {
+    const repositories = repositoriesInMemory();
+    await opening(repositories).opened(OPENING);
+    await repositories.reviews.add(WORKSPACE, { pullRequest: PULL, at: AT });
 
-    await new ForgetOutcomes(held, inTransaction).deliveriesOfTeam(
+    await new ForgetOutcomes(repositories, inTransaction).deliveriesOfTeam(
       WORKSPACE,
       TEAM,
     );
 
-    expect(held.reviews.held.size).toBe(0);
-    expect(held.deliveries.held.size).toBe(0);
+    expect(repositories.reviews.stored.size).toBe(0);
+    expect(repositories.deliveries.stored.size).toBe(0);
   });
 });
 
 describe('noting what a disbanded team did, however late it is heard of', () => {
   it('records no pull request, failure or review of a team once it is disbanded', async () => {
-    const held = heldFor();
-    await new ForgetOutcomes(held, inTransaction).runsOfTeam(WORKSPACE, TEAM);
+    const repositories = repositoriesInMemory();
+    await new ForgetOutcomes(repositories, inTransaction).runsOfTeam(
+      WORKSPACE,
+      TEAM,
+    );
 
-    await opening(held).opened(OPENING);
+    await opening(repositories).opened(OPENING);
     await new NoteTaskFailed(
-      held.failures,
-      held.forgotten,
+      repositories.failures,
+      repositories.forgotten,
       inTransaction,
     ).failed({
       taskId: TASK.value,
@@ -279,16 +287,16 @@ describe('noting what a disbanded team did, however late it is heard of', () => 
       at: AT.toISOString(),
     });
 
-    expect(held.deliveries.held.size).toBe(0);
-    expect(held.failures.held.size).toBe(0);
+    expect(repositories.deliveries.stored.size).toBe(0);
+    expect(repositories.failures.stored.size).toBe(0);
   });
 
-  it('holds the task and its team before it checks whether they were forgotten', async () => {
-    const held = heldFor();
+  it('locks the task and its team before it checks whether they were forgotten', async () => {
+    const repositories = repositoriesInMemory();
 
-    await opening(held).opened(OPENING);
+    await opening(repositories).opened(OPENING);
 
-    expect(held.forgotten.holds).toEqual([
+    expect(repositories.forgotten.locks).toEqual([
       `${WORKSPACE.value} ${TEAM.value} ${TASK.value}`,
     ]);
   });
@@ -360,7 +368,7 @@ describe('forgetting outcomes', () => {
       inTransaction,
     ).runsOfTask(WORKSPACE, TASK);
 
-    expect(records.held.size).toBe(0);
+    expect(records.stored.size).toBe(0);
   });
 
   it('forgets everything of a closed workspace', async () => {
@@ -392,7 +400,7 @@ describe('forgetting outcomes', () => {
     await forgetting.runsOfWorkspace(WORKSPACE);
     await forgetting.deliveriesOfWorkspace(WORKSPACE);
 
-    expect(records.held.size).toBe(0);
-    expect(noted.deliveries.held.size).toBe(0);
+    expect(records.stored.size).toBe(0);
+    expect(noted.deliveries.stored.size).toBe(0);
   });
 });

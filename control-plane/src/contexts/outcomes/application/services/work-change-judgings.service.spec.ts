@@ -76,7 +76,7 @@ const working = async (
   const work = new WorkChangeJudgings(
     judgings,
     {
-      holds: async () => true,
+      hasTask: async () => true,
       of: async (runId) => evidence[runId] ?? null,
       judgesOnTeam: async () => new Map(),
       judgeAt: async () => null,
@@ -134,7 +134,7 @@ describe('WorkChangeJudgings', () => {
     const work = new WorkChangeJudgings(
       judgings,
       {
-        holds: async () => true,
+        hasTask: async () => true,
         of: async (runId) => evidenceOf(runId, '+drain()'),
         judgesOnTeam: async () => new Map(),
         judgeAt: async () => null,

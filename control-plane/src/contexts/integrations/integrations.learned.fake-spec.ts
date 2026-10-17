@@ -10,30 +10,30 @@ const keyOf = (teamId: TeamId, tool: ToolName): string =>
   `${teamId.value}:${tool.value}`;
 
 export class InMemoryLearnedOutputs implements LearnedOutputRepository {
-  readonly held = new Map<string, LearnedOutput>();
+  readonly stored = new Map<string, LearnedOutput>();
 
   async of(teamId: TeamId, tool: ToolName): Promise<LearnedOutput | null> {
-    return this.held.get(keyOf(teamId, tool)) ?? null;
+    return this.stored.get(keyOf(teamId, tool)) ?? null;
   }
 
   async ofTools(
     teamId: TeamId,
     tools: readonly string[],
   ): Promise<readonly LearnedOutput[]> {
-    return [...this.held.values()].filter(
+    return [...this.stored.values()].filter(
       (each) => each.teamId.equals(teamId) && tools.includes(each.tool.value),
     );
   }
 
   async save(learned: LearnedOutput): Promise<void> {
     const key = keyOf(learned.teamId, learned.tool);
-    const kept = this.held.get(key);
+    const kept = this.stored.get(key);
 
     if ((kept?.version ?? 0) !== learned.version) {
       throw new LearnedOutputVersionConflictError(learned.tool.value);
     }
 
-    this.held.set(
+    this.stored.set(
       key,
       LearnedOutput.rehydrate({
         teamId: learned.teamId,
@@ -47,17 +47,17 @@ export class InMemoryLearnedOutputs implements LearnedOutputRepository {
   }
 
   async forgetSource(teamId: TeamId, source: SourceKey): Promise<void> {
-    for (const [key, each] of this.held) {
+    for (const [key, each] of this.stored) {
       if (each.teamId.equals(teamId) && each.source.equals(source)) {
-        this.held.delete(key);
+        this.stored.delete(key);
       }
     }
   }
 
   async forgetTeam(teamId: TeamId): Promise<void> {
-    for (const [key, each] of this.held) {
+    for (const [key, each] of this.stored) {
       if (each.teamId.equals(teamId)) {
-        this.held.delete(key);
+        this.stored.delete(key);
       }
     }
   }

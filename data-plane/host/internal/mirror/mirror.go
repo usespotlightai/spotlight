@@ -119,13 +119,13 @@ func (m *Mirrors) Tidy() error {
 	var problems []error
 	for _, workspace := range workspaces {
 		dir := filepath.Join(m.root, workspace.Name())
-		held, err := os.ReadDir(dir)
+		entries, err := os.ReadDir(dir)
 		if err != nil {
 			problems = append(problems, err)
 			continue
 		}
 
-		for _, each := range held {
+		for _, each := range entries {
 			path := filepath.Join(dir, each.Name())
 			if strings.HasPrefix(each.Name(), ".") {
 				problems = append(problems, os.RemoveAll(path))

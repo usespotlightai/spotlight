@@ -143,7 +143,7 @@ const tasks = (found: Task) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => found),
+    findByMarks: vi.fn(async () => found),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -155,7 +155,7 @@ const lines = () =>
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => line()),
-    holding: vi.fn(async () => line()),
+    findByStation: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
   }) satisfies LineRepository;

@@ -24,9 +24,9 @@ describe('inviting people to a workspace (e2e)', () => {
   let db: DrizzleDatabase;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
   const sent: InviteToSend[] = [];
-  const held = `invites-${randomUUID().slice(0, 8)}`;
-  const mobile = `${held}-mobile`;
-  const gone = `${held}-gone`;
+  const workspaceId = `invites-${randomUUID().slice(0, 8)}`;
+  const mobile = `${workspaceId}-mobile`;
+  const gone = `${workspaceId}-gone`;
   const [ada, grace, alan, mallory, hedy, kay, lin, joan] = [
     1, 2, 3, 4, 5, 6, 7, 8,
   ].map(() => randomUUID());
@@ -40,12 +40,15 @@ describe('inviting people to a workspace (e2e)', () => {
       http().post(path).set(TEST_USER_HEADER, user).send(body),
     delete: (path: string) => http().delete(path).set(TEST_USER_HEADER, user),
   });
-  const invites = `/api/workspaces/${held}/invites`;
+  const invites = `/api/workspaces/${workspaceId}/invites`;
   const tokenFor = (email: string) =>
     [...sent].reverse().find((each) => each.to === email)?.token ?? '';
   const members = async (): Promise<Member[]> =>
-    (await as(seat.owner).get(`/api/workspaces/${held}/members`).expect(200))
-      .body;
+    (
+      await as(seat.owner)
+        .get(`/api/workspaces/${workspaceId}/members`)
+        .expect(200)
+    ).body;
   const memberNamed = async (id: string) =>
     (await members()).find((each) => each.id === id);
 
@@ -58,7 +61,7 @@ describe('inviting people to a workspace (e2e)', () => {
       }),
     );
     db = app.get<DrizzleDatabase>(DRIZZLE);
-    seat = await seatTeam(db, held);
+    seat = await seatTeam(db, workspaceId);
     await db.insert(schema.user).values(
       people.map((id) => ({
         id,
@@ -67,8 +70,8 @@ describe('inviting people to a workspace (e2e)', () => {
       })),
     );
     await db.insert(schema.team).values([
-      { id: mobile, workspaceId: held, key: 'mobile', name: 'Mobile' },
-      { id: gone, workspaceId: held, key: 'gone', name: 'Gone' },
+      { id: mobile, workspaceId, key: 'mobile', name: 'Mobile' },
+      { id: gone, workspaceId, key: 'gone', name: 'Gone' },
     ]);
     await db.insert(schema.teamMember).values([
       { teamId: mobile, userId: seat.owner },
@@ -79,7 +82,7 @@ describe('inviting people to a workspace (e2e)', () => {
   afterAll(async () => {
     await db
       .delete(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.workspaceId, held));
+      .where(eq(schema.workspaceToken.workspaceId, workspaceId));
     await seat.unseat();
     await db.delete(schema.user).where(inArray(schema.user.id, people));
     await app.close();
@@ -95,7 +98,7 @@ describe('inviting people to a workspace (e2e)', () => {
           emailOf(seat.member),
         ],
         role: 'admin',
-        teamIds: [held, mobile],
+        teamIds: [workspaceId, mobile],
       })
       .expect(200);
 
@@ -111,9 +114,9 @@ describe('inviting people to a workspace (e2e)', () => {
       [emailOf(ada), emailOf(grace), emailOf(alan)].sort(),
     );
     expect(sent[0]).toMatchObject({
-      workspaceName: held,
+      workspaceName: workspaceId,
       invitedBy: 'Ada',
-      teamNames: expect.arrayContaining([held, 'Mobile']),
+      teamNames: expect.arrayContaining([workspaceId, 'Mobile']),
     });
   });
 
@@ -127,7 +130,7 @@ describe('inviting people to a workspace (e2e)', () => {
     });
     expect(
       listed[0].teams.map((each: { id: string }) => each.id).sort(),
-    ).toEqual([held, mobile].sort());
+    ).toEqual([workspaceId, mobile].sort());
   });
 
   it('shows a member no invitations, and lets them send none', async () => {
@@ -166,10 +169,10 @@ describe('inviting people to a workspace (e2e)', () => {
 
     expect(offer.body).toEqual({
       email: emailOf(ada),
-      workspaceName: held,
+      workspaceName: workspaceId,
       invitedBy: 'Ada',
       role: 'admin',
-      teamNames: expect.arrayContaining([held, 'Mobile']),
+      teamNames: expect.arrayContaining([workspaceId, 'Mobile']),
       standing: 'open',
     });
   });
@@ -187,7 +190,7 @@ describe('inviting people to a workspace (e2e)', () => {
       .post(`/api/invites/${tokenFor(emailOf(ada))}/accept`)
       .expect(200);
 
-    expect(answer.body).toEqual({ workspaceSlug: held });
+    expect(answer.body).toEqual({ workspaceSlug: workspaceId });
 
     const joined = await eventually(async () => {
       const found = await memberNamed(ada);
@@ -196,7 +199,7 @@ describe('inviting people to a workspace (e2e)', () => {
 
     expect(joined.role).toBe('admin');
     expect(joined.teams.map((each) => each.id).sort()).toEqual(
-      [held, mobile].sort(),
+      [workspaceId, mobile].sort(),
     );
     await http()
       .get(`/api/invites/${tokenFor(emailOf(ada))}`)
@@ -219,7 +222,9 @@ describe('inviting people to a workspace (e2e)', () => {
 
   it('lists everyone in the workspace, with their role, teams, and what the caller may set', async () => {
     const everyone = (
-      await as(seat.member).get(`/api/workspaces/${held}/members`).expect(200)
+      await as(seat.member)
+        .get(`/api/workspaces/${workspaceId}/members`)
+        .expect(200)
     ).body;
     const bea = (await members()).find(
       (each: Member) => each.id === seat.member,
@@ -237,7 +242,7 @@ describe('inviting people to a workspace (e2e)', () => {
       role: 'member',
       mayBeSetTo: ['owner', 'admin', 'member'],
     });
-    await as(mallory).get(`/api/workspaces/${held}/members`).expect(404);
+    await as(mallory).get(`/api/workspaces/${workspaceId}/members`).expect(404);
   });
 
   it('sends an invitation again with a fresh link, so the old one stops working', async () => {
@@ -309,7 +314,7 @@ describe('inviting people to a workspace (e2e)', () => {
 
     expect(
       (await memberNamed(seat.member))?.teams.map((each) => each.id).sort(),
-    ).toEqual([held, mobile].sort());
+    ).toEqual([workspaceId, mobile].sort());
   });
 
   it('keeps the role of somebody already in the workspace who accepts, and puts them on its teams', async () => {
@@ -322,7 +327,7 @@ describe('inviting people to a workspace (e2e)', () => {
       .expect(200);
     await db
       .insert(schema.workspaceMember)
-      .values({ workspaceId: held, userId: hedy, role: 'member' });
+      .values({ workspaceId, userId: hedy, role: 'member' });
 
     await as(hedy)
       .post(`/api/invites/${tokenFor(emailOf(hedy))}/accept`)
@@ -366,7 +371,7 @@ describe('inviting people to a workspace (e2e)', () => {
   it('keeps the invitations of somebody whose account was deleted, from nobody', async () => {
     await db
       .insert(schema.workspaceMember)
-      .values({ workspaceId: held, userId: lin, role: 'admin' });
+      .values({ workspaceId, userId: lin, role: 'admin' });
     await as(lin)
       .post(invites, { emails: [emailOf(joan)], role: 'member', teamIds: [] })
       .expect(200);
@@ -411,7 +416,7 @@ describe('inviting people to a workspace (e2e)', () => {
 
   it('puts nobody on a team by a workspace token', async () => {
     const issued = await http()
-      .post(`/api/resources/workspaces/${held}/tokens`)
+      .post(`/api/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'team-adder', scopes: ['configure'] })

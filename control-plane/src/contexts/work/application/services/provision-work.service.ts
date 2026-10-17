@@ -3,7 +3,7 @@ import type {
   RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
 import type {
-  HeldWork,
+  LeasedWork,
   ProvisionedRunner,
   RunnersPort,
 } from '@runners/application/ports/runners.port';
@@ -76,13 +76,13 @@ const byWorkspace = (
   const grouped = new Map<string, PoolAtWork[]>();
 
   for (const pool of pools) {
-    const held = grouped.get(pool.workspaceId.value) ?? [];
-    held.push(pool);
-    grouped.set(pool.workspaceId.value, held);
+    const inWorkspace = grouped.get(pool.workspaceId.value) ?? [];
+    inWorkspace.push(pool);
+    grouped.set(pool.workspaceId.value, inWorkspace);
   }
 
-  for (const held of grouped.values()) {
-    held.sort((one, other) =>
+  for (const group of grouped.values()) {
+    group.sort((one, other) =>
       one.key < other.key ? -1 : one.key > other.key ? 1 : 0,
     );
   }
@@ -350,7 +350,7 @@ export class ProvisionWork {
     pool: PoolAtWork,
     runnerId: RunnerId,
     reserved: {
-      readonly work: HeldWork;
+      readonly work: LeasedWork;
       readonly runId: string;
       readonly taskId: string | null;
       readonly placement: RunnerPlacement;

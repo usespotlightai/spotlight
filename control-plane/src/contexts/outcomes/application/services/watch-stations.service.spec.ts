@@ -82,8 +82,8 @@ const watching = (initially: readonly AlertRule[] | null) => {
   };
 
   const actedOn = async (hour: number, act: 'closed' | 'sent-back') => {
-    const held = await records.of(RunId.of(`run_${hour}`));
-    const acted = held?.recordAction(
+    const record = await records.of(RunId.of(`run_${hour}`));
+    const acted = record?.recordAction(
       NextAct.of(act, day('2026-09-30', hour + 1)),
     );
     const [event] = acted?.pullEvents() ?? [];
@@ -168,7 +168,7 @@ describe('WatchStations', () => {
       'station-alert.recovered',
       'station-alert.reopened',
     ]);
-    expect(station.watches.held.get('station_1')?.crossings).toHaveLength(1);
+    expect(station.watches.stored.get('station_1')?.crossings).toHaveLength(1);
   });
 
   it('raises a new alert once the station has stayed clear past its settling runs', async () => {
@@ -231,7 +231,7 @@ describe('WatchStations', () => {
 
     await station.ran(1, 'sent-back');
 
-    expect(station.forgotten.holds).toEqual([
+    expect(station.forgotten.locks).toEqual([
       `${WORKSPACE.value} team_1`,
       `${WORKSPACE.value} team_1 task_1`,
     ]);
@@ -253,7 +253,7 @@ describe('WatchStations', () => {
 
     await station.ran(1, 'sent-back');
 
-    expect(station.watches.held.size).toBe(0);
+    expect(station.watches.stored.size).toBe(0);
   });
 
   it('watches nothing for a run whose task was forgotten', async () => {
@@ -264,7 +264,7 @@ describe('WatchStations', () => {
 
     await station.ran(1, 'sent-back');
 
-    expect(station.watches.held.size).toBe(0);
+    expect(station.watches.stored.size).toBe(0);
   });
 
   it('reads an accepted rate only from runs a person acted on, so a newest run nobody answered yet trips nothing', async () => {
@@ -324,7 +324,7 @@ describe('WatchStations', () => {
     await station.ran(1, 'sent-back');
     const stale = await station.watches.of('station_1');
 
-    for (const stationId of await station.watches.stationsHolding(
+    for (const stationId of await station.watches.stationsWithTask(
       TaskId.of('task_1'),
     )) {
       const watch = await station.watches.of(stationId, TaskId.of('task_1'));

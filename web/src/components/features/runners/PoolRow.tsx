@@ -8,9 +8,9 @@ import { PoolWayOut } from '@/components/features/runners/PoolWayOut';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import { StandingDot } from '@/components/features/runners/StandingDot';
 import {
-  heldBy,
   type NamedHarness,
   type PushPool,
+  poolHarnesses,
   poolName,
   poolStanding,
 } from '@/lib/runner';
@@ -42,7 +42,7 @@ export function PoolRow({ slug, pool, harnesses }: PoolRowProps) {
 
         <span />
 
-        <HarnessLogos harnesses={heldBy(pool, harnesses)} />
+        <HarnessLogos harnesses={poolHarnesses(pool, harnesses)} />
 
         <span />
         <span />

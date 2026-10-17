@@ -185,7 +185,7 @@ export class Review extends EventRecorder {
     return !says(
       this.verdict,
       this.body,
-      standing.filter((comment) => comment.heldBy(this.id)).length,
+      standing.filter((comment) => comment.belongsTo(this.id)).length,
     );
   }
 

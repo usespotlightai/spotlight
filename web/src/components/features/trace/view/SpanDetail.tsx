@@ -10,8 +10,8 @@ import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import {
   answeredBy,
   askedOf,
+  contentsOf,
   type Field,
-  holdings,
   restOf,
 } from '@/lib/detail';
 import { connectionTold } from '@/lib/run-network';
@@ -44,10 +44,10 @@ export function SpanDetail({
   const cause = connectionTold(node);
   const asked = askedOf(node);
   const answered = answeredBy(node);
-  const held = holdings(node);
+  const contents = contentsOf(node);
   const rest = restOf(node);
 
-  const holding: Field[] = [...held.kinds].map(([path, count]) => ({
+  const contentFields: Field[] = [...contents.kinds].map(([path, count]) => ({
     path,
     value: String(count),
     kind: 'number',
@@ -95,9 +95,9 @@ export function SpanDetail({
           </DetailSection>
         )}
 
-        {holding.length > 0 && (
+        {contentFields.length > 0 && (
           <DetailSection title="Contents">
-            <DetailFields fields={holding} />
+            <DetailFields fields={contentFields} />
           </DetailSection>
         )}
 

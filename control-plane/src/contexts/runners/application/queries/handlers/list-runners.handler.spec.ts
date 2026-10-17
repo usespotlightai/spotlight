@@ -117,7 +117,7 @@ describe('ListRunnersHandler', () => {
     ]);
   });
 
-  it('holds a host answering across a missed report', async () => {
+  it('keeps a host answering across a missed report', async () => {
     const fleet = await handle({ hosts: [host({ lastSeenAt: ago(60_000) })] });
 
     expect(fleet?.hosts[0]?.answering).toBe(true);

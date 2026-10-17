@@ -55,7 +55,7 @@ export class SearchRunWork implements RunWork {
     const by = current?.claimedBy;
 
     if (!current || !by) {
-      throw new UnknownRunError(`Run ${this.run.id.value} is not held.`);
+      throw new UnknownRunError(`Run ${this.run.id.value} is not leased.`);
     }
 
     await this.runs.save(current.askedAPersonBy(by));

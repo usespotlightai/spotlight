@@ -41,15 +41,15 @@ const provisioning = (
   conflicts = 0,
   listed: readonly StackCheck[] = checks,
 ) => {
-  const held = new Map(checks.map((each) => [each.stackId.value, each]));
+  const stored = new Map(checks.map((each) => [each.stackId.value, each]));
   let refusing = conflicts;
-  const find = vi.fn(async (id: ChangeStackId) => held.get(id.value) ?? null);
+  const find = vi.fn(async (id: ChangeStackId) => stored.get(id.value) ?? null);
   const save = vi.fn(async (check: StackCheck) => {
     if (refusing > 0) {
       refusing -= 1;
       throw new StackCheckVersionConflictError(check.stackId.value);
     }
-    held.set(check.stackId.value, check);
+    stored.set(check.stackId.value, check);
   });
   const awaitingProvision = vi.fn(async () => listed);
   const withLapsedReservations = vi.fn(async () => listed);
@@ -58,7 +58,7 @@ const provisioning = (
     find,
     save,
     awaitingProvision,
-    check: (stack: string) => held.get(stack) as StackCheck,
+    check: (stack: string) => stored.get(stack) as StackCheck,
     service: new ProvisionChangeStackChecks({
       open: find,
       save,

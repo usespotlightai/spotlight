@@ -1199,7 +1199,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
         candidate: SEEDED.investigateOpus,
         iteration: 2,
         hypothesis:
-          'The replica lag alerts need reasoning across three services. Opus may hold more of it at once.',
+          'The replica lag alerts need reasoning across three services. Opus may keep more of it in context at once.',
         changes: [changed('model', 'sonnet', 'opus')],
         replayId: 'replay_sin_opus',
       }),

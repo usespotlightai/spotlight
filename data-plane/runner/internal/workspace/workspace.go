@@ -68,7 +68,7 @@ func clearAt(dir, at string, keep []string) error {
 
 		switch {
 		case slices.Contains(keep, name):
-		case entry.IsDir() && holds(keep, name):
+		case entry.IsDir() && containsKept(keep, name):
 			problems = append(problems, clearAt(dir, name, keep))
 		default:
 			problems = append(problems, os.RemoveAll(filepath.Join(dir, name)))
@@ -78,7 +78,7 @@ func clearAt(dir, at string, keep []string) error {
 	return errors.Join(problems...)
 }
 
-func holds(keep []string, name string) bool {
+func containsKept(keep []string, name string) bool {
 	for _, each := range keep {
 		if strings.HasPrefix(each, name+"/") {
 			return true

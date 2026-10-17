@@ -107,19 +107,19 @@ describe('InviteMemberships', () => {
     ]);
   });
 
-  it('keeps the role somebody already holds, whether higher or lower', async () => {
-    for (const [holds, invited] of [
+  it('keeps the role somebody already has, whether higher or lower', async () => {
+    for (const [current, invited] of [
       [WorkspaceRole.owner, WorkspaceRole.member],
       [WorkspaceRole.member, WorkspaceRole.admin],
     ] as const) {
       const { memberships, savedWorkspace, savedTeam } = joining({
-        adaIs: holds,
+        adaIs: current,
       });
 
       await memberships.joined(accepted(invited));
 
       expect(savedWorkspace).not.toHaveBeenCalled();
-      expect(savedTeam.mock.calls[0]?.[0].holds(ADA)).toBe(true);
+      expect(savedTeam.mock.calls[0]?.[0].hasMember(ADA)).toBe(true);
     }
   });
 
@@ -130,7 +130,7 @@ describe('InviteMemberships', () => {
 
     expect(savedTeam).toHaveBeenCalledTimes(1);
     expect(savedTeam.mock.calls[0]?.[0].id.value).toBe('team_1');
-    expect(savedTeam.mock.calls[0]?.[0].holds(ADA)).toBe(true);
+    expect(savedTeam.mock.calls[0]?.[0].hasMember(ADA)).toBe(true);
   });
 
   it('changes nothing more when the acceptance is heard twice', async () => {

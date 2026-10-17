@@ -25,8 +25,8 @@ export class IntegrationAddress {
       : refused();
   }
 
-  static parse(held: string): IntegrationAddress {
-    const [teamKey, source, ...rest] = held.trim().split(SEPARATOR);
+  static parse(raw: string): IntegrationAddress {
+    const [teamKey, source, ...rest] = raw.trim().split(SEPARATOR);
 
     return teamKey && source && rest.length === 0
       ? IntegrationAddress.of(teamKey, SourceKey.of(source))

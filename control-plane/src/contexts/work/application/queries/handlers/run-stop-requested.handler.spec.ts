@@ -26,7 +26,7 @@ describe('RunStopRequestedHandler', () => {
     expect(answer).toBe(true);
   });
 
-  it('tells another runner nothing about a run it does not hold', async () => {
+  it('tells another runner nothing about a run it does not lease', async () => {
     const answer = await asking({ run_1: 'runner_1' }).execute(
       new RunStopRequestedQuery('run_1', 'runner_2'),
     );

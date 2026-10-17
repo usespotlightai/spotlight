@@ -1,7 +1,7 @@
 import type { RunTokensPort } from '@identity/application/ports/run-tokens.port';
 import type {
   RunGrantsPort,
-  RunHoldDto,
+  RunLeaseDto,
 } from '@secrets/application/ports/run-grants.port';
 import {
   HOST_CONNECTED,
@@ -53,7 +53,7 @@ import type { PauseMarks } from '@work/application/services/pause-marks.service'
 import type { PausedRuns } from '@work/application/services/paused-runs.service';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
-import type { RunnerHolds } from '@work/application/services/runner-holds.service';
+import type { RunnerLeases } from '@work/application/services/runner-leases.service';
 import type { SettleSetup } from '@work/application/services/settle-setup.service';
 import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import type { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
@@ -80,11 +80,11 @@ const newTeam = (event: TeamCreatedIntegrationEvent): NewTeam => ({
   owner: UserId.of(event.ownerId),
 });
 
-const holdOf = (event: {
+const leaseOf = (event: {
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
   readonly attempt: number;
-}): RunHoldDto => ({
+}): RunLeaseDto => ({
   workspaceId: event.workspaceId.value,
   runId: event.runId.value,
   attempt: event.attempt,
@@ -121,7 +121,7 @@ export const workSubscribers = (reactions: {
   abandoning: AbandonTeamLines;
   runGrants: RunGrantsPort;
   runTokens: RunTokensPort;
-  runners: RunnerHolds;
+  runners: RunnerLeases;
   toolUsedHooks: ToolUsedHooks;
   notices: Notices;
   connections: ConnectionsMade;
@@ -129,7 +129,7 @@ export const workSubscribers = (reactions: {
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
     'work.end-secret-grants-of-ended-run',
     ['run.completed', 'run.abandoned', 'run.withdrawn'],
-    (event) => reactions.runGrants.endedFor(holdOf(event)),
+    (event) => reactions.runGrants.endedFor(leaseOf(event)),
   ),
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
     'work.revoke-tokens-of-ended-run',
@@ -142,9 +142,9 @@ export const workSubscribers = (reactions: {
       ),
   ),
   subscribing<RunLapsed | RunParked>(
-    'work.lose-secret-hold-of-ended-attempt',
+    'work.lose-secret-lease-of-ended-attempt',
     ['run.lapsed', 'run.parked'],
-    (event) => reactions.runGrants.holdLost(holdOf(event)),
+    (event) => reactions.runGrants.leaseLost(leaseOf(event)),
   ),
   subscribing<RunLapsed | RunParked>(
     'work.revoke-tokens-of-ended-attempt',

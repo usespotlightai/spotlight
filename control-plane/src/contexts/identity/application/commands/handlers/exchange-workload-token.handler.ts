@@ -57,13 +57,13 @@ export class ExchangeWorkloadTokenHandler
       const minted = this.mint.mint();
       const now = this.clock.now();
       const exchanged = await this.transaction.inTransaction(async () => {
-        const held = await this.trusts.holding(trust.id);
+        const locked = await this.trusts.findLocked(trust.id);
 
-        if (!held) {
+        if (!locked) {
           return null;
         }
 
-        const issued = held.mintFor(workload, {
+        const issued = locked.mintFor(workload, {
           id: WorkspaceTokenId.of(this.ids.generate()),
           hash: TokenHash.of(minted.hash),
           now,

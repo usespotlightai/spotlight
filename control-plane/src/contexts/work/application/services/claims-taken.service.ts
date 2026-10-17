@@ -1,5 +1,5 @@
 import type {
-  HeldWork,
+  LeasedWork,
   RunnersPort,
 } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -43,7 +43,7 @@ export class ClaimsTaken {
 
   private async taken(
     runner: RunnerId,
-    work: HeldWork,
+    work: LeasedWork,
     unclaimed: () => Promise<void>,
   ): Promise<void> {
     try {
@@ -68,14 +68,14 @@ export class ClaimsTaken {
 
   private async runUnclaimed(claimed: Run, runner: RunnerId): Promise<void> {
     for (let attempt = 1; ; attempt++) {
-      const held = await this.runs.findById(claimed.id);
+      const existing = await this.runs.findById(claimed.id);
 
-      if (!held?.isHeldBy(runner)) {
+      if (!existing?.isLeasedBy(runner)) {
         return;
       }
 
       try {
-        await this.runs.save(held.unclaimedBy(runner));
+        await this.runs.save(existing.unclaimedBy(runner));
         return;
       } catch (error) {
         if (

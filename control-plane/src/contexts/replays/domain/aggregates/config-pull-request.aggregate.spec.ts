@@ -49,8 +49,8 @@ const withCandidates = (finished: boolean): Search => {
     true,
   );
   const admitted = ['terse', 'in-order'].reduce(
-    (held, name) =>
-      held.admitted(RunId.of('search_run_1'), {
+    (built, name) =>
+      built.admitted(RunId.of('search_run_1'), {
         candidateId: CandidateId.of(`candidate_${name}`),
         name: CandidateName.searched(name),
         replayId: ReplayId.of(`replay_${name}`),

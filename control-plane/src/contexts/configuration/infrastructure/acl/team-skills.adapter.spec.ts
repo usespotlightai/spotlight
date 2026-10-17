@@ -60,10 +60,10 @@ const naming = (...skills: string[]) => skills;
 
 const keeping = (
   folders: readonly SkillFolder[],
-  held: readonly string[] = [],
+  existing: readonly string[] = [],
 ) => {
   const secrets = {
-    ofTeam: vi.fn(async () => held.map((each) => SecretName.of(each))),
+    ofTeam: vi.fn(async () => existing.map((each) => SecretName.of(each))),
   } satisfies SecretNamesPort;
   const reader: SkillReaderPort = {
     read: () => ({ skills: folders, problems: [] }),
@@ -83,7 +83,7 @@ const keysOf = (folders: readonly ReadySkillFolder[]) =>
   folders.map((each) => each.skill.key);
 
 describe('TeamSkills', () => {
-  it('gives a run each skill the station names whose secrets the team holds', async () => {
+  it('gives a run each skill the station names whose secrets the team has', async () => {
     const skills = keeping([GRAFANA, FRONTEND], ['GRAFANA_TOKEN']);
 
     const ready = await skills.readyFor(TEAM, naming('grafana-dashboards'));
@@ -102,7 +102,7 @@ describe('TeamSkills', () => {
     ]);
   });
 
-  it('leaves out a skill that needs a secret the team does not hold', async () => {
+  it('leaves out a skill that needs a secret the team does not have', async () => {
     const skills = keeping([GRAFANA, MIGRATIONS]);
 
     const ready = await skills.readyFor(
@@ -113,7 +113,7 @@ describe('TeamSkills', () => {
     expect(keysOf(ready)).toEqual(['our-migrations']);
   });
 
-  it('names every skill the team defines, whether or not its secrets are held', async () => {
+  it('names every skill the team defines, whether or not the team has its secrets', async () => {
     const skills = keeping([GRAFANA, MIGRATIONS]);
 
     expect(await skills.definedFor(TEAM)).toEqual([

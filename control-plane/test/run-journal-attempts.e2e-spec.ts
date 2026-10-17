@@ -15,15 +15,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let journal: DrizzleRunJournal;
 let events: DrizzleRunEventReader;
 let digests: DrizzleRunDigests;
 
 beforeAll(async () => {
-  held = await openDatabase('run_journal_attempts');
-  db = held.db;
+  database = await openDatabase('run_journal_attempts');
+  db = database.db;
   journal = new DrizzleRunJournal(new DrizzleContext(db));
   events = new DrizzleRunEventReader(db, {
     mayView: async () => true,
@@ -34,7 +34,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const hooks = (...messages: string[]) =>

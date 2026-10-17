@@ -19,7 +19,7 @@ type Minted = { token: string; expiresAt: number };
 
 @Injectable()
 export class GitHubAppAccess implements RepositoryAccessPort {
-  readonly #held = new Map<string, Minted>();
+  readonly #tokenCache = new Map<string, Minted>();
 
   constructor(
     @Inject(ENV) private readonly env: Env,
@@ -34,14 +34,14 @@ export class GitHubAppAccess implements RepositoryAccessPort {
   }
 
   private async token(installation: GitHubInstallation): Promise<string> {
-    const held = this.#held.get(installation.value);
+    const cached = this.#tokenCache.get(installation.value);
 
-    if (held && held.expiresAt - RENEW_BEFORE_MS > Date.now()) {
-      return held.token;
+    if (cached && cached.expiresAt - RENEW_BEFORE_MS > Date.now()) {
+      return cached.token;
     }
 
     const minted = await this.mint(installation);
-    this.#held.set(installation.value, minted);
+    this.#tokenCache.set(installation.value, minted);
 
     return minted.token;
   }

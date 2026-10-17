@@ -71,12 +71,12 @@ func (c *cli) station(address string) (*station, error) {
 	}
 
 	keys := make([]string, 0, len(line.Definition.Stations))
-	held := false
+	found := false
 	for _, each := range line.Definition.Stations {
 		keys = append(keys, each.Key)
-		held = held || each.Key == parts[2]
+		found = found || each.Key == parts[2]
 	}
-	if !held {
+	if !found {
 		return nil, fmt.Errorf("line %s/%s has no station %s; it has %s", parts[0], parts[1], parts[2], strings.Join(keys, ", "))
 	}
 

@@ -17,11 +17,11 @@ export const givenIntegrations = (
       continue;
     }
 
-    const held = counted.get(source);
+    const existing = counted.get(source);
 
     counted.set(source, {
-      name: held?.name ?? each.offeredBy ?? source,
-      tools: (held?.tools ?? 0) + 1,
+      name: existing?.name ?? each.offeredBy ?? source,
+      tools: (existing?.tools ?? 0) + 1,
     });
   }
 

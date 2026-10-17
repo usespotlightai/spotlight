@@ -57,7 +57,7 @@ const working = async (
   const work = new WorkJudgings(
     judgings,
     {
-      holds: async () => true,
+      hasTask: async () => true,
       of: async () => evidence,
       judgesOnTeam: async () => new Map(),
       judgeAt: async () => null,

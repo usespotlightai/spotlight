@@ -35,7 +35,7 @@ const asking = (
     rubric?: string;
     judged?: boolean;
     available?: boolean;
-    held?: boolean;
+    hasEvidence?: boolean;
   } = {},
 ) => {
   const judgings = new JudgingsInMemory();
@@ -57,7 +57,7 @@ const asking = (
       alertsAt: async () => null,
     },
     {
-      holds: async () => change.held ?? true,
+      hasTask: async () => change.hasEvidence ?? true,
       of: async () => null,
       judgesOnTeam: async () => new Map(),
       judgeAt: async () =>
@@ -99,7 +99,7 @@ describe('AskForJudging', () => {
 
     await heard.ended();
 
-    expect(heard.judgings.held.size).toBe(0);
+    expect(heard.judgings.stored.size).toBe(0);
   });
 
   it('asks no verdict on a run heard to end after its workspace was closed', async () => {
@@ -108,7 +108,7 @@ describe('AskForJudging', () => {
 
     await heard.ended();
 
-    expect(heard.judgings.held.size).toBe(0);
+    expect(heard.judgings.stored.size).toBe(0);
   });
 
   it('asks for a verdict on a sampled run of a judged station, with its rubric', async () => {
@@ -128,7 +128,7 @@ describe('AskForJudging', () => {
     await heard.ended();
     await heard.ended();
 
-    expect(heard.judgings.held.size).toBe(1);
+    expect(heard.judgings.stored.size).toBe(1);
   });
 
   it.each([
@@ -136,13 +136,16 @@ describe('AskForJudging', () => {
     ['a station without a judge', { judged: false }],
     ['a rubric whose scale is unknown', { rubric: 'scores: stars\nWell?' }],
     ['a run left out of the sample', { sample: 0 }],
-    ['a run whose task was deleted before its end was heard', { held: false }],
+    [
+      'a run whose task was deleted before its end was heard',
+      { hasEvidence: false },
+    ],
   ])('asks nothing for %s', async (_, change) => {
     const heard = asking(change);
 
     await heard.ended();
 
-    expect(heard.judgings.held.size).toBe(0);
+    expect(heard.judgings.stored.size).toBe(0);
   });
 
   it.each(['failed', 'abandoned', 'withdrawn'])(
@@ -152,7 +155,7 @@ describe('AskForJudging', () => {
 
       await heard.ended(outcome);
 
-      expect(heard.judgings.held.size).toBe(0);
+      expect(heard.judgings.stored.size).toBe(0);
     },
   );
 
@@ -161,6 +164,6 @@ describe('AskForJudging', () => {
 
     await heard.ended('completed', true);
 
-    expect(heard.judgings.held.size).toBe(1);
+    expect(heard.judgings.stored.size).toBe(1);
   });
 });

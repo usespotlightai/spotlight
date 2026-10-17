@@ -143,7 +143,7 @@ export class ReplayCandidates implements ReplayCandidatesPort {
       standing.station,
     );
     const normalised = this.rendering
-      .heldOf(built.line)
+      .definitionOf(built.line)
       .stations.find((each) => each.key === built.station.key.value);
 
     return config && live && normalised

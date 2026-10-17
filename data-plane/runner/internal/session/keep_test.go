@@ -77,8 +77,8 @@ func (k *keptArchives) serve(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		body, held := k.objects[id]
-		if !held {
+		body, found := k.objects[id]
+		if !found {
 			http.NotFound(w, r)
 			return
 		}
@@ -105,11 +105,11 @@ func (k *keptArchives) seal(id string) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
-	body, held := k.objects[id]
+	body, found := k.objects[id]
 	granted := k.granted[id]
 	sum := sha256.Sum256(body)
 
-	if !held || int64(len(body)) != granted.Size || hex.EncodeToString(sum[:]) != granted.SHA256 {
+	if !found || int64(len(body)) != granted.Size || hex.EncodeToString(sum[:]) != granted.SHA256 {
 		return errors.New("409 Conflict: not uploaded as granted")
 	}
 
@@ -117,7 +117,7 @@ func (k *keptArchives) seal(id string) error {
 	return nil
 }
 
-func (k *keptArchives) newest() *protocol.HeldArchive {
+func (k *keptArchives) newest() *protocol.StoredArchive {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
@@ -128,7 +128,7 @@ func (k *keptArchives) newest() *protocol.HeldArchive {
 	id := k.sealed[len(k.sealed)-1]
 	granted := k.granted[id]
 
-	return &protocol.HeldArchive{
+	return &protocol.StoredArchive{
 		ID:     id,
 		URL:    k.server.URL + "/objects/" + id,
 		Size:   granted.Size,
@@ -171,7 +171,7 @@ func TestKeepsTheWorkspaceForTheNextRunInAFreshSandbox(t *testing.T) {
 	second := run(t, harness(t, `said = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = kept
-			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_held"}
+			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
 		})
 
 	if got := said(t, second); got != "halfway" {
@@ -209,7 +209,7 @@ func TestCoalescesAWorkspaceNothingChangedIn(t *testing.T) {
 	kept := newKeptArchives(t)
 	continuing := func(o *runOptions) {
 		o.archives = kept
-		o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_held"}
+		o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
 	}
 
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"), continuing)
@@ -257,7 +257,7 @@ func TestRestoresOverWhatTheImageLaidDown(t *testing.T) {
 		func(o *runOptions) {
 			o.root = baked
 			o.archives = kept
-			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_held"}
+			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
 		})
 
 	if got := said(t, second); got != "halfway" {
@@ -283,7 +283,7 @@ func TestStartsAfreshFromAnArchiveThatIsNotTheOneKept(t *testing.T) {
 		func(o *runOptions) {
 			o.root = root
 			o.archives = kept
-			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_held"}
+			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
 		})
 
 	if got := said(t, second); got != "afresh" {
@@ -297,7 +297,7 @@ func TestStartsAfreshFromAnArchiveThatIsNotTheOneKept(t *testing.T) {
 	}
 }
 
-func TestHoldsTheRunWhileItKeepsTheWorkspace(t *testing.T) {
+func TestRenewsTheLeaseWhileItKeepsTheWorkspace(t *testing.T) {
 	kept := newKeptArchives(t)
 	kept.slow = 5 * time.Second
 

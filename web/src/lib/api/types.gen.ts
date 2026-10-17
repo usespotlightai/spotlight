@@ -125,11 +125,11 @@ export type ReactionResponseDto = {
 
 export type LineSourceResponseDto = {
   /**
-   * The GitHub repository that holds the line’s Terraform
+   * The GitHub repository that contains the line’s Terraform
    */
   repository: string;
   /**
-   * The Terraform file in it that holds the line, from the repository root
+   * The Terraform file in it that contains the line, from the repository root
    */
   path: string;
 };
@@ -285,7 +285,7 @@ export type InstallableHarnessResponseDto = {
 export type ClaimedRunResponseDto = {
   id: string;
   /**
-   * The harness the run needs, so a host can tell whether the image it pulled still holds it
+   * The harness the run needs, so a host can tell whether the image it pulled still contains it
    */
   harness: string;
   /**
@@ -510,7 +510,7 @@ export type HistoryPlaceResponseDto = {
 export type ProfileViewResponseDto = {
   key: string;
   /**
-   * The permissions, MCP servers and native settings it held
+   * The permissions, MCP servers and native settings it contained
    */
   settings: {
     [key: string]: unknown;
@@ -666,7 +666,7 @@ export type HistoryCandidateResponseDto = {
    */
   hypothesis: string;
   /**
-   * The candidate’s station block, in the shape the line resource holds a station in
+   * The candidate’s station block, in the shape that the line resource uses for a station
    */
   block: {
     [key: string]: unknown;
@@ -889,12 +889,12 @@ export type ParkRunRequestDto = {
 
 export type RunParkingResponseDto = {
   /**
-   * Whether the run is parked (or, if a stop was asked for, ended) and no longer held by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.
+   * Whether the run is parked (or, if a stop was asked for, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.
    */
   parked: boolean;
 };
 
-export type HeldArchiveResponseDto = {
+export type StoredArchiveResponseDto = {
   id: string;
   /**
    * Where to GET the archive, for a quarter of an hour
@@ -932,7 +932,7 @@ export type PoolQueueResponseDto = {
    */
   pending: number;
   /**
-   * The pool’s runners standing now: holding a run or check, or started and yet to claim
+   * The pool’s runners standing now: with a lease on a run or check, or started and yet to claim
    */
   running: number;
   /**
@@ -972,7 +972,7 @@ export type ClaimHostWorkRequestDto = {
    */
   host: string;
   /**
-   * The runner image this claim will run in, one the host reported serving; what it holds and whether it is the default come from that report
+   * The runner image this claim will run in, one the host reported serving; what it contains and whether it is the default come from that report
    */
   image: string;
 };
@@ -1060,7 +1060,7 @@ export type AnswerHostCallRequestDto = {
 
 export type SharedRedeemEgressRequestDto = {
   /**
-   * The X25519 public key egress holds for this run alone, in base64; values Spotlight keeps are sealed to it
+   * The X25519 public key that egress keeps for this run alone, in base64; values Spotlight keeps are sealed to it
    */
   recipient: string;
   /**
@@ -1086,7 +1086,7 @@ export type RedeemedSecretResponseDto = {
    */
   carrier: 'header' | 'query';
   /**
-   * The header or query parameter that holds its stand-in
+   * The header or query parameter that contains its stand-in
    */
   name: string;
   prefix: string;
@@ -1160,18 +1160,18 @@ export type EgressAdmissionResponseDto = {
   reaches: Array<string>;
 };
 
-export type KeepEgressHoldsRequestDto = {
+export type CheckActiveRunsRequestDto = {
   /**
    * The run proxy credentials whose runs the egress serves now
    */
   proxyCredentials: Array<string>;
 };
 
-export type EgressHoldsResponseDto = {
+export type EgressActiveRunsResponseDto = {
   /**
-   * The proxy credentials whose runner still holds its work. Egress forgets every other run
+   * The proxy credentials whose runner still leases its work, or has no work yet. Egress forgets every other run
    */
-  held: Array<string>;
+  active: Array<string>;
 };
 
 export type EgressConnectionRequestDto = {
@@ -1206,7 +1206,7 @@ export type RecordEgressConnectionsRequestDto = {
   records: Array<EgressConnectionRequestDto>;
 };
 
-export type HeldRunResponseDto = {
+export type LeasedRunResponseDto = {
   id: string;
   state: string;
   /**
@@ -1232,7 +1232,7 @@ export type RunnerActivityResponseDto = {
   /**
    * The run the runner is working on
    */
-  currentRun: HeldRunResponseDto;
+  currentRun: LeasedRunResponseDto;
 };
 
 export type HarnessModelResponseDto = {
@@ -1427,7 +1427,7 @@ export type InboxItemResponseDto = {
    */
   stationPosition: number;
   /**
-   * How many stations the line holds
+   * How many stations the line has
    */
   stationCount: number;
   /**
@@ -1465,7 +1465,7 @@ export type InboxItemResponseDto = {
    */
   failure: InboxFailureResponseDto | null;
   /**
-   * What this item puts aside for a person to settle, where it is not a conversation; it never holds the task up
+   * What this item puts aside for a person to settle, where it is not a conversation; it never blocks the task
    */
   aside: InboxAsideResponseDto | null;
   notes: Array<InboxMessageResponseDto>;
@@ -1543,7 +1543,7 @@ export type RunMarksResponseDto = {
 
 export type RunSpentResponseDto = {
   /**
-   * Tokens held in context
+   * Tokens in context
    */
   used: number;
   /**
@@ -1667,7 +1667,7 @@ export type RunStationResponseDto = {
   color: string;
   position: number;
   /**
-   * How many stations the line holds
+   * How many stations the line has
    */
   count: number;
 };
@@ -1732,7 +1732,7 @@ export type TraceStationResponseDto = {
   color: string;
   position: number;
   /**
-   * How many the line holds
+   * How many stations the line has
    */
   count: number;
 };
@@ -2386,7 +2386,7 @@ export type TeamResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the team in the addresses of everything it holds; fixed for its life, so changing it means replacing the team
+   * Names the team in the addresses of everything it has; fixed for its life, so changing it means replacing the team
    */
   key: string;
   /**
@@ -2782,7 +2782,7 @@ export type SecretSourceResponseDto = {
    */
   secretId: string | null;
   /**
-   * The key to read when that secret holds JSON
+   * The key to read when that secret contains JSON
    */
   field: string | null;
 };
@@ -3014,7 +3014,7 @@ export type HostResponseDto = {
    */
   running: Array<string>;
   /**
-   * The runner images it serves or refused, and what each holds
+   * The runner images it serves or refused, and what each contains
    */
   images: Array<HostImageResponseDto>;
   firstSeenAt: string;
@@ -3300,7 +3300,7 @@ export type IntegrationViewResponseDto = {
   /**
    * Whose connection its tools act with: the team’s, or that of the person who started the task
    */
-  holding: 'team' | 'requester';
+  holder: 'team' | 'requester';
   /**
    * What the host calls the team once linked, where it says
    */
@@ -3401,7 +3401,7 @@ export type McpServerResponseDto = {
   command: string;
   args: Array<string>;
   /**
-   * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
+   * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
    */
   env: {
     [key: string]: string;
@@ -3582,7 +3582,7 @@ export type RunChangeStacksResponseDto = {
 
 export type LatestChangeStackResponseDto = {
   /**
-   * The run whose page holds the stack
+   * The run whose page shows the stack
    */
   runId: string;
   repository: string | null;
@@ -3653,7 +3653,7 @@ export type DecisionResponseDto = {
    */
   steps: Array<number>;
   /**
-   * Who holds it wrong or out of date, and why
+   * Who says it is wrong or out of date, and why
    */
   disputes: Array<DisputeResponseDto>;
 };
@@ -3923,7 +3923,7 @@ export type HostConnectionsResponseDto = {
    */
   mine: Array<MyConnectionResponseDto>;
   /**
-   * Who in the team has connected what, shown to admins only; it never holds a token
+   * Who in the team has connected what, shown to admins only; it never contains a token
    */
   people: Array<PersonConnectionResponseDto> | null;
 };
@@ -4010,7 +4010,7 @@ export type IntegrationResourceListResponseDto = {
 
 export type CheckExpressionRequestDto = {
   /**
-   * The attribute that holds the expression, within the definition, written as its problems would name it
+   * The attribute that contains the expression, within the definition, written as its problems would name it
    */
   position: string;
   /**
@@ -4131,7 +4131,7 @@ export type HookMatchDto = {
 
 export type HookRequestDto = {
   /**
-   * Where the request goes; may hold ${{ }} expressions
+   * Where the request goes; may contain ${{ }} expressions
    */
   url: string;
   /**
@@ -4141,7 +4141,7 @@ export type HookRequestDto = {
     [key: string]: string;
   };
   /**
-   * The JSON body, any JSON value; strings may hold ${{ }} expressions. Left out, Spotlight sends the event, task and run
+   * The JSON body, any JSON value; strings may contain ${{ }} expressions. Left out, Spotlight sends the event, task and run
    */
   body?: {
     [key: string]: unknown;
@@ -4521,7 +4521,7 @@ export type TeamMemoryDetailResponseDto = {
 
 export type RetireMemoryRequestDto = {
   /**
-   * Why it no longer holds
+   * Why it no longer applies
    */
   reason: string;
 };
@@ -5089,7 +5089,7 @@ export type RunScoresResponseDto = {
    */
   rubricBody: string | null;
   /**
-   * The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer held
+   * The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer stored
    */
   claims: Array<string | null>;
   /**
@@ -6396,7 +6396,7 @@ export type StationAlertCrossingResponseDto = {
   taskId: string;
   raisedAt: string;
   /**
-   * The shortest Insights period whose days hold the moment the alert went off
+   * The shortest Insights period whose days include the moment the alert went off
    */
   insightsPeriod: '7d' | '30d' | '90d';
   /**
@@ -7095,7 +7095,7 @@ export type ReplayCandidateResourceResponseDto = {
    */
   kind: 'live' | 'proposed' | 'searched' | 'planned' | 'oracle';
   /**
-   * The station block it replays the station under, in the shape the line resource holds a station in
+   * The station block it replays the station under, in the shape in which the line resource stores a station
    */
   station: {
     [key: string]: unknown;
@@ -7485,7 +7485,7 @@ export type CandidateResponseDto = {
    */
   fingerprint: string;
   /**
-   * The station block, as the line resource holds it
+   * The station block, as the line resource stores it
    */
   station: {
     [key: string]: unknown;
@@ -8398,7 +8398,7 @@ export type SearchSplitResponseDto = {
 export type ReflectedTaskResponseDto = {
   taskId: string;
   /**
-   * The run the set holds for the task
+   * The run the set contains for the task
    */
   originalRunId: string;
   /**
@@ -8410,7 +8410,7 @@ export type ReflectedTaskResponseDto = {
 export type SearchCauseResponseDto = {
   taskId: string;
   /**
-   * The run the set holds for the task
+   * The run the set contains for the task
    */
   originalRunId: string;
   /**
@@ -8716,13 +8716,13 @@ export type StartReplayCheckRequestDto = {
   lineId: string;
   stationKey: string;
   /**
-   * The station block as the plan would apply it, as the line resource holds a station; its check, judge, diffs and runners are replaced by the live station’s, since a planned change is scored as, and runs where, the live station does
+   * The station block as the plan would apply it, as the line resource stores a station; its check, judge, diffs and runners are replaced by the live station’s, since a planned change is scored as, and runs where, the live station does
    */
   station: {
     [key: string]: unknown;
   };
   /**
-   * The line’s settings that change how its stations run, as the plan would apply them: its repositories, each with its image and setup, as the line resource holds them
+   * The line’s settings that change how its stations run, as the plan would apply them: its repositories, each with its image and setup, as the line resource stores them
    */
   line?: {
     [key: string]: unknown;
@@ -8898,7 +8898,7 @@ export type ProposeSearchCandidateRequestDto = {
    */
   hypothesis: string;
   /**
-   * The station block, as the line holds it, changed only where a search may change it
+   * The station block, as the line stores it, changed only where a search may change it
    */
   station: {
     [key: string]: unknown;
@@ -8980,7 +8980,7 @@ export type ReplaySetHealthResponseDto = {
    */
   tasks: number;
   /**
-   * How many past runs the set holds now
+   * How many past runs the set contains now
    */
   runs: number;
   /**
@@ -8992,7 +8992,7 @@ export type ReplaySetHealthResponseDto = {
    */
   newestRunEndedAt: string | null;
   /**
-   * When a task was last added to it; null while it holds none
+   * When a task was last added to it; null while it contains none
    */
   lastAddedAt: string | null;
   /**
@@ -9824,7 +9824,7 @@ export type PendingMessagesErrors = {
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
 };
@@ -9942,7 +9942,7 @@ export type DeliverSaidErrors = {
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
@@ -9968,7 +9968,7 @@ export type RenewLeaseErrors = {
    */
   401: unknown;
   /**
-   * The run is no longer held by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.
+   * The run is no longer leased by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.
    */
   404: unknown;
   /**
@@ -10004,7 +10004,7 @@ export type RenewCheckLeaseErrors = {
    */
   401: unknown;
   /**
-   * No such runner, or the check this runner holds is of another run
+   * No such runner, or the check this runner leases is of another run
    */
   404: unknown;
   /**
@@ -10034,7 +10034,7 @@ export type RecordRunImageErrors = {
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
@@ -10064,7 +10064,7 @@ export type RecordStartingPointErrors = {
    */
   404: unknown;
   /**
-   * The run is not held by this runner on that attempt, works no task, or already started from somewhere else
+   * The run is not leased by this runner on that attempt, works no task, or already started from somewhere else
    */
   409: unknown;
   /**
@@ -10094,7 +10094,7 @@ export type AppendRunEventsErrors = {
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
@@ -10165,7 +10165,7 @@ export type AskPermissionErrors = {
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
@@ -10235,7 +10235,7 @@ export type TurnAsksAPersonErrors = {
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
 };
@@ -10261,7 +10261,7 @@ export type ParkRunErrors = {
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
@@ -10293,7 +10293,7 @@ export type ReadWorkspaceArchiveErrors = {
 };
 
 export type ReadWorkspaceArchiveResponses = {
-  200: HeldArchiveResponseDto;
+  200: StoredArchiveResponseDto;
   /**
    * Nothing to restore: the run starts its work afresh
    */
@@ -10527,11 +10527,11 @@ export type RedeemEgressData = {
 
 export type RedeemEgressErrors = {
   /**
-   * Missing or unknown egress token, or its runner no longer holds work
+   * Missing or unknown egress token, or its runner no longer has a lease on work
    */
   401: unknown;
   /**
-   * The runner of this proxy credential holds no run yet. Please redeem again after it claims one
+   * The runner of this proxy credential has no lease on a run yet. Please redeem again after it claims one
    */
   409: unknown;
   /**
@@ -10555,7 +10555,7 @@ export type AdmitThroughEgressData = {
 
 export type AdmitThroughEgressErrors = {
   /**
-   * Missing or unknown egress token, or its runner no longer holds work
+   * Missing or unknown egress token, or its runner no longer has a lease on work
    */
   401: unknown;
 };
@@ -10566,29 +10566,29 @@ export type AdmitThroughEgressResponses = {
 
 export type AdmitThroughEgressResponse = AdmitThroughEgressResponses[keyof AdmitThroughEgressResponses];
 
-export type KeepEgressHoldsData = {
-  body: KeepEgressHoldsRequestDto;
+export type CheckActiveRunsData = {
+  body: CheckActiveRunsRequestDto;
   path?: never;
   query?: never;
-  url: '/egress/holds';
+  url: '/egress/active-runs';
 };
 
-export type KeepEgressHoldsErrors = {
+export type CheckActiveRunsErrors = {
   /**
-   * Missing or unknown egress token, or its runner no longer holds work
+   * Missing or unknown egress token, or its runner no longer has a lease on work
    */
   401: unknown;
   /**
-   * The call holds more than 500 proxy credentials
+   * The request has more than 500 proxy credentials
    */
   422: unknown;
 };
 
-export type KeepEgressHoldsResponses = {
-  200: EgressHoldsResponseDto;
+export type CheckActiveRunsResponses = {
+  200: EgressActiveRunsResponseDto;
 };
 
-export type KeepEgressHoldsResponse = KeepEgressHoldsResponses[keyof KeepEgressHoldsResponses];
+export type CheckActiveRunsResponse = CheckActiveRunsResponses[keyof CheckActiveRunsResponses];
 
 export type RecordEgressConnectionsData = {
   body: RecordEgressConnectionsRequestDto;
@@ -10599,11 +10599,11 @@ export type RecordEgressConnectionsData = {
 
 export type RecordEgressConnectionsErrors = {
   /**
-   * Missing or unknown egress token, or its runner no longer holds work
+   * Missing or unknown egress token, or its runner no longer has a lease on work
    */
   401: unknown;
   /**
-   * The call holds more than 2000 records
+   * The request has more than 2000 records
    */
   422: unknown;
 };
@@ -13324,7 +13324,7 @@ export type InviteToWorkspaceErrors = {
    */
   409: unknown;
   /**
-   * An address, role or team that does not hold
+   * An address, role or team that is not valid
    */
   422: unknown;
 };
@@ -15989,7 +15989,7 @@ export type CreateHarnessProfileData = {
       command: string;
       args?: Array<string>;
       /**
-       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
+       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
        */
       env?: {
         [key: string]: string;
@@ -16177,7 +16177,7 @@ export type UpdateHarnessProfileData = {
       command: string;
       args?: Array<string>;
       /**
-       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
+       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
        */
       env?: {
         [key: string]: string;
@@ -16638,7 +16638,7 @@ export type RecordChangeStackCheckErrors = {
    */
   404: unknown;
   /**
-   * This runner does not hold the check of that stack
+   * This runner does not have the lease on the check of that stack
    */
   409: unknown;
   /**
@@ -17258,7 +17258,7 @@ export type CheckExpressionErrors = {
    */
   403: ProblemResponseDto;
   /**
-   * The request is not shaped as a check, the definition holds errors, each listed under definition, or the position names no expression in it
+   * The request is not shaped as a check, the definition has errors, each listed under definition, or the position names no expression in it
    */
   422: ProblemResponseDto;
 };
@@ -18046,7 +18046,7 @@ export type RecallMemoriesErrors = {
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
   /**
@@ -18081,7 +18081,7 @@ export type RecallMemoryErrors = {
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
   /**
@@ -18115,7 +18115,7 @@ export type RememberErrors = {
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
   /**
@@ -18149,7 +18149,7 @@ export type ReadMemoryFilesErrors = {
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
 };
@@ -18920,7 +18920,7 @@ export type CreateReplayCandidateData = {
      */
     name: string;
     /**
-     * The station block to replay under, as the line resource holds a station: it keeps the station’s key, and is checked as a line with it in place would be
+     * The station block to replay under, as the line resource stores a station: it keeps the station’s key, and is checked as a line with it in place would be
      */
     station: {
       [key: string]: unknown;
@@ -19305,7 +19305,7 @@ export type ListTeamReplaySetsData = {
   };
   query?: {
     /**
-     * With line: the key of the station whose sets to list; a line or station the team does not hold is not found
+     * With line: the key of the station whose sets to list; a line or station that the team does not own is not found
      */
     station?: unknown;
     /**
@@ -20154,7 +20154,7 @@ export type ListTeamSearchesData = {
      */
     limit?: number;
     /**
-     * Only searches started before this one, by its id; a search the team does not hold answers an empty page
+     * Only searches started before this one, by its id; a search that the team does not own answers an empty page
      */
     before?: string;
   };
@@ -20427,7 +20427,7 @@ export type ListReplaySetChecksData = {
      */
     limit?: number;
     /**
-     * Only checks started before this one, by its id; a check the set does not hold answers an empty page
+     * Only checks started before this one, by its id; a check that the set does not contain answers an empty page
      */
     before?: string;
   };
@@ -20515,7 +20515,7 @@ export type ProposeSearchCandidateErrors = {
    */
   401: unknown;
   /**
-   * The search no longer holds this run, or it is no search run this runner holds
+   * This run is no longer the active run of the search, or it is not a search run that this runner leases
    */
   404: ProblemResponseDto;
   /**
@@ -20551,7 +20551,7 @@ export type RecordSearchCauseErrors = {
    */
   401: unknown;
   /**
-   * The search no longer holds this run, it is no search run this runner holds, or the task is none the reflection looks into
+   * This run is no longer the active run of the search, it is not a search run that this runner leases, or the reflection does not look into the task
    */
   404: ProblemResponseDto;
   /**

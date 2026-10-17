@@ -129,7 +129,7 @@ describe('a decision', () => {
     expect(decision.title).toHaveLength(500);
   });
 
-  it('never comes back holding a dispute about a file it does not bear on', () => {
+  it('never comes back with a dispute about a file it does not bear on', () => {
     expect(() =>
       Decision.rehydrate({
         id: ID,
@@ -264,7 +264,7 @@ describe('a decision set, drafted', () => {
     expect(drafted.decisions).toEqual([]);
   });
 
-  it('never comes back holding the same decision twice', () => {
+  it('never comes back with the same decision twice', () => {
     const decision = Decision.of(DecisionId.of('decision_1'), proposed());
 
     expect(() =>
@@ -320,7 +320,7 @@ describe('a decision set, failing to draft', () => {
     expect(() => opened().leased(NOW)).toThrow(InvalidDecisionError);
   });
 
-  it('cannot be leased again while the lease holds', () => {
+  it('cannot be leased again while the lease is active', () => {
     const leased = opened().asked(FIRST, NOW).leased(NOW);
 
     expect(() => leased.leased(NOW)).toThrow(InvalidDecisionError);
@@ -417,7 +417,7 @@ describe('a decision set, disputed', () => {
       now: NOW,
     });
 
-  it('holds who disputes a decision, and why', () => {
+  it('keeps who disputes a decision, and why', () => {
     const set = decided();
     const [first, second] = set.decisions;
     const disputed = dispute(set);

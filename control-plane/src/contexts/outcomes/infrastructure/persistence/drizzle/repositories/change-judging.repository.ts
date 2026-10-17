@@ -73,19 +73,19 @@ const toChangeJudging = (row: Row): ChangeJudging =>
     version: row.version,
   });
 
-const columnsOf = (held: ChangeJudging) => ({
-  owed: held.work !== null,
-  workAttempts: held.work?.attempts ?? 0,
-  workDueAt: held.work?.dueAt ?? null,
-  judgedAt: held.judgedAt,
-  failure: held.failure?.code ?? null,
-  failedAt: held.failure?.at ?? null,
+const columnsOf = (stored: ChangeJudging) => ({
+  owed: stored.work !== null,
+  workAttempts: stored.work?.attempts ?? 0,
+  workDueAt: stored.work?.dueAt ?? null,
+  judgedAt: stored.judgedAt,
+  failure: stored.failure?.code ?? null,
+  failedAt: stored.failure?.at ?? null,
   spent: {
-    calls: held.spent.calls,
-    inputTokens: held.spent.inputTokens,
-    outputTokens: held.spent.outputTokens,
-    costs: held.spent.costs.map((each) => ({ ...each })),
-    unpriced: held.spent.unpriced,
+    calls: stored.spent.calls,
+    inputTokens: stored.spent.inputTokens,
+    outputTokens: stored.spent.outputTokens,
+    costs: stored.spent.costs.map((each) => ({ ...each })),
+    unpriced: stored.spent.unpriced,
   },
 });
 

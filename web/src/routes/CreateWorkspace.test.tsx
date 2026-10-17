@@ -134,7 +134,7 @@ describe('CreateWorkspace', () => {
     ).toBeEnabled();
   });
 
-  it('holds on to the workspace name when stepped back', async () => {
+  it('keeps the workspace name when stepped back', async () => {
     const user = userEvent.setup();
     renderPage();
 

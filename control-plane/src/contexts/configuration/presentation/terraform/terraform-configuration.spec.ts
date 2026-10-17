@@ -1,12 +1,12 @@
 import type {
-  HeldConfigurationDto,
-  HeldResourceDto,
-} from '@configuration/application/dto/held-configuration.dto';
+  ExportableConfigurationDto,
+  ExportableResourceDto,
+} from '@configuration/application/dto/exportable-configuration.dto';
 import {
-  HELD,
-  heldAs,
+  CONFIGURATION,
+  resourceOf,
   WORKSPACE_ID,
-} from '@configuration/presentation/terraform/held-configuration.fake-spec';
+} from '@configuration/presentation/terraform/exportable-configuration.fake-spec';
 import {
   resourceHcl,
   workspaceTerraform,
@@ -18,16 +18,19 @@ import {
 } from '@platform/hcl/terraform-cli.fake-spec';
 import { describe, expect, it } from 'vitest';
 
-type HeldBy<K extends HeldResourceDto['kind']> = Extract<
-  HeldResourceDto,
+type Scoped<K extends ExportableResourceDto['kind']> = Extract<
+  ExportableResourceDto,
   { kind: K }
 >;
 
-const fileOf = (configuration: HeldConfigurationDto, path: string): string =>
+const fileOf = (
+  configuration: ExportableConfigurationDto,
+  path: string,
+): string =>
   workspaceTerraform(configuration).find((each) => each.path === path)
     ?.content ?? '';
 
-const mainOf = (configuration: HeldConfigurationDto): string =>
+const mainOf = (configuration: ExportableConfigurationDto): string =>
   fileOf(configuration, 'main.tf');
 
 const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
@@ -142,7 +145,7 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
 
 describe('workspaceTerraform', () => {
   it('writes main.tf, variables.tf and every file main.tf reads, ordered by path', () => {
-    expect(workspaceTerraform(HELD).map((each) => each.path)).toEqual([
+    expect(workspaceTerraform(CONFIGURATION).map((each) => each.path)).toEqual([
       'judges/core/delivery/implementation.md',
       'main.tf',
       'prompts/core/delivery/implementation.md',
@@ -153,9 +156,9 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes no variables.tf when nothing needs a value from outside', () => {
-    const quiet: HeldConfigurationDto = {
-      ...HELD,
-      resources: HELD.resources.filter(
+    const quiet: ExportableConfigurationDto = {
+      ...CONFIGURATION,
+      resources: CONFIGURATION.resources.filter(
         (each) =>
           each.kind !== 'runner-pool' &&
           each.kind !== 'egress' &&
@@ -170,13 +173,13 @@ describe('workspaceTerraform', () => {
   });
 
   it('asks for the Spotlight provider', () => {
-    expect(mainOf(HELD)).toMatch(
+    expect(mainOf(CONFIGURATION)).toMatch(
       /^terraform {\n {2}required_providers {\n {4}spotlight = {\n {6}source = "usespotlightai\/spotlight"\n/,
     );
   });
 
   it('adopts the workspace by its slug and never creates one', () => {
-    const main = mainOf(HELD);
+    const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
       'import {\n  to = spotlight_workspace.acme\n  id = "acme"\n}\n\nresource "spotlight_workspace" "acme" {\n  name = "Acme"\n  slug = "acme"\n}\n',
@@ -186,7 +189,7 @@ describe('workspaceTerraform', () => {
   });
 
   it('imports every other resource by its workspace id and address', () => {
-    const main = mainOf(HELD);
+    const main = mainOf(CONFIGURATION);
 
     for (const [type, name, address] of [
       ['spotlight_secret', 'linear_api_key', 'LINEAR_API_KEY'],
@@ -212,7 +215,7 @@ describe('workspaceTerraform', () => {
   });
 
   it('refers to the team and the workspace rather than naming their ids', () => {
-    const main = mainOf(HELD);
+    const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
       'resource "spotlight_team" "core" {\n  workspace_id = spotlight_workspace.acme.id\n  key          = "core"\n  name         = "Core"\n}\n',
@@ -221,22 +224,22 @@ describe('workspaceTerraform', () => {
   });
 
   it('keeps each prompt in its own file byte for byte, read with file()', () => {
-    expect(fileOf(HELD, 'prompts/core/delivery/implementation.md')).toBe(
-      'Implement the task.\n\n',
-    );
+    expect(
+      fileOf(CONFIGURATION, 'prompts/core/delivery/implementation.md'),
+    ).toBe('Implement the task.\n\n');
   });
 
   it('keeps each judge rubric in its own file byte for byte, read with file()', () => {
-    expect(fileOf(HELD, 'judges/core/delivery/implementation.md')).toBe(
-      'A good run changes only what the task asks for.\n',
-    );
+    expect(
+      fileOf(CONFIGURATION, 'judges/core/delivery/implementation.md'),
+    ).toBe('A good run changes only what the task asks for.\n');
   });
 
   it('writes a judge’s claims one to a line and its pass share, with a rubric file only where it has a rubric', () => {
-    const line = heldAs('line');
-    const claimsOnly: HeldConfigurationDto = {
-      ...HELD,
-      resources: HELD.resources.map((each) =>
+    const line = resourceOf('line');
+    const claimsOnly: ExportableConfigurationDto = {
+      ...CONFIGURATION,
+      resources: CONFIGURATION.resources.map((each) =>
         each === line
           ? {
               ...line,
@@ -278,17 +281,17 @@ describe('workspaceTerraform', () => {
   });
 
   it('keeps each skill file as it is, read with file()', () => {
-    expect(mainOf(HELD)).toContain(
+    expect(mainOf(CONFIGURATION)).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
       '  files = {\n    "SKILL.md"               = file("${path.module}/skills/core/grafana/SKILL.md")\n    "queries/latency.promql" = file("${path.module}/skills/core/grafana/queries/latency.promql")\n  }\n',
     );
-    expect(fileOf(HELD, 'skills/core/grafana/queries/latency.promql')).toBe(
-      'histogram_quantile(0.99, rate(x[5m]))',
-    );
+    expect(
+      fileOf(CONFIGURATION, 'skills/core/grafana/queries/latency.promql'),
+    ).toBe('histogram_quantile(0.99, rate(x[5m]))');
   });
 
   it('writes an integration as its definition, keeping its expressions from Terraform', () => {
-    const main = mainOf(HELD);
+    const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
       'resource "spotlight_integration" "core_linear" {\n  team_id = spotlight_team.core.id\n  definition = {\n    actions = {\n',
@@ -299,8 +302,8 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('refers to the secrets an integration wears, and leaves a secret it does not hold as written', () => {
-    const main = mainOf(HELD);
+  it('refers to the secrets an integration wears, and leaves a secret it does not have as written', () => {
+    const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
@@ -313,7 +316,7 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes a secret without its value, reading it from a sensitive variable', () => {
-    expect(mainOf(HELD)).toContain(
+    expect(mainOf(CONFIGURATION)).toContain(
       [
         'resource "spotlight_secret" "linear_api_key" {',
         '  workspace_id = spotlight_workspace.acme.id',
@@ -334,7 +337,7 @@ describe('workspaceTerraform', () => {
         '}',
       ].join('\n'),
     );
-    expect(fileOf(HELD, 'variables.tf')).toContain(
+    expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
       [
         'variable "secret_linear_api_key" {',
         '  description = "The value of the secret LINEAR_API_KEY, which Spotlight keeps and never answers"',
@@ -345,19 +348,22 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes no value version for a secret that holds none, as the API answers it', () => {
+  it('writes no value version for a secret that has none, as the API answers it', () => {
     expect(
-      blockOf(mainOf(HELD), 'resource "spotlight_secret" "sentry_token"'),
+      blockOf(
+        mainOf(CONFIGURATION),
+        'resource "spotlight_secret" "sentry_token"',
+      ),
     ).toMatch(/\n {2}value_wo = var\.secret_sentry_token\n}$/);
-    expect(fileOf(HELD, 'variables.tf')).toContain(
+    expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
       'variable "secret_sentry_token" {',
     );
   });
 
-  it('writes exactly the value version each secret holds, so importing it plans no rotation', () => {
-    const main = mainOf(HELD);
+  it('writes exactly the value version each secret has, so importing it plans no rotation', () => {
+    const main = mainOf(CONFIGURATION);
 
-    for (const each of HELD.resources) {
+    for (const each of CONFIGURATION.resources) {
       if (each.kind !== 'secret') {
         continue;
       }
@@ -375,22 +381,32 @@ describe('workspaceTerraform', () => {
 
   it('asks no value of a secret read from elsewhere', () => {
     expect(
-      blockOf(mainOf(HELD), 'resource "spotlight_secret" "linear_signing"'),
+      blockOf(
+        mainOf(CONFIGURATION),
+        'resource "spotlight_secret" "linear_signing"',
+      ),
     ).not.toContain('value_wo');
-    expect(fileOf(HELD, 'variables.tf')).not.toContain('secret_linear_signing');
+    expect(fileOf(CONFIGURATION, 'variables.tf')).not.toContain(
+      'secret_linear_signing',
+    );
   });
 
   it('writes the runners a line and a station ask for as the labels they are, never as references', () => {
-    const line = resourceHcl(HELD, heldAs('line', 'core/delivery')).hcl;
+    const line = resourceHcl(
+      CONFIGURATION,
+      resourceOf('line', 'core/delivery'),
+    ).hcl;
 
     expect(line).toContain('  runners = ["build-1", "vpc-internal"]\n');
     expect(line).toContain('    runners   = ["gpu"]\n');
-    expect(mainOf(HELD)).not.toContain('spotlight_runner.');
-    expect(fileOf(HELD, 'variables.tf')).not.toMatch(/variable "runner_[^p]/);
+    expect(mainOf(CONFIGURATION)).not.toContain('spotlight_runner.');
+    expect(fileOf(CONFIGURATION, 'variables.tf')).not.toMatch(
+      /variable "runner_[^p]/,
+    );
   });
 
   it('writes a token trust with its claims only when it names any', () => {
-    const main = mainOf(HELD);
+    const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
       [
@@ -419,7 +435,7 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes a runner trust and refers to what the workspace declares', () => {
-    const main = mainOf(HELD);
+    const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
       'resource "spotlight_runner_trust" "production-cluster" {\n  workspace_id = spotlight_workspace.acme.id\n  key          = "production-cluster"\n',
@@ -430,7 +446,7 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes a pool that pulls with its token read from an optional sensitive variable', () => {
-    expect(mainOf(HELD)).toContain(
+    expect(mainOf(CONFIGURATION)).toContain(
       [
         'resource "spotlight_runner_pool" "burst" {',
         '  workspace_id  = spotlight_workspace.acme.id',
@@ -442,14 +458,14 @@ describe('workspaceTerraform', () => {
         '}',
       ].join('\n'),
     );
-    expect(fileOf(HELD, 'variables.tf')).toContain(
+    expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
       'variable "runner_pool_burst_token" {\n  description = "The token the runner pool burst claims with; left null, Spotlight issues one when it creates the pool"\n  type        = string\n  sensitive   = true\n  default     = null\n}\n',
     );
   });
 
   it('writes a pool that is pushed to with where it is called and its signing secret read from a variable', () => {
     const pool = blockOf(
-      mainOf(HELD),
+      mainOf(CONFIGURATION),
       'resource "spotlight_runner_pool" "k8s-jobs"',
     );
 
@@ -468,16 +484,18 @@ describe('workspaceTerraform', () => {
         '}',
       ].join('\n'),
     );
-    expect(fileOf(HELD, 'variables.tf')).toContain(
+    expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
       'variable "runner_pool_k8s-jobs_provision_secret" {\n  description = "The secret the runner pool k8s-jobs signs its provision calls with, as whsec_ and base64 bytes"\n  type        = string\n  sensitive   = true\n}\n',
     );
-    expect(fileOf(HELD, 'variables.tf')).not.toContain(
+    expect(fileOf(CONFIGURATION, 'variables.tf')).not.toContain(
       'runner_pool_k8s-jobs_token',
     );
   });
 
   it('writes an egress with its token read from an optional sensitive variable', () => {
-    expect(blockOf(mainOf(HELD), 'resource "spotlight_egress" "shared"')).toBe(
+    expect(
+      blockOf(mainOf(CONFIGURATION), 'resource "spotlight_egress" "shared"'),
+    ).toBe(
       [
         'resource "spotlight_egress" "shared" {',
         '  workspace_id  = spotlight_workspace.acme.id',
@@ -488,15 +506,15 @@ describe('workspaceTerraform', () => {
         '}',
       ].join('\n'),
     );
-    expect(fileOf(HELD, 'variables.tf')).toContain(
+    expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
       'variable "egress_shared_token" {\n  description = "The token the egress shared calls Spotlight with; left null, Spotlight issues one when it creates the egress"\n  type        = string\n  sensitive   = true\n  default     = null\n}\n',
     );
   });
 
-  it('writes the platform egress a pool names as spotlight, and an egress it does not hold as its id', () => {
-    const naming = (egress: string): HeldConfigurationDto => ({
-      ...HELD,
-      resources: HELD.resources.map((each) =>
+  it('writes the platform egress a pool names as spotlight, and an egress it does not have as its id', () => {
+    const naming = (egress: string): ExportableConfigurationDto => ({
+      ...CONFIGURATION,
+      resources: CONFIGURATION.resources.map((each) =>
         each.kind === 'runner-pool' && each.provision
           ? { ...each, provision: { ...each.provision, egress } }
           : each,
@@ -518,9 +536,11 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes egress_traffic only when a pool sends only bound traffic through its egress', () => {
-    const sending = (egressTraffic: 'all' | 'bound'): HeldConfigurationDto => ({
-      ...HELD,
-      resources: HELD.resources.map((each) =>
+    const sending = (
+      egressTraffic: 'all' | 'bound',
+    ): ExportableConfigurationDto => ({
+      ...CONFIGURATION,
+      resources: CONFIGURATION.resources.map((each) =>
         each.kind === 'runner-pool' && each.provision
           ? { ...each, provision: { ...each.provision, egressTraffic } }
           : each,
@@ -541,10 +561,10 @@ describe('workspaceTerraform', () => {
     ).not.toContain('egress_traffic');
   });
 
-  it('writes no limit, token version or secret version a pool does not hold', () => {
-    const configuration: HeldConfigurationDto = {
-      ...HELD,
-      resources: HELD.resources.map((each) =>
+  it('writes no limit, token version or secret version a pool does not have', () => {
+    const configuration: ExportableConfigurationDto = {
+      ...CONFIGURATION,
+      resources: CONFIGURATION.resources.map((each) =>
         each.kind === 'runner-pool'
           ? {
               ...each,
@@ -567,16 +587,19 @@ describe('workspaceTerraform', () => {
     ).not.toMatch(/secret_version|egress/);
   });
 
-  it('refers to the pools the workspace declares, and leaves a pool it does not hold as written', () => {
+  it('refers to the pools the workspace declares, and leaves a pool it does not have as written', () => {
     expect(
-      blockOf(mainOf(HELD), 'resource "spotlight_workspace_runners" "acme"'),
+      blockOf(
+        mainOf(CONFIGURATION),
+        'resource "spotlight_workspace_runners" "acme"',
+      ),
     ).toContain(
       '  pools        = [spotlight_runner_pool.burst.key, spotlight_runner_pool.k8s-jobs.key, "retired"]\n',
     );
   });
 
   it('writes a harness profile as its settings, its MCP servers’ env as it is but for the secrets it wears, which refer to them', () => {
-    expect(mainOf(HELD)).toContain(
+    expect(mainOf(CONFIGURATION)).toContain(
       [
         'resource "spotlight_harness_profile" "core_careful" {',
         '  team_id = spotlight_team.core.id',
@@ -610,7 +633,9 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes the review policy of the line whose role reviews pull requests', () => {
-    expect(resourceHcl(HELD, heldAs('line', 'core/review')).hcl).toContain(
+    expect(
+      resourceHcl(CONFIGURATION, resourceOf('line', 'core/review')).hcl,
+    ).toContain(
       [
         '  reviews {',
         '    start   = "opened"',
@@ -627,17 +652,20 @@ describe('workspaceTerraform', () => {
       ].join('\n'),
     );
     expect(LINE_RESOURCE).not.toContain('reviews');
-    expect(resourceHcl(HELD, heldAs('line', 'core/review')).hcl).not.toContain(
-      'replay_check',
-    );
-    expect(resourceHcl(HELD, heldAs('line', 'core/review')).hcl).not.toContain(
-      'source {',
-    );
+    expect(
+      resourceHcl(CONFIGURATION, resourceOf('line', 'core/review')).hcl,
+    ).not.toContain('replay_check');
+    expect(
+      resourceHcl(CONFIGURATION, resourceOf('line', 'core/review')).hcl,
+    ).not.toContain('source {');
   });
 
   it('writes a hook with its match, condition, vars, signing and steps, keeping its expressions from Terraform', () => {
     expect(
-      blockOf(mainOf(HELD), 'resource "spotlight_hook" "core_linear-comments"'),
+      blockOf(
+        mainOf(CONFIGURATION),
+        'resource "spotlight_hook" "core_linear-comments"',
+      ),
     ).toBe(
       [
         'resource "spotlight_hook" "core_linear-comments" {',
@@ -689,7 +717,7 @@ describe('workspaceTerraform', () => {
 
   it('writes no match, condition, vars, signing, failure or timeout the hook was not written with', () => {
     expect(
-      blockOf(mainOf(HELD), 'resource "spotlight_hook" "core_merged"'),
+      blockOf(mainOf(CONFIGURATION), 'resource "spotlight_hook" "core_merged"'),
     ).toBe(
       [
         'resource "spotlight_hook" "core_merged" {',
@@ -712,20 +740,20 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes a failure and timeout the hook was written with, even where they say what it would do anyway', () => {
-    const hook: HeldBy<'hook'> = {
-      ...heldAs('hook', 'core/merged'),
+    const hook: Scoped<'hook'> = {
+      ...resourceOf('hook', 'core/merged'),
       failure: 'continue',
       timeoutSeconds: 10,
     };
 
-    expect(resourceHcl(HELD, hook).hcl).toContain(
+    expect(resourceHcl(CONFIGURATION, hook).hcl).toContain(
       ['  failure         = "continue"', '  timeout_seconds = 10'].join('\n'),
     );
   });
 
-  it('writes a hook signed with OIDC by its audience, and a request by its url alone when it holds only defaults', () => {
-    const hook: HeldBy<'hook'> = {
-      ...heldAs('hook', 'core/merged'),
+  it('writes a hook signed with OIDC by its audience, and a request by its url alone when it has only defaults', () => {
+    const hook: Scoped<'hook'> = {
+      ...resourceOf('hook', 'core/merged'),
       steps: [
         {
           name: 'review',
@@ -740,7 +768,7 @@ describe('workspaceTerraform', () => {
       ],
       signing: { oidc: { audience: 'https://dba.acme.dev' } },
     };
-    const { hcl } = resourceHcl(HELD, hook);
+    const { hcl } = resourceHcl(CONFIGURATION, hook);
 
     expect(hcl).toContain(
       [
@@ -770,7 +798,7 @@ describe('workspaceTerraform', () => {
   });
 
   it('reads the secret a hook signs with from a sensitive variable, and asks none of a hook that does not sign', () => {
-    const variables = fileOf(HELD, 'variables.tf');
+    const variables = fileOf(CONFIGURATION, 'variables.tf');
 
     expect(variables).toContain(
       'variable "hook_core_linear-comments_signing_secret" {\n  description = "The secret the hook core/linear-comments signs its requests with, as whsec_ and base64 bytes"\n  type        = string\n  sensitive   = true\n}\n',
@@ -779,13 +807,15 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes the tools a hook matches and calls as written when no integration exported beside it offers them', () => {
-    const configuration: HeldConfigurationDto = {
-      ...HELD,
-      resources: HELD.resources.filter((each) => each.kind !== 'integration'),
+    const configuration: ExportableConfigurationDto = {
+      ...CONFIGURATION,
+      resources: CONFIGURATION.resources.filter(
+        (each) => each.kind !== 'integration',
+      ),
     };
     const { hcl } = resourceHcl(
       configuration,
-      heldAs('hook', 'core/linear-comments'),
+      resourceOf('hook', 'core/linear-comments'),
     );
 
     expect(hcl).toContain('    tools    = ["linear.comment"]\n');
@@ -793,11 +823,13 @@ describe('workspaceTerraform', () => {
   });
 
   it('names a resource whose key starts with a digit so Terraform accepts it', () => {
-    expect(mainOf(HELD)).toContain('resource "spotlight_team" "_3d" {');
+    expect(mainOf(CONFIGURATION)).toContain(
+      'resource "spotlight_team" "_3d" {',
+    );
   });
 
-  it('writes what the workspace holds first, then each team in key order with what it holds', () => {
-    const main = mainOf(HELD);
+  it('writes what the workspace has first, then each team in key order with what it has', () => {
+    const main = mainOf(CONFIGURATION);
     const at = (header: string): number => main.indexOf(`resource ${header} {`);
     const headers = [
       '"spotlight_workspace" "acme"',
@@ -828,19 +860,21 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes the same files however the resources were held', () => {
-    const reversed: HeldConfigurationDto = {
-      ...HELD,
-      resources: [...HELD.resources].reverse(),
+  it('writes the same files however the resources were ordered', () => {
+    const reversed: ExportableConfigurationDto = {
+      ...CONFIGURATION,
+      resources: [...CONFIGURATION.resources].reverse(),
     };
 
-    expect(workspaceTerraform(reversed)).toEqual(workspaceTerraform(HELD));
+    expect(workspaceTerraform(reversed)).toEqual(
+      workspaceTerraform(CONFIGURATION),
+    );
   });
 
   it('writes the same files however the definitions were ordered', () => {
-    const reordered: HeldConfigurationDto = {
-      ...HELD,
-      resources: HELD.resources.map((each) =>
+    const reordered: ExportableConfigurationDto = {
+      ...CONFIGURATION,
+      resources: CONFIGURATION.resources.map((each) =>
         each.kind === 'integration'
           ? {
               ...each,
@@ -852,19 +886,21 @@ describe('workspaceTerraform', () => {
       ),
     };
 
-    expect(workspaceTerraform(reordered)).toEqual(workspaceTerraform(HELD));
+    expect(workspaceTerraform(reordered)).toEqual(
+      workspaceTerraform(CONFIGURATION),
+    );
   });
 });
 
 describe('resourceHcl', () => {
   it('writes one resource after the import block that adopts it, referring to its neighbours', () => {
-    expect(resourceHcl(HELD, heldAs('line')).hcl).toBe(
+    expect(resourceHcl(CONFIGURATION, resourceOf('line')).hcl).toBe(
       `import {\n  to = spotlight_line.core_delivery\n  id = "${WORKSPACE_ID}/core/delivery"\n}\n\n${LINE_RESOURCE}`,
     );
   });
 
   it('hands over only the files that resource reads', () => {
-    expect(resourceHcl(HELD, heldAs('line')).files).toEqual([
+    expect(resourceHcl(CONFIGURATION, resourceOf('line')).files).toEqual([
       {
         path: 'judges/core/delivery/implementation.md',
         content: 'A good run changes only what the task asks for.\n',
@@ -877,21 +913,24 @@ describe('resourceHcl', () => {
   });
 
   it('writes a pool after the variable its token is read from', () => {
-    expect(resourceHcl(HELD, heldAs('runner-pool', 'burst')).hcl).toMatch(
+    expect(
+      resourceHcl(CONFIGURATION, resourceOf('runner-pool', 'burst')).hcl,
+    ).toMatch(
       /^variable "runner_pool_burst_token" {\n[\s\S]*\n}\n\nimport {\n {2}to = spotlight_runner_pool\.burst\n/,
     );
   });
 
   it('writes a hook after the variable its signing secret is read from', () => {
     expect(
-      resourceHcl(HELD, heldAs('hook', 'core/linear-comments')).hcl,
+      resourceHcl(CONFIGURATION, resourceOf('hook', 'core/linear-comments'))
+        .hcl,
     ).toMatch(
       /^variable "hook_core_linear-comments_signing_secret" {\n[\s\S]*\n}\n\nimport {\n {2}to = spotlight_hook\.core_linear-comments\n/,
     );
   });
 
   it('writes a secret after the variable its value is read from', () => {
-    expect(resourceHcl(HELD, heldAs('secret')).hcl).toMatch(
+    expect(resourceHcl(CONFIGURATION, resourceOf('secret')).hcl).toMatch(
       /^variable "secret_linear_api_key" {\n[\s\S]*\n}\n\nimport {\n {2}to = spotlight_secret\.linear_api_key\n/,
     );
   });
@@ -901,13 +940,15 @@ describe.skipIf(!TERRAFORM_INSTALLED)('checked by terraform', () => {
   it.each(['main.tf', 'variables.tf'])(
     'writes %s already formatted as terraform fmt would',
     (path) => {
-      expect(formattedByTerraform(fileOf(HELD, path))).toBe(fileOf(HELD, path));
+      expect(formattedByTerraform(fileOf(CONFIGURATION, path))).toBe(
+        fileOf(CONFIGURATION, path),
+      );
     },
   );
 
   it('writes each resource already formatted as terraform fmt would', () => {
-    for (const each of HELD.resources) {
-      const { hcl } = resourceHcl(HELD, each);
+    for (const each of CONFIGURATION.resources) {
+      const { hcl } = resourceHcl(CONFIGURATION, each);
 
       expect(formattedByTerraform(hcl)).toBe(hcl);
     }

@@ -78,8 +78,8 @@ import { TeamSkillsQuery } from '@configuration/application/queries/team-skills.
 import { WorkspaceConfigurationQuery } from '@configuration/application/queries/workspace-configuration.query';
 import { AbandonTeamProfiles } from '@configuration/application/services/abandon-team-profiles.service';
 import { AbandonTeamSkills } from '@configuration/application/services/abandon-team-skills.service';
+import { ExportableConfigurations } from '@configuration/application/services/exportable-configurations.service';
 import { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
-import { HeldConfigurations } from '@configuration/application/services/held-configurations.service';
 import { ProfileSecretUses } from '@configuration/application/services/profile-secret-uses.service';
 import { SkillViews } from '@configuration/application/services/skill-views.service';
 import { StationGifts } from '@configuration/application/services/station-gifts.service';
@@ -98,10 +98,10 @@ import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapte
 import { Teams } from '@configuration/infrastructure/acl/teams.adapter';
 import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
 import { DrizzleAppliedSkills } from '@configuration/infrastructure/persistence/drizzle/readers/applied-skills.reader';
+import { DrizzleHarnessProfileDependents } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profile-dependents.reader';
 import { DrizzleHarnessProfileResources } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profile-resources.reader';
-import { DrizzleHarnessProfilesHeld } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profiles-held.reader';
+import { DrizzleSkillDependents } from '@configuration/infrastructure/persistence/drizzle/readers/skill-dependents.reader';
 import { DrizzleSkillResources } from '@configuration/infrastructure/persistence/drizzle/readers/skill-resources.reader';
-import { DrizzleSkillsHeld } from '@configuration/infrastructure/persistence/drizzle/readers/skills-held.reader';
 import { DrizzleHarnessProfiles } from '@configuration/infrastructure/persistence/drizzle/repositories/harness-profiles.repository';
 import { DrizzleSkillDefinitions } from '@configuration/infrastructure/persistence/drizzle/repositories/skill-definitions.repository';
 import { HarnessProfileCompiler } from '@configuration/infrastructure/profiles/harness-profile.compile';
@@ -115,13 +115,13 @@ import { SkillController } from '@configuration/presentation/http/controllers/sk
 import { SkillResourceController } from '@configuration/presentation/http/controllers/skill-resource.controller';
 import { TerraformController } from '@configuration/presentation/http/controllers/terraform.controller';
 import {
+  TEAM_DEPENDENTS,
+  type TeamDependentsPort,
+} from '@identity/application/ports/team-dependents.port';
+import {
   TEAM_DIRECTORY,
   type TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
-import {
-  TEAM_HOLDINGS,
-  type TeamHoldingsPort,
-} from '@identity/application/ports/team-holdings.port';
 import {
   TOKEN_TRUST_CONFIGURATION,
   type TokenTrustConfigurationPort,
@@ -177,7 +177,7 @@ import { TEAM_SKILLS } from '@work/application/ports/team-skills.port';
 
 const CONFIGURATION_EVENTS = Symbol('CONFIGURATION_EVENTS');
 
-const CONFIGURATION_HOLDINGS = Symbol('CONFIGURATION_HOLDINGS');
+const CONFIGURATION_DEPENDENTS = Symbol('CONFIGURATION_DEPENDENTS');
 
 const PROFILE_SECRET_USES = Symbol('PROFILE_SECRET_USES');
 
@@ -251,7 +251,7 @@ const adapters: Provider[] = [
     ) => new HarnessProfileViews(teams, compiler),
   },
   {
-    provide: HeldConfigurations,
+    provide: ExportableConfigurations,
     inject: [
       TEAM_DIRECTORY,
       LINE_RESOURCES,
@@ -276,7 +276,7 @@ const adapters: Provider[] = [
       runners: RunnerConfigurationPort,
       tokenTrusts: TokenTrustConfigurationPort,
     ) =>
-      new HeldConfigurations(
+      new ExportableConfigurations(
         teams,
         lines,
         skills,
@@ -387,7 +387,7 @@ const handlers: Provider[] = [
   ...bindQueryHandler(
     WorkspaceConfigurationQuery,
     WorkspaceConfigurationHandler,
-    [WORKSPACE_ACCESS, WORKSPACE_READER, HeldConfigurations],
+    [WORKSPACE_ACCESS, WORKSPACE_READER, ExportableConfigurations],
   ),
   ...bindQueryHandler(
     ResourceConfigurationQuery,
@@ -404,7 +404,7 @@ const handlers: Provider[] = [
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
       TOKEN_TRUST_CONFIGURATION,
-      HeldConfigurations,
+      ExportableConfigurations,
     ],
   ),
   ...bindQueryHandler(ImportSkillQuery, ImportSkillHandler, [
@@ -423,18 +423,22 @@ const handlers: Provider[] = [
 
 const published: Provider[] = [
   { provide: APPLIED_CONFIGURATION, useClass: DrizzleAppliedSkills },
-  DrizzleSkillsHeld,
-  DrizzleHarnessProfilesHeld,
+  DrizzleSkillDependents,
+  DrizzleHarnessProfileDependents,
   {
-    provide: CONFIGURATION_HOLDINGS,
-    inject: [TEAM_HOLDINGS, DrizzleSkillsHeld, DrizzleHarnessProfilesHeld],
+    provide: CONFIGURATION_DEPENDENTS,
+    inject: [
+      TEAM_DEPENDENTS,
+      DrizzleSkillDependents,
+      DrizzleHarnessProfileDependents,
+    ],
     useFactory: (
-      holdings: TeamHoldingsPort,
-      skills: DrizzleSkillsHeld,
-      profiles: DrizzleHarnessProfilesHeld,
+      dependents: TeamDependentsPort,
+      skills: DrizzleSkillDependents,
+      profiles: DrizzleHarnessProfileDependents,
     ) => {
-      holdings.register(skills);
-      holdings.register(profiles);
+      dependents.register(skills);
+      dependents.register(profiles);
       return true;
     },
   },

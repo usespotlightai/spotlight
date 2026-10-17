@@ -23,17 +23,17 @@ let team: Awaited<ReturnType<typeof openTeam>>;
 
 const http = () => served(app);
 
-interface Held {
+interface LeasedRun {
   readonly runId: string;
   readonly taskId: string | null;
   readonly token: string;
   readonly attempt: number;
 }
 
-const report = (held: Held, body: object, runId = held.runId) =>
+const report = (leased: LeasedRun, body: object, runId = leased.runId) =>
   http()
     .post(`/api/runs/${runId}/starting-point`)
-    .set('Authorization', `Bearer ${held.token}`)
+    .set('Authorization', `Bearer ${leased.token}`)
     .send(body);
 
 const atApi = (attempt = 1) => ({
@@ -82,7 +82,7 @@ const spec = (key: string) => ({
   startingPoint: true,
 });
 
-const aHeldTaskRun = async (): Promise<Held> => {
+const aLeasedTaskRun = async (): Promise<LeasedRun> => {
   const taskId = randomUUID();
   const runId = randomUUID();
 
@@ -111,7 +111,7 @@ const aHeldTaskRun = async (): Promise<Held> => {
   return { runId, taskId, token: await claimed(runId), attempt: 1 };
 };
 
-const aHeldChatRun = async (): Promise<Held> => {
+const aLeasedChatRun = async (): Promise<LeasedRun> => {
   const chatId = randomUUID();
   const runId = randomUUID();
 
@@ -225,13 +225,13 @@ afterAll(async () => {
 
 describe('a runner saying where its run started', () => {
   it('records the sealed archive the run restored and the commit each checkout began at', async () => {
-    const held = await aHeldTaskRun();
-    const archiveId = await anArchiveOf(held.taskId as string, true);
+    const leased = await aLeasedTaskRun();
+    const archiveId = await anArchiveOf(leased.taskId as string, true);
 
-    await report(held, { ...atApi(), archiveId }).expect(204);
-    await report(held, { ...atApi(), archiveId }).expect(204);
+    await report(leased, { ...atApi(), archiveId }).expect(204);
+    await report(leased, { ...atApi(), archiveId }).expect(204);
 
-    const row = await runRow(held.runId);
+    const row = await runRow(leased.runId);
     expect(row?.startedFromArchiveId).toBe(archiveId);
     expect(row?.startedFromCheckouts).toEqual([
       { path: 'api', commit: COMMIT },
@@ -240,55 +240,55 @@ describe('a runner saying where its run started', () => {
   });
 
   it('refuses a second report on the same attempt that says it started elsewhere', async () => {
-    const held = await aHeldTaskRun();
+    const leased = await aLeasedTaskRun();
 
-    await report(held, atApi()).expect(204);
-    await report(held, {
+    await report(leased, atApi()).expect(204);
+    await report(leased, {
       ...atApi(),
       checkouts: [{ path: 'api', commit: 'b'.repeat(40) }],
     }).expect(409);
   });
 
   it('refuses a report from an attempt the run is not on', async () => {
-    const held = await aHeldTaskRun();
+    const leased = await aLeasedTaskRun();
 
-    await report(held, atApi(2)).expect(409);
-    expect((await runRow(held.runId))?.startedFromAt).toBeNull();
+    await report(leased, atApi(2)).expect(409);
+    expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 
   it('refuses a run that works a chat', async () => {
-    const held = await aHeldChatRun();
+    const leased = await aLeasedChatRun();
 
-    await report(held, { ...atApi(), checkouts: [] }).expect(409);
+    await report(leased, { ...atApi(), checkouts: [] }).expect(409);
   });
 
-  it('refuses a runner that does not hold the run', async () => {
-    const held = await aHeldTaskRun();
-    const other = await aHeldTaskRun();
+  it('refuses a runner that does not have a lease on the run', async () => {
+    const leased = await aLeasedTaskRun();
+    const other = await aLeasedTaskRun();
 
-    await report(other, atApi(), held.runId).expect(409);
+    await report(other, atApi(), leased.runId).expect(409);
   });
 
   it('says there is no such run', async () => {
-    const held = await aHeldTaskRun();
+    const leased = await aLeasedTaskRun();
 
-    await report(held, atApi(), randomUUID()).expect(404);
+    await report(leased, atApi(), randomUUID()).expect(404);
   });
 
   it('refuses an archive the run could not have restored', async () => {
-    const held = await aHeldTaskRun();
-    const other = await aHeldTaskRun();
-    const unsealed = await anArchiveOf(held.taskId as string, false);
+    const leased = await aLeasedTaskRun();
+    const other = await aLeasedTaskRun();
+    const unsealed = await anArchiveOf(leased.taskId as string, false);
     const ofAnotherTask = await anArchiveOf(other.taskId as string, true);
 
     for (const archiveId of [unsealed, ofAnotherTask, randomUUID()]) {
-      await report(held, { ...atApi(), archiveId }).expect(422);
+      await report(leased, { ...atApi(), archiveId }).expect(422);
     }
-    expect((await runRow(held.runId))?.startedFromAt).toBeNull();
+    expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 
   it('refuses checkouts other than the ones the run was given, and a body it cannot read', async () => {
-    const held = await aHeldTaskRun();
+    const leased = await aLeasedTaskRun();
 
     for (const body of [
       { ...atApi(), checkouts: [{ path: 'web', commit: COMMIT }] },
@@ -305,8 +305,8 @@ describe('a runner saying where its run started', () => {
         })),
       },
     ]) {
-      await report(held, body).expect(422);
+      await report(leased, body).expect(422);
     }
-    expect((await runRow(held.runId))?.startedFromAt).toBeNull();
+    expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 });

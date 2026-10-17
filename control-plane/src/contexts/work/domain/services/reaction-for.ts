@@ -24,7 +24,7 @@ interface Told {
 export type Outcome =
   | { readonly kind: 'nothing' }
   | (Told & { readonly kind: 'stays' })
-  | (Told & { readonly kind: 'heldBack'; readonly to: Station })
+  | (Told & { readonly kind: 'deferredMove'; readonly to: Station })
   | (Told & { readonly kind: 'interrupts' })
   | (Told & { readonly kind: 'answers'; readonly to: NotePosition })
   | (Told & { readonly kind: 'moves'; readonly to: Station });
@@ -46,9 +46,12 @@ export type ReviewAnswer =
   | { readonly kind: 'heard'; readonly by: Task }
   | { readonly kind: 'opens'; readonly on: OpenedOn };
 
-const spotlights = (request: ReviewRequest, holder: Task | null): boolean =>
+const spotlights = (
+  request: ReviewRequest,
+  pullRequestTask: Task | null,
+): boolean =>
   (request.branch?.isSpotlights ?? false) ||
-  (holder !== null && !holder.reviewing);
+  (pullRequestTask !== null && !pullRequestTask.reviewing);
 
 export const ReactionFor = {
   happened(input: {
@@ -103,11 +106,11 @@ export const ReactionFor = {
               ),
             }
           : {
-              kind: 'heldBack',
+              kind: 'deferredMove',
               to: destination,
               ...note(
                 station,
-                TaskNoteBody.heldBack(
+                TaskNoteBody.deferredMove(
                   input.payload.told,
                   input.said,
                   destination.name,
@@ -150,14 +153,14 @@ export const ReactionFor = {
     return null;
   },
 
-  // holder wears the mark of the pull request. held wears the mark of a review of the pull request.
+  // pullRequestTask wears the mark of the pull request. reviewTask wears the mark of a review of the pull request.
   reviewAsked(input: {
     lines: readonly Line[];
     opens: OpensWith;
     request: ReviewRequest;
     said: Said | null;
-    holder: Task | null;
-    held: Task | null;
+    pullRequestTask: Task | null;
+    reviewTask: Task | null;
   }): ReviewAnswer {
     const on = ReactionFor.reviewOn({
       lines: input.lines,
@@ -165,7 +168,7 @@ export const ReactionFor = {
       asked: {
         ...input.request,
         said: input.said,
-        ours: spotlights(input.request, input.holder),
+        ours: spotlights(input.request, input.pullRequestTask),
       },
     });
 
@@ -173,8 +176,8 @@ export const ReactionFor = {
       return { kind: 'nothing' };
     }
 
-    return input.held && input.held.finishedAt === null
-      ? { kind: 'heard', by: input.held }
+    return input.reviewTask && input.reviewTask.finishedAt === null
+      ? { kind: 'heard', by: input.reviewTask }
       : { kind: 'opens', on };
   },
 

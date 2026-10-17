@@ -8,15 +8,15 @@ export const egressTokenGivenTo = (
   egress: Egress,
   before: Egress | null,
 ): TokenHash | null => {
-  const held = egress.isRetired ? null : egress.tokenHash;
+  const current = egress.isRetired ? null : egress.tokenHash;
 
-  return held && !before?.tokenHash.equals(held) ? held : null;
+  return current && !before?.tokenHash.equals(current) ? current : null;
 };
 
 export const refuseEgressTokenGivenBefore = (
   standing: EgressTokenStanding,
 ): void => {
-  if (standing.held) {
+  if (standing.inUse) {
     throw new EgressTokenTakenError();
   }
 

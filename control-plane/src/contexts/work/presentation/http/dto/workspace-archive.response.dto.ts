@@ -31,7 +31,7 @@ export class ArchiveGrantResponseDto {
   }
 }
 
-export class HeldArchiveResponseDto {
+export class StoredArchiveResponseDto {
   @ApiProperty({ example: '0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31' })
   readonly id: string;
 

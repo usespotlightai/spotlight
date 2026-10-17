@@ -25,7 +25,7 @@ const inIdOrder = (one: RankedPoint, other: RankedPoint): number =>
       ? 1
       : 0;
 
-export const holdsSuccess = (
+export const isSuccess = (
   verdict: GainVerdict | null,
   seed: boolean,
 ): boolean => seed || (verdict !== null && verdict !== 'worse');
@@ -47,7 +47,7 @@ export const rankedOf = <Point extends RankedPoint>(
 
   return objective === 'cost'
     ? scored
-        .filter((each) => holdsSuccess(verdictOf(each), each.seed))
+        .filter((each) => isSuccess(verdictOf(each), each.seed))
         .sort(
           (one, other) =>
             cheaper(one, other) || better(one, other) || inIdOrder(one, other),

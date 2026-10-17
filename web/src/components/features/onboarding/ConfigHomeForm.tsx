@@ -24,7 +24,7 @@ export function ConfigHomeForm({ slug, teamId }: ConfigHomeFormProps) {
   const navigate = useNavigate();
   const { data: repositories } = useRepositories(slug);
   const { data: harnesses } = useHarnesses();
-  const [held, remember] = useRemembered(CHAT_HARNESS_KEY, '');
+  const [remembered, remember] = useRemembered(CHAT_HARNESS_KEY, '');
   const [repository, setRepository] = useState<string | null>(null);
   const [folder, setFolder] = useState(FOLDER);
   const [reading, setReading] = useState<string[]>([]);
@@ -32,8 +32,8 @@ export function ConfigHomeForm({ slug, teamId }: ConfigHomeFormProps) {
   const [effort, setEffort] = useState('');
   const start = useStartChat();
 
-  const harness = harnesses?.some((each) => each.id === held)
-    ? held
+  const harness = harnesses?.some((each) => each.id === remembered)
+    ? remembered
     : (harnesses?.[0]?.id ?? '');
   const ready = Boolean(repository && folder.trim() && harness);
 

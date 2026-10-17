@@ -189,7 +189,7 @@ describe('NewChatComposer', () => {
     );
   });
 
-  it('holds the message while there is no harness to talk to', () => {
+  it('locks the message while there is no harness to talk to', () => {
     harnesses.mockReturnValue([]);
     showing();
 

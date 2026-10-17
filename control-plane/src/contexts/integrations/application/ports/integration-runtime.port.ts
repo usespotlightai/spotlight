@@ -44,7 +44,7 @@ export interface SigningSecrets {
   named(secret: string): Promise<VerifyingSecret>;
 }
 
-export interface HeldConnection {
+export interface ActiveConnection {
   readonly token: AccessToken;
   readonly holder: ConnectionHolder;
   readonly handle: string | null;
@@ -52,7 +52,7 @@ export interface HeldConnection {
 }
 
 export interface Reach {
-  readonly connection: HeldConnection | null;
+  readonly connection: ActiveConnection | null;
   readonly credentials: Credentials;
 }
 

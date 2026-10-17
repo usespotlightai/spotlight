@@ -73,7 +73,7 @@ export class TeamResourceController {
 
   @TeamResource.Create(
     'workspaces/:workspaceId/teams',
-    'Create a team in a workspace, holding nothing yet',
+    'Create a team in a workspace, with nothing in it yet',
   )
   @WORKSPACE
   @DEFINITION
@@ -121,7 +121,7 @@ export class TeamResourceController {
 
   @TeamResource.Delete(
     'teams/:id',
-    'Delete a team that holds no lines, skills or integrations',
+    'Delete a team that has no lines, skills or integrations',
   )
   @ID
   async delete(

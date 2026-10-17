@@ -16,7 +16,7 @@ export class CallbackTaskHandler
 
   async execute(query: CallbackTaskQuery): Promise<CallbackTaskDto | null> {
     try {
-      const grant = await this.grants.heldBy(query.token);
+      const grant = await this.grants.findByToken(query.token);
       const task = grant ? await this.tasks.of(grant.taskId.value, null) : null;
 
       if (

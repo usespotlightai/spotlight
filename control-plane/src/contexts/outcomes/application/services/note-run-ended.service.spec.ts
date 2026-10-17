@@ -224,6 +224,6 @@ describe('noting that a run ended', () => {
 
     await noted.ended('run_1');
 
-    expect(noted.records.held.size).toBe(0);
+    expect(noted.records.stored.size).toBe(0);
   });
 });

@@ -56,14 +56,14 @@ class FakeConfigs implements ConfigRepositoryPort {
   readonly commits: ConfigCommit[] = [];
   readonly openings: ConfigPullRequestOpening[] = [];
   failing: Error | null = null;
-  holds = true;
+  hasFile = true;
 
   async fileAt(_workspace: unknown, _repository: unknown, path: string) {
     if (this.failing) {
       throw this.failing;
     }
 
-    return this.holds
+    return this.hasFile
       ? { path, content: 'resource "spotlight_line" "x" {}\n', commit: 'c1' }
       : null;
   }
@@ -317,7 +317,7 @@ describe('picking a search candidate', () => {
     expect(configs.openings[0]?.body).toContain('`judge.rubric`');
   });
 
-  it('refuses a repository the GitHub App cannot reach, and a file it does not hold', async () => {
+  it('refuses a repository the GitHub App cannot reach, and a file it does not contain', async () => {
     configs.failing = new ConfigRepositoryRefusedError(
       'repository-unreachable',
       'not installed',
@@ -331,7 +331,7 @@ describe('picking a search candidate', () => {
     });
 
     configs.failing = null;
-    configs.holds = false;
+    configs.hasFile = false;
     await pick();
     await opening().workDue();
 
@@ -427,7 +427,7 @@ describe('picking a search candidate', () => {
     const world = replayedWorld(true);
     const pending = replayFor(
       world.set,
-      'replay_held_terse',
+      'replay_held_out_terse',
       'candidate_terse',
       world.search.split.heldOutRuns,
     );

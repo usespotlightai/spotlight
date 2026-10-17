@@ -21,7 +21,7 @@ import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions'
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -70,7 +70,7 @@ const reaching = async (call: McpSessions['call']): Promise<ReachableTool> => {
   const runtime = new CompiledIntegrationRuntime(
     new IntegrationReader(
       expressions,
-      operationsHolding(
+      operationsContaining(
         DescribedDocument.read({
           hash: HASH,
           kind: 'mcp',

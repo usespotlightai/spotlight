@@ -5,13 +5,13 @@ import {
   GrantWorkspaceArchiveCommand,
   SealWorkspaceArchiveCommand,
 } from '@work/application/commands/workspace-archive.commands';
-import { HeldWorkspaceArchiveHandler } from '@work/application/queries/handlers/held-workspace-archive.handler';
-import { HeldWorkspaceArchiveQuery } from '@work/application/queries/held-workspace-archive.query';
+import { StoredWorkspaceArchiveHandler } from '@work/application/queries/handlers/stored-workspace-archive.handler';
+import { StoredWorkspaceArchiveQuery } from '@work/application/queries/stored-workspace-archive.query';
 import {
-  aHeldRun,
-  holding,
+  aLeasedRun,
   InMemoryArchiveStore,
   InMemoryArchives,
+  runsOf,
 } from '@work/application/services/workspace-archives.fake-spec';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import {
@@ -23,10 +23,10 @@ import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-wo
 import { describe, expect, it } from 'vitest';
 
 const setUp = (...runs: Run[]) => {
-  const held = holding(
+  const runRepository = runsOf(
     ...(runs.length > 0
       ? runs
-      : [aHeldRun(), aHeldRun({ id: 'run_2', runner: 'runner_2' })]),
+      : [aLeasedRun(), aLeasedRun({ id: 'run_2', runner: 'runner_2' })]),
   );
   const archives = new InMemoryArchives();
   const store = new InMemoryArchiveStore();
@@ -37,14 +37,25 @@ const setUp = (...runs: Run[]) => {
   return {
     archives,
     store,
-    grant: new GrantWorkspaceArchiveHandler(held, archives, store, ids, clock),
-    seal: new SealWorkspaceArchiveHandler(held, archives, store, clock),
-    read: new HeldWorkspaceArchiveHandler(held, archives, store),
+    grant: new GrantWorkspaceArchiveHandler(
+      runRepository,
+      archives,
+      store,
+      ids,
+      clock,
+    ),
+    seal: new SealWorkspaceArchiveHandler(
+      runRepository,
+      archives,
+      store,
+      clock,
+    ),
+    read: new StoredWorkspaceArchiveHandler(runRepository, archives, store),
   };
 };
 
 describe('keeping a workspace between runs', () => {
-  it('grants the runner holding a run one place to upload its archive', async () => {
+  it('grants the runner that leases a run one place to upload its archive', async () => {
     const { grant, archives } = setUp();
 
     const granted = await grant.execute(
@@ -59,7 +70,7 @@ describe('keeping a workspace between runs', () => {
     expect(archives.kept.get('archive_1')?.isSealed).toBe(false);
   });
 
-  it('grants nothing to a runner that does not hold the run', async () => {
+  it('grants nothing to a runner that does not lease the run', async () => {
     const { grant } = setUp();
 
     await expect(
@@ -71,8 +82,8 @@ describe('keeping a workspace between runs', () => {
 
   it('refuses work that does not carry on, and archives too large to keep', async () => {
     const { grant, archives } = setUp(
-      aHeldRun({ carriesOn: false }),
-      aHeldRun({ id: 'run_2', runner: 'runner_2' }),
+      aLeasedRun({ carriesOn: false }),
+      aLeasedRun({ id: 'run_2', runner: 'runner_2' }),
     );
 
     await expect(
@@ -107,7 +118,7 @@ describe('keeping a workspace between runs', () => {
     expect(archives.kept.size).toBe(0);
   });
 
-  it('seals an archive once storage holds it as granted, and the next run restores it', async () => {
+  it('seals an archive once storage has it as granted, and the next run restores it', async () => {
     const { grant, seal, read, store } = setUp();
 
     await grant.execute(
@@ -122,9 +133,9 @@ describe('keeping a workspace between runs', () => {
     ).resolves.toBe(true);
 
     await expect(
-      read.execute(new HeldWorkspaceArchiveQuery('run_2', 'runner_2')),
+      read.execute(new StoredWorkspaceArchiveQuery('run_2', 'runner_2')),
     ).resolves.toEqual({
-      held: true,
+      leased: true,
       archive: {
         id: 'archive_1',
         url: 'https://storage.test/get/archive_1',
@@ -178,8 +189,8 @@ describe('keeping a workspace between runs', () => {
 
   it('restores a task’s workspace for a run that starts its conversation afresh', async () => {
     const { grant, seal, read, store } = setUp(
-      aHeldRun(),
-      aHeldRun({ id: 'run_2', runner: 'runner_2', session: null }),
+      aLeasedRun(),
+      aLeasedRun({ id: 'run_2', runner: 'runner_2', session: null }),
     );
 
     await grant.execute(
@@ -191,18 +202,18 @@ describe('keeping a workspace between runs', () => {
     );
 
     await expect(
-      read.execute(new HeldWorkspaceArchiveQuery('run_2', 'runner_2')),
-    ).resolves.toMatchObject({ held: true, archive: { id: 'archive_1' } });
+      read.execute(new StoredWorkspaceArchiveQuery('run_2', 'runner_2')),
+    ).resolves.toMatchObject({ leased: true, archive: { id: 'archive_1' } });
   });
 
-  it('restores nothing before a task has an archive, or for a run it does not hold', async () => {
-    const { read } = setUp(aHeldRun({ session: null }));
+  it('restores nothing before a task has an archive, or for a run it does not lease', async () => {
+    const { read } = setUp(aLeasedRun({ session: null }));
 
     await expect(
-      read.execute(new HeldWorkspaceArchiveQuery('run_1', 'runner_1')),
-    ).resolves.toEqual({ held: true, archive: null });
+      read.execute(new StoredWorkspaceArchiveQuery('run_1', 'runner_1')),
+    ).resolves.toEqual({ leased: true, archive: null });
     await expect(
-      read.execute(new HeldWorkspaceArchiveQuery('run_1', 'runner_2')),
-    ).resolves.toEqual({ held: false });
+      read.execute(new StoredWorkspaceArchiveQuery('run_1', 'runner_2')),
+    ).resolves.toEqual({ leased: false });
   });
 });

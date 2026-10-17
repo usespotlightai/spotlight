@@ -20,18 +20,20 @@ const entries = (tasks: readonly string[]): ReplaySetEntry[] =>
 const tasksOf = (count: number): string[] =>
   Array.from({ length: count }, (_, at) => `task_${at}`);
 
-const drawn = (held: readonly ReplaySetEntry[], searchId = SEARCH_ID) =>
-  HeldOutSplit.drawn({ searchId, entries: held, digest: sha256 });
+const drawn = (entries: readonly ReplaySetEntry[], searchId = SEARCH_ID) =>
+  HeldOutSplit.drawn({ searchId, entries: entries, digest: sha256 });
 
-const heldTasks = (split: HeldOutSplit): string[] =>
+const heldOutTasks = (split: HeldOutSplit): string[] =>
   [...new Set(split.heldOut.map((each) => each.taskId.value))].sort();
 
 describe('HeldOutSplit', () => {
   it('holds out the same tasks every time for the same search', () => {
     const set = entries(tasksOf(12));
 
-    expect(heldTasks(drawn(set))).toEqual(heldTasks(drawn(set)));
-    expect(heldTasks(drawn([...set].reverse()))).toEqual(heldTasks(drawn(set)));
+    expect(heldOutTasks(drawn(set))).toEqual(heldOutTasks(drawn(set)));
+    expect(heldOutTasks(drawn([...set].reverse()))).toEqual(
+      heldOutTasks(drawn(set)),
+    );
   });
 
   it('ranks tasks by the sha-256 of the search and task, holding out the lowest', () => {
@@ -46,13 +48,13 @@ describe('HeldOutSplit', () => {
       .slice(0, 3)
       .sort();
 
-    expect(heldTasks(drawn(entries(tasks)))).toEqual(expected);
+    expect(heldOutTasks(drawn(entries(tasks)))).toEqual(expected);
   });
 
   it('holds out other tasks for another search', () => {
     const set = entries(tasksOf(30));
     const splits = ['search_a', 'search_b', 'search_c'].map((id) =>
-      heldTasks(drawn(set, SearchId.of(id))).join(),
+      heldOutTasks(drawn(set, SearchId.of(id))).join(),
     );
 
     expect(new Set(splits).size).toBeGreaterThan(1);
@@ -72,12 +74,12 @@ describe('HeldOutSplit', () => {
   it('holds out every run of a held-out task, and searches every run of the rest', () => {
     const tasks = tasksOf(6).flatMap((task) => [task, task, task]);
     const split = drawn(entries(tasks));
-    const held = new Set(heldTasks(split));
+    const heldOut = new Set(heldOutTasks(split));
 
-    expect(split.heldOut).toHaveLength(held.size * 3);
-    expect(split.searched.every((each) => !held.has(each.taskId.value))).toBe(
-      true,
-    );
+    expect(split.heldOut).toHaveLength(heldOut.size * 3);
+    expect(
+      split.searched.every((each) => !heldOut.has(each.taskId.value)),
+    ).toBe(true);
     expect(split.searchedTasks + split.heldOutTasks).toBe(6);
   });
 
@@ -96,13 +98,13 @@ describe('HeldOutSplit', () => {
     [4, 2],
   ])(
     'refuses a set of %i tasks, which would hold out fewer than 2 or search fewer than 3',
-    (count, holding) => {
+    (count, heldOutCount) => {
       try {
         drawn(entries(tasksOf(count)));
         expect.unreachable();
       } catch (error) {
         expect(error).toBeInstanceOf(SearchSetTooSmallError);
-        expect(error).toMatchObject({ tasks: count, heldOut: holding });
+        expect(error).toMatchObject({ tasks: count, heldOut: heldOutCount });
       }
     },
   );

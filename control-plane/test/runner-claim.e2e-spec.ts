@@ -23,14 +23,14 @@ import * as schema from './support/schema';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let runs: DrizzleRunRepository;
 let checks: DrizzleStackCheckRepository;
 
 beforeAll(async () => {
-  held = await openDatabase('runner_claim');
-  db = held.db;
+  database = await openDatabase('runner_claim');
+  db = database.db;
   runs = new DrizzleRunRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
@@ -40,7 +40,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const queue = async (workspaceId: string, placement: string[][] = []) => {
@@ -130,11 +130,11 @@ describe('claiming a run handed back', () => {
       NOW,
     );
     expect(claimed?.id.value).toBe(first);
-    const held = await runs.findById(
+    const stored = await runs.findById(
       (claimed as NonNullable<typeof claimed>).id,
     );
     await runs.save(
-      (held as NonNullable<typeof held>).handedBack(
+      (stored as NonNullable<typeof stored>).handedBack(
         runner,
         NOW,
         'connect ECONNREFUSED',
@@ -195,7 +195,7 @@ describe('claiming placed work', () => {
 describe('claiming a run reserved for a provisioned runner', () => {
   const LATER = new Date(NOW.getTime() + 60_000);
 
-  it('hands it only to the runner it was reserved for, while the reservation holds', async () => {
+  it('hands it only to the runner it was reserved for, while the reservation is active', async () => {
     const workspaceId = randomUUID();
     const provisioned = RunnerId.of(randomUUID());
     const runId = await queue(workspaceId);
@@ -258,7 +258,7 @@ describe('claiming a check reserved for a provisioned runner', () => {
     terms: RunnerTerms.none(),
   });
 
-  it('hides it from every other runner while the reservation holds', async () => {
+  it('hides it from every other runner while the reservation is active', async () => {
     const provisioned = RunnerId.of(randomUUID());
     const workspaceId = randomUUID();
     const stackId = await awaitingCheck(workspaceId, []);
@@ -351,7 +351,7 @@ describe('forgetting the checks of a deleted task', () => {
   });
 });
 
-describe('a runner reaching git for a run whose check it holds', () => {
+describe('a runner reaching git for a run whose check it leases', () => {
   const checkOf = (runId: RunId) =>
     StackCheck.begin({
       stackId: ChangeStackId.of(randomUUID()),
@@ -364,7 +364,7 @@ describe('a runner reaching git for a run whose check it holds', () => {
       now: NOW,
     });
 
-  it('holds the check only while its lease runs and only for the runner that took it', async () => {
+  it('leases the check only while its lease runs and only to the runner that took it', async () => {
     const runId = RunId.of(randomUUID());
     const runner = RunnerId.of(randomUUID());
     const waiting = checkOf(runId);
@@ -375,17 +375,17 @@ describe('a runner reaching git for a run whose check it holds', () => {
     const access = new CheckAccess(checks);
     const lapsed = new Date((claimed.claim.leaseExpiresAt?.getTime() ?? 0) + 1);
 
-    await expect(access.holdsCheckOfRun(runId, runner, NOW)).resolves.toBe(
+    await expect(access.isCheckOfRunLeasedBy(runId, runner, NOW)).resolves.toBe(
       true,
     );
     await expect(
-      access.holdsCheckOfRun(runId, RunnerId.of(randomUUID()), NOW),
+      access.isCheckOfRunLeasedBy(runId, RunnerId.of(randomUUID()), NOW),
     ).resolves.toBe(false);
     await expect(
-      access.holdsCheckOfRun(RunId.of(randomUUID()), runner, NOW),
+      access.isCheckOfRunLeasedBy(RunId.of(randomUUID()), runner, NOW),
     ).resolves.toBe(false);
-    await expect(access.holdsCheckOfRun(runId, runner, lapsed)).resolves.toBe(
-      false,
-    );
+    await expect(
+      access.isCheckOfRunLeasedBy(runId, runner, lapsed),
+    ).resolves.toBe(false);
   });
 });

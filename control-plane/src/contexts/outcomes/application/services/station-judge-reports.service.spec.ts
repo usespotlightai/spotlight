@@ -68,7 +68,7 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
 
   return new StationJudgeReports(
     {
-      holds: async () => true,
+      hasTask: async () => true,
       of: async () => null,
       judgeAt: async () => judge,
       judgesOnTeam: async () =>
@@ -103,7 +103,7 @@ const judgedAcross = async () => {
   const deliveries = new TaskDeliveriesInMemory();
   const asked: string[] = [];
   const evidence: EvidencePort = {
-    holds: async () => true,
+    hasTask: async () => true,
     of: async () => null,
     judgeAt: async (stationId) => JUDGES.get(stationId) ?? null,
     judgesOnTeam: async (teamId) => {
@@ -166,10 +166,10 @@ const judgedAcross = async () => {
 };
 
 const oneByOne = async (
-  held: Awaited<ReturnType<typeof judgedAcross>>,
+  fixture: Awaited<ReturnType<typeof judgedAcross>>,
   station: { lineId: string; stationId: string },
 ) => {
-  const found = await held.evidence.judgeAt(station.stationId);
+  const found = await fixture.evidence.judgeAt(station.stationId);
   const judge =
     found && found.teamId === 'team_1' && found.lineId === station.lineId
       ? found
@@ -184,7 +184,7 @@ const oneByOne = async (
     });
   const judged =
     judge && rubric
-      ? await held.scores.judgedAtStation({
+      ? await fixture.scores.judgedAtStation({
           workspaceId: WORKSPACE,
           teamId: TeamId.of('team_1'),
           ...station,
@@ -192,15 +192,17 @@ const oneByOne = async (
           last: 500,
         })
       : [];
-  const records = await held.records.ofRuns(judged.map((each) => each.runId));
+  const records = await fixture.records.ofRuns(
+    judged.map((each) => each.runId),
+  );
   const grades = (
-    await held.scores.ofRuns(
+    await fixture.scores.ofRuns(
       [...new Set([...records, ...judged].map((each) => each.runId.value))].map(
         RunId.of,
       ),
     )
   ).filter((each) => !each.fromJudge);
-  const deliveries = await held.deliveries.forTasks(
+  const deliveries = await fixture.deliveries.forTasks(
     records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
   );
 
@@ -220,12 +222,12 @@ const oneByOne = async (
 
 describe('StationJudgeReports', () => {
   it('gives each station of a team the standing it has alone, with one look at the team’s judges', async () => {
-    const held = await judgedAcross();
+    const fixture = await judgedAcross();
     const reports = new StationJudgeReports(
-      held.evidence,
-      held.scores,
-      held.records,
-      held.deliveries,
+      fixture.evidence,
+      fixture.scores,
+      fixture.records,
+      fixture.deliveries,
     );
 
     const standings = await reports.standingsOf(
@@ -234,7 +236,7 @@ describe('StationJudgeReports', () => {
     );
 
     expect(standings).toEqual(
-      await Promise.all(STATIONS.map((each) => oneByOne(held, each))),
+      await Promise.all(STATIONS.map((each) => oneByOne(fixture, each))),
     );
     expect(standings.map((each) => each.hiddenBecause)).toEqual([
       null,
@@ -245,7 +247,7 @@ describe('StationJudgeReports', () => {
       'no-judge',
     ]);
     expect(standings[1]?.pairs).toBe(10);
-    expect(held.asked).toEqual(['team_1']);
+    expect(fixture.asked).toEqual(['team_1']);
   });
 
   it('reports how often the station’s judge agrees with people, and trusts it once it agrees enough', async () => {

@@ -131,7 +131,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
   let origin: string;
-  let held: string;
+  let workspaceId: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
   const hashes: string[] = [];
 
@@ -147,7 +147,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
 
   const create = (body: object, key: string = randomUUID()) =>
     served(app)
-      .post(`/api/resources/teams/${held}/integrations`)
+      .post(`/api/resources/teams/${workspaceId}/integrations`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', key)
       .send(body);
@@ -161,8 +161,8 @@ describe('an integration offering tools from an API description (e2e)', () => {
 
   const task = (): BoundTaskDto => ({
     taskId: 'task_1',
-    workspaceId: held,
-    teamId: held,
+    workspaceId,
+    teamId: workspaceId,
     line: 'delivery',
     station: 'Implementation',
     stationKey: 'implementation',
@@ -197,8 +197,8 @@ describe('an integration offering tools from an API description (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `sources-${randomUUID().slice(0, 8)}`;
-    seat = await seatTeam(db, held);
+    workspaceId = `sources-${randomUUID().slice(0, 8)}`;
+    seat = await seatTeam(db, workspaceId);
     upstream.heard.length = 0;
   });
 
@@ -208,10 +208,10 @@ describe('an integration offering tools from an API description (e2e)', () => {
       .where(inArray(schema.idempotentCreate.scope, [`person:${seat.owner}`]));
     await db
       .delete(schema.integrationDefinition)
-      .where(eq(schema.integrationDefinition.teamId, held));
+      .where(eq(schema.integrationDefinition.teamId, workspaceId));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
     if (hashes.length > 0) {
       await db
         .delete(schema.describedDocument)
@@ -341,7 +341,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
 
     const [offered] = await app
       .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-      .offered(TeamId.of(held), ['petstore.find-pets-by-tags']);
+      .offered(TeamId.of(workspaceId), ['petstore.find-pets-by-tags']);
     const manifest = toolManifestOf(
       ToolDeclarationMapper.toDeclared(offered ?? never()),
     );
@@ -398,7 +398,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
 
     const offered = await app
       .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-      .offered(TeamId.of(held), ['linear.issue', 'linear.issue-create']);
+      .offered(TeamId.of(workspaceId), ['linear.issue', 'linear.issue-create']);
 
     expect(offered.map((each) => each.approval)).toEqual([
       null,

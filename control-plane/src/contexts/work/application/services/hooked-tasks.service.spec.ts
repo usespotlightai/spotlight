@@ -102,11 +102,11 @@ const hooking = (
 ) => {
   let standing = over.task === undefined ? working() : over.task;
   let clashes = over.clashes ?? 0;
-  const held: Concerns[] = [];
+  const searched: Concerns[] = [];
   const tasks = {
     find: vi.fn(async () => standing),
-    holding: vi.fn(async (_workspace: WorkspaceId, concerns: Concerns) => {
-      held.push(concerns);
+    findByMarks: vi.fn(async (_workspace: WorkspaceId, concerns: Concerns) => {
+      searched.push(concerns);
       return standing;
     }),
     save: vi.fn(async (task: Task) => {
@@ -120,11 +120,11 @@ const hooking = (
 
   return {
     tasks,
-    held,
+    searched,
     standing: () => standing,
     hooked: new HookedTasks(
       tasks as unknown as TaskRepository,
-      { holding: async () => DELIVERY } as unknown as LineRepository,
+      { findByStation: async () => DELIVERY } as unknown as LineRepository,
       {
         slugOf: async () => (over.slug === undefined ? 'acme' : over.slug),
       } as unknown as WorkspaceReaderPort,
@@ -196,12 +196,14 @@ describe('HookedTasks', () => {
   });
 
   it('finds the task a pull request was opened for', async () => {
-    const { hooked, held } = hooking();
+    const { hooked, searched } = hooking();
 
     const found = await hooked.ofPullRequest('ws_1', PULL);
 
     expect(found?.taskId).toBe('task_1');
-    expect(held[0]?.marks).toEqual([Mark.pullRequest(PullRequestUrl.of(PULL))]);
+    expect(searched[0]?.marks).toEqual([
+      Mark.pullRequest(PullRequestUrl.of(PULL)),
+    ]);
   });
 
   describe('noting', () => {
@@ -295,16 +297,20 @@ describe('HookedTasks', () => {
       heardAs: 'loop:firing_1',
     };
 
-    it('moves the task where a move was held back to, as the run it ends would, instead of asking a person', async () => {
+    it('moves the task where a move was deferred to, as the run it ends would, instead of asking a person', async () => {
       dispatched.length = 0;
-      const heldBack = working().heldBack(DELIVERY, StationId.of('station_0'), {
-        station: StationName.of('Implementation'),
-        body: TaskNoteBody.of('Changes were requested on the pull request.'),
-        at: NOW,
-        voice: Voice.world(),
-      });
-      heldBack.pullEvents();
-      const { hooked, standing } = hooking({ task: heldBack });
+      const deferred = working().deferMove(
+        DELIVERY,
+        StationId.of('station_0'),
+        {
+          station: StationName.of('Implementation'),
+          body: TaskNoteBody.of('Changes were requested on the pull request.'),
+          at: NOW,
+          voice: Voice.world(),
+        },
+      );
+      deferred.pullEvents();
+      const { hooked, standing } = hooking({ task: deferred });
 
       await expect(hooked.failed(LOOPED)).resolves.toBe('reported');
 

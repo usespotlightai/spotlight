@@ -22,11 +22,11 @@ const asking = (
   over: {
     run?: Partial<ReviewedRun>;
     task?: Partial<ReviewedTask>;
-    held?: DecisionSet | null;
+    existing?: DecisionSet | null;
     available?: boolean;
   } = {},
 ) => {
-  let stored: DecisionSet | null = over.held ?? null;
+  let stored: DecisionSet | null = over.existing ?? null;
 
   const work = {
     run: async (): Promise<ReviewedRun> => ({
@@ -84,13 +84,13 @@ describe('asking for the decisions a run made', () => {
     expect(stored()?.draft?.isFor(RUN)).toBe(true);
   });
 
-  it('drafts a later run into the set the task already holds', async () => {
-    const held = DecisionSet.open({
+  it('drafts a later run into the set the task already has', async () => {
+    const existing = DecisionSet.open({
       id: DecisionSetId.of('set_0'),
       taskId: TASK,
       workspaceId: WORKSPACE,
     });
-    const { service, stored } = asking({ held });
+    const { service, stored } = asking({ existing });
 
     await service.runEnded(TASK, RUN);
 

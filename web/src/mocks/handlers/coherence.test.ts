@@ -46,7 +46,7 @@ const journalOf = async (taskId: string) =>
   (await readTaskJournal({ path: { slug: SLUG, taskId }, throwOnError: true }))
     .data;
 
-const newSideHolds = (patch: string, line: number): boolean => {
+const newSideContains = (patch: string, line: number): boolean => {
   const [header = ''] = patch.split('\n');
   const [, start = '0', length = '0'] =
     header.match(/\+(\d+),(\d+)/) ?? ([] as string[]);
@@ -220,7 +220,9 @@ describe('the Postgres upgrade reads the same everywhere', () => {
 
       expect(file, comment.path).toBeDefined();
       expect(
-        file?.hunks.some((hunk) => newSideHolds(hunk.patch, comment.line ?? 1)),
+        file?.hunks.some((hunk) =>
+          newSideContains(hunk.patch, comment.line ?? 1),
+        ),
       ).toBe(true);
     }
   });
@@ -355,7 +357,7 @@ const agentStations = () =>
 describe('every agent station improves on its own runs', () => {
   serveMockApi();
 
-  it('holds replay sets of runs that ended at the station before they were added', async () => {
+  it('has replay sets of runs that ended at the station before they were added', async () => {
     for (const path of agentStations()) {
       const { data: sets } = await listReplaySets({ path, throwOnError: true });
       const { data: outcomes } = await listStationOutcomes({
@@ -395,7 +397,7 @@ describe('every agent station improves on its own runs', () => {
           path: { teamId: path.teamId, setId: set.id },
           throwOnError: true,
         });
-        const held = new Set(set.entries.map((each) => each.runId));
+        const setRunIds = new Set(set.entries.map((each) => each.runId));
         const lastEnded = set.entries
           .map((each) => each.endedAt ?? '')
           .sort()
@@ -410,7 +412,7 @@ describe('every agent station improves on its own runs', () => {
         for (const replay of replays) {
           expect(replay.startedAt > (lastEnded ?? '')).toBe(true);
           expect(
-            replay.entries.every((each) => held.has(each.originalRunId)),
+            replay.entries.every((each) => setRunIds.has(each.originalRunId)),
           ).toBe(true);
         }
       }

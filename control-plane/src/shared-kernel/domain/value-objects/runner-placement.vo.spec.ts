@@ -152,7 +152,7 @@ describe('RunnerPlacement', () => {
 });
 
 describe('RunnerTerms', () => {
-  it('holds each term once', () => {
+  it('has each term once', () => {
     expect(answering('build-1', 'gpu', 'build-1').values).toEqual([
       'build-1',
       'gpu',

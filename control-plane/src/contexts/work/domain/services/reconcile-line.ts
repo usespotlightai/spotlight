@@ -35,7 +35,7 @@ export const reconcileLine = (input: {
   newId: () => string;
   by: Attribution;
 }): Reconciled => {
-  const held = new Map(
+  const standing = new Map(
     input.standing.stations.map((each) => [each.key.value, each]),
   );
   const planned = new Set(input.plan.stations.map((each) => each.key.value));
@@ -56,7 +56,7 @@ export const reconcileLine = (input: {
   return {
     ok: true,
     line: input.standing.relaidAs(
-      assemble(input.plan, (key) => held.get(key)?.id ?? null, input.newId),
+      assemble(input.plan, (key) => standing.get(key)?.id ?? null, input.newId),
       input.by,
     ),
   };

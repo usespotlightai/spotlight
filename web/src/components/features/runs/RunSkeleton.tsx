@@ -7,7 +7,7 @@ import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { HELD_AT_TOP } from '@/lib/inbox';
+import { STICKY_AT_TOP } from '@/lib/inbox';
 
 export function RunSkeleton() {
   return (
@@ -35,7 +35,7 @@ export function RunSkeleton() {
             <SkeletonLine className="w-28 self-center text-xs" />
 
             <section className="flex flex-col">
-              <div className={HELD_AT_TOP}>
+              <div className={STICKY_AT_TOP}>
                 <SaidCard>
                   <SkeletonLine className="w-3/5 text-sm leading-6" />
                 </SaidCard>

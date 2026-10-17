@@ -4,7 +4,7 @@ import type { SecretNamesPort } from '@configuration/application/ports/secret-na
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
-import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
+import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
@@ -79,10 +79,10 @@ export class UpdateHarnessProfileHandler
           : null;
       }
 
-      if (error instanceof SecretsUnheldError) {
+      if (error instanceof MissingSecretsError) {
         return {
           outcome: 'invalid',
-          problems: HarnessProfileProblems.unheld(error.key, error.unheld),
+          problems: HarnessProfileProblems.missing(error.key, error.missing),
         };
       }
 

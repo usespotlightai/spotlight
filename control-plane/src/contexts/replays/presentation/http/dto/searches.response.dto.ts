@@ -648,7 +648,7 @@ export class ReflectedTaskResponseDto {
   @ApiProperty()
   readonly taskId: string;
 
-  @ApiProperty({ description: 'The run the set holds for the task' })
+  @ApiProperty({ description: 'The run the set contains for the task' })
   readonly originalRunId: string;
 
   @ApiProperty({
@@ -1201,7 +1201,7 @@ export class ProposeSearchCandidateRequestDto {
   @ApiProperty({
     type: Object,
     description:
-      'The station block, as the line holds it, changed only where a search may change it',
+      'The station block, as the line stores it, changed only where a search may change it',
   })
   readonly station!: Record<string, unknown>;
 }

@@ -22,8 +22,8 @@ const judgeOf = (judge: StationJudgeSettings): StationJudge => ({
 export class Evidence implements EvidencePort {
   constructor(private readonly runs: RunEvidencePort) {}
 
-  holds(runId: string): Promise<boolean> {
-    return this.runs.holds(runId);
+  hasTask(runId: string): Promise<boolean> {
+    return this.runs.hasTask(runId);
   }
 
   async of(runId: string): Promise<RunEvidence | null> {

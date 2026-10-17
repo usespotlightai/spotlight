@@ -107,7 +107,7 @@ describe('TeamSkills', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
-  it('holds the shape of a skill while they load, keeping what never changes', () => {
+  it('keeps the shape of a skill while they load, keeping what never changes', () => {
     skills.mockReturnValue(undefined);
     showing();
 

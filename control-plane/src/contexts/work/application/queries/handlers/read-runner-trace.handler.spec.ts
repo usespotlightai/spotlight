@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const reading = (
   over: {
-    held?: string | null;
+    leasedBy?: string | null;
     teams?: Record<string, string | null>;
     replaysFrom?: Date | null;
     hidden?: readonly string[] | 'unseeable' | null;
@@ -41,11 +41,11 @@ const reading = (
     return id ? TeamId.of(id) : null;
   });
 
-  const held = over.held === undefined ? 'team_1' : over.held;
-  const heldRunStanding = vi.fn(async () =>
-    held
+  const team = over.leasedBy === undefined ? 'team_1' : over.leasedBy;
+  const leasedRunStanding = vi.fn(async () =>
+    team
       ? {
-          teamId: TeamId.of(held),
+          teamId: TeamId.of(team),
           replaysFrom: over.replaysFrom ?? null,
           isSearch: (over.hidden ?? null) !== null,
         }
@@ -62,7 +62,7 @@ const reading = (
     teamOfTask,
     handler: new ReadRunnerTraceHandler(
       {
-        heldRunStanding,
+        leasedRunStanding,
         teamOfTask,
         runsForTask,
         journalsForTask,
@@ -94,7 +94,7 @@ describe('ReadRunnerTraceHandler', () => {
   });
 
   it('says nothing where the run is not the runner’s to read from', async () => {
-    const { handler, runsForTask } = reading({ held: null });
+    const { handler, runsForTask } = reading({ leasedBy: null });
 
     expect(await handler.execute(query())).toBeNull();
     expect(runsForTask).not.toHaveBeenCalled();

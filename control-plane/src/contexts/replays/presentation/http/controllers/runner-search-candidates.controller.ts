@@ -60,7 +60,7 @@ export class RunnerSearchCandidatesController {
   @ApiCreatedResponse({ type: SearchCandidateProposedResponseDto })
   @ApiProblemResponse(
     HttpStatus.NOT_FOUND,
-    'The search no longer holds this run, or it is no search run this runner holds',
+    'This run is no longer the active run of the search, or it is not a search run that this runner leases',
   )
   @ApiProblemResponse(
     HttpStatus.CONFLICT,

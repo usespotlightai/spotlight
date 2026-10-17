@@ -78,9 +78,9 @@ const refusedUsing = (
     `the integration answered ${status}: ${asJson(response ?? null).slice(0, MAX_SAID)}`,
   );
 
-const fieldOf = (held: unknown, field: string): unknown =>
-  typeof held === 'object' && held !== null && field in held
-    ? (held as Record<string, unknown>)[field]
+const fieldOf = (value: unknown, field: string): unknown =>
+  typeof value === 'object' && value !== null && field in value
+    ? (value as Record<string, unknown>)[field]
     : undefined;
 
 const graphqlErrorsOf = (response: unknown): unknown => {
@@ -373,7 +373,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       defaultFor: () => undefined,
       call: async (inputs, reach) => {
         const request = operationRequest(operation, inputs);
-        const held = reach.connection;
+        const connection = reach.connection;
         const answering = (token: AccessToken | null) =>
           this.outbound.answer(
             request,
@@ -381,10 +381,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
             token?.value ?? null,
             reach.credentials,
           );
-        const first = await answering(held?.token ?? null);
+        const first = await answering(connection?.token ?? null);
         const renewed =
-          first.status === UNAUTHORIZED && auth?.kind === 'oauth2' && held
-            ? await held.refused(held.token)
+          first.status === UNAUTHORIZED && auth?.kind === 'oauth2' && connection
+            ? await connection.refused(connection.token)
             : null;
         const answered = renewed ? await answering(renewed) : first;
 
@@ -435,14 +435,14 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       ),
       defaultFor: () => undefined,
       call: async (inputs, reach) => {
-        const held = auth?.kind === 'oauth2' ? reach.connection : null;
+        const connection = auth?.kind === 'oauth2' ? reach.connection : null;
         const calling = (token: AccessToken | null) =>
           this.sessions.call(
             [
               task.teamId,
               readable.integration.source.value,
               auth?.kind ?? 'none',
-              held?.holder.key ?? 'team',
+              connection?.holder.key ?? 'team',
               versionOf(token),
             ].join(':'),
             server,
@@ -456,7 +456,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
           );
 
         try {
-          return mcpOutput(await renewingOnce(calling, held), tool);
+          return mcpOutput(await renewingOnce(calling, connection), tool);
         } catch (error) {
           throw failedUsing(tool, server, error);
         }
@@ -473,7 +473,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const written = this.find(definitions, source)?.connection?.oauth2;
     const oauth2 = written ? await this.discovery.endpoints(written) : null;
     const client = oauth2
-      ? await this.clients.heldFor(
+      ? await this.clients.existingFor(
           teamId,
           source,
           authorizationServerOf(oauth2),
@@ -498,19 +498,19 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     bindings: Bindings,
     reach: Reach,
   ): Promise<Sent> {
-    const held = reach.connection;
-    const first = connected(bindings, held?.token ?? null);
+    const connection = reach.connection;
+    const first = connected(bindings, connection?.token ?? null);
     const result = await this.outbound.run(request, first, reach.credentials);
 
     if (
       result.status !== UNAUTHORIZED ||
       request.auth?.kind !== 'oauth2' ||
-      !held
+      !connection
     ) {
       return { result, bindings: first };
     }
 
-    const renewed = await held.refused(held.token);
+    const renewed = await connection.refused(connection.token);
 
     if (!renewed) {
       return { result, bindings: first };
@@ -527,10 +527,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   private readable(
     definitions: readonly DefinedIntegration[],
   ): readonly ReadableIntegration[] {
-    const held = this.#read.get(definitions);
+    const cached = this.#read.get(definitions);
 
-    if (held) {
-      return held;
+    if (cached) {
+      return cached;
     }
 
     const read = this.reader.readable(definitions).integrations;

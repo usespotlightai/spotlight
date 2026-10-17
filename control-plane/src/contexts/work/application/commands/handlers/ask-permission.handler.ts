@@ -27,7 +27,7 @@ export class AskPermissionHandler
 
   async execute(command: AskPermissionCommand): Promise<PermissionAnswerDto> {
     try {
-      const { run, work } = await this.works.heldBy(
+      const { run, work } = await this.works.leasedBy(
         command.runId,
         command.runnerId,
       );

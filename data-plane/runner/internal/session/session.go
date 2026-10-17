@@ -50,7 +50,7 @@ type Journal interface {
 	Delivered(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
 	AskPermission(ctx context.Context, runID string, asked protocol.PermissionAsked) (protocol.PermissionAnswer, error)
-	WorkspaceArchive(ctx context.Context, runID string) (*protocol.HeldArchive, error)
+	WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
 	GrantArchive(ctx context.Context, runID string, size int64, sha256 string) (protocol.ArchiveGrant, error)
 	SealArchive(ctx context.Context, runID, archiveID string) error
 	RecordStartingPoint(ctx context.Context, runID string, point protocol.StartingPoint) error
@@ -129,7 +129,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		run.Spec.Checkouts = reached(run.Spec.Checkouts, serving.Remote)
 	}
 
-	// Prepare as the runner, before the handover, so the agent finds nothing that prepare holds.
+	// Prepare as the runner, before the handover, so the agent finds nothing that prepare keeps.
 	if err := opts.prepare(ctx, space.Dir, run, journal); err != nil {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
@@ -446,7 +446,7 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 		if !acp.Forgotten(err) {
 			return "", fmt.Errorf("resume the session: %w", err)
 		}
-		log.Warn("the harness no longer holds that session", "session", previous)
+		log.Warn("the harness no longer has that session", "session", previous)
 	}
 
 	sessionID, err := harness.NewSession(ctx)

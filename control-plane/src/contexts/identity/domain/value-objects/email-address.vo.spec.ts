@@ -2,7 +2,7 @@ import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('EmailAddress', () => {
-  it('is held as the mailbox it names, however it was typed', () => {
+  it('is stored as the mailbox it names, however it was typed', () => {
     expect(EmailAddress.of('  Ada@Example.COM ').value).toBe('ada@example.com');
   });
 

@@ -17,8 +17,8 @@ export function useTeamMemories(
   return useQuery({
     queryKey: teamMemoryKeys.listed(teamId, filter),
     enabled: Boolean(teamId),
-    placeholderData: (previous, held) =>
-      held?.queryKey[1] === teamId ? previous : undefined,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === teamId ? previous : undefined,
     queryFn: async () => {
       const { data } = await listTeamMemories({
         path: { teamId: teamId as string },

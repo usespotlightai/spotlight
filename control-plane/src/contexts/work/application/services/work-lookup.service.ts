@@ -14,7 +14,7 @@ import type {
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type {
   ChangedFile,
-  HeldRunLookup,
+  LeasedRunLookup,
   ReasonedStep,
   RunLookup,
   RunPlace,
@@ -93,7 +93,9 @@ export class WorkLookup implements WorkLookupPort {
       return null;
     }
 
-    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    const line = run.stationId
+      ? await this.lines.findByStation(run.stationId)
+      : null;
     const station = run.stationId ? line?.stationAt(run.stationId) : null;
 
     return {
@@ -117,7 +119,7 @@ export class WorkLookup implements WorkLookupPort {
   async placeOf(runId: RunId): Promise<RunPlace | null> {
     const run = await this.runs.findById(runId);
     const line = run?.stationId
-      ? await this.lines.holding(run.stationId)
+      ? await this.lines.findByStation(run.stationId)
       : null;
     const station = run?.stationId ? line?.stationAt(run.stationId) : null;
 
@@ -175,7 +177,9 @@ export class WorkLookup implements WorkLookupPort {
       return null;
     }
 
-    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    const line = run.stationId
+      ? await this.lines.findByStation(run.stationId)
+      : null;
     const repositories = line ? await this.worked(run, line) : [];
 
     return distinctFiles(filesChangedIn(changesIn(journal, run), repositories));
@@ -197,10 +201,13 @@ export class WorkLookup implements WorkLookupPort {
     return (await this.runs.findById(runId))?.wasWorkedBy(runner) ?? false;
   }
 
-  async heldBy(runId: RunId, runner: RunnerId): Promise<HeldRunLookup | null> {
+  async leasedBy(
+    runId: RunId,
+    runner: RunnerId,
+  ): Promise<LeasedRunLookup | null> {
     const run = await this.runs.findById(runId);
 
-    if (!run?.isHeldBy(runner)) {
+    if (!run?.isLeasedBy(runner)) {
       return null;
     }
 
@@ -263,7 +270,9 @@ export class WorkLookup implements WorkLookupPort {
       );
     }
 
-    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    const line = run.stationId
+      ? await this.lines.findByStation(run.stationId)
+      : null;
     const ranFor = run.ranFor;
 
     if (ranFor) {
@@ -309,11 +318,11 @@ export class WorkLookup implements WorkLookupPort {
   ): Promise<Task | null> {
     const concerns = Concerns.of({ marks: [mark] });
 
-    return concerns ? this.tasks.holding(workspaceId, concerns) : null;
+    return concerns ? this.tasks.findByMarks(workspaceId, concerns) : null;
   }
 
   private async lookup(task: Task): Promise<TaskLookup> {
-    const line = await this.lines.holding(task.stationId);
+    const line = await this.lines.findByStation(task.stationId);
 
     return {
       id: task.id,

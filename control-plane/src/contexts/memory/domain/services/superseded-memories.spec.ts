@@ -60,8 +60,8 @@ describe('withoutSuperseded', () => {
   });
 
   it('keeps every memory nothing corrects', () => {
-    const held = [kept(1), kept(2)];
+    const memories = [kept(1), kept(2)];
 
-    expect(withoutSuperseded(held, [])).toEqual(held);
+    expect(withoutSuperseded(memories, [])).toEqual(memories);
   });
 });

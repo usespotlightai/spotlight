@@ -27,7 +27,7 @@ describe('a templated string', () => {
   });
 
   it('reads each piece into the text around it', () => {
-    const held = templated(
+    const template = templated(
       'Asked: ',
       compile('ask.body', { at }),
       ' (',
@@ -35,7 +35,7 @@ describe('a templated string', () => {
       ')',
     );
 
-    expect(requiredTextOf(held, against)).toBe(
+    expect(requiredTextOf(template, against)).toBe(
       'Asked: The queue is stuck. (3)',
     );
   });
@@ -48,16 +48,18 @@ describe('a templated string', () => {
   });
 
   it('reads what cannot be read as nothing, or refuses it where it is required', () => {
-    const held = templated('Asked: ', compile('ask.nothing', { at }));
+    const template = templated('Asked: ', compile('ask.nothing', { at }));
 
-    expect(textOf(held, against)).toBe('Asked: ');
-    expect(() => requiredTextOf(held, against)).toThrow(ExpressionFailedError);
+    expect(textOf(template, against)).toBe('Asked: ');
+    expect(() => requiredTextOf(template, against)).toThrow(
+      ExpressionFailedError,
+    );
   });
 });
 
 describe('a structured value', () => {
   it('reads a map and list as the structure written, pieces read in', () => {
-    const held: Structured = {
+    const structured: Structured = {
       kind: 'map',
       entries: [
         {
@@ -78,7 +80,7 @@ describe('a structured value', () => {
       ],
     };
 
-    expect(requiredValueOf(held, against)).toEqual({
+    expect(requiredValueOf(structured, against)).toEqual({
       text: 'The queue is stuck.',
       unfurl: false,
       tags: ['queue'],
@@ -86,12 +88,12 @@ describe('a structured value', () => {
   });
 
   it('keeps a lone expression’s value whole, however it is shaped', () => {
-    const held: Structured = {
+    const structured: Structured = {
       kind: 'templated',
       templated: templated(compile('{"text": ask.body}')),
     };
 
-    expect(requiredValueOf(held, against)).toEqual({
+    expect(requiredValueOf(structured, against)).toEqual({
       text: 'The queue is stuck.',
     });
   });

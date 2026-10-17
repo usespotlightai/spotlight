@@ -70,6 +70,7 @@ import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
@@ -80,7 +81,6 @@ import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -193,7 +193,7 @@ export const WORK_PAYLOAD_TYPES = [
   HarnessName,
   HarnessSession,
   ImprovedStation,
-  HeldBack,
+  DeferredMove,
   LineId,
   LineKey,
   LineName,

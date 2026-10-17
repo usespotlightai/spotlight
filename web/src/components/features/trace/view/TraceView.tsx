@@ -47,13 +47,13 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
 
   const chosen = rows.find((row) => row.node.id === picked)?.node ?? null;
 
-  const held = useLingering(chosen, LEAVING);
+  const lingering = useLingering(chosen, LEAVING);
 
   const whole = Math.max(trace.ms, 0);
 
   const toggle = useCallback((id: string) => {
-    setClosed((held) => {
-      const next = new Set(held);
+    setClosed((previous) => {
+      const next = new Set(previous);
       if (!next.delete(id)) {
         next.add(id);
       }
@@ -66,9 +66,9 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
   return (
     <PaneScroller
       aside={
-        held && (
+        lingering && (
           <SpanDetail
-            node={held}
+            node={lingering}
             teamId={teamId}
             open={chosen !== null}
             duration={LEAVING}
@@ -105,7 +105,7 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
                     node={row.node}
                     teamId={teamId}
                     depth={row.depth}
-                    holding={row.children}
+                    childCount={row.children}
                     trace={trace}
                     picked={row.node.id === picked}
                     open={!closed.has(row.node.id)}

@@ -2,7 +2,7 @@ import type { ReviewOutboxPort } from '@change-review/application/ports/review-o
 import { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
-import { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
+import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
@@ -110,18 +110,18 @@ describe('ForgetTaskAcrossAggregates', () => {
   });
 
   it('releases the runner that was checking a check it forgets', async () => {
-    const held = checkOf('stack_1').claimedFor(
+    const leased = checkOf('stack_1').claimedFor(
       RunnerId.of('runner_1'),
       RunnerTerms.none(),
       NOW,
     );
-    held.pullEvents();
-    const { service, removed } = forgetting([held]);
+    leased.pullEvents();
+    const { service, removed } = forgetting([leased]);
 
     await service.forget(TASK);
 
     expect(removed[0]?.pullEvents()).toEqual([
-      new HeldCheckForgotten(ChangeStackId.of('stack_1')),
+      new LeasedCheckForgotten(ChangeStackId.of('stack_1')),
     ]);
   });
 });

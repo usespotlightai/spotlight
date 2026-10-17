@@ -42,7 +42,7 @@ const workOf = (row: Row): RunnerWork | null => {
   if (!kind) {
     throw new InconsistentStateError(
       'runner',
-      `holds work of an unknown kind (${row.workKind})`,
+      `has a lease on work of an unknown kind (${row.workKind})`,
     );
   }
 
@@ -98,7 +98,7 @@ const toRunner = (row: Row): Runner =>
     version: row.version,
   });
 
-const heldOf = (runner: Runner) => ({
+const columnsOf = (runner: Runner) => ({
   harnesses: runner.installed.map((each) => each.id.value),
   advertisedModels: Object.fromEntries(
     runner.installed.map((each) => [
@@ -141,7 +141,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         usual: added.running?.usual ?? false,
         claimBy: added.claimBy,
         startedAt: added.startedAt,
-        ...heldOf(added),
+        ...columnsOf(added),
         version: added.version,
       });
 
@@ -162,7 +162,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
             .returning({ id: runner.id })
         : await this.context.db
             .update(runner)
-            .set({ ...heldOf(saved), version: saved.version + 1 })
+            .set({ ...columnsOf(saved), version: saved.version + 1 })
             .where(matching)
             .returning({ id: runner.id });
 
@@ -228,7 +228,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
           or(
             and(
               isNotNull(runner.workId),
-              gt(runner.lastSeenAt, Runner.unseenSinceLongestHold(now)),
+              gt(runner.lastSeenAt, Runner.unseenSinceLongestLease(now)),
             ),
             and(isNull(runner.workId), gt(runner.claimBy, now)),
           ),
@@ -238,7 +238,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
     return rows.map(toRunner).filter((each) => each.standsAt(now));
   }
 
-  async holding(work: RunnerWork): Promise<readonly Runner[]> {
+  async findByWork(work: RunnerWork): Promise<readonly Runner[]> {
     const rows = await this.context.db
       .select()
       .from(runner)

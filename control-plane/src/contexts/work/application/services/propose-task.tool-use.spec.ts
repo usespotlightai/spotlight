@@ -91,7 +91,7 @@ describe('ProposeTaskToolUse', () => {
     expect(using().tool.tool.value).toBe('propose-task');
   });
 
-  it('holds a proposal in the chat for the person to decide on, and says it was proposed', async () => {
+  it('keeps a proposal in the chat for the person to decide on, and says it was proposed', async () => {
     const { tool, context, save, dispatch } = using();
 
     const answer = await tool.call(

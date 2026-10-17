@@ -53,7 +53,7 @@ const PROPOSAL = ApiBody({
         type: 'object',
         additionalProperties: true,
         description:
-          'The station block to replay under, as the line resource holds a station: it keeps the station’s key, and is checked as a line with it in place would be',
+          'The station block to replay under, as the line resource stores a station: it keeps the station’s key, and is checked as a line with it in place would be',
         example: {
           key: 'build',
           name: 'Build',

@@ -85,11 +85,11 @@ const person = (body: string, who = 'user_1') => ({
   voice: Voice.person(UserId.of(who)),
 });
 
-const heldAt = (task: Task, at: StationId = task.stationId): Task =>
+const runningAt = (task: Task, at: StationId = task.stationId): Task =>
   Task.rehydrate({ ...task, stationId: at, currentRunId: RUN });
 
 const working = () =>
-  heldAt(
+  runningAt(
     Task.add({
       line,
       at: IMPLEMENTATION,
@@ -134,7 +134,7 @@ describe('clearing a tool call that needs approval', () => {
     expect(standing?.approval.open).toBe(true);
     expect(standing?.approval.at.equals(IMPLEMENTATION)).toBe(true);
     expect(task.awaitingReview).toBe(true);
-    expect(task.heldBy(RUN)).toBe(true);
+    expect(task.hasCurrentRun(RUN)).toBe(true);
     expect(task.working).toBe(false);
   });
 
@@ -174,8 +174,8 @@ describe('clearing a tool call that needs approval', () => {
 
   it('claims a grant as it gives it, so a second call finds nothing to use', () => {
     const { task } = decided('granted');
-    const first = clear(heldAt(task));
-    const second = clear(heldAt(first.task));
+    const first = clear(runningAt(task));
+    const second = clear(runningAt(first.task));
 
     expect(kindOf(first.check)).toBe('given');
     expect(first.task.approvalFor(CALL)?.approval.spent).toBe(true);
@@ -184,9 +184,9 @@ describe('clearing a tool call that needs approval', () => {
 
   it('hands a claimed grant back, so a call that failed can be tried again', () => {
     const { task, at } = decided('granted');
-    const claimed = clear(heldAt(task)).task;
+    const claimed = clear(runningAt(task)).task;
 
-    const returned = heldAt(claimed.returnApproval(at));
+    const returned = runningAt(claimed.returnApproval(at));
 
     expect(returned.approvalFor(CALL)?.approval.grants).toBe(true);
     expect(kindOf(clear(returned).check)).toBe('given');
@@ -194,7 +194,7 @@ describe('clearing a tool call that needs approval', () => {
 
   it('refuses a rejected call with the person’s own reason, and asks nothing', () => {
     const { task } = decided('refused', 'Not before the release.');
-    const { task: after, check } = clear(heldAt(task));
+    const { task: after, check } = clear(runningAt(task));
 
     expect(check).toEqual({
       kind: 'refused',
@@ -206,13 +206,13 @@ describe('clearing a tool call that needs approval', () => {
   it('asks again at another station, where a grant from the last one does not reach', () => {
     const { task } = decided('granted');
 
-    expect(kindOf(clear(heldAt(task, REVIEW)).check)).toBe('asked');
+    expect(kindOf(clear(runningAt(task, REVIEW)).check)).toBe('asked');
   });
 
   it('asks again at another station, where a rejection from the last one does not reach', () => {
     const { task } = decided('refused');
 
-    expect(kindOf(clear(heldAt(task, REVIEW)).check)).toBe('asked');
+    expect(kindOf(clear(runningAt(task, REVIEW)).check)).toBe('asked');
   });
 
   it('asks again where the call would send something else', () => {
@@ -224,7 +224,7 @@ describe('clearing a tool call that needs approval', () => {
       ),
     );
 
-    expect(kindOf(clear(heldAt(task), other).check)).toBe('asked');
+    expect(kindOf(clear(runningAt(task), other).check)).toBe('asked');
   });
 
   it('keeps a harness permission and a tool named like it apart, each way', () => {
@@ -251,7 +251,7 @@ describe('clearing a tool call that needs approval', () => {
         throw new Error('nothing was asked');
       }
 
-      return heldAt(asked.answer(at, person('Go ahead.'), 'granted'));
+      return runningAt(asked.answer(at, person('Go ahead.'), 'granted'));
     };
 
     expect(grantedFor(permission).approvalFor(lookalike)).toBeNull();
@@ -267,7 +267,7 @@ describe('clearing a tool call that needs approval', () => {
     );
   });
 
-  it('refuses a run that does not hold the task', () => {
+  it('refuses a run that is not the current run of the task', () => {
     const { task } = decided('granted');
 
     expect(() => clear(task.leaveRun(RUN, NOW))).toThrow();
@@ -357,14 +357,14 @@ describe('deciding an approval', () => {
       'It posts publicly.',
       UserId.of('user_1'),
     );
-    const held = heldAt(task);
+    const running = runningAt(task);
 
-    const reasked = held.clearFor(CALL, alice, asking(), RUN, null);
+    const reasked = running.clearFor(CALL, alice, asking(), RUN, null);
     expect(reasked.check.kind).toBe('asked');
     expect(reasked.task.approvalFor(CALL)?.approval.askedOf?.value).toBe(
       'user_alice',
     );
-    expect(held.clearFor(CALL, user1, asking(), RUN, null).check.kind).toBe(
+    expect(running.clearFor(CALL, user1, asking(), RUN, null).check.kind).toBe(
       'given',
     );
   });
@@ -467,7 +467,7 @@ describe('approving a tool call with changes', () => {
   const edited = (edits: Readonly<Record<string, string>>) => {
     const { asked, at } = askedOnce();
 
-    return heldAt(asked.answer(at, person('Approved.'), 'granted', edits));
+    return runningAt(asked.answer(at, person('Approved.'), 'granted', edits));
   };
   const EDITED = ApprovalSubject.toolCall(
     ToolCall.of(
@@ -516,7 +516,7 @@ describe('approving a tool call with changes', () => {
       throw new Error('nothing was asked');
     }
 
-    const granted = heldAt(
+    const granted = runningAt(
       task.answer(at, person('Approved.'), 'granted', {
         queue: 'retries',
         limit: '100',

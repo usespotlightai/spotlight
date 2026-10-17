@@ -1,5 +1,5 @@
 import type { RunTokensPort } from '@identity/application/ports/run-tokens.port';
-import type { HeldWork } from '@runners/application/ports/runners.port';
+import type { LeasedWork } from '@runners/application/ports/runners.port';
 import type { RunGrantsPort } from '@secrets/application/ports/run-grants.port';
 import type { RunRedemptionsPort } from '@secrets/application/ports/run-redemptions.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -21,11 +21,11 @@ const SPOTLIGHT_API_LIFETIME_MS = 60 * 60 * 1_000;
 export interface EgressAdmitted {
   readonly runnerId: string;
   readonly workspaceId: string;
-  readonly work: HeldWork | null;
+  readonly work: LeasedWork | null;
   readonly sharedEgress: string | null;
 }
 
-export interface RunHeldByRunner {
+export interface RunLeasedByRunner {
   readonly run: Run;
   readonly attempt: RunAttempt;
   readonly wears: readonly string[];
@@ -64,34 +64,34 @@ export class EgressRedemptions {
 
     const runId = RunId.of(admitted.work.id);
     const runner = RunnerId.of(admitted.runnerId);
-    const held = await this.heldBy(runId, runner, admitted.workspaceId);
+    const leased = await this.leasedBy(runId, runner, admitted.workspaceId);
 
-    if (!held) {
+    if (!leased) {
       return nothingWorn;
     }
 
-    if (held.wears.length === 0 && !held.reachesApi) {
+    if (leased.wears.length === 0 && !leased.reachesApi) {
       return { ...nothingWorn, runId: runId.value };
     }
 
     const redeemed = await this.redemptions.redeem({
       workspaceId: admitted.workspaceId,
       runId: runId.value,
-      attempt: held.attempt.number,
-      wears: held.wears,
+      attempt: leased.attempt.number,
+      wears: leased.wears,
       recipient,
       sharedEgress: admitted.sharedEgress,
     });
-    const minted = held.reachesApi
-      ? await this.apiFor(held.run, held.attempt, recipient)
+    const minted = leased.reachesApi
+      ? await this.apiFor(leased.run, leased.attempt, recipient)
       : null;
-    const still = await this.heldBy(runId, runner, admitted.workspaceId);
+    const still = await this.leasedBy(runId, runner, admitted.workspaceId);
 
-    if (!still?.attempt.equals(held.attempt)) {
-      await this.grants.holdLost({
+    if (!still?.attempt.equals(leased.attempt)) {
+      await this.grants.leaseLost({
         workspaceId: admitted.workspaceId,
         runId: runId.value,
-        attempt: held.attempt.number,
+        attempt: leased.attempt.number,
       });
       if (minted) {
         await this.runTokens.revoke(admitted.workspaceId, minted.tokenId);
@@ -113,14 +113,14 @@ export class EgressRedemptions {
     };
   }
 
-  async heldBy(
+  async leasedBy(
     runId: RunId,
     runner: RunnerId,
     workspaceId: string,
-  ): Promise<RunHeldByRunner | null> {
+  ): Promise<RunLeasedByRunner | null> {
     const run = await this.runs.findById(runId);
 
-    return run?.workspaceId.value === workspaceId && run.isHeldBy(runner)
+    return run?.workspaceId.value === workspaceId && run.isLeasedBy(runner)
       ? {
           run,
           attempt: run.currentAttempt,

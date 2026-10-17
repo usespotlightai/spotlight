@@ -128,7 +128,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
   const operations = resource.operations ?? RESOURCE_OPERATIONS;
   const updates = operations.includes('update');
 
-  describe(`the ${resource.kind} resource, held to the resource conventions (e2e)`, () => {
+  describe(`the ${resource.kind} resource, checked against the resource conventions (e2e)`, () => {
     let app: INestApplication;
     let fixture: ResourceFixture;
 

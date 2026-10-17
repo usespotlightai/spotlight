@@ -55,12 +55,12 @@ const LINEAR = {
 };
 
 const seats = async (db: DrizzleDatabase, about: string) => {
-  const held = `${about}-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `${about}-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     ...seat,
-    held,
+    workspaceId,
     unseat: async () => {
       await db
         .delete(schema.idempotentCreate)
@@ -72,13 +72,13 @@ const seats = async (db: DrizzleDatabase, about: string) => {
         );
       await db
         .delete(schema.configurationChange)
-        .where(eq(schema.configurationChange.workspaceId, held));
+        .where(eq(schema.configurationChange.workspaceId, workspaceId));
       await db
         .delete(schema.workspaceToken)
-        .where(eq(schema.workspaceToken.workspaceId, held));
+        .where(eq(schema.workspaceToken.workspaceId, workspaceId));
       await db
         .delete(schema.workspaceTokenTrust)
-        .where(eq(schema.workspaceTokenTrust.workspaceId, held));
+        .where(eq(schema.workspaceTokenTrust.workspaceId, workspaceId));
       await seat.unseat();
     },
   };
@@ -109,13 +109,13 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/workspaces/${seat.held}/token-trusts`,
+    collection: `/api/resources/workspaces/${seat.workspaceId}/token-trusts`,
     item: (id) => `/api/resources/token-trusts/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${seat.held}/token-trusts/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${seat.workspaceId}/token-trusts/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
       `/api/resources/workspaces/${workspaceId}/token-trusts`,
-    workspaceOf: () => seat.held,
+    workspaceOf: () => seat.workspaceId,
     address: 'github-main',
     valid: trusting(),
     changed: trusting({ scopes: ['plan'] }),
@@ -139,7 +139,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
 
   const define = async (body: object) => {
     const made = await http()
-      .post(`/api/resources/workspaces/${seat.held}/token-trusts`)
+      .post(`/api/resources/workspaces/${seat.workspaceId}/token-trusts`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
@@ -193,12 +193,12 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
         .send(body),
   });
 
-  const teams = () => `/api/resources/workspaces/${seat.held}/teams`;
+  const teams = () => `/api/resources/workspaces/${seat.workspaceId}/teams`;
 
   const audit = async () =>
     (
       await http()
-        .get(`/api/workspaces/${seat.held}/configuration-changes`)
+        .get(`/api/workspaces/${seat.workspaceId}/configuration-changes`)
         .set(TEST_USER_HEADER, seat.owner)
     ).body as {
       resource: string;
@@ -236,7 +236,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     });
 
     expect(minted).toMatchObject({
-      workspaceId: seat.held,
+      workspaceId: seat.workspaceId,
       scopes: ['configure'],
     });
     expect(created.status).toBe(201);
@@ -263,7 +263,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     });
 
     expect(
-      (await plan.get(`/api/resources/workspaces/${seat.held}`)).status,
+      (await plan.get(`/api/resources/workspaces/${seat.workspaceId}`)).status,
     ).toBe(200);
     expect(checked.status).toBe(200);
     expect(applied.status).toBe(403);
@@ -323,7 +323,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
 
   it('refuses a lifetime longer than an hour', async () => {
     const refused = await http()
-      .post(`/api/resources/workspaces/${seat.held}/token-trusts`)
+      .post(`/api/resources/workspaces/${seat.workspaceId}/token-trusts`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send(trusting({ lifetimeMinutes: 61 }));
@@ -339,8 +339,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     const minted = await exchanged(trust.id, MAIN);
 
     expect(
-      (await as(minted.token).get(`/api/resources/workspaces/${seat.held}`))
-        .status,
+      (
+        await as(minted.token).get(
+          `/api/resources/workspaces/${seat.workspaceId}`,
+        )
+      ).status,
     ).toBe(200);
 
     const deleted = await http()
@@ -350,8 +353,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
 
     expect(deleted.status).toBe(204);
     expect(
-      (await as(minted.token).get(`/api/resources/workspaces/${seat.held}`))
-        .status,
+      (
+        await as(minted.token).get(
+          `/api/resources/workspaces/${seat.workspaceId}`,
+        )
+      ).status,
     ).toBe(401);
     await eventually(async () => {
       const left = await db
@@ -375,8 +381,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
 
     expect(narrowed.status).toBe(200);
     expect(
-      (await as(minted.token).get(`/api/resources/workspaces/${seat.held}`))
-        .status,
+      (
+        await as(minted.token).get(
+          `/api/resources/workspaces/${seat.workspaceId}`,
+        )
+      ).status,
     ).toBe(401);
     expect((await exchanged(trust.id, MAIN)).scopes).toEqual(['plan']);
   });
@@ -393,8 +402,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     expect(reapplied.status).toBe(200);
     expect(reapplied.body.version).toBe(0);
     expect(
-      (await as(minted.token).get(`/api/resources/workspaces/${seat.held}`))
-        .status,
+      (
+        await as(minted.token).get(
+          `/api/resources/workspaces/${seat.workspaceId}`,
+        )
+      ).status,
     ).toBe(200);
   });
 
@@ -438,7 +450,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     const trust = await define(trusting());
     const minted = await exchanged(trust.id, MAIN);
     const listed = await http()
-      .get(`/api/resources/workspaces/${seat.held}/tokens`)
+      .get(`/api/resources/workspaces/${seat.workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner);
 
     expect(listed.status).toBe(200);
@@ -472,8 +484,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
       ).status,
     ).toBe(204);
     expect(
-      (await as(minted.token).get(`/api/resources/workspaces/${seat.held}`))
-        .status,
+      (
+        await as(minted.token).get(
+          `/api/resources/workspaces/${seat.workspaceId}`,
+        )
+      ).status,
     ).toBe(401);
   });
 
@@ -483,7 +498,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     );
     const minted = await exchanged(trust.id, MAIN);
     const refused = await as(minted.token).post(
-      `/api/resources/workspaces/${seat.held}/token-trusts`,
+      `/api/resources/workspaces/${seat.workspaceId}/token-trusts`,
       trusting({ key: 'another' }),
     );
 
@@ -492,7 +507,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     expect(
       (
         await http()
-          .post(`/api/resources/workspaces/${seat.held}/token-trusts`)
+          .post(`/api/resources/workspaces/${seat.workspaceId}/token-trusts`)
           .set(TEST_USER_HEADER, seat.member)
           .set('Idempotency-Key', randomUUID())
           .send(trusting({ key: 'another' }))
@@ -500,11 +515,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     ).toBe(403);
   });
 
-  it('lets a token grant through a trust no scope it does not hold, nor take over or remove one it could not have made', async () => {
+  it('lets a token grant through a trust no scope it does not have, nor take over or remove one it could not have made', async () => {
     const issue = async (scopes: string[]) =>
       (
         await http()
-          .post(`/api/resources/workspaces/${seat.held}/tokens`)
+          .post(`/api/resources/workspaces/${seat.workspaceId}/tokens`)
           .set(TEST_USER_HEADER, seat.owner)
           .set('Idempotency-Key', randomUUID())
           .send({ name: scopes.join('-'), scopes })
@@ -515,7 +530,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
       trusting({ scopes: ['configure', 'secrets'] }),
     );
     const escalating = await narrow.post(
-      `/api/resources/workspaces/${seat.held}/token-trusts`,
+      `/api/resources/workspaces/${seat.workspaceId}/token-trusts`,
       trusting({ key: 'mine', scopes: ['configure', 'secrets'] }),
     );
     const takeover = await http()
@@ -552,7 +567,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     expect(
       (
         await withoutTrusts.post(
-          `/api/resources/workspaces/${seat.held}/token-trusts`,
+          `/api/resources/workspaces/${seat.workspaceId}/token-trusts`,
           trusting({ key: 'mine', scopes: ['plan'] }),
         )
       ).status,
@@ -560,7 +575,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     expect(
       (
         await narrow.post(
-          `/api/resources/workspaces/${seat.held}/token-trusts`,
+          `/api/resources/workspaces/${seat.workspaceId}/token-trusts`,
           trusting({ key: 'mine', scopes: ['configure'] }),
         )
       ).status,
@@ -569,13 +584,13 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
 
   it('bootstraps CI once with a trusts token, then plans and applies with none stored', async () => {
     const issued = await http()
-      .post(`/api/resources/workspaces/${seat.held}/tokens`)
+      .post(`/api/resources/workspaces/${seat.workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'bootstrap', scopes: ['configure', 'trusts'] });
     const bootstrap = as(issued.headers['spotlight-workspace-token'] as string);
     const plans = await bootstrap.post(
-      `/api/resources/workspaces/${seat.held}/token-trusts`,
+      `/api/resources/workspaces/${seat.workspaceId}/token-trusts`,
       trusting({
         key: 'github-pull-requests',
         subject: PULL_REQUEST,
@@ -583,7 +598,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
       }),
     );
     const applies = await bootstrap.post(
-      `/api/resources/workspaces/${seat.held}/token-trusts`,
+      `/api/resources/workspaces/${seat.workspaceId}/token-trusts`,
       trusting({ scopes: ['configure'] }),
     );
 
@@ -617,7 +632,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     await define(trusting());
 
     const closing = await http()
-      .delete(`/api/resources/workspaces/${seat.held}`)
+      .delete(`/api/resources/workspaces/${seat.workspaceId}`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('If-Match', '"0"');
 
@@ -635,8 +650,11 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
       .where(eq(schema.workspaceToken.id, minted.tokenId));
 
     expect(
-      (await as(minted.token).get(`/api/resources/workspaces/${seat.held}`))
-        .status,
+      (
+        await as(minted.token).get(
+          `/api/resources/workspaces/${seat.workspaceId}`,
+        )
+      ).status,
     ).toBe(401);
 
     await app.get(MintedTokens).pruneExpired();

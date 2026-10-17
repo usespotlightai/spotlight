@@ -59,7 +59,7 @@ const toHost = (row: Row): RunnerHost =>
     version: row.version,
   });
 
-const heldOf = (host: RunnerHost) => ({
+const columnsOf = (host: RunnerHost) => ({
   workspaceId: host.workspaceId.value,
   poolId: host.admission.poolId?.value ?? null,
   trustId: host.admission.trustId?.value ?? null,
@@ -111,7 +111,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
       try {
         await this.context.db.insert(runnerHost).values({
           id: host.id.value,
-          ...heldOf(host),
+          ...columnsOf(host),
           version: host.version,
         });
       } catch (error) {
@@ -130,7 +130,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(runnerHost)
-        .set({ ...heldOf(host), version: host.version + 1 })
+        .set({ ...columnsOf(host), version: host.version + 1 })
         .where(
           and(
             eq(runnerHost.id, host.id.value),

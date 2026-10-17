@@ -30,7 +30,7 @@ export type RunFactRefresh =
   | { readonly kind: 'runs'; readonly runIds: readonly string[] }
   | { readonly kind: 'tasks'; readonly taskIds: readonly string[] };
 
-export type RunFactHolding =
+export type RunFactOwner =
   | {
       readonly kind: 'team';
       readonly workspaceId: string;
@@ -46,7 +46,7 @@ export type ForgottenTasks =
       readonly taskIds: readonly string[];
     };
 
-type RunFactScope = RunFactRefresh | RunFactHolding;
+type RunFactScope = RunFactRefresh | RunFactOwner;
 
 interface ScopedColumns {
   readonly runId: PgColumn;
@@ -198,16 +198,16 @@ export class DrizzleRunFactProjection implements RunFactsPort {
     }
 
     await this.context.inTransaction(async () => {
-      await this.holdFactsOf(scope);
+      await this.lockFactsOf(scope);
       await this.upsert(within(runRecord, scope));
       await this.dropStale(scope);
     });
   }
 
-  async forgetRuns(holding: RunFactHolding): Promise<void> {
+  async forgetRuns(owner: RunFactOwner): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.lock('exclusive', [workspaceKey(holding.workspaceId)]);
-      await this.dropStale(holding);
+      await this.lock('exclusive', [workspaceKey(owner.workspaceId)]);
+      await this.dropStale(owner);
     });
   }
 
@@ -227,7 +227,7 @@ export class DrizzleRunFactProjection implements RunFactsPort {
     });
   }
 
-  async rebuild(scope: RunFactHolding): Promise<number> {
+  async rebuild(scope: RunFactOwner): Promise<number> {
     let after = '';
     let rebuilt = 0;
 
@@ -329,7 +329,7 @@ export class DrizzleRunFactProjection implements RunFactsPort {
     });
   }
 
-  private async holdFactsOf(scope: RunFactRefresh): Promise<void> {
+  private async lockFactsOf(scope: RunFactRefresh): Promise<void> {
     const places = await this.context.db
       .selectDistinct({
         workspaceId: runRecord.workspaceId,
@@ -354,17 +354,17 @@ export class DrizzleRunFactProjection implements RunFactsPort {
             .from(runFact)
             .where(inArray(runFact.taskId, [...scope.taskIds]))
         : [];
-    const held = [...places, ...facts];
+    const targets = [...places, ...facts];
 
     await this.lock(
       'shared',
-      held.map((each) => workspaceKey(each.workspaceId)),
+      targets.map((each) => workspaceKey(each.workspaceId)),
     );
     await this.lock(
       'exclusive',
       [
         ...(scope.kind === 'tasks' ? scope.taskIds : []),
-        ...held.map((each) => each.taskId),
+        ...targets.map((each) => each.taskId),
       ].map((taskId) => `run-fact:${taskId}`),
     );
   }

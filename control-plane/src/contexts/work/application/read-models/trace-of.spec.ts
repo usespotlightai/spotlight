@@ -93,7 +93,7 @@ const names = (nodes: readonly { name: string }[]) =>
   nodes.map((node) => node.name);
 
 describe('traceOf', () => {
-  it('holds every run that worked the task', () => {
+  it('has every run that worked the task', () => {
     const trace = traceOf([
       worked({
         id: RunId.of('run_2'),
@@ -136,7 +136,7 @@ describe('traceOf', () => {
     expect(trace.roots[0]?.children ?? []).toEqual([]);
   });
 
-  it('puts each step into the phase that holds it', () => {
+  it('puts each step into the phase that contains it', () => {
     const trace = traceOf([
       worked({
         journal: journal({
@@ -275,7 +275,7 @@ describe('traceOf', () => {
       ]);
     });
 
-    it('hangs a span under the one that holds it', () => {
+    it('hangs a span under the one that contains it', () => {
       const trace = traceOf([
         worked({
           journal: journal({
@@ -375,7 +375,7 @@ describe('traceOf', () => {
       expect(trace.faults).toBe(0);
     });
 
-    it('ends a connection row no later than the row that holds it', () => {
+    it('ends a connection row no later than the row that contains it', () => {
       const trace = traceOf([
         worked({
           journal: npmTest,
@@ -388,7 +388,7 @@ describe('traceOf', () => {
       );
     });
 
-    it('puts a connection no step held into the phase or the run', () => {
+    it('puts a connection that no step contains into the phase or the run', () => {
       const trace = traceOf([
         worked({
           journal: npmTest,

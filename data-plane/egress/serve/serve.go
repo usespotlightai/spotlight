@@ -35,7 +35,7 @@ const (
 type ControlPlane interface {
 	AdmitEgress(ctx context.Context, proxyCredential string) (protocol.EgressAdmitted, error)
 	RedeemEgressFor(ctx context.Context, proxyCredential, recipient string) (protocol.EgressRedemption, error)
-	EgressHolds(ctx context.Context, proxyCredentials []string) ([]string, error)
+	ActiveRuns(ctx context.Context, proxyCredentials []string) ([]string, error)
 	RecordConnections(ctx context.Context, records []protocol.EgressConnection) error
 }
 

@@ -10,7 +10,7 @@ export class Mark {
 
   static of(kind: string, value: string): Mark {
     const named = kind.trim();
-    const held = value.trim();
+    const trimmed = value.trim();
 
     if (!isDottedName(named)) {
       throw new InvalidIdentifierError(
@@ -19,11 +19,11 @@ export class Mark {
       );
     }
 
-    if (held.length === 0) {
+    if (trimmed.length === 0) {
       throw new InvalidIdentifierError('mark', 'must not be empty');
     }
 
-    return new Mark(named, held);
+    return new Mark(named, trimmed);
   }
 
   static pullRequest(url: PullRequestUrl): Mark {

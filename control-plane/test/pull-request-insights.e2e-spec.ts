@@ -94,10 +94,10 @@ const deliverThrough = (
 const deliver = (event: string, body: Record<string, unknown>) =>
   deliverThrough(INSTALLATION, event, body);
 
-const drained = <T>(held: () => Promise<T | null | undefined | false>) =>
+const drained = <T>(check: () => Promise<T | null | undefined | false>) =>
   eventually(async () => {
     await app.get(EventDelivery).drain(2_000);
-    return held();
+    return check();
   }, 60_000);
 
 const recordOf = (
@@ -108,7 +108,10 @@ const recordOf = (
     .get(DrizzlePullRequestRecordRepository)
     .at(workspaceId, PullRequestUrl.of(urlOf(number)));
 
-const heldOf = (number: number, workspaceId: WorkspaceId = team.workspaceId) =>
+const pullRequestOf = (
+  number: number,
+  workspaceId: WorkspaceId = team.workspaceId,
+) =>
   app
     .get(DrizzlePullRequests)
     .at(workspaceId, PullRequestUrl.of(urlOf(number)));
@@ -397,7 +400,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
       pull_request: pullRequest(91, { title: 'Older', updated_at: ago(3) }),
     });
 
-    expect((await heldOf(91))?.title).toBe('Newer');
+    expect((await pullRequestOf(91))?.title).toBe('Newer');
   });
 
   it('leaves a dismissed review out of the rounds', async () => {
@@ -418,7 +421,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
       review: { id: review, state: 'dismissed', user: { login: 'bob' } },
     });
 
-    expect(await heldOf(92)).toMatchObject({
+    expect(await pullRequestOf(92)).toMatchObject({
       reviewRounds: 0,
       firstReviewAt: null,
     });
@@ -442,7 +445,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
       });
     }
 
-    expect((await heldOf(93))?.comments).toEqual([]);
+    expect((await pullRequestOf(93))?.comments).toEqual([]);
   });
 
   it('refuses a filter that takes one value asked for twice, and takes repositories repeated', async () => {
@@ -476,7 +479,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
 
     await drained(
       async () =>
-        (await heldOf(94, elsewhere.workspaceId)) === null &&
+        (await pullRequestOf(94, elsewhere.workspaceId)) === null &&
         (await recordOf(94, elsewhere.workspaceId)) === null,
     );
     expect(
@@ -492,7 +495,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
       pull_request: pullRequest(94, { updated_at: ago(0) }),
     });
 
-    expect(await heldOf(94, elsewhere.workspaceId)).toBeNull();
+    expect(await pullRequestOf(94, elsewhere.workspaceId)).toBeNull();
   });
 
   it('drops words of GitHub forgetting kept longer than retention and its slack', async () => {
@@ -522,7 +525,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
       action: 'opened',
       pull_request: pullRequest(95),
     });
-    expect(await heldOf(95, closing.workspaceId)).not.toBeNull();
+    expect(await pullRequestOf(95, closing.workspaceId)).not.toBeNull();
 
     await app
       .get(EventOutbox)
@@ -534,7 +537,9 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
         ),
       ]);
 
-    await drained(async () => (await heldOf(95, closing.workspaceId)) === null);
+    await drained(
+      async () => (await pullRequestOf(95, closing.workspaceId)) === null,
+    );
 
     const [connection] = await db
       .select()
@@ -548,6 +553,6 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
       action: 'edited',
       pull_request: pullRequest(95, { updated_at: ago(0) }),
     });
-    expect(await heldOf(95, closing.workspaceId)).toBeNull();
+    expect(await pullRequestOf(95, closing.workspaceId)).toBeNull();
   });
 });

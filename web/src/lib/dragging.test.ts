@@ -49,7 +49,7 @@ describe('landingFor', () => {
     ).toEqual({ stationId: 'triage', afterTaskId: 'b' });
   });
 
-  it('lands first in a station holding nothing', () => {
+  it('lands first in a station that has nothing', () => {
     expect(
       landingFor(board, 'a', {
         kind: 'station',

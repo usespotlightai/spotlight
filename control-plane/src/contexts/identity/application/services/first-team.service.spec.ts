@@ -31,7 +31,7 @@ describe('FirstTeam', () => {
     const [team] = add.mock.calls[0] ?? [];
     expect(team?.id).toEqual(TeamId.of('team_1'));
     expect(team?.name.value).toBe('Payments');
-    expect(team?.holds(UserId.of('user_1'))).toBe(true);
+    expect(team?.hasMember(UserId.of('user_1'))).toBe(true);
     expect(team?.pullEvents()).toEqual([
       expect.objectContaining({
         kind: 'team.created',

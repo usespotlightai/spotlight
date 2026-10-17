@@ -27,10 +27,12 @@ export class ListRunnerActivityHandler
         return null;
       }
 
-      const held = await this.activity.heldIn(membership.workspaceId);
+      const leased = await this.activity.leasedIn(membership.workspaceId);
 
       const teams = [
-        ...new Set(held.flatMap((each) => (each.teamId ? [each.teamId] : []))),
+        ...new Set(
+          leased.flatMap((each) => (each.teamId ? [each.teamId] : [])),
+        ),
       ];
       const reads = new Set(
         (
@@ -47,7 +49,7 @@ export class ListRunnerActivityHandler
         ).flat(),
       );
 
-      return held.map((each) => {
+      return leased.map((each) => {
         const readable = each.teamId !== null && reads.has(each.teamId);
 
         return {

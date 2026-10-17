@@ -269,7 +269,7 @@ describe('DispatchReplayRuns when Work fails', () => {
 });
 
 describe('DispatchReplayRuns without the candidate', () => {
-  it('forgoes the run in Work and settles the entry as unfit, so it holds no slot', async () => {
+  it('forgoes the run in Work and settles the entry as unfit, so it takes no slot', async () => {
     await memory.replayRepository.add(aReplay({ count: 1 }));
     memory.candidates.clear();
 
@@ -404,27 +404,30 @@ describe('NoteReplayEnded and NoteReplayDigested', () => {
 });
 
 describe('HoldSetStartingPoints', () => {
-  it('holds the set’s runs, and lets them go once its station or the set is gone', async () => {
+  it('puts a starting point hold on the set’s runs, and releases it once its station or the set is gone', async () => {
     const set = aSet(2);
     await memory.setRepository.add(set);
-    const holding = new HoldSetStartingPoints(memory.setRepository, work);
+    const startingPointHolds = new HoldSetStartingPoints(
+      memory.setRepository,
+      work,
+    );
 
-    await holding.changed(set.id);
-    expect(work.held.get('replay-set:set_1')).toEqual([
+    await startingPointHolds.changed(set.id);
+    expect(work.startingPointHolds.get('replay-set:set_1')).toEqual([
       'original_0',
       'original_1',
     ]);
 
     await memory.setRepository.save(set.stationLeft(later(1)));
-    await holding.changed(set.id);
-    expect(work.held.has('replay-set:set_1')).toBe(false);
+    await startingPointHolds.changed(set.id);
+    expect(work.startingPointHolds.has('replay-set:set_1')).toBe(false);
 
-    await holding.changed(set.id);
+    await startingPointHolds.changed(set.id);
     await memory.setRepository.save(
       (memory.sets.get('set_1') as typeof set).deleted(false),
     );
-    await holding.changed(set.id);
-    expect(work.held.has('replay-set:set_1')).toBe(false);
+    await startingPointHolds.changed(set.id);
+    expect(work.startingPointHolds.has('replay-set:set_1')).toBe(false);
   });
 });
 
@@ -714,10 +717,10 @@ describe('probing a set', () => {
       probe: true,
       candidate: candidateOf('live', 'candidate_probe', RUBRIC, 'npm test'),
     }).reserving(2, () => RunId.of(`probe_run_${next++}`));
-    const finished = reserved.entries.reduce((held, entry) => {
+    const finished = reserved.entries.reduce((built, entry) => {
       const run = entry.run as RunId;
 
-      return held
+      return built
         .confirm(run, FINGERPRINT, NOW)
         .recordRunEnd(run, endOf('completed'))
         .measure(run, measuresOf(1), later(61_000))

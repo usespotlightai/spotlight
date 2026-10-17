@@ -61,16 +61,16 @@ const CLOSED: Heard = {
 const hooks = (
   translated: TranslatedDelivery,
   over: {
-    held?: boolean;
+    claimed?: boolean;
     signs?: boolean;
     dispatch?: () => Promise<void>;
   } = {},
 ) => {
-  const held = over.held ?? true;
+  const claimed = over.claimed ?? true;
   const connections = {
-    claimantOf: vi.fn(async () => (held ? WORKSPACE : null)),
+    claimantOf: vi.fn(async () => (claimed ? WORKSPACE : null)),
     of: vi.fn(async (id: WorkspaceId) =>
-      held
+      claimed
         ? GitHubConnection.rehydrate({
             workspaceId: id,
             installation: INSTALLED,
@@ -78,7 +78,7 @@ const hooks = (
           })
         : GitHubConnection.none(id),
     ),
-    heldClaimantOf: vi.fn(async () => (held ? WORKSPACE : null)),
+    lockedClaimantOf: vi.fn(async () => (claimed ? WORKSPACE : null)),
     save: vi.fn(async (_: GitHubConnection) => {}),
   } satisfies GitHubConnectionRepository;
   const events = {
@@ -221,13 +221,13 @@ describe('GitHubWebhooks', () => {
       );
     });
 
-    it('saves nothing where nobody held that installation', async () => {
+    it('saves nothing where nobody claimed that installation', async () => {
       const { service, connections } = hooks(
         {
           installation: '158876513',
           heard: [{ kind: 'installation-removed' }],
         },
-        { held: false },
+        { claimed: false },
       );
 
       await service.receive(DELIVERY);
@@ -484,7 +484,7 @@ describe('GitHubWebhooks', () => {
           installation: '42',
           heard: [CLOSED],
         },
-        { held: false },
+        { claimed: false },
       );
 
       await service.receive(DELIVERY);

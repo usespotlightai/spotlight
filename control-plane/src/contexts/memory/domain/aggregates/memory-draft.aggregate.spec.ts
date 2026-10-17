@@ -175,7 +175,7 @@ describe('MemoryDraft', () => {
         remembered(),
         remembered({ body: 'The staging bucket rejects uploads over 5 GB.' }),
       ]);
-      const held = MemoryDraft.rehydrate({
+      const existing = MemoryDraft.rehydrate({
         id: first.id,
         taskId: TASK,
         workspaceId: first.workspaceId,
@@ -187,7 +187,7 @@ describe('MemoryDraft', () => {
         version: 1,
       });
 
-      const second = drafting(held.asked(SECOND, LATER), SECOND, [
+      const second = drafting(existing.asked(SECOND, LATER), SECOND, [
         remembered({ kind: 'environment', body: 'CI has no network.' }),
       ]);
 
@@ -522,7 +522,7 @@ describe('MemoryDraft', () => {
       ).toThrow(UnknownMemoryError);
     });
 
-    it('refuses a memory it does not hold, or one named twice', () => {
+    it('refuses a memory it does not contain, or one named twice', () => {
       const draft = three();
 
       expect(() =>
@@ -649,7 +649,7 @@ describe('MemoryDraft', () => {
       const again = asked(FIRST, undefined, 'memory_again');
 
       expect(draft.remember(again)).toBe(draft);
-      expect(draft.holding(again)?.id.value).toBe('memory_asked');
+      expect(draft.findProposal(again)?.id.value).toBe('memory_asked');
     });
 
     it('refuses a drafted proposal, or one of another task', () => {
@@ -712,7 +712,7 @@ describe('MemoryDraft', () => {
   });
 
   describe('rehydrating', () => {
-    it('refuses to hold a proposal grounded in another task', () => {
+    it('refuses a proposal grounded in another task', () => {
       const other = MemoryProposal.of({
         id: MemoryId.of('memory_other'),
         kind: 'preference',

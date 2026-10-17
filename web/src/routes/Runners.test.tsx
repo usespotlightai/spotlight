@@ -77,7 +77,7 @@ const pushPool = (over: Record<string, unknown> = {}) => ({
   runners: [provisioned(over)],
 });
 
-const HELD = {
+const LEASED_RUN = {
   id: 'run_1',
   state: 'running',
   kind: 'task',
@@ -94,11 +94,11 @@ const provisioned = (over: Record<string, unknown> = {}) => ({
   harnesses: ['claude-code'],
   startedAt: '2026-08-29T12:00:00.000Z',
   lastSeenAt: '2026-08-29T12:00:00.000Z',
-  currentRun: HELD,
+  currentRun: LEASED_RUN,
   ...over,
 });
 
-const holding = (hosts: unknown[], pools: unknown[] = []) =>
+const listing = (hosts: unknown[], pools: unknown[] = []) =>
   fleet.mockReturnValue({ hosts, pools });
 
 const renderPage = () =>
@@ -118,7 +118,7 @@ describe('Runners', () => {
     role.mockReturnValue('owner');
   });
 
-  it('holds the shape of a host while they load', () => {
+  it('keeps the shape of a host while they load', () => {
     fleet.mockReturnValue(undefined);
 
     renderPage();
@@ -149,7 +149,7 @@ describe('Runners', () => {
   });
 
   it('says what each host can run, and which way in it serves', () => {
-    holding([host()]);
+    listing([host()]);
 
     renderPage();
 
@@ -159,7 +159,7 @@ describe('Runners', () => {
   });
 
   it('names a host’s default image, and counts the others', () => {
-    holding([
+    listing([
       host({
         images: [
           image({ usual: false, image: 'ghcr.io/acme/api-runner:main' }),
@@ -179,7 +179,7 @@ describe('Runners', () => {
   });
 
   it('says a host refuses an image, and why', async () => {
-    holding([
+    listing([
       host({
         images: [
           image(),
@@ -208,7 +208,7 @@ describe('Runners', () => {
   });
 
   it('names a host serving a trust by the trust', () => {
-    holding([host({ through: { kind: 'trust', key: 'production' } })]);
+    listing([host({ through: { kind: 'trust', key: 'production' } })]);
 
     renderPage();
 
@@ -216,7 +216,7 @@ describe('Runners', () => {
   });
 
   it('names every harness a host serves, once', () => {
-    holding([
+    listing([
       host({
         images: [
           image({
@@ -245,7 +245,7 @@ describe('Runners', () => {
   });
 
   it('says how busy each host is, and which one stopped answering', () => {
-    holding([
+    listing([
       host({ running: ['runner_1', 'runner_2'] }),
       host({ id: 'second-host-id', name: 'idle-box' }),
       host({ id: 'third-host-id', name: 'gone-box', answering: false }),
@@ -262,7 +262,7 @@ describe('Runners', () => {
   });
 
   it('says how long a host has been up, or when it was last heard from', () => {
-    holding([
+    listing([
       host(),
       host({ id: 'third-host-id', name: 'gone-box', answering: false }),
     ]);
@@ -274,7 +274,7 @@ describe('Runners', () => {
   });
 
   it('offers to add the first host on its own page', () => {
-    holding([]);
+    listing([]);
 
     renderPage();
 
@@ -285,7 +285,7 @@ describe('Runners', () => {
   });
 
   it('tells a member who can add a computer, offering no pool', () => {
-    holding([]);
+    listing([]);
     role.mockReturnValue('member');
 
     renderPage();
@@ -302,7 +302,7 @@ describe('Runners', () => {
   });
 
   it('offers to add another host on its own page', () => {
-    holding([host()]);
+    listing([host()]);
 
     renderPage();
 
@@ -313,7 +313,7 @@ describe('Runners', () => {
   });
 
   it('nests each runner under its host, linking to the run it works on', () => {
-    holding([
+    listing([
       host({
         running: ['runner_1'],
         runners: [
@@ -337,14 +337,14 @@ describe('Runners', () => {
   });
 
   it('hides the run of a team the viewer cannot read behind a blurred stand-in, saying why', () => {
-    holding([
+    listing([
       host({
         running: ['runner_1'],
         runners: [
           provisioned({
             id: 'runner_1',
             hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
-            currentRun: { ...HELD, readable: false, title: null },
+            currentRun: { ...LEASED_RUN, readable: false, title: null },
           }),
         ],
       }),
@@ -367,9 +367,13 @@ describe('Runners', () => {
   });
 
   it('nests the runners a push pool started under that pool, naming runs it cannot open', () => {
-    holding(
+    listing(
       [host()],
-      [pushPool({ currentRun: { ...HELD, kind: 'search', title: null } })],
+      [
+        pushPool({
+          currentRun: { ...LEASED_RUN, kind: 'search', title: null },
+        }),
+      ],
     );
 
     renderPage();
@@ -387,7 +391,7 @@ describe('Runners', () => {
     pools.mockReturnValueOnce([
       { key: 'ephemeral', provision: { egress: 'spotlight' } },
     ]);
-    holding([host()], [pushPool()]);
+    listing([host()], [pushPool()]);
 
     renderPage();
 
@@ -396,7 +400,7 @@ describe('Runners', () => {
 
   it('shows only the hosts in the chosen filter, and remembers it', async () => {
     const person = userEvent.setup();
-    holding(
+    listing(
       [
         host({ running: ['runner_1'] }),
         host({ id: 'second-host-id', name: 'idle-box' }),
@@ -424,7 +428,7 @@ describe('Runners', () => {
 
   it('says when no host is in the chosen filter', async () => {
     const person = userEvent.setup();
-    holding([host()]);
+    listing([host()]);
 
     renderPage();
 

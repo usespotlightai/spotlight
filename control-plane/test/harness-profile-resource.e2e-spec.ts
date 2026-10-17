@@ -59,19 +59,19 @@ const CAREFUL = {
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `profiles-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `profiles-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${held}/harness-profiles`,
+    collection: `/api/resources/teams/${workspaceId}/harness-profiles`,
     item: (id) => `/api/resources/harness-profiles/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/harness-profiles/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/harness-profiles/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
       `/api/resources/workspaces/${workspaceId}/harness-profiles`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'team/careful',
     valid: CAREFUL,
     changed: {
@@ -100,10 +100,10 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
         );
       await db
         .delete(schema.configurationChange)
-        .where(eq(schema.configurationChange.workspaceId, held));
+        .where(eq(schema.configurationChange.workspaceId, workspaceId));
       await db
         .delete(schema.workspaceToken)
-        .where(eq(schema.workspaceToken.workspaceId, held));
+        .where(eq(schema.workspaceToken.workspaceId, workspaceId));
       await seat.unseat();
     },
   };
@@ -230,10 +230,10 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       ]),
     );
 
-    const held = await app
+    const stored = await app
       .get<StationProfilesPort>(STATION_PROFILES)
       .named(TeamId.of(teamId), 'careful');
-    const profile = held ? ReadyProfileMapper.toReady(held) : null;
+    const profile = stored ? ReadyProfileMapper.toReady(stored) : null;
     const launch = app.get<HarnessLaunchPort>(HARNESS_LAUNCH);
     const on = (harness: string) =>
       launch.preparedFor(HarnessId.of(harness), {
@@ -345,7 +345,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
         .where(eq(schema.secretDataKey.workspaceId, teamId));
     });
 
-    it('refuses a secret the workspace does not hold, where it is named', async () => {
+    it('refuses a secret the workspace does not have, where it is named', async () => {
       const refused = await create(WEARING);
 
       expect(refused.status).toBe(422);
@@ -367,10 +367,10 @@ describe('a harness profile, created through the resource API (e2e)', () => {
         'secret.LINEAR_API_KEY',
       );
 
-      const held = await app
+      const stored = await app
         .get<StationProfilesPort>(STATION_PROFILES)
         .named(TeamId.of(teamId), 'careful');
-      const ready = held ? ReadyProfileMapper.toReady(held) : null;
+      const ready = stored ? ReadyProfileMapper.toReady(stored) : null;
       expect(ready?.wears.map((each) => each.value)).toEqual([
         'LINEAR_API_KEY',
       ]);

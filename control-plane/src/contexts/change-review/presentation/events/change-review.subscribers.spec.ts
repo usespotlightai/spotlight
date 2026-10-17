@@ -9,8 +9,8 @@ import type { SettleDecisions } from '@change-review/application/services/settle
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
-import { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
+import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
@@ -232,7 +232,7 @@ describe('change review hearing a run end', () => {
 });
 
 describe('change review hearing a pull request close', () => {
-  it('settles the decisions of the task that holds it', async () => {
+  it('settles the decisions of the task that has it', async () => {
     const closed = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
@@ -325,7 +325,7 @@ describe('change review hearing a stack’s check end', () => {
   });
 });
 
-describe('change review hearing a check forgotten while a runner held it', () => {
+describe('change review hearing a check forgotten while a runner leased it', () => {
   it('releases the runner that was checking it', async () => {
     const released = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
@@ -349,7 +349,7 @@ describe('change review hearing a check forgotten while a runner held it', () =>
     }
 
     await subscriber.handle(
-      new HeldCheckForgotten(ChangeStackId.of('stack_1')),
+      new LeasedCheckForgotten(ChangeStackId.of('stack_1')),
     );
 
     expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
@@ -374,7 +374,9 @@ describe('change review hearing a check let go of the runner reserved for it', (
     ).find((each) => each.name === 'change-review.let-go-of-reserved-runner');
 
     if (!subscriber) {
-      throw new Error('nobody lets go of a runner a check no longer holds');
+      throw new Error(
+        'nobody lets go of a runner that a check no longer reserves',
+      );
     }
 
     return { subscriber, reservationDropped };

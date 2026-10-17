@@ -48,17 +48,17 @@ const replayed = (
   concurrency: number,
   priced: Pricing,
 ): Replay => {
-  let held = replay;
+  let current = replay;
   let place = 0;
 
-  while (held.hasWaiting) {
-    held = held.reserving(concurrency, ids('replay_run'));
+  while (current.hasWaiting) {
+    current = current.reserving(concurrency, ids('replay_run'));
 
-    for (const entry of held.occupying) {
+    for (const entry of current.occupying) {
       const run = entry.run as RunId;
       const cost = priced(place++);
 
-      held = held
+      current = current
         .confirm(run, FINGERPRINT, NOW)
         .recordRunEnd(run, endOf('completed'))
         .recordReview(run, PASSED, null, later(1))
@@ -66,7 +66,7 @@ const replayed = (
     }
   }
 
-  return held;
+  return current;
 };
 
 const started = (
@@ -161,15 +161,15 @@ const searched = (
     search = search.heldOutFrom(
       replays,
       0.05,
-      () => ReplayId.of(`held_${next++}`),
+      () => ReplayId.of(`held_out_${next++}`),
       later(6),
     );
-    for (const held of search.heldOut) {
+    for (const heldOut of search.heldOut) {
       const replay = replayed(
         started(
           search,
-          held.replay.replayId.value,
-          held.candidateId.value,
+          heldOut.replay.replayId.value,
+          heldOut.candidateId.value,
           search.allotment.heldOutReplay,
           search.split.heldOutRuns,
         ),

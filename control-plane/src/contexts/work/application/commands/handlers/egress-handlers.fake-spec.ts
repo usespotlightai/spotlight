@@ -3,7 +3,7 @@ import type {
   SharedEgressFor,
 } from '@runners/application/ports/runner-egress.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { RunHeldByRunner } from '@work/application/services/egress-redemptions.service';
+import type { RunLeasedByRunner } from '@work/application/services/egress-redemptions.service';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
 export const NOW = new Date('2026-10-16T12:00:00.000Z');
@@ -37,15 +37,15 @@ export const runOf = (
   },
 ];
 
-export const holding = (
-  held: readonly string[],
-  worked: readonly string[] = held,
+export const leasing = (
+  leased: readonly string[],
+  worked: readonly string[] = leased,
 ) => ({
-  heldBy: async (runId: RunId): Promise<RunHeldByRunner | null> =>
-    held.includes(runId.value)
+  leasedBy: async (runId: RunId): Promise<RunLeasedByRunner | null> =>
+    leased.includes(runId.value)
       ? ({
           attempt: RunAttempt.of(RunId.of(runId.value), 1),
-        } as RunHeldByRunner)
+        } as RunLeasedByRunner)
       : null,
   attemptWorkedBy: async (runId: RunId): Promise<RunAttempt | null> =>
     worked.includes(runId.value) ? RunAttempt.of(runId, 1) : null,

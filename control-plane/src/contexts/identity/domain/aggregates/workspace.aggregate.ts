@@ -15,7 +15,7 @@ import {
   refusalToGive,
   rolesGivable,
 } from '@identity/domain/services/role-giving';
-import { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
@@ -146,20 +146,20 @@ export class Workspace extends EventRecorder {
     tokens: readonly TokenName[],
     trusts: readonly TokenTrustKey[],
     minting: readonly TokenTrustKey[],
-    holdings: Holdings,
+    dependents: Dependents,
     by: Attribution,
   ): Workspace {
     this.guardOpen();
 
-    const held = Holdings.of([
+    const remaining = Dependents.of([
       ...teams.map((each) => `team ${each.value}`),
       ...tokens.map((each) => `token ${each.value}`),
       ...trusts.map((each) => `token trust ${each.value}`),
       ...minting.map((each) => `tokens minted through ${each.value}`),
-    ]).and(holdings);
+    ]).and(dependents);
 
-    if (!held.isEmpty) {
-      throw new WorkspaceInUseError(this.slug.value, held);
+    if (!remaining.isEmpty) {
+      throw new WorkspaceInUseError(this.slug.value, remaining);
     }
 
     const closed = this.with({ members: this.members, closed: true });
@@ -190,7 +190,7 @@ export class Workspace extends EventRecorder {
     );
   }
 
-  holds(userId: UserId): boolean {
+  hasMember(userId: UserId): boolean {
     return this.permissionsFor(PersonPrincipal.of(userId)).reads;
   }
 
@@ -272,7 +272,7 @@ export class Workspace extends EventRecorder {
   }
 
   join(userId: UserId, role: WorkspaceRole): Workspace {
-    if (this.holds(userId)) {
+    if (this.hasMember(userId)) {
       return this;
     }
 

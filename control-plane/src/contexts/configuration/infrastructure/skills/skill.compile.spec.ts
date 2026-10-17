@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 const MAIN =
   '---\nname: grafana\ndescription: Look up dashboards\nsecrets:\n  GRAFANA_TOKEN: A read-only token\ntools: [grafana.search]\n---\nSearch before you guess.';
 
-const refusedAt = (held: unknown) => {
-  const compiled = compileSkill(held);
+const refusedAt = (input: unknown) => {
+  const compiled = compileSkill(input);
 
   return compiled.ok
     ? []
@@ -14,7 +14,7 @@ const refusedAt = (held: unknown) => {
 };
 
 describe('compileSkill', () => {
-  it('reads a skill from its SKILL.md, keeping every file it holds', () => {
+  it('reads a skill from its SKILL.md, keeping every file it contains', () => {
     const compiled = compileSkill({
       key: 'grafana',
       files: { 'SKILL.md': MAIN, 'queries/p99.promql': 'rate(x[5m])' },

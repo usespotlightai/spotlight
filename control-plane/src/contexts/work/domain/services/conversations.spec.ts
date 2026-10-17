@@ -48,7 +48,7 @@ describe('conversationsOf', () => {
 });
 
 describe('stillOpen', () => {
-  it('holds while nothing has closed it', () => {
+  it('is open while nothing has closed it', () => {
     expect(stillOpen({ from: 0, to: null })).toBe(true);
   });
 
@@ -263,7 +263,7 @@ describe('turnOf', () => {
       ]);
     });
 
-    it('takes the answer it was given while it still holds the task', () => {
+    it('takes the answer it was given while it is still the current run of the task', () => {
       expect(
         turnOf(paused.slice(0, 4), 'run_2', true).map((each) => each.body),
       ).toEqual([
@@ -273,7 +273,7 @@ describe('turnOf', () => {
       ]);
     });
 
-    it('leaves an answer to the next run once it no longer holds the task', () => {
+    it('leaves an answer to the next run once it is no longer the current run of the task', () => {
       expect(
         turnOf(paused.slice(0, 4), 'run_2').map((each) => each.body),
       ).not.toContain('the default one');

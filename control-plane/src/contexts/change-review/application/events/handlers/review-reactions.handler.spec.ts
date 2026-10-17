@@ -37,8 +37,8 @@ const draft = (id: string) =>
     now: NOW,
   });
 
-const reacting = (held: readonly ReviewComment[] = []) => {
-  const comments = new Map(held.map((each) => [each.id.value, each]));
+const reacting = (stored: readonly ReviewComment[] = []) => {
+  const comments = new Map(stored.map((each) => [each.id.value, each]));
   const enqueue = vi.fn(async () => {});
   const reactions = new ReviewReactions(
     {
@@ -81,7 +81,7 @@ describe('ReviewReactions', () => {
     );
   });
 
-  it('keeps where GitHub put each comment its review holds', async () => {
+  it('keeps where GitHub put each comment its review contains', async () => {
     const submitted = draft('comment_1').submittedIn(REVIEW);
     const elsewhere = draft('comment_2').submittedIn(ReviewId.of('review_2'));
     const { reactions, comments } = reacting([submitted, elsewhere]);
@@ -104,12 +104,12 @@ describe('ReviewReactions', () => {
   });
 
   it('hands back the comments of a review that never reached GitHub', async () => {
-    const held = draft('comment_1').submittedIn(REVIEW);
+    const submitted = draft('comment_1').submittedIn(REVIEW);
     const withdrawn = draft('comment_2').submittedIn(REVIEW).removed(ADA);
     const elsewhere = draft('comment_3').submittedIn(ReviewId.of('review_2'));
-    const { reactions, comments } = reacting([held, withdrawn, elsewhere]);
+    const { reactions, comments } = reacting([submitted, withdrawn, elsewhere]);
 
-    for (const each of [held, withdrawn, elsewhere]) {
+    for (const each of [submitted, withdrawn, elsewhere]) {
       await reactions.onCommentNotPosted(
         new ReviewCommentNotPosted(REVIEW, each.id),
       );

@@ -25,7 +25,7 @@ export class WorkloadRule {
   ) {}
 
   static issuerOf(raw: string): string {
-    const held = raw.trim();
+    const trimmed = raw.trim();
     const refused = new InvalidTokenTrustError(
       'issuer',
       'must be an https URL with no query or fragment, as in https://token.actions.githubusercontent.com',
@@ -33,7 +33,7 @@ export class WorkloadRule {
     let url: URL;
 
     try {
-      url = new URL(held);
+      url = new URL(trimmed);
     } catch {
       throw refused;
     }
@@ -48,25 +48,25 @@ export class WorkloadRule {
       url.hash ||
       url.username ||
       url.password ||
-      held.length > LONGEST
+      trimmed.length > LONGEST
     ) {
       throw refused;
     }
 
-    return held;
+    return trimmed;
   }
 
   static audienceOf(raw: string): string {
-    const held = raw.trim();
+    const trimmed = raw.trim();
 
-    if (!held || held.length > LONGEST || /\s/.test(held)) {
+    if (!trimmed || trimmed.length > LONGEST || /\s/.test(trimmed)) {
       throw new InvalidTokenTrustError(
         'audience',
         `must be one word of at most ${LONGEST} characters, as in spotlight`,
       );
     }
 
-    return held;
+    return trimmed;
   }
 
   static claimNameOf(raw: string): string {

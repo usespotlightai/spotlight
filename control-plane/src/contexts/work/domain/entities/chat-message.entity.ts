@@ -91,7 +91,7 @@ export class ChatMessage {
     if (input.proposal && !input.proposal.position.equals(input.position)) {
       throw new InconsistentStateError(
         'chat message',
-        'holds a proposal made somewhere else',
+        'has a proposal made somewhere else',
       );
     }
 

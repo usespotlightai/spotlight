@@ -72,7 +72,7 @@ describe('ReadCandidateHandler', () => {
     expect((await read('candidate_proposed'))?.id).toBe('candidate_proposed');
   });
 
-  it('shows no candidate a search found or a plan held, as if there were none', async () => {
+  it('shows no candidate a search found or a plan made, as if there were none', async () => {
     expect(await read('candidate_searched')).toBeNull();
     expect(await read('candidate_planned')).toBeNull();
   });

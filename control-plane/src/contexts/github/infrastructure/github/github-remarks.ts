@@ -68,7 +68,7 @@ export class GitHubRemarks implements RemarksPort {
     const { password: token } = await this.access.credential(
       answer.workspaceId,
     );
-    const thread = await this.holding(answer, token);
+    const thread = await this.threadContaining(answer, token);
 
     if (!thread) {
       if (answer.resolve) {
@@ -94,7 +94,7 @@ export class GitHubRemarks implements RemarksPort {
     }
   }
 
-  private async holding(
+  private async threadContaining(
     answer: RemarkAnswer,
     token: string,
   ): Promise<Thread | null> {

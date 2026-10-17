@@ -20,11 +20,11 @@ describe('Attachment', () => {
     expect(file({ name: 'C:\\Users\\ada\\queue.png' }).name).toBe('queue.png');
   });
 
-  it('drops what a directory could not hold, leading dots included', () => {
+  it('drops what a directory name cannot contain, leading dots included', () => {
     expect(file({ name: '.\u0000hidden\u001f.log' }).name).toBe('hidden.log');
   });
 
-  it('keeps the extension of a name too long to hold whole', () => {
+  it('keeps the extension of a name too long to keep whole', () => {
     const named = file({ name: `${'a'.repeat(300)}.png` }).name;
 
     expect(named).toHaveLength(200);

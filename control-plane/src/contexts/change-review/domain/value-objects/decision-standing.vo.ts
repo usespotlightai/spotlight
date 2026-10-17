@@ -26,7 +26,7 @@ export class DecisionStanding {
     if ((input.state === 'stands') !== (input.merge !== null)) {
       throw new InconsistentStateError(
         'decision set',
-        'stands without the merge it stood in, or holds a merge while proposed',
+        'stands without the merge it stood in, or has a merge while proposed',
       );
     }
 

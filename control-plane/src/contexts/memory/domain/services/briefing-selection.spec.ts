@@ -142,7 +142,7 @@ describe('selecting what to brief a run with', () => {
     ]);
   });
 
-  it('holds to its cap on how many and how long', () => {
+  it('keeps to its cap on how many and how long', () => {
     const many = Array.from({ length: 30 }, (_, at) =>
       kept({}, `Memory ${at}.`),
     );

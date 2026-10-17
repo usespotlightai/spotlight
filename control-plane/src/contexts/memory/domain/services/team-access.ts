@@ -30,7 +30,7 @@ export class TeamAccess {
     return new TeamAccess(TeamId.of(teamId), standing.workspaceId, standing.by);
   }
 
-  holds(memory: Memory): boolean {
+  includes(memory: Memory): boolean {
     return (
       memory.scope.teamId.equals(this.teamId) &&
       memory.workspaceId.equals(this.workspaceId)

@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 const FOLDERS = ['value-objects', 'events'];
 
 describe('GITHUB_PAYLOAD_TYPES', () => {
-  it('holds every class that can travel in an event', async () => {
-    const held = new Set<unknown>(GITHUB_PAYLOAD_TYPES);
+  it('contains every class that can travel in an event', async () => {
+    const listed = new Set<unknown>(GITHUB_PAYLOAD_TYPES);
     const missing: string[] = [];
 
     for (const folder of FOLDERS) {
@@ -28,7 +28,7 @@ describe('GITHUB_PAYLOAD_TYPES', () => {
           if (
             typeof value === 'function' &&
             /^class\s/.test(value.toString()) &&
-            !held.has(value)
+            !listed.has(value)
           ) {
             missing.push(`${folder}/${file}: ${name}`);
           }

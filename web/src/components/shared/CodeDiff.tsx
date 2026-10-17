@@ -23,7 +23,7 @@ export function CodeDiff({
 }) {
   const name = path ?? 'file';
   const ready = useHighlighterReady(name);
-  const held = useRef<HTMLDivElement>(null);
+  const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!ready || !lines) {
@@ -34,7 +34,7 @@ export function CodeDiff({
     let waiting = 0;
 
     const find = () => {
-      const shown = [...(held.current?.querySelectorAll('*') ?? [])]
+      const shown = [...(container.current?.querySelectorAll('*') ?? [])]
         .find((each) => each.shadowRoot)
         ?.shadowRoot?.querySelector('[data-selected-line]');
 
@@ -59,7 +59,7 @@ export function CodeDiff({
 
   return (
     <div
-      ref={held}
+      ref={container}
       data-slot="code-diff"
       className={cn(
         'overflow-x-auto text-xs',

@@ -12,7 +12,7 @@ export class TraceStationResponseDto {
   @ApiProperty({ example: 1 })
   readonly position: number;
 
-  @ApiProperty({ example: 3, description: 'How many the line holds' })
+  @ApiProperty({ example: 3, description: 'How many stations the line has' })
   readonly count: number;
 
   constructor(name: string, color: string, position: number, count: number) {

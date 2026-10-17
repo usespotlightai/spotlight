@@ -17,7 +17,7 @@ import {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
   InMemoryLearnedOutputs,
   learningInto,
@@ -58,7 +58,7 @@ const runtimeWith = (
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(expressions, operationsHolding()),
+    new IntegrationReader(expressions, operationsContaining()),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,
@@ -296,7 +296,7 @@ describe('IntegrationToolCalls', () => {
       expect(fetch).not.toHaveBeenCalled();
     });
 
-    it('sends nothing where the workspace holds no such secret', async () => {
+    it('sends nothing where the workspace has no such secret', async () => {
       const { comment, fetch } = wearing({});
 
       await expect(comment()).rejects.toThrow(
@@ -323,15 +323,15 @@ describe('IntegrationToolCalls', () => {
 
     await comment({ body: 'Fixed.' });
 
-    const held = await vi.waitFor(async () => {
+    const output = await vi.waitFor(async () => {
       const [kept] = await learned.ofTools(TeamId.of('team_1'), [
         'linear.comment',
       ]);
       expect(kept).toBeDefined();
       return kept;
     });
-    expect(held?.tool.value).toBe('linear.comment');
-    expect(held?.shape.schema).toEqual({ type: 'string' });
+    expect(output?.tool.value).toBe('linear.comment');
+    expect(output?.shape.schema).toEqual({ type: 'string' });
 
     const refused = using({
       ok: false,
@@ -509,7 +509,7 @@ graphql:
         new CompiledIntegrationRuntime(
           new IntegrationReader(
             expressions,
-            operationsHolding(
+            operationsContaining(
               DescribedDocument.read({
                 hash: HASH,
                 kind: 'openapi',

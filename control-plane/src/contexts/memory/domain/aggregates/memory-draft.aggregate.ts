@@ -89,7 +89,7 @@ export class MemoryDraft
     ) {
       throw new InconsistentStateError(
         'memory draft',
-        'holds the same proposal twice',
+        'has the same proposal twice',
       );
     }
 
@@ -98,7 +98,7 @@ export class MemoryDraft
     ) {
       throw new InconsistentStateError(
         'memory draft',
-        'holds a proposal grounded in another task',
+        'has a proposal grounded in another task',
       );
     }
 
@@ -282,7 +282,7 @@ export class MemoryDraft
     return remembered;
   }
 
-  holding(proposal: MemoryProposal): MemoryProposal | null {
+  findProposal(proposal: MemoryProposal): MemoryProposal | null {
     return (
       this.proposals.find((each) => each.id.equals(proposal.id)) ??
       this.twinOf(proposal)
@@ -374,15 +374,15 @@ export class MemoryDraft
   }
 
   private proposalNamed(id: MemoryId, runId: RunId): MemoryProposal {
-    const held = this.proposals.find(
+    const found = this.proposals.find(
       (each) => each.id.equals(id) && each.grounds.runId.equals(runId),
     );
 
-    if (!held) {
+    if (!found) {
       throw new UnknownMemoryError(id.value);
     }
 
-    return held;
+    return found;
   }
 
   private decided(decided: readonly MemoryProposal[]): MemoryDraft {

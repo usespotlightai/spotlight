@@ -58,7 +58,7 @@ export class RunnerPlacement {
     const clauses: Clause[] = [];
 
     for (const clause of placements.flatMap((each) => each.clauses)) {
-      if (!clauses.some((held) => sameClause(held, clause))) {
+      if (!clauses.some((existing) => sameClause(existing, clause))) {
         clauses.push(clause);
       }
     }

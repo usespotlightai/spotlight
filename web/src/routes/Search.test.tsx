@@ -58,8 +58,8 @@ vi.mock('@/hooks/api/useReplaySets', () => ({
               name: 'Billing work',
               entries: [
                 {
-                  runId: 'run_held',
-                  taskId: 'task_held',
+                  runId: 'run_held_out',
+                  taskId: 'task_held_out',
                   title: 'Retry refunds on timeout',
                 },
               ],
@@ -148,7 +148,7 @@ const DETAIL: SearchDetail = {
     searchedTasks: 5,
     heldOutTasks: 2,
     searched: [],
-    heldOut: [{ runId: 'run_held', taskId: 'task_held' }],
+    heldOut: [{ runId: 'run_held_out', taskId: 'task_held_out' }],
   },
   iterations: [
     {
@@ -190,7 +190,7 @@ const DETAIL: SearchDetail = {
       ],
       searchScore: 0.8,
       heldOutScore: 1,
-      heldOutReplayId: 'replay_tests_held',
+      heldOutReplayId: 'replay_tests_held_out',
       heldOutReplayState: 'finished',
       searchInterval: { rate: 0.8, low: 0.6, high: 1 },
       heldOutInterval: { rate: 1, low: 1, high: 1 },
@@ -234,14 +234,18 @@ const reflection = (
   agentSpent: null,
   reflection: {
     tasks: [
-      { taskId: 'task_held', originalRunId: 'run_held', replayRunId: 'run_r1' },
+      {
+        taskId: 'task_held_out',
+        originalRunId: 'run_held_out',
+        replayRunId: 'run_r1',
+      },
       { taskId: 'task_2', originalRunId: 'run_2', replayRunId: 'run_r2' },
       { taskId: 'task_3', originalRunId: 'run_3', replayRunId: 'run_r3' },
     ],
     causes: [
       {
-        taskId: 'task_held',
-        originalRunId: 'run_held',
+        taskId: 'task_held_out',
+        originalRunId: 'run_held_out',
         replayRunId: 'run_r1',
         cause: 'judge',
         evidence:
@@ -312,7 +316,7 @@ describe('Search', () => {
     sets.mockReturnValue(undefined);
   });
 
-  it('holds the page’s place while the search loads', () => {
+  it('keeps the page’s place while the search loads', () => {
     renderSearch();
 
     expect(
@@ -331,7 +335,7 @@ describe('Search', () => {
     ).toBeInTheDocument();
   });
 
-  it('says a search the team does not hold is not found, for a member', () => {
+  it('says a search the team does not own is not found, for a member', () => {
     error.mockReturnValue({ status: 404 });
     sets.mockReturnValue([]);
 
@@ -406,7 +410,7 @@ describe('Search', () => {
       /^The search aims for the same success for less\./,
     );
     expect(tile('Cheapest')).toHaveTextContent(
-      'No candidate holds its success yet',
+      'No candidate matches the live config’s success yet',
     );
     expect(
       screen.getByText(
@@ -603,7 +607,7 @@ describe('Search', () => {
       within(opened).getByRole('link', { name: 'Held-out replay' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_tests_held',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_tests_held_out',
     );
     expect(within(opened).getByRole('button', { name: 'Pick' })).toBeEnabled();
 

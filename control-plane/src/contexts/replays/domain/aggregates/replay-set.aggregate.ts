@@ -142,7 +142,7 @@ export class ReplaySet extends EventRecorder {
     return ReplaySet.holderOf(this.state.id);
   }
 
-  holds(run: RunId): boolean {
+  includes(run: RunId): boolean {
     return this.state.entries.some((each) => each.runId.equals(run));
   }
 
@@ -231,7 +231,7 @@ export class ReplaySet extends EventRecorder {
     this.stillAtItsStation();
     this.unsearched(searched);
 
-    if (this.holds(run)) {
+    if (this.includes(run)) {
       throw new ReplaySetEntryTakenError(run.value);
     }
 
@@ -270,7 +270,7 @@ export class ReplaySet extends EventRecorder {
   withoutEntry(run: RunId, searched: boolean): ReplaySet {
     this.unsearched(searched);
 
-    if (!this.holds(run)) {
+    if (!this.includes(run)) {
       throw new UnknownReplaySetEntryError(run.value);
     }
 

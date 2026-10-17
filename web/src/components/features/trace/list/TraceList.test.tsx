@@ -104,7 +104,7 @@ describe('TraceList', () => {
     ]);
   });
 
-  it('holds the shape of a trace while they load, keeping the column names', () => {
+  it('keeps the shape of a trace while they load, keeping the column names', () => {
     traces.mockReturnValue(undefined);
     showing();
 

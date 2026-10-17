@@ -274,7 +274,7 @@ const sealed = (workspace = 'ws_1') =>
 let gone: string[] = [];
 let taskGone = false;
 let taskNotes: TaskNote[] = [];
-let held: Run | null = null;
+let stored: Run | null = null;
 let kept: WorkspaceArchive | null = null;
 let queued: Run[] = [];
 let askedSkills: string[] = [];
@@ -285,7 +285,7 @@ const dispatching = () =>
     {
       findById: async (id: RunId) =>
         id.equals(ORIGINAL)
-          ? held
+          ? stored
           : (queued.find((each) => each.id.equals(id)) ?? null),
       add: async (run: Run) => {
         queued.push(run);
@@ -403,7 +403,7 @@ const refusalOf = async (asked: Promise<unknown>) =>
 
 describe('DispatchReplay', () => {
   beforeEach(() => {
-    held = original(STARTED);
+    stored = original(STARTED);
     kept = sealed();
     queued = [];
     askedSkills = [];
@@ -576,7 +576,7 @@ describe('DispatchReplay', () => {
   });
 
   it('refuses a run there is no record of', async () => {
-    held = null;
+    stored = null;
 
     expect(
       await refusalOf(
@@ -586,7 +586,7 @@ describe('DispatchReplay', () => {
   });
 
   it('refuses a run that never said where it started', async () => {
-    held = original(null);
+    stored = original(null);
 
     expect(
       await refusalOf(
@@ -649,7 +649,7 @@ describe('DispatchReplay', () => {
       (await dispatching().enqueue({ original: ORIGINAL, candidate: LINE, id }))
         .value,
     ).toBe('run_9');
-    held = null;
+    stored = null;
     expect(
       (await dispatching().enqueue({ original: ORIGINAL, candidate: LINE, id }))
         .value,

@@ -151,9 +151,13 @@ const rowsOf = (line: Line) =>
     ...stationColumnsOf(each),
   }));
 
-const roleTakenOr = (error: unknown, held: Line): unknown =>
-  held.role && violates(error, UNIQUE_VIOLATION, 'line_team_role')
-    ? new LineRoleTakenError({ line: held.key, role: held.role, others: [] })
+const roleTakenOr = (error: unknown, saving: Line): unknown =>
+  saving.role && violates(error, UNIQUE_VIOLATION, 'line_team_role')
+    ? new LineRoleTakenError({
+        line: saving.key,
+        role: saving.role,
+        others: [],
+      })
     : error;
 
 @Injectable()
@@ -267,17 +271,17 @@ export class DrizzleLineRepository implements LineRepository {
       );
     }
 
-    const held = saved.stations.map((each) => each.id.value);
+    const stationIds = saved.stations.map((each) => each.id.value);
 
     await this.context.db
       .delete(stationRoute)
-      .where(inArray(stationRoute.stationId, held));
+      .where(inArray(stationRoute.stationId, stationIds));
     await this.context.db
       .delete(stationTool)
-      .where(inArray(stationTool.stationId, held));
+      .where(inArray(stationTool.stationId, stationIds));
     await this.context.db
       .delete(stationSkill)
-      .where(inArray(stationSkill.stationId, held));
+      .where(inArray(stationSkill.stationId, stationIds));
     await this.context.db
       .delete(lineReaction)
       .where(eq(lineReaction.lineId, saved.id.value));
@@ -349,21 +353,21 @@ export class DrizzleLineRepository implements LineRepository {
   }
 
   private async waysOf(stations: StationRow[]): Promise<Ways> {
-    const held = stations.map((each) => each.id);
+    const stationIds = stations.map((each) => each.id);
     const ways: Ways = {
       routes: new Map(),
       tools: new Map(),
       skills: new Map(),
     };
 
-    if (held.length === 0) {
+    if (stationIds.length === 0) {
       return ways;
     }
 
     const routes = await this.context.db
       .select()
       .from(stationRoute)
-      .where(inArray(stationRoute.stationId, held));
+      .where(inArray(stationRoute.stationId, stationIds));
 
     for (const row of routes) {
       const found = ways.routes.get(row.stationId) ?? [];
@@ -374,7 +378,7 @@ export class DrizzleLineRepository implements LineRepository {
     const tools = await this.context.db
       .select()
       .from(stationTool)
-      .where(inArray(stationTool.stationId, held))
+      .where(inArray(stationTool.stationId, stationIds))
       .orderBy(stationTool.position);
 
     for (const row of tools) {
@@ -386,7 +390,7 @@ export class DrizzleLineRepository implements LineRepository {
     const skills = await this.context.db
       .select()
       .from(stationSkill)
-      .where(inArray(stationSkill.stationId, held))
+      .where(inArray(stationSkill.stationId, stationIds))
       .orderBy(stationSkill.position);
 
     for (const row of skills) {
@@ -399,12 +403,12 @@ export class DrizzleLineRepository implements LineRepository {
   }
 
   private async reactionsOf(lineId: string): Promise<Reaction[]> {
-    const held = await this.context.db
+    const rows = await this.context.db
       .select()
       .from(lineReaction)
       .where(eq(lineReaction.lineId, lineId));
 
-    return held.map((row) =>
+    return rows.map((row) =>
       Reaction.of({
         happening: Happening.of(row.happening),
         from: row.fromStationId ? StationId.of(row.fromStationId) : null,
@@ -414,12 +418,12 @@ export class DrizzleLineRepository implements LineRepository {
   }
 
   private async repositoriesOf(lineId: string): Promise<WorkedRepository[]> {
-    const held = await this.context.db
+    const rows = await this.context.db
       .select()
       .from(lineRepository)
       .where(eq(lineRepository.lineId, lineId));
 
-    return held.map((row) =>
+    return rows.map((row) =>
       WorkedRepository.of(Repository.of(row.repository), {
         image: row.image ? RunnerImage.of(row.image) : null,
         setup: row.setup ? RepositorySetup.of(row.setup) : null,
@@ -427,7 +431,7 @@ export class DrizzleLineRepository implements LineRepository {
     );
   }
 
-  async holding(stationId: StationId): Promise<Line | null> {
+  async findByStation(stationId: StationId): Promise<Line | null> {
     const [found] = await this.context.db
       .select({ lineId: station.lineId })
       .from(station)
@@ -482,16 +486,16 @@ export class DrizzleLineRepository implements LineRepository {
   }
 
   private async allOf(ids: readonly string[]): Promise<readonly Line[]> {
-    const held: Line[] = [];
+    const found: Line[] = [];
 
     for (const id of ids) {
       const line = await this.find(LineId.of(id));
 
       if (line) {
-        held.push(line);
+        found.push(line);
       }
     }
 
-    return held;
+    return found;
   }
 }

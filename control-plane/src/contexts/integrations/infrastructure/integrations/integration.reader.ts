@@ -57,7 +57,7 @@ export class IntegrationReader {
             path,
             name: integration.name,
             connects: integration.connects,
-            holding: integration.holding.kind,
+            holder: integration.holder.kind,
             credentials: integration.credentials,
             described:
               described && defined?.reading
@@ -144,10 +144,10 @@ export class IntegrationReader {
 
   private compiledOf(defined: DefinedIntegration): Compiled {
     const key = `${defined.id}:${defined.version}`;
-    const held = this.#compiled.get(key);
+    const cached = this.#compiled.get(key);
 
-    if (held) {
-      return held;
+    if (cached) {
+      return cached;
     }
 
     const compiled = compileIntegration(defined.definition, this.expressions);

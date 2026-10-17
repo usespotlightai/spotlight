@@ -59,19 +59,19 @@ export class RememberHandler
 
   async execute(command: RememberCommand): Promise<ProposedMemoryDto> {
     try {
-      const held = await this.loader.held(command.runId, command.runnerId);
+      const run = await this.loader.leased(command.runId, command.runnerId);
       const remembering = Remembering.of({
-        taskId: held.taskId,
-        runId: held.id,
-        replay: held.replaysFrom !== null,
-        isSearch: held.isSearch,
+        taskId: run.taskId,
+        runId: run.id,
+        replay: run.replaysFrom !== null,
+        isSearch: run.isSearch,
       });
 
       const [task, site, steps, supersedes] = await Promise.all([
         this.work.task(remembering.taskId),
-        this.work.stationSiteOf(held.id),
-        this.work.reasoning(held.id),
-        this.superseded(held.teamId, command.remembering.supersedes),
+        this.work.stationSiteOf(run.id),
+        this.work.reasoning(run.id),
+        this.superseded(run.teamId, command.remembering.supersedes),
       ]);
 
       if (!task || !site || !steps) {
@@ -80,7 +80,7 @@ export class RememberHandler
 
       const remembrance: Remembrance = {
         remembering,
-        runId: held.id,
+        runId: run.id,
         task,
         site,
         steps,
@@ -96,7 +96,7 @@ export class RememberHandler
           throw error;
         },
       );
-      const review = await this.reviews.of(remembered.draft, held.id);
+      const review = await this.reviews.of(remembered.draft, run.id);
       const shown = review.memories.find(
         (each) => each.id === remembered.id.value,
       );
@@ -166,7 +166,7 @@ export class RememberHandler
         await (found ? this.drafts.save(next) : this.drafts.add(next));
       }
 
-      const kept = next.holding(proposal);
+      const kept = next.findProposal(proposal);
 
       if (!kept) {
         throw new UnknownMemoryError(proposal.id.value);

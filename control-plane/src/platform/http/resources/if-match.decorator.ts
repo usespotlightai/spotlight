@@ -12,16 +12,16 @@ export const IfMatch = createParamDecorator(
     const { headers } = context
       .switchToHttp()
       .getRequest<{ headers: RequestHeaders }>();
-    const held = headerIn(headers, IF_MATCH_HEADER);
+    const value = headerIn(headers, IF_MATCH_HEADER);
 
-    if (held === undefined) {
+    if (value === undefined) {
       throw ProblemException.preconditionRequired();
     }
 
-    const version = versionIn(held);
+    const version = versionIn(value);
 
     if (version === null) {
-      throw ProblemException.malformedPrecondition(held);
+      throw ProblemException.malformedPrecondition(value);
     }
 
     return version;

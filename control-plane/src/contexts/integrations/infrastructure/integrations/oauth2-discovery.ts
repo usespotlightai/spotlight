@@ -110,10 +110,10 @@ export class OAuth2Discovery {
 
   private async discovered(server: string): Promise<Discovered | null> {
     const now = this.clock.now().getTime();
-    const held = this.#found.get(server);
+    const cached = this.#found.get(server);
 
-    if (held && held.until > now) {
-      return held.discovered;
+    if (cached && cached.until > now) {
+      return cached.discovered;
     }
 
     const discovered = await this.discover(server).catch(() => null);

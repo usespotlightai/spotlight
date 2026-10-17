@@ -3,7 +3,7 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 
 export const RUNNERS = Symbol('RUNNERS');
 
-export interface HeldWork {
+export interface LeasedWork {
   readonly kind: 'run' | 'check';
   readonly id: string;
 }
@@ -23,7 +23,7 @@ export type StartedRunner =
 export interface ProvisionRequest {
   readonly poolId: string;
   readonly runnerId: RunnerId;
-  readonly work: HeldWork;
+  readonly work: LeasedWork;
   readonly runId: string;
   readonly taskId: string | null;
   readonly labels: readonly string[];
@@ -61,11 +61,11 @@ export interface RunnersPort {
 
   provision(request: ProvisionRequest, at: Date): Promise<ProvisionedRunner>;
 
-  took(runnerId: RunnerId, work: HeldWork, at: Date): Promise<void>;
+  took(runnerId: RunnerId, work: LeasedWork, at: Date): Promise<void>;
 
   letGo(runnerId: RunnerId, at: Date): Promise<void>;
 
   reservationDropped(runnerId: RunnerId, at: Date): Promise<void>;
 
-  workEnded(work: HeldWork, at: Date): Promise<void>;
+  workEnded(work: LeasedWork, at: Date): Promise<void>;
 }

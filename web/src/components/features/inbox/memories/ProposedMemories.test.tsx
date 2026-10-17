@@ -284,7 +284,7 @@ describe('ProposedMemories', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('holds its place while the memories load', () => {
+  it('keeps its place while the memories load', () => {
     reviewState.data = undefined;
     reviewState.isPending = true;
     render(<ProposedMemories {...ABOUT} />);

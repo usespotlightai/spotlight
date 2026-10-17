@@ -152,7 +152,7 @@ describe('WorkspaceTokenTrust', () => {
         id: ID,
         workspaceId: WORKSPACE,
         definedBy: ADMIN,
-        grantor: Grantor.holding(TokenScopes.named(scopes)),
+        grantor: Grantor.withScopes(TokenScopes.named(scopes)),
         by: BY,
       });
 
@@ -165,7 +165,7 @@ describe('WorkspaceTokenTrust', () => {
     expect(() =>
       kept().redefinedAs(
         terms({ scopes: ['plan'] }),
-        Grantor.holding(TokenScopes.named(['configure', 'trusts'])),
+        Grantor.withScopes(TokenScopes.named(['configure', 'trusts'])),
         BY,
       ),
     ).toThrow(TokenTrustBeyondGrantorError);
@@ -173,7 +173,7 @@ describe('WorkspaceTokenTrust', () => {
       kept()
         .redefinedAs(
           terms({ scopes: ['plan'] }),
-          Grantor.holding(
+          Grantor.withScopes(
             TokenScopes.named(['configure', 'secrets', 'trusts']),
           ),
           BY,
@@ -182,16 +182,18 @@ describe('WorkspaceTokenTrust', () => {
     ).toBe('plan');
   });
 
-  it('is withdrawn only by a grantor holding every scope it grants', () => {
+  it('is withdrawn only by a grantor with every scope it grants', () => {
     expect(() =>
       kept().withdraw(
-        Grantor.holding(TokenScopes.named(['plan', 'trusts'])),
+        Grantor.withScopes(TokenScopes.named(['plan', 'trusts'])),
         BY,
       ),
     ).toThrow(TokenTrustBeyondGrantorError);
     expect(
       kept().withdraw(
-        Grantor.holding(TokenScopes.named(['configure', 'secrets', 'trusts'])),
+        Grantor.withScopes(
+          TokenScopes.named(['configure', 'secrets', 'trusts']),
+        ),
         BY,
       ).isWithdrawn,
     ).toBe(true);

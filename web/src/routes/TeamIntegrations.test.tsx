@@ -88,7 +88,7 @@ const integration = (over: Record<string, unknown> = {}) => ({
   name: 'PagerDuty',
   path: 'integrations/pagerduty.tf',
   standing: 'listens',
-  holding: 'team',
+  holder: 'team',
   handle: null,
   described: null,
   ...over,
@@ -100,7 +100,7 @@ const personal = (over: Record<string, unknown> = {}) =>
     name: 'Linear',
     path: 'integrations/linear.tf',
     standing: 'linked',
-    holding: 'requester',
+    holder: 'requester',
     handle: '@acme-bot',
     ...over,
   });
@@ -173,7 +173,7 @@ beforeEach(() => {
 });
 
 describe('TeamIntegrations', () => {
-  it('holds the shape of the list while it loads', () => {
+  it('keeps the shape of the list while it loads', () => {
     configuration.mockReturnValue(undefined);
     showing();
 

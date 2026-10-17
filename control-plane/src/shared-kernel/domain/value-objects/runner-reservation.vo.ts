@@ -22,11 +22,11 @@ export class RunnerReservation {
     return new RunnerReservation(runner, pool, until);
   }
 
-  holdsAt(now: Date): boolean {
+  isActiveAt(now: Date): boolean {
     return now.getTime() < this.until.getTime();
   }
 
-  heldFor(runner: RunnerId): boolean {
+  isFor(runner: RunnerId): boolean {
     return this.runner.equals(runner);
   }
 

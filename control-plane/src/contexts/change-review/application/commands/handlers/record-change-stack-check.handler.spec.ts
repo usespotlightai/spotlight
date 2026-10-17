@@ -133,14 +133,14 @@ const reported = (runner: string) =>
   ]);
 
 describe('RecordChangeStackCheckHandler', () => {
-  it('takes what the runner holding the check found', async () => {
+  it('takes what the runner with the lease on the check found', async () => {
     const stack = ready();
-    const held = checkFor(stack).claimedFor(
+    const leased = checkFor(stack).claimedFor(
       RunnerId.of('runner_1'),
       RunnerTerms.none(),
       LATER,
     );
-    const { handler, saved } = recording(stack, held);
+    const { handler, saved } = recording(stack, leased);
 
     await handler.execute(reported('runner_1'));
 
@@ -148,14 +148,14 @@ describe('RecordChangeStackCheckHandler', () => {
     expect(saved[0]?.stateAt(LATER)).toBe('checked');
   });
 
-  it('turns away a runner that does not hold the check as a conflict', async () => {
+  it('turns away a runner that does not have the lease on the check as a conflict', async () => {
     const stack = ready();
-    const held = checkFor(stack).claimedFor(
+    const leased = checkFor(stack).claimedFor(
       RunnerId.of('runner_1'),
       RunnerTerms.none(),
       LATER,
     );
-    const { handler, saved } = recording(stack, held);
+    const { handler, saved } = recording(stack, leased);
 
     await expect(handler.execute(reported('runner_2'))).rejects.toMatchObject({
       kind: 'conflict',

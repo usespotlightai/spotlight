@@ -35,19 +35,19 @@ const LINEAR = {
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `secrets-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `secrets-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/workspaces/${held}/secrets`,
+    collection: `/api/resources/workspaces/${workspaceId}/secrets`,
     item: (id) => `/api/resources/secrets/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/secrets/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/secrets/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
       `/api/resources/workspaces/${workspaceId}/secrets`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'LINEAR_API_KEY',
     valid: LINEAR,
     changed: {
@@ -71,13 +71,15 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
             `person:${seat.member}`,
           ]),
         );
-      await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+      await db
+        .delete(schema.secret)
+        .where(eq(schema.secret.workspaceId, workspaceId));
       await db
         .delete(schema.configurationChange)
-        .where(eq(schema.configurationChange.workspaceId, held));
+        .where(eq(schema.configurationChange.workspaceId, workspaceId));
       await db
         .delete(schema.secretDataKey)
-        .where(eq(schema.secretDataKey.workspaceId, held));
+        .where(eq(schema.secretDataKey.workspaceId, workspaceId));
       await seat.unseat();
     },
   };

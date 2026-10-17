@@ -62,7 +62,7 @@ export interface ApprovalRow {
   readonly askedOf?: string | null;
 }
 
-export type HeldBackRow =
+export type DeferredMoveRow =
   | { readonly kind: 'moves'; readonly to: string }
   | { readonly kind: 'cleared' };
 
@@ -137,7 +137,7 @@ export const taskNote = pgTable(
     said: jsonb('said').$type<SaidRow>(),
     approval: jsonb('approval').$type<ApprovalRow>(),
     failure: jsonb('failure').$type<FailureRow>(),
-    heldBack: jsonb('held_back').$type<HeldBackRow>(),
+    deferredMove: jsonb('deferred_move').$type<DeferredMoveRow>(),
     connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
     answeredAt: timestamp('answered_at'),
     readAt: timestamp('read_at'),

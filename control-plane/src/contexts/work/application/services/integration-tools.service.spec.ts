@@ -59,7 +59,7 @@ const reaching = (given: { movedOn?: boolean } = {}) => {
 
   const tools = new IntegrationTools(
     { find: async () => ({}) } as unknown as TaskRepository,
-    { holding: async () => ({}) } as unknown as LineRepository,
+    { findByStation: async () => ({}) } as unknown as LineRepository,
     { of: async () => ({}) as BoundTaskDto } as unknown as TaskBindings,
     calls,
     { stillOn } as unknown as RunWorks,

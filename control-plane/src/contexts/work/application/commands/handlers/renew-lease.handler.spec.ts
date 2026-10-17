@@ -71,7 +71,7 @@ describe('RenewLeaseHandler', () => {
     expect(saved[0]?.state).toBe('claimed');
   });
 
-  it('says a run its runner no longer holds is not there, rather than a conflict', async () => {
+  it('says a run its runner no longer leases is not there, rather than a conflict', async () => {
     const { renew } = renewing([waiting().letGo(NOW)]);
 
     await expect(renew()).rejects.toMatchObject({ kind: 'not-found' });

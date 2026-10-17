@@ -4,8 +4,8 @@ import {
   answeringCount,
   formatRun,
   type Host,
-  heldRunPath,
   hiddenFromViewer,
+  leasedRunPath,
   runnerStanding,
   seenAt,
   standing,
@@ -76,7 +76,7 @@ describe('standing', () => {
   });
 });
 
-const HELD = {
+const LEASED_RUN = {
   id: 'run_7',
   state: 'claimed',
   kind: 'task' as const,
@@ -94,10 +94,12 @@ describe('withActivity', () => {
           runner({ id: 'runner_1', hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' }),
         ],
       },
-      [{ runnerId: 'runner_1', currentRun: HELD }],
+      [{ runnerId: 'runner_1', currentRun: LEASED_RUN }],
     );
 
-    expect(hosts[0]?.runners.map((each) => each.currentRun)).toEqual([HELD]);
+    expect(hosts[0]?.runners.map((each) => each.currentRun)).toEqual([
+      LEASED_RUN,
+    ]);
     expect(pools).toEqual([]);
   });
 
@@ -128,12 +130,12 @@ describe('withActivity', () => {
 
 describe('formatRun', () => {
   it('names the run, or says what kind it is where it cannot', () => {
-    expect(formatRun(HELD)).toBe('Drain the stuck retry queues');
-    expect(formatRun({ ...HELD, kind: 'search', title: null })).toBe(
+    expect(formatRun(LEASED_RUN)).toBe('Drain the stuck retry queues');
+    expect(formatRun({ ...LEASED_RUN, kind: 'search', title: null })).toBe(
       'A search run',
     );
     expect(
-      formatRun({ ...HELD, kind: 'spec', teamId: null, title: null }),
+      formatRun({ ...LEASED_RUN, kind: 'spec', teamId: null, title: null }),
     ).toBe('A run queued by hand');
     expect(formatRun(null)).toBe('No run yet');
   });
@@ -144,44 +146,61 @@ describe('runnerStanding', () => {
     const active = runner();
 
     expect(runnerStanding({ ...active, currentRun: null })).toBe('Starting');
-    expect(runnerStanding({ ...active, currentRun: HELD })).toBe('Running');
+    expect(runnerStanding({ ...active, currentRun: LEASED_RUN })).toBe(
+      'Running',
+    );
     expect(
-      runnerStanding({ ...active, currentRun: { ...HELD, state: 'waiting' } }),
+      runnerStanding({
+        ...active,
+        currentRun: { ...LEASED_RUN, state: 'waiting' },
+      }),
     ).toBe('Waiting on a person');
   });
 });
 
 describe('hiddenFromViewer', () => {
   it('hides a task run or chat of a team the viewer cannot read, never a replay, a search or a run for no team', () => {
-    expect(hiddenFromViewer({ ...HELD, readable: false, title: null })).toBe(
-      true,
-    );
     expect(
-      hiddenFromViewer({ ...HELD, kind: 'chat', readable: false, title: null }),
+      hiddenFromViewer({ ...LEASED_RUN, readable: false, title: null }),
     ).toBe(true);
-    expect(hiddenFromViewer(HELD)).toBe(false);
     expect(
       hiddenFromViewer({
-        ...HELD,
+        ...LEASED_RUN,
+        kind: 'chat',
+        readable: false,
+        title: null,
+      }),
+    ).toBe(true);
+    expect(hiddenFromViewer(LEASED_RUN)).toBe(false);
+    expect(
+      hiddenFromViewer({
+        ...LEASED_RUN,
         kind: 'search',
         readable: false,
         title: null,
       }),
     ).toBe(false);
     expect(
-      hiddenFromViewer({ ...HELD, readable: false, teamId: null, title: null }),
+      hiddenFromViewer({
+        ...LEASED_RUN,
+        readable: false,
+        teamId: null,
+        title: null,
+      }),
     ).toBe(false);
     expect(hiddenFromViewer(null)).toBe(false);
   });
 });
 
-describe('heldRunPath', () => {
+describe('leasedRunPath', () => {
   it('links only a task run on a team the viewer reads', () => {
-    expect(heldRunPath('acme', HELD)).toBe('/w/acme/team/team_1/runs/run_7');
+    expect(leasedRunPath('acme', LEASED_RUN)).toBe(
+      '/w/acme/team/team_1/runs/run_7',
+    );
     expect(
-      heldRunPath('acme', { ...HELD, readable: false, title: null }),
+      leasedRunPath('acme', { ...LEASED_RUN, readable: false, title: null }),
     ).toBeNull();
-    expect(heldRunPath('acme', { ...HELD, kind: 'chat' })).toBeNull();
+    expect(leasedRunPath('acme', { ...LEASED_RUN, kind: 'chat' })).toBeNull();
   });
 });
 

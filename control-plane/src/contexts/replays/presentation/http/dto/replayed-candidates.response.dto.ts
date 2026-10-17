@@ -71,7 +71,7 @@ export class ReplaySetHealthResponseDto extends SetHealthResponseDto {
   })
   readonly tasks: number;
 
-  @ApiProperty({ description: 'How many past runs the set holds now' })
+  @ApiProperty({ description: 'How many past runs the set contains now' })
   readonly runs: number;
 
   @ApiProperty({
@@ -96,7 +96,8 @@ export class ReplaySetHealthResponseDto extends SetHealthResponseDto {
     nullable: true,
     type: String,
     example: '2026-09-29T09:00:00.000Z',
-    description: 'When a task was last added to it; null while it holds none',
+    description:
+      'When a task was last added to it; null while it contains none',
   })
   readonly lastAddedAt: string | null;
 

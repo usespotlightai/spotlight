@@ -51,7 +51,7 @@ describe('WebhookSources', () => {
     expect(asked).toBe(1);
   });
 
-  it('holds every source registered', () => {
+  it('contains every source registered', () => {
     const sources = WebhookSources.of([source('github'), source('sentry')]);
 
     expect(sources.all.map((each) => each.key)).toEqual(['github', 'sentry']);

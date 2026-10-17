@@ -28,7 +28,7 @@ const (
 	defaultRenew = time.Minute
 )
 
-var errNoLongerHeld = errors.New("the check is no longer held")
+var errNoLongerLeased = errors.New("the check is no longer leased")
 
 type Control interface {
 	RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error)
@@ -59,16 +59,16 @@ func Perform(ctx context.Context, client Control, check protocol.StackCheck, opt
 	checking, stop := context.WithTimeout(ctx, opts.or(opts.Total, defaultTotal))
 	defer stop()
 
-	held, letGo := context.WithCancelCause(checking)
-	renewing := opts.renew(held, client, check, letGo)
+	leased, letGo := context.WithCancelCause(checking)
+	renewing := opts.renew(leased, client, check, letGo)
 
-	checked := opts.perform(held, check)
-	lost := errors.Is(context.Cause(held), errNoLongerHeld)
+	checked := opts.perform(leased, check)
+	lost := errors.Is(context.Cause(leased), errNoLongerLeased)
 	letGo(nil)
 	<-renewing
 
 	if lost {
-		opts.Log.Info("stopped checking a change stack it no longer holds", "stack", check.StackID)
+		opts.Log.Info("stopped checking a change stack it no longer leases", "stack", check.StackID)
 		return
 	}
 
@@ -96,11 +96,11 @@ func (o Options) renew(
 				switch {
 				case err == nil && stop:
 					o.Log.Info("told to stop checking a change stack", "stack", check.StackID)
-					letGo(errNoLongerHeld)
+					letGo(errNoLongerLeased)
 					return
 				case err != nil && control.CheckLeaseLost(err):
 					o.Log.Warn("lost the lease of a change stack check", "stack", check.StackID, "error", err)
-					letGo(errNoLongerHeld)
+					letGo(errNoLongerLeased)
 					return
 				case err != nil && ctx.Err() == nil:
 					o.Log.Warn("could not renew the lease of a change stack check", "stack", check.StackID, "error", err)

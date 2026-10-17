@@ -15,7 +15,7 @@ describe('skillTrendOf', () => {
     expect(skillTrendOf(weeks([5, 4], [5, 4], [5, 2], [5, 2]))).toBe('fading');
   });
 
-  it('holds steady when the share moves less than 20 points', () => {
+  it('stays steady when the share moves less than 20 points', () => {
     expect(skillTrendOf(weeks([10, 5], [10, 5], [10, 6], [10, 6]))).toBe(
       'steady',
     );

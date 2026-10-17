@@ -11,7 +11,7 @@ export const secretGiven = (given: GivenSigningSecret | null): SecretGiven => {
     ? { kind: 'kept', version: given.version }
     : {
         kind: 'given',
-        held: {
+        versioned: {
           secret: HookSigningSecret.of(given.secret),
           version: given.version,
         },

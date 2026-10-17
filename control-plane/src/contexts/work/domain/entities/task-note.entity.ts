@@ -7,7 +7,7 @@ import type {
 } from '@work/domain/value-objects/approval.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
-import type { HeldBack } from '@work/domain/value-objects/held-back.vo';
+import type { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { Remark } from '@work/domain/value-objects/remark.vo';
 import type { Said } from '@work/domain/value-objects/said.vo';
@@ -47,7 +47,7 @@ export class TaskNote {
     readonly attachments: readonly Attachment[],
     readonly approval: Approval | null,
     readonly failure: TaskFailure | null,
-    readonly heldBack: HeldBack | null,
+    readonly deferredMove: DeferredMove | null,
     readonly connectionAsk: ConnectionAsk | null,
   ) {}
 
@@ -66,7 +66,7 @@ export class TaskNote {
     attachments?: readonly Attachment[];
     approval?: Approval | null;
     failure?: TaskFailure | null;
-    heldBack?: HeldBack | null;
+    deferredMove?: DeferredMove | null;
     connectionAsk?: ConnectionAsk | null;
   }): TaskNote {
     return new TaskNote(
@@ -84,7 +84,7 @@ export class TaskNote {
       input.attachments ?? [],
       input.approval ?? null,
       input.failure ?? null,
-      input.heldBack ?? null,
+      input.deferredMove ?? null,
       input.connectionAsk ?? null,
     );
   }
@@ -162,7 +162,7 @@ export class TaskNote {
           this.attachments,
           this.approval,
           as,
-          this.heldBack,
+          this.deferredMove,
           this.connectionAsk,
         )
       : this;
@@ -198,7 +198,7 @@ export class TaskNote {
       this.attachments,
       part.approval ?? this.approval,
       this.failure,
-      this.heldBack,
+      this.deferredMove,
       part.connectionAsk ?? this.connectionAsk,
     );
   }

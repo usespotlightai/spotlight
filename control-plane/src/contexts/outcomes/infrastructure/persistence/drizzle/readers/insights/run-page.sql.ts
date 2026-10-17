@@ -61,10 +61,10 @@ const repositoryWhere = (repository: Narrowing): SQL | undefined => {
 
   return repository.kind === 'none'
     ? sql`jsonb_array_length(${runFact.repositories}) = 0`
-    : holding(runFact.repositories, [repository.value]);
+    : containing(runFact.repositories, [repository.value]);
 };
 
-const holding = (column: SQLWrapper, value: unknown): SQL =>
+const containing = (column: SQLWrapper, value: unknown): SQL =>
   sql`${column} @> ${JSON.stringify(value)}::jsonb`;
 
 const refusedServerOf = (server: Narrowing): { server?: string | null } => {
@@ -78,7 +78,7 @@ const refusedServerOf = (server: Narrowing): { server?: string | null } => {
 const refusalWhere = (filter: RunFilter): SQL | undefined =>
   filter.refusedTool === null && filter.refusedServer.kind === 'any'
     ? undefined
-    : holding(runFact.refusals, [
+    : containing(runFact.refusals, [
         {
           ...(filter.refusedTool === null ? {} : { tool: filter.refusedTool }),
           ...refusedServerOf(filter.refusedServer),
@@ -89,13 +89,15 @@ const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
   const narrowed = [
     filter.skillGiven === null
       ? undefined
-      : holding(runFact.skills, [filter.skillGiven]),
+      : containing(runFact.skills, [filter.skillGiven]),
     filter.skillUsed === null
       ? undefined
-      : holding(sql`${runFact.tools}->'skillsRead'`, [filter.skillUsed]),
+      : containing(sql`${runFact.tools}->'skillsRead'`, [filter.skillUsed]),
     filter.server === null
       ? undefined
-      : holding(sql`${runFact.tools}->'servers'`, [{ server: filter.server }]),
+      : containing(sql`${runFact.tools}->'servers'`, [
+          { server: filter.server },
+        ]),
     filter.serverFailed === null
       ? undefined
       : sql`exists (select 1 from jsonb_array_elements(${runFact.tools}->'servers') as called where called->>'server' = ${filter.serverFailed} and (called->>'failed')::int > 0)`,
@@ -104,7 +106,7 @@ const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
       : and(
           sql`${runFact.ending}::text = 'failed'`,
           isNull(runFact.supersededAt),
-          holding(sql`${runFact.tools}->'servers'`, [
+          containing(sql`${runFact.tools}->'servers'`, [
             { server: filter.failedAfter, lastCallFailed: true },
           ]),
         ),

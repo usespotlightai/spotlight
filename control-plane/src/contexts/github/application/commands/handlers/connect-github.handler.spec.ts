@@ -68,7 +68,7 @@ const connecting = (
     {
       of: vi.fn(async (id: WorkspaceId) => GitHubConnection.none(id)),
       claimantOf: vi.fn(async () => over.claimedBy ?? null),
-      heldClaimantOf: vi.fn(async () => over.claimedBy ?? null),
+      lockedClaimantOf: vi.fn(async () => over.claimedBy ?? null),
       save,
     } satisfies GitHubConnectionRepository,
     administration,
@@ -144,7 +144,7 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses an installation another workspace holds', async () => {
+  it('refuses an installation another workspace has', async () => {
     const { handler, save } = connecting({
       claimedBy: WorkspaceId.of('ws_2'),
     });

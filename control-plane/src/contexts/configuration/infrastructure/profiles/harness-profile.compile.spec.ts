@@ -6,7 +6,7 @@ import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-sp
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
-const HELD = {
+const DOCUMENT = {
   key: 'careful',
   permissions: { allow: ['read'], ask: ['execute(git push *)'] },
   native: { gone: {} },
@@ -24,7 +24,7 @@ const DROPPED = reviewed({
 
 describe('HarnessProfileCompiler', () => {
   it('refuses a profile a harness cannot take when it is written', () => {
-    const compiled = DROPPED.compile(HELD);
+    const compiled = DROPPED.compile(DOCUMENT);
 
     expect(compiled.ok).toBe(false);
     expect(
@@ -33,7 +33,7 @@ describe('HarnessProfileCompiler', () => {
   });
 
   it('reads a stored profile back without asking the harnesses again', () => {
-    const read = DROPPED.read(HELD);
+    const read = DROPPED.read(DOCUMENT);
 
     expect(read.ok).toBe(true);
     expect(read.ok ? read.settings.permissions : null).toEqual({

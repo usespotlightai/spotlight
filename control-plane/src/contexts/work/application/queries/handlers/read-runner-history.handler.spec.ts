@@ -148,7 +148,7 @@ const reading = ({
     alertsAt: async () => null,
   };
   const traces = {
-    heldRunStanding: vi
+    leasedRunStanding: vi
       .fn()
       .mockResolvedValue(
         team ? { teamId: team, replaysFrom, isSearch: sight !== null } : null,
@@ -216,11 +216,11 @@ const reading = ({
 };
 
 describe('ReadRunnerHistoryHandler', () => {
-  it('answers nothing for a run its runner does not hold', async () => {
+  it('answers nothing for a run its runner does not lease', async () => {
     expect(await reading({ team: null }).read()).toEqual({ kind: 'unknown' });
   });
 
-  it('looks for the station only among the held run’s team’s lines', async () => {
+  it('looks for the station only among the lines of the team of the leased run', async () => {
     const { read, stationsKeyed } = reading();
 
     await read({ line: 'delivery' });

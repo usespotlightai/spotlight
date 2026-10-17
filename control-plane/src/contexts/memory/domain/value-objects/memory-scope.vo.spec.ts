@@ -27,7 +27,7 @@ const aboutPaths = (paths: string[]) =>
   });
 
 describe('MemoryScope', () => {
-  it('reaches a place through a folder that holds a touched file', () => {
+  it('reaches a place through a folder that contains a touched file', () => {
     expect(
       aboutPaths(['src/uploads']).reaches(place(['src/uploads/retry.ts'])),
     ).toBe(true);

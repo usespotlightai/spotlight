@@ -61,29 +61,29 @@ export const judgedRunsOf = (
 export const judgedByRun = (
   judged: readonly JudgedRun[],
 ): ReadonlyMap<string, readonly JudgedRun[]> => {
-  const held = new Map<string, JudgedRun[]>();
+  const byRun = new Map<string, JudgedRun[]>();
 
   for (const each of judged) {
-    const ofRun = held.get(each.runId) ?? [];
+    const ofRun = byRun.get(each.runId) ?? [];
 
     ofRun.push(each);
-    held.set(each.runId, ofRun);
+    byRun.set(each.runId, ofRun);
   }
 
-  return held;
+  return byRun;
 };
 
 export const rubricsOf = (
   records: readonly RunRecord[],
   judged: ReadonlyMap<string, readonly JudgedRun[]>,
 ): readonly RubricShares[] => {
-  const held = new Map<string, RubricShares>();
+  const byRubric = new Map<string, RubricShares>();
 
   for (const record of records) {
     for (const each of judged.get(record.runId.value) ?? []) {
-      const was = held.get(each.rubricVersion);
+      const was = byRubric.get(each.rubricVersion);
 
-      held.set(each.rubricVersion, {
+      byRubric.set(each.rubricVersion, {
         rubricVersion: each.rubricVersion,
         sum: (was?.sum ?? 0) + each.share,
         judged: (was?.judged ?? 0) + 1,
@@ -91,7 +91,7 @@ export const rubricsOf = (
     }
   }
 
-  return [...held.values()].sort((one, other) =>
+  return [...byRubric.values()].sort((one, other) =>
     byText(one.rubricVersion, other.rubricVersion),
   );
 };
@@ -100,9 +100,12 @@ export const judgeShareFrom = (
   rubrics: readonly RubricShares[],
   trusted: string | null,
 ): JudgeShare => {
-  const held = rubrics.find((each) => each.rubricVersion === trusted);
+  const trustedRubric = rubrics.find((each) => each.rubricVersion === trusted);
 
-  return held
-    ? { mean: held.sum / held.judged, judged: held.judged }
+  return trustedRubric
+    ? {
+        mean: trustedRubric.sum / trustedRubric.judged,
+        judged: trustedRubric.judged,
+      }
     : { mean: null, judged: 0 };
 };

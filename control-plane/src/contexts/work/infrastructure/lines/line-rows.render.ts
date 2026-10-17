@@ -36,7 +36,7 @@ type DeeplySameKeys<A, B> = [A] extends [readonly (infer OfA)[]]
       : false
     : true;
 
-type ExactlyHeld<T extends LineDefinition> =
+type Exact<T extends LineDefinition> =
   DeeplySameKeys<T, LineDefinition> extends true ? T : never;
 
 type StationFields = LineFields['stations'][number];
@@ -95,9 +95,9 @@ export interface LineRows {
 
 const present = <K extends string, V>(
   key: K,
-  held: V | null,
+  value: V | null,
 ): Partial<Record<K, V>> =>
-  held === null ? {} : ({ [key]: held } as Record<K, V>);
+  value === null ? {} : ({ [key]: value } as Record<K, V>);
 
 const placed = (runners: readonly string[]): string[] | null =>
   runners.length > 0 ? [...runners] : null;
@@ -114,9 +114,7 @@ const inReactionOrder =
     place(one.fromStationId) - place(other.fromStationId) ||
     place(one.toStationId) - place(other.toStationId);
 
-export const renderLineRows = (
-  rows: LineRows,
-): ExactlyHeld<Rendered<LineFields>> => {
+export const renderLineRows = (rows: LineRows): Exact<Rendered<LineFields>> => {
   const keyOf = new Map(rows.stations.map((each) => [each.id, each.key]));
   const positionOf = new Map(rows.stations.map((each, at) => [each.id, at]));
   const at = (stationId: string): string => keyOf.get(stationId) ?? '';

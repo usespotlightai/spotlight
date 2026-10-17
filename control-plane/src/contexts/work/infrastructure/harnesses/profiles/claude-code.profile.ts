@@ -79,11 +79,11 @@ export const claudeCodeProfile: ProfileTranslator = {
           continue;
         }
 
-        const heldByRule =
+        const otherwiseOutranks =
           plan.otherwise === 'deny' ||
           (plan.otherwise === 'ask' && plan.kind === 'read');
 
-        if (!stricter(rule.decision, plan.otherwise) && heldByRule) {
+        if (!stricter(rule.decision, plan.otherwise) && otherwiseOutranks) {
           warnings.push(
             noteOn(
               HARNESS,

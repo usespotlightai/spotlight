@@ -8,7 +8,7 @@ import type { DefinedIntegrationsPort } from '@integrations/application/ports/de
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type {
   OAuth2Begun,
-  OAuth2Holding,
+  OAuth2HolderKind,
   OAuth2LinkingPort,
 } from '@integrations/application/ports/oauth2-linking.port';
 import { landingBack } from '@integrations/application/services/landing-back';
@@ -22,8 +22,8 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-const holderFor = (holding: OAuth2Holding, by: string): ConnectionHolder =>
-  holding === 'person'
+const holderFor = (kind: OAuth2HolderKind, by: string): ConnectionHolder =>
+  kind === 'person'
     ? ConnectionHolder.person(UserId.of(by))
     : ConnectionHolder.team();
 

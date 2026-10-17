@@ -9,10 +9,10 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type { TaskRunSummary } from '@work/application/ports/run-reader.port';
 import type {
-  HeldRunStanding,
+  LeasedRunStanding,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
-import { HELD_RUN_STATES } from '@work/domain/value-objects/run-state';
+import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
 import {
   ranAt,
   worked,
@@ -38,10 +38,10 @@ const replayed = alias(run, 'replayed');
 export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async heldRunStanding(
+  async leasedRunStanding(
     runId: RunId,
     runnerId: RunnerId,
-  ): Promise<HeldRunStanding | null> {
+  ): Promise<LeasedRunStanding | null> {
     const [row] = await this.db
       .select({
         teamId: sql<
@@ -61,7 +61,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
         and(
           eq(run.id, runId.value),
           eq(run.claimedBy, runnerId.value),
-          inArray(run.state, [...HELD_RUN_STATES]),
+          inArray(run.state, [...LEASED_RUN_STATES]),
         ),
       )
       .limit(1);
@@ -118,7 +118,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       .where(eq(run.taskId, taskId.value))
       .orderBy(desc(run.createdAt));
 
-    const [held, review] = await Promise.all([
+    const [stationCounts, review] = await Promise.all([
       stationsPerLine(
         this.db,
         rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
@@ -128,7 +128,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
 
     return rows.map(({ stationLineId, ...rest }) => ({
       ...rest,
-      station: worked({ ...rest, stationLineId }, held),
+      station: worked({ ...rest, stationLineId }, stationCounts),
       review: review.get(rest.id) ?? null,
     }));
   }

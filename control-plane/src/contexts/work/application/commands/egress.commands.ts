@@ -22,7 +22,7 @@ export class RedeemThroughEgressCommand {
   ) {}
 }
 
-export class KeepEgressHoldsCommand {
+export class CheckActiveRunsCommand {
   constructor(
     readonly token: string | undefined,
     readonly proxyCredentials: readonly string[],

@@ -243,7 +243,7 @@ describe('RunRemembered', () => {
     ).toBeNull();
 
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'Why it no longer holds' }),
+      screen.getByRole('textbox', { name: 'Why it no longer applies' }),
       'Branches follow the ticket now.',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Retire' }));

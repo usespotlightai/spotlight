@@ -185,7 +185,7 @@ const anOriginal = async (): Promise<Original> => {
 const candidate = async (): Promise<Line> => {
   const line = await app
     .get(DrizzleLineRepository)
-    .holding(StationId.of(BUILD));
+    .findByStation(StationId.of(BUILD));
 
   if (!line) {
     throw new Error('the delivery line is not there');
@@ -313,7 +313,7 @@ const settled = (runId: string) =>
     return pending.length === 0 && delivered.length > 0;
   });
 
-const inboxHolds = async (taskId: string): Promise<boolean> =>
+const inboxHas = async (taskId: string): Promise<boolean> =>
   (
     (
       await http()
@@ -489,11 +489,11 @@ describe('a replay claimed by a runner', () => {
   it('restores exactly the archive its original started from', async () => {
     const { original, replayId, token } = await aClaimedReplay();
 
-    const held = await runner(token)
+    const archive = await runner(token)
       .get(`/api/runs/${replayId}/workspace-archive`)
       .expect(200);
 
-    expect(held.body.id).toBe(original.archiveId);
+    expect(archive.body.id).toBe(original.archiveId);
   });
 
   it('keeps no workspace of its own, and says nothing of where it started', async () => {
@@ -605,7 +605,7 @@ describe('a replay ending', () => {
     expect(after?.currentRunId).toBeNull();
     expect(after?.sessionId).toBeNull();
     expect(await notesOf(original.taskId)).toEqual(notesBefore);
-    expect(await inboxHolds(original.taskId)).toBe(false);
+    expect(await inboxHas(original.taskId)).toBe(false);
 
     const row = await runRow(replayId);
     expect(row?.state).toBe('completed');
@@ -651,7 +651,7 @@ describe('a replay ending', () => {
 
     expect((await runRow(replayId))?.state).toBe('completed');
     expect((await runRow(replayId))?.askedAPerson).toBe(true);
-    expect(await inboxHolds(original.taskId)).toBe(false);
+    expect(await inboxHas(original.taskId)).toBe(false);
     expect(await notesOf(original.taskId)).toEqual([]);
 
     const [ended] = await published('work.replay-ended.v1', replayId);

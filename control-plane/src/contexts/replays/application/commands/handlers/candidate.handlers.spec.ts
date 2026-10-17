@@ -69,8 +69,8 @@ describe('ProposeCandidateHandler', () => {
       replayed: false,
     });
 
-    const held = [...memory.candidates.values()][0];
-    expect(held?.address.toString()).toBe('core/delivery/build/Shorter');
+    const stored = [...memory.candidates.values()][0];
+    expect(stored?.address.toString()).toBe('core/delivery/build/Shorter');
     expect(memory.events[0]).toBeInstanceOf(CandidateProposed);
   });
 

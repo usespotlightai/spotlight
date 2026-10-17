@@ -70,7 +70,7 @@ describe('checkStepsOf, on making the checkout ready', () => {
     ]);
   });
 
-  it('leaves it alone where the lockfile is set aside and every step holds it', () => {
+  it('leaves it alone where the lockfile is set aside and every step includes it', () => {
     const steps = checkStepsOf({
       hunks: ['h1', 'h2', 'h3', 'h4'].map(HunkId.of),
       facts: facts({ h4: 'lockfile' }),

@@ -130,27 +130,27 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     ]);
 
     const byHarness = new Map<string, string[]>();
-    const hold = (harness: string, models: readonly string[]) => {
-      const held = byHarness.get(harness) ?? [];
+    const collect = (harness: string, models: readonly string[]) => {
+      const known = byHarness.get(harness) ?? [];
 
       for (const model of models) {
-        if (!held.includes(model)) {
-          held.push(model);
+        if (!known.includes(model)) {
+          known.push(model);
         }
       }
-      byHarness.set(harness, held);
+      byHarness.set(harness, known);
     };
 
     for (const row of hosts) {
       for (const image of row.images.filter((each) => !each.refused)) {
         for (const each of image.harnesses) {
-          hold(each.id, each.models);
+          collect(each.id, each.models);
         }
       }
     }
     for (const row of runners) {
       for (const [harness, models] of Object.entries(row.advertised)) {
-        hold(harness, models);
+        collect(harness, models);
       }
     }
 

@@ -48,16 +48,16 @@ export class HoldOutSearch {
         return;
       }
 
-      const held = search.heldOutFrom(
+      const heldOutSearch = search.heldOutFrom(
         await this.replays.ofSearch(search.id),
         minGain,
         () => ReplayId.of(this.ids.generate()),
         at,
       );
       const candidates = await this.candidates.findMany(
-        held.heldOut.map((each) => each.candidateId),
+        heldOutSearch.heldOut.map((each) => each.candidateId),
       );
-      const starting = held.heldOut.map((each) => {
+      const starting = heldOutSearch.heldOut.map((each) => {
         const candidate = candidates.find((one) =>
           one.id.equals(each.candidateId),
         );
@@ -91,7 +91,7 @@ export class HoldOutSearch {
         );
       }
 
-      await this.searches.save(held);
+      await this.searches.save(heldOutSearch);
     });
   }
 }

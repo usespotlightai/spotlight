@@ -13,9 +13,9 @@ import {
   type ActiveRunner,
   formatRun,
   harnessesOf,
-  heldRunPath,
   hiddenFromViewer,
   hiddenRunTip,
+  leasedRunPath,
   type NamedHarness,
   runnerStanding,
 } from '@/lib/runner';
@@ -30,7 +30,7 @@ type RunnerRowProps = {
 
 export function RunnerRow({ slug, runner, harnesses }: RunnerRowProps) {
   const label = formatRun(runner.currentRun);
-  const path = heldRunPath(slug, runner.currentRun);
+  const path = leasedRunPath(slug, runner.currentRun);
 
   return (
     <li

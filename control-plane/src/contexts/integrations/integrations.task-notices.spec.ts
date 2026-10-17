@@ -12,7 +12,7 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
   discoveringNothing,
   reachingNoServer,
@@ -35,7 +35,7 @@ const runtimeWith = (
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(expressions, operationsHolding()),
+    new IntegrationReader(expressions, operationsContaining()),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,

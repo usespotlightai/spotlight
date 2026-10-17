@@ -203,7 +203,7 @@ export class RunMarksResponseDto {
 }
 
 export class RunSpentResponseDto {
-  @ApiProperty({ example: 12173, description: 'Tokens held in context' })
+  @ApiProperty({ example: 12173, description: 'Tokens in context' })
   readonly used: number;
 
   @ApiProperty({ example: 200000, description: 'How large the context is' })

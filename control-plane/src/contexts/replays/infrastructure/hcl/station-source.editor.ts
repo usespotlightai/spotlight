@@ -36,19 +36,19 @@ const REFERENCES: Partial<Record<Searchable, HclReferenceRule>> = {
   profile: {
     type: 'spotlight_harness_profile',
     attribute: 'key',
-    heldAt: 'key',
+    storedAt: 'key',
     tool: false,
   },
   skills: {
     type: 'spotlight_skill',
     attribute: 'key',
-    heldAt: 'key',
+    storedAt: 'key',
     tool: false,
   },
   tools: {
     type: 'spotlight_integration',
     attribute: 'source',
-    heldAt: 'definition.integration',
+    storedAt: 'definition.integration',
     tool: true,
   },
 };
@@ -84,7 +84,7 @@ const REFUSALS: Readonly<Record<HclEditRefusalCode, ConfigPullRequestRefusal>> =
 
 class UnwritableValue extends Error {}
 
-const FILE_HELD: ReadonlySet<string> = new Set([
+const FILE_FIELDS: ReadonlySet<string> = new Set([
   'prompt',
   'description',
   'harness',
@@ -124,7 +124,7 @@ const fieldsOf = (edit: StationSourceEdit): readonly HclField[] => {
         now: literalIn(candidate, name, UNSET[name]),
         unset: UNSET[name],
         ...(REFERENCES[name] ? { references: REFERENCES[name] } : {}),
-        ...(FILE_HELD.has(name)
+        ...(FILE_FIELDS.has(name)
           ? {
               freshFile: `prompts/${edit.teamKey}/${edit.lineKey}/${edit.stationKey}${name === 'prompt' ? '' : `.${name}`}.md`,
             }

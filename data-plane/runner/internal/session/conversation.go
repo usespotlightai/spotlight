@@ -372,7 +372,7 @@ func renew(
 			stop, err := lease.RenewLease(ctx, runID)
 			var lost lostRun
 			if errors.As(err, &lost) && lost.Lost() {
-				log.Info("the run is no longer held by this runner", "error", err)
+				log.Info("the run is no longer leased by this runner", "error", err)
 				onLost()
 				return
 			}

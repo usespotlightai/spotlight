@@ -568,7 +568,7 @@ export const replayEnded = (replayId: string) =>
     return state !== 'queued' && state !== 'running' ? state : null;
   }, WITHIN);
 
-export const heldSearchRun = async (
+export const leasedSearchRun = async (
   searchId: string,
   iteration: number,
 ): Promise<Claimed> => {

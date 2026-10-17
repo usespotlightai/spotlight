@@ -195,7 +195,7 @@ export class ReplayChecksController {
     required: false,
     type: String,
     description:
-      'Only checks started before this one, by its id; a check the set does not hold answers an empty page',
+      'Only checks started before this one, by its id; a check that the set does not contain answers an empty page',
   })
   @ApiQuery({
     name: 'limit',

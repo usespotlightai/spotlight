@@ -49,7 +49,7 @@ const exchanging = (
   over: {
     trust?: WorkspaceTokenTrust | null;
     claims?: WorkloadClaims | null;
-    held?: WorkspaceTokenTrust | null;
+    locked?: WorkspaceTokenTrust | null;
     adding?: Error;
   } = {},
 ) => {
@@ -64,7 +64,9 @@ const exchanging = (
   const handler = new ExchangeWorkloadTokenHandler(
     {
       find: vi.fn(async () => (over.trust === undefined ? TRUST : over.trust)),
-      holding: vi.fn(async () => (over.held === undefined ? TRUST : over.held)),
+      findLocked: vi.fn(async () =>
+        over.locked === undefined ? TRUST : over.locked,
+      ),
     } as unknown as WorkspaceTokenTrustRepository,
     { add } as unknown as WorkspaceTokenRepository,
     { verify } satisfies WorkloadTokensPort,
@@ -128,10 +130,10 @@ describe('ExchangeWorkloadTokenHandler', () => {
   });
 
   it('mints nothing through a trust withdrawn, or changed to refuse the workload, while it was verified', async () => {
-    expect(await exchanging({ held: null }).exchange()).toBeNull();
+    expect(await exchanging({ locked: null }).exchange()).toBeNull();
     expect(
       await exchanging({
-        held: WorkspaceTokenTrust.rehydrate({
+        locked: WorkspaceTokenTrust.rehydrate({
           ...TERMS,
           workload: WorkloadRule.of({
             issuer: ISSUER,

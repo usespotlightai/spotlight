@@ -52,13 +52,13 @@ const TOOLS = ToolUse.of({
   skills: ['our-migrations'],
 });
 
-const digesting = (held: Map<string, RunDigest>) => {
+const digesting = (stored: Map<string, RunDigest>) => {
   const ensured: string[] = [];
   const writer: RunDigestWriterPort = {
     ensure: async (runIds) => {
       ensured.push(...runIds.map((each) => each.value));
       for (const each of runIds) {
-        held.set(each.value, DIGEST);
+        stored.set(each.value, DIGEST);
       }
     },
     catchUp: async () => {},
@@ -67,13 +67,13 @@ const digesting = (held: Map<string, RunDigest>) => {
     forRuns: async (runIds) =>
       new Map(
         runIds.flatMap((each) => {
-          const digest = held.get(each.value);
+          const digest = stored.get(each.value);
           return digest ? [[each.value, digest] as const] : [];
         }),
       ),
   };
   const tools: RunToolsReaderPort = {
-    toolsFor: async (runId) => (held.has(runId.value) ? TOOLS : null),
+    toolsFor: async (runId) => (stored.has(runId.value) ? TOOLS : null),
   };
 
   return {

@@ -51,21 +51,23 @@ describe('refuseTokenGivenBefore', () => {
   it('lets a pool be given a token never given before', () => {
     expect(() =>
       refuseTokenGivenBefore(
-        PoolTokenStanding.of({ given: false, held: false }),
+        PoolTokenStanding.of({ given: false, inUse: false }),
       ),
     ).not.toThrow();
   });
 
-  it('refuses a token a pool holds now as taken', () => {
+  it('refuses a token a pool uses now as taken', () => {
     expect(() =>
-      refuseTokenGivenBefore(PoolTokenStanding.of({ given: true, held: true })),
+      refuseTokenGivenBefore(
+        PoolTokenStanding.of({ given: true, inUse: true }),
+      ),
     ).toThrow(PoolTokenTakenError);
   });
 
-  it('refuses a token no pool holds any more as spent', () => {
+  it('refuses a token no pool uses any more as spent', () => {
     expect(() =>
       refuseTokenGivenBefore(
-        PoolTokenStanding.of({ given: true, held: false }),
+        PoolTokenStanding.of({ given: true, inUse: false }),
       ),
     ).toThrow(PoolTokenSpentError);
   });

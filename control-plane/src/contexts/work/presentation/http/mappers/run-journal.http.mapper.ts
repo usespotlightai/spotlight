@@ -46,7 +46,8 @@ export const spanToResponse = (span: RunSpanDto): RunSpanResponseDto =>
     span.ms,
     span.failed,
     span.attributes.map(
-      (held) => new SpanAttributeResponseDto(held.name, held.value),
+      (attribute) =>
+        new SpanAttributeResponseDto(attribute.name, attribute.value),
     ),
   );
 

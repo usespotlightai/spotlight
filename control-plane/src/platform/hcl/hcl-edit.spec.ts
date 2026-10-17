@@ -89,14 +89,14 @@ const FILES: Readonly<Record<string, string>> = {
 const SKILLS: HclReferenceRule = {
   type: 'spotlight_skill',
   attribute: 'key',
-  heldAt: 'key',
+  storedAt: 'key',
   tool: false,
 };
 
 const TOOLS: HclReferenceRule = {
   type: 'spotlight_integration',
   attribute: 'source',
-  heldAt: 'definition.integration',
+  storedAt: 'definition.integration',
   tool: true,
 };
 
@@ -662,7 +662,7 @@ describe('editedHclBlock', () => {
     });
   });
 
-  it('refuses a prompt file the repository does not hold', async () => {
+  it('refuses a prompt file the repository does not contain', async () => {
     expect(
       await refusalOf(editOf({ prompt: 'Ship.\n' }, {}, {})),
     ).toMatchObject({ code: 'file-missing' });

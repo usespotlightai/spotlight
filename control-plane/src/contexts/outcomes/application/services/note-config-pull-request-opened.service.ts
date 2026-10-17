@@ -16,7 +16,7 @@ export class NoteConfigPullRequestOpened {
     return this.transaction.inTransaction(async () => {
       const { workspaceId, teamId } = pullRequest;
 
-      await this.forgotten.holding(workspaceId, null, teamId);
+      await this.forgotten.lockForgetting(workspaceId, null, teamId);
 
       if (await this.forgotten.forgot(workspaceId, null, teamId)) {
         return;

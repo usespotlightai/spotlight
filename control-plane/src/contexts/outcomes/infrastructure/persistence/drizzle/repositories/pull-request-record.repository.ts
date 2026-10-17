@@ -148,7 +148,7 @@ export class DrizzlePullRequestRecordRepository
     }
   }
 
-  async heldByTask(
+  async findByTask(
     workspaceId: WorkspaceId,
     taskId: TaskId,
   ): Promise<readonly PullRequestRecord[]> {

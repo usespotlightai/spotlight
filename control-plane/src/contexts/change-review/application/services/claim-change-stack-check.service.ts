@@ -75,14 +75,17 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     now: Date,
   ): Promise<void> {
     for (let attempt = 1; ; attempt++) {
-      const held = await this.checks.find(ChangeStackId.of(stackId), recheck);
+      const existing = await this.checks.find(
+        ChangeStackId.of(stackId),
+        recheck,
+      );
 
-      if (!held?.beingCheckedBy(runner, now)) {
+      if (!existing?.beingCheckedBy(runner, now)) {
         return;
       }
 
       try {
-        await this.checks.save(held.unclaimedBy(runner, now));
+        await this.checks.save(existing.unclaimedBy(runner, now));
         return;
       } catch (error) {
         if (

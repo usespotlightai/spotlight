@@ -6,23 +6,23 @@ export const MAX_CHECK_ATTEMPTS = 3;
 
 const CHECK_LEASE_MS = 10 * 60 * 1000;
 
-export const MAX_HOLD_MS = 65 * 60 * 1000;
+export const MAX_LEASE_MS = 65 * 60 * 1000;
 
-export interface CheckHold {
+export interface CheckLease {
   readonly leaseExpiresAt: Date | null;
   readonly claimedAt: Date | null;
 }
 
-const heldTooLongAt = (claimedAt: Date, now: Date): boolean =>
-  now.getTime() - claimedAt.getTime() >= MAX_HOLD_MS;
+const leasedTooLongAt = (claimedAt: Date, now: Date): boolean =>
+  now.getTime() - claimedAt.getTime() >= MAX_LEASE_MS;
 
-export const holdsAt = (hold: CheckHold, now: Date): boolean =>
-  hold.leaseExpiresAt !== null &&
-  hold.claimedAt !== null &&
-  hold.leaseExpiresAt.getTime() > now.getTime() &&
-  !heldTooLongAt(hold.claimedAt, now);
+export const isLeaseActiveAt = (lease: CheckLease, now: Date): boolean =>
+  lease.leaseExpiresAt !== null &&
+  lease.claimedAt !== null &&
+  lease.leaseExpiresAt.getTime() > now.getTime() &&
+  !leasedTooLongAt(lease.claimedAt, now);
 
-export class CheckClaim implements CheckHold {
+export class CheckClaim implements CheckLease {
   private constructor(
     readonly claimedBy: RunnerId | null,
     readonly attempts: number,
@@ -68,12 +68,12 @@ export class CheckClaim implements CheckHold {
     return this.attempts >= MAX_CHECK_ATTEMPTS;
   }
 
-  heldAt(now: Date): boolean {
-    return holdsAt(this, now);
+  isLeasedAt(now: Date): boolean {
+    return isLeaseActiveAt(this, now);
   }
 
-  heldBy(runner: RunnerId, now: Date): boolean {
-    return this.heldAt(now) && this.claimedBy?.equals(runner) === true;
+  isLeasedBy(runner: RunnerId, now: Date): boolean {
+    return this.isLeasedAt(now) && this.claimedBy?.equals(runner) === true;
   }
 
   claimed(runner: RunnerId, now: Date): CheckClaim {
@@ -92,9 +92,9 @@ export class CheckClaim implements CheckHold {
         'has no claim to renew',
       );
     }
-    if (heldTooLongAt(this.claimedAt, now)) {
+    if (leasedTooLongAt(this.claimedAt, now)) {
       throw InvalidChangeStackError.because(
-        'has been held for as long as a check may be held',
+        'has been leased for as long as a check may be leased',
       );
     }
 

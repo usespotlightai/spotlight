@@ -33,7 +33,7 @@ const handoverOf = (task: Task, { outcome, declared, line }: Turn) =>
 const asksAPerson = (turn: Turn): boolean => {
   const { run, task, line, outcome } = turn;
 
-  if (!task?.heldBy(run.id) || run.stopRequested || !outcome.handsOver) {
+  if (!task?.hasCurrentRun(run.id) || run.stopRequested || !outcome.handsOver) {
     return false;
   }
 

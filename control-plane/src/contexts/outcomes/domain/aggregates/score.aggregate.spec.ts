@@ -198,7 +198,7 @@ describe('Score', () => {
     ).toThrow(InvalidScoreError);
   });
 
-  it('on a claims scale holds a value that is the share its marks give, and marks only there', () => {
+  it('on a claims scale has a value that is the share its marks give, and marks only there', () => {
     expect(() =>
       personGrade('run_1', ScoreScale.claims(), 0).regrade({
         scale: ScoreScale.claims(),

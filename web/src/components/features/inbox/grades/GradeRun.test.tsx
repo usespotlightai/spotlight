@@ -242,7 +242,7 @@ describe('GradeRun', () => {
     );
   });
 
-  it('holds its place while the run loads', () => {
+  it('keeps its place while the run loads', () => {
     scores.mockReturnValue(undefined);
 
     showing();

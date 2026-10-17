@@ -45,7 +45,7 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import {
-  HELD_RUN_STATES,
+  LEASED_RUN_STATES,
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
@@ -74,8 +74,8 @@ const LET_GO_QUEUED = 'Task moved on before a runner took the run.';
 const endingIn = (outcome: RunOutcome): RunState =>
   outcome.superseded ? 'superseded' : outcome.failed ? 'failed' : 'completed';
 
-const isHeld = (state: RunState): boolean =>
-  (HELD_RUN_STATES as readonly RunState[]).includes(state);
+const isLeased = (state: RunState): boolean =>
+  (LEASED_RUN_STATES as readonly RunState[]).includes(state);
 
 export class Run extends EventRecorder {
   private constructor(
@@ -301,10 +301,10 @@ export class Run extends EventRecorder {
         'started from somewhere on an attempt it has not made yet',
       );
     }
-    if (isHeld(input.state) && !input.claimedBy) {
+    if (isLeased(input.state) && !input.claimedBy) {
       throw new InconsistentStateError('run', `is ${input.state} by nobody`);
     }
-    if (isHeld(input.state) && !input.leaseExpiresAt) {
+    if (isLeased(input.state) && !input.leaseExpiresAt) {
       throw new InconsistentStateError(
         'run',
         `is ${input.state} with no lease`,
@@ -316,7 +316,7 @@ export class Run extends EventRecorder {
     ) {
       throw new InconsistentStateError(
         'run',
-        `is ${input.state} yet still held by a runner`,
+        `is ${input.state} yet still leased by a runner`,
       );
     }
   }
@@ -376,7 +376,7 @@ export class Run extends EventRecorder {
         `Run ${this.id.value} is ${this.state}. It cannot be claimed.`,
       );
     }
-    if (this.isReservedAt(now) && !this.reservation?.heldFor(by)) {
+    if (this.isReservedAt(now) && !this.reservation?.isFor(by)) {
       throw new InvalidRunTransitionError(
         `Run ${this.id.value} is waiting for the runner provisioned for it.`,
       );
@@ -389,7 +389,7 @@ export class Run extends EventRecorder {
       reservation: null,
     });
 
-    if (this.reservation && !this.reservation.heldFor(by)) {
+    if (this.reservation && !this.reservation.isFor(by)) {
       claimed.recordReservationDropped(this.reservation.runner);
     }
 
@@ -402,7 +402,7 @@ export class Run extends EventRecorder {
   ): ProvisionFailure | null {
     if (
       this.state !== 'queued' ||
-      !this.reservation?.heldFor(runner) ||
+      !this.reservation?.isFor(runner) ||
       harnesses.some((each) => each.equals(this.harness))
     ) {
       return null;
@@ -412,14 +412,14 @@ export class Run extends EventRecorder {
   }
 
   isReservedAt(now: Date): boolean {
-    return this.reservation?.holdsAt(now) ?? false;
+    return this.reservation?.isActiveAt(now) ?? false;
   }
 
   reservationLapsedAt(now: Date): boolean {
     return (
       this.state === 'queued' &&
       this.reservation !== null &&
-      !this.reservation.holdsAt(now)
+      !this.reservation.isActiveAt(now)
     );
   }
 
@@ -457,7 +457,7 @@ export class Run extends EventRecorder {
   }
 
   unreservedFor(runner: RunnerId): Run {
-    if (this.state !== 'queued' || !this.reservation?.heldFor(runner)) {
+    if (this.state !== 'queued' || !this.reservation?.isFor(runner)) {
       return this;
     }
 
@@ -468,7 +468,7 @@ export class Run extends EventRecorder {
   }
 
   provisionFailed(runner: RunnerId, failure: ProvisionFailure, now: Date): Run {
-    if (this.state !== 'queued' || !this.reservation?.heldFor(runner)) {
+    if (this.state !== 'queued' || !this.reservation?.isFor(runner)) {
       return this;
     }
 
@@ -511,7 +511,7 @@ export class Run extends EventRecorder {
   requeue(now: Date): Run {
     if (!this.lapsed(now)) {
       throw new InvalidRunTransitionError(
-        `Run ${this.id.value} is ${this.state} and its lease holds. It cannot be requeued.`,
+        `Run ${this.id.value} is ${this.state} and its lease is still valid. It cannot be requeued.`,
       );
     }
 
@@ -519,7 +519,7 @@ export class Run extends EventRecorder {
   }
 
   timedOut(by: RunnerId, now: Date): Run {
-    this.requireHeldBy(by, 'time out');
+    this.requireLeasedBy(by, 'time out');
 
     return this.lostTo(now, RunOutcome.timedOut);
   }
@@ -691,7 +691,7 @@ export class Run extends EventRecorder {
   }
 
   renewLease(by: RunnerId, now: Date): Run {
-    this.requireHeldBy(by, 'renew the lease on');
+    this.requireLeasedBy(by, 'renew the lease on');
 
     return this.with({ leaseExpiresAt: this.leaseFrom(now) });
   }
@@ -701,7 +701,7 @@ export class Run extends EventRecorder {
     outcome: RunOutcome,
     said: HandoverReport = HandoverReport.none(),
   ): Run {
-    this.requireHeldBy(by, 'complete');
+    this.requireLeasedBy(by, 'complete');
 
     const ended = this.with({
       state: endingIn(outcome),
@@ -877,7 +877,7 @@ export class Run extends EventRecorder {
   }
 
   park(by: RunnerId, now: Date, cold = false): Run {
-    this.requireHeldBy(by, 'park');
+    this.requireLeasedBy(by, 'park');
 
     if (this.state !== 'waiting') {
       return cold ? this.parkedCold(by, now) : this;
@@ -1140,7 +1140,7 @@ export class Run extends EventRecorder {
       return this.endedUnstarted(RunOutcome.stopped(-1));
     }
 
-    if (!isHeld(this.state)) {
+    if (!isLeased(this.state)) {
       throw new InvalidRunTransitionError(
         `Run ${this.id.value} is ${this.state}. It cannot be stopped.`,
       );
@@ -1173,12 +1173,12 @@ export class Run extends EventRecorder {
     return this.claimedBy?.equals(runner) ?? false;
   }
 
-  assertHeldBy(by: RunnerId): void {
-    this.requireHeldBy(by, 'act on');
+  assertLeasedBy(by: RunnerId): void {
+    this.requireLeasedBy(by, 'act on');
   }
 
   journalFor(by: RunnerId): RunAttempt {
-    this.requireHeldBy(by, 'journal');
+    this.requireLeasedBy(by, 'journal');
 
     return this.currentAttempt;
   }
@@ -1188,7 +1188,7 @@ export class Run extends EventRecorder {
   }
 
   assertStillOn(attempt: RunAttempt, by: RunnerId): void {
-    if (!this.isHeldBy(by) || !attempt.equals(this.currentAttempt)) {
+    if (!this.isLeasedBy(by) || !attempt.equals(this.currentAttempt)) {
       throw new RunAttemptOverError(this.id.value, attempt.number);
     }
   }
@@ -1197,8 +1197,8 @@ export class Run extends EventRecorder {
     return this.spec.wears.length > 0 || this.spec.wearsSpotlightApi;
   }
 
-  isHeldBy(runner: RunnerId): boolean {
-    return isHeld(this.state) && this.wasWorkedBy(runner);
+  isLeasedBy(runner: RunnerId): boolean {
+    return isLeased(this.state) && this.wasWorkedBy(runner);
   }
 
   attemptWorkedBy(runner: RunnerId): RunAttempt | null {
@@ -1206,11 +1206,11 @@ export class Run extends EventRecorder {
   }
 
   secretsWornFor(runner: RunnerId): readonly SecretName[] {
-    return this.isHeldBy(runner) ? this.spec.wears : [];
+    return this.isLeasedBy(runner) ? this.spec.wears : [];
   }
 
   reachesSpotlightApiFor(runner: RunnerId): boolean {
-    return this.isHeldBy(runner) && this.spec.wearsSpotlightApi;
+    return this.isLeasedBy(runner) && this.spec.wearsSpotlightApi;
   }
 
   wasGiven(tool: Tool): boolean {
@@ -1223,7 +1223,7 @@ export class Run extends EventRecorder {
 
   lapsed(now: Date): boolean {
     return (
-      isHeld(this.state) &&
+      isLeased(this.state) &&
       this.leaseExpiresAt !== null &&
       this.leaseExpiresAt.getTime() <= now.getTime()
     );
@@ -1297,11 +1297,11 @@ export class Run extends EventRecorder {
       );
     }
 
-    this.requireHeldBy(by, action);
+    this.requireLeasedBy(by, action);
   }
 
-  private requireHeldBy(by: RunnerId, action: string): void {
-    if (!isHeld(this.state)) {
+  private requireLeasedBy(by: RunnerId, action: string): void {
+    if (!isLeased(this.state)) {
       throw new InvalidRunTransitionError(
         `Cannot ${action} run ${this.id.value} while it is ${this.state}.`,
       );

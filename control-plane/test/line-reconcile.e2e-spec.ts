@@ -54,14 +54,14 @@ describe('a line reconciled with its definition (e2e)', () => {
   let lines: DrizzleLineRepository;
   let db: DrizzleDatabase;
   let commands: CommandBus;
-  const held = `reconcile-${Date.now()}`;
+  const workspaceId = `reconcile-${Date.now()}`;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
   const define = async <T extends { readonly key: string }>(
     definition: T,
     by = seat.owner,
   ): Promise<ResourceCreated | ResourceUpdated | null> => {
-    const standing = (await lines.ofTeam(TeamId.of(held))).find(
+    const standing = (await lines.ofTeam(TeamId.of(workspaceId))).find(
       (each) => each.key.value === definition.key,
     );
 
@@ -75,7 +75,12 @@ describe('a line reconciled with its definition (e2e)', () => {
           ),
         )
       : commands.execute<CreateLineCommand, ResourceCreated | null>(
-          new CreateLineCommand(held, actorFor(by), randomUUID(), definition),
+          new CreateLineCommand(
+            workspaceId,
+            actorFor(by),
+            randomUUID(),
+            definition,
+          ),
         );
   };
 
@@ -102,7 +107,7 @@ describe('a line reconciled with its definition (e2e)', () => {
     db = app.get(DRIZZLE);
     commands = app.get(CommandBus);
 
-    seat = await seatTeam(db, held);
+    seat = await seatTeam(db, workspaceId);
   });
 
   afterEach(async () => {
@@ -171,6 +176,6 @@ describe('a line reconciled with its definition (e2e)', () => {
     expect(await define(DELIVERY, seat.member)).toEqual(
       forbiddenTo('configure'),
     );
-    expect(await lines.ofTeam(TeamId.of(held))).toEqual([]);
+    expect(await lines.ofTeam(TeamId.of(workspaceId))).toEqual([]);
   });
 });

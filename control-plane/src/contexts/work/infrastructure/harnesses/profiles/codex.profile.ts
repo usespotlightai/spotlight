@@ -80,7 +80,7 @@ export const codexProfile: ProfileTranslator = {
             noteOn(
               HARNESS,
               rule,
-              `Codex reads whatever its sandbox can see, so ${written(rule)} is not held there`,
+              `Codex reads whatever its sandbox can see, so ${written(rule)} does not apply there`,
             ),
           );
         }
@@ -96,7 +96,7 @@ export const codexProfile: ProfileTranslator = {
             noteOn(
               HARNESS,
               rule,
-              `codex-acp runs every turn in a workspace-write sandbox, deciding edits by that sandbox rather than by rule, so ${written(rule)} is not held there`,
+              `codex-acp runs every turn in a workspace-write sandbox, deciding edits by that sandbox rather than by rule, so ${written(rule)} does not apply there`,
             ),
           );
         }
@@ -108,7 +108,7 @@ export const codexProfile: ProfileTranslator = {
           noteOn(
             HARNESS,
             plan.bare,
-            `Codex runs commands in its sandbox without asking unless a rule names them, so ${written(plan.bare)} is not held there; only execute rules with a pattern are`,
+            `Codex runs commands in its sandbox without asking unless a rule names them, so ${written(plan.bare)} does not apply there. Only execute rules with a pattern apply`,
           ),
         );
       }
@@ -144,10 +144,10 @@ export const codexProfile: ProfileTranslator = {
     }
 
     const native = profile.native[HARNESS];
-    const held = nativeKeys(profile);
+    const setKeys = nativeKeys(profile);
 
     for (const key of SET_PER_TURN) {
-      if (key in held) {
+      if (key in setKeys) {
         warnings.push(
           noteOnNative(
             HARNESS,

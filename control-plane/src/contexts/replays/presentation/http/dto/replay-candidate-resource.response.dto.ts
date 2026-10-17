@@ -114,7 +114,7 @@ export class ReplayCandidateResourceResponseDto extends ResourceResponseDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The station block it replays the station under, in the shape the line resource holds a station in',
+      'The station block it replays the station under, in the shape in which the line resource stores a station',
     example: {
       key: 'build',
       name: 'Build',

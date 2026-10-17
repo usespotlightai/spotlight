@@ -258,14 +258,14 @@ export class ReactionResponseDto {
 export class LineSourceResponseDto {
   @ApiProperty({
     example: 'acme/platform',
-    description: 'The GitHub repository that holds the line’s Terraform',
+    description: 'The GitHub repository that contains the line’s Terraform',
   })
   readonly repository: string;
 
   @ApiProperty({
     example: 'teams/core/delivery.tf',
     description:
-      'The Terraform file in it that holds the line, from the repository root',
+      'The Terraform file in it that contains the line, from the repository root',
   })
   readonly path: string;
 

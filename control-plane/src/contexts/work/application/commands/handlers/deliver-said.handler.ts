@@ -14,7 +14,10 @@ export class DeliverSaidHandler
 
   async execute(command: DeliverSaidCommand): Promise<void> {
     try {
-      const { work } = await this.works.heldBy(command.runId, command.runnerId);
+      const { work } = await this.works.leasedBy(
+        command.runId,
+        command.runnerId,
+      );
 
       await work?.deliverUpTo(command.upTo, this.clock.now());
     } catch (error) {

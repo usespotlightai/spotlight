@@ -51,22 +51,22 @@ func (r *Reader) Read(ctx context.Context, source protocol.ReadInNetwork) (strin
 		return "", fmt.Errorf("AWS Secrets Manager could not be asked: %w", err)
 	}
 
-	held := aws.ToString(answer.SecretString)
-	if held == "" {
-		return "", errors.New("AWS Secrets Manager holds no text for it")
+	text := aws.ToString(answer.SecretString)
+	if text == "" {
+		return "", errors.New("AWS Secrets Manager has no text for it")
 	}
 	if source.Field == "" {
-		return held, nil
+		return text, nil
 	}
 
 	var fields map[string]any
-	if err := json.Unmarshal([]byte(held), &fields); err != nil {
+	if err := json.Unmarshal([]byte(text), &fields); err != nil {
 		return "", fmt.Errorf("its value in AWS Secrets Manager is not JSON, so it has no %s field", source.Field)
 	}
 
 	read, ok := fields[source.Field].(string)
 	if !ok || read == "" {
-		return "", fmt.Errorf("its value in AWS Secrets Manager holds no text at %s", source.Field)
+		return "", fmt.Errorf("its value in AWS Secrets Manager has no text at %s", source.Field)
 	}
 
 	return read, nil

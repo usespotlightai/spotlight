@@ -64,14 +64,14 @@ export const toolUseOf = (
   const servers = new Map<string, ServerCalls>();
 
   for (const step of steps.filter(reachedServer)) {
-    const held = servers.get(step.server);
+    const existing = servers.get(step.server);
     const failed = step.ending !== 'completed';
-    const latency = held?.latency ?? LatencyHistogram.EMPTY;
+    const latency = existing?.latency ?? LatencyHistogram.EMPTY;
 
     servers.set(step.server, {
       server: step.server,
-      calls: (held?.calls ?? 0) + 1,
-      failed: (held?.failed ?? 0) + (failed ? 1 : 0),
+      calls: (existing?.calls ?? 0) + 1,
+      failed: (existing?.failed ?? 0) + (failed ? 1 : 0),
       latency:
         step.ms === null || step.ending === 'unfinished'
           ? latency

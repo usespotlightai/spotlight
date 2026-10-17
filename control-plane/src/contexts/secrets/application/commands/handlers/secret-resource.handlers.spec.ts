@@ -31,7 +31,7 @@ const LINEAR = {
 
 const ID = 'secret_new';
 
-const holding = (managesSecrets = true) => {
+const setUp = (managesSecrets = true) => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
   const creates = new InMemoryCreates();
@@ -91,15 +91,15 @@ const holding = (managesSecrets = true) => {
 };
 
 const created = async () => {
-  const held = holding();
-  await held.create();
+  const created = setUp();
+  await created.create();
 
-  return held;
+  return created;
 };
 
 describe('CreateSecretHandler', () => {
   it('sets the secret and keeps its value', async () => {
-    const { create, keptValue, secrets } = holding();
+    const { create, keptValue, secrets } = setUp();
 
     expect(await create()).toEqual({
       outcome: 'created',
@@ -111,14 +111,14 @@ describe('CreateSecretHandler', () => {
   });
 
   it('forbids someone who reads the workspace but may not manage its secrets', async () => {
-    const { create, secrets } = holding(false);
+    const { create, secrets } = setUp(false);
 
     expect(await create()).toEqual(forbiddenTo('manage-secrets'));
     expect(await secrets.withId(SecretId.of(ID))).toBeNull();
   });
 
   it('never remembers the value alongside the idempotency key', async () => {
-    const { create, creates } = holding();
+    const { create, creates } = setUp();
 
     await create();
 
@@ -126,7 +126,7 @@ describe('CreateSecretHandler', () => {
   });
 
   it('points at the field that is wrong', async () => {
-    const { create } = holding();
+    const { create } = setUp();
     const answered = await create({ ...LINEAR, valueWo: undefined });
 
     expect(answered?.outcome).toBe('invalid');
@@ -136,7 +136,7 @@ describe('CreateSecretHandler', () => {
     ).toEqual(['valueWo']);
   });
 
-  it('says a name the workspace already holds is taken', async () => {
+  it('says a name the workspace already has is taken', async () => {
     const { create } = await created();
 
     expect(await create(LINEAR, 'key-2')).toEqual({
@@ -241,7 +241,7 @@ describe('DeleteSecretHandler', () => {
     const { remove, store, secrets } = await created();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect(store.holds(SecretId.of(ID))).toBe(false);
+    expect(store.has(SecretId.of(ID))).toBe(false);
     expect(secrets.events[secrets.events.length - 1]).toMatchObject({
       kind: 'secret.deleted',
       change: { action: 'deleted', by: BY },

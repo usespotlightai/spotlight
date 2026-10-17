@@ -11,7 +11,8 @@ export class ProfileViewResponseDto {
   @ApiProperty({
     type: 'object',
     additionalProperties: true,
-    description: 'The permissions, MCP servers and native settings it held',
+    description:
+      'The permissions, MCP servers and native settings it contained',
   })
   readonly settings: Record<string, unknown>;
 

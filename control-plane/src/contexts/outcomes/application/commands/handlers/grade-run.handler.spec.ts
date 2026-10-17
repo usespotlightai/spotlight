@@ -64,7 +64,7 @@ const grading = async (
     scores.events.length = 0;
   }
   const evidence = {
-    holds: async () => true,
+    hasTask: async () => true,
     of: async () => null,
     judgesOnTeam: async () => new Map(),
     judgeAt: async () => station,
@@ -116,7 +116,9 @@ describe('GradeRunHandler', () => {
     expect(scores.grades).toEqual([
       expect.objectContaining({ by: 'user_ada', mine: true, label: 'yes' }),
     ]);
-    const grade = [...run.scores.held.values()].find((each) => !each.fromJudge);
+    const grade = [...run.scores.stored.values()].find(
+      (each) => !each.fromJudge,
+    );
     expect(grade?.rubricVersion).toBe(RUBRIC_VERSION);
     expect((run.scores.events as ScoreRecorded[])[0]?.source).toBe('person');
   });

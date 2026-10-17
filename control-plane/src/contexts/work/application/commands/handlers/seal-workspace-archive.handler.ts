@@ -22,7 +22,7 @@ export class SealWorkspaceArchiveHandler
   async execute(command: SealWorkspaceArchiveCommand): Promise<boolean> {
     try {
       const run = await this.runs.findById(RunId.of(command.runId));
-      const archive = run?.isHeldBy(RunnerId.of(command.runnerId))
+      const archive = run?.isLeasedBy(RunnerId.of(command.runnerId))
         ? await this.archives.find(WorkspaceArchiveId.of(command.archiveId))
         : null;
 

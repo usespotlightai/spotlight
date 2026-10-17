@@ -99,23 +99,23 @@ export class NoteRunEnded {
     const workspaceId = WorkspaceId.of(run.workspaceId);
 
     await this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(workspaceId, taskId, teamId);
+      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
       const runId = RunId.of(run.runId);
-      const held = await this.records.of(runId);
+      const existing = await this.records.of(runId);
 
-      if (held?.hasEnded) {
+      if (existing?.hasEnded) {
         return;
       }
 
       if (await this.forgotten.forgot(workspaceId, taskId, teamId)) {
-        if (held) {
+        if (existing) {
           await this.records.removeForTask(taskId);
         }
         return;
       }
 
-      if (held) {
-        await this.records.save(held.recordEnd(end));
+      if (existing) {
+        await this.records.save(existing.recordEnd(end));
         return;
       }
 

@@ -24,11 +24,11 @@ const foldersOf = (memory: Memory): string[] => {
   return [lineId ? 'line' : 'team'];
 };
 
-export type FolderHolding = 'team' | 'line' | 'station' | 'repository';
+export type FolderLevel = 'team' | 'line' | 'station' | 'repository';
 
 export interface LaidOutFolder {
   readonly folder: string;
-  readonly holds: FolderHolding;
+  readonly level: FolderLevel;
 }
 
 const MIRRORING = 'repositories/';
@@ -37,16 +37,16 @@ export const mirroringAt = (site: RunSite): string | null =>
   site.repositories.length > 0 ? MIRRORING : null;
 
 export const layoutAt = (site: RunSite): LaidOutFolder[] => [
-  { folder: 'team/', holds: 'team' },
-  ...(site.lineId ? [{ folder: 'line/', holds: 'line' } as const] : []),
+  { folder: 'team/', level: 'team' },
+  ...(site.lineId ? [{ folder: 'line/', level: 'line' } as const] : []),
   ...(site.stationId
-    ? [{ folder: 'station/', holds: 'station' } as const]
+    ? [{ folder: 'station/', level: 'station' } as const]
     : []),
   ...(site.repositories.length > 0
     ? [
         {
           folder: `${MIRRORING}<owner>/<name>/<path>/`,
-          holds: 'repository',
+          level: 'repository',
         } as const,
       ]
     : []),

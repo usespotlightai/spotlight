@@ -11,7 +11,7 @@ import { SecretSources } from '@secrets/application/services/secret-sources.serv
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { RedemptionRecipientPinnedError } from '@secrets/domain/exceptions/redemption-recipient-pinned.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
-import { RunHoldOverError } from '@secrets/domain/exceptions/run-hold-over.error';
+import { RunLeaseOverError } from '@secrets/domain/exceptions/run-lease-over.error';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
@@ -50,7 +50,7 @@ const REDEEMING = {
   sharedEgress: null,
 };
 
-const holding = async () => {
+const setUp = async () => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
   const grants = new InMemoryGrants();
@@ -100,7 +100,7 @@ const holding = async () => {
 
 describe('RunRedemptions', () => {
   it('seals a value Spotlight keeps to the run’s recipient, with how it is worn', async () => {
-    const { redemptions } = await holding();
+    const { redemptions } = await setUp();
 
     await expect(
       redemptions.redeem({ ...REDEEMING, wears: ['LINEAR_API_KEY'] }),
@@ -120,8 +120,8 @@ describe('RunRedemptions', () => {
     });
   });
 
-  it('says where egress reads a value an external store holds, and never reads it itself', async () => {
-    const { redemptions, aws } = await holding();
+  it('says where egress reads a value an external store keeps, and never reads it itself', async () => {
+    const { redemptions, aws } = await setUp();
 
     const redeemed = await redemptions.redeem({
       ...REDEEMING,
@@ -147,7 +147,7 @@ describe('RunRedemptions', () => {
   });
 
   it('grants the run each secret it wears toward every host it is bound to', async () => {
-    const { redemptions, grants } = await holding();
+    const { redemptions, grants } = await setUp();
 
     await redemptions.redeem({
       ...REDEEMING,
@@ -163,7 +163,7 @@ describe('RunRedemptions', () => {
   });
 
   it('withholds what it cannot give, saying why, and gives the rest', async () => {
-    const { redemptions } = await holding();
+    const { redemptions } = await setUp();
 
     const redeemed = await redemptions.redeem({
       ...REDEEMING,
@@ -185,13 +185,13 @@ describe('RunRedemptions', () => {
       {
         secret: 'MULTI_LINE',
         reason:
-          'Secret MULTI_LINE holds more than one line. It cannot be sent in a request.',
+          'Secret MULTI_LINE contains more than one line. It cannot be sent in a request.',
       },
     ]);
   });
 
   it('refuses a recipient it cannot seal to before granting anything, whatever the run wears', async () => {
-    const { redemptions, grants } = await holding();
+    const { redemptions, grants } = await setUp();
 
     await expect(
       redemptions.redeem({
@@ -204,7 +204,7 @@ describe('RunRedemptions', () => {
   });
 
   it('pins the recipient it first sealed to, answering the same recipient again and refusing any other', async () => {
-    const { redemptions, grants } = await holding();
+    const { redemptions, grants } = await setUp();
     const redeeming = { ...REDEEMING, wears: ['LINEAR_API_KEY'] };
 
     const first = await redemptions.redeem(redeeming);
@@ -217,7 +217,7 @@ describe('RunRedemptions', () => {
   });
 
   it('redeems afresh for a later attempt of the run, sealed to that attempt’s own recipient', async () => {
-    const { redemptions, grants } = await holding();
+    const { redemptions, grants } = await setUp();
     const redeeming = { ...REDEEMING, wears: ['LINEAR_API_KEY'] };
 
     await redemptions.redeem(redeeming);
@@ -231,19 +231,19 @@ describe('RunRedemptions', () => {
     expect(again.secrets.map((each) => each.sealed)).toEqual([
       'sealed(lin_api_1|another-key|run_1|LINEAR_API_KEY)',
     ]);
-    expect(grants.of('run_1')?.hold.attempt).toBe(2);
+    expect(grants.of('run_1')?.lease.attempt).toBe(2);
     await expect(redemptions.redeem(redeeming)).rejects.toThrow(
-      RunHoldOverError,
+      RunLeaseOverError,
     );
   });
 
-  it('lets a lost hold’s grants go, refusing that attempt but redeeming the next', async () => {
-    const { redemptions, grants } = await holding();
+  it('lets the grants of a lost lease go, refusing that attempt but redeeming the next', async () => {
+    const { redemptions, grants } = await setUp();
     const redeeming = { ...REDEEMING, wears: ['LINEAR_API_KEY'] };
     const endings = new RunGrantEndings(new RunGrantsKept(grants), clockAt());
 
     await redemptions.redeem(redeeming);
-    await endings.holdLost({
+    await endings.leaseLost({
       workspaceId: WORKSPACE.value,
       runId: 'run_1',
       attempt: 1,
@@ -251,7 +251,7 @@ describe('RunRedemptions', () => {
 
     expect(grants.all).toEqual([]);
     await expect(redemptions.redeem(redeeming)).rejects.toThrow(
-      RunHoldOverError,
+      RunLeaseOverError,
     );
     await expect(
       redemptions.redeem({
@@ -264,7 +264,7 @@ describe('RunRedemptions', () => {
   });
 
   it('redeems nothing once the run’s grants have ended', async () => {
-    const { redemptions, grants } = await holding();
+    const { redemptions, grants } = await setUp();
     const redeeming = { ...REDEEMING, wears: ['LINEAR_API_KEY'] };
 
     await redemptions.redeem(redeeming);

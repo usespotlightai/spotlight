@@ -55,7 +55,7 @@ describe('a line, defined and read back (e2e)', () => {
   let db: DrizzleDatabase;
   let commands: CommandBus;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
-  const held = `shape-${Date.now()}`;
+  const workspaceId = `shape-${Date.now()}`;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -67,7 +67,7 @@ describe('a line, defined and read back (e2e)', () => {
     lines = app.get(DrizzleLineRepository);
     db = app.get(DRIZZLE);
     commands = app.get(CommandBus);
-    seat = await seatTeam(db, held);
+    seat = await seatTeam(db, workspaceId);
   });
 
   afterEach(async () => {
@@ -75,13 +75,13 @@ describe('a line, defined and read back (e2e)', () => {
     await app.close();
   });
 
-  it('holds every station, its ways out and what it waits for, as its definition says', async () => {
+  it('keeps every station, its ways out and what it waits for, as its definition says', async () => {
     const defined = await commands.execute<
       CreateLineCommand,
       ResourceCreated | null
     >(
       new CreateLineCommand(
-        held,
+        workspaceId,
         actorFor(seat.owner),
         randomUUID(),
         definitionOf(BUILT_IN),
@@ -96,10 +96,10 @@ describe('a line, defined and read back (e2e)', () => {
     let next = 0;
     const opened = Line.open({
       by: attributedIn(),
-      workspaceId: WorkspaceId.of(held),
-      teamId: TeamId.of(held),
+      workspaceId: WorkspaceId.of(workspaceId),
+      teamId: TeamId.of(workspaceId),
       line: BUILT_IN,
-      newId: () => `${held}_${++next}`,
+      newId: () => `${workspaceId}_${++next}`,
     });
 
     expect(shapeOf(read)).toEqual(shapeOf(opened));

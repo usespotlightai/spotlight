@@ -26,7 +26,7 @@ export interface StationJudge {
 }
 
 export interface EvidencePort {
-  holds(runId: string): Promise<boolean>;
+  hasTask(runId: string): Promise<boolean>;
 
   of(runId: string): Promise<RunEvidence | null>;
 

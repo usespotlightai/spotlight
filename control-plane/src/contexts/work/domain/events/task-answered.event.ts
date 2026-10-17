@@ -9,6 +9,6 @@ export class TaskAnswered implements DomainEvent {
   constructor(
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
-    readonly heldBy: RunId,
+    readonly currentRunId: RunId,
   ) {}
 }

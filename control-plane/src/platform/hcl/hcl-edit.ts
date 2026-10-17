@@ -25,7 +25,7 @@ interface HclFile {
 export interface HclReferenceRule {
   readonly type: string;
   readonly attribute: string;
-  readonly heldAt: string;
+  readonly storedAt: string;
   readonly tool: boolean;
 }
 
@@ -220,11 +220,11 @@ class Editing {
       return Promise.resolve(kept);
     }
 
-    const held = this.reads.get(path) ?? this.edit.read(path);
+    const content = this.reads.get(path) ?? this.edit.read(path);
 
-    this.reads.set(path, held);
+    this.reads.set(path, content);
 
-    return held;
+    return content;
   }
 
   private get resources(): readonly ParsedBlock[] {
@@ -238,16 +238,16 @@ class Editing {
 
   private ownedBy(block: ParsedBlock, key: string): boolean | null {
     const { owner } = this.edit;
-    const held = block.body.attributes.find(
+    const existing = block.body.attributes.find(
       (each) => each.name === owner.attribute,
     );
 
     if (
-      held?.read.kind === 'reference' &&
-      held.read.type === owner.type &&
-      held.read.suffix === null
+      existing?.read.kind === 'reference' &&
+      existing.read.type === owner.type &&
+      existing.read.suffix === null
     ) {
-      return held.read.name === nameOf(owner.key);
+      return existing.read.name === nameOf(owner.key);
     }
 
     return block.labels[1] === nameOf(owner.key, key) ? true : null;
@@ -336,29 +336,29 @@ class Editing {
       (each) =>
         each.labels[0] === reference.type && each.labels[1] === reference.name,
     );
-    const heldAt =
+    const storedAt =
       this.edit.fields.find(
         (each) =>
           each.references?.type === reference.type &&
           each.references.attribute === reference.attribute,
-      )?.references?.heldAt ?? reference.attribute;
-    const value = target ? literalAt(target.body, heldAt) : null;
+      )?.references?.storedAt ?? reference.attribute;
+    const value = target ? literalAt(target.body, storedAt) : null;
 
     return value === null ? undefined : `${value}${reference.suffix ?? ''}`;
   }
 
   private async resolved(
-    held: ParsedAttribute | undefined,
+    existing: ParsedAttribute | undefined,
     unset: HclLiteral,
     name: string,
   ): Promise<Resolved> {
-    if (!held) {
+    if (!existing) {
       return { ok: true, value: unset };
     }
 
     const computed = {
       ok: false as const,
-      why: `Terraform computes \`${name}\` from \`${held.written}\`. Please change it by hand.`,
+      why: `Terraform computes \`${name}\` from \`${existing.written}\`. Please change it by hand.`,
     };
     const literalOf = (read: HclRead): HclLiteral | undefined =>
       read.kind === 'literal'
@@ -366,7 +366,7 @@ class Editing {
         : read.kind === 'reference'
           ? this.referenced(read)
           : undefined;
-    const { read } = held;
+    const { read } = existing;
 
     switch (read.kind) {
       case 'literal':
@@ -387,7 +387,7 @@ class Editing {
         if (!read.fromModule) {
           return {
             ok: false,
-            why: `\`${name}\` reads \`${held.written}\`. Terraform resolves this path from its working directory. Please write it as file("\${path.module}/${read.path}") or change it by hand.`,
+            why: `\`${name}\` reads \`${existing.written}\`. Terraform resolves this path from its working directory. Please write it as file("\${path.module}/${read.path}") or change it by hand.`,
           };
         }
 
@@ -398,7 +398,7 @@ class Editing {
           ? refused(
               'file-missing',
               `\`${name}\` reads ${quotedKey(path)}. The repository doesn't have this file.`,
-              { attribute: name, expression: held.written },
+              { attribute: name, expression: existing.written },
             )
           : { ok: true, value: content, path };
       }
@@ -426,9 +426,9 @@ class Editing {
       this.resources.filter(
         (each) =>
           each.labels[0] === rule.type &&
-          literalAt(each.body, rule.heldAt) === key,
+          literalAt(each.body, rule.storedAt) === key,
       ),
-      (each) => literalAt(each.body, rule.heldAt),
+      (each) => literalAt(each.body, rule.storedAt),
     );
 
     if (!found) {
@@ -446,14 +446,14 @@ class Editing {
       : traversal;
   }
 
-  private valueFor(field: HclField, held: ParsedAttribute | undefined) {
+  private valueFor(field: HclField, existing: ParsedAttribute | undefined) {
     const { references: rule } = field;
 
     if (!rule) {
       return field.now as HclValue;
     }
 
-    const kept = (held?.items ?? []).map((each) => ({
+    const kept = (existing?.items ?? []).map((each) => ({
       written: each.written,
       value:
         each.read.kind === 'literal'
@@ -577,15 +577,15 @@ class Editing {
         );
       }
 
-      const [held] = found;
-      const current = await this.resolved(held, field.unset, field.name);
+      const [existing] = found;
+      const current = await this.resolved(existing, field.unset, field.name);
       const changes = !same(field.was, field.now);
 
       if (!current.ok) {
         if (changes) {
           refused('computed-attribute', current.why, {
             attribute: field.name,
-            expression: held?.written ?? null,
+            expression: existing?.written ?? null,
             wanted: field.now,
           });
         }
@@ -605,13 +605,13 @@ class Editing {
 
       changed.push(field);
 
-      if (!held) {
-        inserted.push(attribute(field.name, this.valueFor(field, held)));
+      if (!existing) {
+        inserted.push(attribute(field.name, this.valueFor(field, existing)));
         continue;
       }
 
       if (
-        held.read.kind === 'file' &&
+        existing.read.kind === 'file' &&
         typeof field.now === 'string' &&
         field.freshFile &&
         current.path
@@ -621,7 +621,7 @@ class Editing {
         const now = field.now;
 
         writes.push(async () => {
-          const chosen = await this.freshPath(field, path, held);
+          const chosen = await this.freshPath(field, path, existing);
           const target = inRepository(this.edit.file.path, chosen);
 
           this.written.set(
@@ -631,8 +631,8 @@ class Editing {
 
           if (target !== path) {
             splices.push({
-              start: held.value.start,
-              end: held.value.end,
+              start: existing.value.start,
+              end: existing.value.end,
               text: HclExpression.moduleFile(chosen).written,
             });
           }
@@ -640,25 +640,30 @@ class Editing {
         continue;
       }
 
-      if (held.read.kind === 'file' && typeof field.now === 'string') {
+      if (existing.read.kind === 'file' && typeof field.now === 'string') {
         refused(
           'edit-failed',
-          `\`${field.name}\` reads \`${held.written}\`. Spotlight writes only the station's own files. Please change it by hand.`,
+          `\`${field.name}\` reads \`${existing.written}\`. Spotlight writes only the station's own files. Please change it by hand.`,
           {
             attribute: field.name,
-            expression: held.written,
+            expression: existing.written,
             wanted: field.now,
           },
         );
       }
 
-      const oneLine = restOfLine(this.text, held.value.end).trim().length > 0;
+      const oneLine =
+        restOfLine(this.text, existing.value.end).trim().length > 0;
 
       splices.push({
-        start: held.value.start,
-        end: held.value.end,
+        start: existing.value.start,
+        end: existing.value.end,
         text: this.lined(
-          formatHclValue(this.valueFor(field, held), levelOf(indent), !oneLine),
+          formatHclValue(
+            this.valueFor(field, existing),
+            levelOf(indent),
+            !oneLine,
+          ),
         ),
       });
     }
@@ -724,15 +729,15 @@ class Editing {
       return;
     }
 
-    const [held] = found;
+    const [nested] = found;
 
-    if (!held || found.length > 1) {
+    if (!nested || found.length > 1) {
       return drifted();
     }
 
     for (const [name, was] of Object.entries(guarded.was)) {
       const current = await this.resolved(
-        held.body.attributes.find((each) => each.name === name),
+        nested.body.attributes.find((each) => each.name === name),
         guarded.unset?.[name] ?? null,
         `${guarded.type}.${name}`,
       );

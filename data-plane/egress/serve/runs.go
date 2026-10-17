@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	holdsEvery   = 30 * time.Second
+	checkEvery   = 30 * time.Second
 	sweepEvery   = 10 * time.Second
 	recordEvery  = 5 * time.Second
 	unusedFor    = 2 * time.Minute
@@ -212,7 +212,7 @@ func (e *Egress) redeemed(ctx context.Context, r *run, now bool) error {
 	wearing := wear.From(redeeming, redeemed, nil, wear.Limits{Hosts: e.settings.Allow, Reads: e.settings.Reads}, e.key, e.reader, log)
 	controlPlane := &url.URL{Scheme: "https", Host: r.controlPlane}
 	if err := wearing.TowardControlPlane(redeemed.SpotlightAPI, controlPlane, redeemed.RunID, e.key); err != nil {
-		log.Warn("could not hold the run's Spotlight token", "error", err)
+		log.Warn("could not keep the run's Spotlight token", "error", err)
 	}
 
 	allowed := e.settings.Allow.With(slices.Concat([]string{r.controlPlane}, r.reaches, redeemed.Reaches)...)
@@ -372,22 +372,22 @@ func (e *Egress) admittedRuns() []*run {
 	return runs
 }
 
-func (e *Egress) checkHolds(ctx context.Context) {
-	for asked := range slices.Chunk(e.admittedRuns(), protocol.MaxHoldsAtOnce) {
+func (e *Egress) checkActiveRuns(ctx context.Context) {
+	for asked := range slices.Chunk(e.admittedRuns(), protocol.MaxRunsAtOnce) {
 		credentials := make([]string, len(asked))
 		for at, found := range asked {
 			credentials[at] = found.credential
 		}
 
-		held, err := e.control.EgressHolds(ctx, credentials)
+		active, err := e.control.ActiveRuns(ctx, credentials)
 		if err != nil {
-			e.log.Warn("could not ask which runs are held, keeps them for now", "runs", len(asked), "error", err)
+			e.log.Warn("could not ask which runs are active, keeps them for now", "runs", len(asked), "error", err)
 			continue
 		}
 
 		e.forget(ctx, slices.DeleteFunc(slices.Clone(asked), func(found *run) bool {
-			return slices.Contains(held, found.credential)
-		}), "the control plane no longer holds them")
+			return slices.Contains(active, found.credential)
+		}), "their runs are no longer active")
 	}
 }
 
@@ -417,8 +417,8 @@ func (e *Egress) sweep(ctx context.Context) {
 }
 
 func (e *Egress) keep(ctx context.Context) {
-	holds := time.NewTicker(cmp.Or(e.settings.HoldsEvery, holdsEvery))
-	defer holds.Stop()
+	checks := time.NewTicker(cmp.Or(e.settings.CheckEvery, checkEvery))
+	defer checks.Stop()
 	sweeps := time.NewTicker(sweepEvery)
 	defer sweeps.Stop()
 	recording := time.NewTicker(cmp.Or(e.settings.RecordEvery, recordEvery))
@@ -428,8 +428,8 @@ func (e *Egress) keep(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-holds.C:
-			e.checkHolds(ctx)
+		case <-checks.C:
+			e.checkActiveRuns(ctx)
 		case <-sweeps.C:
 			e.sweep(ctx)
 		case <-recording.C:

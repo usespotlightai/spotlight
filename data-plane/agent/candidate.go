@@ -22,7 +22,7 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 	flags := flag.NewFlagSet("candidate", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	name := flags.String("name", "", "tells the candidate from the search's others")
-	hypothesis := flags.String("hypothesis", "", "what you expect the change to do, or @file holding it")
+	hypothesis := flags.String("hypothesis", "", "what you expect the change to do, or @file that contains it")
 
 	var positional []string
 	for {
@@ -46,7 +46,7 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("--hypothesis is required\n%s", candidateUsage)
 	}
 	if len(positional) != 1 {
-		return fmt.Errorf("name one file holding the station block, or - to read it from stdin\n%s", candidateUsage)
+		return fmt.Errorf("name one file that contains the station block, or - to read it from stdin\n%s", candidateUsage)
 	}
 
 	expected, err := hypothesisOf(*hypothesis)
@@ -100,7 +100,7 @@ func hypothesisOf(given string) (string, error) {
 
 	said := strings.TrimSpace(string(read))
 	if said == "" {
-		return "", fmt.Errorf("%s holds no hypothesis; say what you expect the change to do", file)
+		return "", fmt.Errorf("%s contains no hypothesis; say what you expect the change to do", file)
 	}
 
 	return said, nil
@@ -108,7 +108,7 @@ func hypothesisOf(given string) (string, error) {
 
 func stationBlock(path string, in io.Reader) (json.RawMessage, error) {
 	if ext := strings.ToLower(filepath.Ext(path)); ext == ".tf" || ext == ".hcl" {
-		return nil, fmt.Errorf("%s is HCL; give the station block as JSON, as the line resource holds a station", path)
+		return nil, fmt.Errorf("%s is HCL; give the station block as JSON, as the line resource contains a station", path)
 	}
 
 	var read []byte
@@ -124,7 +124,7 @@ func stationBlock(path string, in io.Reader) (json.RawMessage, error) {
 
 	var block map[string]json.RawMessage
 	if err := json.Unmarshal(read, &block); err != nil || block == nil {
-		return nil, fmt.Errorf("%s holds no JSON object; it holds the station block, as the line resource holds a station", path)
+		return nil, fmt.Errorf("%s contains no JSON object; it must contain the station block, as the line resource contains a station", path)
 	}
 
 	return bytes.TrimSpace(read), nil

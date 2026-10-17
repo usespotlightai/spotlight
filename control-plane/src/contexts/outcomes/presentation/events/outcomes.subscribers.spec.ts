@@ -184,7 +184,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     judging: new AskForJudging(
       WORK,
       {
-        holds: async () => true,
+        hasTask: async () => true,
         of: async () => null,
         judgesOnTeam: async () => new Map(),
         judgeAt: async () => ({
@@ -685,7 +685,7 @@ describe('outcomesSubscribers', () => {
     await heard.deliver('outcomes.record-started-chat', started);
     await heard.deliver('outcomes.record-started-chat', started);
 
-    expect(heard.chats.held.size).toBe(1);
+    expect(heard.chats.stored.size).toBe(1);
   });
 
   it('keeps the config pull requests Spotlight opened, each once, until their team is disbanded and after none heard late', async () => {
@@ -714,7 +714,7 @@ describe('outcomesSubscribers', () => {
       opened('2', 'team_2'),
     );
 
-    expect([...heard.configPullRequests.held.keys()]).toEqual(['1', '2']);
+    expect([...heard.configPullRequests.stored.keys()]).toEqual(['1', '2']);
 
     await heard.deliver(
       'outcomes.forget-config-pull-requests-of-disbanded-team',
@@ -730,14 +730,14 @@ describe('outcomesSubscribers', () => {
       opened('3'),
     );
 
-    expect([...heard.configPullRequests.held.keys()]).toEqual(['2']);
+    expect([...heard.configPullRequests.stored.keys()]).toEqual(['2']);
 
     await heard.deliver(
       'outcomes.forget-config-pull-requests-of-closed-workspace',
       { kind: WORKSPACE_CLOSED, workspaceId: 'ws_1', slug: 'acme' },
     );
 
-    expect(heard.configPullRequests.held.size).toBe(0);
+    expect(heard.configPullRequests.stored.size).toBe(0);
   });
 
   it('forgets a deleted task’s touches and failures, and a closed workspace’s chats', async () => {
@@ -783,9 +783,9 @@ describe('outcomesSubscribers', () => {
       slug: 'acme',
     });
 
-    expect(heard.touches.held.size).toBe(0);
-    expect(heard.failures.held.size).toBe(0);
-    expect(heard.chats.held.size).toBe(0);
+    expect(heard.touches.stored.size).toBe(0);
+    expect(heard.failures.stored.size).toBe(0);
+    expect(heard.chats.stored.size).toBe(0);
   });
 
   it('forgets a deleted task’s runs and delivery', async () => {
@@ -809,7 +809,7 @@ describe('outcomesSubscribers', () => {
     await heard.deliver('outcomes.forget-delivery-of-deleted-task', deleted);
 
     expect(await heard.record()).toBeNull();
-    expect(heard.deliveries.held.size).toBe(0);
+    expect(heard.deliveries.stored.size).toBe(0);
   });
 
   it('forgets the runs of a disbanded team', async () => {
@@ -850,7 +850,7 @@ describe('outcomesSubscribers', () => {
     expect(
       (await heard.deliveries.forTask(TaskId.of('task_1')))?.firstReviewAt,
     ).toEqual(new Date('2026-09-30T11:00:00.000Z'));
-    expect(heard.reviews.held.size).toBe(0);
+    expect(heard.reviews.stored.size).toBe(0);
   });
 
   it('forgets the failures and pull requests of a disbanded team', async () => {
@@ -891,8 +891,8 @@ describe('outcomesSubscribers', () => {
       disbanded,
     );
 
-    expect(heard.failures.held.size).toBe(0);
-    expect(heard.deliveries.held.size).toBe(0);
+    expect(heard.failures.stored.size).toBe(0);
+    expect(heard.deliveries.stored.size).toBe(0);
   });
 
   it('records nothing more of a task heard of after it was deleted, whichever forgetting came first', async () => {
@@ -986,10 +986,10 @@ describe('outcomesSubscribers', () => {
       at: '2026-09-30T10:30:00.000Z',
     });
 
-    expect(heard.records.held.size).toBe(0);
-    expect(heard.touches.held.size).toBe(0);
-    expect(heard.failures.held.size).toBe(0);
-    expect(heard.deliveries.held.size).toBe(0);
+    expect(heard.records.stored.size).toBe(0);
+    expect(heard.touches.stored.size).toBe(0);
+    expect(heard.failures.stored.size).toBe(0);
+    expect(heard.deliveries.stored.size).toBe(0);
   });
 
   it('records nothing more of a team heard of after it was disbanded, and lets go of what it heard before it knew the team', async () => {
@@ -1040,10 +1040,10 @@ describe('outcomesSubscribers', () => {
       at: '2026-09-30T10:00:00.000Z',
     });
 
-    expect(heard.records.held.size).toBe(0);
-    expect(heard.chats.held.size).toBe(0);
-    expect(heard.touches.held.size).toBe(0);
-    expect(heard.failures.held.size).toBe(0);
+    expect(heard.records.stored.size).toBe(0);
+    expect(heard.chats.stored.size).toBe(0);
+    expect(heard.touches.stored.size).toBe(0);
+    expect(heard.failures.stored.size).toBe(0);
   });
 
   it('records nothing more of a workspace heard of after it was closed', async () => {
@@ -1083,10 +1083,10 @@ describe('outcomesSubscribers', () => {
       submittedAt: '2026-09-30T11:00:00.000Z',
     });
 
-    expect(heard.records.held.size).toBe(0);
-    expect(heard.chats.held.size).toBe(0);
-    expect(heard.touches.held.size).toBe(0);
-    expect(heard.reviews.held.size).toBe(0);
+    expect(heard.records.stored.size).toBe(0);
+    expect(heard.chats.stored.size).toBe(0);
+    expect(heard.touches.stored.size).toBe(0);
+    expect(heard.reviews.stored.size).toBe(0);
   });
 
   it('forgets everything of a closed workspace', async () => {
@@ -1112,8 +1112,8 @@ describe('outcomesSubscribers', () => {
       closed,
     );
 
-    expect(heard.records.held.size).toBe(0);
-    expect(heard.deliveries.held.size).toBe(0);
+    expect(heard.records.stored.size).toBe(0);
+    expect(heard.deliveries.stored.size).toBe(0);
   });
 
   it('asks for a judge’s verdict on a run that ended at a judged station', async () => {
@@ -1125,7 +1125,7 @@ describe('outcomesSubscribers', () => {
     const judging = await heard.judgings.of(RunId.of('run_1'));
     expect(judging?.owesWork).toBe(true);
     expect(judging?.rubric.version).toBe(RUBRIC_VERSION);
-    expect(heard.judgings.held.size).toBe(1);
+    expect(heard.judgings.stored.size).toBe(1);
   });
 
   it('judges neither a withdrawn run nor one at no station', async () => {
@@ -1140,7 +1140,7 @@ describe('outcomesSubscribers', () => {
       runEnded({ stationId: null }),
     );
 
-    expect(heard.judgings.held.size).toBe(0);
+    expect(heard.judgings.stored.size).toBe(0);
   });
 
   it('records the judge’s score once, however often the verdict is heard', async () => {
@@ -1164,7 +1164,7 @@ describe('outcomesSubscribers', () => {
     await heard.deliver('outcomes.record-judge-score', judged as never);
     await heard.deliver('outcomes.record-judge-score', judged as never);
 
-    const [score, ...rest] = [...heard.scores.held.values()];
+    const [score, ...rest] = [...heard.scores.stored.values()];
     expect(rest).toEqual([]);
     expect(score?.source).toBe('judge');
     expect(score?.value).toBe(1);
@@ -1180,7 +1180,7 @@ describe('outcomesSubscribers', () => {
 
     await heard.deliver('outcomes.judge-ended-run', runEnded());
 
-    expect(heard.judgings.held.size).toBe(0);
+    expect(heard.judgings.stored.size).toBe(0);
   });
 
   it('records no score for a verdict heard after its task was deleted', async () => {
@@ -1210,7 +1210,7 @@ describe('outcomesSubscribers', () => {
       ) as never,
     );
 
-    expect(heard.scores.held.size).toBe(0);
+    expect(heard.scores.stored.size).toBe(0);
   });
 
   it('settles a run’s grade aside once a person grades it', async () => {
@@ -1240,8 +1240,8 @@ describe('outcomesSubscribers', () => {
       workspaceId: 'ws_1',
     });
 
-    expect(heard.judgings.held.size).toBe(0);
-    expect(heard.scores.held.size).toBe(0);
+    expect(heard.judgings.stored.size).toBe(0);
+    expect(heard.scores.stored.size).toBe(0);
   });
 
   describe('every pull request in the team’s repositories', () => {
@@ -1278,7 +1278,7 @@ describe('outcomesSubscribers', () => {
       ...change,
     });
 
-    const held = (heard: ReturnType<typeof subscribed>) =>
+    const recordOf = (heard: ReturnType<typeof subscribed>) =>
       heard.pullRequests.at(WorkspaceId.of('ws_1'), PullRequestUrl.of(PULL));
 
     it('records a pull request no task owns, as people’s', async () => {
@@ -1286,7 +1286,7 @@ describe('outcomesSubscribers', () => {
 
       await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
 
-      const record = await held(heard);
+      const record = await recordOf(heard);
       expect(record?.seen?.title).toBe('Retry failed uploads');
       expect(record?.owner).toBeNull();
     });
@@ -1324,7 +1324,7 @@ describe('outcomesSubscribers', () => {
         }),
       );
 
-      expect((await held(heard))?.seen).toMatchObject({
+      expect((await recordOf(heard))?.seen).toMatchObject({
         readyForReviewAt: new Date('2026-09-30T09:00:00.000Z'),
         draftSpells: [
           {
@@ -1356,7 +1356,7 @@ describe('outcomesSubscribers', () => {
       });
       await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
 
-      const record = await held(heard);
+      const record = await recordOf(heard);
       expect(record?.owner?.taskId.value).toBe('task_1');
       expect(record?.seen?.number).toBe(3);
     });
@@ -1373,7 +1373,7 @@ describe('outcomesSubscribers', () => {
         recordedEvent({ state: 'open', version: 2 }),
       );
 
-      expect((await held(heard))?.seen?.state).toBe('merged');
+      expect((await recordOf(heard))?.seen?.state).toBe('merged');
     });
 
     it('marks people’s pull request touched once a review task ran on it', async () => {
@@ -1388,7 +1388,7 @@ describe('outcomesSubscribers', () => {
       });
 
       expect(
-        (await held(heard))?.reviewTasks.map((each) => each.value),
+        (await recordOf(heard))?.reviewTasks.map((each) => each.value),
       ).toEqual(['task_9']);
     });
 
@@ -1431,7 +1431,7 @@ describe('outcomesSubscribers', () => {
         closedEvent({ version: 3 }),
       );
 
-      expect(await held(heard)).toBeNull();
+      expect(await recordOf(heard)).toBeNull();
     });
 
     it('turns away a late word GitHub said no later than it forgot, even one saying it is open', async () => {
@@ -1447,7 +1447,7 @@ describe('outcomesSubscribers', () => {
         recordedEvent({ updatedAt: CLOSED_AT, version: 9 }),
       );
 
-      expect(await held(heard)).toBeNull();
+      expect(await recordOf(heard)).toBeNull();
     });
 
     it('takes a forgotten pull request back once GitHub changes it later, at any version', async () => {
@@ -1474,8 +1474,8 @@ describe('outcomesSubscribers', () => {
         }),
       );
 
-      expect((await held(reopened))?.seen?.title).toBe('Reopened');
-      expect((await held(closedLater))?.seen?.title).toBe('Again');
+      expect((await recordOf(reopened))?.seen?.title).toBe('Reopened');
+      expect((await recordOf(closedLater))?.seen?.title).toBe('Again');
     });
 
     it('keeps Spotlight’s pull request after GitHub forgets it, and hears it anew once GitHub records it again', async () => {
@@ -1491,14 +1491,14 @@ describe('outcomesSubscribers', () => {
         forgottenEvent(),
       );
 
-      expect((await held(heard))?.seen?.number).toBe(3);
+      expect((await recordOf(heard))?.seen?.number).toBe(3);
 
       await heard.deliver(
         'outcomes.record-seen-pull-request',
         recordedEvent({ title: 'Reopened', version: 1 }),
       );
 
-      expect((await held(heard))?.seen?.title).toBe('Reopened');
+      expect((await recordOf(heard))?.seen?.title).toBe('Reopened');
     });
 
     it('lets go of a deleted task’s pull request GitHub already forgot', async () => {
@@ -1516,7 +1516,7 @@ describe('outcomesSubscribers', () => {
         workspaceId: 'ws_1',
       });
 
-      expect(await held(heard)).toBeNull();
+      expect(await recordOf(heard)).toBeNull();
     });
 
     it('keeps what GitHub said of a disbanded team’s pull request, as nobody’s', async () => {
@@ -1530,7 +1530,7 @@ describe('outcomesSubscribers', () => {
         teamId: 'team_1',
       });
 
-      const record = await held(heard);
+      const record = await recordOf(heard);
       expect(record?.owner).toBeNull();
       expect(record?.seen?.number).toBe(3);
     });
@@ -1550,7 +1550,7 @@ describe('outcomesSubscribers', () => {
         teamId: 'team_1',
       });
 
-      expect(await held(heard)).toBeNull();
+      expect(await recordOf(heard)).toBeNull();
     });
 
     it('leaves another team’s pull request alone when a team disbands', async () => {
@@ -1567,7 +1567,7 @@ describe('outcomesSubscribers', () => {
         teamId: 'team_1',
       });
 
-      expect((await held(heard))?.owner?.teamId.value).toBe('team_2');
+      expect((await recordOf(heard))?.owner?.teamId.value).toBe('team_2');
     });
 
     it('lets go of a deleted task’s pull requests but keeps what GitHub said of them', async () => {
@@ -1596,7 +1596,7 @@ describe('outcomesSubscribers', () => {
         at: '2026-09-30T08:00:00.000Z',
       });
 
-      const record = await held(heard);
+      const record = await recordOf(heard);
       expect(record?.owner).toBeNull();
       expect(record?.seen?.number).toBe(3);
     });
@@ -1611,7 +1611,7 @@ describe('outcomesSubscribers', () => {
       });
       await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
 
-      expect(await held(heard)).toBeNull();
+      expect(await recordOf(heard)).toBeNull();
     });
 
     it('records no cohorts a change stack claims for another task or workspace than its run’s', async () => {
@@ -1772,7 +1772,7 @@ describe('outcomesSubscribers', () => {
       });
       await watched(heard, 'run_1');
 
-      expect(heard.watches.held.size).toBe(0);
+      expect(heard.watches.stored.size).toBe(0);
     });
 
     it('re-checks a redefined line’s stations, recovering an alert whose threshold is gone', async () => {
@@ -1801,7 +1801,7 @@ describe('outcomesSubscribers', () => {
 
       await watched(heard, 'run_1');
 
-      expect(heard.watches.held.size).toBe(0);
+      expect(heard.watches.stored.size).toBe(0);
     });
 
     it('raises no alert for a run whose task was deleted, and forgets the alerts a deleted task raised', async () => {

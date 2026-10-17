@@ -18,7 +18,7 @@ const ID = RunnerId.of('pooled_1');
 
 const later = (ms: number): Date => new Date(STARTED_AT.getTime() + ms);
 
-const holding = (runner: Runner | null) => {
+const setUp = (runner: Runner | null) => {
   const save = vi.fn(async () => {});
 
   return {
@@ -32,7 +32,7 @@ const holding = (runner: Runner | null) => {
 
 describe('RunnerPresence', () => {
   it('answers where the runner works, what it can run and what it may claim, marking it seen', async () => {
-    const { presence, save } = holding(
+    const { presence, save } = setUp(
       aRunner({
         installed: [InstalledHarness.reported('claude-code', [], '2.1.0')],
       }),
@@ -49,7 +49,7 @@ describe('RunnerPresence', () => {
 
   it('answers serving only the image the runner was started in', async () => {
     const widgets = RunnerImage.of('ghcr.io/acme/widgets:1');
-    const { presence } = holding(
+    const { presence } = setUp(
       aRunner({ running: RunningImage.of(widgets, false) }),
     );
 
@@ -60,7 +60,7 @@ describe('RunnerPresence', () => {
   });
 
   it('answers to the labels of the trust that admitted it', async () => {
-    const { presence } = holding(aRunner({ through: aTrust() }));
+    const { presence } = setUp(aRunner({ through: aTrust() }));
 
     expect((await presence.seen(ID, later(1)))?.terms.values).toEqual([
       'vpc-internal',
@@ -89,7 +89,7 @@ describe('RunnerPresence', () => {
   });
 
   it('says a runner that took its work may claim nothing more', async () => {
-    const { presence } = holding(
+    const { presence } = setUp(
       aRunner().took(RunnerWork.run('run_1'), later(1)),
     );
 
@@ -97,11 +97,11 @@ describe('RunnerPresence', () => {
   });
 
   it('knows nothing of a runner never started', async () => {
-    await expect(holding(null).presence.seen(ID, later(1))).resolves.toBeNull();
+    await expect(setUp(null).presence.seen(ID, later(1))).resolves.toBeNull();
   });
 
   it('knows nothing of one that has ended', async () => {
-    const { presence } = holding(
+    const { presence } = setUp(
       aRunner().took(RunnerWork.run('run_1'), STARTED_AT).ended(STARTED_AT),
     );
 
@@ -109,7 +109,7 @@ describe('RunnerPresence', () => {
   });
 
   it('knows nothing of one that let its claim lapse, and does not mark it seen', async () => {
-    const { presence, save } = holding(aRunner({ claimWithinMs: 1_000 }));
+    const { presence, save } = setUp(aRunner({ claimWithinMs: 1_000 }));
 
     await expect(presence.seen(ID, later(1_000))).resolves.toBeNull();
     expect(save).not.toHaveBeenCalled();

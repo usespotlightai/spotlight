@@ -23,7 +23,7 @@ func TestTrustsTheRunsAuthorityBesideWhatTheImageAlreadyTrusts(t *testing.T) {
 
 	for path, want := range map[string]string{bundle: "PUBLIC\nACME\nRUN\n", debian: "PUBLIC\nACME\nRUN\n", alpine: "OTHER\nRUN\n"} {
 		if got, _ := os.ReadFile(path); string(got) != want {
-			t.Errorf("%s holds %q", filepath.Base(path), got)
+			t.Errorf("%s contains %q", filepath.Base(path), got)
 		}
 	}
 	if _, err := os.Stat(absent); !os.IsNotExist(err) {
@@ -67,7 +67,7 @@ func TestTrustsOnceThroughALinkAndAgainWithoutRepeating(t *testing.T) {
 	}
 
 	if got, _ := os.ReadFile(real); string(got) != "PUBLIC\nRUN\n" {
-		t.Errorf("the system bundle holds %q", got)
+		t.Errorf("the system bundle contains %q", got)
 	}
 	if target, _ := os.Readlink(link); target != real {
 		t.Errorf("the link now points at %q", target)
@@ -97,14 +97,14 @@ func TestWritesTheSandboxBundleEvenWhenASystemBundleWillNotChange(t *testing.T) 
 		t.Error("said nothing of the bundle it could not change")
 	}
 	if got, _ := os.ReadFile(bundle); string(got) != "PUBLIC\nRUN\n" {
-		t.Errorf("the sandbox bundle holds %q", got)
+		t.Errorf("the sandbox bundle contains %q", got)
 	}
 	if got, _ := os.ReadFile(system); string(got) != "PUBLIC\n" && string(got) != "PUBLIC\nRUN\n" {
 		t.Errorf("the system bundle was left half-written: %q", got)
 	}
 }
 
-func TestTrustsAnAuthorityItHoldsInMemory(t *testing.T) {
+func TestTrustsAnAuthorityItKeepsInMemory(t *testing.T) {
 	dir := t.TempDir()
 	authority, bundle := filepath.Join(dir, "egress", "authority.pem"), filepath.Join(dir, "egress", "bundle.pem")
 	system := filepath.Join(dir, "system.crt")
@@ -118,7 +118,7 @@ func TestTrustsAnAuthorityItHoldsInMemory(t *testing.T) {
 
 	for path, want := range map[string]string{authority: "WAY OUT\n", bundle: "PUBLIC\nWAY OUT\n", system: "PUBLIC\nWAY OUT\n"} {
 		if got, _ := os.ReadFile(path); string(got) != want {
-			t.Errorf("%s holds %q", filepath.Base(path), got)
+			t.Errorf("%s contains %q", filepath.Base(path), got)
 		}
 	}
 }

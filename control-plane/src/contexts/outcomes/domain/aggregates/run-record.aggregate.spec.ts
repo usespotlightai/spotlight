@@ -279,7 +279,7 @@ describe('RunRecord', () => {
     ).toThrow(InvalidOutcomeError);
   });
 
-  it('is stored ending on the task it is held under', () => {
+  it('is stored ending on the task it is recorded under', () => {
     expect(() =>
       RunRecord.rehydrate({
         runId: RUN,
@@ -342,7 +342,7 @@ describe('RunRecord', () => {
     expect(digested.recordDigest(costOf(), RunTools.NONE)).toBe(digested);
   });
 
-  it('holds the tools it used only once digested, and may be read without them', () => {
+  it('has the tools it used only once digested, and may be read without them', () => {
     const stored = (cost: RunCost | null, tools: RunTools | null) =>
       RunRecord.rehydrate({
         runId: RUN,

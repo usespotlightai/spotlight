@@ -45,7 +45,7 @@ const unstartable = (reason: string): SearchDispatched => ({
   reason,
 });
 
-const holds = (made: () => unknown): boolean => {
+const succeeds = (made: () => unknown): boolean => {
   try {
     made();
     return true;
@@ -75,13 +75,13 @@ export class DispatchSearch implements SearchDispatchPort {
     }
     const { model, effort } = agent;
 
-    if (model !== null && !holds(() => HarnessModel.of(model))) {
+    if (model !== null && !succeeds(() => HarnessModel.of(model))) {
       return {
         field: 'model',
         reason: `Model must be 1 to ${MAX_MODEL} characters, or empty.`,
       };
     }
-    if (effort !== null && !holds(() => Effort.of(effort))) {
+    if (effort !== null && !succeeds(() => Effort.of(effort))) {
       return {
         field: 'effort',
         reason: `Effort must be one of ${EFFORTS.join(', ')}, or empty.`,

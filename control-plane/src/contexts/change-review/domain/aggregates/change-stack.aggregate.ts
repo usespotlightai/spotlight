@@ -68,7 +68,7 @@ const assertWhole = (
   };
 
   if (progress.state === 'drafting' && cohorts.length > 0) {
-    wrong('is still drafting, yet already holds cohorts');
+    wrong('is still drafting, yet already has cohorts');
   }
 
   if (progress.state === 'failed' && !progress.failure) {
@@ -104,7 +104,7 @@ const assertWhole = (
 
   for (const hunk of counted.keys()) {
     if (!diff.hunks.some((each) => each.id === hunk)) {
-      wrong(`places ${hunk}, which the diff does not hold`);
+      wrong(`places ${hunk}, which the diff does not contain`);
     }
   }
 };

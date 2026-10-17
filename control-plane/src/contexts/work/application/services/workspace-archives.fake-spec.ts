@@ -23,9 +23,9 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
-const HELD_AT = new Date('2026-09-25T09:00:00.000Z');
+const CLAIMED_AT = new Date('2026-09-25T09:00:00.000Z');
 
-export const aHeldRun = (
+export const aLeasedRun = (
   over: {
     id?: string;
     runner?: string;
@@ -65,12 +65,12 @@ export const aHeldRun = (
           : { sessionId: over.session ?? 'session_1' }),
       },
     }),
-  }).claim(RunnerId.of(over.runner ?? 'runner_1'), HELD_AT);
+  }).claim(RunnerId.of(over.runner ?? 'runner_1'), CLAIMED_AT);
 
-export const holding = (...held: readonly Run[]): RunRepository =>
+export const runsOf = (...runs: readonly Run[]): RunRepository =>
   ({
     findById: async (id: RunId) =>
-      held.find((each) => each.id.equals(id)) ?? null,
+      runs.find((each) => each.id.equals(id)) ?? null,
   }) as unknown as RunRepository;
 
 export class InMemoryArchives implements WorkspaceArchiveRepository {
@@ -81,9 +81,9 @@ export class InMemoryArchives implements WorkspaceArchiveRepository {
   }
 
   async save(archive: WorkspaceArchive): Promise<void> {
-    const held = this.kept.get(archive.id.value);
+    const existing = this.kept.get(archive.id.value);
 
-    if (!held || held.version !== archive.version) {
+    if (!existing || existing.version !== archive.version) {
       throw new WorkspaceArchiveVersionConflictError(archive.id.value);
     }
 

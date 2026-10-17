@@ -14,7 +14,7 @@ export class PausedRuns {
   ) {}
 
   onTaskAnswered(event: TaskAnswered): Promise<void> {
-    return this.takeUp(event.taskId, event.heldBy);
+    return this.takeUp(event.taskId, event.currentRunId);
   }
 
   async takeUp(taskId: TaskId, runId: RunId): Promise<void> {

@@ -49,7 +49,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 
-const held = () =>
+const leased = () =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -133,14 +133,14 @@ const completing = (
   const asked: BeforeMoment[] = [];
   const handler = new CompleteRunHandler(
     {
-      findById: async () => (stored.run ? stored.run() : held()),
+      findById: async () => (stored.run ? stored.run() : leased()),
       save,
     } as unknown as RunRepository,
     {
       find: async () => (typeof task === 'function' ? task() : task),
       save: async (each: Task) => void stored.tasks.push(each),
     } as unknown as TaskRepository,
-    { holding: async () => line() } as unknown as LineRepository,
+    { findByStation: async () => line() } as unknown as LineRepository,
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
@@ -194,7 +194,7 @@ describe('CompleteRunHandler', () => {
       expect(answered).toEqual({ waiting: true });
       expect(saved[0]?.state).toBe('waiting');
       expect(stored.tasks[0]?.awaitingReview).toBe(true);
-      expect(stored.tasks[0]?.heldBy(RunId.of('run_1'))).toBe(true);
+      expect(stored.tasks[0]?.hasCurrentRun(RunId.of('run_1'))).toBe(true);
       expect(stored.tasks[0]?.sessionId?.value).toBe('session_1');
       expect(stored.tasks[0]?.notes[0]?.body.value).toBe(
         'Which queue should I drain?',
@@ -287,7 +287,7 @@ describe('CompleteRunHandler', () => {
     it('answers a repeated report of a pause the same way, changing nothing and asking no hook again', async () => {
       const saved: Run[] = [];
       const waiting = () =>
-        held().paused(
+        leased().paused(
           RunnerId.of('runner_1'),
           RunOutcome.of({ exitCode: 0, failed: false }),
           HandoverReport.none(),
@@ -419,7 +419,7 @@ describe('CompleteRunHandler', () => {
       true,
     );
     const lastAttempt = () =>
-      held()
+      leased()
         .timedOut(RUNNER, NOW)
         .claim(RUNNER, NOW)
         .timedOut(RUNNER, NOW)
@@ -547,7 +547,7 @@ describe('CompleteRunHandler', () => {
       expect(handler.asked).toEqual([]);
     });
 
-    it('asks no hooks for a run another runner holds', async () => {
+    it('asks no hooks for a run another runner leases', async () => {
       const handler = completing(async () => {});
 
       await expect(

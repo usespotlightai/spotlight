@@ -118,7 +118,7 @@ describe('GitDiffReader', () => {
     expect(diff.fileOf('h99')).toBeNull();
   });
 
-  it('refuses text that holds no changes', () => {
+  it('refuses text that has no changes', () => {
     expect(() => reader.read('nothing to see')).toThrow(InvalidDiffError);
   });
 

@@ -53,12 +53,12 @@ const GRAFANA_READS = {
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `hooks-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `hooks-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   await db.insert(schema.integrationDefinition).values({
     id: randomUUID(),
-    teamId: held,
+    teamId: workspaceId,
     source: 'grafana',
     definition: GRAFANA,
     offers: ['grafana.search'],
@@ -67,12 +67,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${held}/hooks`,
+    collection: `/api/resources/teams/${workspaceId}/hooks`,
     item: (id) => `/api/resources/hooks/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/hooks/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/hooks/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/hooks`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'team/grafana-reads',
     valid: GRAFANA_READS,
     changed: { ...GRAFANA_READS, timeoutSeconds: 20 },
@@ -84,10 +84,10 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     close: async () => {
       await db
         .delete(schema.hookDefinition)
-        .where(eq(schema.hookDefinition.teamId, held));
+        .where(eq(schema.hookDefinition.teamId, workspaceId));
       await db
         .delete(schema.integrationDefinition)
-        .where(eq(schema.integrationDefinition.teamId, held));
+        .where(eq(schema.integrationDefinition.teamId, workspaceId));
       await db
         .delete(schema.idempotentCreate)
         .where(

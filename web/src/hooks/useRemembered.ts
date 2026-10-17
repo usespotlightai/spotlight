@@ -12,11 +12,13 @@ export function useRemembered(
   storageKey: string,
   fallback: string,
 ): [string, (value: string) => void] {
-  const [held, setHeld] = useState(() => readStored(storageKey, fallback));
+  const [remembered, setRemembered] = useState(() =>
+    readStored(storageKey, fallback),
+  );
 
   const remember = useCallback(
     (value: string) => {
-      setHeld(value);
+      setRemembered(value);
       try {
         localStorage.setItem(storageKey, value);
       } catch {}
@@ -24,5 +26,5 @@ export function useRemembered(
     [storageKey],
   );
 
-  return [held, remember];
+  return [remembered, remember];
 }

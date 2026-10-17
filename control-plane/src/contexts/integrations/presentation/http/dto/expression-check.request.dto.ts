@@ -4,7 +4,7 @@ export class CheckExpressionRequestDto {
   @ApiProperty({
     example: 'integration.webhook.events[0].when',
     description:
-      'The attribute that holds the expression, within the definition, written as its problems would name it',
+      'The attribute that contains the expression, within the definition, written as its problems would name it',
   })
   readonly position!: string;
 

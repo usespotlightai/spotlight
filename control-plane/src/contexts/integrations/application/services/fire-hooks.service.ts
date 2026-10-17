@@ -43,7 +43,7 @@ export interface Happened {
   readonly matchedLater?: boolean;
 }
 
-interface Held {
+interface LeasedFiring {
   firing: HookFiring;
 }
 
@@ -227,13 +227,13 @@ export class FireHooks {
       return false;
     }
 
-    const held: Held = { firing: claimed };
+    const leased: LeasedFiring = { firing: claimed };
 
     await unlessVersionConflict(async () => {
       try {
         await this.causation.within(
           claimed.cause.followedBy(claimed.link),
-          () => this.delivered(held),
+          () => this.delivered(leased),
         );
       } catch (error) {
         if (error instanceof HookFiringVersionConflictError) {
@@ -241,7 +241,7 @@ export class FireHooks {
         }
 
         await this.settled(
-          held.firing,
+          leased.firing,
           error instanceof StepFailed
             ? error.failure
             : HookFailure.of('errored', because(error)),
@@ -291,15 +291,15 @@ export class FireHooks {
   }
 
   private async stopped(
-    held: Held,
+    leased: LeasedFiring,
     hook: string,
     loop: HookFailure,
   ): Promise<void> {
-    if (!held.firing.stoppedForLooping) {
-      held.firing = await this.kept(held.firing.stopForLoop(loop));
+    if (!leased.firing.stoppedForLooping) {
+      leased.firing = await this.kept(leased.firing.stopForLoop(loop));
     }
 
-    const { firing } = held;
+    const { firing } = leased;
 
     try {
       const heard = await this.notes.failed({
@@ -405,8 +405,8 @@ export class FireHooks {
     return reread;
   }
 
-  private async delivered(held: Held): Promise<void> {
-    const { firing } = held;
+  private async delivered(leased: LeasedFiring): Promise<void> {
+    const { firing } = leased;
     const hook = await this.runtime.hook(firing.hookId);
 
     if (!hook) {
@@ -452,20 +452,20 @@ export class FireHooks {
         return;
       }
 
-      held.firing = await this.kept(firing.recordMatch(moment.event));
+      leased.firing = await this.kept(firing.recordMatch(moment.event));
     }
 
-    const loop = held.firing.loopStop(
+    const loop = leased.firing.loopStop(
       hook.key,
-      await this.history.recentRepeats(held.firing),
+      await this.history.recentRepeats(leased.firing),
     );
 
     if (loop) {
-      await this.stopped(held, hook.key, loop);
+      await this.stopped(leased, hook.key, loop);
       return;
     }
 
-    const done = new Map(held.firing.steps.map((step) => [step.name, step]));
+    const done = new Map(leased.firing.steps.map((step) => [step.name, step]));
     const earlier: StepOutcome[] = [];
 
     for (const step of hook.steps) {
@@ -490,7 +490,7 @@ export class FireHooks {
 
       if (taken.outcome.status === 'waiting') {
         const waiting = await this.kept(
-          held.firing.recordStep([...earlier, taken.outcome]),
+          leased.firing.recordStep([...earlier, taken.outcome]),
         );
 
         await this.firings.save(
@@ -504,8 +504,8 @@ export class FireHooks {
       await this.traced(moment, taken);
 
       if (taken.outcome.status === 'failed') {
-        held.firing = await this.kept(
-          held.firing.recordStep([...earlier, taken.outcome]),
+        leased.firing = await this.kept(
+          leased.firing.recordStep([...earlier, taken.outcome]),
         );
         throw new StepFailed(
           hook.key,
@@ -515,10 +515,10 @@ export class FireHooks {
       }
 
       earlier.push(taken.outcome);
-      held.firing = await this.kept(held.firing.recordStep(earlier));
+      leased.firing = await this.kept(leased.firing.recordStep(earlier));
     }
 
-    await this.firings.save(held.firing.worked(this.clock.now()));
+    await this.firings.save(leased.firing.worked(this.clock.now()));
   }
 
   private async momentOf(

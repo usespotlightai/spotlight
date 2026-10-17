@@ -19,7 +19,7 @@ export class RunStationResponseDto {
   @ApiProperty({ example: 3 })
   readonly position: number;
 
-  @ApiProperty({ example: 5, description: 'How many stations the line holds' })
+  @ApiProperty({ example: 5, description: 'How many stations the line has' })
   readonly count: number;
 
   constructor(

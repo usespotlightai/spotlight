@@ -8,7 +8,7 @@ import (
 )
 
 func TestKeepsEveryHarnessKeyItKnowsWithEgressWhateverTheControlPlaneSays(t *testing.T) {
-	env, held := standInsFor([]string{
+	env, hostCredentials := standInsFor([]string{
 		"ANTHROPIC_API_KEY=sk-ant-api",
 		"CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat",
 		"CODEX_API_KEY=",
@@ -28,11 +28,11 @@ func TestKeepsEveryHarnessKeyItKnowsWithEgressWhateverTheControlPlaneSays(t *tes
 		t.Errorf("the sandbox gets %v", env)
 	}
 
-	if !slices.Equal(held, []protocol.HeldByTheHost{
+	if !slices.Equal(hostCredentials, []protocol.HostCredential{
 		{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-ant-api"},
 		{Name: "CLAUDE_CODE_OAUTH_TOKEN", Host: "api.anthropic.com", Header: "authorization", Prefix: "Bearer ", Value: "sk-ant-oat"},
 		{Name: "OPENAI_API_KEY", Host: "api.openai.com", Header: "authorization", Prefix: "Bearer ", Value: "sk-openai"},
 	}) {
-		t.Errorf("egress holds %+v", held)
+		t.Errorf("egress has %+v", hostCredentials)
 	}
 }

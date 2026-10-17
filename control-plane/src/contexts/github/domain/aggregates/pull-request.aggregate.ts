@@ -476,7 +476,7 @@ export class PullRequest extends EventRecorder {
       return this;
     }
 
-    const held = this.kept.comments.includes(comment.id);
+    const known = this.kept.comments.includes(comment.id);
     const deleted = this.kept.deletedComments.includes(comment.id);
 
     if (comment.action === 'deleted' && !deleted) {
@@ -486,10 +486,10 @@ export class PullRequest extends EventRecorder {
         deletedComments: [...this.kept.deletedComments, comment.id],
       };
 
-      return held ? this.changed(next) : this.quietly(next);
+      return known ? this.changed(next) : this.quietly(next);
     }
 
-    if (comment.action === 'created' && !held && !deleted) {
+    if (comment.action === 'created' && !known && !deleted) {
       return this.changed({
         ...this.kept,
         comments: [...this.kept.comments, comment.id],
@@ -500,9 +500,9 @@ export class PullRequest extends EventRecorder {
   }
 
   resolveThread(thread: HeardThread): PullRequest {
-    const held = this.kept.threads.find((each) => each.id === thread.id);
+    const known = this.kept.threads.find((each) => each.id === thread.id);
 
-    if (!thread.byBot || (held && held.resolved === thread.resolved)) {
+    if (!thread.byBot || (known && known.resolved === thread.resolved)) {
       return this;
     }
 
@@ -547,7 +547,7 @@ export class PullRequest extends EventRecorder {
   }
 
   private botCommented(comment: HeardComment): PullRequest {
-    const held = this.kept.botComments.find(
+    const known = this.kept.botComments.find(
       (each) => each.id === comment.id && each.on === comment.on,
     );
     const deleted = comment.action === 'deleted';
@@ -555,8 +555,8 @@ export class PullRequest extends EventRecorder {
     if (
       !comment.login ||
       comment.action === 'edited' ||
-      held?.deleted ||
-      (held && !deleted)
+      known?.deleted ||
+      (known && !deleted)
     ) {
       return this;
     }
@@ -564,7 +564,7 @@ export class PullRequest extends EventRecorder {
     const next = {
       ...this.kept,
       botComments: [
-        ...this.kept.botComments.filter((each) => each !== held),
+        ...this.kept.botComments.filter((each) => each !== known),
         {
           id: comment.id,
           on: comment.on,
@@ -575,7 +575,7 @@ export class PullRequest extends EventRecorder {
       ],
     };
 
-    return deleted && !held ? this.quietly(next) : this.changed(next);
+    return deleted && !known ? this.quietly(next) : this.changed(next);
   }
 
   private respelled(facts: PullRequestFacts): readonly DraftSpell[] {

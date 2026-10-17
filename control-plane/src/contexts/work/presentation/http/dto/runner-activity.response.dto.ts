@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { HeldRunDto } from '@work/application/dto/runner-activity.dto';
+import type { LeasedRunDto } from '@work/application/dto/runner-activity.dto';
 import {
-  HELD_RUN_KINDS,
-  type HeldRunKind,
+  LEASED_RUN_KINDS,
+  type LeasedRunKind,
 } from '@work/application/ports/runner-activity-reader.port';
 
-export class HeldRunResponseDto {
+export class LeasedRunResponseDto {
   @ApiProperty({ example: '3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63' })
   readonly id: string;
 
@@ -13,11 +13,11 @@ export class HeldRunResponseDto {
   readonly state: string;
 
   @ApiProperty({
-    enum: HELD_RUN_KINDS,
+    enum: LEASED_RUN_KINDS,
     description:
       'What the run is for: a task at a station, an agent chat, a replay, a search, or only the spec it was queued with',
   })
-  readonly kind: HeldRunKind;
+  readonly kind: LeasedRunKind;
 
   @ApiProperty({
     type: String,
@@ -40,7 +40,7 @@ export class HeldRunResponseDto {
   })
   readonly title: string | null;
 
-  constructor(run: HeldRunDto) {
+  constructor(run: LeasedRunDto) {
     this.id = run.id;
     this.state = run.state;
     this.kind = run.kind;
@@ -55,12 +55,12 @@ export class RunnerActivityResponseDto {
   readonly runnerId: string;
 
   @ApiProperty({
-    type: HeldRunResponseDto,
+    type: LeasedRunResponseDto,
     description: 'The run the runner is working on',
   })
-  readonly currentRun: HeldRunResponseDto;
+  readonly currentRun: LeasedRunResponseDto;
 
-  constructor(runnerId: string, currentRun: HeldRunResponseDto) {
+  constructor(runnerId: string, currentRun: LeasedRunResponseDto) {
     this.runnerId = runnerId;
     this.currentRun = currentRun;
   }

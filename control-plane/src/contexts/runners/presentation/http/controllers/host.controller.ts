@@ -57,7 +57,7 @@ export class HostController {
   @ApiOperation({
     operationId: 'reportHostPresence',
     summary:
-      'A host says it is here, what it holds and what it runs, so the Runners page can show it',
+      'A host says it is here, what it has and what it runs, so the Runners page can show it',
   })
   @ApiOkResponse({ type: HostStandingResponseDto })
   @ApiConflictResponse({

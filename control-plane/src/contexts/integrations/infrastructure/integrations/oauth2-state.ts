@@ -60,7 +60,7 @@ export class OAuth2State {
   open(token: string): OpenedOAuth2Intent | null {
     const [body, mac] = token.split('.');
 
-    if (!body || !mac || !this.holds(body, mac)) {
+    if (!body || !mac || !this.isAuthentic(body, mac)) {
       return null;
     }
 
@@ -108,7 +108,7 @@ export class OAuth2State {
     return createHmac('sha256', this.secret).update(body).digest('base64url');
   }
 
-  private holds(body: string, mac: string): boolean {
+  private isAuthentic(body: string, mac: string): boolean {
     const wanted = Buffer.from(this.mac(body));
     const given = Buffer.from(mac);
 

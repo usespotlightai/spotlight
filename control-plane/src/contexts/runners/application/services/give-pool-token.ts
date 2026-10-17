@@ -24,7 +24,7 @@ export const givePoolToken = async (
   refuseTokenGivenBefore(
     PoolTokenStanding.of({
       given: await given.wasGiven(token),
-      held: holder !== null && !holder.id.equals(pool.id),
+      inUse: holder !== null && !holder.id.equals(pool.id),
     }),
   );
   await given.give(token, pool.id);

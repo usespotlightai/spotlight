@@ -18,7 +18,7 @@ import {
 } from '@integrations/domain/services/generated-tools';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
+import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
@@ -209,7 +209,7 @@ export type OAuth2IR =
     };
 
 interface ConnectionIR {
-  readonly holding: ConnectionHolding;
+  readonly holder: ConnectionHolderRule;
   readonly oauth2: OAuth2IR | null;
   readonly manual: { readonly secrets: readonly string[] } | null;
 }
@@ -349,8 +349,8 @@ class Compiler {
     );
   }
 
-  expression(held: string, place: Place): Expression | null {
-    if (READS_A_SECRET.test(held)) {
+  expression(raw: string, place: Place): Expression | null {
+    if (READS_A_SECRET.test(raw)) {
       this.problems.push(
         ConfigurationProblem.of({
           path: this.path,
@@ -363,7 +363,7 @@ class Compiler {
       return null;
     }
 
-    const source = written(held);
+    const source = written(raw);
 
     try {
       const compiled = this.expressions.compile(source, {
@@ -412,9 +412,9 @@ class Compiler {
     }
   }
 
-  templated(held: string, place: Place): Templated {
-    if (isExpression(held)) {
-      const whole = this.expression(held, place);
+  templated(raw: string, place: Place): Templated {
+    if (isExpression(raw)) {
+      const whole = this.expression(raw, place);
 
       return { parts: whole ? [whole] : [] };
     }
@@ -422,11 +422,11 @@ class Compiler {
     const parts: (string | Expression)[] = [];
     let from = 0;
 
-    for (const found of held.matchAll(PIECE)) {
+    for (const found of raw.matchAll(PIECE)) {
       const start = found.index ?? 0;
 
       if (start > from) {
-        parts.push(held.slice(from, start));
+        parts.push(raw.slice(from, start));
       }
 
       const piece = this.expression(found[0], place);
@@ -437,31 +437,31 @@ class Compiler {
       from = start + found[0].length;
     }
 
-    if (from < held.length || parts.length === 0) {
-      parts.push(held.slice(from));
+    if (from < raw.length || parts.length === 0) {
+      parts.push(raw.slice(from));
     }
 
     return { parts };
   }
 
-  structured(held: unknown, place: Place): Structured {
-    if (typeof held === 'string') {
-      return { kind: 'templated', templated: this.templated(held, place) };
+  structured(raw: unknown, place: Place): Structured {
+    if (typeof raw === 'string') {
+      return { kind: 'templated', templated: this.templated(raw, place) };
     }
 
-    if (Array.isArray(held)) {
+    if (Array.isArray(raw)) {
       return {
         kind: 'list',
-        items: held.map((each, index) =>
+        items: raw.map((each, index) =>
           this.structured(each, place.inside(index)),
         ),
       };
     }
 
-    if (held !== null && typeof held === 'object') {
+    if (raw !== null && typeof raw === 'object') {
       return {
         kind: 'map',
-        entries: Object.entries(held).map(([key, each]) => ({
+        entries: Object.entries(raw).map(([key, each]) => ({
           key,
           value: this.structured(each, place.inside(key)),
         })),
@@ -470,8 +470,7 @@ class Compiler {
 
     return {
       kind: 'value',
-      value:
-        typeof held === 'number' || typeof held === 'boolean' ? held : null,
+      value: typeof raw === 'number' || typeof raw === 'boolean' ? raw : null,
     };
   }
 
@@ -809,10 +808,10 @@ const inputSchemaOf = (input: ToolInputFile): InputSchema =>
       )
     : InputSchema.ofType(input.type ?? 'string', input.description ?? null);
 
-const addressOf = (held: unknown): string => {
+const addressOf = (raw: unknown): string => {
   const source =
-    typeof held === 'object' && held !== null && 'integration' in held
-      ? held.integration
+    typeof raw === 'object' && raw !== null && 'integration' in raw
+      ? raw.integration
       : null;
 
   try {
@@ -825,14 +824,14 @@ const addressOf = (held: unknown): string => {
 };
 
 export const compileIntegration = (
-  held: unknown,
+  raw: unknown,
   expressions: ExpressionEnginePort,
   described: DescribedOperations | null = null,
 ): Compiled => {
-  const read = integrationSchema.safeParse(held);
+  const read = integrationSchema.safeParse(raw);
 
   if (!read.success) {
-    const path = addressOf(held);
+    const path = addressOf(raw);
 
     return {
       ok: false,
@@ -922,13 +921,13 @@ export const compileIntegration = (
 
   const inputsOf = new Map<string, Record<string, string>>();
   for (const tool of Object.values(file.tools)) {
-    const held = inputsOf.get(tool.does) ?? {};
+    const typed = inputsOf.get(tool.does) ?? {};
     for (const [name, input] of Object.entries(tool.inputs)) {
       const type = seenAs(inputSchemaOf(input));
-      held[name] =
-        held[name] === undefined || held[name] === type ? type : 'dyn';
+      typed[name] =
+        typed[name] === undefined || typed[name] === type ? type : 'dyn';
     }
-    inputsOf.set(tool.does, held);
+    inputsOf.set(tool.does, typed);
   }
 
   const actions = new Map<string, RequestIR>();
@@ -991,7 +990,7 @@ export const compileIntegration = (
   const oauth2File = file.connection?.oauth2;
   const connection: ConnectionIR | null = file.connection
     ? {
-        holding: ConnectionHolding.of(file.connection.holder),
+        holder: ConnectionHolderRule.of(file.connection.holder),
         oauth2: oauth2File
           ? compiler.part(FieldPath.of(['connection', 'oauth2']), () =>
               oauth2Of(
@@ -1184,7 +1183,7 @@ export const compileIntegration = (
       actions: defined,
       bindings,
       connects: connection?.oauth2 !== null && connection?.oauth2 !== undefined,
-      holding: connection?.holding,
+      holder: connection?.holder,
       credentials: [...compiler.secrets].map((name) => SecretName.of(name)),
       offers: [...offers.filter(isPresent), ...(generation?.tools ?? [])],
     });
@@ -1290,10 +1289,10 @@ export class IntegrationCompiler implements IntegrationCompilerPort {
   constructor(private readonly expressions: ExpressionEnginePort) {}
 
   compile(
-    held: unknown,
+    raw: unknown,
     described: DescribedOperations | null = null,
   ): ParsedIntegration {
-    const compiled = compileIntegration(held, this.expressions, described);
+    const compiled = compileIntegration(raw, this.expressions, described);
 
     return compiled.ok
       ? {

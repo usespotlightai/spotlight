@@ -1,7 +1,7 @@
 import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
 import {
   ForgetOutcomes,
-  type OutcomesHeld,
+  type OutcomesRepositories,
 } from '@outcomes/application/services/forget-outcomes.service';
 import { StationWatch } from '@outcomes/domain/aggregates/station-watch.aggregate';
 import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
@@ -60,7 +60,7 @@ const forgetting = async (watches: StationWatchesInMemory) => {
   await watches.add(raisedAt('station_2'));
 
   const forget = new ForgetOutcomes(
-    { watches, forgotten } as unknown as OutcomesHeld,
+    { watches, forgotten } as unknown as OutcomesRepositories,
     {
       inTransaction: <T>(work: () => Promise<T>) => {
         transactions += 1;
@@ -81,7 +81,7 @@ describe('ForgetOutcomes', () => {
 
     expect(await forgotten.forgot(WORKSPACE, TASK)).toBe(true);
     expect(transactions()).toBe(3);
-    expect(await watches.stationsHolding(TASK)).toEqual([]);
+    expect(await watches.stationsWithTask(TASK)).toEqual([]);
   });
 
   it('keeps the task forgotten and lets a watch that changed be retried', async () => {
@@ -92,7 +92,7 @@ describe('ForgetOutcomes', () => {
       StationWatchVersionConflictError,
     );
     expect(await forgotten.forgot(WORKSPACE, TASK)).toBe(true);
-    expect(await watches.stationsHolding(TASK)).toEqual(['station_2']);
+    expect(await watches.stationsWithTask(TASK)).toEqual(['station_2']);
   });
 
   it('marks a disbanded team forgotten as it drops the team’s watches', async () => {
@@ -102,6 +102,6 @@ describe('ForgetOutcomes', () => {
     await forget.alertsOfTeam(WORKSPACE, TEAM);
 
     expect(await forgotten.forgot(WORKSPACE, null, TEAM)).toBe(true);
-    expect(watches.held.size).toBe(0);
+    expect(watches.stored.size).toBe(0);
   });
 });

@@ -23,17 +23,17 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
     : {};
 
 export const textAt = (body: unknown, field: string, says: string): string => {
-  const held = fieldsOf(body)[field];
+  const value = fieldsOf(body)[field];
 
-  return typeof held === 'string' ? held : refusedAt([field], says);
+  return typeof value === 'string' ? value : refusedAt([field], says);
 };
 
 const ceilingAt = (
-  held: unknown,
+  raw: unknown,
   at: readonly string[],
   what: string,
 ): { readonly amount: number; readonly currency: string } => {
-  const { amount, currency } = fieldsOf(held);
+  const { amount, currency } = fieldsOf(raw);
 
   if (typeof amount !== 'number') {
     return refusedAt(
@@ -60,21 +60,21 @@ export const ceilingIn = (
   ceilingAt(fieldsOf(body).ceiling, ['ceiling'], 'replay');
 
 const countAt = (
-  held: Record<string, unknown>,
+  fields: Record<string, unknown>,
   at: readonly string[],
   says: string,
 ): number => {
-  const count = held[at[at.length - 1] as string];
+  const count = fields[at[at.length - 1] as string];
 
   return typeof count === 'number' ? count : refusedAt(at, says);
 };
 
 const optionalTextAt = (
-  held: Record<string, unknown>,
+  fields: Record<string, unknown>,
   at: readonly string[],
   says: string,
 ): string | null => {
-  const text = held[at[at.length - 1] as string];
+  const text = fields[at[at.length - 1] as string];
 
   if (text === undefined || text === null) {
     return null;
@@ -138,24 +138,24 @@ export const searchAgentIn = (body: unknown): SearchAgentAsked => {
 };
 
 export const objectiveIn = (body: unknown): SearchObjectiveAsked => {
-  const held = fieldsOf(body).objective;
+  const value = fieldsOf(body).objective;
 
-  if (held === undefined || held === null) {
+  if (value === undefined || value === null) {
     return null;
   }
 
-  return isSearchObjective(held)
-    ? held
+  return isSearchObjective(value)
+    ? value
     : refusedAt(['objective'], 'Objective must be success, cost or left out.');
 };
 
 export const repeatsIn = (body: unknown): number => {
-  const held = fieldsOf(body);
-  const repeats = held.repeats;
+  const fields = fieldsOf(body);
+  const repeats = fields.repeats;
 
   return repeats === undefined || repeats === null
     ? 1
-    : countAt(held, ['repeats'], 'Repeats must be a number.');
+    : countAt(fields, ['repeats'], 'Repeats must be a number.');
 };
 
 export const referenceIn = (

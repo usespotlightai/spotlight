@@ -292,9 +292,9 @@ func (c *Client) ProposeCandidate(
 			switch {
 			case rejection.Message != "":
 			case rejection.Status == http.StatusConflict:
-				rejection.Message = "this iteration has proposed all the candidates it may, or the search no longer holds this run"
+				rejection.Message = "this iteration has proposed all the candidates it may, or this run is no longer the active run of the search"
 			case rejection.Gone():
-				rejection.Message = "the search no longer holds this run"
+				rejection.Message = "this run is no longer the active run of the search"
 			}
 		}
 		return nil, fmt.Errorf("propose %s: %w", proposal.Name, err)
@@ -317,7 +317,7 @@ func (c *Client) RecordCause(
 			case rejection.Status == http.StatusConflict:
 				rejection.Message = "this run proposes candidates; only a run looking into why a search stalled records causes"
 			case rejection.Gone():
-				rejection.Message = "the search no longer holds this run, or the task is none it looks into"
+				rejection.Message = "this run is no longer the active run of the search, or the task is none it looks into"
 			}
 		}
 		return nil, fmt.Errorf("record the cause of %s: %w", record.TaskID, err)
@@ -492,11 +492,11 @@ func (c *Client) Attachment(
 	return nil
 }
 
-func (c *Client) WorkspaceArchive(ctx context.Context, runID string) (*protocol.HeldArchive, error) {
+func (c *Client) WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error) {
 	path := fmt.Sprintf("/api/runs/%s/workspace-archive", url.PathEscape(runID))
 
-	var held protocol.HeldArchive
-	status, err := c.request(ctx, http.MethodGet, path, nil, &held)
+	var stored protocol.StoredArchive
+	status, err := c.request(ctx, http.MethodGet, path, nil, &stored)
 	if err != nil {
 		return nil, fmt.Errorf("ask for the workspace to restore: %w", err)
 	}
@@ -504,7 +504,7 @@ func (c *Client) WorkspaceArchive(ctx context.Context, runID string) (*protocol.
 		return nil, nil
 	}
 
-	return &held, nil
+	return &stored, nil
 }
 
 func (c *Client) GrantArchive(
@@ -624,14 +624,14 @@ func (c *Client) RedeemEgressFor(
 	return redeemed, nil
 }
 
-func (c *Client) EgressHolds(ctx context.Context, proxyCredentials []string) ([]string, error) {
-	var held protocol.EgressHeld
-	asked := protocol.EgressHolds{ProxyCredentials: proxyCredentials}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/holds", asked, &held); err != nil {
-		return nil, fmt.Errorf("ask which runs are held: %w", err)
+func (c *Client) ActiveRuns(ctx context.Context, proxyCredentials []string) ([]string, error) {
+	var answer protocol.ActiveRunsResponse
+	asked := protocol.ActiveRunsRequest{ProxyCredentials: proxyCredentials}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/active-runs", asked, &answer); err != nil {
+		return nil, fmt.Errorf("ask which runs are active: %w", err)
 	}
 
-	return held.Held, nil
+	return answer.Active, nil
 }
 
 func (c *Client) RecordConnections(ctx context.Context, records []protocol.EgressConnection) error {

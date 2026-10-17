@@ -14,7 +14,7 @@ const RUN = RunId.of('run_1');
 const HANDED = [MessagePosition.of(1)];
 const CHAT = ChatId.of('chat_1');
 
-const chatHeldBy = (runId: RunId | null) => {
+const chatWithRun = (runId: RunId | null) => {
   const released = { currentRunId: null } as unknown as Chat;
   return {
     currentRunId: runId,
@@ -30,7 +30,7 @@ const enqueuing = (
     enqueued?: boolean;
   } = {},
 ) => {
-  const chat = chatHeldBy(over.runId === undefined ? RUN : over.runId);
+  const chat = chatWithRun(over.runId === undefined ? RUN : over.runId);
   const save = vi.fn(async (_: Chat) => {});
   const enqueue = vi.fn(async () => over.enqueued ?? true);
   const handler = new EnqueueChatRun(

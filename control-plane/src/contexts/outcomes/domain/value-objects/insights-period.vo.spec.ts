@@ -59,7 +59,7 @@ describe('InsightsPeriod', () => {
     );
   });
 
-  it('holds its start but not its end', () => {
+  it('includes its start but not its end', () => {
     const { current } = InsightsPeriod.of('7d', NOW);
 
     expect(within(current, current.from)).toBe(true);
@@ -69,7 +69,7 @@ describe('InsightsPeriod', () => {
 });
 
 describe('InsightsPeriod.covering', () => {
-  it('picks the shortest period whose days hold the moment', () => {
+  it('picks the shortest period whose days include the moment', () => {
     expect(
       InsightsPeriod.covering(new Date('2026-10-01T09:00:00.000Z'), NOW),
     ).toBe('7d');

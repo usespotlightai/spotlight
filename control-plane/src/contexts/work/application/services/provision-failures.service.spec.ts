@@ -35,16 +35,16 @@ const POOLED = RunnerId.of('pooled_1');
 const reserved = () => waiting().reservedFor(POOLED, PoolId.of('pool_1'), NOON);
 
 const failing = (stored: Run, conflicts = 0) => {
-  let held = stored;
+  let current = stored;
   let clashes = conflicts;
   const runs = {
-    findById: vi.fn(async () => held),
+    findById: vi.fn(async () => current),
     save: vi.fn(async (run: Run) => {
       if (clashes > 0) {
         clashes -= 1;
         throw new RunVersionConflictError(run.id.value);
       }
-      held = run;
+      current = run;
     }),
   };
   const append = vi.fn(async () => {});
@@ -54,7 +54,7 @@ const failing = (stored: Run, conflicts = 0) => {
     runs,
     append,
     publish,
-    held: () => held,
+    current: () => current,
     failures: new ProvisionFailures(
       runs as unknown as RunRepository,
       { append } as unknown as RunJournalPort,
@@ -65,7 +65,7 @@ const failing = (stored: Run, conflicts = 0) => {
 
 describe('ProvisionFailures', () => {
   it('records the failure on the run and drops its reservation', async () => {
-    const { failures, held } = failing(reserved());
+    const { failures, current } = failing(reserved());
 
     const failed = await failures.failed(
       RunId.of('run_1'),
@@ -75,8 +75,8 @@ describe('ProvisionFailures', () => {
     );
 
     expect(failed?.provisioning.failures).toBe(1);
-    expect(held().reservation).toBeNull();
-    expect(held().state).toBe('queued');
+    expect(current().reservation).toBeNull();
+    expect(current().state).toBe('queued');
   });
 
   it('journals the failure under the run’s current attempt, before anything the runner says', async () => {
@@ -167,12 +167,12 @@ describe('ProvisionFailures', () => {
   });
 
   it('drops a reservation when unreserved', async () => {
-    const { failures, held } = failing(reserved());
+    const { failures, current } = failing(reserved());
 
     await failures.unreserved(RunId.of('run_1'), POOLED);
 
-    expect(held().reservation).toBeNull();
-    expect(held().provisioning.failures).toBe(0);
+    expect(current().reservation).toBeNull();
+    expect(current().provisioning.failures).toBe(0);
   });
 
   it('leaves a run with no reservation alone when unreserved', async () => {
@@ -184,11 +184,11 @@ describe('ProvisionFailures', () => {
   });
 
   it('keeps a reservation another runner lets go of', async () => {
-    const { failures, runs, held } = failing(reserved());
+    const { failures, runs, current } = failing(reserved());
 
     await failures.unreserved(RunId.of('run_1'), RunnerId.of('pooled_2'));
 
     expect(runs.save).not.toHaveBeenCalled();
-    expect(held().reservation?.runner.value).toBe('pooled_1');
+    expect(current().reservation?.runner.value).toBe('pooled_1');
   });
 });

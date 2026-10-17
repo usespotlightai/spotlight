@@ -135,7 +135,7 @@ const WHEN = 'integration.webhook.events[0].when';
 const WALKING = 'integration.webhook.events[1].when';
 const THREAD = 'integration.on["task.opened"].to.thread';
 
-describe('checking an expression where a definition holds it', () => {
+describe('checking an expression where a definition contains it', () => {
   it('answers the type a sound one evaluates to', () => {
     expect(checked(WHEN, 'body.type == "Issue"')).toEqual({
       type: 'bool',
@@ -230,7 +230,7 @@ describe('checking an expression where a definition holds it', () => {
 });
 
 describe('a definition that is not valid', () => {
-  it('is refused with every error it holds, where it holds it', () => {
+  it('is refused with every error it contains, where it contains it', () => {
     expect(
       refused(WHEN, 'true', {
         ...LINEAR,
@@ -282,7 +282,7 @@ describe('a definition that is not valid', () => {
 });
 
 describe('a position that names no expression', () => {
-  it('is refused where the definition holds none there', () => {
+  it('is refused where the definition contains none there', () => {
     for (const position of [
       'integration.webhook.events[0].raise.happening',
       'integration.webhook.events[7].when',
@@ -304,11 +304,11 @@ describe('the check and the compiler', () => {
       ? `does not check: ${message}. Did you mean ${suggestion}?`
       : `does not check: ${message}`;
 
-  const valueAt = (held: unknown, field: FieldPath): unknown =>
+  const valueAt = (raw: unknown, field: FieldPath): unknown =>
     field.segments.reduce<unknown>(
       (within, segment) =>
         (within as Record<string | number, unknown> | undefined)?.[segment],
-      held,
+      raw,
     );
 
   const piecesOf = (value: string): string[] =>
@@ -408,7 +408,7 @@ describe('the positions an expression is written at', () => {
     expect(position?.seen({})).toBe(position?.scope);
   });
 
-  describe('against every expression an integration can hold', () => {
+  describe('against every expression an integration can contain', () => {
     const NOPE = e('nope');
     const FRESH = { at: NOPE, within: '300s' };
     const WEARS = { secrets: ['secret.KITCHEN_KEY'] };
@@ -459,7 +459,7 @@ describe('the positions an expression is written at', () => {
       },
     });
 
-    const holding = (verify: object) => ({
+    const verifying = (verify: object) => ({
       integration: 'kitchen',
       connection: {
         oauth2: {
@@ -502,11 +502,11 @@ describe('the positions an expression is written at', () => {
 
     const reached = new Set(
       VERIFIES.flatMap((verify) => [
-        ...placesOf(holding(verify)).places.values(),
+        ...placesOf(verifying(verify)).places.values(),
       ]).map((place) => place.position.position.rendered),
     );
 
-    it('lists every position an integration holds an expression at, and no other', () => {
+    it('lists every position an integration has an expression at, and no other', () => {
       expect(reached).toEqual(
         new Set(EXPRESSION_POSITIONS.map((each) => each.position.rendered)),
       );

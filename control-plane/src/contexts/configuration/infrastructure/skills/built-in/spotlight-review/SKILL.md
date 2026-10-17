@@ -32,7 +32,7 @@ or near one. A comment on any other line is folded into the review's body
 instead, so say anything about the change as a whole, or about a file it does
 not touch, in the body.
 
-Comments are held until you submit them, all together, as one review:
+Comments stay pending until you submit them, all together, as one review:
 
 ```
 spotlight review --verdict comment --body "<what it comes down to>"

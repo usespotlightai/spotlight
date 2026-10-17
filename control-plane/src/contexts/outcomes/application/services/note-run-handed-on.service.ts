@@ -29,11 +29,11 @@ export class NoteRunHandedOn {
     const taskId = TaskId.of(heard.taskId);
 
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(workspaceId, taskId);
+      await this.forgotten.lockForgetting(workspaceId, taskId);
       const runId = RunId.of(heard.runId);
-      const held = await this.records.of(runId);
+      const existing = await this.records.of(runId);
 
-      if (!held) {
+      if (!existing) {
         if (!(await this.forgotten.forgot(workspaceId, taskId))) {
           await this.records.add(
             RunRecord.heardOf(runId, workspaceId, taskId).handedOnTo(handedOn),
@@ -42,9 +42,9 @@ export class NoteRunHandedOn {
         return;
       }
 
-      const passed = held.handedOnTo(handedOn);
+      const passed = existing.handedOnTo(handedOn);
 
-      if (passed !== held) {
+      if (passed !== existing) {
         await this.records.save(passed);
       }
     });

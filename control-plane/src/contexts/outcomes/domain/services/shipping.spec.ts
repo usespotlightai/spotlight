@@ -545,7 +545,7 @@ describe('the Shipping tab', () => {
     });
   });
 
-  it('follows only the tasks opened within the history it holds', () => {
+  it('follows only the tasks opened within the history it has', () => {
     const { pipeline } = shippedOf(
       [
         merged(1, '2026-09-29', 4, { by: 'spotlight', taskId: 'task_1' }),

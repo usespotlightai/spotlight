@@ -53,7 +53,7 @@ export function EntryOutcome({ teamId, entry }: EntryOutcomeProps) {
     () => ({
       focused: null,
       anchorOf: () => null,
-      holds: (index: number) => index < steps.length,
+      has: (index: number) => index < steps.length,
       focus: (index: number) => {
         const step = steps[index];
         if (step) {

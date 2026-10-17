@@ -5,11 +5,11 @@ import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('Money', () => {
-  it('holds an amount with what it is counted in', () => {
-    const held = Money.of(7.33, 'USD');
+  it('keeps an amount with what it is counted in', () => {
+    const money = Money.of(7.33, 'USD');
 
-    expect(held.amount).toBe(7.33);
-    expect(held.currency).toBe('USD');
+    expect(money.amount).toBe(7.33);
+    expect(money.currency).toBe('USD');
   });
 
   it('refuses an amount with nothing to count it in', () => {

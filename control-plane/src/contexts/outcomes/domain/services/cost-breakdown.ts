@@ -182,13 +182,13 @@ export const costCountsOf = (
     first: CostPlace,
   ) => {
     const id = `${part}\u0000${key ?? ''}\u0000${key === null}`;
-    const held = shares.get(id);
+    const previous = shares.get(id);
     shares.set(id, {
       part,
       key,
-      amount: (held?.amount ?? 0) + amount,
-      runs: (held?.runs ?? 0) + 1,
-      first: held?.first ?? first,
+      amount: (previous?.amount ?? 0) + amount,
+      runs: (previous?.runs ?? 0) + 1,
+      first: previous?.first ?? first,
     });
   };
   const link = (
@@ -198,12 +198,12 @@ export const costCountsOf = (
     first: CostPlace,
   ) => {
     const id = `${nodeId(source)}\u0000${nodeId(target)}`;
-    const held = links.get(id);
+    const previous = links.get(id);
     links.set(id, {
       source,
       target,
-      amount: (held?.amount ?? 0) + amount,
-      first: held?.first ?? first,
+      amount: (previous?.amount ?? 0) + amount,
+      first: previous?.first ?? first,
     });
   };
 
@@ -243,10 +243,10 @@ export const costCountsOf = (
     const stationId = each.end?.place.stationId;
 
     if (stationId) {
-      const held = stations.get(stationId);
+      const previous = stations.get(stationId);
       stations.set(stationId, {
-        first: held?.first ?? index + 1,
-        runs: [...(held?.runs ?? []), each],
+        first: previous?.first ?? index + 1,
+        runs: [...(previous?.runs ?? []), each],
       });
     }
   }
@@ -258,10 +258,10 @@ export const costCountsOf = (
     shares: [...shares.values()],
     links: [...links.values()],
     cache: cacheTotalsOf(ran),
-    cacheByStation: [...stations.entries()].map(([stationId, held]) => ({
+    cacheByStation: [...stations.entries()].map(([stationId, totals]) => ({
       stationId,
-      first: held.first,
-      cache: cacheTotalsOf(held.runs),
+      first: totals.first,
+      cache: cacheTotalsOf(totals.runs),
     })),
   };
 };

@@ -230,7 +230,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     assignee: MAYA,
     createdAt: hoursAgo(30),
     description:
-      'Webhook deliveries have been failing since the queue worker was redeployed on Friday.\n\n- Find the retry queues holding jobs that never ran\n- Replay what can still be delivered\n- Stop retrying endpoints that answer `410 Gone`',
+      'Webhook deliveries have been failing since the queue worker was redeployed on Friday.\n\n- Find the retry queues that contain jobs that never ran\n- Replay what can still be delivered\n- Stop retrying endpoints that answer `410 Gone`',
   }),
   task({
     id: 'task_billing',

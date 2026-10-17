@@ -14,7 +14,7 @@ import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-ou
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { InMemoryHostConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
   discoveringNothing,
   reachingNoServer,
@@ -33,7 +33,7 @@ const runtimeWith = (
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(expressions, operationsHolding()),
+    new IntegrationReader(expressions, operationsContaining()),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,
@@ -96,7 +96,7 @@ const refreshing = (
 ) => {
   const connections = new InMemoryHostConnections();
   for (const each of due) {
-    connections.hold(each);
+    connections.add(each);
   }
   const refresh = vi.fn(async () => grant);
   const clock = { now: () => NOW } as ClockPort;
@@ -121,7 +121,7 @@ const refreshing = (
   return { it, connections, refresh, warn };
 };
 
-const heldNow = (connections: InMemoryHostConnections) =>
+const storedNow = (connections: InMemoryHostConnections) =>
   connections.of(TEAM, SLACK, ConnectionHolder.team());
 
 describe('RefreshConnections', () => {
@@ -130,11 +130,11 @@ describe('RefreshConnections', () => {
 
     await it.refresh();
 
-    const held = await heldNow(connections);
+    const stored = await storedNow(connections);
     expect(refresh).toHaveBeenCalledOnce();
-    expect(held?.accessToken.value).toBe('xoxb-new');
-    expect(held?.refreshToken?.value).toBe('xoxe-new');
-    expect(held?.renewalClaim).toBeNull();
+    expect(stored?.accessToken.value).toBe('xoxb-new');
+    expect(stored?.refreshToken?.value).toBe('xoxe-new');
+    expect(stored?.renewalClaim).toBeNull();
   });
 
   it('leaves one with no refresh token alone', async () => {
@@ -153,10 +153,10 @@ describe('RefreshConnections', () => {
 
     await it.refresh();
 
-    const held = await heldNow(connections);
-    expect(held?.accessToken.value).toBe('xoxb-old');
-    expect(held?.renewalRefusedAt).toEqual(NOW);
-    expect(held?.renewalClaim).toBeNull();
+    const stored = await storedNow(connections);
+    expect(stored?.accessToken.value).toBe('xoxb-old');
+    expect(stored?.renewalRefusedAt).toEqual(NOW);
+    expect(stored?.renewalClaim).toBeNull();
     expect(connections.events.map((each) => each.kind)).toEqual([
       'integrations.host-renewal-refused',
     ]);

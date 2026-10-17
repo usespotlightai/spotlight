@@ -137,7 +137,7 @@ func TestASearchChecksNothingOut(t *testing.T) {
 		})
 
 	if heard := said(t, written); heard != "" {
-		t.Errorf("the search's workspace holds %q", heard)
+		t.Errorf("the search's workspace contains %q", heard)
 	}
 	if got := step(t, written, "prepare"); got != "" {
 		t.Errorf("the search prepared %q", got)

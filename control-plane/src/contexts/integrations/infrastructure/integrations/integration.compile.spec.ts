@@ -379,8 +379,8 @@ webhook:
         expressions,
       );
 
-      expect(read.ok && read.readable.integration.holding.kind).toBe('team');
-      expect(requester.ok && requester.readable.integration.holding.kind).toBe(
+      expect(read.ok && read.readable.integration.holder.kind).toBe('team');
+      expect(requester.ok && requester.readable.integration.holder.kind).toBe(
         'requester',
       );
       expect(

@@ -8,7 +8,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import {
   CheckClaim,
   MAX_CHECK_ATTEMPTS,
-  MAX_HOLD_MS,
+  MAX_LEASE_MS,
 } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
@@ -344,7 +344,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           or(
             isNull(stackCheck.leaseExpiresAt),
             lte(stackCheck.leaseExpiresAt, now),
-            lte(stackCheck.claimedAt, new Date(now.getTime() - MAX_HOLD_MS)),
+            lte(stackCheck.claimedAt, new Date(now.getTime() - MAX_LEASE_MS)),
           ),
         ),
       )

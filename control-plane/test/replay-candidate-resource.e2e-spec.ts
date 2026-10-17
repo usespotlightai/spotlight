@@ -56,7 +56,7 @@ const DELIVERY = {
 type Block = Record<string, unknown>;
 
 interface Seated extends ResourceFixture {
-  readonly held: string;
+  readonly workspaceId: string;
   readonly lineId: string;
   readonly live: Block;
   readonly tokenWith: (scopes: readonly string[]) => Promise<string>;
@@ -69,10 +69,10 @@ const proposal = (live: Block, name: string, prompt: string) => ({
 
 const seated = async (app: INestApplication): Promise<Seated> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `candidates-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `candidates-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
   const opened = await served(app)
-    .post(`/api/resources/teams/${held}/lines`)
+    .post(`/api/resources/teams/${workspaceId}/lines`)
     .set(TEST_USER_HEADER, seat.owner)
     .set('Idempotency-Key', randomUUID())
     .send(DELIVERY);
@@ -85,7 +85,7 @@ const seated = async (app: INestApplication): Promise<Seated> => {
   ) as Block;
   const tokenWith = async (scopes: readonly string[]) => {
     const issued = await served(app)
-      .post(`/api/resources/workspaces/${held}/tokens`)
+      .post(`/api/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: `candidates-${randomUUID().slice(0, 8)}`, scopes });
@@ -96,7 +96,7 @@ const seated = async (app: INestApplication): Promise<Seated> => {
   };
 
   return {
-    held,
+    workspaceId,
     lineId,
     live,
     tokenWith,
@@ -106,10 +106,10 @@ const seated = async (app: INestApplication): Promise<Seated> => {
     collection: `/api/resources/lines/${lineId}/stations/build/replay-candidates`,
     item: (id) => `/api/resources/replay-candidates/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/replay-candidates/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/replay-candidates/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
       `/api/resources/workspaces/${workspaceId}/replay-candidates`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'team/delivery/build/Shorter prompt',
     valid: proposal(live, 'Shorter prompt', 'Build it, briefly.'),
     changed: proposal(live, 'Longer prompt', 'Build it, and say why.'),
@@ -119,10 +119,12 @@ const seated = async (app: INestApplication): Promise<Seated> => {
       path: 'station.harness',
     },
     close: async () => {
-      await db.delete(schema.replay).where(eq(schema.replay.workspaceId, held));
+      await db
+        .delete(schema.replay)
+        .where(eq(schema.replay.workspaceId, workspaceId));
       await db
         .delete(schema.replayCandidate)
-        .where(eq(schema.replayCandidate.workspaceId, held));
+        .where(eq(schema.replayCandidate.workspaceId, workspaceId));
       await db
         .delete(schema.idempotentCreate)
         .where(
@@ -133,10 +135,10 @@ const seated = async (app: INestApplication): Promise<Seated> => {
         );
       await db
         .delete(schema.configurationChange)
-        .where(eq(schema.configurationChange.workspaceId, held));
+        .where(eq(schema.configurationChange.workspaceId, workspaceId));
       await db
         .delete(schema.workspaceToken)
-        .where(eq(schema.workspaceToken.workspaceId, held));
+        .where(eq(schema.workspaceToken.workspaceId, workspaceId));
       await seat.unseat();
     },
   };
@@ -368,8 +370,8 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
 
     await db.insert(schema.replayCandidate).values({
       id: live,
-      workspaceId: fixture.held,
-      teamId: fixture.held,
+      workspaceId: fixture.workspaceId,
+      teamId: fixture.workspaceId,
       lineId: fixture.lineId,
       stationId: made.stationId,
       teamKey: 'team',
@@ -388,7 +390,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     });
 
     const listed = await owner().get(
-      `${fixture.listing(fixture.held)}?station=team/delivery/build`,
+      `${fixture.listing(fixture.workspaceId)}?station=team/delivery/build`,
     );
 
     expect(listed.status).toBe(200);
@@ -421,13 +423,16 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     expect(
       (
         await owner().get(
-          `${fixture.listing(fixture.held)}?station=team/delivery/ship`,
+          `${fixture.listing(fixture.workspaceId)}?station=team/delivery/ship`,
         )
       ).body.items,
     ).toEqual([]);
     expect(
-      (await owner().get(`${fixture.listing(fixture.held)}?station=team`))
-        .status,
+      (
+        await owner().get(
+          `${fixture.listing(fixture.workspaceId)}?station=team`,
+        )
+      ).status,
     ).toBe(422);
 
     const kept = await owner().delete(fixture.item(live), 0);
@@ -442,8 +447,8 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
 
     await db.insert(schema.replay).values({
       id: replayId,
-      workspaceId: fixture.held,
-      teamId: fixture.held,
+      workspaceId: fixture.workspaceId,
+      teamId: fixture.workspaceId,
       lineId: fixture.lineId,
       stationId: made.stationId,
       setId: randomUUID(),

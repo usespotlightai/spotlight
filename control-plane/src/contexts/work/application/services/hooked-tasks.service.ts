@@ -77,7 +77,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
       marks: [Mark.pullRequest(PullRequestUrl.of(pullRequest))],
     });
     const task = concerns
-      ? await this.tasks.holding(WorkspaceId.of(workspaceId), concerns)
+      ? await this.tasks.findByMarks(WorkspaceId.of(workspaceId), concerns)
       : null;
 
     return task ? this.hooked(task, task.currentRunId?.value ?? null) : null;
@@ -105,7 +105,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
         return true;
       }
 
-      const line = await this.lines.holding(task.stationId);
+      const line = await this.lines.findByStation(task.stationId);
 
       await this.tasks.save(
         task.heard({
@@ -124,7 +124,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
   async failed(report: HookFailureReport): Promise<HookFailureHeard> {
     return this.retried(async () => {
       const task = await this.tasks.find(TaskId.of(report.taskId));
-      const line = task ? await this.lines.holding(task.stationId) : null;
+      const line = task ? await this.lines.findByStation(task.stationId) : null;
 
       if (!task || !line) {
         return 'gone';
@@ -160,7 +160,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
         },
         null,
         line,
-        await this.heldBackRank(task),
+        await this.deferredMoveRank(task),
       );
       const runId = failed.wantsRun(line)
         ? await this.dispatch.runIdFor({ task: failed, line })
@@ -172,8 +172,8 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
     });
   }
 
-  private async heldBackRank(task: Task): Promise<TaskRank | null> {
-    const to = task.heldBackTo;
+  private async deferredMoveRank(task: Task): Promise<TaskRank | null> {
+    const to = task.deferredMoveTo;
 
     return to
       ? Placement.atTheTop(
@@ -184,7 +184,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
 
   async movedOn(taskId: string, stationKey: string): Promise<boolean> {
     const task = await this.tasks.find(TaskId.of(taskId));
-    const line = task ? await this.lines.holding(task.stationId) : null;
+    const line = task ? await this.lines.findByStation(task.stationId) : null;
     const firedAt = line ? firedAtIn(line, stationKey) : null;
 
     return !task || !firedAt || task.movedOnFrom(firedAt.id);
@@ -209,7 +209,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
     task: Task,
     runId: string | null,
   ): Promise<HookedTaskDto | null> {
-    const line = await this.lines.holding(task.stationId);
+    const line = await this.lines.findByStation(task.stationId);
 
     if (!line) {
       return null;

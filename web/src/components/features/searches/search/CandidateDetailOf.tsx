@@ -20,13 +20,13 @@ export function CandidateDetailOf({
   currency,
   onClose,
 }: CandidateDetailOfProps) {
-  const held = useLingering(chosen, LEAVING);
+  const lingering = useLingering(chosen, LEAVING);
 
-  return held ? (
+  return lingering ? (
     <CandidateDetail
       at={at}
       searchId={searchId}
-      candidate={held}
+      candidate={lingering}
       currency={currency}
       open={chosen !== null}
       onClose={onClose}

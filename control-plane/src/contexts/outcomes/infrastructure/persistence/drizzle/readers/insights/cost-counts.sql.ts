@@ -55,12 +55,12 @@ interface CacheRow extends Record<string, unknown> {
   readonly cache_write: number | null;
 }
 
-const runsIn = (team: TeamInPeriod, window: Window, holding: SQL): SQL => sql`
+const runsIn = (team: TeamInPeriod, window: Window, matching: SQL): SQL => sql`
   select
     ${runFact}.*,
     row_number() over (order by ${inEndOrder}) as place
   from ${runFact}
-  where ${onTeam(team)} and ${endedIn(window.from, window.to)} and ${holding}`;
+  where ${onTeam(team)} and ${endedIn(window.from, window.to)} and ${matching}`;
 
 const sharesOf = sql`
   select repository.value #>> '{}' as key, repository.position, priced.cost / jsonb_array_length(priced.repositories) as amount

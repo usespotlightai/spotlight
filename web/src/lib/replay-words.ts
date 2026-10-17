@@ -220,7 +220,7 @@ export const formatUnpricedCalls = (count: number): string =>
 
 export const STATION_GONE_FROM_LINE = 'The station is gone from its line.';
 
-export const RUNS_HELD_BY_SEARCH =
+export const RUNS_FROZEN_BY_SEARCH =
   'A search of this set is running. Add or take out runs after the search ends or a person stops it.';
 
 const OVER_CEILING_NOTE =

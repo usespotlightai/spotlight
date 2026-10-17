@@ -114,7 +114,7 @@ const atPlace = (station: Station, position: number) =>
     skills: station.skills,
   });
 
-const held = (...stations: Station[]) =>
+const lineOf = (...stations: Station[]) =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -130,7 +130,7 @@ const held = (...stations: Station[]) =>
 
 const task = (stationId: string, description?: TaskDescription) =>
   Task.add({
-    line: held(at(stationId, 'Standing', 0)),
+    line: lineOf(at(stationId, 'Standing', 0)),
     at: StationId.of(stationId),
     title: TaskTitle.of('Fix the queue'),
     description,
@@ -166,7 +166,7 @@ const brief = (
 ) =>
   TaskBriefing.brief({
     task: (worked ?? task(station.id.value)).briefed.withDecisions(decisions),
-    line: held(station, at('station_2', 'Spec', 1)),
+    line: lineOf(station, at('station_2', 'Spec', 1)),
     skills: shipped,
     listedIn: null,
     memories,
@@ -186,7 +186,7 @@ describe('TaskBriefing', () => {
     );
   });
 
-  it('lists the decisions an earlier run recorded, asking that they still hold', () => {
+  it('lists the decisions an earlier run recorded, asking that they still apply', () => {
     const briefing = brief(triage(), undefined, [
       {
         kind: 'rejected-approach',
@@ -271,7 +271,7 @@ describe('TaskBriefing', () => {
 
     const worked = withNotes(
       Task.add({
-        line: held(triage(), at('station_2', 'Spec', 1)),
+        line: lineOf(triage(), at('station_2', 'Spec', 1)),
         at: StationId.of('station_1'),
         title: TaskTitle.of('Fix the queue'),
         attachments: [queue],
@@ -393,7 +393,7 @@ describe('TaskBriefing', () => {
     const listed = (station: Station) =>
       TaskBriefing.brief({
         task: task(station.id.value).briefed,
-        line: held(station, at('station_2', 'Spec', 1)),
+        line: lineOf(station, at('station_2', 'Spec', 1)),
         skills: shipped,
         listedIn: '.spotlight/skills',
         memories: [],
@@ -530,8 +530,8 @@ describe('TaskBriefing', () => {
         {
           path: '.spotlight/memory',
           layout: [
-            { folder: 'team/', holds: 'the whole team' },
-            { folder: 'station/', holds: 'this station' },
+            { folder: 'team/', level: 'the whole team' },
+            { folder: 'station/', level: 'this station' },
           ],
           mirroring: null,
         },
@@ -561,7 +561,7 @@ describe('TaskBriefing', () => {
   });
   describe('the workspace', () => {
     const inBoth = () =>
-      held(triage(), at('station_2', 'Spec', 1)).worksIn(
+      lineOf(triage(), at('station_2', 'Spec', 1)).worksIn(
         ['acme/api', 'acme/web'].map((name) =>
           WorkedRepository.of(Repository.of(name)),
         ),

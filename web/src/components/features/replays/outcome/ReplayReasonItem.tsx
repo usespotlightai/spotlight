@@ -25,7 +25,7 @@ export function ReplayReasonItem({
     const file = hunk && fileAt(files, hunk.path);
     return hunk && file ? [{ hunk, file }] : [];
   });
-  const steps = reason.steps.filter((index) => anchors.holds(index));
+  const steps = reason.steps.filter((index) => anchors.has(index));
 
   return (
     <li data-slot="replay-reason" className="flex flex-col gap-1">

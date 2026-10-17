@@ -90,7 +90,7 @@ const proposing = (
   names: readonly string[],
 ): Search =>
   names.reduce(
-    (held, name) => held.admitted(run(number), admission(name)),
+    (built, name) => built.admitted(run(number), admission(name)),
     search,
   );
 
@@ -103,8 +103,8 @@ const endingReplays = (
   improved = true,
 ): Search =>
   names.reduce(
-    (held, name) =>
-      held.recordReplayEnd(
+    (built, name) =>
+      built.recordReplayEnd(
         ReplayId.of(`replay_${name}`),
         end,
         charged(spent),
@@ -141,8 +141,8 @@ const stalled = (
   runIds = searchRunIds(),
 ): Search =>
   [1, 2].reduce(
-    (held, number) =>
-      held
+    (built, number) =>
+      built
         .recordRunEnd(
           run(number),
           { failed: number === 1, started: true },
@@ -303,7 +303,7 @@ describe('Search', () => {
       );
 
       expect(seeded.current).toBe('searching');
-      expect(seeded.heldRun).toEqual(run(1));
+      expect(seeded.activeRun).toEqual(run(1));
       expect(seeded.iterations.map((each) => each.current)).toEqual(['wanted']);
       expect(seeded.spent.amount).toBe(5);
       expect(seeded.pullEvents()).toEqual([
@@ -362,7 +362,7 @@ describe('Search', () => {
   });
 
   describe('proposing', () => {
-    it('admits a candidate from the run it holds', () => {
+    it('admits a candidate from its active run', () => {
       const admitted = searching().admitted(run(1), admission('terse'));
 
       expect(admitted.proposals.map((each) => each.name.value)).toEqual([
@@ -395,7 +395,7 @@ describe('Search', () => {
       );
     });
 
-    it('takes no candidate once its run ended, nor from a run it never held', () => {
+    it('takes no candidate once its run ended, nor from a run that was never its run', () => {
       const ended = searching()
         .recordRunEnd(
           run(1),
@@ -422,7 +422,7 @@ describe('Search', () => {
         runIds,
       );
 
-      expect(first.heldRun).toEqual(run(2));
+      expect(first.activeRun).toEqual(run(2));
       expect(() =>
         first.admitted(run(2), admission('terse', 'replay_x')),
       ).toThrow(SearchCandidateNameTakenError);
@@ -507,7 +507,7 @@ describe('Search', () => {
         runIds,
       );
 
-      expect(ended.heldRun).toBeNull();
+      expect(ended.activeRun).toBeNull();
       expect(ended.awaitingAgentSpend.map((each) => each.number)).toEqual([1]);
 
       const spent = ended.recordAgentSpend(
@@ -517,7 +517,7 @@ describe('Search', () => {
         runIds,
       );
 
-      expect(spent.heldRun).toEqual(run(2));
+      expect(spent.activeRun).toEqual(run(2));
       expect(spent.spent.amount).toBe(7);
       expect(
         spent.recordAgentSpend(
@@ -538,7 +538,7 @@ describe('Search', () => {
         runIds,
       );
 
-      expect(withdrawn.heldRun).toEqual(run(2));
+      expect(withdrawn.activeRun).toEqual(run(2));
       expect(withdrawn.iterations[0]?.agentSpent?.unpriced).toBe(0);
     });
 
@@ -570,7 +570,7 @@ describe('Search', () => {
           search.spent.equals(usd(6).plus(seeded.allotment.agentRun)),
         ).toBe(true);
         expect(search.current).toBe('searching');
-        expect(search.heldRun).toEqual(run(2));
+        expect(search.activeRun).toEqual(run(2));
       }
     });
 
@@ -619,7 +619,7 @@ describe('Search', () => {
         'reflect',
       ]);
       expect(reflection?.current).toBe('wanted');
-      expect(search.heldRun).toEqual(run(3));
+      expect(search.activeRun).toEqual(run(3));
     });
 
     it('ends stalled without looking into why when only one iteration is left after two came to nothing', () => {
@@ -864,8 +864,8 @@ describe('Search', () => {
       const search = stalledAgain();
       const heldOut = search.split.heldOut[0];
 
-      const at = (held: Search, tasks: readonly ReflectedTask[], on = run(3)) =>
-        held.reflectingOn(on, held.seed.candidateId, tasks, later(3), runIds);
+      const at = (from: Search, tasks: readonly ReflectedTask[], on = run(3)) =>
+        from.reflectingOn(on, from.seed.candidateId, tasks, later(3), runIds);
 
       expect(search.iterations[2]?.reflectedOn).toHaveLength(2);
       expect(search.iterations[2]?.standing).toEqual(search.seed.candidateId);
@@ -877,7 +877,7 @@ describe('Search', () => {
           ReflectedTask.of({
             taskId: heldOut?.taskId as TaskId,
             originalRunId: heldOut?.runId as RunId,
-            replayRunId: RunId.of('replayed_held'),
+            replayRunId: RunId.of('replayed_held_out'),
           }),
         ]),
       ).toThrow(InvalidSearchError);
@@ -897,20 +897,20 @@ describe('Search', () => {
 
     it('ends stalled without running when the best config so far fails none of the searched tasks', () => {
       runIds = searchRunIds();
-      const held = stalled(aBudget({ iterations: 4 }), runIds);
+      const stalledSearch = stalled(aBudget({ iterations: 4 }), runIds);
 
-      held.pullEvents();
+      stalledSearch.pullEvents();
 
-      const ended = held.reflectingOn(
+      const ended = stalledSearch.reflectingOn(
         run(3),
-        held.seed.candidateId,
+        stalledSearch.seed.candidateId,
         [],
         later(3),
         runIds,
       );
 
       expect(ended.ending).toBe('stalled');
-      expect(ended.heldRun).toBeNull();
+      expect(ended.activeRun).toBeNull();
       expect(ended.iterations[2]?.outcome).toBe('no-failures');
       expect(ended.iterations[2]?.endedSearch).toBe(true);
       expect(ended.pullEvents()).toContainEqual(
@@ -1031,8 +1031,8 @@ describe('Search', () => {
       for (const causes of [['task'], ['task', 'judge']]) {
         const search = stalledAgain(aBudget({ iterations: 6 }));
         const reflection = causes.reduce(
-          (held, cause, at) =>
-            held.recordCause(run(3), given(search, at, cause), later(4)),
+          (built, cause, at) =>
+            built.recordCause(run(3), given(search, at, cause), later(4)),
           search,
         );
 
@@ -1074,8 +1074,8 @@ describe('Search', () => {
         runIds,
       );
       const twice = [2, 3].reduce(
-        (held, number) =>
-          held
+        (built, number) =>
+          built
             .recordRunEnd(
               run(number),
               { failed: true, started: true },
@@ -1122,7 +1122,7 @@ describe('Search', () => {
       expect(broke.iterations[2]?.endedSearch).toBe(true);
     });
 
-    it('refuses a stored iteration that both proposes and looks into tasks, or holds a cause for a task it never looked into', () => {
+    it('refuses a stored iteration that both proposes and looks into tasks, or has a cause for a task it never looked into', () => {
       const search = stalledAgain();
       const recorded = search.recordCause(
         run(3),
@@ -1213,35 +1213,35 @@ describe('Search', () => {
       );
     };
 
-    const heldIds = () => {
-      let held = 0;
+    const heldOutIds = () => {
+      let count = 0;
 
-      return () => ReplayId.of(`held_${++held}`);
+      return () => ReplayId.of(`held_out_${++count}`);
     };
 
     it('holds out only the candidates on the frontier, then finishes once their held-out replays ended', () => {
       const search = holdingOut();
-      const held = search.heldOutFrom(
+      const heldOutSearch = search.heldOutFrom(
         [
           seedRan(),
           candidateRan(search, 'one', 1),
           candidateRan(search, 'two', 2),
         ],
         0.05,
-        heldIds(),
+        heldOutIds(),
         later(2),
       );
 
-      expect(held.current).toBe('holding-out');
+      expect(heldOutSearch.current).toBe('holding-out');
       expect(
-        held.heldOut.map((each) => [
+        heldOutSearch.heldOut.map((each) => [
           each.candidateId.value,
           each.replay.replayId.value,
         ]),
-      ).toEqual([['candidate_one', 'held_1']]);
+      ).toEqual([['candidate_one', 'held_out_1']]);
 
-      const finished = held.recordReplayEnd(
-        ReplayId.of('held_1'),
+      const finished = heldOutSearch.recordReplayEnd(
+        ReplayId.of('held_out_1'),
         'finished',
         charged(1),
         later(3),
@@ -1266,7 +1266,7 @@ describe('Search', () => {
 
     it('holds out at most its per-iteration number, the best searched first', () => {
       const search = holdingOut([['best', 'good'], ['cheap']]);
-      const held = search.heldOutFrom(
+      const heldOutSearch = search.heldOutFrom(
         [
           seedRan(),
           candidateRan(search, 'best', 3),
@@ -1274,14 +1274,13 @@ describe('Search', () => {
           candidateRan(search, 'cheap', 1, 2),
         ],
         0.05,
-        heldIds(),
+        heldOutIds(),
         NOW,
       );
 
-      expect(held.heldOut.map((each) => each.candidateId.value)).toEqual([
-        'candidate_best',
-        'candidate_good',
-      ]);
+      expect(
+        heldOutSearch.heldOut.map((each) => each.candidateId.value),
+      ).toEqual(['candidate_best', 'candidate_good']);
     });
 
     it('holds out, when it looks for cost, only candidates cheaper than the seed that succeed as often as it, leaving out those clearly worse', () => {
@@ -1291,7 +1290,7 @@ describe('Search', () => {
         candidateRan(search, 'cheapworse', 0.5, 5),
         candidateRan(search, 'cheap', 1, 1),
       ];
-      const heldOf = (objective: SearchObjective) => {
+      const heldOutOf = (objective: SearchObjective) => {
         const search = holdingOut(
           [['best', 'cheapworse', 'cheap']],
           objective,
@@ -1299,12 +1298,12 @@ describe('Search', () => {
         );
 
         return search
-          .heldOutFrom(ran(search), 0.05, heldIds(), NOW)
+          .heldOutFrom(ran(search), 0.05, heldOutIds(), NOW)
           .heldOut.map((each) => each.candidateId.value);
       };
 
-      expect(heldOf('cost')).toEqual(['candidate_cheap']);
-      expect(heldOf('success')).toEqual([
+      expect(heldOutOf('cost')).toEqual(['candidate_cheap']);
+      expect(heldOutOf('success')).toEqual([
         'candidate_best',
         'candidate_cheap',
         'candidate_cheapworse',
@@ -1318,7 +1317,7 @@ describe('Search', () => {
         search.heldOutFrom(
           [seedRan(), candidateRan(search, 'worse', 5, 3)],
           0.05,
-          heldIds(),
+          heldOutIds(),
           NOW,
         ).current,
       ).toBe('finished');
@@ -1334,11 +1333,11 @@ describe('Search', () => {
 
       expect(() =>
         search
-          .heldOutFrom(replays, 0.05, heldIds(), NOW)
-          .heldOutFrom(replays, 0.05, heldIds(), NOW),
+          .heldOutFrom(replays, 0.05, heldOutIds(), NOW)
+          .heldOutFrom(replays, 0.05, heldOutIds(), NOW),
       ).toThrow(InvalidSearchError);
       expect(() =>
-        searching().heldOutFrom(replays, 0.05, heldIds(), NOW),
+        searching().heldOutFrom(replays, 0.05, heldOutIds(), NOW),
       ).toThrow(InvalidSearchError);
     });
 
@@ -1347,21 +1346,21 @@ describe('Search', () => {
         .heldOutFrom(
           [seedRan(), candidateRan(holdingOut(), 'one', 1)],
           0.05,
-          heldIds(),
+          heldOutIds(),
           NOW,
         )
         .recordReplayEnd(
-          ReplayId.of('held_1'),
+          ReplayId.of('held_out_1'),
           'stopped',
           charged(1),
           NOW,
           searchRunIds(),
           true,
         );
-      const grown = search.replaySpent(ReplayId.of('held_1'), charged(1.5));
+      const grown = search.replaySpent(ReplayId.of('held_out_1'), charged(1.5));
 
       expect(grown.heldOut[0]?.replay.spent?.amount).toBe(1.5);
-      expect(grown.replaySpent(ReplayId.of('held_1'), charged(1.2))).toBe(
+      expect(grown.replaySpent(ReplayId.of('held_out_1'), charged(1.2))).toBe(
         grown,
       );
     });

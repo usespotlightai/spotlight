@@ -11,7 +11,7 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
-import { SearchRunNotHeldError } from '@replays/domain/exceptions/search-run-not-held.error';
+import { SearchRunNotActiveError } from '@replays/domain/exceptions/search-run-not-active.error';
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -52,8 +52,7 @@ const parsed = <T>(
   }
 };
 
-const textOf = (held: unknown): string =>
-  typeof held === 'string' ? held : '';
+const textOf = (raw: unknown): string => (typeof raw === 'string' ? raw : '');
 
 const hypothesisProblem = (reason: string): ConfigurationProblem =>
   ConfigurationProblem.of({
@@ -89,11 +88,11 @@ export class ProposeSearchCandidateHandler
   ): Promise<SearchCandidateProposed> {
     try {
       const run = RunId.of(command.runId);
-      const held = await this.work.heldSearchRun(run, command.runnerId);
-      const seen = held ? await this.searches.find(held.searchId) : null;
+      const leased = await this.work.leasedSearchRun(run, command.runnerId);
+      const seen = leased ? await this.searches.find(leased.searchId) : null;
 
       if (!seen) {
-        throw new SearchRunNotHeldError();
+        throw new SearchRunNotActiveError();
       }
 
       const already = this.proposedBy(seen, run, textOf(command.name));
@@ -172,7 +171,7 @@ export class ProposeSearchCandidateHandler
       const search = await this.searches.locked(seen.id);
 
       if (!search) {
-        throw new SearchRunNotHeldError();
+        throw new SearchRunNotActiveError();
       }
 
       await this.searches.save(search.proposalRefused(run));
@@ -191,7 +190,7 @@ export class ProposeSearchCandidateHandler
       const set = search ? await this.sets.find(search.setId) : null;
 
       if (!search || !set) {
-        throw new SearchRunNotHeldError();
+        throw new SearchRunNotActiveError();
       }
 
       const again = this.proposedBy(search, run, proposal.name.value);
@@ -204,7 +203,7 @@ export class ProposeSearchCandidateHandler
       const address = StationAddress.of(teamKey, station.lineKey, station.key);
 
       if (!iteration || !address) {
-        throw new SearchRunNotHeldError();
+        throw new SearchRunNotActiveError();
       }
 
       const at = this.clock.now();

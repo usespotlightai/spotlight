@@ -124,7 +124,7 @@ const onRecord = (decisions: readonly DecisionOnRecord[]): string | null =>
   decisions.length > 0
     ? [
         '## Decisions on record',
-        'An earlier run on this task recorded these decisions, and the pull request shows them to its reviewers. Check that the ones your work touches still hold, and weigh what a reviewer disputes. Where you change what one rests on, or find it no longer holds, say so in your note.',
+        'An earlier run on this task recorded these decisions, and the pull request shows them to its reviewers. Check that the ones your work touches still apply, and weigh what a reviewer disputes. Where you change what one rests on, or find it no longer applies, say so in your note.',
         decisions.map(recorded).join('\n'),
       ].join('\n\n')
     : null;

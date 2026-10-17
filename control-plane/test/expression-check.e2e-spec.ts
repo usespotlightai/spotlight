@@ -92,7 +92,7 @@ describe('checking expressions for a plan', () => {
     ]);
   });
 
-  it('refuses a position the definition holds no expression at, as a problem', async () => {
+  it('refuses a position where the definition has no expression, as a problem', async () => {
     const answer = await check({
       position: 'integration.webhook.events[0].wehn',
       expression: 'true',

@@ -44,7 +44,7 @@ export class ListReplaySetSuggestionsHandler
             MAX_SUGGESTED_FROM,
           )
         ).flatMap((each) =>
-          each.refusal === null && each.taskId && !set.holds(each.runId)
+          each.refusal === null && each.taskId && !set.includes(each.runId)
             ? [{ ...each, task: each.taskId.value }]
             : [],
         ),

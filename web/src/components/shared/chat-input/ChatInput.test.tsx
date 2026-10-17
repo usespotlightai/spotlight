@@ -151,7 +151,7 @@ describe('ChatInput', () => {
     expect(uploaded).toHaveBeenCalledTimes(1);
   });
 
-  it('holds the send while a file is still going up', async () => {
+  it('blocks the send while a file is still going up', async () => {
     uploaded.mockReturnValue(new Promise(() => {}));
     input();
 

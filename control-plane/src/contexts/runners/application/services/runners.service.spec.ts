@@ -22,10 +22,10 @@ import {
   aTrust,
   HOST_ID,
   hashOf,
-  heldHosts,
   POOL_ID,
   STARTED_AT,
   secretOf,
+  storedHosts,
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
@@ -68,7 +68,7 @@ const running = (
   pool: RunnerPool | null,
   given: {
     standing?: readonly Runner[];
-    held?: Runner | null;
+    existing?: Runner | null;
     answer?: ProvisionAnswer;
     unsaved?: Error;
     trust?: RunnerTrust | null;
@@ -80,7 +80,7 @@ const running = (
   } = {},
 ) => {
   const known = given.host === undefined ? aHost() : given.host;
-  const { hosts } = known ? heldHosts(known) : heldHosts();
+  const { hosts } = known ? storedHosts(known) : storedHosts();
   const added: Runner[] = [];
   const logged: unknown[] = [];
   const saved: Runner[] = [];
@@ -99,14 +99,16 @@ const running = (
       add: vi.fn(async (runner: Runner) => {
         added.push(runner);
       }),
-      find: vi.fn(async () => given.held ?? added[added.length - 1] ?? null),
+      find: vi.fn(
+        async () => given.existing ?? added[added.length - 1] ?? null,
+      ),
       save: vi.fn(async (runner: Runner) => {
         if (given.unsaved) {
           throw given.unsaved;
         }
         saved.push(runner);
       }),
-      holding: vi.fn(async () => (given.held ? [given.held] : [])),
+      findByWork: vi.fn(async () => (given.existing ? [given.existing] : [])),
     } as unknown as RunnerRepository,
     {
       find: vi.fn(async () => given.egress ?? null),
@@ -603,9 +605,9 @@ describe('Runners', () => {
     });
   });
 
-  it('ends the runner holding work that ended', async () => {
-    const held = aRunner().took(RunnerWork.run('run_1'), STARTED_AT);
-    const { service, saved } = running(aPullPool(), { held });
+  it('ends the runner with a lease on work that ended', async () => {
+    const existing = aRunner().took(RunnerWork.run('run_1'), STARTED_AT);
+    const { service, saved } = running(aPullPool(), { existing });
 
     await service.workEnded({ kind: 'run', id: 'run_1' }, STARTED_AT);
 
@@ -613,7 +615,7 @@ describe('Runners', () => {
   });
 
   it('records the work a runner took', async () => {
-    const { service, saved } = running(aPullPool(), { held: aRunner() });
+    const { service, saved } = running(aPullPool(), { existing: aRunner() });
 
     await service.took(
       RunnerId.of('pooled_1'),
@@ -621,6 +623,6 @@ describe('Runners', () => {
       STARTED_AT,
     );
 
-    expect(saved[0]?.holds(RunnerWork.check('stack_1'))).toBe(true);
+    expect(saved[0]?.hasLeaseOn(RunnerWork.check('stack_1'))).toBe(true);
   });
 });

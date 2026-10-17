@@ -45,7 +45,7 @@ export class RedeemedSecretResponseDto {
 
   @ApiProperty({
     example: 'authorization',
-    description: 'The header or query parameter that holds its stand-in',
+    description: 'The header or query parameter that contains its stand-in',
   })
   readonly name: string;
 
@@ -93,7 +93,7 @@ export class WithheldSecretResponseDto {
 
   @ApiProperty({
     example:
-      'The workspace holds no secret named LINEAR_API_KEY; define it before anything uses it',
+      'The workspace has no secret named LINEAR_API_KEY; define it before anything uses it',
   })
   readonly reason: string;
 
@@ -219,15 +219,15 @@ export class EgressAdmissionResponseDto {
   }
 }
 
-export class EgressHoldsResponseDto {
+export class EgressActiveRunsResponseDto {
   @ApiProperty({
     type: [String],
     description:
-      'The proxy credentials whose runner still holds its work. Egress forgets every other run',
+      'The proxy credentials whose runner still leases its work, or has no work yet. Egress forgets every other run',
   })
-  readonly held: readonly string[];
+  readonly active: readonly string[];
 
-  constructor(held: readonly string[]) {
-    this.held = held;
+  constructor(active: readonly string[]) {
+    this.active = active;
   }
 }

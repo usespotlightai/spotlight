@@ -25,7 +25,7 @@ export class ListWorkspaceMembersHandler
         WorkspaceSlug.of(query.slug),
       );
 
-      if (!workspace?.holds(viewer)) {
+      if (!workspace?.hasMember(viewer)) {
         return null;
       }
 

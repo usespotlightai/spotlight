@@ -18,7 +18,7 @@ const NOW = new Date('2026-09-26T09:00:00.000Z');
 const later = (ms: number) => new Date(NOW.getTime() + ms);
 const HOST = CallingHost.of('host_1');
 
-let held: TestDatabase;
+let database: TestDatabase;
 let calls: DrizzleNetworkCallRepository;
 let ids = 0;
 
@@ -46,28 +46,28 @@ const queued = async (
 };
 
 beforeAll(async () => {
-  held = await openDatabase('network_calls');
-  const pushed = await pushSchema({ networkCall }, held.db, undefined, [
+  database = await openDatabase('network_calls');
+  const pushed = await pushSchema({ networkCall }, database.db, undefined, [
     'network_call',
   ]);
 
   for (const statement of pushed.statementsToExecute) {
     if (statement.includes('"network_call"')) {
-      await held.db.execute(sql.raw(statement));
+      await database.db.execute(sql.raw(statement));
     }
   }
 
-  calls = new DrizzleNetworkCallRepository(new DrizzleContext(held.db), {
+  calls = new DrizzleNetworkCallRepository(new DrizzleContext(database.db), {
     dispatch: async () => {},
   });
 });
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 beforeEach(async () => {
-  await held.db.delete(networkCall);
+  await database.db.delete(networkCall);
 });
 
 describe('DrizzleNetworkCallRepository', () => {
@@ -192,7 +192,7 @@ describe('DrizzleNetworkCallRepository', () => {
 
     await calls.save((lapsing as NetworkCall).lapsed(NOW));
 
-    const kept = await held.db
+    const kept = await database.db
       .select({
         id: networkCall.id,
         state: networkCall.state,

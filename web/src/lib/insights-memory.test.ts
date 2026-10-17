@@ -32,7 +32,7 @@ describe('memoryTiles', () => {
 });
 
 describe('usedNoMemory', () => {
-  it('holds only where the team keeps, uses and flags no memory', () => {
+  it('is true only where the team keeps, uses and flags no memory', () => {
     expect(usedNoMemory(memory({}))).toBe(false);
     expect(
       usedNoMemory(

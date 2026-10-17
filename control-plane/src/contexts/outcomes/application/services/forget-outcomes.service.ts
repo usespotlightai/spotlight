@@ -22,7 +22,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const ATTEMPTS = 3;
 
-export interface OutcomesHeld {
+export interface OutcomesRepositories {
   readonly records: RunRecordRepository;
   readonly deliveries: TaskDeliveryRepository;
   readonly judgings: JudgingRepository;
@@ -42,25 +42,28 @@ export interface OutcomesHeld {
 
 export class ForgetOutcomes {
   constructor(
-    private readonly held: OutcomesHeld,
+    private readonly repositories: OutcomesRepositories,
     private readonly transaction: TransactionPort,
   ) {}
 
   runsOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
     return this.ofTask(workspaceId, taskId, () =>
-      this.held.records.removeForTask(taskId),
+      this.repositories.records.removeForTask(taskId),
     );
   }
 
   deliveryOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
     return this.ofTask(workspaceId, taskId, async () => {
-      const delivery = await this.held.deliveries.forTask(taskId);
+      const delivery = await this.repositories.deliveries.forTask(taskId);
 
       if (delivery) {
-        await this.held.reviews.release(workspaceId, delivery.pullRequest);
+        await this.repositories.reviews.release(
+          workspaceId,
+          delivery.pullRequest,
+        );
       }
 
-      await this.held.deliveries.removeForTask(taskId);
+      await this.repositories.deliveries.removeForTask(taskId);
     });
   }
 
@@ -69,20 +72,20 @@ export class ForgetOutcomes {
     taskId: TaskId,
   ): Promise<void> {
     return this.ofTask(workspaceId, taskId, async () => {
-      await this.held.judgings.removeForTask(taskId);
-      await this.held.scores.removeForTask(taskId);
+      await this.repositories.judgings.removeForTask(taskId);
+      await this.repositories.scores.removeForTask(taskId);
     });
   }
 
   touchesOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
     return this.ofTask(workspaceId, taskId, () =>
-      this.held.touches.removeForTask(taskId),
+      this.repositories.touches.removeForTask(taskId),
     );
   }
 
   failuresOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
     return this.ofTask(workspaceId, taskId, () =>
-      this.held.failures.removeForTask(taskId),
+      this.repositories.failures.removeForTask(taskId),
     );
   }
 
@@ -91,29 +94,31 @@ export class ForgetOutcomes {
     taskId: TaskId,
   ): Promise<void> {
     await this.ofTask(workspaceId, taskId, () =>
-      this.held.shapes.removeForTask(taskId),
+      this.repositories.shapes.removeForTask(taskId),
     );
 
-    for (const record of await this.held.pullRequests.heldByTask(
+    for (const record of await this.repositories.pullRequests.findByTask(
       workspaceId,
       taskId,
     )) {
-      await this.lettingGo(record, (held) => held.withoutTask(taskId));
+      await this.lettingGo(record, (each) => each.withoutTask(taskId));
     }
   }
 
   async alertsOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
     await this.transaction.inTransaction(() =>
-      this.held.forgotten.forgetTask(workspaceId, taskId),
+      this.repositories.forgotten.forgetTask(workspaceId, taskId),
     );
 
-    for (const stationId of await this.held.watches.stationsHolding(taskId)) {
+    for (const stationId of await this.repositories.watches.stationsWithTask(
+      taskId,
+    )) {
       await this.transaction.inTransaction(async () => {
-        const watch = await this.held.watches.of(stationId, taskId);
+        const watch = await this.repositories.watches.of(stationId, taskId);
         const kept = watch?.withoutTask(taskId);
 
         if (watch && kept && kept !== watch) {
-          await this.held.watches.save(kept);
+          await this.repositories.watches.save(kept);
         }
       });
     }
@@ -121,32 +126,35 @@ export class ForgetOutcomes {
 
   alertsOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
     return this.ofTeam(workspaceId, teamId, () =>
-      this.held.watches.removeForTeam(workspaceId, teamId),
+      this.repositories.watches.removeForTeam(workspaceId, teamId),
     );
   }
 
   alertsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, () =>
-      this.held.watches.removeForWorkspace(workspaceId),
+      this.repositories.watches.removeForWorkspace(workspaceId),
     );
   }
 
   runsOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
     return this.ofTeam(workspaceId, teamId, () =>
-      this.held.records.removeForTeam(workspaceId, teamId),
+      this.repositories.records.removeForTeam(workspaceId, teamId),
     );
   }
 
   deliveriesOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
     return this.ofTeam(workspaceId, teamId, async () => {
-      for (const delivery of await this.held.deliveries.ofTeam(
+      for (const delivery of await this.repositories.deliveries.ofTeam(
         workspaceId,
         teamId,
       )) {
-        await this.held.reviews.release(workspaceId, delivery.pullRequest);
+        await this.repositories.reviews.release(
+          workspaceId,
+          delivery.pullRequest,
+        );
       }
 
-      await this.held.deliveries.removeForTeam(workspaceId, teamId);
+      await this.repositories.deliveries.removeForTeam(workspaceId, teamId);
     });
   }
 
@@ -155,28 +163,28 @@ export class ForgetOutcomes {
     teamId: TeamId,
   ): Promise<void> {
     return this.ofTeam(workspaceId, teamId, async () => {
-      await this.held.judgings.removeForTeam(workspaceId, teamId);
-      await this.held.changeJudgings.removeForTeam(workspaceId, teamId);
-      await this.held.pairJudgings.removeForTeam(workspaceId, teamId);
-      await this.held.scores.removeForTeam(workspaceId, teamId);
+      await this.repositories.judgings.removeForTeam(workspaceId, teamId);
+      await this.repositories.changeJudgings.removeForTeam(workspaceId, teamId);
+      await this.repositories.pairJudgings.removeForTeam(workspaceId, teamId);
+      await this.repositories.scores.removeForTeam(workspaceId, teamId);
     });
   }
 
   touchesOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
     return this.ofTeam(workspaceId, teamId, () =>
-      this.held.touches.removeForTeam(workspaceId, teamId),
+      this.repositories.touches.removeForTeam(workspaceId, teamId),
     );
   }
 
   failuresOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
     return this.ofTeam(workspaceId, teamId, () =>
-      this.held.failures.removeForTeam(workspaceId, teamId),
+      this.repositories.failures.removeForTeam(workspaceId, teamId),
     );
   }
 
   chatsOfTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
     return this.ofTeam(workspaceId, teamId, () =>
-      this.held.chats.removeForTeam(workspaceId, teamId),
+      this.repositories.chats.removeForTeam(workspaceId, teamId),
     );
   }
 
@@ -185,14 +193,14 @@ export class ForgetOutcomes {
     teamId: TeamId,
   ): Promise<void> {
     await this.ofTeam(workspaceId, teamId, () =>
-      this.held.shapes.removeForTeam(workspaceId, teamId),
+      this.repositories.shapes.removeForTeam(workspaceId, teamId),
     );
 
-    for (const record of await this.held.pullRequests.ownedByTeam(
+    for (const record of await this.repositories.pullRequests.ownedByTeam(
       workspaceId,
       teamId,
     )) {
-      await this.lettingGo(record, (held) => held.withoutTeam(teamId));
+      await this.lettingGo(record, (each) => each.withoutTeam(teamId));
     }
   }
 
@@ -201,89 +209,89 @@ export class ForgetOutcomes {
     teamId: TeamId,
   ): Promise<void> {
     return this.ofTeam(workspaceId, teamId, () =>
-      this.held.configPullRequests.removeForTeam(workspaceId, teamId),
+      this.repositories.configPullRequests.removeForTeam(workspaceId, teamId),
     );
   }
 
   configPullRequestsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, () =>
-      this.held.configPullRequests.removeForWorkspace(workspaceId),
+      this.repositories.configPullRequests.removeForWorkspace(workspaceId),
     );
   }
 
   runsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, () =>
-      this.held.records.removeForWorkspace(workspaceId),
+      this.repositories.records.removeForWorkspace(workspaceId),
     );
   }
 
   deliveriesOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, async () => {
-      await this.held.deliveries.removeForWorkspace(workspaceId);
-      await this.held.reviews.releaseWorkspace(workspaceId);
+      await this.repositories.deliveries.removeForWorkspace(workspaceId);
+      await this.repositories.reviews.releaseWorkspace(workspaceId);
     });
   }
 
   judgingsAndScoresOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, async () => {
-      await this.held.judgings.removeForWorkspace(workspaceId);
-      await this.held.changeJudgings.removeForWorkspace(workspaceId);
-      await this.held.pairJudgings.removeForWorkspace(workspaceId);
-      await this.held.scores.removeForWorkspace(workspaceId);
+      await this.repositories.judgings.removeForWorkspace(workspaceId);
+      await this.repositories.changeJudgings.removeForWorkspace(workspaceId);
+      await this.repositories.pairJudgings.removeForWorkspace(workspaceId);
+      await this.repositories.scores.removeForWorkspace(workspaceId);
     });
   }
 
   touchesOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, () =>
-      this.held.touches.removeForWorkspace(workspaceId),
+      this.repositories.touches.removeForWorkspace(workspaceId),
     );
   }
 
   failuresOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, () =>
-      this.held.failures.removeForWorkspace(workspaceId),
+      this.repositories.failures.removeForWorkspace(workspaceId),
     );
   }
 
   chatsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, () =>
-      this.held.chats.removeForWorkspace(workspaceId),
+      this.repositories.chats.removeForWorkspace(workspaceId),
     );
   }
 
   pullRequestsOfWorkspace(workspaceId: WorkspaceId): Promise<void> {
     return this.ofWorkspace(workspaceId, async () => {
-      await this.held.pullRequests.removeForWorkspace(workspaceId);
-      await this.held.shapes.removeForWorkspace(workspaceId);
+      await this.repositories.pullRequests.removeForWorkspace(workspaceId);
+      await this.repositories.shapes.removeForWorkspace(workspaceId);
     });
   }
 
   private async lettingGo(
     record: PullRequestRecord,
-    letGo: (held: PullRequestRecord) => PullRequestRecord | null,
+    letGo: (record: PullRequestRecord) => PullRequestRecord | null,
   ): Promise<void> {
     for (let left = ATTEMPTS; ; left -= 1) {
       try {
         await this.transaction.inTransaction(async () => {
-          await this.held.forgotten.holdingPullRequest(
+          await this.repositories.forgotten.lockForgettingPullRequest(
             record.workspaceId,
             record.pullRequest,
           );
-          const held = await this.held.pullRequests.at(
+          const existing = await this.repositories.pullRequests.at(
             record.workspaceId,
             record.pullRequest,
           );
 
-          if (!held) {
+          if (!existing) {
             return;
           }
 
-          const kept = letGo(held);
+          const kept = letGo(existing);
 
           if (kept === null) {
-            await this.held.pullRequests.remove(held);
-          } else if (kept !== held) {
-            await this.held.pullRequests.save(kept);
+            await this.repositories.pullRequests.remove(existing);
+          } else if (kept !== existing) {
+            await this.repositories.pullRequests.save(kept);
           }
         });
         return;
@@ -304,7 +312,7 @@ export class ForgetOutcomes {
     remove: () => Promise<void>,
   ): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.held.forgotten.forgetTask(workspaceId, taskId);
+      await this.repositories.forgotten.forgetTask(workspaceId, taskId);
       await remove();
     });
   }
@@ -315,7 +323,7 @@ export class ForgetOutcomes {
     remove: () => Promise<void>,
   ): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.held.forgotten.forgetTeam(workspaceId, teamId);
+      await this.repositories.forgotten.forgetTeam(workspaceId, teamId);
       await remove();
     });
   }
@@ -325,7 +333,7 @@ export class ForgetOutcomes {
     remove: () => Promise<void>,
   ): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.held.forgotten.forgetWorkspace(workspaceId);
+      await this.repositories.forgotten.forgetWorkspace(workspaceId);
       await remove();
     });
   }

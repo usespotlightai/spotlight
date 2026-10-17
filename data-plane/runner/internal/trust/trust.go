@@ -61,13 +61,13 @@ func installed(authority, bundle string, system []string) error {
 		}
 		resolved = append(resolved, real)
 
-		held, err := os.ReadFile(real)
+		existing, err := os.ReadFile(real)
 		if err != nil {
 			failed = append(failed, fmt.Errorf("read the image's trusted authorities: %w", err))
 			continue
 		}
 		if trusted == nil {
-			trusted = held
+			trusted = existing
 		}
 	}
 
@@ -85,11 +85,11 @@ func installed(authority, bundle string, system []string) error {
 }
 
 func trustedIn(path string, pem []byte) error {
-	held, err := os.ReadFile(path)
+	existing, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	if bytes.Contains(held, bytes.TrimSpace(pem)) {
+	if bytes.Contains(existing, bytes.TrimSpace(pem)) {
 		return nil
 	}
 
@@ -98,7 +98,7 @@ func trustedIn(path string, pem []byte) error {
 		return err
 	}
 
-	return replaced(path, joined(held, pem), info.Mode().Perm())
+	return replaced(path, joined(existing, pem), info.Mode().Perm())
 }
 
 func replaced(path string, body []byte, mode os.FileMode) error {
@@ -122,10 +122,10 @@ func replaced(path string, body []byte, mode os.FileMode) error {
 	return os.Rename(temporary.Name(), path)
 }
 
-func joined(held, pem []byte) []byte {
-	if len(held) > 0 && !bytes.HasSuffix(held, []byte("\n")) {
-		held = append(held, '\n')
+func joined(existing, pem []byte) []byte {
+	if len(existing) > 0 && !bytes.HasSuffix(existing, []byte("\n")) {
+		existing = append(existing, '\n')
 	}
 
-	return append(append([]byte{}, held...), pem...)
+	return append(append([]byte{}, existing...), pem...)
 }

@@ -170,7 +170,7 @@ const BEST_TERMS: Record<SearchObjective, string> = {
 
 const NO_BEST: Record<SearchObjective, string> = {
   success: 'No best candidate yet',
-  cost: 'No candidate holds its success yet',
+  cost: 'No candidate matches the live config’s success yet',
 };
 
 const FRONTIER_NOTES: Record<SearchObjective, string> = {

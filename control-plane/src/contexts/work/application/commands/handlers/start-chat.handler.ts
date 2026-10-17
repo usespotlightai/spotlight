@@ -128,7 +128,7 @@ export class StartChatHandler
 
   private async improved(stationId: string): Promise<ImprovedStation> {
     const id = StationId.of(stationId);
-    const line = await this.lines.holding(id);
+    const line = await this.lines.findByStation(id);
     const station = line?.stationAt(id);
 
     if (!line || !station) {

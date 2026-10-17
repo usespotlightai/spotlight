@@ -12,7 +12,7 @@ import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { secretsWornBy } from '@integrations/infrastructure/integrations/worn-secrets';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-const heldOn = (
+const configOf = (
   teamKey: string,
   kept: IntegrationRecord,
 ): IntegrationConfig => ({
@@ -34,7 +34,7 @@ export class IntegrationConfigs implements IntegrationConfigsPort {
     const kept = await this.resources.withId(id);
     const team = kept && (await this.teams.find(kept.teamId));
 
-    return kept && team ? heldOn(team.key, kept) : null;
+    return kept && team ? configOf(team.key, kept) : null;
   }
 
   async ofTeam(teamId: TeamId): Promise<readonly IntegrationConfig[]> {
@@ -42,7 +42,7 @@ export class IntegrationConfigs implements IntegrationConfigsPort {
 
     return team
       ? (await this.resources.ofTeam(teamId)).map((each) =>
-          heldOn(team.key, each),
+          configOf(team.key, each),
         )
       : [];
   }

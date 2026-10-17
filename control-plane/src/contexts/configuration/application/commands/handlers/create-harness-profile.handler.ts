@@ -4,7 +4,7 @@ import type { SecretNamesPort } from '@configuration/application/ports/secret-na
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileAlreadyDefinedError } from '@configuration/domain/exceptions/harness-profile-already-defined.error';
-import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
+import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
@@ -88,7 +88,7 @@ export class CreateHarnessProfileHandler
               id: HarnessProfileId.of(this.ids.generate()),
               teamId: team.id,
               by: Attribution.of(command.actor, team.workspaceId),
-              held: await this.secrets.ofTeam(team.id),
+              existingSecrets: await this.secrets.ofTeam(team.id),
             });
 
             await this.profiles.save(defined);
@@ -97,10 +97,10 @@ export class CreateHarnessProfileHandler
           }),
         );
       } catch (error) {
-        if (error instanceof SecretsUnheldError) {
+        if (error instanceof MissingSecretsError) {
           return {
             outcome: 'invalid',
-            problems: HarnessProfileProblems.unheld(error.key, error.unheld),
+            problems: HarnessProfileProblems.missing(error.key, error.missing),
           };
         }
 

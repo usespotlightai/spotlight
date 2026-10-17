@@ -161,9 +161,9 @@ func TestCandidateNeedsAJSONObject(t *testing.T) {
 		in   string
 		want string
 	}{
-		{[]string{"-"}, `["prompt"]`, "holds no JSON object"},
-		{[]string{"-"}, `null`, "holds no JSON object"},
-		{[]string{"-"}, `prompt: x`, "holds no JSON object"},
+		{[]string{"-"}, `["prompt"]`, "contains no JSON object"},
+		{[]string{"-"}, `null`, "contains no JSON object"},
+		{[]string{"-"}, `prompt: x`, "contains no JSON object"},
 		{[]string{hcl}, ``, "is HCL"},
 		{[]string{filepath.Join(t.TempDir(), "gone.json")}, ``, "read the station block"},
 	} {

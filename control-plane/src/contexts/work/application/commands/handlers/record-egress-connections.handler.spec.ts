@@ -1,7 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RecordEgressConnectionsCommand } from '@work/application/commands/egress.commands';
 import {
-  holding,
+  leasing,
   NOW,
   runOf,
   SHARED_TOKEN,
@@ -55,13 +55,13 @@ const recording = () => {
     sharedEgress(
       {},
       Object.fromEntries([
-        runOf('held', 'run_1'),
+        runOf('leased', 'run_1'),
         runOf('ended', 'run_2'),
         runOf('waiting', 'run_3', null),
         runOf('lapsed', 'run_4'),
       ]),
     ),
-    holding([], ['run_1', 'run_2']) as unknown as EgressRedemptions,
+    leasing([], ['run_1', 'run_2']) as unknown as EgressRedemptions,
     connections,
     { now: () => NOW } as ClockPort,
   );
@@ -76,9 +76,9 @@ describe('RecordEgressConnectionsHandler', () => {
     await expect(
       handler.execute(
         new RecordEgressConnectionsCommand(SHARED_TOKEN, [
-          record('held'),
-          record('held', { host: 'api.linear.app', outcome: 'forwarded' }),
-          record('held', { port: 0 }),
+          record('leased'),
+          record('leased', { host: 'api.linear.app', outcome: 'forwarded' }),
+          record('leased', { port: 0 }),
           record('ended'),
           record('waiting'),
           record('lapsed'),
@@ -98,9 +98,9 @@ describe('RecordEgressConnectionsHandler', () => {
 
     await handler.execute(
       new RecordEgressConnectionsCommand(SHARED_TOKEN, [
-        record('held', { outcome: 'forwarded', status: 401 }),
-        record('held', { outcome: 'blocked', reason: 'not-bound' }),
-        record('held'),
+        record('leased', { outcome: 'forwarded', status: 401 }),
+        record('leased', { outcome: 'blocked', reason: 'not-bound' }),
+        record('leased'),
       ]),
     );
 
@@ -118,7 +118,7 @@ describe('RecordEgressConnectionsHandler', () => {
 
     await expect(
       handler.execute(
-        new RecordEgressConnectionsCommand('other', [record('held')]),
+        new RecordEgressConnectionsCommand('other', [record('leased')]),
       ),
     ).resolves.toEqual({ outcome: 'refused' });
     expect(kept).toEqual([]);
@@ -132,7 +132,7 @@ describe('RecordEgressConnectionsHandler', () => {
         new RecordEgressConnectionsCommand(
           SHARED_TOKEN,
           Array.from({ length: MAX_CONNECTIONS_AT_ONCE + 1 }, () =>
-            record('held'),
+            record('leased'),
           ),
         ),
       ),

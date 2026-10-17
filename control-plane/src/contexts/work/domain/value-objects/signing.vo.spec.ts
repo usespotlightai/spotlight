@@ -14,7 +14,7 @@ const signing = (over: Record<string, unknown> = {}) =>
   });
 
 describe('Signing', () => {
-  it('holds what the signature should be, and what names the secret', () => {
+  it('keeps what the signature should be, and what names the secret', () => {
     expect(signing().scheme).toBe('hmac-sha256');
     expect(signing().secret).toEqual(SECRET);
   });

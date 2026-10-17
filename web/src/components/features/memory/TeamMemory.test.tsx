@@ -388,7 +388,7 @@ describe('TeamMemory', () => {
     expect(screen.getByText('No memories match.')).toBeVisible();
   });
 
-  it('holds its shape while it loads', () => {
+  it('keeps its shape while it loads', () => {
     memoriesState.isPending = true;
     showing();
 
@@ -483,7 +483,7 @@ describe('TeamMemory', () => {
     ).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('holds its shape while the lines load', () => {
+  it('keeps its shape while the lines load', () => {
     memoriesState.data = [memory({ lineId: 'line_delivery' })];
     linesState.data = undefined;
     linesState.isPending = true;

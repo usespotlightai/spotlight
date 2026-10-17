@@ -21,10 +21,10 @@ export class NoteRunSuperseded {
     taskId: TaskId,
   ): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(workspaceId, taskId);
-      const held = await this.records.of(runId);
+      await this.forgotten.lockForgetting(workspaceId, taskId);
+      const existing = await this.records.of(runId);
 
-      if (!held) {
+      if (!existing) {
         if (await this.forgotten.forgot(workspaceId, taskId)) {
           return;
         }
@@ -37,9 +37,9 @@ export class NoteRunSuperseded {
         return;
       }
 
-      const superseded = held.supersededByItsTask(this.clock.now());
+      const superseded = existing.supersededByItsTask(this.clock.now());
 
-      if (superseded !== held) {
+      if (superseded !== existing) {
         await this.records.save(superseded);
       }
     });

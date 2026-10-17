@@ -16,11 +16,11 @@ const SCREEN = Attachment.rehydrate({
 
 const CONTENT = { bytes: new Uint8Array([1]), contentType: 'image/png' };
 
-const reading = (holding: Record<string, string>) => {
+const reading = (leases: Record<string, string>) => {
   const opened: string[] = [];
   const works = {
-    workHeldBy: async (runId: string, runnerId: string) =>
-      holding[runId] === runnerId
+    workLeasedBy: async (runId: string, runnerId: string) =>
+      leases[runId] === runnerId
         ? ({
             workspaceId: WorkspaceId.of('ws_1'),
             gave: (id: string) => (id === 'att_1' ? SCREEN : null),
@@ -41,7 +41,7 @@ const asked = (attachmentId = 'att_1') =>
   new ReadRunAttachmentQuery('run_1', 'runner_1', attachmentId);
 
 describe('ReadRunAttachmentHandler', () => {
-  it('opens a file the work of the run the runner holds was given', async () => {
+  it('opens a file the work of the run the runner leases was given', async () => {
     const { handler, opened } = reading({ run_1: 'runner_1' });
 
     await expect(handler.execute(asked())).resolves.toBe(CONTENT);
@@ -55,7 +55,7 @@ describe('ReadRunAttachmentHandler', () => {
     expect(opened).toEqual([]);
   });
 
-  it('opens nothing for a runner that no longer holds the run', async () => {
+  it('opens nothing for a runner that no longer leases the run', async () => {
     const { handler, opened } = reading({});
 
     await expect(handler.execute(asked())).resolves.toBeNull();

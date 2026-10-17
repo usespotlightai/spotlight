@@ -18,11 +18,11 @@ func (c candidate) label() string { return c.Name }
 func (s replaySet) id() string    { return s.ID }
 func (s replaySet) label() string { return s.Name }
 
-func pick[T named](held []T, asked, kind, at string) (T, error) {
+func pick[T named](items []T, asked, kind, at string) (T, error) {
 	var none T
 	var byName []T
 
-	for _, each := range held {
+	for _, each := range items {
 		if each.id() == asked {
 			return each, nil
 		}
@@ -35,8 +35,8 @@ func pick[T named](held []T, asked, kind, at string) (T, error) {
 	case 1:
 		return byName[0], nil
 	case 0:
-		names := make([]string, 0, len(held))
-		for _, each := range held {
+		names := make([]string, 0, len(items))
+		for _, each := range items {
 			names = append(names, each.label())
 		}
 		if len(names) == 0 {

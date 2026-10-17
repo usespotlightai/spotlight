@@ -56,7 +56,7 @@ func run(version string) error {
 		return err
 	}
 
-	release, err := config.Hold(cfg.State)
+	release, err := config.Lock(cfg.State)
 	if err != nil {
 		return err
 	}

@@ -132,11 +132,11 @@ describe('ClaimOrder', () => {
   });
 
   it('hands out nothing already claimed', () => {
-    const held = waiting('held');
+    const taken = waiting('taken');
 
     expect(
       ClaimOrder.next(
-        [{ ...held, run: held.run.claim(RunnerId.of('runner_2'), NOW) }],
+        [{ ...taken, run: taken.run.claim(RunnerId.of('runner_2'), NOW) }],
         BY,
         NOW,
       ),

@@ -1,4 +1,4 @@
-import type { WorkspaceHolder } from '@identity/application/ports/workspace-holdings.port';
+import type { WorkspaceDependentSource } from '@identity/application/ports/workspace-dependents.port';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DefinedSecretsPort } from '@secrets/application/ports/defined-secrets.port';
@@ -28,7 +28,7 @@ const keptFrom = (row: typeof secret.$inferSelect): SecretRecord => ({
 
 @Injectable()
 export class DrizzleSecretResources
-  implements SecretResourcesPort, DefinedSecretsPort, WorkspaceHolder
+  implements SecretResourcesPort, DefinedSecretsPort, WorkspaceDependentSource
 {
   constructor(private readonly context: DrizzleContext) {}
 
@@ -61,7 +61,7 @@ export class DrizzleSecretResources
     ).map((each) => each.name);
   }
 
-  async heldBy(workspaceId: WorkspaceId): Promise<readonly string[]> {
+  async dependentsOf(workspaceId: WorkspaceId): Promise<readonly string[]> {
     return (await this.namesIn(workspaceId.value)).map(
       (name) => `secret ${name}`,
     );

@@ -51,7 +51,7 @@ export class RecordPullRequests {
   ) {}
 
   described(from: HeardFrom, facts: PullRequestFacts): Promise<void> {
-    return this.changing(from, facts.url, facts, (held) => held);
+    return this.changing(from, facts.url, facts, (known) => known);
   }
 
   async reviewed(
@@ -63,8 +63,8 @@ export class RecordPullRequests {
     const url = urlOf(pullRequest);
 
     if (url) {
-      await this.changing(from, url, facts, (held) =>
-        held.recordReview(review),
+      await this.changing(from, url, facts, (known) =>
+        known.recordReview(review),
       );
     }
   }
@@ -78,8 +78,8 @@ export class RecordPullRequests {
     const url = urlOf(pullRequest);
 
     if (url) {
-      await this.changing(from, url, facts, (held) =>
-        held.dismissReview(review),
+      await this.changing(from, url, facts, (known) =>
+        known.dismissReview(review),
       );
     }
   }
@@ -93,8 +93,8 @@ export class RecordPullRequests {
     const url = urlOf(pullRequest);
 
     if (url) {
-      await this.changing(from, url, facts, (held) =>
-        held.recordComment(comment),
+      await this.changing(from, url, facts, (known) =>
+        known.recordComment(comment),
       );
     }
   }
@@ -108,8 +108,8 @@ export class RecordPullRequests {
     const url = urlOf(pullRequest);
 
     if (url) {
-      await this.changing(from, url, facts, (held) =>
-        held.resolveThread(thread),
+      await this.changing(from, url, facts, (known) =>
+        known.resolveThread(thread),
       );
     }
   }
@@ -169,7 +169,7 @@ export class RecordPullRequests {
             candidate.workspaceId,
             candidate.url,
           ),
-        (held) => held.forgettableAt(now),
+        (known) => known.forgettableAt(now),
       );
       forgotten += batch.forgotten;
       after = candidates[candidates.length - 1] ?? after;
@@ -229,7 +229,7 @@ export class RecordPullRequests {
   private async forgetting(
     candidates: readonly PullRequest[],
     locked: (candidate: PullRequest) => Promise<PullRequest | null>,
-    forgettable: (held: PullRequest) => boolean,
+    forgettable: (pullRequest: PullRequest) => boolean,
   ): Promise<Forgetting> {
     let forgotten = 0;
     let left = 0;
@@ -237,10 +237,10 @@ export class RecordPullRequests {
     for (const candidate of candidates) {
       try {
         await this.transaction.inTransaction(async () => {
-          const held = await locked(candidate);
+          const current = await locked(candidate);
 
-          if (held && forgettable(held)) {
-            await this.pullRequests.remove(held.forgotten());
+          if (current && forgettable(current)) {
+            await this.pullRequests.remove(current.forgotten());
             forgotten += 1;
           }
         });
@@ -260,14 +260,14 @@ export class RecordPullRequests {
     from: HeardFrom,
     url: PullRequestUrl,
     facts: PullRequestFacts | null,
-    change: (held: PullRequest) => PullRequest,
+    change: (pullRequest: PullRequest) => PullRequest,
   ): Promise<void> {
     const heard = facts?.url.equals(url) ? facts : null;
     const { workspaceId } = from;
 
     return this.retrying(() =>
       this.transaction.inTransaction(async () => {
-        const claimant = await this.connections.heldClaimantOf(
+        const claimant = await this.connections.lockedClaimantOf(
           from.installation,
         );
 
@@ -275,12 +275,12 @@ export class RecordPullRequests {
           return;
         }
 
-        const held = await this.pullRequests.lockedAt(workspaceId, url);
+        const locked = await this.pullRequests.lockedAt(workspaceId, url);
 
-        if (held) {
-          const changed = change(heard ? held.describe(heard) : held);
+        if (locked) {
+          const changed = change(heard ? locked.describe(heard) : locked);
 
-          if (changed !== held) {
+          if (changed !== locked) {
             await this.pullRequests.save(changed);
           }
           return;

@@ -33,7 +33,7 @@ import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import {
-  HELD_RUN_STATES,
+  LEASED_RUN_STATES,
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
@@ -61,12 +61,12 @@ import { alias } from 'drizzle-orm/pg-core';
 const wearsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'wears'), 0) = 0
   AND coalesce((${run.spec} ->> 'spotlightApi')::boolean, false) = false`;
 
-const noEarlierRunStillHeld = sql`NOT EXISTS (
+const noEarlierRunStillLeased = sql`NOT EXISTS (
   SELECT 1 FROM ${run} AS earlier
   WHERE earlier.task_id = ${run.taskId}
     AND earlier.id <> ${run.id}
     AND earlier.state IN (${sql.join(
-      HELD_RUN_STATES.map((each) => sql`${each}`),
+      LEASED_RUN_STATES.map((each) => sql`${each}`),
       sql`, `,
     )})
 )`;
@@ -149,7 +149,7 @@ export class DrizzleRunRepository implements RunRepository {
           }
           AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamp)
           AND ${placementMet(run.placement, run.placementImage, by.terms)}
-          AND ${noEarlierRunStillHeld}
+          AND ${noEarlierRunStillLeased}
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1
@@ -228,7 +228,7 @@ export class DrizzleRunRepository implements RunRepository {
   async lapsedClaims(now: Date): Promise<readonly Run[]> {
     const rows = await this.selected().where(
       and(
-        inArray(run.state, [...HELD_RUN_STATES]),
+        inArray(run.state, [...LEASED_RUN_STATES]),
         lte(run.leaseExpiresAt, now),
       ),
     );
@@ -262,7 +262,7 @@ export class DrizzleRunRepository implements RunRepository {
           page.withSecrets ? undefined : wearsNoSecrets,
           or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
-          noEarlierRunStillHeld,
+          noEarlierRunStillLeased,
         ),
       )
       .orderBy(desc(run.priority), run.createdAt, run.id)
@@ -289,11 +289,11 @@ export class DrizzleRunRepository implements RunRepository {
   }
 }
 
-const startOf = (held: Run) => ({
-  startedFromArchiveId: held.startedFrom?.archive?.value ?? null,
-  startedFromCheckouts: held.startedFrom?.parts.checkouts ?? null,
-  startedFromAttempt: held.startedFrom?.attempt ?? null,
-  startedFromAt: held.startedFrom?.at ?? null,
+const startOf = (saving: Run) => ({
+  startedFromArchiveId: saving.startedFrom?.archive?.value ?? null,
+  startedFromCheckouts: saving.startedFrom?.parts.checkouts ?? null,
+  startedFromAttempt: saving.startedFrom?.attempt ?? null,
+  startedFromAt: saving.startedFrom?.at ?? null,
 });
 
 const configuredFrom = (row: Row): StationConfig | null => {
@@ -342,14 +342,14 @@ const startFrom = (row: Row): StartingPoint | null => {
   });
 };
 
-const reservationOf = (held: Run) => ({
-  reservedFor: held.reservation?.runner.value ?? null,
-  reservedPool: held.reservation?.pool.value ?? null,
-  reservedUntil: held.reservation?.until ?? null,
-  provisionFailures: held.provisioning.failures,
-  nextProvisionAt: held.provisioning.nextAt,
-  handBacks: held.handBacks.count,
-  claimableFrom: held.handBacks.claimableFrom,
+const reservationOf = (saving: Run) => ({
+  reservedFor: saving.reservation?.runner.value ?? null,
+  reservedPool: saving.reservation?.pool.value ?? null,
+  reservedUntil: saving.reservation?.until ?? null,
+  provisionFailures: saving.provisioning.failures,
+  nextProvisionAt: saving.provisioning.nextAt,
+  handBacks: saving.handBacks.count,
+  claimableFrom: saving.handBacks.claimableFrom,
 });
 
 const reservationFrom = (row: Row): RunnerReservation | null =>

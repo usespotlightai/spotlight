@@ -91,7 +91,7 @@ const stationSaid = (body: string) => ({
   voice: Voice.station(RUN),
 });
 
-const held = () =>
+const handed = () =>
   Task.add({
     line,
     at: REVIEW,
@@ -103,13 +103,13 @@ const held = () =>
   }).handedTo(RUN, line);
 
 const finished = () =>
-  held().finishHere(RUN, line, stationSaid('Opened the pull request.'));
+  handed().finishHere(RUN, line, stationSaid('Opened the pull request.'));
 
 const paused = () =>
-  held().putToAPerson(RUN, stationSaid('Which queue should I drain?'));
+  handed().putToAPerson(RUN, stationSaid('Which queue should I drain?'));
 
 const interrupted = () =>
-  held().interrupt({
+  handed().interrupt({
     station: StationName.of('Code Review'),
     body: TaskNoteBody.of(
       'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
@@ -142,7 +142,7 @@ const saying = (
         saved = each;
       }),
     } as unknown as TaskRepository,
-    { holding: vi.fn(async () => line) } as unknown as LineRepository,
+    { findByStation: vi.fn(async () => line) } as unknown as LineRepository,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     dispatch,
     { now: () => NOW } as ClockPort,
@@ -180,10 +180,10 @@ describe('SayToRunHandler', () => {
   });
 
   it('hands the words to the run still working the task, starting no other', async () => {
-    await saying(held());
+    await saying(handed());
 
     expect(dispatched).toEqual([]);
-    expect(saved?.heldBy(RUN)).toBe(true);
+    expect(saved?.hasCurrentRun(RUN)).toBe(true);
     expect(saved?.undelivered.map((note) => note.body.value)).toEqual([
       'Rename the flag too.',
     ]);
@@ -213,7 +213,7 @@ describe('SayToRunHandler', () => {
   });
 
   it('answers a conflict once the task has moved on from the run’s station, starting nothing', async () => {
-    const closed = held().moveTo(
+    const closed = handed().moveTo(
       line,
       StationId.of('station_completed'),
       TaskRank.of('j'),

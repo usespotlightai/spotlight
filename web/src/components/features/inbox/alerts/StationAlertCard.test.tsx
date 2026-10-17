@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StationAlertCard } from '@/components/features/inbox/alerts/StationAlertCard';
 import type { StationAlertCrossing } from '@/lib/station-alert';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -14,11 +14,11 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (
+const queried = (
   data: unknown,
   errorUpdateCount = 0,
   error: unknown = null,
-): Held => ({
+): Queried => ({
   data,
   isPending: data === undefined && errorUpdateCount === 0,
   isFetching: false,
@@ -27,7 +27,7 @@ const held = (
   refetch: vi.fn(),
 });
 
-const answer: { alert: Held } = { alert: held(undefined) };
+const answer: { alert: Queried } = { alert: queried(undefined) };
 
 vi.mock('@/hooks/api/useStationAlert', () => ({
   useStationAlert: () => answer.alert,
@@ -104,12 +104,12 @@ const showing = () =>
   );
 
 beforeEach(() => {
-  answer.alert = held(ALERT);
+  answer.alert = queried(ALERT);
 });
 
 describe('StationAlertCard', () => {
   it('shows a faithful skeleton while it loads', () => {
-    answer.alert = held(undefined);
+    answer.alert = queried(undefined);
 
     showing();
 
@@ -119,7 +119,7 @@ describe('StationAlertCard', () => {
   });
 
   it('offers to try again where it could not load', async () => {
-    answer.alert = held(undefined, 1);
+    answer.alert = queried(undefined, 1);
 
     showing();
 
@@ -129,7 +129,7 @@ describe('StationAlertCard', () => {
   });
 
   it('tells someone off the team that only its members can see the alert', () => {
-    answer.alert = held(undefined, 1, { statusCode: 404 });
+    answer.alert = queried(undefined, 1, { statusCode: 404 });
 
     showing();
 
@@ -192,7 +192,7 @@ describe('StationAlertCard', () => {
   });
 
   it('says when the station came back within it, and when its runs are gone', () => {
-    answer.alert = held({
+    answer.alert = queried({
       ...ALERT,
       recoveredAt: '2026-10-01T10:00:00.000Z',
       series: [],

@@ -48,7 +48,7 @@ export class UseToolHandler
   async execute(command: UseToolCommand): Promise<ToolAnswerDto> {
     try {
       const tool = Tool.of(command.tool);
-      const { run, work } = await this.works.heldBy(
+      const { run, work } = await this.works.leasedBy(
         command.runId,
         command.runnerId,
       );

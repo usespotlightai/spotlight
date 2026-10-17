@@ -247,7 +247,7 @@ describe('DispatchSearch', () => {
     }
   });
 
-  it('withdraws a queued search run, stops a held one, and leaves an ended one be', async () => {
+  it('withdraws a queued search run, stops a leased one, and leaves an ended one be', async () => {
     const { dispatch, runs } = dispatching();
 
     await dispatch.enqueue(ORDER);

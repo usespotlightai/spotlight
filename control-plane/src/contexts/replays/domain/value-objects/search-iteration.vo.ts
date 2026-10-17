@@ -105,7 +105,7 @@ export class SearchIteration {
     ) {
       throw new InconsistentStateError(
         'search iteration',
-        'holds one cause for each task it looked into, and none for others',
+        'has one cause for each task it looked into, and none for others',
       );
     }
 
@@ -173,20 +173,20 @@ export class SearchIteration {
     return this.state.agentSpent;
   }
 
-  get holdsItsRun(): boolean {
+  get ownsActiveRun(): boolean {
     return this.state.state === 'wanted' || this.state.state === 'running';
   }
 
   get isClosed(): boolean {
     return (
-      !this.holdsItsRun &&
+      !this.ownsActiveRun &&
       this.state.agentSpent !== null &&
       this.state.proposals.every((each) => each.replay.hasEnded)
     );
   }
 
   get awaitsAgentSpend(): boolean {
-    return !this.holdsItsRun && this.state.agentSpent === null;
+    return !this.ownsActiveRun && this.state.agentSpent === null;
   }
 
   agentUnpriced(ceiling: Spend): boolean {
@@ -213,7 +213,7 @@ export class SearchIteration {
   mayPropose(max: number): boolean {
     return (
       !this.reflects &&
-      this.holdsItsRun &&
+      this.ownsActiveRun &&
       this.state.proposals.length < max &&
       this.state.attempts < max * ATTEMPTS_PER_PROPOSAL
     );
@@ -226,7 +226,7 @@ export class SearchIteration {
   }
 
   ended(failed: boolean, started: boolean): SearchIteration {
-    if (!this.holdsItsRun) {
+    if (!this.ownsActiveRun) {
       return this;
     }
 

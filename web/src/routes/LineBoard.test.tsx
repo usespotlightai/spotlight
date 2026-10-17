@@ -140,7 +140,7 @@ describe('LineBoard', () => {
     refetchTasks.mockClear();
   });
 
-  it('holds the shape of a station while the line loads, keeping what never changes', () => {
+  it('keeps the shape of a station while the line loads, keeping what never changes', () => {
     lined.mockReturnValue(undefined);
 
     renderAt('line_1');
@@ -210,7 +210,7 @@ describe('LineBoard', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('shows only the stations when the line holds no tasks', () => {
+  it('shows only the stations when the line has no tasks', () => {
     listed.mockReturnValue([]);
 
     renderAt('line_1');
@@ -290,7 +290,7 @@ describe('LineBoard', () => {
     expect(spec?.textContent).not.toContain('Fix the queue');
   });
 
-  it('counts the tasks a station holds', () => {
+  it('counts the tasks a station has', () => {
     renderAt('line_1');
 
     expect(sections()[0]?.textContent).toContain('2');
@@ -453,7 +453,7 @@ describe('LineBoard', () => {
     expect(first?.className).not.toContain('rounded-b-none');
   });
 
-  it('holds back the backlog until it is asked for', () => {
+  it('hides the backlog until it is asked for', () => {
     renderAt('line_1');
 
     expect(named()).toEqual([
@@ -474,7 +474,7 @@ describe('LineBoard', () => {
     expect(screen.getByText('Groom the idea')).toBeInTheDocument();
   });
 
-  it('holds back what is completed until it is asked for', () => {
+  it('hides what is completed until it is asked for', () => {
     renderAt('line_1');
 
     expect(named()).not.toContain('Completed');

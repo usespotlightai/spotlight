@@ -11,14 +11,14 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const giving = (ledger: { given?: boolean; held?: boolean } = {}) => {
+const giving = (ledger: { given?: boolean; inUse?: boolean } = {}) => {
   const given = {
     wasGiven: vi.fn(async () => ledger.given ?? false),
     give: vi.fn(async () => {}),
   } satisfies GivenPoolTokensRepository;
   const pools = {
     findByTokenHash: vi.fn(async () =>
-      ledger.held ? aPullPool({ id: RunnerPoolId.of('pool_other') }) : null,
+      ledger.inUse ? aPullPool({ id: RunnerPoolId.of('pool_other') }) : null,
     ),
   } as unknown as RunnerPoolRepository;
 
@@ -35,8 +35,8 @@ describe('givePoolToken', () => {
     expect(given.give).toHaveBeenCalledWith(hashOf('a'), pool.id);
   });
 
-  it('refuses a token another pool holds as taken, and records nothing', async () => {
-    const { given, pools } = giving({ given: true, held: true });
+  it('refuses a token another pool uses as taken, and records nothing', async () => {
+    const { given, pools } = giving({ given: true, inUse: true });
 
     await expect(
       givePoolToken(given, pools, aPullPool(), null),
@@ -66,7 +66,7 @@ describe('givePoolToken', () => {
   });
 
   it('gives nothing when the pool keeps its token or provisions', async () => {
-    const { given, pools } = giving({ given: true, held: true });
+    const { given, pools } = giving({ given: true, inUse: true });
     const pool = aPullPool();
 
     await givePoolToken(given, pools, pool, pool);

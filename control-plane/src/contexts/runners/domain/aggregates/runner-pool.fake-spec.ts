@@ -174,21 +174,21 @@ export const aHost = (
   });
 };
 
-export const heldHosts = (...known: RunnerHost[]) => {
-  const held = new Map(known.map((host) => [host.id.value, host]));
+export const storedHosts = (...known: RunnerHost[]) => {
+  const stored = new Map(known.map((host) => [host.id.value, host]));
   const hosts = {
-    find: vi.fn(async (id: HostId) => held.get(id.value) ?? null),
+    find: vi.fn(async (id: HostId) => stored.get(id.value) ?? null),
     add: vi.fn(async (host: RunnerHost) => {
-      if (held.has(host.id.value)) {
+      if (stored.has(host.id.value)) {
         throw new RunnerHostVersionConflictError(host.id.value);
       }
-      held.set(host.id.value, host);
+      stored.set(host.id.value, host);
     }),
     save: vi.fn(async (host: RunnerHost) => {
-      if (held.get(host.id.value)?.version !== host.version) {
+      if (stored.get(host.id.value)?.version !== host.version) {
         throw new RunnerHostVersionConflictError(host.id.value);
       }
-      held.set(
+      stored.set(
         host.id.value,
         RunnerHost.rehydrate({
           id: host.id,
@@ -204,29 +204,29 @@ export const heldHosts = (...known: RunnerHost[]) => {
       );
     }),
     remove: vi.fn(async (host: RunnerHost) => {
-      if (held.get(host.id.value)?.version !== host.version) {
+      if (stored.get(host.id.value)?.version !== host.version) {
         throw new RunnerHostVersionConflictError(host.id.value);
       }
-      held.delete(host.id.value);
+      stored.delete(host.id.value);
     }),
     removeUnseenSince: vi.fn(async (since: Date) => {
       let removed = 0;
-      for (const [id, host] of held) {
+      for (const [id, host] of stored) {
         if (host.lastSeenAt <= since) {
-          held.delete(id);
+          stored.delete(id);
           removed++;
         }
       }
       return removed;
     }),
     removeThrough: vi.fn(async (admission: Admission) => {
-      for (const [id, host] of held) {
+      for (const [id, host] of stored) {
         if (host.servesThrough(admission)) {
-          held.delete(id);
+          stored.delete(id);
         }
       }
     }),
   } satisfies RunnerHostRepository;
 
-  return { held, hosts };
+  return { stored, hosts };
 };

@@ -17,7 +17,7 @@ import { openDatabase, type TestDatabase } from './support/database';
 const NOW = new Date('2026-09-23T10:00:00.000Z');
 const TASK = TaskId.of('task_1');
 
-let held: TestDatabase;
+let database: TestDatabase;
 let comments: DrizzleReviewCommentRepository;
 
 const drafted = (id: string, anchor: ReviewAnchor) =>
@@ -32,18 +32,21 @@ const drafted = (id: string, anchor: ReviewAnchor) =>
   });
 
 beforeAll(async () => {
-  held = await openDatabase('review_comments');
-  comments = new DrizzleReviewCommentRepository(new DrizzleContext(held.db), {
-    dispatch: async () => {},
-  } as unknown as DomainEventDispatcher);
+  database = await openDatabase('review_comments');
+  comments = new DrizzleReviewCommentRepository(
+    new DrizzleContext(database.db),
+    {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher,
+  );
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('storing review comments', () => {
-  it('holds only the comments on the whole of one file', async () => {
+  it('keeps only the comments on the whole of one file', async () => {
     await comments.add(drafted('on_file', ReviewAnchor.onFile('src/a.ts')));
     await comments.add(drafted('on_other', ReviewAnchor.onFile('src/b.ts')));
     await comments.add(
@@ -59,7 +62,7 @@ describe('storing review comments', () => {
   });
 
   it('locks the threads on a file only within a transaction', async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const locking = new DrizzleReviewCommentRepository(context, {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher);
@@ -76,7 +79,7 @@ describe('storing review comments', () => {
 
   it('refuses a comment on a line that names no side', async () => {
     await expect(
-      held.db.execute(
+      database.db.execute(
         sql`update review_comment set side = null where id = 'on_lines'`,
       ),
     ).rejects.toThrow();

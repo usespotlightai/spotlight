@@ -92,7 +92,7 @@ export class HostConnectionsResponseDto {
     isArray: true,
     nullable: true,
     description:
-      'Who in the team has connected what, shown to admins only; it never holds a token',
+      'Who in the team has connected what, shown to admins only; it never contains a token',
   })
   readonly people: readonly PersonConnectionResponseDto[] | null;
 

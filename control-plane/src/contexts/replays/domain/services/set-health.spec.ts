@@ -99,10 +99,10 @@ const probed = (
   checked: (place: number) => 'passed' | 'failed' = () => 'passed',
 ) =>
   started('replay_probe', SCORED, 2, true).entries.reduce(
-    (held, entry, place) => {
+    (built, entry, place) => {
       const run = entry.run as RunId;
 
-      return held
+      return built
         .confirm(run, FINGERPRINT, NOW)
         .recordRunEnd(run, endOf('completed'))
         .measure(run, measuresOf(1), later(61_000))
@@ -187,8 +187,8 @@ describe('setHealthOf', () => {
   it('reads how often the judge agreed with itself on the newest probe, and marks it unstable below 80%', () => {
     const probe = probed(() => true);
     const answered = probe.entries.reduce(
-      (held, entry, place) =>
-        held.recordRejudgment(entry.run as RunId, verdictOf(place >= 3), null),
+      (built, entry, place) =>
+        built.recordRejudgment(entry.run as RunId, verdictOf(place >= 3), null),
       probe,
     );
     const health = setHealthOf([answered], [SCORED], FINGERPRINT, MIN_GAIN);
@@ -213,8 +213,8 @@ describe('setHealthOf', () => {
   it('lists the runs whose check came out differently the second time', () => {
     const probe = probed(() => true);
     const rechecked = probe.entries.reduce(
-      (held, entry, place) =>
-        held.recheck(
+      (built, entry, place) =>
+        built.recheck(
           entry.run as RunId,
           checksOf(place === 1 ? 'failed' : 'passed'),
         ),
@@ -315,7 +315,7 @@ describe('setHealthOf', () => {
     expect(oracle?.roomToImprove).toBeNull();
   });
 
-  it('holds back its reading until its replay finishes, and reads only one of the live config as it is now', () => {
+  it('gives no reading until its replay finishes, and reads only one of the live config as it is now', () => {
     const underway = started(
       'replay_oracle',
       ORACLE,

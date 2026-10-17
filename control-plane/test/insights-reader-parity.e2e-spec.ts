@@ -1,8 +1,8 @@
 import {
-  heldCarriedOf,
-  heldHistoryOf,
-  pullRequestsHeldIn,
+  pullRequestsStoredIn,
   runsListedIn,
+  storedCarriedOf,
+  storedHistoryOf,
 } from '@outcomes/application/ports/insights-reader.fake-spec';
 import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
@@ -132,9 +132,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import {
-  type HeldRepositories,
-  historyHeldIn,
-  pullRequestsHeld,
+  historyRepositoriesOf,
+  pullRequestRepositoriesOf,
+  type ReferenceRepositories,
 } from './support/insights-reference';
 
 const WORKSPACE = WorkspaceId.of('workspace_parity');
@@ -266,13 +266,13 @@ const MEMORIES = ['mem_a', 'mem_b', 'mem_c', 'mem_d'];
 
 const rememberedIn = (record: RunRecord): RunRecord =>
   MEMORY_WAYS.reduce(
-    (held, way) =>
+    (remembered, way) =>
       memoryRandom() < 0.35
-        ? held.recordMemories(
+        ? remembered.recordMemories(
             way,
             MEMORIES.filter(() => memoryRandom() < 0.4),
           )
-        : held,
+        : remembered,
     record,
   );
 
@@ -332,7 +332,7 @@ const ordered = (counts: CostCounts): CostCounts => ({
   cacheByStation: [...counts.cacheByStation].sort((a, b) => a.first - b.first),
 });
 
-let held: TestDatabase;
+let database: TestDatabase;
 let scopes: TeamScopes;
 let reader: DrizzleInsightsReader;
 let touches: DrizzleTaskTouchesRepository;
@@ -344,8 +344,8 @@ let runs: DrizzleRunRecordRepository;
 let pullRequests: DrizzlePullRequestRecordRepository;
 let shapes: DrizzleTaskChangeShapeRepository;
 
-const heldRepositories = (): HeldRepositories => ({
-  db: held.db,
+const referenceRepositories = (): ReferenceRepositories => ({
+  db: database.db,
   runs,
   deliveries,
   touches,
@@ -371,18 +371,26 @@ const historyOver = async (
     access,
     period,
     team,
-    history: await heldHistoryOf(historyHeldIn(heldRepositories()), team),
+    history: await storedHistoryOf(
+      historyRepositoriesOf(referenceRepositories()),
+      team,
+    ),
   };
 };
 
 const carriedOver = (over: {
   readonly team: TeamInPeriod;
   readonly history: TeamHistory;
-}) => heldCarriedOf(historyHeldIn(heldRepositories()), over.team, over.history);
+}) =>
+  storedCarriedOf(
+    historyRepositoriesOf(referenceRepositories()),
+    over.team,
+    over.history,
+  );
 
 beforeAll(async () => {
-  held = await openDatabase('insights_parity');
-  const context = new DrizzleContext(held.db);
+  database = await openDatabase('insights_parity');
+  const context = new DrizzleContext(database.db);
   const quiet = {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher;
@@ -405,7 +413,9 @@ beforeAll(async () => {
     { now: () => NOW, sleep: async () => {} },
   );
   reader = new DrizzleInsightsReader(
-    new DrizzleReading(held.db, { DATABASE_READ_TIMEOUT_MS: 15_000 } as Env),
+    new DrizzleReading(database.db, {
+      DATABASE_READ_TIMEOUT_MS: 15_000,
+    } as Env),
   );
 
   await context.inTransaction(async () => {
@@ -897,7 +907,7 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('the insights reader against the team history', () => {
@@ -917,9 +927,9 @@ describe('the insights reader against the team history', () => {
       const expected = teamCountsOf(
         {
           ...history,
-          touches: await historyHeldIn(heldRepositories()).touches.forTasks(
-            history.failures.map((each) => each.taskId),
-          ),
+          touches: await historyRepositoriesOf(
+            referenceRepositories(),
+          ).touches.forTasks(history.failures.map((each) => each.taskId)),
         },
         period,
       );
@@ -961,12 +971,12 @@ describe('the insights reader against the team history', () => {
   it.each(INSIGHTS_PERIODS)(
     'counts the same overview as the domain over %s',
     async (name) => {
-      const held = await historyOver(
+      const over = await historyOver(
         TEAM.value,
         PersonPrincipal.of(VIEWER),
         name,
       );
-      const { history, period } = held;
+      const { history, period } = over;
       const counts = await reader.overviewCounts({
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -975,12 +985,14 @@ describe('the insights reader against the team history', () => {
       const expected = overviewCountsOf(
         history,
         period,
-        await carriedOver(held),
+        await carriedOver(over),
         openingsOf(
-          await historyHeldIn(heldRepositories()).touches.forTasks([
-            ...history.failures.map((each) => each.taskId),
-            ...history.deliveries.map((each) => each.taskId),
-          ]),
+          await historyRepositoriesOf(referenceRepositories()).touches.forTasks(
+            [
+              ...history.failures.map((each) => each.taskId),
+              ...history.deliveries.map((each) => each.taskId),
+            ],
+          ),
         ),
       );
       expect(counts).toEqual(expected);
@@ -1105,7 +1117,7 @@ describe('the insights reader against the team history', () => {
         history,
         period,
         openingsOf(
-          await historyHeldIn(heldRepositories()).touches.forTasks(
+          await historyRepositoriesOf(referenceRepositories()).touches.forTasks(
             history.deliveries.map((each) => each.taskId),
           ),
         ),
@@ -1232,9 +1244,9 @@ describe('the Shipping numbers of a team', () => {
       name,
     );
     const team = { workspaceId: WORKSPACE, teamId: TEAM, period };
-    const reached = await pullRequestsHeldIn(
+    const reached = await pullRequestsStoredIn(
       runs,
-      pullRequestsHeld(heldRepositories()),
+      pullRequestRepositoriesOf(referenceRepositories()),
       team,
       { repositories: REPOSITORIES, from: period.previous.from, max: 10_000 },
     );
@@ -1302,7 +1314,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
   });
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const added = new DrizzlePullRequestRecordRepository(context);
     const seenAt = (
       repository: string,
@@ -1412,9 +1424,9 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
       PersonPrincipal.of(VIEWER),
       '7d',
     );
-    const reached = await pullRequestsHeldIn(
+    const reached = await pullRequestsStoredIn(
       runs,
-      pullRequestsHeld(heldRepositories()),
+      pullRequestRepositoriesOf(referenceRepositories()),
       team,
       { repositories: REPOSITORIES, from: period.previous.from, max: 100 },
     );
@@ -1468,9 +1480,9 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
       PersonPrincipal.of(VIEWER),
       '7d',
     );
-    const reached = await pullRequestsHeldIn(
+    const reached = await pullRequestsStoredIn(
       runs,
-      pullRequestsHeld(heldRepositories()),
+      pullRequestRepositoriesOf(referenceRepositories()),
       team,
       { repositories, from: period.previous.from, max: 100 },
     );
@@ -1486,7 +1498,7 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
   };
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const facts = new DrizzleRunFactProjection(context);
     const added = new DrizzlePullRequestRecordRepository(context);
     const touching = new DrizzleTaskTouchesRepository(context, facts);
@@ -1724,7 +1736,7 @@ describe('the runs a team ran, a page at a time', () => {
       for (let page = 1; page <= Math.ceil(first.total / size) + 1; page++) {
         expect(await reader.runPage(listingOf(page))).toEqual(
           await runsListedIn(
-            historyHeldIn(heldRepositories()),
+            historyRepositoriesOf(referenceRepositories()),
             listingOf(page),
           ),
         );
@@ -1780,14 +1792,17 @@ describe('how the run list treats the window’s edges and runs that ended toget
     const read = await reader.runPage(listing);
 
     expect(read).toEqual(
-      await runsListedIn(historyHeldIn(heldRepositories()), listing),
+      await runsListedIn(
+        historyRepositoriesOf(referenceRepositories()),
+        listing,
+      ),
     );
 
     return read.runs.map((each) => each.runId);
   };
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -1944,7 +1959,7 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
   });
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -2199,7 +2214,7 @@ describe('how the memory counts leave out what did not run', () => {
   const period = InsightsPeriod.of('7d', NOW);
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -2389,12 +2404,12 @@ describe('the config changes of a team', () => {
   it.each(INSIGHTS_PERIODS)(
     'counts the same changes as the domain over %s',
     async (name) => {
-      const held = await historyOver(
+      const over = await historyOver(
         TEAM.value,
         PersonPrincipal.of(VIEWER),
         name,
       );
-      const { history, period } = held;
+      const { history, period } = over;
       expect(
         await reader.changeCounts({
           workspaceId: WORKSPACE,
@@ -2405,7 +2420,7 @@ describe('the config changes of a team', () => {
         changeCountsOf(
           history,
           period,
-          await carriedOver(held),
+          await carriedOver(over),
           await scores.ofRuns(history.records.map((each) => each.runId)),
         ),
       );
@@ -2446,7 +2461,7 @@ describe('how a config change splits a station’s runs', () => {
   const RUBRIC = 'd'.repeat(64);
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -2652,7 +2667,7 @@ describe('how setups fall into sizes and judges', () => {
   ];
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -2832,12 +2847,17 @@ describe('the pull requests a team made or reviewed', () => {
 
 describe('the pull request numbers and list of a team', () => {
   const REPOSITORIES = ['Acme/API', 'acme/web'];
-  const heldFor = (team: TeamInPeriod) =>
-    pullRequestsHeldIn(runs, pullRequestsHeld(heldRepositories()), team, {
-      repositories: REPOSITORIES,
-      from: team.period.current.from,
-      max: 10_000,
-    });
+  const pullRequestsFor = (team: TeamInPeriod) =>
+    pullRequestsStoredIn(
+      runs,
+      pullRequestRepositoriesOf(referenceRepositories()),
+      team,
+      {
+        repositories: REPOSITORIES,
+        from: team.period.current.from,
+        max: 10_000,
+      },
+    );
   const teamOver = async (name: string): Promise<TeamInPeriod> => {
     const { period } = await scopes.scope(
       TEAM.value,
@@ -2865,7 +2885,7 @@ describe('the pull request numbers and list of a team', () => {
       const team = await teamOver(name);
 
       expect(await reader.pullRequestCounts(team, REPOSITORIES)).toEqual(
-        pullRequestCountsOf(await heldFor(team), team.period.current),
+        pullRequestCountsOf(await pullRequestsFor(team), team.period.current),
       );
     },
   );
@@ -2925,7 +2945,7 @@ describe('the pull request numbers and list of a team', () => {
       const team = await teamOver('30d');
       const filter = filterOf(over);
       const listed = filteredPullRequests(
-        await heldFor(team),
+        await pullRequestsFor(team),
         filter,
         team.period.current,
       );
@@ -2951,7 +2971,7 @@ describe('the pull request numbers and list of a team', () => {
     const team = await teamOver('30d');
     const filter = filterOf({ week: weekWindowOf(weekOf(ago(10 * DAY))) });
     const listed = filteredPullRequests(
-      await heldFor(team),
+      await pullRequestsFor(team),
       filter,
       team.period.current,
     );
@@ -2976,7 +2996,7 @@ describe('how pull requests fall into the window and what their task spent', () 
     PullRequestUrl.of(`https://github.com/acme/pulls/pull/${number}`);
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -3142,9 +3162,9 @@ describe('how pull requests fall into the window and what their task spent', () 
     });
     expect(read).toEqual(
       filteredPullRequests(
-        await pullRequestsHeldIn(
+        await pullRequestsStoredIn(
           runs,
-          pullRequestsHeld(heldRepositories()),
+          pullRequestRepositoriesOf(referenceRepositories()),
           team,
           { repositories: [], from, max: 100 },
         ),
@@ -3183,7 +3203,7 @@ describe('how the pull request numbers round, sum and sort', () => {
     });
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -3396,9 +3416,9 @@ describe('how the pull request numbers round, sum and sort', () => {
     });
     expect(counts).toEqual(
       pullRequestCountsOf(
-        await pullRequestsHeldIn(
+        await pullRequestsStoredIn(
           runs,
-          pullRequestsHeld(heldRepositories()),
+          pullRequestRepositoriesOf(referenceRepositories()),
           team,
           { repositories: REPOSITORIES, from, max: 100 },
         ),
@@ -3442,7 +3462,7 @@ describe('how the inbox pairs answers with asks', () => {
   const none = { p50: null, p90: null, count: 0 };
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -3648,7 +3668,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
   ];
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -3841,9 +3861,9 @@ describe('how the pipeline sums a task’s time at each station', () => {
       PersonPrincipal.of(VIEWER),
       '7d',
     );
-    const reached = await pullRequestsHeldIn(
+    const reached = await pullRequestsStoredIn(
       runs,
-      pullRequestsHeld(heldRepositories()),
+      pullRequestRepositoriesOf(referenceRepositories()),
       team,
       { repositories: [], from: period.previous.from, max: 100 },
     );

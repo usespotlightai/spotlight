@@ -223,7 +223,7 @@ export class RunScoresResponseDto {
     type: 'array',
     items: { type: 'string', nullable: true },
     description:
-      'The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer held',
+      'The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer stored',
   })
   readonly claims: readonly (string | null)[];
 

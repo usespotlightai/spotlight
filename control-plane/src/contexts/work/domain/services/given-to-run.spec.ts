@@ -117,14 +117,14 @@ describe('givenAt, for a station that names a harness profile', () => {
     wears: [],
   };
 
-  it('gives the run the profile the team holds', () => {
+  it('gives the run the profile the team has', () => {
     const given = givenAt(station([], [], 'careful'), [], [careful]);
 
     expect(given.profile).toBe(careful);
     expect(given.refusals).toEqual([]);
   });
 
-  it('refuses the run where the team holds no such profile, and says so', () => {
+  it('refuses the run where the team has no such profile, and says so', () => {
     const given = givenAt(station([], [], 'reckless'), [], [careful]);
 
     expect(given.profile).toBeNull();

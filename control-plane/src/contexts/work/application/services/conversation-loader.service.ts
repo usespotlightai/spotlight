@@ -28,7 +28,7 @@ export class ConversationLoader {
       throw new UnknownTaskError(item.taskId.value);
     }
 
-    const line = await this.lines.holding(task.stationId);
+    const line = await this.lines.findByStation(task.stationId);
 
     return {
       item,

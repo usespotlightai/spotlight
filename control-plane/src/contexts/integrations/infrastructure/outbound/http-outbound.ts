@@ -18,7 +18,7 @@ import {
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import type { Bindings } from '@platform/expressions/bindings';
-import { holds, value } from '@platform/expressions/readings';
+import { isTrue, value } from '@platform/expressions/readings';
 import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 
@@ -257,8 +257,8 @@ export class HttpOutbound {
     }
   }
 
-  private templated(held: Templated, against: Bindings): string | null {
-    return requiredTextOf(held, against);
+  private templated(template: Templated, against: Bindings): string | null {
+    return requiredTextOf(template, against);
   }
 
   private body(
@@ -307,7 +307,7 @@ const succeeded = (request: RequestIR, beside: Bindings): boolean => {
   const status = beside.status as number;
 
   return request.expect?.success
-    ? holds(request.expect.success, beside)
+    ? isTrue(request.expect.success, beside)
     : request.expect?.status
       ? request.expect.status.includes(status)
       : status >= 200 && status < 300;

@@ -240,7 +240,7 @@ describe('Run', () => {
   });
 
   describe('while it loads', () => {
-    it('holds the shape of the run rather than calling it gone', () => {
+    it('keeps the shape of the run rather than calling it gone', () => {
       runs.mockReturnValue(undefined);
 
       renderRun();

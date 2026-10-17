@@ -9,25 +9,25 @@ export interface WornSecretAt {
   readonly name: string;
 }
 
-type Held = Readonly<Record<string, unknown>>;
+type Fields = Readonly<Record<string, unknown>>;
 
 const DESCRIBED_SOURCES = ['openapi', 'graphql', 'mcp'] as const;
 
-const isHeld = (value: unknown): value is Held =>
+const isRecord = (value: unknown): value is Fields =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const entriesOf = (value: unknown): readonly [string, Held][] =>
-  isHeld(value)
-    ? Object.entries(value).filter((entry): entry is [string, Held] =>
-        isHeld(entry[1]),
+const entriesOf = (value: unknown): readonly [string, Fields][] =>
+  isRecord(value)
+    ? Object.entries(value).filter((entry): entry is [string, Fields] =>
+        isRecord(entry[1]),
       )
     : [];
 
-const itemsOf = (value: unknown): readonly [number, Held][] =>
+const itemsOf = (value: unknown): readonly [number, Fields][] =>
   Array.isArray(value)
     ? value
         .map((each, at): [number, unknown] => [at, each])
-        .filter((entry): entry is [number, Held] => isHeld(entry[1]))
+        .filter((entry): entry is [number, Fields] => isRecord(entry[1]))
     : [];
 
 const reference = (value: unknown, path: FieldPath): WornSecretAt[] =>
@@ -41,15 +41,15 @@ const references = (value: unknown, path: FieldPath): WornSecretAt[] =>
     : [];
 
 const inAuth = (auth: unknown, path: FieldPath): WornSecretAt[] => {
-  if (!isHeld(auth)) {
+  if (!isRecord(auth)) {
     return [];
   }
 
   return [
-    ...(isHeld(auth.hmac)
+    ...(isRecord(auth.hmac)
       ? reference(auth.hmac.secret, path.to('hmac', 'secret'))
       : []),
-    ...(isHeld(auth.token)
+    ...(isRecord(auth.token)
       ? reference(auth.token.secret, path.to('token', 'secret'))
       : []),
     ...references(auth.secrets, path.to('secrets')),
@@ -57,14 +57,14 @@ const inAuth = (auth: unknown, path: FieldPath): WornSecretAt[] => {
 };
 
 const inRequest = (request: unknown, path: FieldPath): WornSecretAt[] =>
-  isHeld(request) ? inAuth(request.auth, path.to('auth')) : [];
+  isRecord(request) ? inAuth(request.auth, path.to('auth')) : [];
 
 const inEvents = (events: unknown, path: FieldPath): WornSecretAt[] =>
   itemsOf(events).flatMap(([at, event]) => [
-    ...(isHeld(event.lookup)
+    ...(isRecord(event.lookup)
       ? inRequest(event.lookup.request, path.to(at, 'lookup', 'request'))
       : []),
-    ...(isHeld(event.raise) && isHeld(event.raise.attaches)
+    ...(isRecord(event.raise) && isRecord(event.raise.attaches)
       ? inRequest(
           event.raise.attaches.fetch,
           path.to(at, 'raise', 'attaches', 'fetch'),
@@ -72,31 +72,32 @@ const inEvents = (events: unknown, path: FieldPath): WornSecretAt[] =>
       : []),
   ]);
 
-export const secretsWornBy = (definition: Held): readonly WornSecretAt[] => {
+export const secretsWornBy = (definition: Fields): readonly WornSecretAt[] => {
   const root = FieldPath.root();
 
   return [
     ...entriesOf(definition.actions).flatMap(([name, action]) =>
       inRequest(action.request, root.to('actions', name, 'request')),
     ),
-    ...(isHeld(definition.webhook)
+    ...(isRecord(definition.webhook)
       ? [
           ...inAuth(definition.webhook.verify, root.to('webhook', 'verify')),
           ...inEvents(definition.webhook.events, root.to('webhook', 'events')),
         ]
       : []),
-    ...(isHeld(definition.poll)
+    ...(isRecord(definition.poll)
       ? [
           ...inRequest(definition.poll.request, root.to('poll', 'request')),
           ...inEvents(definition.poll.events, root.to('poll', 'events')),
         ]
       : []),
     ...DESCRIBED_SOURCES.flatMap((kind) =>
-      isHeld(definition[kind])
+      isRecord(definition[kind])
         ? inAuth(definition[kind].auth, root.to(kind, 'auth'))
         : [],
     ),
-    ...(isHeld(definition.connection) && isHeld(definition.connection.manual)
+    ...(isRecord(definition.connection) &&
+    isRecord(definition.connection.manual)
       ? references(
           definition.connection.manual.secrets,
           root.to('connection', 'manual', 'secrets'),

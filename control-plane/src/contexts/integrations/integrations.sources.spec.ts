@@ -3,7 +3,7 @@ import { IntegrationSources } from '@integrations/application/services/integrati
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
 import { IntegrationCompiler } from '@integrations/infrastructure/integrations/integration.compile';
-import { documentsHolding } from '@integrations/integrations.documents.fake-spec';
+import { documentsContaining } from '@integrations/integrations.documents.fake-spec';
 import { reachFor } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -46,7 +46,7 @@ const sourcing = (
     ],
   },
 ) => {
-  const documents = documentsHolding();
+  const documents = documentsContaining();
   const reader = { read: vi.fn(async (): Promise<SourceRead> => answer) };
   const sources = new IntegrationSources(
     new IntegrationCompiler(new CelExpressionEngine()),

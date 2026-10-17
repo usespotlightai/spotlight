@@ -61,7 +61,7 @@ export const runGrants = pgTable(
     attempt: integer('attempt').notNull(),
     recipient: text('recipient'),
     redeemedThrough: text('redeemed_through'),
-    holdLost: boolean('hold_lost').notNull().default(false),
+    leaseLost: boolean('lease_lost').notNull().default(false),
     endedAt: timestamp('ended_at'),
     version: integer('version').notNull().default(1),
   },

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryTab } from '@/components/features/insights/memory/MemoryTab';
 import type { InsightsMemory } from '@/lib/insights-memory';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -13,7 +13,7 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (data: unknown, errorUpdateCount = 0): Held => ({
+const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
   data,
   isPending: data === undefined && errorUpdateCount === 0,
   isFetching: false,
@@ -21,8 +21,8 @@ const held = (data: unknown, errorUpdateCount = 0): Held => ({
   refetch: vi.fn(),
 });
 
-const answer: { memory: Held; asked: unknown[] } = {
-  memory: held(undefined),
+const answer: { memory: Queried; asked: unknown[] } = {
+  memory: queried(undefined),
   asked: [],
 };
 
@@ -94,7 +94,7 @@ const showing = () =>
   );
 
 beforeEach(() => {
-  answer.memory = held(MEMORY);
+  answer.memory = queried(MEMORY);
   answer.asked = [];
 });
 
@@ -106,7 +106,7 @@ describe('memory in Insights', () => {
   });
 
   it('shows a faithful skeleton while it loads', () => {
-    answer.memory = held(undefined);
+    answer.memory = queried(undefined);
 
     showing();
 
@@ -116,7 +116,7 @@ describe('memory in Insights', () => {
   });
 
   it('offers to try again where it could not load', async () => {
-    answer.memory = held(undefined, 1);
+    answer.memory = queried(undefined, 1);
 
     showing();
 
@@ -126,7 +126,7 @@ describe('memory in Insights', () => {
   });
 
   it('leads to the team’s memory where it keeps none', () => {
-    answer.memory = held({
+    answer.memory = queried({
       ...MEMORY,
       standing: 0,
       memoriesBriefed: 0,

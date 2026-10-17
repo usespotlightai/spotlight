@@ -9,13 +9,13 @@ import {
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
 import {
+  TEAM_DEPENDENTS,
+  type TeamDependentsPort,
+} from '@identity/application/ports/team-dependents.port';
+import {
   TEAM_DIRECTORY,
   TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
-import {
-  TEAM_HOLDINGS,
-  type TeamHoldingsPort,
-} from '@identity/application/ports/team-holdings.port';
 import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
@@ -200,7 +200,7 @@ import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outboun
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DrizzleDefinedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/defined-integrations.reader';
 import { DrizzleHostConnectionRoster } from '@integrations/infrastructure/persistence/drizzle/readers/host-connection-roster.reader';
-import { DrizzleIntegrationsHeld } from '@integrations/infrastructure/persistence/drizzle/readers/integrations-held.reader';
+import { DrizzleIntegrationDependents } from '@integrations/infrastructure/persistence/drizzle/readers/integration-dependents.reader';
 import { DrizzleLinkedHosts } from '@integrations/infrastructure/persistence/drizzle/readers/linked-hosts.reader';
 import { DrizzleDeliveryInbox } from '@integrations/infrastructure/persistence/drizzle/repositories/delivery-inbox.repository';
 import { DrizzleDescribedDocuments } from '@integrations/infrastructure/persistence/drizzle/repositories/described-documents.repository';
@@ -287,7 +287,7 @@ import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.por
 
 const INTEGRATIONS_EVENTS = Symbol('INTEGRATIONS_EVENTS');
 
-const INTEGRATIONS_HOLDINGS = Symbol('INTEGRATIONS_HOLDINGS');
+const INTEGRATIONS_DEPENDENTS = Symbol('INTEGRATIONS_DEPENDENTS');
 
 const INTEGRATION_SECRET_USES = Symbol('INTEGRATION_SECRET_USES');
 
@@ -358,15 +358,15 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   { provide: LINKED_HOSTS, useClass: DrizzleLinkedHosts },
 
-  DrizzleIntegrationsHeld,
+  DrizzleIntegrationDependents,
   {
-    provide: INTEGRATIONS_HOLDINGS,
-    inject: [TEAM_HOLDINGS, DrizzleIntegrationsHeld],
+    provide: INTEGRATIONS_DEPENDENTS,
+    inject: [TEAM_DEPENDENTS, DrizzleIntegrationDependents],
     useFactory: (
-      holdings: TeamHoldingsPort,
-      integrations: DrizzleIntegrationsHeld,
+      dependents: TeamDependentsPort,
+      integrations: DrizzleIntegrationDependents,
     ) => {
-      holdings.register(integrations);
+      dependents.register(integrations);
       return true;
     },
   },

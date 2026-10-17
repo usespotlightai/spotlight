@@ -346,10 +346,10 @@ export class Search extends EventRecorder {
     return isActive(this.state.state);
   }
 
-  get heldRun(): RunId | null {
+  get activeRun(): RunId | null {
     const last = this.lastIteration;
 
-    return last?.holdsItsRun ? last.runId : null;
+    return last?.ownsActiveRun ? last.runId : null;
   }
 
   get spent(): Spend {
@@ -506,7 +506,7 @@ export class Search extends EventRecorder {
   recordCause(run: RunId, given: CauseGiven, at: Date): Search {
     const iteration = this.iterationOf(run);
 
-    if (this.state.state !== 'searching' || !iteration?.holdsItsRun) {
+    if (this.state.state !== 'searching' || !iteration?.ownsActiveRun) {
       throw new SearchIterationClosedError(run.value);
     }
     if (!iteration.reflects) {
@@ -700,7 +700,7 @@ export class Search extends EventRecorder {
     if (
       this.state.state !== 'searching' ||
       !iteration ||
-      !iteration.holdsItsRun
+      !iteration.ownsActiveRun
     ) {
       throw new SearchIterationClosedError(run.value);
     }
@@ -859,11 +859,11 @@ export class Search extends EventRecorder {
       return this.endedAs('finished', ending, at);
     }
 
-    const holding = this.with({ state: 'holding-out', ending });
+    const holdingOut = this.with({ state: 'holding-out', ending });
 
-    holding.record(new SearchHoldingOutWanted(this.id, this.workspaceId));
+    holdingOut.record(new SearchHoldingOutWanted(this.id, this.workspaceId));
 
-    return holding;
+    return holdingOut;
   }
 
   private heldOutAt(at: Date): Search {
@@ -885,7 +885,7 @@ export class Search extends EventRecorder {
     ending: SearchEnding,
     at: Date,
   ): Search {
-    const withdrawing = this.heldRun;
+    const withdrawing = this.activeRun;
     const stopping = [
       this.state.seed.replay,
       ...this.proposals.map((each) => each.replay),

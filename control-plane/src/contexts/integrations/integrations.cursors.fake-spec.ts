@@ -8,18 +8,18 @@ const same = (one: Date | null, other: Date | null): boolean =>
   one?.getTime() === other?.getTime();
 
 export class FakeIntegrationCursors implements IntegrationCursorsPort {
-  private readonly held = new Map<string, PollState>();
+  private readonly stored = new Map<string, PollState>();
 
   constructor(
     private readonly beforeRead: () => Promise<void> = async () => {},
   ) {}
 
   kept(teamId: TeamId, source: string): PollState | undefined {
-    return this.held.get(this.key(teamId, source));
+    return this.stored.get(this.key(teamId, source));
   }
 
   keep(teamId: TeamId, source: string, state: PollState): void {
-    this.held.set(this.key(teamId, source), state);
+    this.stored.set(this.key(teamId, source), state);
   }
 
   async read(teamId: TeamId, source: string): Promise<PollState> {

@@ -31,7 +31,7 @@ export class HostImageRequestDto {
   @ApiPropertyOptional({
     type: [RegisteredHarnessRequestDto],
     isArray: true,
-    description: 'The harnesses the image holds, each with the models found',
+    description: 'The harnesses the image contains, each with the models found',
   })
   readonly harnesses?: RegisteredHarnessRequestDto[];
 

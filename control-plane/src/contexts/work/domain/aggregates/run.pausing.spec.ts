@@ -54,12 +54,12 @@ const lastEvent = (run: Run) => {
 
 describe('a run that asks a person', () => {
   describe('pausing', () => {
-    it('waits for the answer instead of ending, still held by its runner', () => {
+    it('waits for the answer instead of ending, still leased by its runner', () => {
       const run = waiting();
 
       expect(run.state).toBe('waiting');
       expect(run.hasEnded).toBe(false);
-      expect(run.isHeldBy(RUNNER)).toBe(true);
+      expect(run.isLeasedBy(RUNNER)).toBe(true);
       expect(run.waitsForAPerson).toBe(true);
     });
 
@@ -118,7 +118,7 @@ describe('a run that asks a person', () => {
       ).toThrow(InvalidRunTransitionError);
     });
 
-    it('is paused only by the runner holding it, and only while working', () => {
+    it('is paused only by the runner that leases it, and only while working', () => {
       expect(() => claimed().paused(OTHER, CLEAN, ASKED, NOW)).toThrow(
         InvalidRunTransitionError,
       );
@@ -129,12 +129,12 @@ describe('a run that asks a person', () => {
   });
 
   describe('answered while it waits warm', () => {
-    it('goes back to work on the same attempt, still held by its runner', () => {
+    it('goes back to work on the same attempt, still leased by its runner', () => {
       const run = waiting().resumed();
 
       expect(run.state).toBe('claimed');
       expect(run.attempt).toBe(1);
-      expect(run.isHeldBy(RUNNER)).toBe(true);
+      expect(run.isLeasedBy(RUNNER)).toBe(true);
       expect(lastEvent(run)).toEqual(
         new RunResumed(
           RunId.of('run_1'),
@@ -187,7 +187,7 @@ describe('a run that asks a person', () => {
       );
     });
 
-    it('is parked only by the runner holding it', () => {
+    it('is parked only by the runner that leases it', () => {
       expect(() => waiting().park(OTHER, NOW)).toThrow(
         InvalidRunTransitionError,
       );
@@ -228,7 +228,7 @@ describe('a run that asks a person', () => {
     it('is claimed by another runner on its new attempt', () => {
       const run = parked().resumed().claim(OTHER, later(120_000));
 
-      expect(run.isHeldBy(OTHER)).toBe(true);
+      expect(run.isLeasedBy(OTHER)).toBe(true);
       expect(run.journalFor(OTHER)).toEqual(
         RunAttempt.of(RunId.of('run_1'), 2),
       );
@@ -254,8 +254,8 @@ describe('a run that asks a person', () => {
 
     for (let lost = 0; lost < 3; lost++) {
       run.pullEvents();
-      const held = run.claim(RUNNER, NOW);
-      run = held.requeue(held.leaseExpiresAt as Date);
+      const reclaimed = run.claim(RUNNER, NOW);
+      run = reclaimed.requeue(reclaimed.leaseExpiresAt as Date);
     }
 
     const abandoned = run
@@ -298,7 +298,9 @@ describe('a run that asks a person', () => {
       const answered = waiting().resumed();
 
       expect(answered.state).toBe('claimed');
-      expect(answered.park(RUNNER, later(60_000)).isHeldBy(RUNNER)).toBe(true);
+      expect(answered.park(RUNNER, later(60_000)).isLeasedBy(RUNNER)).toBe(
+        true,
+      );
     });
 
     it('requeues from the archive when the answer comes once the run is parked', () => {
@@ -388,7 +390,7 @@ describe('a run that asks a person', () => {
     });
   });
 
-  it('reads back as it was stored while waiting or parked, and never held when parked', () => {
+  it('reads back as it was stored while waiting or parked, and never leased when parked', () => {
     expect(Run.rehydrate({ ...waiting() }).state).toBe('waiting');
     expect(Run.rehydrate({ ...parked() }).parkedAttempts).toEqual([1]);
     expect(() => Run.rehydrate({ ...waiting(), claimedBy: null })).toThrow();

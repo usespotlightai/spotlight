@@ -102,25 +102,25 @@ describe('ListTeamTracesHandler', () => {
 
   it('hands back what each trace came to', async () => {
     const {
-      traces: [held],
+      traces: [first],
     } = await handler([trace('task_1', ['run_1'])]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
-    expect(held?.taskId).toBe('task_1');
-    expect(held?.cost).toBe(0.5);
-    expect(held?.faults).toBe(1);
+    expect(first?.taskId).toBe('task_1');
+    expect(first?.cost).toBe(0.5);
+    expect(first?.faults).toBe(1);
   });
 
   it('reads the range back from now, and says where it starts and ends', async () => {
-    const held = await handler([]).execute(
+    const listed = await handler([]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
     expect(since).toEqual(new Date('2026-08-29T11:30:00.000Z'));
-    expect(held.range).toBe('1h');
-    expect(held.from).toBe('2026-08-29T11:30:00.000Z');
-    expect(held.to).toBe('2026-08-29T12:30:00.000Z');
+    expect(listed.range).toBe('1h');
+    expect(listed.from).toBe('2026-08-29T11:30:00.000Z');
+    expect(listed.to).toBe('2026-08-29T12:30:00.000Z');
   });
 
   it('counts every trace and its faults into the bar it started in', async () => {

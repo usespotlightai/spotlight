@@ -22,17 +22,17 @@ export class TaskNoteBody {
     return TaskNoteBody.of(spoken || told);
   }
 
-  static heldBack(
+  static deferredMove(
     told: string,
     said: Said | null,
     to: StationName,
   ): TaskNoteBody {
     return TaskNoteBody.of(
-      `Heard while a run held the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${TaskNoteBody.heard(told, said).value}`,
+      `Heard while a run worked on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${TaskNoteBody.heard(told, said).value}`,
     );
   }
 
-  static movedAsHeldBack(
+  static movedAsDeferred(
     to: StationName,
     account: TaskNoteBody | null,
   ): TaskNoteBody {

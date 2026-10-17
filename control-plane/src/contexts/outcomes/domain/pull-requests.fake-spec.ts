@@ -76,32 +76,32 @@ export interface TeamPullRequestWindow {
 }
 
 export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
-  readonly held = new Map<string, PullRequestRecord>();
+  readonly stored = new Map<string, PullRequestRecord>();
 
   async at(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
   ): Promise<PullRequestRecord | null> {
-    return this.held.get(keyOf(workspaceId, pullRequest)) ?? null;
+    return this.stored.get(keyOf(workspaceId, pullRequest)) ?? null;
   }
 
   async add(record: PullRequestRecord): Promise<void> {
     const key = keyOf(record.workspaceId, record.pullRequest);
 
-    if (this.held.has(key)) {
+    if (this.stored.has(key)) {
       throw new PullRequestRecordVersionConflictError(record.pullRequest.value);
     }
-    this.held.set(key, record);
+    this.stored.set(key, record);
   }
 
   async save(record: PullRequestRecord): Promise<void> {
     const key = keyOf(record.workspaceId, record.pullRequest);
-    const held = this.held.get(key);
+    const existing = this.stored.get(key);
 
-    if (!held || held.version !== record.version) {
+    if (!existing || existing.version !== record.version) {
       throw new PullRequestRecordVersionConflictError(record.pullRequest.value);
     }
-    this.held.set(
+    this.stored.set(
       key,
       PullRequestRecord.rehydrate({ ...record, version: record.version + 1 }),
     );
@@ -110,10 +110,10 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
   async remove(record: PullRequestRecord): Promise<void> {
     const key = keyOf(record.workspaceId, record.pullRequest);
 
-    if (this.held.get(key)?.version !== record.version) {
+    if (this.stored.get(key)?.version !== record.version) {
       throw new PullRequestRecordVersionConflictError(record.pullRequest.value);
     }
-    this.held.delete(key);
+    this.stored.delete(key);
   }
 
   async seenForTeamBetween(
@@ -122,7 +122,7 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
   ): Promise<readonly PullRequestRecord[]> {
     const repositories = window.repositories.map((each) => each.toLowerCase());
 
-    return [...this.held.values()]
+    return [...this.stored.values()]
       .filter((each) => {
         const seen = each.seen;
 
@@ -139,11 +139,11 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
       .slice(0, max);
   }
 
-  async heldByTask(
+  async findByTask(
     workspaceId: WorkspaceId,
     taskId: TaskId,
   ): Promise<readonly PullRequestRecord[]> {
-    return [...this.held.values()].filter(
+    return [...this.stored.values()].filter(
       (each) =>
         each.workspaceId.equals(workspaceId) &&
         ((each.owner?.taskId.equals(taskId) ?? false) ||
@@ -155,7 +155,7 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
     workspaceId: WorkspaceId,
     teamId: TeamId,
   ): Promise<readonly PullRequestRecord[]> {
-    return [...this.held.values()].filter(
+    return [...this.stored.values()].filter(
       (each) =>
         each.workspaceId.equals(workspaceId) &&
         (each.owner?.teamId.equals(teamId) ?? false),
@@ -163,65 +163,65 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const [key, each] of [...this.held.entries()]) {
+    for (const [key, each] of [...this.stored.entries()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(key);
+        this.stored.delete(key);
       }
     }
   }
 }
 
 export class TaskChangeShapesInMemory implements TaskChangeShapeRepository {
-  readonly held = new Map<string, TaskChangeShape>();
+  readonly stored = new Map<string, TaskChangeShape>();
 
   async forTask(taskId: TaskId): Promise<TaskChangeShape | null> {
-    return this.held.get(taskId.value) ?? null;
+    return this.stored.get(taskId.value) ?? null;
   }
 
   async forTasks(
     taskIds: readonly TaskId[],
   ): Promise<readonly TaskChangeShape[]> {
     return taskIds.flatMap((each) => {
-      const held = this.held.get(each.value);
-      return held ? [held] : [];
+      const existing = this.stored.get(each.value);
+      return existing ? [existing] : [];
     });
   }
 
   async add(shape: TaskChangeShape): Promise<void> {
-    if (this.held.has(shape.taskId.value)) {
+    if (this.stored.has(shape.taskId.value)) {
       throw new TaskChangeShapeVersionConflictError(shape.taskId.value);
     }
-    this.held.set(shape.taskId.value, shape);
+    this.stored.set(shape.taskId.value, shape);
   }
 
   async save(shape: TaskChangeShape): Promise<void> {
-    const held = this.held.get(shape.taskId.value);
+    const existing = this.stored.get(shape.taskId.value);
 
-    if (!held || held.version !== shape.version) {
+    if (!existing || existing.version !== shape.version) {
       throw new TaskChangeShapeVersionConflictError(shape.taskId.value);
     }
-    this.held.set(
+    this.stored.set(
       shape.taskId.value,
       TaskChangeShape.rehydrate({ ...shape, version: shape.version + 1 }),
     );
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    this.held.delete(taskId.value);
+    this.stored.delete(taskId.value);
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
-        this.held.delete(each.taskId.value);
+        this.stored.delete(each.taskId.value);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.taskId.value);
+        this.stored.delete(each.taskId.value);
       }
     }
   }

@@ -66,8 +66,8 @@ const checkedAlong = (
   readings: readonly RuleReading[],
 ): StationWatch =>
   readings.reduce(
-    (held, each) =>
-      held.check(
+    (checked, each) =>
+      checked.check(
         [each],
         atRun(Number(each.reading?.runId.value.slice(4))),
         next,
@@ -284,19 +284,19 @@ describe('StationWatch', () => {
 
   it('changes only the alerts it raised, recovered or re-judged', () => {
     const next = ids();
-    const held = StationWatch.rehydrate({
+    const original = StationWatch.rehydrate({
       station: begun().station,
       crossings: begun().check([rising(1, 0.6, 0.3)], atRun(1), next).crossings,
       version: 1,
     });
 
-    const priced = held.check(
+    const priced = original.check(
       [rising(2, 0.7, 0.3), read(PRICEY, 2, 3)],
       atRun(2),
       next,
     );
 
-    expect(held.changed).toEqual([]);
+    expect(original.changed).toEqual([]);
     expect(priced.changed.map((each) => each.id.value)).toEqual(['alert_2']);
   });
 

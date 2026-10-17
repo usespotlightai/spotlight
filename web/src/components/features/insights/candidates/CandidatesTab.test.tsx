@@ -7,7 +7,7 @@ import type { InsightsPeriod } from '@/lib/insights';
 import { stationNamesOf } from '@/lib/insights';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -15,7 +15,7 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (data: unknown, errorUpdateCount = 0): Held => ({
+const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
   data,
   isPending: data === undefined && errorUpdateCount === 0,
   isFetching: false,
@@ -52,11 +52,11 @@ const LINES = [
 ];
 
 const answer: {
-  candidates: Held;
+  candidates: Queried;
   lines: unknown;
   asked: unknown[];
 } = {
-  candidates: held(undefined),
+  candidates: queried(undefined),
   lines: LINES,
   asked: [],
 };
@@ -94,7 +94,7 @@ const row = (name: string) =>
     .closest('[data-slot="replayed-candidate"]') as HTMLElement;
 
 beforeEach(() => {
-  answer.candidates = held(CANDIDATES);
+  answer.candidates = queried(CANDIDATES);
   answer.lines = LINES;
   answer.asked = [];
 });
@@ -107,7 +107,7 @@ describe('the Candidates tab', () => {
   });
 
   it('shows a faithful skeleton while it loads', () => {
-    answer.candidates = held(undefined);
+    answer.candidates = queried(undefined);
 
     showing();
 
@@ -117,7 +117,7 @@ describe('the Candidates tab', () => {
   });
 
   it('offers to try again where it could not load', async () => {
-    answer.candidates = held(undefined, 1);
+    answer.candidates = queried(undefined, 1);
 
     showing();
 
@@ -127,7 +127,7 @@ describe('the Candidates tab', () => {
   });
 
   it('explains replays and leads to the line where nothing was replayed', () => {
-    answer.candidates = held({ ...CANDIDATES, stations: [] });
+    answer.candidates = queried({ ...CANDIDATES, stations: [] });
 
     showing();
 
@@ -144,7 +144,7 @@ describe('the Candidates tab', () => {
   });
 
   it('notes when the oldest replays were left out', () => {
-    answer.candidates = held({ ...CANDIDATES, truncated: true });
+    answer.candidates = queried({ ...CANDIDATES, truncated: true });
 
     showing();
 
@@ -272,7 +272,7 @@ describe('the Candidates tab', () => {
 
   it('says a candidate was not compared with live where no task was compared', () => {
     const [station] = CANDIDATES.stations;
-    answer.candidates = held({
+    answer.candidates = queried({
       ...CANDIDATES,
       stations: [
         {
@@ -298,7 +298,7 @@ describe('the Candidates tab', () => {
   });
 
   it('still leads somewhere where the team’s lines have not loaded', () => {
-    answer.candidates = held({ ...CANDIDATES, stations: [] });
+    answer.candidates = queried({ ...CANDIDATES, stations: [] });
     answer.lines = undefined;
 
     showing();

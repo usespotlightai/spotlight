@@ -74,7 +74,11 @@ const REQUEST: ReviewRequest = {
 };
 
 const asked = (
-  over: { request?: Partial<ReviewRequest>; holder?: Task; held?: Task } = {},
+  over: {
+    request?: Partial<ReviewRequest>;
+    pullRequestTask?: Task;
+    reviewTask?: Task;
+  } = {},
 ) =>
   ReactionFor.reviewAsked({
     lines: [delivery, review],
@@ -89,8 +93,8 @@ const asked = (
     },
     request: { ...REQUEST, ...over.request },
     said: null,
-    holder: over.holder ?? null,
-    held: over.held ?? null,
+    pullRequestTask: over.pullRequestTask ?? null,
+    reviewTask: over.reviewTask ?? null,
   });
 
 describe('ReactionFor, asked for a review', () => {
@@ -105,18 +109,25 @@ describe('ReactionFor, asked for a review', () => {
     expect(
       asked({ request: { branch: Branch.of('spotlight/task_9') } }),
     ).toEqual({ kind: 'nothing' });
-    expect(asked({ holder: taskOn(delivery) })).toEqual({ kind: 'nothing' });
+    expect(asked({ pullRequestTask: taskOn(delivery) })).toEqual({
+      kind: 'nothing',
+    });
   });
 
-  it('does not count a pull request as Spotlight’s own because an earlier review of it holds its mark', () => {
+  it('does not count a pull request as Spotlight’s own because an earlier review of it wears its mark', () => {
     expect(
-      asked({ holder: taskOn(review).reviews(PULL, { outside: false }) }).kind,
+      asked({
+        pullRequestTask: taskOn(review).reviews(PULL, { outside: false }),
+      }).kind,
     ).toBe('opens');
   });
 
   it('lets a review under way hear the word, rather than opening another', () => {
     const underway = taskOn(review).reviews(PULL, { outside: false });
 
-    expect(asked({ held: underway })).toEqual({ kind: 'heard', by: underway });
+    expect(asked({ reviewTask: underway })).toEqual({
+      kind: 'heard',
+      by: underway,
+    });
   });
 });

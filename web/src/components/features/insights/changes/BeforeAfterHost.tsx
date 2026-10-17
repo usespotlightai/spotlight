@@ -24,7 +24,7 @@ export function BeforeAfterHost({
   children,
 }: BeforeAfterHostProps) {
   const [shown, setShown] = useState<ChangeAt | null>(null);
-  const held = useLingering(shown, LEAVING);
+  const lingering = useLingering(shown, LEAVING);
 
   const value = useMemo(
     () => ({
@@ -39,12 +39,12 @@ export function BeforeAfterHost({
     <BeforeAfterPanelContext value={value}>
       <PaneScroller
         aside={
-          held && (
+          lingering && (
             <BeforeAfterPanel
               slug={slug}
               teamId={teamId}
               period={period}
-              change={held}
+              change={lingering}
               names={names}
               open={shown !== null}
               onClose={() => setShown(null)}

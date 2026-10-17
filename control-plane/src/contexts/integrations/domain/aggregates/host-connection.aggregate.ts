@@ -173,7 +173,7 @@ export class HostConnection extends EventRecorder {
   }
 
   isClaimedAt(now: Date): boolean {
-    return this.state.renewalClaim?.heldAt(now) ?? false;
+    return this.state.renewalClaim?.isActiveAt(now) ?? false;
   }
 
   refusedToken(token: AccessToken): boolean {

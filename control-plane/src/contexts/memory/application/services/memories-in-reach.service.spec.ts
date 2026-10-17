@@ -53,11 +53,11 @@ const correcting = (old: Memory, id: number, lineId: string | null = null) =>
 
 const inReach = (input: {
   reached?: readonly Memory[];
-  held?: readonly Memory[];
+  stored?: readonly Memory[];
   successors?: readonly Memory[];
   recalled?: readonly MemoryId[];
 }) => {
-  const held = input.held ?? input.reached ?? [];
+  const stored = input.stored ?? input.reached ?? [];
   const recall = vi.fn(async () => input.recalled ?? []);
 
   return {
@@ -66,7 +66,7 @@ const inReach = (input: {
       {
         mayReach: async () => input.reached ?? [],
         findAll: async (ids: readonly MemoryId[]) =>
-          ids.flatMap((id) => held.filter((each) => each.id.equals(id))),
+          ids.flatMap((id) => stored.filter((each) => each.id.equals(id))),
         successorsOf: async (ids: readonly MemoryId[]) =>
           (input.successors ?? []).filter((each) =>
             ids.some((id) => each.supersedes?.equals(id)),
@@ -115,7 +115,7 @@ describe('MemoriesInReach', () => {
     const theirs = kept(4, { teamId: ELSEWHERE });
     const plain = kept(5);
     const { memories, recall } = inReach({
-      held: [old, correction, retired, theirs, plain],
+      stored: [old, correction, retired, theirs, plain],
       successors: [correction],
       recalled: [plain, old, retired, theirs, correction].map(
         (each) => each.id,
@@ -144,7 +144,7 @@ describe('MemoriesInReach', () => {
     });
     const superseded = old.supersedeWith(correction.id, later(2));
     const { memories, recall } = inReach({
-      held: [superseded, correction],
+      stored: [superseded, correction],
       successors: [correction],
       recalled: [superseded, correction].map((each) => each.id),
     });

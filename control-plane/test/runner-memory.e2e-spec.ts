@@ -372,7 +372,7 @@ describe('recalling what the team remembers from inside a run', () => {
     );
   });
 
-  it('answers only the runner holding the run', async () => {
+  it('answers only the runner with the lease on the run', async () => {
     expect((await recall('upload', 'not-a-runner-token')).status).toBe(401);
     expect(
       (
@@ -523,7 +523,7 @@ describe('the team’s memory laid out in the run’s workspace', () => {
         .expect(200)
     ).body as MemoryFile[];
 
-  it('holds every standing memory that applies to the run, and none of another line or team', async () => {
+  it('includes every standing memory that applies to the run, and none of another line or team', async () => {
     const elsewhere = await writing(team.teamId.value, team.owner.value, {
       body: 'The default line ships on Fridays.',
       lineId: team.line.id.value,
@@ -551,7 +551,7 @@ describe('the team’s memory laid out in the run’s workspace', () => {
     ).toBe(true);
   });
 
-  it('answers only the runner holding the run', async () => {
+  it('answers only the runner with the lease on the run', async () => {
     const refused = await http()
       .get(`/api/runs/${randomUUID()}/memory-files`)
       .set('Authorization', `Bearer ${token}`);

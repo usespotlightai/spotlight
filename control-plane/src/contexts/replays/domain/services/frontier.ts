@@ -1,5 +1,5 @@
 import type { GainVerdict } from '@replays/domain/services/gain-reading';
-import { holdsSuccess } from '@replays/domain/services/search-ranking';
+import { isSuccess } from '@replays/domain/services/search-ranking';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 
 export interface FrontierPoint {
@@ -31,7 +31,7 @@ export const frontierOf = <Point extends FrontierPoint>(
       (each.finished &&
         each.searchScore !== null &&
         (objective === 'success' ||
-          holdsSuccess(each.searchedVerdict, each.seed))),
+          isSuccess(each.searchedVerdict, each.seed))),
   );
 
   return standing

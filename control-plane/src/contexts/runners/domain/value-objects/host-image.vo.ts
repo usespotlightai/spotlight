@@ -6,9 +6,9 @@ import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 
 const clipped = (raw: string | undefined, max: number): string | null => {
-  const held = raw?.trim() ?? '';
+  const trimmed = raw?.trim() ?? '';
 
-  return held ? held.slice(0, max) : null;
+  return trimmed ? trimmed.slice(0, max) : null;
 };
 
 const imageAt = (field: string, raw: string): RunnerImage => {

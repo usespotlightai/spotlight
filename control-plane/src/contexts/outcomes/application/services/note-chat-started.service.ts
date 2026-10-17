@@ -26,7 +26,7 @@ export class NoteChatStarted {
       const workspaceId = WorkspaceId.of(heard.workspaceId);
       const teamId = TeamId.of(heard.teamId);
 
-      await this.forgotten.holding(workspaceId, null, teamId);
+      await this.forgotten.lockForgetting(workspaceId, null, teamId);
 
       if (
         (await this.chats.of(heard.chatId)) ||

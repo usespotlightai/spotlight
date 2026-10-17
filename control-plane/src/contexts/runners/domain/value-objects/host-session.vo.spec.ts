@@ -3,7 +3,7 @@ import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('HostSession', () => {
-  it('holds the session a host started, trimmed', () => {
+  it('keeps the session a host started, trimmed', () => {
     expect(HostSession.of('  K7Q2M4ZC3VYH6N5RB8WX1TDJ9P  ').value).toBe(
       'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
     );

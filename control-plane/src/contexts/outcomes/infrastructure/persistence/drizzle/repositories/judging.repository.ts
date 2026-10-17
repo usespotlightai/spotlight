@@ -63,13 +63,13 @@ const toJudging = (row: JudgingRow): Judging =>
     version: row.version,
   });
 
-const columnsOf = (held: Judging) => ({
-  owed: held.work !== null,
-  workAttempts: held.work?.attempts ?? 0,
-  workDueAt: held.work?.dueAt ?? null,
-  judgedAt: held.judgedAt,
-  failure: held.failure?.code ?? null,
-  failedAt: held.failure?.at ?? null,
+const columnsOf = (stored: Judging) => ({
+  owed: stored.work !== null,
+  workAttempts: stored.work?.attempts ?? 0,
+  workDueAt: stored.work?.dueAt ?? null,
+  judgedAt: stored.judgedAt,
+  failure: stored.failure?.code ?? null,
+  failedAt: stored.failure?.at ?? null,
 });
 
 @Injectable()

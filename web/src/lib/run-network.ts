@@ -36,16 +36,16 @@ export const connectionGroups = (
   for (const connection of network.connections) {
     const destination = destinationOf(connection);
     const key = `${connection.trouble ?? connection.outcome} ${destination}`;
-    const held = groups.get(key);
+    const existing = groups.get(key);
 
     groups.set(key, {
       key,
       destination,
       outcome: connection.outcome,
       trouble: connection.trouble,
-      count: (held?.count ?? 0) + 1,
-      bytesOut: (held?.bytesOut ?? 0) + connection.bytesOut,
-      bytesIn: (held?.bytesIn ?? 0) + connection.bytesIn,
+      count: (existing?.count ?? 0) + 1,
+      bytesOut: (existing?.bytesOut ?? 0) + connection.bytesOut,
+      bytesIn: (existing?.bytesIn ?? 0) + connection.bytesIn,
     });
   }
 

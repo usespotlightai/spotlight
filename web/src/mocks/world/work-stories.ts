@@ -256,7 +256,7 @@ export const DRAIN_ANSWER =
   'Start with webhook-retries. Billing is still being reconciled, so leave it alone for now.';
 
 export const DISK_DUMPS_SAID =
-  '/var/crash holds 14 GB of core dumps from the image resizer, all from the last three days. Nothing rotates them.';
+  '/var/crash contains 14 GB of core dumps from the image resizer, all from the last three days. Nothing rotates them.';
 
 export const PRICING_FLAG_SAID =
   'Finance has not agreed the 20% annual discount yet, so the design keeps the toggle behind pricing_annual and shows monthly prices to everyone else.';
@@ -408,7 +408,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
     ],
     notes: [
       asked(
-        'The spec is in `docs/specs/drain-retry-queues.md`:\n\n- Restore `RETRY_CONCURRENCY=8` on the worker and replay `webhook-retries`\n- Drop deliveries whose endpoint answers `410 Gone`, and record them as gone\n- `billing-retries` holds **87** jobs for invoices that are still open\n\nShould Implementation drain `billing-retries` too, or start with `webhook-retries`?',
+        'The spec is in `docs/specs/drain-retry-queues.md`:\n\n- Restore `RETRY_CONCURRENCY=8` on the worker and replay `webhook-retries`\n- Drop deliveries whose endpoint answers `410 Gone`, and record them as gone\n- `billing-retries` contains **87** jobs for invoices that are still open\n\nShould Implementation drain `billing-retries` too, or start with `webhook-retries`?',
       ),
       answered(MAYA, DRAIN_ANSWER, 6),
     ],
@@ -553,7 +553,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         2,
       ),
       thought(
-        'One ALTER over 1.3M rows holds an exclusive lock on invoices for the whole rewrite, about 40 seconds on the replica.',
+        'One ALTER over 1.3M rows keeps an exclusive lock on invoices for the whole rewrite, about 40 seconds on the replica.',
       ),
       said(
         'The migration rewrites 1.3M invoice rows under one lock. Everything else looks safe to merge.',
@@ -702,7 +702,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         33,
       ),
       passed(
-        'Passed to Mitigate. Found it: `/var/log/worker` grows 9 GB a day since debug logging was left on in eu-west-1, and `/var/crash` holds 14 GB of core dumps that nothing rotates.',
+        'Passed to Mitigate. Found it: `/var/log/worker` grows 9 GB a day since debug logging was left on in eu-west-1, and `/var/crash` contains 14 GB of core dumps that nothing rotates.',
       ),
     ],
     output: 'Debug logs at 9 GB a day and 14 GB of core dumps fill the disk.',

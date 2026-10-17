@@ -137,28 +137,28 @@ export function useSnapCarousel(count: number) {
 
   const onPointerMove = useCallback((event: PointerEvent<HTMLElement>) => {
     const element = track.current;
-    const held = drag.current;
-    if (element && held) {
-      element.scrollLeft = held.left - (event.clientX - held.x);
+    const grab = drag.current;
+    if (element && grab) {
+      element.scrollLeft = grab.left - (event.clientX - grab.x);
     }
   }, []);
 
   const onPointerUp = useCallback(
     (event: PointerEvent<HTMLElement>) => {
       const element = track.current;
-      const held = drag.current;
-      if (!element || !held) {
+      const grab = drag.current;
+      if (!element || !grab) {
         return;
       }
       drag.current = null;
       setDragging(false);
       element.releasePointerCapture(event.pointerId);
 
-      const moved = event.clientX - held.x;
+      const moved = event.clientX - grab.x;
       const nearest = nearestStop(stops, element.scrollLeft);
       go(
-        nearest === held.from && Math.abs(moved) > FLICK
-          ? held.from + (moved < 0 ? 1 : -1)
+        nearest === grab.from && Math.abs(moved) > FLICK
+          ? grab.from + (moved < 0 ? 1 : -1)
           : nearest,
       );
     },

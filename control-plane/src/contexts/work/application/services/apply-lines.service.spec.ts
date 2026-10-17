@@ -67,11 +67,11 @@ const station = (key: string): StationPlan => ({
   ends: false,
 });
 
-const asStanding = (held: Line): LinePlan =>
+const asStanding = (existing: Line): LinePlan =>
   LinePlan.of({
-    key: held.key,
-    name: held.name,
-    stations: [...held.stations]
+    key: existing.key,
+    name: existing.name,
+    stations: [...existing.stations]
       .sort((one, other) => one.position - other.position)
       .map((each) => ({
         ...station(each.key.value),
@@ -105,20 +105,20 @@ const applying = (
   over: {
     standing?: readonly Line[];
     tasks?: Record<string, number>;
-    held?: Line;
+    existing?: Line;
   } = {},
 ) => {
-  const held = over.held ?? line();
+  const existing = over.existing ?? line();
   const save = vi.fn(async () => {});
   const add = vi.fn(async () => {});
 
   const lines = {
-    ofWorkspace: vi.fn(async () => over.standing ?? [held]),
-    ofTeam: vi.fn(async () => over.standing ?? [held]),
+    ofWorkspace: vi.fn(async () => over.standing ?? [existing]),
+    ofTeam: vi.fn(async () => over.standing ?? [existing]),
     save,
     add,
     find: vi.fn(),
-    holding: vi.fn(),
+    findByStation: vi.fn(),
   } as unknown as LineRepository;
 
   const tally = async (stationIds: readonly { value: string }[]) =>
@@ -126,8 +126,8 @@ const applying = (
       stationIds.map((stationId) => [
         stationId.value,
         over.tasks?.[
-          held.stations.find((each) => each.id.value === stationId.value)?.key
-            .value ?? ''
+          existing.stations.find((each) => each.id.value === stationId.value)
+            ?.key.value ?? ''
         ] ?? 0,
       ]),
     );
@@ -146,22 +146,22 @@ const applying = (
 
   return {
     applied: (): Promise<Line> =>
-      plan.key.equals(held.key)
-        ? applier.reconcile(held, plan, attributedIn())
+      plan.key.equals(existing.key)
+        ? applier.reconcile(existing, plan, attributedIn())
         : applier.open(TEAM_PROFILE, plan, attributedIn()),
     save,
     add,
-    held,
+    existing,
     tallies,
   };
 };
 
 describe('ApplyLines', () => {
   it('makes the line say what its definition says', async () => {
-    const held = line();
+    const existing = line();
     const { applied, save } = applying(
-      like(asStanding(held), { name: LineName.of('Renamed') }),
-      { held },
+      like(asStanding(existing), { name: LineName.of('Renamed') }),
+      { existing },
     );
 
     await applied();
@@ -174,23 +174,23 @@ describe('ApplyLines', () => {
   });
 
   it('hands back the line as it applied it', async () => {
-    const held = line();
+    const existing = line();
     const { applied } = applying(
-      like(asStanding(held), { name: LineName.of('Renamed') }),
-      { held },
+      like(asStanding(existing), { name: LineName.of('Renamed') }),
+      { existing },
     );
 
     const reconciled = await applied();
 
     expect([reconciled.id, reconciled.name.value]).toEqual([
-      held.id,
+      existing.id,
       'Renamed',
     ]);
   });
 
   it('leaves every station the station it was', async () => {
-    const held = line();
-    const { applied, save } = applying(asStanding(held), { held });
+    const existing = line();
+    const { applied, save } = applying(asStanding(existing), { existing });
 
     await applied();
 
@@ -198,19 +198,19 @@ describe('ApplyLines', () => {
 
     for (const each of written.stations) {
       expect(each.id.value).toBe(
-        held.stations.find((one) => one.key.equals(each.key))?.id.value,
+        existing.stations.find((one) => one.key.equals(each.key))?.id.value,
       );
     }
   });
 
   it('changes nothing where the plan would strand somebody’s work', async () => {
-    const held = line();
-    const plan = asStanding(held);
+    const existing = line();
+    const plan = asStanding(existing);
     const going = plan.stations[1]?.key.value as string;
 
     const { applied, save } = applying(
       like(plan, { stations: plan.stations.filter((_, at) => at !== 1) }),
-      { held, tasks: { [going]: 2 } },
+      { existing, tasks: { [going]: 2 } },
     );
 
     await expect(applied()).rejects.toThrow(LineInUseError);
@@ -218,9 +218,9 @@ describe('ApplyLines', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('holds the stations it tallies until the change is written', async () => {
-    const held = line();
-    const { applied, tallies } = applying(asStanding(held), { held });
+  it('locks the stations it tallies until the change is written', async () => {
+    const existing = line();
+    const { applied, tallies } = applying(asStanding(existing), { existing });
 
     await applied();
 
@@ -229,21 +229,21 @@ describe('ApplyLines', () => {
   });
 
   it('refuses a change that would strand work that arrived after the tally', async () => {
-    const held = line();
-    const { applied, save } = applying(asStanding(held), { held });
+    const existing = line();
+    const { applied, save } = applying(asStanding(existing), { existing });
 
     save.mockRejectedValueOnce(new StrandedWorkError(['station_2']));
 
     await expect(applied()).rejects.toThrow(
-      /cannot drop stations that still hold tasks/,
+      /cannot drop stations that still have tasks/,
     );
   });
 
   it('opens a line the team does not have from its definition', async () => {
-    const held = line();
+    const existing = line();
     const { applied, add, save } = applying(
-      like(asStanding(held), { key: LineKey.of('release') }),
-      { held },
+      like(asStanding(existing), { key: LineKey.of('release') }),
+      { existing },
     );
 
     await applied();
@@ -254,15 +254,15 @@ describe('ApplyLines', () => {
     const [opened] = add.mock.calls[0] as never as [Line];
 
     expect(opened.key).toEqual(LineKey.of('release'));
-    expect(opened.teamId).toEqual(held.teamId);
+    expect(opened.teamId).toEqual(existing.teamId);
   });
 
   it('opens no line under a key the team already has', async () => {
-    const held = line();
-    const { add } = applying(asStanding(held), { held });
+    const existing = line();
+    const { add } = applying(asStanding(existing), { existing });
     const applier = new ApplyLines(
       {
-        ofTeam: vi.fn(async () => [held]),
+        ofTeam: vi.fn(async () => [existing]),
         add,
       } as unknown as LineRepository,
       {} as StationTalliesPort,
@@ -270,25 +270,25 @@ describe('ApplyLines', () => {
     );
 
     await expect(
-      applier.open(TEAM_PROFILE, asStanding(held), attributedIn()),
+      applier.open(TEAM_PROFILE, asStanding(existing), attributedIn()),
     ).rejects.toThrow(LineAlreadyOpenedError);
     expect(add).not.toHaveBeenCalled();
   });
 
   it('opens no line that claims a role another line already has', async () => {
-    const held = line();
-    const base = asStanding(held);
+    const existing = line();
+    const base = asStanding(existing);
     const claiming = like(base, {
       key: LineKey.of('one'),
       role: LineRole.REVIEW,
     });
-    const holding = applying(like(base, { role: LineRole.REVIEW }), {
-      held,
+    const withRole = applying(like(base, { role: LineRole.REVIEW }), {
+      existing,
     });
-    const standing = await holding.applied();
+    const standing = await withRole.applied();
     const { applied, add } = applying(
       like(claiming, { key: LineKey.of('two') }),
-      { held, standing: [standing] },
+      { existing, standing: [standing] },
     );
 
     await expect(applied()).rejects.toThrow(LineRoleTakenError);
@@ -297,15 +297,15 @@ describe('ApplyLines', () => {
   });
 
   it('lets a line keep the role it already claims', async () => {
-    const held = line();
-    const holding = applying(
-      like(asStanding(held), { role: LineRole.REVIEW }),
-      { held },
+    const existing = line();
+    const withRole = applying(
+      like(asStanding(existing), { role: LineRole.REVIEW }),
+      { existing },
     );
-    const standing = await holding.applied();
+    const standing = await withRole.applied();
     const { applied, save } = applying(
       like(asStanding(standing), { role: LineRole.REVIEW }),
-      { held: standing, standing: [standing] },
+      { existing: standing, standing: [standing] },
     );
 
     await applied();
@@ -314,8 +314,8 @@ describe('ApplyLines', () => {
   });
 
   it('gives a station nobody had before an identity of its own', async () => {
-    const held = line();
-    const plan = asStanding(held);
+    const existing = line();
+    const plan = asStanding(existing);
 
     const { applied, save } = applying(
       like(plan, {
@@ -325,7 +325,7 @@ describe('ApplyLines', () => {
           plan.stations[plan.stations.length - 1] as StationPlan,
         ],
       }),
-      { held },
+      { existing },
     );
 
     await applied();

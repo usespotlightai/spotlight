@@ -55,15 +55,15 @@ export class TaskAsides implements TaskAsidesPort {
     const aside = { ...asked, about: AsideAbout.of(asked.about) };
 
     return this.transaction.inTransaction(async () => {
-      const held = await this.asides.about(
+      const existing = await this.asides.about(
         aside.taskId,
         asideForm(aside.form),
         aside.about,
       );
 
-      if (held) {
-        if (!held.open) {
-          await this.asides.save(held.reopen(this.clock.now()));
+      if (existing) {
+        if (!existing.open) {
+          await this.asides.save(existing.reopen(this.clock.now()));
         }
         return;
       }
@@ -86,28 +86,28 @@ export class TaskAsides implements TaskAsidesPort {
   }
 
   async idOf(asked: AsideOf): Promise<string | null> {
-    const held = await this.asides.about(
+    const existing = await this.asides.about(
       asked.taskId,
       asideForm(asked.form),
       AsideAbout.of(asked.about),
     );
 
-    return held?.id.value ?? null;
+    return existing?.id.value ?? null;
   }
 
   settle(asked: AsideOf): Promise<void> {
     const aside = { ...asked, about: AsideAbout.of(asked.about) };
 
     return this.transaction.inTransaction(async () => {
-      const held = await this.asides.about(
+      const existing = await this.asides.about(
         aside.taskId,
         asideForm(aside.form),
         aside.about,
       );
 
-      if (held) {
-        if (held.open) {
-          await this.asides.save(held.settled(this.clock.now()));
+      if (existing) {
+        if (existing.open) {
+          await this.asides.save(existing.settled(this.clock.now()));
         }
         return;
       }

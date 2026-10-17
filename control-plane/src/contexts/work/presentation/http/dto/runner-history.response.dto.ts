@@ -319,7 +319,7 @@ export class HistoryCandidateResponseDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The candidate’s station block, in the shape the line resource holds a station in',
+      'The candidate’s station block, in the shape that the line resource uses for a station',
     example: {
       key: 'build',
       name: 'Build',

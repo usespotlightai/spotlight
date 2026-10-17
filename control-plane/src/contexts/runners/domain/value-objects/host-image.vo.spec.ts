@@ -28,7 +28,7 @@ const refusedAt = (over: Partial<ReportedImage>) => {
 };
 
 describe('HostImage', () => {
-  it('holds an image a host says it can run, with the harnesses it carries', () => {
+  it('keeps an image a host says it can run, with the harnesses it carries', () => {
     const image = reported({
       digest: ` ${DIGEST} `,
       usual: true,
@@ -47,7 +47,7 @@ describe('HostImage', () => {
     expect(image.isServed).toBe(true);
   });
 
-  it('holds nothing for a digest, release or refusal it was not given', () => {
+  it('keeps nothing for a digest, release or refusal it was not given', () => {
     const image = reported({ digest: '  ', release: undefined });
 
     expect(image.digest).toBeNull();

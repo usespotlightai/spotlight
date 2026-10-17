@@ -71,7 +71,7 @@ const enqueuing = (
   const enqueue = vi.fn(async () => over.enqueued ?? true);
   const handler = new EnqueueTaskRun(
     { find: async () => task, save } as unknown as TaskRepository,
-    { holding: async () => LINE } as unknown as LineRepository,
+    { findByStation: async () => LINE } as unknown as LineRepository,
     { findById: async () => over.existing ?? null } as unknown as RunRepository,
     { enqueue } as unknown as DispatchTask,
   );

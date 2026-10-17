@@ -111,7 +111,7 @@ const claimed = async (runId: string): Promise<string> => {
   return handed.token;
 };
 
-const aHeldTask = async (
+const aTaskWithLeasedRun = async (
   at = BUILD,
 ): Promise<{ taskId: string; runId: string }> => {
   const taskId = randomUUID();
@@ -302,7 +302,7 @@ afterAll(async () => {
 
 describe('a run that asks a person', () => {
   it('pauses when its runner reports the turn asked for review, keeping the task and waiting for the answer', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
     const completed = await runner(token)
@@ -330,7 +330,7 @@ describe('a run that asks a person', () => {
   });
 
   it('delivers an answer given while it waits warm into the same run, which parking then leaves working', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -381,7 +381,7 @@ describe('a run that asks a person', () => {
   });
 
   it('parks after the grace period, and an answer requeues the same run as a new attempt that restores the archive', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const first = await claimed(runId);
 
     await journalled(first, runId, 'before the question');
@@ -453,7 +453,7 @@ describe('a run that asks a person', () => {
   });
 
   it('ends a parked run as its turn ended when a person parks its task back in the backlog', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -476,7 +476,7 @@ describe('a run that asks a person', () => {
   });
 
   it('ends a run waiting warm as its turn ended when a person parks its task back in the backlog, so its runner lets the sandbox go', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -501,7 +501,7 @@ describe('a run that asks a person', () => {
   });
 
   it('takes a message in the run chat as the answer, taking the same run up once', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -526,7 +526,7 @@ describe('a run that asks a person', () => {
   });
 
   it('reports whether a turn would wait for a person before the runner keeps its workspace', async () => {
-    const { runId } = await aHeldTask();
+    const { runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
     const review = await runner(token)
@@ -546,7 +546,7 @@ describe('a run that asks a person', () => {
   });
 
   it('ends the run as before, putting the task to the person, when the workspace was not kept', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
     const completed = await runner(token)
@@ -564,7 +564,7 @@ describe('a run that asks a person', () => {
   });
 
   it('writes only one of an answer and a parking read from the same waiting run', async () => {
-    const { runId } = await aHeldTask();
+    const { runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -576,13 +576,13 @@ describe('a run that asks a person', () => {
       throw new Error('the waiting run could not be read');
     }
 
-    const holder = read.claimedBy;
+    const leasedBy = read.claimedBy;
 
-    if (!holder) {
-      throw new Error('the waiting run is held by nobody');
+    if (!leasedBy) {
+      throw new Error('no runner has a lease on the waiting run');
     }
 
-    await runs.save(read.park(holder, new Date()));
+    await runs.save(read.park(leasedBy, new Date()));
 
     await expect(runs.save(read.resumed())).rejects.toBeInstanceOf(
       RunVersionConflictError,
@@ -600,7 +600,7 @@ const said = (runId: string, body: string) =>
 
 describe('a message in a run chat', () => {
   it('reaches the run still working the task, starting no other', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
     await said(runId, 'Drain the default one first.');
@@ -616,7 +616,7 @@ describe('a message in a run chat', () => {
   });
 
   it('starts the station again for a task finished there, taking up its conversation', async () => {
-    const { taskId, runId } = await aHeldTask(DEPLOY);
+    const { taskId, runId } = await aTaskWithLeasedRun(DEPLOY);
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, {
@@ -650,7 +650,7 @@ describe('a message in a run chat', () => {
   });
 
   it('answers a conflict once the task has moved on from the run’s station', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     await claimed(runId);
 
     await http()
@@ -672,7 +672,7 @@ describe('a message in a run chat', () => {
   });
 });
 
-describe('a run queued while an earlier run of its task is still held', () => {
+describe('a run queued while an earlier run of its task is still leased', () => {
   const claimsNext = async (): Promise<string[]> => {
     const claimed: string[] = [];
     const runs = app.get(DrizzleRunRepository);
@@ -705,7 +705,7 @@ describe('a run queued while an earlier run of its task is still held', () => {
   ])(
     'is claimed only once the earlier run has ended, so the two never share the task’s workspace, at %s',
     async (_, station) => {
-      const { taskId, runId } = await aHeldTask();
+      const { taskId, runId } = await aTaskWithLeasedRun();
       const token = await claimed(runId);
       const next = randomUUID();
       const [earlier] = await db

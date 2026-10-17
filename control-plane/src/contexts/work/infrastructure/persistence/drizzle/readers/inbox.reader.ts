@@ -143,7 +143,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       this.db,
       rows.map((row) => row.taskId),
     );
-    const held = await stationsPerLine(
+    const stationCounts = await stationsPerLine(
       this.db,
       rows.map((row) => row.lineId),
     );
@@ -186,7 +186,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           station: note.station,
           stationColor: note.stationColor,
           stationPosition: note.stationPosition,
-          stationCount: held.get(row.lineId) ?? 1,
+          stationCount: stationCounts.get(row.lineId) ?? 1,
           raisedAt: {
             name: row.raisedStation ?? note.station,
             color: row.raisedColor ?? note.stationColor,
@@ -316,7 +316,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       this.db,
       attending.map((row) => row.taskId),
     );
-    const held = await stationsPerLine(
+    const stationCounts = await stationsPerLine(
       this.db,
       attending.map((row) => row.lineId),
     );
@@ -339,7 +339,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         station: standsAt.name,
         stationColor: standsAt.color,
         stationPosition: standsAt.position,
-        stationCount: held.get(row.lineId) ?? 1,
+        stationCount: stationCounts.get(row.lineId) ?? 1,
         raisedAt: standsAt,
         standsAt,
         createdAt: row.createdAt,

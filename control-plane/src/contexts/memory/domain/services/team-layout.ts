@@ -36,11 +36,11 @@ export class TeamLayout {
     const line = lineId ? this.lines.find((each) => each.id === lineId) : null;
 
     if (lineId && !line) {
-      throw new InvalidMemoryError('must be held at a line of its team');
+      throw new InvalidMemoryError('must be at a line of its team');
     }
 
     if (stationId && !line?.stations.includes(stationId)) {
-      throw new InvalidMemoryError('must be held at a station of its line');
+      throw new InvalidMemoryError('must be at a station of its line');
     }
 
     const named = written.repository?.trim() || null;

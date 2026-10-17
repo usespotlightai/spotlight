@@ -42,7 +42,7 @@ type examined struct {
 	refused   string
 }
 
-func (e examined) holds(harness string) bool {
+func (e examined) hasHarness(harness string) bool {
 	return slices.ContainsFunc(e.harnesses, func(each protocol.HarnessReport) bool { return each.ID == harness })
 }
 
@@ -247,8 +247,8 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 	ctx, cancel := context.WithTimeout(ctx, probeLongest)
 	defer cancel()
 
-	env, held := standInsFor(h.opts.SandboxEnv)
-	way, err := h.wayOut(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", held,
+	env, hostCredentials := standInsFor(h.opts.SandboxEnv)
+	way, err := h.wayOut(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", hostCredentials,
 		probeEgressWait)
 	defer way.close()
 	if err != nil {

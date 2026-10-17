@@ -6,7 +6,7 @@ import type {
   RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { type Bindings, bound } from '@platform/expressions/bindings';
-import { holds, reads, value } from '@platform/expressions/readings';
+import { isTrue, reads, value } from '@platform/expressions/readings';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import type {
   Arriving,
@@ -48,7 +48,7 @@ export const readEvents = async (
         for (const item of list) {
           const per = { ...against, item: bound(item) };
 
-          if (holds(event.when, per)) {
+          if (isTrue(event.when, per)) {
             const filled = await enrich(event, per);
             raised.push(
               raiseFrom(
@@ -66,7 +66,7 @@ export const readEvents = async (
       continue;
     }
 
-    if (holds(event.when, against)) {
+    if (isTrue(event.when, against)) {
       const filled = await enrich(event, against);
       raised.push(
         raiseFrom(event.raise, declared, filled, ourOwn(filled), fetching),

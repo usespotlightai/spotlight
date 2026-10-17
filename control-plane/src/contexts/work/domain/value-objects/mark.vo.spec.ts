@@ -4,7 +4,7 @@ import { Mark } from '@work/domain/value-objects/mark.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('Mark', () => {
-  it('holds the kind of handle it is and what the world calls it', () => {
+  it('keeps the kind of handle it is and what the world calls it', () => {
     const mark = Mark.of('linear.issue', 'ENG-42');
 
     expect(mark.kind).toBe('linear.issue');
@@ -27,7 +27,7 @@ describe('Mark', () => {
     ).toBe(true);
   });
 
-  it('is not the same mark as one of another kind holding the same value', () => {
+  it('is not the same mark as one of another kind with the same value', () => {
     expect(
       Mark.of('linear.issue', '7').equals(Mark.of('sentry.fingerprint', '7')),
     ).toBe(false);

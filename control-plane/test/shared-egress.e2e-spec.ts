@@ -120,7 +120,7 @@ const listening = async (): Promise<{
 describe('a push pool that goes out through a shared egress (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let owner: string;
   let unseat: () => Promise<void>;
   let endpoint: Awaited<ReturnType<typeof listening>>;
@@ -131,7 +131,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
   const created = (collection: string, body: object) =>
     http()
-      .post(`/api/resources/workspaces/${held}/${collection}`)
+      .post(`/api/resources/workspaces/${workspaceId}/${collection}`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
@@ -147,7 +147,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
     await db.insert(schema.run).values({
       id,
-      workspaceId: held,
+      workspaceId,
       harness: 'dev',
       state: 'queued',
       placement: [['sandbox']],
@@ -197,8 +197,8 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `shared-egress-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    workspaceId = `shared-egress-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     unseat = seat.unseat;
     endpoint = await listening();
@@ -230,16 +230,18 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       .where(inArray(schema.idempotentCreate.scope, [`person:${owner}`]));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
-    await db.delete(schema.run).where(eq(schema.run.workspaceId, held));
-    await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
+    await db.delete(schema.run).where(eq(schema.run.workspaceId, workspaceId));
+    await db
+      .delete(schema.secret)
+      .where(eq(schema.secret.workspaceId, workspaceId));
     await db
       .delete(schema.runGrants)
-      .where(eq(schema.runGrants.workspaceId, held));
+      .where(eq(schema.runGrants.workspaceId, workspaceId));
     await db
       .delete(schema.secretDataKey)
-      .where(eq(schema.secretDataKey.workspaceId, held));
-    await forgetRunnersOf(db, held);
+      .where(eq(schema.secretDataKey.workspaceId, workspaceId));
+    await forgetRunnersOf(db, workspaceId);
     await unseat();
   });
 
@@ -267,7 +269,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       proxyCredential: credential,
     }).expect(200);
     expect(admitted.body).toMatchObject({
-      workspaceId: held,
+      workspaceId,
       controlPlaneHost: expect.any(String),
       controlPlanePort: expect.any(Number),
     });
@@ -321,16 +323,16 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }
   });
 
-  it('keeps the holds of standing runners, and records their connections for the trace', async () => {
+  it('checks the active runs of standing runners, and records their connections for the trace', async () => {
     const runId = await queue(['LINEAR_API_KEY']);
     const runner = await provisioned(runId);
     const credential = runner.egress?.credential ?? '';
     await claimedBy(runner.token);
 
-    const kept = await asEgress('holds', {
+    const kept = await asEgress('active-runs', {
       proxyCredentials: [credential, 'unknown'],
     }).expect(200);
-    expect(kept.body.held).toEqual([credential]);
+    expect(kept.body.active).toEqual([credential]);
 
     await asEgress('connections', {
       records: [
@@ -358,7 +360,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }).expect(204);
 
     const network = await http()
-      .get(`/api/teams/${held}/runs/${runId}/network`)
+      .get(`/api/teams/${workspaceId}/runs/${runId}/network`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
@@ -396,14 +398,17 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       const rows = await db
         .select()
         .from(schema.runner)
-        .where(eq(schema.runner.workspaceId, held));
+        .where(eq(schema.runner.workspaceId, workspaceId));
 
       return rows.every((each) => each.endedAt !== null) && rows;
     });
 
     expect(
-      (await asEgress('holds', { proxyCredentials: [credential] }).expect(200))
-        .body.held,
+      (
+        await asEgress('active-runs', {
+          proxyCredentials: [credential],
+        }).expect(200)
+      ).body.active,
     ).toEqual([]);
     await asEgress('connections', {
       records: [connection('mcp.linear.app')],
@@ -421,7 +426,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }).expect(204);
 
     const network = await http()
-      .get(`/api/teams/${held}/runs/${runId}/network`)
+      .get(`/api/teams/${workspaceId}/runs/${runId}/network`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
@@ -606,14 +611,16 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       })
       .expect(200);
 
-    await asEgress('holds', { proxyCredentials: [] }).expect(401);
-    await asEgress('holds', { proxyCredentials: [] }, rotated).expect(200);
+    await asEgress('active-runs', { proxyCredentials: [] }).expect(401);
+    await asEgress('active-runs', { proxyCredentials: [] }, rotated).expect(
+      200,
+    );
   });
 
   it('tells the runner to send only bound traffic through egress when the pool says so', async () => {
     const pool = await http()
       .get(
-        `/api/resources/workspaces/${held}/runner-pools/import?address=sandboxes`,
+        `/api/resources/workspaces/${workspaceId}/runner-pools/import?address=sandboxes`,
       )
       .set(TEST_USER_HEADER, owner)
       .expect(200);

@@ -2,9 +2,9 @@ import { KMSClient } from '@aws-sdk/client-kms';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import {
-  WORKSPACE_HOLDINGS,
-  type WorkspaceHoldingsPort,
-} from '@identity/application/ports/workspace-holdings.port';
+  WORKSPACE_DEPENDENTS,
+  type WorkspaceDependentsPort,
+} from '@identity/application/ports/workspace-dependents.port';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
@@ -100,7 +100,7 @@ import {
 
 const SECRETS_EVENTS = Symbol('SECRETS_EVENTS');
 
-const SECRETS_HOLDINGS = Symbol('SECRETS_HOLDINGS');
+const SECRETS_DEPENDENTS = Symbol('SECRETS_DEPENDENTS');
 
 export const SECRETS_CONTROLLERS: readonly Type[] = [SecretResourceController];
 
@@ -246,13 +246,13 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
     },
   },
   {
-    provide: SECRETS_HOLDINGS,
-    inject: [WORKSPACE_HOLDINGS, DrizzleSecretResources],
+    provide: SECRETS_DEPENDENTS,
+    inject: [WORKSPACE_DEPENDENTS, DrizzleSecretResources],
     useFactory: (
-      holdings: WorkspaceHoldingsPort,
+      dependents: WorkspaceDependentsPort,
       secrets: DrizzleSecretResources,
     ) => {
-      holdings.register(secrets);
+      dependents.register(secrets);
       return true;
     },
   },

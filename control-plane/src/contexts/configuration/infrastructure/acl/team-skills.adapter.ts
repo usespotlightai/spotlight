@@ -30,14 +30,14 @@ export class TeamSkills implements TeamSkillsPort {
     }
 
     const configuration = await this.applied.of(teamId);
-    const held = await this.secrets.ofTeam(teamId);
+    const existing = await this.secrets.ofTeam(teamId);
 
     return this.reader
       .read(configuration.skills)
       .skills.filter(
         (folder) =>
           named.includes(folder.skill.key.value) &&
-          folder.skill.isReadyWith(held),
+          folder.skill.isReadyWith(existing),
       )
       .map(ReadySkillMapper.toReady);
   }

@@ -156,14 +156,14 @@ describe('DeleteWorkspaceTokenTrustHandler', () => {
     };
   };
 
-  it('forbids a token withdrawing a trust that grants more than the token holds', async () => {
+  it('forbids a token withdrawing a trust that grants more than the token has', async () => {
     const { withdraw, save } = withdrawing(['plan', 'trusts']);
 
     expect(await withdraw()).toEqual(forbiddenTo('manage-token-trusts'));
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('lets a token withdraw a trust within what it holds', async () => {
+  it('lets a token withdraw a trust within what it has', async () => {
     const { withdraw, save } = withdrawing(['configure', 'secrets', 'trusts']);
 
     expect(await withdraw()).toEqual({ outcome: 'deleted' });

@@ -111,7 +111,7 @@ const standing = (trusted: boolean): JudgeStandingPort => ({
     })),
 });
 
-const held = async (
+const seeded = async (
   more: readonly (readonly [
     string,
     number,
@@ -165,7 +165,7 @@ const held = async (
 
 describe('ReadInsightsChangesHandler', () => {
   it('opens each config change with the station’s tally before and after it and what changed, reading every config at once', async () => {
-    const { scopes, reader } = await held();
+    const { scopes, reader } = await seeded();
     const asked: (readonly string[])[] = [];
     const handler = new ReadInsightsChangesHandler(
       scopes,
@@ -207,7 +207,7 @@ describe('ReadInsightsChangesHandler', () => {
   });
 
   it('opens a return to the earlier config as a change of its own, set against the stretch just before it', async () => {
-    const { scopes, reader } = await held([
+    const { scopes, reader } = await seeded([
       ['run_5', 13, FIRST_CONFIG, 'sonnet', 'sent-back'],
       ['run_6', 14, FIRST_CONFIG, 'sonnet', 'sent-back'],
       ['run_7', 15, FIRST_CONFIG, 'sonnet', 'closed'],
@@ -251,7 +251,7 @@ describe('ReadInsightsChangesHandler', () => {
   });
 
   it('shows no judge scores where the station’s judge is not trusted', async () => {
-    const { scopes, reader } = await held();
+    const { scopes, reader } = await seeded();
     const handler = new ReadInsightsChangesHandler(
       scopes,
       reader,
@@ -274,7 +274,7 @@ describe('ReadInsightsChangesHandler', () => {
   });
 
   it('finds no team for someone not on it', async () => {
-    const { scopes, reader } = await held();
+    const { scopes, reader } = await seeded();
     const handler = new ReadInsightsChangesHandler(
       scopes,
       reader,
@@ -290,7 +290,7 @@ describe('ReadInsightsChangesHandler', () => {
 
 describe('ReadInsightsSetupsHandler', () => {
   it('compares setups, narrowed by station and run size, and judge scores only within one station', async () => {
-    const { scopes, reader } = await held();
+    const { scopes, reader } = await seeded();
     const handler = new ReadInsightsSetupsHandler(
       scopes,
       reader,
@@ -323,7 +323,7 @@ describe('ReadInsightsSetupsHandler', () => {
   });
 
   it('refuses a size it does not know', async () => {
-    const { scopes, reader } = await held();
+    const { scopes, reader } = await seeded();
     const handler = new ReadInsightsSetupsHandler(
       scopes,
       reader,
@@ -340,7 +340,7 @@ describe('ReadInsightsSetupsHandler', () => {
 
 describe('ReadInsightsMemoryHandler', () => {
   it('sets runs with memories against runs without, and names who flagged one wrong', async () => {
-    const { scopes, reader, records } = await held();
+    const { scopes, reader, records } = await seeded();
     const asked: unknown[] = [];
     const memory: MemoryUsePort = {
       between: async (window) => {
@@ -400,7 +400,7 @@ describe('ReadInsightsMemoryHandler', () => {
 
 describe('ReadStationAlertHandler', () => {
   const alerted = async () => {
-    const { records, deliveries } = await held();
+    const { records, deliveries } = await seeded();
     const watches = new StationWatchesInMemory();
     const rule = AlertRule.of({
       measure: 'sent_back_rate',

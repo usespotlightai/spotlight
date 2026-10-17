@@ -36,15 +36,15 @@ export class RunMemories {
   }
 
   with(way: MemoryWay, memories: readonly string[]): RunMemories {
-    const held = way === 'briefed' ? this.briefed : this.recalled;
+    const known = way === 'briefed' ? this.briefed : this.recalled;
 
-    if (memories.every((each) => held.includes(each))) {
+    if (memories.every((each) => known.includes(each))) {
       return this;
     }
 
     return RunMemories.of({
-      briefed: way === 'briefed' ? [...held, ...memories] : this.briefed,
-      recalled: way === 'recalled' ? [...held, ...memories] : this.recalled,
+      briefed: way === 'briefed' ? [...known, ...memories] : this.briefed,
+      recalled: way === 'recalled' ? [...known, ...memories] : this.recalled,
     });
   }
 }

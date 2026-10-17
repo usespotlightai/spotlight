@@ -100,7 +100,7 @@ describe('needsBaseline', () => {
     ).toBe(false);
   });
 
-  it('wants a new one once the set holds a run its baseline did not replay', () => {
+  it('wants a new one once the set contains a run its baseline did not replay', () => {
     expect(
       needsBaseline(aSet(3), [aBaseline('replay_1', 0, 2)], SCORING, 1),
     ).toBe(true);

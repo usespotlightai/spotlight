@@ -21,10 +21,8 @@ export class StationAddress {
       : null;
   }
 
-  static parsed(held: string): StationAddress | null {
-    const [teamKey, lineKey, stationKey, ...rest] = held
-      .trim()
-      .split(SEPARATOR);
+  static parsed(raw: string): StationAddress | null {
+    const [teamKey, lineKey, stationKey, ...rest] = raw.trim().split(SEPARATOR);
 
     return teamKey && lineKey && stationKey && rest.length === 0
       ? StationAddress.of(teamKey, lineKey, stationKey)

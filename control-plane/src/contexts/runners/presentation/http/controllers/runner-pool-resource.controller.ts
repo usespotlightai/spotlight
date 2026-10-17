@@ -238,7 +238,7 @@ export class RunnerPoolResourceController {
 
   @RunnerPoolResource.Delete(
     'runner-pools/:id',
-    'Retire a runner pool; runs its runners already hold carry on to their end',
+    'Retire a runner pool. Runs that its runners already have a lease on continue until they end',
   )
   @ID
   async delete(

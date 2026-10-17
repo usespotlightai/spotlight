@@ -4,7 +4,7 @@ import { SecretRedefined } from '@secrets/domain/events/secret-redefined.event';
 import { SecretSet } from '@secrets/domain/events/secret-set.event';
 import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import { SecretBinding } from '@secrets/domain/value-objects/secret-binding.vo';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretCarrier } from '@secrets/domain/value-objects/secret-carrier.vo';
@@ -17,7 +17,7 @@ import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 export const SECRETS_PAYLOAD_TYPES = [
   Redeemer,
   RedemptionRecipient,
-  RunHold,
+  RunLease,
   SecretBinding,
   SecretBindings,
   SecretCarrier,

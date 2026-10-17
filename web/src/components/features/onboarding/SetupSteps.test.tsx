@@ -92,7 +92,7 @@ beforeEach(() => {
 });
 
 describe('SetupSteps', () => {
-  it('holds the steps’ place while they load, under the heading it already has', () => {
+  it('keeps the steps’ place while they load, under the heading it already has', () => {
     onboardingState.data = undefined;
     onboardingState.isPending = true;
     showing();

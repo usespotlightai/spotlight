@@ -8,7 +8,7 @@ import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker'
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { type Chat, type ChatMoment, momentsOf, turnsOf } from '@/lib/chat';
-import { HELD_AT_TOP, type RunJournal } from '@/lib/inbox';
+import { type RunJournal, STICKY_AT_TOP } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
 type ChatThreadProps = {
@@ -56,7 +56,7 @@ export function ChatThread({
                 className={cn('flex flex-col', at > 0 && 'mt-6')}
               >
                 {turn.said && (
-                  <div className={HELD_AT_TOP}>
+                  <div className={STICKY_AT_TOP}>
                     <ChatSaid
                       slug={slug}
                       teamId={teamId}

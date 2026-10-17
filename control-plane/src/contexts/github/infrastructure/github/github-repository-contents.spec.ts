@@ -170,7 +170,7 @@ describe('GitHubRepositoryContents', () => {
     ).toBe('big = true\n');
   });
 
-  it('answers nothing for a file the repository does not hold', async () => {
+  it('answers nothing for a file the repository does not have', async () => {
     github();
 
     expect(
@@ -239,7 +239,7 @@ describe('GitHubRepositoryContents', () => {
     });
   });
 
-  it('refuses to move a branch that holds commits Spotlight did not write', async () => {
+  it('refuses to move a branch that has commits Spotlight did not write', async () => {
     github({ branchTaken: true, head: 'commit_theirs' });
 
     await expect(

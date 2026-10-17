@@ -156,12 +156,12 @@ beforeAll(async () => {
   const failures = () => app.get(DrizzleTaskFailuresRepository).of(TASK);
   const heard = async (
     events: readonly DomainEvent[],
-    held: () => Promise<unknown>,
+    check: () => Promise<unknown>,
   ) => {
     await app.get(EventOutbox).record(events);
     await eventually(async () => {
       await app.get(EventDelivery).drain(2_000);
-      return held();
+      return check();
     }, 60_000);
   };
 

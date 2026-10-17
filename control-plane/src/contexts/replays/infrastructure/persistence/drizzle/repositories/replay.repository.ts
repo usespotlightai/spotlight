@@ -616,49 +616,51 @@ export class DrizzleReplayRepository implements ReplayRepository {
     });
   }
 
-  private columnsOf(held: Replay) {
+  private columnsOf(aggregate: Replay) {
     return {
-      id: held.id.value,
-      workspaceId: held.workspaceId.value,
-      teamId: held.teamId.value,
-      lineId: held.station.lineId,
-      stationId: held.station.stationId,
-      setId: held.setId.value,
-      candidateId: held.candidateId.value,
-      baseline: held.baseline,
-      judges: held.judges,
-      checked: held.checked,
-      rubricVersion: held.rubricVersion,
-      scoringDigest: held.scoringDigest,
-      ceilingAmount: held.ceiling.amount,
-      unpricedRate: held.unpricedRate?.amount ?? null,
-      ceilingCurrency: held.ceiling.currency,
-      among: held.among ? held.among.map((each) => each.value) : null,
-      answers: held.answers
-        ? held.answers.map((each) => ({
+      id: aggregate.id.value,
+      workspaceId: aggregate.workspaceId.value,
+      teamId: aggregate.teamId.value,
+      lineId: aggregate.station.lineId,
+      stationId: aggregate.station.stationId,
+      setId: aggregate.setId.value,
+      candidateId: aggregate.candidateId.value,
+      baseline: aggregate.baseline,
+      judges: aggregate.judges,
+      checked: aggregate.checked,
+      rubricVersion: aggregate.rubricVersion,
+      scoringDigest: aggregate.scoringDigest,
+      ceilingAmount: aggregate.ceiling.amount,
+      unpricedRate: aggregate.unpricedRate?.amount ?? null,
+      ceilingCurrency: aggregate.ceiling.currency,
+      among: aggregate.among ? aggregate.among.map((each) => each.value) : null,
+      answers: aggregate.answers
+        ? aggregate.answers.map((each) => ({
             run: each.run.value,
             answer: each.answer,
           }))
         : null,
-      repeats: held.repeats,
-      probe: held.probe,
-      comparedWith: held.comparedWith?.value ?? null,
-      pairsWith: held.pairsWith?.value ?? null,
-      searchId: held.searchId?.value ?? null,
-      state: held.current,
-      startedAt: held.startedAt,
-      endedAt: held.endedAt,
-      stoppedAt: held.stoppedAt,
+      repeats: aggregate.repeats,
+      probe: aggregate.probe,
+      comparedWith: aggregate.comparedWith?.value ?? null,
+      pairsWith: aggregate.pairsWith?.value ?? null,
+      searchId: aggregate.searchId?.value ?? null,
+      state: aggregate.current,
+      startedAt: aggregate.startedAt,
+      endedAt: aggregate.endedAt,
+      stoppedAt: aggregate.stoppedAt,
     };
   }
 
-  private async writeEntries(held: Replay): Promise<void> {
+  private async writeEntries(aggregate: Replay): Promise<void> {
     await this.context.db
       .delete(replayEntry)
-      .where(eq(replayEntry.replayId, held.id.value));
+      .where(eq(replayEntry.replayId, aggregate.id.value));
     await this.context.db
       .insert(replayEntry)
-      .values(held.entries.map((each) => entryRow(held.id.value, each)));
+      .values(
+        aggregate.entries.map((each) => entryRow(aggregate.id.value, each)),
+      );
   }
 
   private async withEntries(

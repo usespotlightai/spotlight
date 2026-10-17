@@ -46,7 +46,7 @@ type Settings struct {
 	Rate        float64
 	Connections int
 
-	HoldsEvery  time.Duration
+	CheckEvery  time.Duration
 	RecordEvery time.Duration
 	Dial        func(ctx context.Context, network, address string) (net.Conn, error)
 	RootCAs     *x509.CertPool
@@ -132,7 +132,7 @@ func trusting(path string) (*x509.CertPool, error) {
 		roots = x509.NewCertPool()
 	}
 	if !roots.AppendCertsFromPEM(trusted) {
-		return nil, fmt.Errorf("%s: %s holds no PEM certificate", envTrust, path)
+		return nil, fmt.Errorf("%s: %s has no PEM certificate", envTrust, path)
 	}
 
 	return roots, nil

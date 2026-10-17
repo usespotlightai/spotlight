@@ -20,7 +20,7 @@ const filesIn = (root: string, within = ''): SkillFile[] =>
   });
 
 export class BuiltInSkillFiles implements ShippedSkillsPort {
-  private readonly held: ReadonlyMap<string, SkillFolder>;
+  private readonly byKey: ReadonlyMap<string, SkillFolder>;
 
   constructor(keys: readonly string[], directory: string = SHIPPED_SKILLS) {
     const folders = readdirSync(directory, { withFileTypes: true })
@@ -41,10 +41,10 @@ export class BuiltInSkillFiles implements ShippedSkillsPort {
       }
     }
 
-    this.held = new Map(folders.map((each) => [each.skill.key.value, each]));
+    this.byKey = new Map(folders.map((each) => [each.skill.key.value, each]));
   }
 
   named(key: string): SkillFolder | null {
-    return this.held.get(key) ?? null;
+    return this.byKey.get(key) ?? null;
   }
 }

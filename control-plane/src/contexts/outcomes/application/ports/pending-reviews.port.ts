@@ -7,9 +7,9 @@ export interface PendingReview {
 }
 
 export interface PendingReviewsPort {
-  hold(workspaceId: WorkspaceId, review: PendingReview): Promise<void>;
+  add(workspaceId: WorkspaceId, review: PendingReview): Promise<void>;
 
-  heldFor(
+  pendingFor(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
     since: Date,

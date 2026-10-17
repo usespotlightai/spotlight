@@ -1,18 +1,18 @@
-import type { HeldWork } from '@runners/application/ports/runners.port';
+import type { LeasedWork } from '@runners/application/ports/runners.port';
 
 export const RUNNER_EGRESS = Symbol('RUNNER_EGRESS');
 
 export interface EgressFor {
   readonly runnerId: string;
   readonly workspaceId: string;
-  readonly work: HeldWork;
+  readonly work: LeasedWork;
 }
 
 export interface SharedEgressFor {
   readonly egressId: string;
   readonly runnerId: string;
   readonly workspaceId: string;
-  readonly work: HeldWork | null;
+  readonly work: LeasedWork | null;
 }
 
 export interface SharedEgress {

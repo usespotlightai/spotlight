@@ -83,9 +83,9 @@ const replay = () =>
 
 const working = () => {
   const saved: Run[] = [];
-  const held = replay();
-  let current: Run = held.renewLease(RUNNER, NOW);
-  const work = new ReplayRunWork(held, briefed, {
+  const replayed = replay();
+  let current: Run = replayed.renewLease(RUNNER, NOW);
+  const work = new ReplayRunWork(replayed, briefed, {
     findById: async () => current,
     save: async (run: Run) => {
       if (run.version !== current.version) {

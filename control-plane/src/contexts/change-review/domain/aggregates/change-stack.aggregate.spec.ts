@@ -225,7 +225,7 @@ describe('ChangeStack', () => {
     ).toEqual(['places h1 2 times', 'leaves h3 out']);
   });
 
-  it('refuses a change the diff does not hold', () => {
+  it('refuses a change the diff does not contain', () => {
     expect(
       problemsOf([
         invitations([layer('Everything', ['h1', 'h2', 'h3', 'h9'])]),
@@ -502,11 +502,11 @@ describe('ChangeStack read back from what was stored', () => {
     ).toThrow('failed without saying why');
   });
 
-  it('refuses a stack that is still drafting, yet holds cohorts', () => {
+  it('refuses a stack that is still drafting, yet has cohorts', () => {
     expect(() =>
       stored({
         progress: StackProgress.drafting(NOW),
       }),
-    ).toThrow('is still drafting, yet already holds cohorts');
+    ).toThrow('is still drafting, yet already has cohorts');
   });
 });

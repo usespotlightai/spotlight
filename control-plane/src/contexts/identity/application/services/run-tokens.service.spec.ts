@@ -13,17 +13,17 @@ const NOW = new Date('2026-10-11T09:00:00.000Z');
 const HOUR_LATER = new Date('2026-10-11T10:00:00.000Z');
 
 const using = () => {
-  const held: WorkspaceToken[] = [];
+  const stored: WorkspaceToken[] = [];
   const saved: WorkspaceToken[] = [];
   const tokens = {
     add: vi.fn(async (token: WorkspaceToken) => {
-      held.push(token);
+      stored.push(token);
     }),
     save: vi.fn(async (token: WorkspaceToken) => {
       saved.push(token);
     }),
-    mintedForRun: vi.fn(async () => held),
-    find: vi.fn(async () => held[0] ?? null),
+    mintedForRun: vi.fn(async () => stored),
+    find: vi.fn(async () => stored[0] ?? null),
   } as unknown as WorkspaceTokenRepository;
   const service = new RunTokens(
     tokens,
@@ -37,7 +37,7 @@ const using = () => {
     } as TransactionPort,
   );
 
-  return { service, tokens, held, saved };
+  return { service, tokens, stored, saved };
 };
 
 const WANTED = {
@@ -51,18 +51,18 @@ const WANTED = {
 
 describe('RunTokens', () => {
   it('answers the raw token once and keeps only its hash, minted for the run', async () => {
-    const { service, held } = using();
+    const { service, stored } = using();
 
     await expect(service.mintFor(WANTED)).resolves.toEqual({
       id: 'Token_1',
       token: 'raw-token',
     });
-    expect(held[0]?.hash.value).toBe('b'.repeat(64));
-    expect(held[0]?.mintedForRun?.value).toBe('run_1');
-    expect(held[0]?.mintedForAttempt).toBe(2);
-    expect(held[0]?.name.value).toBe('run-token-1');
-    expect(held[0]?.expiresAt).toEqual(HOUR_LATER);
-    expect(held[0]?.scopes.all.map((each) => each.value)).toEqual(['plan']);
+    expect(stored[0]?.hash.value).toBe('b'.repeat(64));
+    expect(stored[0]?.mintedForRun?.value).toBe('run_1');
+    expect(stored[0]?.mintedForAttempt).toBe(2);
+    expect(stored[0]?.name.value).toBe('run-token-1');
+    expect(stored[0]?.expiresAt).toEqual(HOUR_LATER);
+    expect(stored[0]?.scopes.all.map((each) => each.value)).toEqual(['plan']);
   });
 
   it('revokes every token minted for the run', async () => {

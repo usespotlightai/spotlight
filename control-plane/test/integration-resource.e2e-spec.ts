@@ -46,19 +46,19 @@ const WITHOUT_TOOLS = { ...LINEAR, tools: {} };
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `integrations-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `integrations-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${held}/integrations`,
+    collection: `/api/resources/teams/${workspaceId}/integrations`,
     item: (id) => `/api/resources/integrations/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/integrations/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/integrations/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
       `/api/resources/workspaces/${workspaceId}/integrations`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'team/linear',
     valid: LINEAR,
     changed: { ...LINEAR, name: 'Linear, again' },
@@ -73,7 +73,7 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     close: async () => {
       await db
         .delete(schema.integrationDefinition)
-        .where(eq(schema.integrationDefinition.teamId, held));
+        .where(eq(schema.integrationDefinition.teamId, workspaceId));
       await db
         .delete(schema.idempotentCreate)
         .where(

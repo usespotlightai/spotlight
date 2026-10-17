@@ -58,7 +58,7 @@ class Answered implements DomainEvent {
   constructor(readonly marker: Marker) {}
 }
 
-let held: TestDatabase;
+let database: TestDatabase;
 let context: DrizzleContext;
 let now = new Date();
 const heard: string[] = [];
@@ -152,12 +152,12 @@ const outboxWith = () => {
 };
 
 beforeAll(async () => {
-  held = await openDatabase('event_outbox');
-  context = new DrizzleContext(held.db);
+  database = await openDatabase('event_outbox');
+  context = new DrizzleContext(database.db);
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('the event outbox', () => {
@@ -194,7 +194,7 @@ describe('the event outbox', () => {
     await outbox.record([changedBy('kept')]);
 
     expect(
-      await held.db
+      await database.db
         .select({
           key: configurationChange.key,
           actor: configurationChange.actor,
@@ -236,7 +236,7 @@ describe('the event outbox', () => {
 
     expect(causes).toEqual(['the hook bell']);
     expect(
-      (await held.db.select({ cause: eventOutbox.cause }).from(eventOutbox))
+      (await database.db.select({ cause: eventOutbox.cause }).from(eventOutbox))
         .map((each) => CausalChain.read(each.cause).saying)
         .filter((each) => each !== ''),
     ).toEqual(['the hook bell', 'the hook bell', 'the hook bell']);
@@ -280,7 +280,7 @@ describe('the event outbox', () => {
       now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     }
 
-    const rows = await held.db
+    const rows = await database.db
       .select()
       .from(eventDelivery)
       .where(eq(eventDelivery.subscriber, 'test.flaky'));
@@ -331,7 +331,7 @@ describe('the event outbox', () => {
     await expect(owed('bell.other')).resolves.toEqual({ owed: 0, givenUp: 0 });
   });
 
-  it('finds the events about one thing by an id held in a value object', async () => {
+  it('finds the events about one thing by an id kept in a value object', async () => {
     const { outbox } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('nested'))]);

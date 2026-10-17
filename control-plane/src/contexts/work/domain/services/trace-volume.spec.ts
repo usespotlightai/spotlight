@@ -49,7 +49,7 @@ describe('traceVolumeOf', () => {
     });
   });
 
-  it('holds a trace from outside the window at the near end', () => {
+  it('keeps a trace from outside the window at the near end', () => {
     const volume = traceVolumeOf(
       [started(new Date(0)), started(new Date(NOW.getTime() + 60_000))],
       HOUR,

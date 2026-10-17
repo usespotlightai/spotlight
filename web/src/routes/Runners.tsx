@@ -22,7 +22,10 @@ export function Runners() {
   const fleet = useRunners(slug);
   const { data: harnesses } = useHarnesses();
   const { data: workspace } = useWorkspace(slug);
-  const [held, remember] = useRemembered(FILTER_KEY, FALLBACK_RUNNER_FILTER);
+  const [remembered, remember] = useRemembered(
+    FILTER_KEY,
+    FALLBACK_RUNNER_FILTER,
+  );
   const { trail, forward } = useTrail([{ label: 'Runners' }]);
 
   if (!slug) {
@@ -53,7 +56,7 @@ export function Runners() {
       ) : (
         <FilteredRunners
           slug={slug}
-          filter={asRunnerFilter(held)}
+          filter={asRunnerFilter(remembered)}
           onFilter={remember}
           loading={loading(fleet)}
           hosts={hosts ?? []}

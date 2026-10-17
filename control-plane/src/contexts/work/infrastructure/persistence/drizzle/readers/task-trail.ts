@@ -45,19 +45,19 @@ interface Gathered {
 }
 
 export const attachmentsOf = (
-  held: ReadonlyMap<string, TaskAttachments>,
+  byTask: ReadonlyMap<string, TaskAttachments>,
   taskId: string,
-): TaskAttachments => held.get(taskId) ?? NONE;
+): TaskAttachments => byTask.get(taskId) ?? NONE;
 
 export const attachmentsFor = async (
   db: DrizzleDatabase,
   taskIds: readonly string[],
 ): Promise<Map<string, TaskAttachments>> => {
-  const held = new Map<string, Gathered>();
+  const byTask = new Map<string, Gathered>();
   const named = [...new Set(taskIds)];
 
   if (named.length === 0) {
-    return held;
+    return byTask;
   }
 
   const rows = await db
@@ -74,7 +74,7 @@ export const attachmentsFor = async (
     .orderBy(asc(taskAttachment.notePosition), asc(taskAttachment.place));
 
   for (const { taskId, notePosition, ...file } of rows) {
-    const files: Gathered = held.get(taskId) ?? { own: [], said: new Map() };
+    const files: Gathered = byTask.get(taskId) ?? { own: [], said: new Map() };
 
     if (notePosition === null) {
       files.own.push(file);
@@ -85,10 +85,10 @@ export const attachmentsFor = async (
       ]);
     }
 
-    held.set(taskId, files);
+    byTask.set(taskId, files);
   }
 
-  return held;
+  return byTask;
 };
 
 const asked = (
@@ -236,24 +236,24 @@ export const stationsPerLine = async (
   db: DrizzleDatabase,
   lineIds: readonly string[],
 ): Promise<Map<string, number>> => {
-  const held = new Map<string, number>();
+  const counts = new Map<string, number>();
   const named = [...new Set(lineIds)];
 
   if (named.length === 0) {
-    return held;
+    return counts;
   }
 
   const rows = await db
-    .select({ lineId: station.lineId, held: count() })
+    .select({ lineId: station.lineId, stations: count() })
     .from(station)
     .where(inArray(station.lineId, named))
     .groupBy(station.lineId);
 
   for (const row of rows) {
-    held.set(row.lineId, row.held);
+    counts.set(row.lineId, row.stations);
   }
 
-  return held;
+  return counts;
 };
 
 export const awaitedReviewsFor = async (

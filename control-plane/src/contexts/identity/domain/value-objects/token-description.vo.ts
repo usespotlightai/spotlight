@@ -8,16 +8,16 @@ export class TokenDescription {
   private constructor(readonly value: string) {}
 
   static of(raw: string): TokenDescription {
-    const held = raw.trim();
+    const trimmed = raw.trim();
 
-    if (held.length > LONGEST) {
+    if (trimmed.length > LONGEST) {
       throw new InvalidWorkspaceTokenError(
         'description',
         `must be at most ${LONGEST} characters`,
       );
     }
 
-    return new TokenDescription(held);
+    return new TokenDescription(trimmed);
   }
 
   equals(other: TokenDescription): boolean {

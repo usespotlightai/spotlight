@@ -273,7 +273,7 @@ func egressOf(get func(string) string, version, poolToken string) (Egress, error
 		case err != nil:
 			problems = append(problems, fmt.Errorf("%s: %w", envEgressCA, err))
 		case !x509.NewCertPool().AppendCertsFromPEM(egress.Trust):
-			problems = append(problems, fmt.Errorf("%s: %s holds no PEM certificate", envEgressCA, path))
+			problems = append(problems, fmt.Errorf("%s: %s has no PEM certificate", envEgressCA, path))
 		}
 	}
 
@@ -303,7 +303,7 @@ func sandboxed(values map[string]string, poolToken string) ([]string, error) {
 	env := make([]string, 0, len(values))
 	for key, value := range values {
 		if slices.Contains(hostOnly, key) {
-			return nil, fmt.Errorf("the sandbox environment sets %s, which only the host holds", key)
+			return nil, fmt.Errorf("the sandbox environment sets %s, which only the host has", key)
 		}
 		if poolToken != "" && strings.Contains(value, poolToken) {
 			return nil, fmt.Errorf("the sandbox environment carries the pool token in %s", key)
@@ -381,7 +381,7 @@ func HostID(state string) (string, error) {
 	return id, nil
 }
 
-func Hold(state string) (func(), error) {
+func Lock(state string) (func(), error) {
 	if err := os.MkdirAll(state, 0o700); err != nil {
 		return nil, fmt.Errorf("make the host's state directory: %w", err)
 	}

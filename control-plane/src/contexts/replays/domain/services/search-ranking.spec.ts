@@ -53,7 +53,7 @@ describe('rankedOf', () => {
             point('seed', { seed: true, searchScore: 0.4, heldOutScore: 0.7 }),
             point('overfit', { searchScore: 1, heldOutScore: 0.3 }),
             point('steady', { searchScore: 0.7, heldOutScore: 0.9 }),
-            point('unheld', { searchScore: 0.95 }),
+            point('searched-only', { searchScore: 0.95 }),
           ],
           'success',
         ),

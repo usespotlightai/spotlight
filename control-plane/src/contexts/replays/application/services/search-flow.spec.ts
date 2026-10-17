@@ -279,14 +279,14 @@ const replayed = async (
   await delivered();
 };
 
-const heldRun = (): string => {
-  const run = theSearch().heldRun;
+const activeRun = (): string => {
+  const run = theSearch().activeRun;
 
   if (!run) {
-    throw new Error('the search holds no run');
+    throw new Error('the search has no active run');
   }
 
-  work.heldSearchRuns.set(run.value, {
+  work.leasedSearchRuns.set(run.value, {
     searchId: theSearch().id,
     iteration: theSearch().iterationOf(run)?.number ?? 0,
   });
@@ -561,8 +561,8 @@ describe('a search’s iterations', () => {
     expect(order?.briefing).toContain('spotlight candidate --name <name>');
     expect(order?.briefing).toContain('3 more tasks you never see');
     expect(order?.briefing).toContain('at most 2 candidates');
-    for (const held of search.split.heldOut) {
-      expect(order?.briefing).not.toContain(held.taskId.value);
+    for (const heldOut of search.split.heldOut) {
+      expect(order?.briefing).not.toContain(heldOut.taskId.value);
     }
   });
 
@@ -641,8 +641,8 @@ describe('a stalled search looking into why', () => {
 
     await delivered();
     await replayed(started.seedReplayId, (original) => !failing(original), 0.5);
-    await runEnds(heldRun(), 'failed');
-    await runEnds(heldRun(), 'failed');
+    await runEnds(activeRun(), 'failed');
+    await runEnds(activeRun(), 'failed');
   };
 
   const searchedAt = (at: number) => {
@@ -677,7 +677,7 @@ describe('a stalled search looking into why', () => {
       ].some((each) => each.value === original);
     });
 
-    const run = heldRun();
+    const run = activeRun();
     const reflection = theSearch().iterationOf(RunId.of(run));
     const order = work.searchesDispatched[work.searchesDispatched.length - 1];
 
@@ -687,11 +687,11 @@ describe('a stalled search looking into why', () => {
       searchedAt(1).taskId,
     ]);
     expect(order?.briefing).toContain(`| \`${searchedAt(0).taskId.value}\` |`);
-    for (const held of theSearch().split.heldOut) {
-      expect(order?.briefing).not.toContain(held.taskId.value);
-      await expect(cause(run, held.taskId.value, 'task')).rejects.toMatchObject(
-        { kind: 'not-found' },
-      );
+    for (const heldOut of theSearch().split.heldOut) {
+      expect(order?.briefing).not.toContain(heldOut.taskId.value);
+      await expect(
+        cause(run, heldOut.taskId.value, 'task'),
+      ).rejects.toMatchObject({ kind: 'not-found' });
     }
     await expect(cause(run, 'task_unknown', 'task')).rejects.toMatchObject({
       kind: 'not-found',
@@ -744,7 +744,7 @@ describe('a stalled search looking into why', () => {
         original,
     );
 
-    const run = heldRun();
+    const run = activeRun();
 
     await cause(
       run,
@@ -790,7 +790,7 @@ describe('a stalled search looking into why', () => {
 describe('ProposeSearchCandidateHandler', () => {
   it('replays a valid proposal on the searched runs only, within a search replay’s ceiling, once however often it is sent', async () => {
     await seeded();
-    const run = heldRun();
+    const run = activeRun();
 
     const proposed = await propose(run, 'firmer');
     const again = await propose(run, 'firmer');
@@ -820,7 +820,7 @@ describe('ProposeSearchCandidateHandler', () => {
 
   it('refuses a bad name, no hypothesis and a change a search may not make, as problems, counting the attempt', async () => {
     await seeded();
-    const run = heldRun();
+    const run = activeRun();
 
     const refused = await propose(
       run,
@@ -840,9 +840,9 @@ describe('ProposeSearchCandidateHandler', () => {
     expect((await propose(run, 'seed')).outcome).toBe('invalid');
   });
 
-  it('refuses a proposal past the iteration’s candidates, and one from a run the search no longer holds', async () => {
+  it('refuses a proposal past the iteration’s candidates, and one from a run that is no longer the active run of the search', async () => {
     await seeded();
-    const run = heldRun();
+    const run = activeRun();
 
     await propose(run, 'one');
     await propose(run, 'two');
@@ -852,7 +852,7 @@ describe('ProposeSearchCandidateHandler', () => {
     });
     await expect(propose('elsewhere', 'four')).rejects.toMatchObject({
       kind: 'not-found',
-      message: 'The search no longer holds this run',
+      message: 'This run is no longer the active run of the search',
     });
 
     await runEnds(run);
@@ -866,7 +866,7 @@ describe('ProposeSearchCandidateHandler', () => {
 describe('a search running its course', () => {
   it('runs its next iteration once the last one’s run and replays ended, holds out only its frontier, then finishes', async () => {
     await seeded();
-    const first = heldRun();
+    const first = activeRun();
     const strong = await propose(first, 'strong');
     const weak = await propose(first, 'weak');
 
@@ -883,7 +883,7 @@ describe('a search running its course', () => {
 
     expect(work.searchesDispatched).toHaveLength(2);
 
-    const second = heldRun();
+    const second = activeRun();
 
     await runEnds(second);
 
@@ -929,7 +929,7 @@ describe('a search running its course', () => {
 
   it('withdraws its agent run and stops its replays once a person stops it', async () => {
     await seeded();
-    const run = heldRun();
+    const run = activeRun();
     const proposed = await propose(run, 'firmer');
 
     await new StopSearchHandler(
@@ -952,7 +952,7 @@ describe('a search running its course', () => {
 describe('SearchSights', () => {
   it('shows a search run the searched tasks and every candidate’s run on them, the seed’s included, and never a held-out task', async () => {
     await seeded();
-    const run = heldRun();
+    const run = activeRun();
     const proposed = await propose(run, 'firmer');
 
     if (proposed.outcome !== 'proposed') {
@@ -1004,9 +1004,9 @@ describe('SearchSights', () => {
 });
 
 describe('AbandonSearches', () => {
-  it('abandons every search of a disbanded team, withdrawing the run it held', async () => {
+  it('abandons every search of a disbanded team, withdrawing its active run', async () => {
     await seeded();
-    const run = heldRun();
+    const run = activeRun();
 
     const due = await abandoning().ofTeam(STATION.teamId, STATION.workspaceId);
 
@@ -1089,11 +1089,11 @@ describe('EstimateSearchHandler', () => {
 describe('NoteSearchProgress', () => {
   it('closes an iteration that proposed nothing only once its late digest came, and charges an unpriced run its allotment', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
-    const first = heldRun();
+    const first = activeRun();
 
     await runEnds(first, 'completed', null);
 
-    expect(theSearch().heldRun).toBeNull();
+    expect(theSearch().activeRun).toBeNull();
     expect(work.searchesDispatched).toHaveLength(1);
 
     const before = theSearch().spent;
@@ -1106,7 +1106,7 @@ describe('NoteSearchProgress', () => {
     ).toBe(true);
     expect(work.searchesDispatched).toHaveLength(2);
 
-    const second = heldRun();
+    const second = activeRun();
     const charged = theSearch().spent;
 
     await runEnds(second, 'completed', NO_SPEND);
@@ -1117,7 +1117,7 @@ describe('NoteSearchProgress', () => {
 
   it('closes an iteration whose run was withdrawn before it started without waiting for a digest', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
-    const first = heldRun();
+    const first = activeRun();
 
     await runEnds(first, 'withdrawn', null);
 
@@ -1131,7 +1131,7 @@ describe('NoteSearchProgress', () => {
 describe('AdvanceSearches', () => {
   it('sees a replay end, a run end and a digest whose word was lost, and an unclaimed run left too long', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
-    const first = heldRun();
+    const first = activeRun();
     const proposed = await propose(first, 'firmer');
 
     if (proposed.outcome !== 'proposed') {
@@ -1145,7 +1145,7 @@ describe('AdvanceSearches', () => {
     );
     memory.events.splice(0);
     work.runStandings.set(first, {
-      run: theSearch().heldRun as never,
+      run: theSearch().activeRun as never,
       phase: 'ended',
       failed: false,
       started: true,
@@ -1162,7 +1162,7 @@ describe('AdvanceSearches', () => {
     expect(iteration?.agentSpent?.unpriced).toBe(1);
     expect(theSearch().iterations).toHaveLength(2);
 
-    const second = theSearch().heldRun;
+    const second = theSearch().activeRun;
 
     work.runStandings.set(second?.value ?? '', {
       run: second as never,
@@ -1194,10 +1194,10 @@ describe('AdvanceSearches', () => {
 
   it('fails an iteration whose never-started run it let go, with nothing spent', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
-    const first = heldRun();
+    const first = activeRun();
 
     work.runStandings.set(first, {
-      run: theSearch().heldRun as never,
+      run: theSearch().activeRun as never,
       phase: 'queued',
       failed: true,
       started: false,
@@ -1215,7 +1215,7 @@ describe('AdvanceSearches', () => {
 
   it('never ends a replay admitted after it last looked, though its row is not there yet', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
-    const run = heldRun();
+    const run = activeRun();
     const seen = theSearch();
     const proposed = await propose(run, 'firmer');
 
@@ -1239,7 +1239,7 @@ describe('AdvanceSearches', () => {
 
   it('counts a search replay whose row is gone as ended with nothing spent', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
-    const proposed = await propose(heldRun(), 'firmer');
+    const proposed = await propose(activeRun(), 'firmer');
 
     if (proposed.outcome !== 'proposed') {
       throw new Error('the proposal was refused');
@@ -1255,7 +1255,7 @@ describe('AdvanceSearches', () => {
 
   it('stops the replays an ended search left running', async () => {
     await seeded();
-    const proposed = await propose(heldRun(), 'firmer');
+    const proposed = await propose(activeRun(), 'firmer');
 
     if (proposed.outcome !== 'proposed') {
       throw new Error('the proposal was refused');

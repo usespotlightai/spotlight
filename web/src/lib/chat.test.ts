@@ -120,7 +120,7 @@ describe('momentsOf', () => {
     ).toEqual([2, 0, 1]);
   });
 
-  it('holds a proposal as a proposal, not as something said', () => {
+  it('keeps a proposal as a proposal, not as something said', () => {
     const [moment] = momentsOf(
       [
         message({
@@ -149,7 +149,7 @@ describe('momentsOf', () => {
 });
 
 describe('turnsOf', () => {
-  it('opens a turn at everything the person says, holding what followed it', () => {
+  it('opens a turn at everything the person says, with what followed it', () => {
     const turns = turnsOf(
       momentsOf(
         [

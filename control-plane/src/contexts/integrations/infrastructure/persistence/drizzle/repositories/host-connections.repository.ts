@@ -20,14 +20,14 @@ import { and, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 
 type Row = typeof hostConnection.$inferSelect;
 
-type Held = 'access' | 'refresh';
+type TokenKind = 'access' | 'refresh';
 
 const labelFor = (
   teamId: string,
   source: string,
   holder: string,
-  held: Held,
-): string => ['host-connection', teamId, source, holder, held].join(':');
+  kind: TokenKind,
+): string => ['host-connection', teamId, source, holder, kind].join(':');
 
 const keyOf = (connection: HostConnection) =>
   and(
@@ -162,7 +162,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
 
   private sealed(
     connection: HostConnection,
-    held: Held,
+    kind: TokenKind,
     plain: string,
   ): Promise<string> {
     return this.sealing.seal(
@@ -171,17 +171,21 @@ export class DrizzleHostConnections implements HostConnectionRepository {
         connection.teamId.value,
         connection.source.value,
         connection.holder.key,
-        held,
+        kind,
       ),
       Credential.of(plain),
     );
   }
 
-  private async opened(row: Row, held: Held, sealed: string): Promise<string> {
+  private async opened(
+    row: Row,
+    kind: TokenKind,
+    sealed: string,
+  ): Promise<string> {
     return (
       await this.sealing.open(
         row.workspaceId,
-        labelFor(row.teamId, row.source, row.holder, held),
+        labelFor(row.teamId, row.source, row.holder, kind),
         sealed,
       )
     ).revealed();

@@ -54,7 +54,7 @@ export const seedCodeReviews = (): Record<string, CodeReviewResponseDto> => {
           line: 3,
           startLine: 2,
           byAgent: true,
-          body: 'This rewrites all 1.3M rows of `invoices` in one statement and holds its lock for about 40 seconds. Run it in batches from a backfill job instead?',
+          body: 'This rewrites all 1.3M rows of `invoices` in one statement and keeps its lock for about 40 seconds. Run it in batches from a backfill job instead?',
           url: `${PULL_431}#discussion_r1981204`,
           createdAt: minutesAfter(reviewed, -2),
         }),
@@ -127,7 +127,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
         kind: 'deviation',
         title:
           'The migration rewrites `invoices.paid_at` in one statement, not in batches',
-        why: 'The spec says nothing on batching. One statement is simplest and took 40 seconds on a copy of production, holding a lock on invoices the whole time.',
+        why: 'The spec says nothing on batching. One statement is simplest and took 40 seconds on a copy of production, with a lock on invoices the whole time.',
         alternatives: ['Rewrite in batches of 50,000 from a backfill job'],
         paths: [MIGRATION_PATH],
         steps: stepsOf(POSTGRES_RUN, MIGRATION_PATH),

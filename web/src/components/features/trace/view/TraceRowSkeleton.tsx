@@ -6,7 +6,7 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
 export type TraceRowShape = {
   depth: number;
-  holding: boolean;
+  hasChildren: boolean;
   name: string;
   left: number;
   width: number;
@@ -14,7 +14,7 @@ export type TraceRowShape = {
 
 export function TraceRowSkeleton({
   depth,
-  holding,
+  hasChildren,
   name,
   left,
   width,
@@ -25,7 +25,7 @@ export function TraceRowSkeleton({
         className="flex min-w-0 shrink-0 items-center gap-1 pr-3"
         style={{ width: 'var(--names)', paddingLeft: depth * INDENT + 8 }}
       >
-        {holding ? (
+        {hasChildren ? (
           <ChevronRight
             className="size-3 shrink-0 rotate-90 text-muted-foreground"
             aria-hidden

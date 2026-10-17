@@ -14,9 +14,9 @@ import {
   aPullPool,
   aTrust,
   HOST_ID,
-  heldHosts,
   POOL_ID,
   STARTED_AT,
+  storedHosts,
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
@@ -57,7 +57,9 @@ const reporting = (
     known?: ReturnType<typeof aHost>;
   } = {},
 ) => {
-  const { held, hosts } = given.known ? heldHosts(given.known) : heldHosts();
+  const { stored, hosts } = given.known
+    ? storedHosts(given.known)
+    : storedHosts();
   let now = STARTED_AT;
   let admitted = given.admitted === undefined ? aPullPool() : given.admitted;
   const admit = vi.fn(async () =>
@@ -71,7 +73,7 @@ const reporting = (
   );
 
   return {
-    held,
+    stored,
     hosts,
     admit,
     at: (ms: number) => {
@@ -112,14 +114,14 @@ describe('ReportHostPresenceHandler', () => {
   });
 
   it('keeps a host the first time it reports, in the workspace it was admitted to', async () => {
-    const { report, held } = reporting();
+    const { report, stored } = reporting();
 
     await expect(report()).resolves.toEqual({
       outcome: 'present',
       workspaceId: 'ws_1',
     });
 
-    const host = held.get(HOST);
+    const host = stored.get(HOST);
 
     expect(host?.workspaceId.value).toBe('ws_1');
     expect(host?.admission.equals(Admission.through(POOL_ID))).toBe(true);
@@ -131,13 +133,13 @@ describe('ReportHostPresenceHandler', () => {
   });
 
   it('takes a later report as what the host is now, seen then', async () => {
-    const { report, held, at } = reporting();
+    const { report, stored, at } = reporting();
 
     await report();
     at(30_000);
     await report({ running: ['runner_1'] });
 
-    const host = held.get(HOST);
+    const host = stored.get(HOST);
 
     expect(host?.firstSeenAt).toEqual(STARTED_AT);
     expect(host?.lastSeenAt).toEqual(later(30_000));
@@ -147,37 +149,37 @@ describe('ReportHostPresenceHandler', () => {
     ]);
   });
 
-  it('holds a host up since the first report of the session it restarted in', async () => {
-    const { report, held, at } = reporting();
+  it('keeps a host up since the first report of the session it restarted in', async () => {
+    const { report, stored, at } = reporting();
 
     await report();
     at(30_000);
     await report();
 
-    expect(held.get(HOST)?.upSince).toEqual(STARTED_AT);
+    expect(stored.get(HOST)?.upSince).toEqual(STARTED_AT);
 
     at(45_000);
     await report({}, CREDENTIAL, 'session_2');
 
-    expect(held.get(HOST)?.session.value).toBe('session_2');
-    expect(held.get(HOST)?.upSince).toEqual(later(45_000));
+    expect(stored.get(HOST)?.session.value).toBe('session_2');
+    expect(stored.get(HOST)?.upSince).toEqual(later(45_000));
   });
 
   it('refuses a host that reports through another pool or trust while it still answers through the first', async () => {
-    const { report, held, admitThrough, at } = reporting();
+    const { report, stored, admitThrough, at } = reporting();
 
     await report();
     admitThrough(aTrust());
     at(89_999);
 
     await expect(report()).resolves.toEqual({ outcome: 'taken' });
-    expect(held.get(HOST)?.admission.equals(Admission.through(POOL_ID))).toBe(
+    expect(stored.get(HOST)?.admission.equals(Admission.through(POOL_ID))).toBe(
       true,
     );
   });
 
   it('takes over a host id gone silent through another pool or trust', async () => {
-    const { report, held, at } = reporting({
+    const { report, stored, at } = reporting({
       admitted: aTrust(),
       known: aHost({ through: aPullPool() }),
     });
@@ -189,7 +191,7 @@ describe('ReportHostPresenceHandler', () => {
       workspaceId: 'ws_1',
     });
 
-    const host = held.get(HOST);
+    const host = stored.get(HOST);
 
     expect(host?.admission.equals(Admission.through(TRUST_ID))).toBe(true);
     expect(host?.firstSeenAt).toEqual(later(90_000));

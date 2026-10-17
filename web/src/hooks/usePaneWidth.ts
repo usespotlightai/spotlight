@@ -52,7 +52,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   const [resizing, setResizing] = useState(false);
   const origin = useRef<{ x: number; width: number } | null>(null);
   const last = useRef(width);
-  const held = useRef<T | null>(null);
+  const paneRef = useRef<T | null>(null);
 
   useEffect(() => {
     if (!resizing) {
@@ -78,9 +78,9 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     last.current = clamped;
 
     if (pane.property) {
-      held.current?.style.setProperty(pane.property, `${clamped}px`);
-    } else if (held.current) {
-      held.current.style.width = `${clamped}px`;
+      paneRef.current?.style.setProperty(pane.property, `${clamped}px`);
+    } else if (paneRef.current) {
+      paneRef.current.style.width = `${clamped}px`;
     } else {
       setWidth(clamped);
     }
@@ -123,7 +123,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   return {
     width,
     resizing,
-    paneRef: held,
+    paneRef,
     handleProps: {
       role: 'separator' as const,
       'aria-orientation': 'vertical' as const,

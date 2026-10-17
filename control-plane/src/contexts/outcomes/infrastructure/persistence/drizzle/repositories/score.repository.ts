@@ -83,16 +83,16 @@ const toScore = (row: ScoreRow): Score =>
     version: row.version,
   });
 
-const columnsOf = (held: Score) => ({
-  kind: held.scale.kind,
-  value: held.value,
-  marks: held.marks && [...held.marks],
-  rubricVersion: held.rubricVersion,
-  at: held.at,
+const columnsOf = (stored: Score) => ({
+  kind: stored.scale.kind,
+  value: stored.value,
+  marks: stored.marks && [...stored.marks],
+  rubricVersion: stored.rubricVersion,
+  at: stored.at,
 });
 
-const storedReasons = (held: Score): StoredReason[] =>
-  held.reasons.map((each) => ({
+const storedReasons = (stored: Score): StoredReason[] =>
+  stored.reasons.map((each) => ({
     text: each.text,
     citations: each.citations.map(storedCitation),
     claim: each.claim,

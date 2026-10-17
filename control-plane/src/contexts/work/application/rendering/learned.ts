@@ -35,7 +35,7 @@ interface RestOfMemory {
 const layout = (folder: MemoryFolder): string =>
   [
     '```',
-    ...folder.layout.map((row) => `${row.folder.padEnd(WIDEST)}${row.holds}`),
+    ...folder.layout.map((row) => `${row.folder.padEnd(WIDEST)}${row.level}`),
     '```',
   ].join('\n');
 
@@ -44,7 +44,7 @@ export const Learned = {
     return memories.length > 0
       ? [
           '## What the team has learned',
-          'The team kept these from earlier work, whatever tool it was done with. Follow the ones that bear on what you do. Where one no longer holds, say so in your note and name it by its handle.',
+          'The team kept these from earlier work, whatever tool it was done with. Follow the ones that bear on what you do. Where one no longer applies, say so in your note and name it by its handle.',
           memories
             .map(
               (each) =>

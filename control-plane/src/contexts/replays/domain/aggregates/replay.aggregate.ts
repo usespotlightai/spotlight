@@ -31,7 +31,7 @@ import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import {
-  holdsRepeats,
+  isValidRepeatCount,
   MAX_REPEATS,
 } from '@replays/domain/value-objects/replay-repeats';
 import type { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
@@ -187,7 +187,7 @@ export class Replay extends EventRecorder {
       (input.baseline ||
         !wanting.candidate.isLive ||
         !wanting.candidate.isFor(set.station.stationId) ||
-        !holdsRepeats(wanting.repeats) ||
+        !isValidRepeatCount(wanting.repeats) ||
         (wanting.probe && wanting.repeats < 2))
     ) {
       throw new InvalidReplayError(
@@ -199,7 +199,7 @@ export class Replay extends EventRecorder {
         'must replay the whole set when it is or wants a baseline',
       );
     }
-    if (!holdsRepeats(repeats)) {
+    if (!isValidRepeatCount(repeats)) {
       throw new InvalidReplayError(`repeats must be from 1 to ${MAX_REPEATS}`);
     }
     if (
@@ -252,7 +252,7 @@ export class Replay extends EventRecorder {
       (among.length === 0 ||
         among.some(
           (run, place) =>
-            !set.holds(run) ||
+            !set.includes(run) ||
             among.findIndex((other) => other.equals(run)) !== place,
         ))
     ) {
@@ -468,7 +468,7 @@ export class Replay extends EventRecorder {
       (each) => each.pairing?.pending,
     );
     let reserved = outstanding.reduce(
-      (held, each) => held.plus(this.pairingEstimateOf(each)),
+      (total, each) => total.plus(this.pairingEstimateOf(each)),
       this.charged,
     );
     const wanted: { run: RunId; against: RunId; original: RunId }[] = [];
@@ -752,7 +752,7 @@ export class Replay extends EventRecorder {
     return entries.reduce(
       (spent, each) =>
         each.modelSpends.reduce(
-          (held, model) => held.plus(model),
+          (total, model) => total.plus(model),
           spent.plus(
             ModelSpent.of(each.measures?.cost ? [each.measures.cost] : [], 0),
           ),

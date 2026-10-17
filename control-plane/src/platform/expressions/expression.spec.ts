@@ -5,7 +5,7 @@ import {
   ExpressionFailedError,
 } from '@platform/expressions/expression.errors';
 import {
-  holds,
+  isTrue,
   reads,
   required,
   requiredText,
@@ -44,44 +44,44 @@ describe('compiling an expression', () => {
   });
 });
 
-describe('whether an expression holds', () => {
+describe('whether an expression is true', () => {
   it('is true only where it is plainly true', () => {
-    expect(holds(compile('body.type == "Issue"'), delivery)).toBe(true);
-    expect(holds(compile('body.type == "Comment"'), delivery)).toBe(false);
+    expect(isTrue(compile('body.type == "Issue"'), delivery)).toBe(true);
+    expect(isTrue(compile('body.type == "Comment"'), delivery)).toBe(false);
   });
 
   it('reads a nested value the way a person would write it', () => {
-    expect(holds(compile('body.data.state.name == "Done"'), delivery)).toBe(
+    expect(isTrue(compile('body.data.state.name == "Done"'), delivery)).toBe(
       true,
     );
   });
 
-  it('holds where every part of it does', () => {
+  it('is true where every part of it is true', () => {
     expect(
-      holds(
+      isTrue(
         compile('body.type == "Issue" && body.data.state.name == "Done"'),
         delivery,
       ),
     ).toBe(true);
   });
 
-  it('does not hold where the delivery has no such field', () => {
+  it('is not true where the delivery has no such field', () => {
     expect(
-      holds(compile('body.data.state.name == "Done"'), {
+      isTrue(compile('body.data.state.name == "Done"'), {
         body: bound({ type: 'Comment' }),
       }),
     ).toBe(false);
-    expect(holds(compile('nothing.at.all'), delivery)).toBe(false);
+    expect(isTrue(compile('nothing.at.all'), delivery)).toBe(false);
   });
 
   it('lets a person ask whether a field is there at all', () => {
-    expect(holds(compile('has(body.data)'), delivery)).toBe(true);
-    expect(holds(compile('has(body.nothing)'), delivery)).toBe(false);
+    expect(isTrue(compile('has(body.data)'), delivery)).toBe(true);
+    expect(isTrue(compile('has(body.nothing)'), delivery)).toBe(false);
   });
 
   it('is false for anything that is not a boolean', () => {
-    expect(holds(compile('body.type'), delivery)).toBe(false);
-    expect(holds(compile('1'), delivery)).toBe(false);
+    expect(isTrue(compile('body.type'), delivery)).toBe(false);
+    expect(isTrue(compile('1'), delivery)).toBe(false);
   });
 });
 
@@ -111,23 +111,23 @@ describe('what an expression reads', () => {
 
 describe('binding a delivery', () => {
   it('keeps what an expression is meant to read', () => {
-    const held = bound({ a: 1, b: { c: 'x' }, d: [1, 2] }) as Record<
+    const value = bound({ a: 1, b: { c: 'x' }, d: [1, 2] }) as Record<
       string,
       unknown
     >;
 
-    expect(held.a).toBe(1);
-    expect(held.d).toEqual([1, 2]);
-    expect((held.b as Record<string, unknown>).c).toBe('x');
+    expect(value.a).toBe(1);
+    expect(value.d).toEqual([1, 2]);
+    expect((value.b as Record<string, unknown>).c).toBe('x');
   });
 
   it('drops the names that reach past a plain object', () => {
-    const held = bound(
+    const value = bound(
       JSON.parse('{"__proto__":{"polluted":true},"ok":1}'),
     ) as Record<string, unknown>;
 
-    expect(held.ok).toBe(1);
-    expect(Object.keys(held)).toEqual(['ok']);
+    expect(value.ok).toBe(1);
+    expect(Object.keys(value)).toEqual(['ok']);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
@@ -150,7 +150,7 @@ describe('binding a delivery', () => {
     );
   });
 
-  it('refuses a delivery holding more than can be read', () => {
+  it('refuses a delivery that has more than can be read', () => {
     const wide = Object.fromEntries(
       new Array(400).fill(0).map((_, at) => [`k${at}`, new Array(400).fill(1)]),
     );
@@ -197,7 +197,7 @@ describe('checking an expression against what it may read', () => {
     ).toBe('The queue is stuck.');
   });
 
-  it('reads a map that mixes what it holds', () => {
+  it('reads a map that mixes what it contains', () => {
     const source = '{"channel": body.channel, "text": "Got it."}';
 
     expect(reason(source)).toBeNull();

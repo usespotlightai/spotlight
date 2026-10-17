@@ -27,8 +27,8 @@ import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
+import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
@@ -56,7 +56,7 @@ import {
 import {
   type ApprovalRow,
   type ConnectionAskRow,
-  type HeldBackRow,
+  type DeferredMoveRow,
   task,
   taskAttachment,
   taskMark,
@@ -111,13 +111,13 @@ const toApprovalRow = (approval: Approval): ApprovalRow => ({
   askedOf: approval.askedOf?.value ?? null,
 });
 
-const toHeldBack = (row: HeldBackRow): HeldBack =>
+const toDeferredMove = (row: DeferredMoveRow): DeferredMove =>
   row.kind === 'moves'
-    ? HeldBack.moveTo(StationId.of(row.to))
-    : HeldBack.cleared();
+    ? DeferredMove.moveTo(StationId.of(row.to))
+    : DeferredMove.cleared();
 
-const toHeldBackRow = (held: HeldBack): HeldBackRow =>
-  held.to ? { kind: 'moves', to: held.to.value } : { kind: 'cleared' };
+const toDeferredMoveRow = (move: DeferredMove): DeferredMoveRow =>
+  move.to ? { kind: 'moves', to: move.to.value } : { kind: 'cleared' };
 
 const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
   ConnectionAsk.of({
@@ -152,7 +152,7 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     form: row.form,
     approval: row.approval ? toApproval(row.approval) : null,
     failure: row.failure ? TaskFailure.rehydrate(row.failure) : null,
-    heldBack: row.heldBack ? toHeldBack(row.heldBack) : null,
+    deferredMove: row.deferredMove ? toDeferredMove(row.deferredMove) : null,
     connectionAsk: row.connectionAsk
       ? toConnectionAsk(row.connectionAsk)
       : null,
@@ -405,7 +405,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     return whole ?? null;
   }
 
-  async holding(
+  async findByMarks(
     workspaceId: WorkspaceId,
     concerns: Concerns,
   ): Promise<Task | null> {
@@ -586,9 +586,9 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(inArray(taskAttachment.taskId, taskIds))
       .orderBy(taskAttachment.notePosition, taskAttachment.place);
 
-    return rows.reduce((held, row) => {
-      held.set(row.taskId, [...(held.get(row.taskId) ?? []), row]);
-      return held;
+    return rows.reduce((byTask, row) => {
+      byTask.set(row.taskId, [...(byTask.get(row.taskId) ?? []), row]);
+      return byTask;
     }, new Map<string, AttachmentRow[]>());
   }
 
@@ -662,7 +662,9 @@ export class DrizzleTaskRepository implements TaskRepository {
                 occurrences: note.failure.occurrences,
               }
             : null,
-          heldBack: note.heldBack ? toHeldBackRow(note.heldBack) : null,
+          deferredMove: note.deferredMove
+            ? toDeferredMoveRow(note.deferredMove)
+            : null,
           connectionAsk: note.connectionAsk
             ? toConnectionAskRow(note.connectionAsk)
             : null,

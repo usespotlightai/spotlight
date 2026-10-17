@@ -58,9 +58,9 @@ func configChanges(was, now protocol.StationConfig) []string {
 	nowSetup := map[string]*string{}
 	for _, repository := range now.Repositories {
 		nowSetup[repository.Name] = repository.Setup
-		setup, held := wasSetup[repository.Name]
+		setup, existed := wasSetup[repository.Name]
 		switch {
-		case !held:
+		case !existed:
 			changed("repository %s added", repository.Name)
 		case shown(setup) != shown(repository.Setup):
 			changed("repository %s setup changed", repository.Name)
@@ -79,9 +79,9 @@ func configChanges(was, now protocol.StationConfig) []string {
 	nowDigest := map[string]string{}
 	for _, skill := range now.Skills {
 		nowDigest[skill.Key] = skill.Digest
-		digest, held := wasDigest[skill.Key]
+		digest, existed := wasDigest[skill.Key]
 		switch {
-		case !held:
+		case !existed:
 			changed("skill %s added", skill.Key)
 		case digest != skill.Digest:
 			changed("skill %s changed (%s → %s)", skill.Key, short(digest), short(skill.Digest))

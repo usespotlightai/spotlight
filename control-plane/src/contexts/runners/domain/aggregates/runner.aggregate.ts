@@ -20,12 +20,12 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export type RunnerClaims = 'reserved' | 'nothing';
 
-const HOLDS_UNSEEN_MS: Readonly<Record<RunnerWorkKind, number>> = {
+const LEASE_UNSEEN_MS: Readonly<Record<RunnerWorkKind, number>> = {
   run: 3 * 60_000,
   check: 12 * 60_000,
 };
 
-const LONGEST_HOLD_UNSEEN_MS = Math.max(...Object.values(HOLDS_UNSEEN_MS));
+const LONGEST_LEASE_UNSEEN_MS = Math.max(...Object.values(LEASE_UNSEEN_MS));
 
 const REMEMBERED_AFTER_ENDING_MS = 24 * 60 * 60_000;
 
@@ -222,12 +222,12 @@ export class Runner extends EventRecorder {
     const { work, lastSeenAt, claimBy } = this.state;
 
     return work !== null && lastSeenAt
-      ? new Date(lastSeenAt.getTime() + HOLDS_UNSEEN_MS[work.kind])
+      ? new Date(lastSeenAt.getTime() + LEASE_UNSEEN_MS[work.kind])
       : claimBy;
   }
 
-  static unseenSinceLongestHold(now: Date): Date {
-    return new Date(now.getTime() - LONGEST_HOLD_UNSEEN_MS);
+  static unseenSinceLongestLease(now: Date): Date {
+    return new Date(now.getTime() - LONGEST_LEASE_UNSEEN_MS);
   }
 
   static rememberedEndingSince(now: Date): Date {
@@ -276,7 +276,7 @@ export class Runner extends EventRecorder {
     return this.with({ work, lastSeenAt: at });
   }
 
-  holds(work: RunnerWork): boolean {
+  hasLeaseOn(work: RunnerWork): boolean {
     return this.state.work?.equals(work) ?? false;
   }
 

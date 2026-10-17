@@ -65,7 +65,7 @@ export class TaskRunWork implements RunWork {
       return null;
     }
 
-    const line = await this.lines.holding(this.run.stationId);
+    const line = await this.lines.findByStation(this.run.stationId);
 
     return line ? repositoryWorkedOnNamed(name, this.task, line) : null;
   }
@@ -81,7 +81,7 @@ export class TaskRunWork implements RunWork {
       return { kind: 'given', edited: null, returned: async () => {} };
     }
 
-    const line = await this.lines.holding(this.task.stationId);
+    const line = await this.lines.findByStation(this.task.stationId);
     const { task, check } = this.task.clearFor(
       ApprovalSubject.toolCall(call),
       needed,
@@ -123,7 +123,7 @@ export class TaskRunWork implements RunWork {
       return { kind: 'refused', reason: ConnectionAskedText.refusal(wanted) };
     }
 
-    const line = await this.lines.holding(this.task.stationId);
+    const line = await this.lines.findByStation(this.task.stationId);
 
     if (!line) {
       throw new UnknownStationError(this.task.stationId.value);
@@ -164,7 +164,7 @@ export class TaskRunWork implements RunWork {
     permission: HarnessPermission,
     session: HarnessSession | null,
   ): Promise<PermissionCleared> {
-    const line = await this.lines.holding(this.task.stationId);
+    const line = await this.lines.findByStation(this.task.stationId);
     const station = line?.stationAt(this.task.stationId) ?? null;
     const subject = ApprovalSubject.harnessPermission(permission);
     const needed = ApprovalNeeded.of(
@@ -207,7 +207,7 @@ export class TaskRunWork implements RunWork {
 
   async toolContext(): Promise<TaskToolContext> {
     const stationId = this.run.stationId ?? this.task.stationId;
-    const line = await this.lines.holding(stationId);
+    const line = await this.lines.findByStation(stationId);
 
     if (!line) {
       throw new UnknownStationError(stationId.value);

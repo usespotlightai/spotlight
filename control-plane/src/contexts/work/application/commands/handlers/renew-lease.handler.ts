@@ -34,9 +34,9 @@ export class RenewLeaseHandler
       for (let attempt = 1; ; attempt++) {
         const run = await this.load(command.runId);
 
-        if (!run.isHeldBy(renewing)) {
+        if (!run.isLeasedBy(renewing)) {
           throw new UnknownRunError(
-            `Runner ${command.runnerId} holds no run ${command.runId}.`,
+            `Runner ${command.runnerId} has no lease on run ${command.runId}.`,
           );
         }
 

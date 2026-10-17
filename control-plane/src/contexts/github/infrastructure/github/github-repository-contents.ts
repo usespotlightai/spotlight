@@ -207,7 +207,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
     for (const [at, step] of steps.entries()) {
       const listed = await answered<Tree>(
         await call(`${this.at(repository)}/git/trees/${tree}`, token),
-        `GitHub would not list the tree holding ${path}`,
+        `GitHub would not list the tree containing ${path}`,
       );
       const entry = (listed.tree ?? []).find((each) => each.path === step);
 

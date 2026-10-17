@@ -32,7 +32,7 @@ const STORED: StoredArchive = {
   digest: ArchiveDigest.of(SHA256),
 };
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let archives: DrizzleWorkspaceArchiveRepository;
 let standings: DrizzleArchiveStandings;
@@ -40,8 +40,8 @@ let stationId: string;
 let otherStationId: string;
 
 beforeAll(async () => {
-  held = await openDatabase('workspace_archives');
-  db = held.db;
+  database = await openDatabase('workspace_archives');
+  db = database.db;
   archives = new DrizzleWorkspaceArchiveRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
@@ -65,7 +65,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const aTask = async (
@@ -219,7 +219,7 @@ describe('keeping workspace archives', () => {
     const deleted = randomUUID();
     const deletedChat = randomUUID();
 
-    const stillHeld = await kept(forTask(carryingOn), {
+    const stillKept = await kept(forTask(carryingOn), {
       grantedAt: ago(30 * DAY),
       sealedAt: ago(30 * DAY),
     });
@@ -274,7 +274,7 @@ describe('keeping workspace archives', () => {
     expect(due.get(ofADeletedChat.id.value)?.holder).toBeNull();
     expect(due.has(neverSealed.id.value)).toBe(true);
 
-    expect(due.has(stillHeld.id.value)).toBe(false);
+    expect(due.has(stillKept.id.value)).toBe(false);
     expect(due.has(keptAtAnotherStation.id.value)).toBe(false);
     expect(due.has(letGoLately.id.value)).toBe(false);
     expect(due.has(ofAChat.id.value)).toBe(false);

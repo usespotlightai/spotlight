@@ -344,13 +344,13 @@ const talliesOf = (
     const repository = each.seen.repository.toLowerCase();
     const week = weekOf(each.seen.closedAt);
     const key = JSON.stringify([repository, week, each.by]);
-    const held = tallies.get(key);
+    const tally = tallies.get(key);
 
     tallies.set(key, {
       repository,
       week,
       by: each.by,
-      merged: (held?.merged ?? 0) + 1,
+      merged: (tally?.merged ?? 0) + 1,
     });
   }
 

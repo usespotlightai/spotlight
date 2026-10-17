@@ -55,7 +55,7 @@ const replacing = Memory.stood({
 });
 
 describe('memory files', () => {
-  it('say what a memory holds, where it applies, where it came from and what it replaced', () => {
+  it('say what a memory contains, where it applies, where it came from and what it replaced', () => {
     const [file] = memoryFilesOf([replacing], {
       lines: [
         {

@@ -26,7 +26,7 @@ const NOW = new Date('2026-09-24T10:00:00.000Z');
 
 const pooling = (
   admitted: AdmittedHost | null,
-  held: {
+  stored: {
     pool?: RunnerPool | null;
     standing?: readonly Runner[];
     provisioning?: readonly RunnerPoolRecord[];
@@ -35,19 +35,19 @@ const pooling = (
 ) => {
   const admit = vi.fn(async () => admitted);
   const find = vi.fn(async () =>
-    held.pool === undefined ? aPullPool({ maxRuns: 2 }) : held.pool,
+    stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
   );
 
   const pools = new RunnerPools(
     { find } as unknown as RunnerPoolRepository,
     {
-      standingIn: vi.fn(async () => held.standing ?? []),
+      standingIn: vi.fn(async () => stored.standing ?? []),
     } as unknown as RunnerRepository,
     {
-      provisioningPools: vi.fn(async () => held.provisioning ?? []),
+      provisioningPools: vi.fn(async () => stored.provisioning ?? []),
     } as unknown as RunnerResourcesPort,
     { admit } satisfies RunnerAdmissionsPort,
-    held.platform ?? true,
+    stored.platform ?? true,
   );
 
   return { pools, admit, find };

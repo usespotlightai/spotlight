@@ -177,11 +177,11 @@ describe('formatHcl', () => {
     );
   });
 
-  it('picks a heredoc marker the text does not hold', () => {
+  it('picks a heredoc marker the text does not contain', () => {
     expect(WRITTEN.marker).toContain('text = <<EOT1\na\n  EOT\nb\nEOT1\n');
   });
 
-  it('escapes what a quoted string cannot hold, and interpolation', () => {
+  it('escapes what a quoted string cannot contain, and interpolation', () => {
     expect(WRITTEN.escaped).toContain(
       'text = "$${a} %%{b} \\"c\\" \\\\ \\t\\u0001"',
     );

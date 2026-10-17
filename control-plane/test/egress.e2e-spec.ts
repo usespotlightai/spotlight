@@ -86,7 +86,7 @@ const opened = (
 describe('egress redeeming a run’s secrets (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let owner: string;
   let unseat: () => Promise<void>;
 
@@ -94,7 +94,7 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
 
   const setSecret = (body: object) =>
     http()
-      .post(`/api/resources/workspaces/${held}/secrets`)
+      .post(`/api/resources/workspaces/${workspaceId}/secrets`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body)
@@ -105,7 +105,7 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
 
     await db.insert(schema.run).values({
       id,
-      workspaceId: held,
+      workspaceId,
       harness: 'dev',
       state: 'queued',
       placement: [['linux']],
@@ -167,13 +167,13 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `egress-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    workspaceId = `egress-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     unseat = seat.unseat;
 
     await http()
-      .post(`/api/resources/workspaces/${held}/runner-pools`)
+      .post(`/api/resources/workspaces/${workspaceId}/runner-pools`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({ key: 'hosts', labels: ['linux'], token: TOKEN })
@@ -201,16 +201,18 @@ describe('egress redeeming a run’s secrets (e2e)', () => {
       .where(inArray(schema.idempotentCreate.scope, [`person:${owner}`]));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
-    await db.delete(schema.run).where(eq(schema.run.workspaceId, held));
-    await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
+    await db.delete(schema.run).where(eq(schema.run.workspaceId, workspaceId));
+    await db
+      .delete(schema.secret)
+      .where(eq(schema.secret.workspaceId, workspaceId));
     await db
       .delete(schema.runGrants)
-      .where(eq(schema.runGrants.workspaceId, held));
+      .where(eq(schema.runGrants.workspaceId, workspaceId));
     await db
       .delete(schema.secretDataKey)
-      .where(eq(schema.secretDataKey.workspaceId, held));
-    await forgetRunnersOf(db, held);
+      .where(eq(schema.secretDataKey.workspaceId, workspaceId));
+    await forgetRunnersOf(db, workspaceId);
     await unseat();
   });
 

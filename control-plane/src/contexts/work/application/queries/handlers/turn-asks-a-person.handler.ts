@@ -27,14 +27,14 @@ export class TurnAsksAPersonHandler
       const runner = RunnerId.of(query.runnerId);
       const run = await this.runs.findById(RunId.of(query.runId));
 
-      if (!run?.isHeldBy(runner)) {
+      if (!run?.isLeasedBy(runner)) {
         throw new UnknownRunError(
-          `Runner ${query.runnerId} holds no run ${query.runId}.`,
+          `Runner ${query.runnerId} has no lease on run ${query.runId}.`,
         );
       }
 
       const task = run.taskId ? await this.tasks.find(run.taskId) : null;
-      const line = task ? await this.lines.holding(task.stationId) : null;
+      const line = task ? await this.lines.findByStation(task.stationId) : null;
 
       return turnWaits({
         run,

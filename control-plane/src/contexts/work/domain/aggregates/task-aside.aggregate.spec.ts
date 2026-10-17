@@ -102,7 +102,7 @@ describe('TaskAside', () => {
   });
 
   describe('rehydrating', () => {
-    const held = (reads: AsideRead[]) =>
+    const rehydrated = (reads: AsideRead[]) =>
       TaskAside.rehydrate({
         id: TaskAsideId.of('aside_1'),
         workspaceId: WorkspaceId.of('ws_1'),
@@ -116,14 +116,14 @@ describe('TaskAside', () => {
       });
 
     it('refuses a read before it was raised', () => {
-      expect(() => held([AsideRead.of({ by: ADA, at: NOW })])).toThrow(
+      expect(() => rehydrated([AsideRead.of({ by: ADA, at: NOW })])).toThrow(
         InconsistentStateError,
       );
     });
 
     it('refuses two reads by one person', () => {
       expect(() =>
-        held([
+        rehydrated([
           AsideRead.of({ by: ADA, at: LATER }),
           AsideRead.of({ by: ADA, at: LATER }),
         ]),

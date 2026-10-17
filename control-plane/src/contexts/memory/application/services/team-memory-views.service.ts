@@ -23,11 +23,13 @@ export class TeamMemoryViews {
     private readonly uses: MemoryUsesPort,
   ) {}
 
-  async summaries(held: readonly Memory[]): Promise<TeamMemoryDto[]> {
+  async summaries(memories: readonly Memory[]): Promise<TeamMemoryDto[]> {
     const person = lookUpOnce(this.people);
-    const used = await this.uses.runsUsing(held.map((each) => each.id));
+    const used = await this.uses.runsUsing(memories.map((each) => each.id));
 
-    return Promise.all(held.map((each) => this.summaryOf(each, person, used)));
+    return Promise.all(
+      memories.map((each) => this.summaryOf(each, person, used)),
+    );
   }
 
   async detail(memory: Memory): Promise<TeamMemoryDetailDto> {

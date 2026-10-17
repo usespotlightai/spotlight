@@ -15,7 +15,7 @@ import { AuthorizationServer } from '@integrations/domain/value-objects/authoriz
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { CallbackNote } from '@integrations/domain/value-objects/callback-note.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
+import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
 import { ConnectionWanted } from '@integrations/domain/value-objects/connection-wanted.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
@@ -58,7 +58,7 @@ export const INTEGRATIONS_PAYLOAD_TYPES = [
   Binding,
   CallbackNote,
   ConnectionHolder,
-  ConnectionHolding,
+  ConnectionHolderRule,
   ConnectionWanted,
   ContentHash,
   CronExpression,

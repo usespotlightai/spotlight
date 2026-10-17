@@ -26,13 +26,13 @@ const keptAs = (connection: HostConnection, version: number) =>
   });
 
 export class InMemoryHostConnections implements HostConnectionRepository {
-  readonly #held = new Map<string, HostConnection>();
+  readonly #stored = new Map<string, HostConnection>();
   readonly saved: HostConnection[] = [];
   readonly events: DomainEvent[] = [];
   #conflicts = 0;
 
-  hold(connection: HostConnection): void {
-    this.#held.set(
+  add(connection: HostConnection): void {
+    this.#stored.set(
       keyOf(connection.teamId, connection.source, connection.holder),
       keptAs(connection, Math.max(connection.version, 1)),
     );
@@ -44,10 +44,10 @@ export class InMemoryHostConnections implements HostConnectionRepository {
 
   bump(teamId: TeamId, source: SourceKey, holder: ConnectionHolder): void {
     const key = keyOf(teamId, source, holder);
-    const held = this.#held.get(key);
+    const stored = this.#stored.get(key);
 
-    if (held) {
-      this.#held.set(key, keptAs(held, held.version + 1));
+    if (stored) {
+      this.#stored.set(key, keptAs(stored, stored.version + 1));
     }
   }
 
@@ -56,39 +56,39 @@ export class InMemoryHostConnections implements HostConnectionRepository {
     source: SourceKey,
     holder: ConnectionHolder,
   ): Promise<HostConnection | null> {
-    return this.#held.get(keyOf(teamId, source, holder)) ?? null;
+    return this.#stored.get(keyOf(teamId, source, holder)) ?? null;
   }
 
   async save(connection: HostConnection): Promise<void> {
     const key = keyOf(connection.teamId, connection.source, connection.holder);
-    const held = this.#held.get(key);
+    const stored = this.#stored.get(key);
 
     if (this.#conflicts > 0) {
       this.#conflicts--;
-      if (held) {
-        this.#held.set(key, keptAs(held, held.version + 1));
+      if (stored) {
+        this.#stored.set(key, keptAs(stored, stored.version + 1));
       }
       throw new HostConnectionVersionConflictError(connection.source.value);
     }
 
-    if (!connection.isNew && held?.version !== connection.version) {
+    if (!connection.isNew && stored?.version !== connection.version) {
       throw new HostConnectionVersionConflictError(connection.source.value);
     }
 
-    this.#held.set(key, keptAs(connection, (held?.version ?? 0) + 1));
+    this.#stored.set(key, keptAs(connection, (stored?.version ?? 0) + 1));
     this.saved.push(connection);
     this.events.push(...connection.pullEvents());
   }
 
   async remove(connection: HostConnection): Promise<void> {
-    this.#held.delete(
+    this.#stored.delete(
       keyOf(connection.teamId, connection.source, connection.holder),
     );
     this.events.push(...connection.pullEvents());
   }
 
   async expiringBefore(horizon: Date): Promise<readonly HostConnection[]> {
-    return [...this.#held.values()].filter(
+    return [...this.#stored.values()].filter(
       (each) =>
         each.refreshToken !== null &&
         each.renewalRefusedAt === null &&
@@ -98,9 +98,9 @@ export class InMemoryHostConnections implements HostConnectionRepository {
   }
 
   async forgetTeam(teamId: TeamId): Promise<void> {
-    for (const [key, each] of this.#held) {
+    for (const [key, each] of this.#stored) {
       if (each.teamId.equals(teamId)) {
-        this.#held.delete(key);
+        this.#stored.delete(key);
       }
     }
   }

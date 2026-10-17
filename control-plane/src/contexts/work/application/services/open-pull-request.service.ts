@@ -49,7 +49,7 @@ export class OpenPullRequest {
       return { url: task.pullRequest.value };
     }
 
-    const line = await this.lines.holding(target.stationId);
+    const line = await this.lines.findByStation(target.stationId);
 
     if (!line) {
       throw new UnknownStationError(target.stationId.value);

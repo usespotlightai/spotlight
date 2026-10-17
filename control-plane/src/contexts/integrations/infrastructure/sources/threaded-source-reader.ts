@@ -110,16 +110,16 @@ export class ThreadedSourceReader implements SourceReaderPort {
       return source.document;
     }
 
-    const held = source.connected ? reach.connection : null;
+    const connection = source.connected ? reach.connection : null;
 
     try {
-      return await this.fetched(source, reach, held?.token ?? null);
+      return await this.fetched(source, reach, connection?.token ?? null);
     } catch (error) {
-      if (!(error instanceof DescriptionUnauthorized) || !held) {
+      if (!(error instanceof DescriptionUnauthorized) || !connection) {
         throw error;
       }
 
-      const renewed = await held.refused(held.token);
+      const renewed = await connection.refused(connection.token);
 
       if (!renewed) {
         throw error;

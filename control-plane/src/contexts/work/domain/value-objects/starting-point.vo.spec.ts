@@ -36,7 +36,7 @@ describe('StartingPoint', () => {
       at: AT,
     });
 
-  it('holds its checkouts in path order, whatever order they were told in', () => {
+  it('keeps its checkouts in path order, whatever order they were told in', () => {
     expect(point(checkout('web'), checkout('api')).paths).toEqual([
       'api',
       'web',

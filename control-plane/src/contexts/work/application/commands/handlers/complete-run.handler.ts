@@ -125,7 +125,7 @@ export class CompleteRunHandler
     }
 
     const task = run.taskId ? await this.tasks.find(run.taskId) : null;
-    const line = task ? await this.lines.holding(task.stationId) : null;
+    const line = task ? await this.lines.findByStation(task.stationId) : null;
     const ended = turnEnded({
       run,
       by,

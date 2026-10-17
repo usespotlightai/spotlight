@@ -5,8 +5,8 @@ const summed = (spends: readonly Spend[]): readonly Spend[] => {
   const byCurrency = new Map<string, Spend>();
 
   for (const each of spends) {
-    const held = byCurrency.get(each.currency);
-    byCurrency.set(each.currency, held ? held.plus(each) : each);
+    const sum = byCurrency.get(each.currency);
+    byCurrency.set(each.currency, sum ? sum.plus(each) : each);
   }
 
   return [...byCurrency.values()];

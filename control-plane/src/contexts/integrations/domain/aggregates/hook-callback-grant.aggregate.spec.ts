@@ -21,7 +21,7 @@ const grant = (firing: string | null = 'firing_1') =>
   );
 
 describe('HookCallbackGrant', () => {
-  it('holds for fifteen minutes from when it is issued', () => {
+  it('is valid for fifteen minutes from when it is issued', () => {
     expect(grant().expiresAt).toEqual(later(15));
     expect(grant().isValidAt(later(14))).toBe(true);
     expect(grant().isValidAt(later(15))).toBe(false);

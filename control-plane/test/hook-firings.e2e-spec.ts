@@ -120,7 +120,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     await expect(firings.add(firing('occurrence_1'))).resolves.toBe(false);
   });
 
-  it('lets only the worker that holds a firing write to it', async () => {
+  it('lets only the worker with the lease on a firing write to it', async () => {
     await firings.add(firing('occurrence_2'));
     const first = await claimed();
     const later = at(11 * 60);

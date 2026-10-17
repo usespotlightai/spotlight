@@ -111,7 +111,7 @@ describe('Inbox', () => {
     expect(screen.getByRole('heading')).not.toHaveTextContent('Platform');
   });
 
-  it('holds the shape of the list while it loads, beside the conversation', () => {
+  it('keeps the shape of the list while it loads, beside the conversation', () => {
     waiting.mockReturnValue(undefined);
     renderAt('/w/acme/inbox/task_1%3A0');
 

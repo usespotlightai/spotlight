@@ -3,7 +3,7 @@ import { ForgetRunGrants } from '@secrets/application/services/forget-run-grants
 import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { secretsSubscribers } from '@secrets/presentation/events/secrets.subscribers';
 import {
@@ -29,7 +29,7 @@ const closed = {
   slug: 'acme',
 } as never;
 
-const holding = async () => {
+const setUp = async () => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
   const grants = new InMemoryGrants();
@@ -45,7 +45,7 @@ const holding = async () => {
   );
 
   await grants.save(
-    RunGrants.start(RunHold.of(RunId.of('run_1'), 1), WORKSPACE),
+    RunGrants.start(RunLease.of(RunId.of('run_1'), 1), WORKSPACE),
   );
 
   const subscribers = secretsSubscribers({
@@ -63,8 +63,8 @@ const holding = async () => {
 };
 
 describe('secretsSubscribers', () => {
-  it('abandons the secrets a closed workspace still held, and their values', async () => {
-    const { secrets, store, subscribers } = await holding();
+  it('abandons the secrets a closed workspace still had, and their values', async () => {
+    const { secrets, store, subscribers } = await setUp();
 
     await subscribers
       .find(
@@ -73,14 +73,14 @@ describe('secretsSubscribers', () => {
       ?.handle(closed);
 
     expect(await secrets.inWorkspace(WORKSPACE)).toEqual([]);
-    expect(store.holds(SecretId.of('secret_linear'))).toBe(false);
+    expect(store.has(SecretId.of('secret_linear'))).toBe(false);
     expect(secrets.events[secrets.events.length - 1]).toMatchObject({
       kind: 'secret.abandoned',
     });
   });
 
   it('forgets the data key of a closed workspace', async () => {
-    const { forgotten, subscribers } = await holding();
+    const { forgotten, subscribers } = await setUp();
 
     await subscribers
       .find(
@@ -91,8 +91,8 @@ describe('secretsSubscribers', () => {
     expect(forgotten.map((each) => each.value)).toEqual([WORKSPACE.value]);
   });
 
-  it('forgets the secret grants a closed workspace’s runs held', async () => {
-    const { grants, subscribers } = await holding();
+  it('forgets the secret grants a closed workspace’s runs had', async () => {
+    const { grants, subscribers } = await setUp();
 
     await subscribers
       .find(

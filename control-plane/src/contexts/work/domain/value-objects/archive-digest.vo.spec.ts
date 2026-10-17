@@ -3,7 +3,7 @@ import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('ArchiveDigest', () => {
-  it('holds a SHA-256 as lowercase hexadecimal', () => {
+  it('keeps a SHA-256 as lowercase hexadecimal', () => {
     expect(ArchiveDigest.of('AB'.repeat(32)).sha256).toBe('ab'.repeat(32));
   });
 

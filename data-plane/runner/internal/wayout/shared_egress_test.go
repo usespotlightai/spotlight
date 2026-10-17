@@ -40,7 +40,7 @@ type fakeControlPlane struct {
 	t *testing.T
 
 	mu          sync.Mutex
-	held        map[string]bool
+	active      map[string]bool
 	grants      map[string]map[string]string
 	recorded    []protocol.EgressConnection
 	runnerCalls int
@@ -75,7 +75,7 @@ func (f *fakeControlPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/api/egress/redeem":
 		var asked protocol.EgressRedeem
 		_ = json.NewDecoder(r.Body).Decode(&asked)
-		if !f.held[asked.ProxyCredential] {
+		if !f.active[asked.ProxyCredential] {
 			http.Error(w, `{"message":"no run"}`, http.StatusConflict)
 			return
 		}
@@ -92,13 +92,13 @@ func (f *fakeControlPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			redeemed.Bound = append(redeemed.Bound, host)
 		}
 		_ = json.NewEncoder(w).Encode(redeemed)
-	case "/api/egress/holds":
-		var asked protocol.EgressHolds
+	case "/api/egress/active-runs":
+		var asked protocol.ActiveRunsRequest
 		_ = json.NewDecoder(r.Body).Decode(&asked)
-		held := protocol.EgressHeld{Held: slices.DeleteFunc(asked.ProxyCredentials, func(credential string) bool {
-			return !f.held[credential]
+		answer := protocol.ActiveRunsResponse{Active: slices.DeleteFunc(asked.ProxyCredentials, func(credential string) bool {
+			return !f.active[credential]
 		})}
-		_ = json.NewEncoder(w).Encode(held)
+		_ = json.NewEncoder(w).Encode(answer)
 	case "/api/egress/connections":
 		var asked protocol.EgressConnections
 		_ = json.NewDecoder(r.Body).Decode(&asked)
@@ -109,10 +109,10 @@ func (f *fakeControlPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (f *fakeControlPlane) stopHolding(credential string) {
+func (f *fakeControlPlane) deactivate(credential string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.held[credential] = false
+	f.active[credential] = false
 }
 
 func (f *fakeControlPlane) outcomes() map[string][]string {
@@ -163,7 +163,7 @@ func sharedEgress(t *testing.T) *shared {
 
 	plane := &fakeControlPlane{
 		t:      t,
-		held:   map[string]bool{"one": true, "two": true},
+		active: map[string]bool{"one": true, "two": true},
 		grants: map[string]map[string]string{"one": {"mcp.example.com": linearKey}, "two": {}},
 	}
 	controlPlane := httptest.NewServer(plane)
@@ -186,7 +186,7 @@ func sharedEgress(t *testing.T) *shared {
 	egress, err := serve.New(serve.Settings{
 		Certificate: certificate,
 		Allow:       allow,
-		HoldsEvery:  50 * time.Millisecond,
+		CheckEvery:  50 * time.Millisecond,
 		RecordEvery: 50 * time.Millisecond,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			host, _, _ := net.SplitHostPort(address)
@@ -370,14 +370,14 @@ func TestTheRunnersControlClientReachesTheControlPlaneThroughTheTunnel(t *testin
 	}
 }
 
-func TestTheSharedEgressForgetsARunTheControlPlaneNoLongerHolds(t *testing.T) {
+func TestTheSharedEgressForgetsARunThatIsNoLongerActive(t *testing.T) {
 	s := sharedEgress(t)
 	one := s.sandbox(t, "one")
 	if status, _ := one.get(t, "https://mcp.example.com/"); status != http.StatusOK {
 		t.Fatalf("answered %d", status)
 	}
 
-	s.control.stopHolding("one")
+	s.control.deactivate("one")
 
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
 		one.client.CloseIdleConnections()
@@ -389,5 +389,5 @@ func TestTheSharedEgressForgetsARunTheControlPlaneNoLongerHolds(t *testing.T) {
 			return
 		}
 	}
-	t.Error("still wears the secret of a run that is not held")
+	t.Error("still wears the secret of a run that is not active")
 }

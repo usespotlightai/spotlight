@@ -43,7 +43,7 @@ const PULL_REQUEST = 'https://github.com/acme/infra/pull/12';
 describe('setting a team up as code (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let owner: string;
   let member: string;
   let unseat: () => Promise<void>;
@@ -54,8 +54,8 @@ describe('setting a team up as code (e2e)', () => {
 
   const settingUp = (runId: string) =>
     Chat.start({
-      workspaceId: WorkspaceId.of(held),
-      teamId: TeamId.of(held),
+      workspaceId: WorkspaceId.of(workspaceId),
+      teamId: TeamId.of(workspaceId),
       startedBy: UserId.of(owner),
       harness: HarnessId.of('claude-code'),
       body: ChatMessageBody.of('Set up our configuration.'),
@@ -66,13 +66,13 @@ describe('setting a team up as code (e2e)', () => {
 
   const starting = (setup: unknown) =>
     served(app)
-      .post(`/api/teams/${held}/chats`)
+      .post(`/api/teams/${workspaceId}/chats`)
       .set(TEST_USER_HEADER, owner)
       .send({ harness: 'claude-code', body: 'Set us up.', setup });
 
   const exported = (token: string) =>
     served(app)
-      .get(`/api/resources/workspaces/${held}/export`)
+      .get(`/api/resources/workspaces/${workspaceId}/export`)
       .set('Authorization', `Bearer ${token}`);
 
   beforeAll(async () => {
@@ -85,18 +85,20 @@ describe('setting a team up as code (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `setup-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    workspaceId = `setup-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     member = seat.member;
     unseat = seat.unseat;
   });
 
   afterEach(async () => {
-    await db.delete(schema.chat).where(eq(schema.chat.workspaceId, held));
+    await db
+      .delete(schema.chat)
+      .where(eq(schema.chat.workspaceId, workspaceId));
     await db
       .delete(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.workspaceId, held));
+      .where(eq(schema.workspaceToken.workspaceId, workspaceId));
     await unseat();
   });
 
@@ -105,7 +107,7 @@ describe('setting a team up as code (e2e)', () => {
     const chat = settingUp(runId);
 
     await chats().add(chat);
-    await expect(reader().setupOf(TeamId.of(held))).resolves.toEqual({
+    await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toEqual({
       id: chat.id.value,
       pullRequest: null,
       startedById: owner,
@@ -125,19 +127,21 @@ describe('setting a team up as code (e2e)', () => {
       ),
     );
 
-    await expect(reader().setupOf(TeamId.of(held))).resolves.toMatchObject({
+    await expect(
+      reader().setupOf(TeamId.of(workspaceId)),
+    ).resolves.toMatchObject({
       id: chat.id.value,
       pullRequest: PULL_REQUEST,
     });
   });
 
   it('answers no setup chat for a team that started none', async () => {
-    await expect(reader().setupOf(TeamId.of(held))).resolves.toBeNull();
+    await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toBeNull();
   });
 
   it('lets a token minted for a run read the workspace until the run ends', async () => {
     const minted = await runTokens().mintFor({
-      workspaceId: held,
+      workspaceId,
       runId: randomUUID(),
       attempt: 1,
       issuedBy: owner,
@@ -154,7 +158,7 @@ describe('setting a team up as code (e2e)', () => {
     expect(row?.tokenHash).not.toBe(minted.token);
     expect(row?.mintedForAttempt).toBe(1);
 
-    await runTokens().revokeFor(held, row?.mintedForRun as string, null);
+    await runTokens().revokeFor(workspaceId, row?.mintedForRun as string, null);
 
     expect((await exported(minted.token)).status).toBe(401);
   });
@@ -162,7 +166,7 @@ describe('setting a team up as code (e2e)', () => {
   it('revokes only the attempt that ended', async () => {
     const runId = randomUUID();
     const wanted = {
-      workspaceId: held,
+      workspaceId,
       runId,
       issuedBy: owner,
       scopes: ['plan'],
@@ -171,7 +175,7 @@ describe('setting a team up as code (e2e)', () => {
     const first = await runTokens().mintFor({ ...wanted, attempt: 1 });
     const second = await runTokens().mintFor({ ...wanted, attempt: 2 });
 
-    await runTokens().revokeFor(held, runId, 1);
+    await runTokens().revokeFor(workspaceId, runId, 1);
 
     expect((await exported(first.token)).status).toBe(401);
     expect((await exported(second.token)).status).toBe(200);
@@ -180,7 +184,7 @@ describe('setting a team up as code (e2e)', () => {
   it('prunes a run token once it has expired', async () => {
     const expiresAt = new Date(Date.now() + 60 * 1_000);
     const minted = await runTokens().mintFor({
-      workspaceId: held,
+      workspaceId,
       runId: randomUUID(),
       attempt: 1,
       issuedBy: owner,
@@ -212,7 +216,7 @@ describe('setting a team up as code (e2e)', () => {
     }).expect(422);
 
     expect(JSON.stringify(refused.body)).toContain("can't reach acme/infra");
-    await expect(reader().setupOf(TeamId.of(held))).resolves.toBeNull();
+    await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toBeNull();
   });
 
   it('says who started the setup chat, and links it only for them', async () => {
@@ -221,7 +225,7 @@ describe('setting a team up as code (e2e)', () => {
     const seenBy = async (viewer: string) =>
       (
         await served(app)
-          .get(`/api/teams/${held}/configuration/onboarding`)
+          .get(`/api/teams/${workspaceId}/configuration/onboarding`)
           .set(TEST_USER_HEADER, viewer)
           .expect(200)
       ).body;

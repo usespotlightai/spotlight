@@ -9,7 +9,7 @@ export type EgressAdmissionDto =
       readonly reaches: readonly string[];
     };
 
-export type EgressHoldsDto =
+export type EgressActiveRunsDto =
   | { readonly outcome: 'refused' }
   | { readonly outcome: 'too-many'; readonly max: number }
-  | { readonly outcome: 'kept'; readonly held: readonly string[] };
+  | { readonly outcome: 'checked'; readonly active: readonly string[] };

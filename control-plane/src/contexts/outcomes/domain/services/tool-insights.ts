@@ -108,8 +108,8 @@ const usedBy = (record: RunRecord, skill: string): boolean =>
 
 const count = (
   records: readonly RunRecord[],
-  holds: (record: RunRecord) => boolean,
-): number => records.filter(holds).length;
+  matches: (record: RunRecord) => boolean,
+): number => records.filter(matches).length;
 
 const nullsFirst = (one: string | null, other: string | null): number =>
   one === null || other === null
@@ -130,7 +130,7 @@ const groupsOf = (
   readonly week: string | null;
   readonly records: readonly RunRecord[];
 }[] => {
-  const held = new Map<string, RunRecord[]>();
+  const byKey = new Map<string, RunRecord[]>();
   const keyOf = (stationId: string | null, week: string | null) =>
     JSON.stringify([stationId, week]);
 
@@ -145,15 +145,15 @@ const groupsOf = (
         keyOf(stationId, null),
         keyOf(stationId, week),
       ]) {
-        const grouped = held.get(key) ?? [];
+        const grouped = byKey.get(key) ?? [];
 
         grouped.push(record);
-        held.set(key, grouped);
+        byKey.set(key, grouped);
       }
     }
   }
 
-  return [...held.entries()]
+  return [...byKey.entries()]
     .map(([key, grouped]) => {
       const [stationId, week] = JSON.parse(key) as [
         string | null,

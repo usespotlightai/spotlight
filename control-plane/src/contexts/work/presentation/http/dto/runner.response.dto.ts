@@ -181,7 +181,7 @@ export class ClaimedRunResponseDto {
   @ApiProperty({
     example: 'claude-code',
     description:
-      'The harness the run needs, so a host can tell whether the image it pulled still holds it',
+      'The harness the run needs, so a host can tell whether the image it pulled still contains it',
   })
   readonly harness: string;
 
@@ -264,7 +264,7 @@ export class RunParkingResponseDto {
   @ApiProperty({
     example: true,
     description:
-      'Whether the run is parked (or, if a stop was asked for, ended) and no longer held by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
+      'Whether the run is parked (or, if a stop was asked for, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
   })
   readonly parked: boolean;
 

@@ -39,8 +39,8 @@ const noticed = (
   },
 });
 
-const receiving = (held: ReviewComment[] = []) => {
-  const comments = new Map(held.map((each) => [each.id.value, each]));
+const receiving = (stored: ReviewComment[] = []) => {
+  const comments = new Map(stored.map((each) => [each.id.value, each]));
   let generated = 0;
 
   const repository = {

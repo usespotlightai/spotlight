@@ -105,7 +105,7 @@ describe('ThreadedSourceReader', () => {
         connected,
       });
 
-    const holding = (renewed: string | null) => {
+    const reaching = (renewed: string | null) => {
       const refused = vi.fn(async () =>
         renewed ? AccessToken.of(renewed) : null,
       );
@@ -131,7 +131,7 @@ describe('ThreadedSourceReader', () => {
       const fetching = {
         text: vi.fn(async () => LINEAR_SDL),
       } as unknown as SourceFetch;
-      const { reach } = holding(null);
+      const { reach } = reaching(null);
       const reader = new ThreadedSourceReader(fetching);
 
       await reader.read(graphql(false), reach);
@@ -151,7 +151,7 @@ describe('ThreadedSourceReader', () => {
           )
           .mockResolvedValueOnce(LINEAR_SDL),
       } as unknown as SourceFetch;
-      const { reach, refused } = holding('lin-new');
+      const { reach, refused } = reaching('lin-new');
 
       const read = await new ThreadedSourceReader(fetching).read(
         graphql(true),
@@ -173,7 +173,7 @@ describe('ThreadedSourceReader', () => {
             ),
           ),
       } as unknown as SourceFetch;
-      const { reach } = holding(null);
+      const { reach } = reaching(null);
 
       expect(
         await new ThreadedSourceReader(fetching).read(graphql(true), reach),

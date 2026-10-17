@@ -39,7 +39,7 @@ const kept = (id: number, paths: string[] = []) =>
   });
 
 const briefing = (
-  held: Memory[],
+  stored: Memory[],
   ranks: ReadonlyMap<string, number> = new Map(),
   touching: readonly { repository: Repository; path: string }[] = [
     { repository: API, path: 'src/uploads/retry.ts' },
@@ -51,14 +51,14 @@ const briefing = (
   const memories = new MemoriesForBriefing(
     new MemoriesInReach(
       {
-        mayReach: async () => held,
+        mayReach: async () => stored,
         successorsOf: async () => [],
       } as unknown as MemoryRepository,
       relevance,
     ),
     relevance,
     { runsUsing: async () => new Map() } as unknown as MemoryUsesPort,
-    { findAll: async () => held } as unknown as MemoryRepository,
+    { findAll: async () => stored } as unknown as MemoryRepository,
   );
 
   return {
@@ -115,12 +115,12 @@ describe('MemoriesForBriefing', () => {
     expect((await briefing([kept(1)]).brief()).folder).toEqual({
       path: '.spotlight/memory',
       layout: [
-        { folder: 'team/', holds: 'the whole team' },
-        { folder: 'line/', holds: 'this line' },
-        { folder: 'station/', holds: 'this station' },
+        { folder: 'team/', level: 'the whole team' },
+        { folder: 'line/', level: 'this line' },
+        { folder: 'station/', level: 'this station' },
         {
           folder: 'repositories/<owner>/<name>/<path>/',
-          holds: 'a repository, or a file or folder in it',
+          level: 'a repository, or a file or folder in it',
         },
       ],
       mirroring: 'repositories/',

@@ -10,7 +10,7 @@ import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   AgentRefusal,
   ExaminedCandidate,
-  HeldSearchRun,
+  LeasedSearchRun,
   OracleAnswerAsked,
   ReplayRunOrder,
   ReplayRunQueued,
@@ -228,8 +228,8 @@ export class InMemoryReplays {
       this.replays.set(replay.id.value, replay);
     },
     save: async (replay) => {
-      const held = this.replays.get(replay.id.value);
-      if (held && held.version !== replay.version) {
+      const existing = this.replays.get(replay.id.value);
+      if (existing && existing.version !== replay.version) {
         throw new ReplayVersionConflictError(replay.id.value);
       }
       this.events.push(...replay.pullEvents());
@@ -321,7 +321,7 @@ export class FakeWork implements WorkPort {
   readonly replayables = new Map<string, RunReplayability>();
   readonly dispatched: ReplayRunOrder[] = [];
   readonly withdrawn: string[] = [];
-  readonly held = new Map<string, readonly string[]>();
+  readonly startingPointHolds = new Map<string, readonly string[]>();
   refusing: ReplayRunQueued | null = null;
 
   station = async (lineId: string, stationId: string) =>
@@ -437,10 +437,10 @@ export class FakeWork implements WorkPort {
     this.searchesWithdrawn.push(run.value);
   };
 
-  readonly heldSearchRuns = new Map<string, HeldSearchRun>();
+  readonly leasedSearchRuns = new Map<string, LeasedSearchRun>();
 
-  heldSearchRun = async (run: RunId) =>
-    this.heldSearchRuns.get(run.value) ?? null;
+  leasedSearchRun = async (run: RunId) =>
+    this.leasedSearchRuns.get(run.value) ?? null;
 
   unclaimed: UnclaimedWithdrawal = { outcome: 'withdrawn', started: false };
 
@@ -468,14 +468,14 @@ export class FakeWork implements WorkPort {
     _workspace: unknown,
     runs: readonly RunId[],
   ) => {
-    this.held.set(
+    this.startingPointHolds.set(
       holder,
       runs.map((each) => each.value),
     );
   };
 
   release = async (holder: string) => {
-    this.held.delete(holder);
+    this.startingPointHolds.delete(holder);
   };
 }
 
@@ -666,9 +666,9 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   }
 
   async save(saved: ConfigPullRequest) {
-    const held = this.kept.get(saved.id.value);
+    const existing = this.kept.get(saved.id.value);
 
-    if (!held || held.version !== saved.version) {
+    if (!existing || existing.version !== saved.version) {
       throw new ConfigPullRequestVersionConflictError(saved.id.value);
     }
 

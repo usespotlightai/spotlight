@@ -230,12 +230,12 @@ describe('HostConnection', () => {
     expect(claimed.renewalReleased().isClaimedAt(NOW)).toBe(false);
   });
 
-  it('knows whether the token a host refused is still the one it holds', () => {
-    const held = rehydrated();
+  it('knows whether the token a host refused is still the one it has', () => {
+    const connection = rehydrated();
 
-    expect(held.refusedToken(AccessToken.of('xoxb-old'))).toBe(true);
+    expect(connection.refusedToken(AccessToken.of('xoxb-old'))).toBe(true);
     expect(
-      held
+      connection
         .renewedWith(grant({ accessToken: 'xoxb-2' }))
         .refusedToken(AccessToken.of('xoxb-old')),
     ).toBe(false);

@@ -138,8 +138,8 @@ func (c *cli) sets(args []string) error {
 	}
 
 	var raw json.RawMessage
-	var held []replaySet
-	if err := c.api.read(at.sets(), &raw, &held); err != nil {
+	var sets []replaySet
+	if err := c.api.read(at.sets(), &raw, &sets); err != nil {
 		return fmt.Errorf("list the replay sets of %s: %w", at.address, err)
 	}
 
@@ -147,14 +147,14 @@ func (c *cli) sets(args []string) error {
 		return c.printJSON(raw)
 	}
 
-	if len(held) == 0 {
+	if len(sets) == 0 {
 		fmt.Fprintf(c.out, "%s has no replay sets; pick one on the station's page.\n", at.address)
 		return nil
 	}
 
 	table := tabled(c.out)
 	fmt.Fprintln(table, "NAME\tRUNS\tREPLAYABLE\tCREATED\tID")
-	for _, each := range held {
+	for _, each := range sets {
 		replayable := 0
 		for _, run := range each.Entries {
 			if run.Refusal == nil {
@@ -168,12 +168,12 @@ func (c *cli) sets(args []string) error {
 }
 
 func (c *cli) setsAt(at *station) ([]replaySet, error) {
-	var held []replaySet
-	if err := c.api.get(at.sets(), &held); err != nil {
+	var sets []replaySet
+	if err := c.api.get(at.sets(), &sets); err != nil {
 		return nil, fmt.Errorf("list the replay sets of %s: %w", at.address, err)
 	}
 
-	return held, nil
+	return sets, nil
 }
 
 func (c *cli) start(args []string) error {
@@ -213,11 +213,11 @@ func (c *cli) start(args []string) error {
 
 	candidateID := live
 	if *candidateNamed != live {
-		held, _, err := c.candidatesOf(at)
+		candidates, _, err := c.candidatesOf(at)
 		if err != nil {
 			return err
 		}
-		found, err := pick(held, *candidateNamed, "candidate", at.address)
+		found, err := pick(candidates, *candidateNamed, "candidate", at.address)
 		if err != nil {
 			return err
 		}

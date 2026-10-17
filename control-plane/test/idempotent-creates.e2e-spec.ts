@@ -40,7 +40,10 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
     request,
   });
 
-  const holding = (made: IdempotentCreate, outcome: 'commit' | 'roll back') => {
+  const blocking = (
+    made: IdempotentCreate,
+    outcome: 'commit' | 'roll back',
+  ) => {
     let release = () => {};
     const released = new Promise<void>((resolve) => {
       release = resolve;
@@ -83,9 +86,9 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
     await app.close();
   });
 
-  it('holds a second claim of a key until the first create commits, then replays it', async () => {
+  it('blocks a second claim of a key until the first create commits, then replays it', async () => {
     const made = create();
-    const first = holding(made, 'commit');
+    const first = blocking(made, 'commit');
 
     await first.hasClaimed;
 
@@ -104,7 +107,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
 
   it('frees the key when the first create rolls back', async () => {
     const made = create();
-    const first = holding(made, 'roll back');
+    const first = blocking(made, 'roll back');
 
     await first.hasClaimed;
 
@@ -165,7 +168,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
 
   it('recalls nothing of a key still being created, or one a day old', async () => {
     const made = create();
-    const first = holding(made, 'commit');
+    const first = blocking(made, 'commit');
 
     await first.hasClaimed;
 

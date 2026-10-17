@@ -9,42 +9,46 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class StationWatchesInMemory implements StationWatchRepository {
-  readonly held = new Map<string, StationWatch>();
+  readonly stored = new Map<string, StationWatch>();
   readonly raised: DomainEvent[] = [];
 
   async add(watch: StationWatch): Promise<void> {
-    if (this.held.has(watch.station.stationId)) {
+    if (this.stored.has(watch.station.stationId)) {
       throw new StationWatchVersionConflictError(watch.station.stationId);
     }
     this.keep(watch, [], watch.version);
   }
 
   async save(watch: StationWatch): Promise<void> {
-    const held = this.held.get(watch.station.stationId);
+    const existing = this.stored.get(watch.station.stationId);
 
-    if (!held || held.version !== watch.version) {
+    if (!existing || existing.version !== watch.version) {
       throw new StationWatchVersionConflictError(watch.station.stationId);
     }
-    this.keep(watch, held.crossings, watch.version + 1);
+    this.keep(watch, existing.crossings, watch.version + 1);
   }
 
   async of(stationId: string, withTask?: TaskId): Promise<StationWatch | null> {
-    return this.holding(
+    return this.watchAt(
       stationId,
       (crossing) => withTask !== undefined && crossing.taskId.equals(withTask),
     );
   }
 
   async raising(alertId: AlertId): Promise<StationWatch | null> {
-    const held = [...this.held.values()].find((each) => each.crossing(alertId));
+    const existing = [...this.stored.values()].find((each) =>
+      each.crossing(alertId),
+    );
 
-    return held
-      ? this.holding(held.station.stationId, (each) => each.id.equals(alertId))
+    return existing
+      ? this.watchAt(existing.station.stationId, (each) =>
+          each.id.equals(alertId),
+        )
       : null;
   }
 
-  async stationsHolding(taskId: TaskId): Promise<readonly string[]> {
-    return [...this.held.values()]
+  async stationsWithTask(taskId: TaskId): Promise<readonly string[]> {
+    return [...this.stored.values()]
       .filter((each) =>
         each.crossings.some((crossing) => crossing.taskId.equals(taskId)),
       )
@@ -52,37 +56,37 @@ export class StationWatchesInMemory implements StationWatchRepository {
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (
         each.station.workspaceId.equals(workspaceId) &&
         each.station.teamId.equals(teamId)
       ) {
-        this.held.delete(each.station.stationId);
+        this.stored.delete(each.station.stationId);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.station.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.station.stationId);
+        this.stored.delete(each.station.stationId);
       }
     }
   }
 
-  private holding(
+  private watchAt(
     stationId: string,
-    alsoHeld: (crossing: AlertCrossing) => boolean,
+    alsoIncluded: (crossing: AlertCrossing) => boolean,
   ): StationWatch | null {
-    const held = this.held.get(stationId);
+    const existing = this.stored.get(stationId);
 
-    if (!held) {
+    if (!existing) {
       return null;
     }
 
     const lastRecovered = new Map<string, AlertCrossing>();
 
-    for (const each of held.crossings.filter((one) => !one.open)) {
+    for (const each of existing.crossings.filter((one) => !one.open)) {
       const last = lastRecovered.get(each.rule.key);
 
       if (
@@ -98,11 +102,12 @@ export class StationWatchesInMemory implements StationWatchRepository {
     );
 
     return StationWatch.rehydrate({
-      station: held.station,
-      crossings: held.crossings.filter(
-        (each) => each.open || alsoHeld(each) || settling.has(each.id.value),
+      station: existing.station,
+      crossings: existing.crossings.filter(
+        (each) =>
+          each.open || alsoIncluded(each) || settling.has(each.id.value),
       ),
-      version: held.version,
+      version: existing.version,
     });
   }
 
@@ -121,7 +126,7 @@ export class StationWatchesInMemory implements StationWatchRepository {
     );
 
     this.raised.push(...watch.pullEvents());
-    this.held.set(
+    this.stored.set(
       watch.station.stationId,
       StationWatch.rehydrate({
         station: watch.station,

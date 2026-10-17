@@ -90,7 +90,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
         continue;
       }
 
-      // Fetch outside the transaction, so that a slow host does not hold the task during the download.
+      // Fetch outside the transaction, so that a slow host does not lock the task during the download.
       const attachments = await this.kept(workspaceId, happened.attachments);
 
       await this.transaction.inTransaction(async () => {
@@ -177,7 +177,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    const task = await this.tasks.holding(workspaceId, happened.concerns);
+    const task = await this.tasks.findByMarks(workspaceId, happened.concerns);
 
     if (!task) {
       await this.opened(workspaceId, teamId, happened, attachments);
@@ -193,7 +193,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     happened: Heard,
     attachments: readonly Attachment[],
   ): Promise<void> {
-    const line = await this.lines.holding(task.stationId);
+    const line = await this.lines.findByStation(task.stationId);
 
     if (!line) {
       return;
@@ -238,11 +238,11 @@ export class ReactToHappenings implements HappeningReactionsPort {
       opens: happened.opens,
       request,
       said: happened.said,
-      holder: await this.holding(
+      pullRequestTask: await this.findByMark(
         workspaceId,
         Mark.pullRequest(request.pullRequest),
       ),
-      held: await this.tasks.holding(workspaceId, happened.concerns),
+      reviewTask: await this.tasks.findByMarks(workspaceId, happened.concerns),
     });
 
     if (answer.kind === 'heard') {
@@ -256,13 +256,13 @@ export class ReactToHappenings implements HappeningReactionsPort {
     }
   }
 
-  private async holding(
+  private async findByMark(
     workspaceId: WorkspaceId,
     mark: Mark,
   ): Promise<Task | null> {
     const concerns = Concerns.of({ marks: [mark] });
 
-    return concerns ? this.tasks.holding(workspaceId, concerns) : null;
+    return concerns ? this.tasks.findByMarks(workspaceId, concerns) : null;
   }
 
   private async linesOf(
@@ -368,8 +368,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return task.heard(saying);
     }
 
-    if (reaction.kind === 'heldBack') {
-      return task.heldBack(line, reaction.to.id, saying);
+    if (reaction.kind === 'deferredMove') {
+      return task.deferMove(line, reaction.to.id, saying);
     }
 
     if (reaction.kind === 'interrupts') {

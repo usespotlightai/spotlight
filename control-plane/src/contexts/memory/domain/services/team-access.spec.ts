@@ -44,9 +44,9 @@ describe('TeamAccess', () => {
     );
   });
 
-  it('holds only the team’s own memories', () => {
-    expect(teamAccess().holds(kept('team_1'))).toBe(true);
-    expect(teamAccess().holds(kept('team_2'))).toBe(false);
+  it('includes only the team’s own memories', () => {
+    expect(teamAccess().includes(kept('team_1'))).toBe(true);
+    expect(teamAccess().includes(kept('team_2'))).toBe(false);
   });
 
   it('reviews only a task of the team, in its workspace', () => {

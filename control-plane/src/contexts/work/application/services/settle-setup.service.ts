@@ -60,10 +60,10 @@ export class SettleSetup {
     const at = { taskId: task.id.value, workspaceId: task.workspaceId.value };
 
     try {
-      const line = await this.lines.holding(task.stationId);
+      const line = await this.lines.findByStation(task.stationId);
 
       if (!line) {
-        this.logger.warn(at, 'found no line holding a team’s setup list');
+        this.logger.warn(at, 'found no line that contains a team’s setup list');
         return;
       }
 

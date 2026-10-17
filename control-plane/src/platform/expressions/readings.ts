@@ -5,7 +5,7 @@ import {
 } from '@platform/expressions/expression.errors';
 import type { Expression } from '@platform/expressions/expression-engine.port';
 
-export const holds = (expression: Expression, against: Bindings): boolean => {
+export const isTrue = (expression: Expression, against: Bindings): boolean => {
   try {
     return expression.evaluate(against) === true;
   } catch {

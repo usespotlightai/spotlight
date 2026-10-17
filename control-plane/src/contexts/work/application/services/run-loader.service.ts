@@ -24,7 +24,7 @@ export class RunLoader {
       throw new UnknownRunError(`Run ${runId} not found.`);
     }
 
-    run.assertHeldBy(RunnerId.of(runnerId));
+    run.assertLeasedBy(RunnerId.of(runnerId));
 
     return { run, task: run.taskId ? await this.tasks.find(run.taskId) : null };
   }

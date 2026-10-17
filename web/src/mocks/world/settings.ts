@@ -73,19 +73,19 @@ const integration = (
   name,
   path: `integrations/${source}`,
   standing: 'linked',
-  holding: 'team',
+  holder: 'team',
   handle: null,
   described: null,
   ...over,
 });
 
 const LINEAR = integration('linear', 'Linear', {
-  holding: 'requester',
+  holder: 'requester',
   handle: '@acme-bot',
 });
 
 const SENTRY = integration('sentry', 'Sentry', {
-  holding: 'requester',
+  holder: 'requester',
   handle: 'acme',
 });
 

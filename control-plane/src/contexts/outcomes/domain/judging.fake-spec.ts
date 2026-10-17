@@ -142,32 +142,32 @@ export const personGrade = (
   });
 
 export class JudgingsInMemory implements JudgingRepository {
-  readonly held = new Map<string, Judging>();
+  readonly stored = new Map<string, Judging>();
   readonly events: DomainEvent[] = [];
 
   async add(judging: Judging): Promise<void> {
-    if (this.held.has(judging.runId.value)) {
+    if (this.stored.has(judging.runId.value)) {
       throw new JudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
-    this.held.set(judging.runId.value, judging);
+    this.stored.set(judging.runId.value, judging);
   }
 
   async save(judging: Judging): Promise<void> {
-    const held = this.held.get(judging.runId.value);
+    const existing = this.stored.get(judging.runId.value);
 
-    if (!held || held.version !== judging.version) {
+    if (!existing || existing.version !== judging.version) {
       throw new JudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
-    this.held.set(
+    this.stored.set(
       judging.runId.value,
       Judging.rehydrate({ ...judging, version: judging.version + 1 }),
     );
   }
 
   async of(runId: RunId): Promise<Judging | null> {
-    return this.held.get(runId.value) ?? null;
+    return this.stored.get(runId.value) ?? null;
   }
 
   ofForScoring(runId: RunId): Promise<Judging | null> {
@@ -176,35 +176,35 @@ export class JudgingsInMemory implements JudgingRepository {
 
   async dueForWork(now: Date): Promise<Judging | null> {
     return (
-      [...this.held.values()]
+      [...this.stored.values()]
         .filter((each) => each.work?.dueBy(now))
         .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
     );
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.place.taskId.equals(taskId)) {
-        this.held.delete(each.runId.value);
+        this.stored.delete(each.runId.value);
       }
     }
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (
         each.workspaceId.equals(workspaceId) &&
         each.place.teamId.equals(teamId)
       ) {
-        this.held.delete(each.runId.value);
+        this.stored.delete(each.runId.value);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.runId.value);
+        this.stored.delete(each.runId.value);
       }
     }
   }
@@ -214,28 +214,28 @@ const keyOf = (runId: RunId, round: JudgingRound): string =>
   `${runId.value}#${round}`;
 
 export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
-  readonly held = new Map<string, ChangeJudging>();
+  readonly stored = new Map<string, ChangeJudging>();
   readonly events: DomainEvent[] = [];
 
   async add(judging: ChangeJudging): Promise<void> {
     const key = keyOf(judging.runId, judging.round);
 
-    if (this.held.has(key)) {
+    if (this.stored.has(key)) {
       throw new ChangeJudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
-    this.held.set(key, judging);
+    this.stored.set(key, judging);
   }
 
   async save(judging: ChangeJudging): Promise<void> {
     const key = keyOf(judging.runId, judging.round);
-    const held = this.held.get(key);
+    const existing = this.stored.get(key);
 
-    if (!held || held.version !== judging.version) {
+    if (!existing || existing.version !== judging.version) {
       throw new ChangeJudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
-    this.held.set(
+    this.stored.set(
       key,
       ChangeJudging.rehydrate({
         runId: judging.runId,
@@ -255,29 +255,29 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
   }
 
   async of(runId: RunId, round: JudgingRound): Promise<ChangeJudging | null> {
-    return this.held.get(keyOf(runId, round)) ?? null;
+    return this.stored.get(keyOf(runId, round)) ?? null;
   }
 
   async dueForWork(now: Date): Promise<ChangeJudging | null> {
     return (
-      [...this.held.values()]
+      [...this.stored.values()]
         .filter((each) => each.work?.dueBy(now))
         .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
     );
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
-        this.held.delete(keyOf(each.runId, each.round));
+        this.stored.delete(keyOf(each.runId, each.round));
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(keyOf(each.runId, each.round));
+        this.stored.delete(keyOf(each.runId, each.round));
       }
     }
   }
@@ -287,34 +287,34 @@ const pairKeyOf = (runId: RunId, against: RunId): string =>
   `${runId.value}#${against.value}`;
 
 export class PairJudgingsInMemory implements PairJudgingRepository {
-  readonly held = new Map<string, PairJudging>();
+  readonly stored = new Map<string, PairJudging>();
   readonly events: DomainEvent[] = [];
 
   async add(judging: PairJudging): Promise<void> {
     const key = pairKeyOf(judging.runId, judging.against);
 
-    if (this.held.has(key)) {
+    if (this.stored.has(key)) {
       throw new PairJudgingVersionConflictError(
         judging.runId.value,
         judging.against.value,
       );
     }
     this.events.push(...judging.pullEvents());
-    this.held.set(key, judging);
+    this.stored.set(key, judging);
   }
 
   async save(judging: PairJudging): Promise<void> {
     const key = pairKeyOf(judging.runId, judging.against);
-    const held = this.held.get(key);
+    const existing = this.stored.get(key);
 
-    if (!held || held.version !== judging.version) {
+    if (!existing || existing.version !== judging.version) {
       throw new PairJudgingVersionConflictError(
         judging.runId.value,
         judging.against.value,
       );
     }
     this.events.push(...judging.pullEvents());
-    this.held.set(
+    this.stored.set(
       key,
       PairJudging.rehydrate({
         runId: judging.runId,
@@ -336,40 +336,40 @@ export class PairJudgingsInMemory implements PairJudgingRepository {
   }
 
   async of(runId: RunId, against: RunId): Promise<PairJudging | null> {
-    return this.held.get(pairKeyOf(runId, against)) ?? null;
+    return this.stored.get(pairKeyOf(runId, against)) ?? null;
   }
 
   async dueForWork(now: Date): Promise<PairJudging | null> {
     return (
-      [...this.held.values()]
+      [...this.stored.values()]
         .filter((each) => each.work?.dueBy(now))
         .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
     );
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const [key, each] of [...this.held.entries()]) {
+    for (const [key, each] of [...this.stored.entries()]) {
       if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
-        this.held.delete(key);
+        this.stored.delete(key);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const [key, each] of [...this.held.entries()]) {
+    for (const [key, each] of [...this.stored.entries()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(key);
+        this.stored.delete(key);
       }
     }
   }
 }
 
 export class ScoresInMemory implements ScoreRepository {
-  readonly held = new Map<string, Score>();
+  readonly stored = new Map<string, Score>();
   readonly events: DomainEvent[] = [];
 
   async add(score: Score): Promise<void> {
-    const twin = [...this.held.values()].find(
+    const twin = [...this.stored.values()].find(
       (each) =>
         each.runId.equals(score.runId) &&
         each.source === score.source &&
@@ -378,21 +378,21 @@ export class ScoresInMemory implements ScoreRepository {
           : each.by?.value === score.by?.value),
     );
 
-    if (this.held.has(score.id.value) || twin) {
+    if (this.stored.has(score.id.value) || twin) {
       throw new ScoreVersionConflictError(score.id.value);
     }
     this.events.push(...score.pullEvents());
-    this.held.set(score.id.value, score);
+    this.stored.set(score.id.value, score);
   }
 
   async save(score: Score): Promise<void> {
-    const held = this.held.get(score.id.value);
+    const existing = this.stored.get(score.id.value);
 
-    if (!held || held.version !== score.version) {
+    if (!existing || existing.version !== score.version) {
       throw new ScoreVersionConflictError(score.id.value);
     }
     this.events.push(...score.pullEvents());
-    this.held.set(
+    this.stored.set(
       score.id.value,
       Score.rehydrate({
         id: score.id,
@@ -417,7 +417,7 @@ export class ScoresInMemory implements ScoreRepository {
 
   async judgeOf(runId: RunId, rubricVersion: string): Promise<Score | null> {
     return (
-      [...this.held.values()].find(
+      [...this.stored.values()].find(
         (each) =>
           each.fromJudge &&
           each.runId.equals(runId) &&
@@ -428,7 +428,7 @@ export class ScoresInMemory implements ScoreRepository {
 
   async gradeBy(runId: RunId, by: UserId): Promise<Score | null> {
     return (
-      [...this.held.values()].find(
+      [...this.stored.values()].find(
         (each) =>
           !each.fromJudge &&
           each.runId.equals(runId) &&
@@ -438,13 +438,13 @@ export class ScoresInMemory implements ScoreRepository {
   }
 
   async ofRuns(runIds: readonly RunId[]): Promise<readonly Score[]> {
-    return [...this.held.values()].filter((each) =>
+    return [...this.stored.values()].filter((each) =>
       runIds.some((runId) => runId.equals(each.runId)),
     );
   }
 
   async judgedAtStation(criteria: StationScores): Promise<readonly Score[]> {
-    return [...this.held.values()]
+    return [...this.stored.values()]
       .filter(
         (each) =>
           each.fromJudge &&
@@ -488,28 +488,28 @@ export class ScoresInMemory implements ScoreRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.place.taskId.equals(taskId)) {
-        this.held.delete(each.id.value);
+        this.stored.delete(each.id.value);
       }
     }
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (
         each.workspaceId.equals(workspaceId) &&
         each.place.teamId.equals(teamId)
       ) {
-        this.held.delete(each.id.value);
+        this.stored.delete(each.id.value);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.id.value);
+        this.stored.delete(each.id.value);
       }
     }
   }

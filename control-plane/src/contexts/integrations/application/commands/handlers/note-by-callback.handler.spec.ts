@@ -52,13 +52,13 @@ const TASK = {
 };
 
 const setUp = (
-  held: HookCallbackGrant | null,
+  grant: HookCallbackGrant | null,
   task = TASK,
   now: Date = NOW,
 ) => {
   const kept = {
     add: vi.fn(async () => {}),
-    withToken: vi.fn(async () => held),
+    withToken: vi.fn(async () => grant),
     forgetExpiringBefore: vi.fn(async () => {}),
   } satisfies HookCallbackGrantRepository;
   const clock = { now: () => now, sleep: async () => {} };

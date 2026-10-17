@@ -291,8 +291,8 @@ describe('a station alert (e2e)', () => {
       return alerts[0]?.recoveredAt === null ? alerts : null;
     });
     const aside = await settled(async () => {
-      const held = await asideOf(team.list.id.value);
-      return held && held.settledAt === null ? held : null;
+      const found = await asideOf(team.list.id.value);
+      return found && found.settledAt === null ? found : null;
     });
 
     expect(await alertsAtStation()).toHaveLength(1);

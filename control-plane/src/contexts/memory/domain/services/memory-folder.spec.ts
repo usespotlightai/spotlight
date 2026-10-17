@@ -86,14 +86,14 @@ describe('the memory folder', () => {
       repositories: [],
     };
 
-    expect(layoutAt(site).map((each) => each.holds)).toEqual(['team']);
+    expect(layoutAt(site).map((each) => each.level)).toEqual(['team']);
     expect(
       layoutAt({
         ...site,
         lineId: 'line_1',
         stationId: 'station_1',
         repositories: [API],
-      }).map((each) => each.holds),
+      }).map((each) => each.level),
     ).toEqual(['team', 'line', 'station', 'repository']);
   });
 });

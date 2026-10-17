@@ -4,9 +4,9 @@ import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo
 import { describe, expect, it } from 'vitest';
 
 const allowed = (scopes: readonly string[]) => {
-  const held = TokenScopes.named(scopes);
+  const granted = TokenScopes.named(scopes);
 
-  return TokenScope.all.filter((each) => held.allow(each)).map(String);
+  return TokenScope.all.filter((each) => granted.allow(each)).map(String);
 };
 
 describe('TokenScopes', () => {

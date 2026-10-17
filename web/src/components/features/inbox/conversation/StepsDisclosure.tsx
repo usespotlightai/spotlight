@@ -21,12 +21,12 @@ export function StepsDisclosure({
   children,
 }: StepsDisclosureProps) {
   const anchors = useStepAnchors();
-  const holdsFocus = steps.some(
+  const hasFocus = steps.some(
     (step) =>
       anchors.focused !== null && anchors.anchorOf(step) === anchors.focused,
   );
 
-  const { open, toggle } = useOpenWhenFocused(holdsFocus);
+  const { open, toggle } = useOpenWhenFocused(hasFocus);
 
   return (
     <div className="py-1.5">

@@ -22,7 +22,7 @@ describe('PlannedLine', () => {
   });
 
   it('refuses what names no repositories, or repositories that are not blocks', () => {
-    for (const held of [
+    for (const raw of [
       null,
       [],
       {},
@@ -30,7 +30,7 @@ describe('PlannedLine', () => {
       { repositories: ['acme/api'] },
       { repositories: [null] },
     ]) {
-      expect(() => PlannedLine.of(held)).toThrow(InvalidCandidateError);
+      expect(() => PlannedLine.of(raw)).toThrow(InvalidCandidateError);
     }
   });
 

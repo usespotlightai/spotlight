@@ -1,7 +1,7 @@
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import {
-  type CheckHold,
-  holdsAt,
+  type CheckLease,
+  isLeaseActiveAt,
 } from '@change-review/domain/value-objects/check-claim.vo';
 import type {
   HunkId,
@@ -26,12 +26,12 @@ export const WAITING_LIMIT_MS = 60 * 60 * 1000;
 export interface CheckStanding {
   readonly phase: CheckPhase;
   readonly waitingSince: Date;
-  readonly hold: CheckHold;
+  readonly lease: CheckLease;
 }
 
 const waitedOutAt = (check: CheckStanding, now: Date): boolean =>
   now.getTime() - check.waitingSince.getTime() > WAITING_LIMIT_MS &&
-  !holdsAt(check.hold, now);
+  !isLeaseActiveAt(check.lease, now);
 
 export const checkStateAt = (
   check: CheckStanding,

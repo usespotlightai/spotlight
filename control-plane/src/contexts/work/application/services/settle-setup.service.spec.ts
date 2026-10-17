@@ -98,7 +98,7 @@ const settling = (given: { task?: Task; state?: SetupState } = {}) => {
   } as unknown as SetupStanding;
 
   const lines = {
-    holding: vi.fn(async () => DELIVERY),
+    findByStation: vi.fn(async () => DELIVERY),
   } as unknown as LineRepository;
 
   const logger = { warn: vi.fn(), error: vi.fn() } as unknown as LoggerPort;

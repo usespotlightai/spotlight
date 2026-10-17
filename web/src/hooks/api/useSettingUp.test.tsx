@@ -185,7 +185,7 @@ describe('useSettingUp', () => {
     expect(result.current).toBe(false);
   });
 
-  it('does not hold the workspace back when the onboarding cannot be read', async () => {
+  it('does not block the workspace when the onboarding cannot be read', async () => {
     readOnboarding.mockRejectedValue(new Error('offline'));
 
     const { result, settled } = watching(ACME, true);

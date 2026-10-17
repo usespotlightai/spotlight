@@ -183,7 +183,7 @@ const triage = (gives: { tools?: string[]; skills?: SkillKey[] }) =>
 
 const task = (stationId: string, title = 'Fix the queue') =>
   Task.add({
-    line: held(),
+    line: lineWith(),
     at: StationId.of(stationId),
     title: TaskTitle.of(title),
     rank: TaskRank.of('i'),
@@ -209,7 +209,7 @@ type Worked = string | WorkedRepository;
 const worked = (each: Worked): WorkedRepository =>
   typeof each === 'string' ? WorkedRepository.of(Repository.of(each)) : each;
 
-const held = (changed?: Station, repositories: readonly Worked[] = []) =>
+const lineWith = (changed?: Station, repositories: readonly Worked[] = []) =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -363,7 +363,7 @@ const dispatch = async (
     new Sha256ContentDigest(),
   );
   const working = standing ?? task(station.id.value);
-  const line = held(station, repositories);
+  const line = lineWith(station, repositories);
   const runId = await service.runIdFor({ task: working, line });
 
   if (runId) {
@@ -705,7 +705,7 @@ describe('DispatchTask', () => {
       expect(spec.wears).toEqual(['LINEAR_API_KEY']);
     });
 
-    it('fails the run, saying why, where the team holds no such profile', async () => {
+    it('fails the run, saying why, where the team has no such profile', async () => {
       const id = await dispatch(naming('reckless'));
 
       expect(id).not.toBeNull();

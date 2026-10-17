@@ -48,7 +48,7 @@ export interface RunSite {
   readonly repositories: readonly Repository[];
 }
 
-export interface HeldRunLookup extends RunSite {
+export interface LeasedRunLookup extends RunSite {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
@@ -101,7 +101,7 @@ export interface WorkLookupPort {
 
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 
-  heldBy(runId: RunId, runner: RunnerId): Promise<HeldRunLookup | null>;
+  leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRunLookup | null>;
 
   siteOfRun(runId: RunId): Promise<RunSite | null>;
 

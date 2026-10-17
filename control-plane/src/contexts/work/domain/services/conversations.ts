@@ -57,7 +57,7 @@ const settledAfter = <T extends { kind: TaskNoteKind }>(
     .slice(at + 1)
     .some((later) => later.kind === 'answered' || later.kind === 'passed');
 
-const holding = (cut: readonly Conversation[], at: number) =>
+const containing = (cut: readonly Conversation[], at: number) =>
   cut.find((each) => each.from <= at && (each.to === null || at <= each.to));
 
 export const reviewsIn = <
@@ -73,7 +73,7 @@ export const reviewsIn = <
       return;
     }
 
-    const conversation = holding(cut, at);
+    const conversation = containing(cut, at);
 
     if (conversation) {
       reviews.set(note.runId, {
@@ -116,11 +116,11 @@ export const owedIn = <T extends { kind: TaskNoteKind }>(
 export const turnOf = <T extends { runId: string | null }>(
   notes: readonly T[],
   runId: string,
-  holding = false,
+  isCurrentRun = false,
 ): T[] => {
   const first = notes.findIndex((note) => note.runId === runId);
   const last = notes.map((note) => note.runId).lastIndexOf(runId);
-  const ends = holding || last === -1 ? notes.length - 1 : last;
+  const ends = isCurrentRun || last === -1 ? notes.length - 1 : last;
 
   if (ends < 0) {
     return [];

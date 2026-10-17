@@ -6,21 +6,21 @@ import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-re
 
 export const stationConfigPullRequestsInMemory =
   (): StationConfigPullRequestsPort & {
-    readonly held: Map<string, StationConfigPullRequest>;
+    readonly stored: Map<string, StationConfigPullRequest>;
   } => {
-    const held = new Map<string, StationConfigPullRequest>();
+    const stored = new Map<string, StationConfigPullRequest>();
 
     return {
-      held,
+      stored,
       note: async (pullRequest) => {
-        if (!held.has(pullRequest.configPullRequestId)) {
-          held.set(pullRequest.configPullRequestId, pullRequest);
+        if (!stored.has(pullRequest.configPullRequestId)) {
+          stored.set(pullRequest.configPullRequestId, pullRequest);
         }
       },
       newestFor: async (station, fingerprints) => {
         const newest = new Map<string, StationConfigPullRequest>();
 
-        for (const each of held.values()) {
+        for (const each of stored.values()) {
           const known = newest.get(each.fingerprint);
 
           if (
@@ -39,19 +39,19 @@ export const stationConfigPullRequestsInMemory =
         );
       },
       removeForTeam: async (workspaceId, teamId) => {
-        for (const [id, each] of [...held]) {
+        for (const [id, each] of [...stored]) {
           if (
             each.workspaceId.equals(workspaceId) &&
             each.teamId.equals(teamId)
           ) {
-            held.delete(id);
+            stored.delete(id);
           }
         }
       },
       removeForWorkspace: async (workspaceId) => {
-        for (const [id, each] of [...held]) {
+        for (const [id, each] of [...stored]) {
           if (each.workspaceId.equals(workspaceId)) {
-            held.delete(id);
+            stored.delete(id);
           }
         }
       },

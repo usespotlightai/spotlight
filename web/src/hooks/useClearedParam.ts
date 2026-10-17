@@ -3,10 +3,10 @@ import { useSearchParams } from 'react-router';
 
 export function useClearedParam(name: string) {
   const [params, setParams] = useSearchParams();
-  const held = params.get(name);
+  const value = params.get(name);
 
   useEffect(() => {
-    if (!held) {
+    if (!value) {
       return;
     }
 
@@ -17,5 +17,5 @@ export function useClearedParam(name: string) {
       },
       { replace: true },
     );
-  }, [held, name, setParams]);
+  }, [value, name, setParams]);
 }

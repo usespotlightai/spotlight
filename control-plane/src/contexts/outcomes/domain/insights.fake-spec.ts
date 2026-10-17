@@ -32,37 +32,37 @@ const inWindow = (window: TeamWindow, at: Date | null): boolean =>
   at.getTime() < window.to.getTime();
 
 export class TaskTouchesInMemory implements TaskTouchesRepository {
-  readonly held = new Map<string, TaskTouches>();
+  readonly stored = new Map<string, TaskTouches>();
 
   constructor(private readonly records?: RunRecordsInMemory) {}
 
   async add(touches: TaskTouches): Promise<void> {
-    if (this.held.has(touches.taskId.value)) {
+    if (this.stored.has(touches.taskId.value)) {
       throw new TaskTouchesVersionConflictError(touches.taskId.value);
     }
-    this.held.set(touches.taskId.value, touches);
+    this.stored.set(touches.taskId.value, touches);
   }
 
   async save(touches: TaskTouches): Promise<void> {
-    const held = this.held.get(touches.taskId.value);
+    const existing = this.stored.get(touches.taskId.value);
 
-    if (!held || held.version !== touches.version) {
+    if (!existing || existing.version !== touches.version) {
       throw new TaskTouchesVersionConflictError(touches.taskId.value);
     }
-    this.held.set(
+    this.stored.set(
       touches.taskId.value,
       TaskTouches.rehydrate({ ...touches, version: touches.version + 1 }),
     );
   }
 
   async of(taskId: TaskId): Promise<TaskTouches | null> {
-    return this.held.get(taskId.value) ?? null;
+    return this.stored.get(taskId.value) ?? null;
   }
 
   async forTasks(taskIds: readonly TaskId[]): Promise<readonly TaskTouches[]> {
     return taskIds.flatMap((each) => {
-      const held = this.held.get(each.value);
-      return held ? [held] : [];
+      const existing = this.stored.get(each.value);
+      return existing ? [existing] : [];
     });
   }
 
@@ -77,7 +77,7 @@ export class TaskTouchesInMemory implements TaskTouchesRepository {
       ).flatMap((each) => (each.taskId ? [each.taskId.value] : [])),
     );
 
-    return [...this.held.values()]
+    return [...this.stored.values()]
       .filter(
         (each) =>
           each.workspaceId.equals(window.workspaceId) &&
@@ -90,60 +90,60 @@ export class TaskTouchesInMemory implements TaskTouchesRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    this.held.delete(taskId.value);
+    this.stored.delete(taskId.value);
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (
         each.workspaceId.equals(workspaceId) &&
         each.opening?.teamId.equals(teamId)
       ) {
-        this.held.delete(each.taskId.value);
+        this.stored.delete(each.taskId.value);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.taskId.value);
+        this.stored.delete(each.taskId.value);
       }
     }
   }
 }
 
 export class TaskFailuresInMemory implements TaskFailuresRepository {
-  readonly held = new Map<string, TaskFailures>();
+  readonly stored = new Map<string, TaskFailures>();
 
   async add(failures: TaskFailures): Promise<void> {
-    if (this.held.has(failures.taskId.value)) {
+    if (this.stored.has(failures.taskId.value)) {
       throw new TaskFailuresVersionConflictError(failures.taskId.value);
     }
-    this.held.set(failures.taskId.value, failures);
+    this.stored.set(failures.taskId.value, failures);
   }
 
   async save(failures: TaskFailures): Promise<void> {
-    const held = this.held.get(failures.taskId.value);
+    const existing = this.stored.get(failures.taskId.value);
 
-    if (!held || held.version !== failures.version) {
+    if (!existing || existing.version !== failures.version) {
       throw new TaskFailuresVersionConflictError(failures.taskId.value);
     }
-    this.held.set(
+    this.stored.set(
       failures.taskId.value,
       TaskFailures.rehydrate({ ...failures, version: failures.version + 1 }),
     );
   }
 
   async of(taskId: TaskId): Promise<TaskFailures | null> {
-    return this.held.get(taskId.value) ?? null;
+    return this.stored.get(taskId.value) ?? null;
   }
 
   async ofTeamBetween(
     window: TeamWindow,
     max: number,
   ): Promise<readonly TaskFailures[]> {
-    return [...this.held.values()]
+    return [...this.stored.values()]
       .filter(
         (each) =>
           each.workspaceId.equals(window.workspaceId) &&
@@ -154,45 +154,45 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    this.held.delete(taskId.value);
+    this.stored.delete(taskId.value);
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
-        this.held.delete(each.taskId.value);
+        this.stored.delete(each.taskId.value);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.taskId.value);
+        this.stored.delete(each.taskId.value);
       }
     }
   }
 }
 
 export class ChatRecordsInMemory implements ChatRecordRepository {
-  readonly held = new Map<string, ChatRecord>();
+  readonly stored = new Map<string, ChatRecord>();
 
   async add(record: ChatRecord): Promise<void> {
-    if (this.held.has(record.chatId)) {
+    if (this.stored.has(record.chatId)) {
       throw new ChatRecordVersionConflictError(record.chatId);
     }
-    this.held.set(record.chatId, record);
+    this.stored.set(record.chatId, record);
   }
 
   async of(chatId: string): Promise<ChatRecord | null> {
-    return this.held.get(chatId) ?? null;
+    return this.stored.get(chatId) ?? null;
   }
 
   async ofTeamBetween(
     window: TeamWindow,
     max: number,
   ): Promise<readonly ChatRecord[]> {
-    return [...this.held.values()]
+    return [...this.stored.values()]
       .filter(
         (each) =>
           each.workspaceId.equals(window.workspaceId) &&
@@ -203,17 +203,17 @@ export class ChatRecordsInMemory implements ChatRecordRepository {
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
-        this.held.delete(each.chatId);
+        this.stored.delete(each.chatId);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.chatId);
+        this.stored.delete(each.chatId);
       }
     }
   }
@@ -245,13 +245,13 @@ export const touchesOf = (
     }),
   );
   const asked = (touched.asks ?? []).reduce(
-    (held, [stationId, at]) => held.asked(InboxAsk.of(stationId, at)),
+    (current, [stationId, at]) => current.asked(InboxAsk.of(stationId, at)),
     opened,
   );
 
   return (touched.acts ?? []).reduce(
-    (held, [act, by, stationId, at]) =>
-      held.recordAction(
+    (current, [act, by, stationId, at]) =>
+      current.recordAction(
         PersonTouch.of({ act, by: UserId.of(by), stationId, at }),
       ),
     asked,
@@ -269,8 +269,8 @@ export const failuresOf = (
   }[],
 ): TaskFailures =>
   raised.reduce(
-    (held, each) =>
-      held.raise(
+    (current, each) =>
+      current.raise(
         FailureOccurrence.of({
           stationId: each.stationId ?? 'station_1',
           runId: null,
@@ -292,13 +292,13 @@ export const chatOf = (chatId: string, by: string, at: Date): ChatRecord =>
     startedAt: at,
   });
 
-export const historyOf = (held: Partial<TeamHistory>): TeamHistory => ({
+export const historyOf = (parts: Partial<TeamHistory>): TeamHistory => ({
   records: [],
   deliveries: [],
   touches: [],
   failures: [],
   chats: [],
-  ...held,
+  ...parts,
 });
 
 export const deliveredOf = (

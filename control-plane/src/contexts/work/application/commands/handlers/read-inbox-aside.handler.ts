@@ -11,8 +11,8 @@ export class ReadInboxAsideHandler
   implements CommandHandlerPort<ReadInboxAsideCommand, void>
 {
   constructor(
-    private readonly asides: AsideLoader,
-    private readonly held: TaskAsideRepository,
+    private readonly loader: AsideLoader,
+    private readonly asides: TaskAsideRepository,
     private readonly clock: ClockPort,
   ) {}
 
@@ -30,11 +30,11 @@ export class ReadInboxAsideHandler
   }
 
   private async readOnce(command: ReadInboxAsideCommand): Promise<void> {
-    const aside = await this.asides.putTo(command.asideId, command.readBy);
+    const aside = await this.loader.putTo(command.asideId, command.readBy);
     const viewer = UserId.of(command.readBy);
 
     if (aside.unreadBy(viewer)) {
-      await this.held.save(aside.readBy(viewer, this.clock.now()));
+      await this.asides.save(aside.readBy(viewer, this.clock.now()));
     }
   }
 }

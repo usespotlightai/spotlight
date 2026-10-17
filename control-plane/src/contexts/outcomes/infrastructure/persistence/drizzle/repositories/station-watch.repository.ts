@@ -135,7 +135,7 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
   }
 
   async of(stationId: string, withTask?: TaskId): Promise<StationWatch | null> {
-    return this.holding(
+    return this.watchAt(
       stationId,
       withTask ? eq(stationAlert.taskId, withTask.value) : null,
     );
@@ -149,11 +149,11 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
       .limit(1);
 
     return row
-      ? this.holding(row.stationId, eq(stationAlert.id, alertId.value))
+      ? this.watchAt(row.stationId, eq(stationAlert.id, alertId.value))
       : null;
   }
 
-  async stationsHolding(taskId: TaskId): Promise<readonly string[]> {
+  async stationsWithTask(taskId: TaskId): Promise<readonly string[]> {
     const rows = await this.context.db
       .selectDistinct({ stationId: stationAlert.stationId })
       .from(stationAlert)
@@ -179,9 +179,9 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
       .where(eq(stationWatch.workspaceId, workspaceId.value));
   }
 
-  private async holding(
+  private async watchAt(
     stationId: string,
-    alsoHeld: SQL | null,
+    alsoIncluded: SQL | null,
   ): Promise<StationWatch | null> {
     const [row] = await this.context.db
       .select()
@@ -199,8 +199,8 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
       .where(
         and(
           eq(stationAlert.stationId, stationId),
-          alsoHeld
-            ? or(isNull(stationAlert.recoveredAt), alsoHeld)
+          alsoIncluded
+            ? or(isNull(stationAlert.recoveredAt), alsoIncluded)
             : isNull(stationAlert.recoveredAt),
         ),
       )
@@ -220,11 +220,11 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
         desc(stationAlert.recoveredAt),
         desc(stationAlert.id),
       );
-    const held = new Set(alerts.map((each) => each.id));
+    const openIds = new Set(alerts.map((each) => each.id));
 
     return toWatch(row, [
       ...alerts,
-      ...settling.filter((each) => !held.has(each.id)),
+      ...settling.filter((each) => !openIds.has(each.id)),
     ]);
   }
 

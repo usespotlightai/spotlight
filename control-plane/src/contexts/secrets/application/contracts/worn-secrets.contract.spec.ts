@@ -61,7 +61,7 @@ describe('WornSecrets', () => {
     expect(bare.search).toBe('?flag&q=a%20b&key=AIza%2F1%2B2%203');
   });
 
-  it('takes the secret out of text that holds it escaped for JSON', () => {
+  it('takes the secret out of text that contains it escaped for JSON', () => {
     const quoted = WornSecrets.of([
       { carrier: 'query', name: 'key', value: 'k/"1"', bare: 'k/"1"' },
     ]);

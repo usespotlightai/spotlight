@@ -49,30 +49,30 @@ const factsOf = (
 });
 
 class PullRequestsInMemory implements PullRequestRepository {
-  readonly held = new Map<string, PullRequest>();
+  readonly rows = new Map<string, PullRequest>();
   readonly dispatched: DomainEvent[] = [];
   collisions = 0;
 
   async at(_: WorkspaceId, url: PullRequestUrl) {
-    return this.held.get(url.value) ?? null;
+    return this.rows.get(url.value) ?? null;
   }
 
   async numbered(_: WorkspaceId, __: Repository, number: number) {
     return (
-      [...this.held.values()].find((each) => each.number === number) ?? null
+      [...this.rows.values()].find((each) => each.number === number) ?? null
     );
   }
 
   async lastMergedTitled(_: WorkspaceId, __: Repository, title: string) {
     return (
-      [...this.held.values()].find(
+      [...this.rows.values()].find(
         (each) => each.merged && each.title === title,
       ) ?? null
     );
   }
 
   async lastHeardBefore(before: Date, after: PullRequest | null, max: number) {
-    return [...this.held.values()]
+    return [...this.rows.values()]
       .filter(
         (each) =>
           (each.closedAt ?? each.updatedAt).getTime() < before.getTime(),
@@ -97,7 +97,7 @@ class PullRequestsInMemory implements PullRequestRepository {
     after: PullRequestUrl | null,
     max: number,
   ) {
-    return [...this.held.values()]
+    return [...this.rows.values()]
       .filter((each) => each.workspaceId.equals(workspaceId))
       .sort((a, b) => a.url.value.localeCompare(b.url.value))
       .filter((each) => !after || each.url.value > after.value)
@@ -105,9 +105,9 @@ class PullRequestsInMemory implements PullRequestRepository {
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId) {
-    for (const [url, each] of this.held) {
+    for (const [url, each] of this.rows) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(url);
+        this.rows.delete(url);
       }
     }
   }
@@ -121,7 +121,7 @@ class PullRequestsInMemory implements PullRequestRepository {
   }
 
   async add(pullRequest: PullRequest) {
-    if (this.held.has(pullRequest.url.value)) {
+    if (this.rows.has(pullRequest.url.value)) {
       throw new PullRequestVersionConflictError(pullRequest.url.value);
     }
     this.stored(pullRequest);
@@ -132,20 +132,20 @@ class PullRequestsInMemory implements PullRequestRepository {
       this.collisions -= 1;
       throw new PullRequestVersionConflictError(pullRequest.url.value);
     }
-    if (this.held.get(pullRequest.url.value)?.version !== pullRequest.version) {
+    if (this.rows.get(pullRequest.url.value)?.version !== pullRequest.version) {
       throw new PullRequestVersionConflictError(pullRequest.url.value);
     }
     this.stored(pullRequest);
   }
 
   async remove(pullRequest: PullRequest) {
-    this.held.delete(pullRequest.url.value);
+    this.rows.delete(pullRequest.url.value);
     this.dispatched.push(...pullRequest.pullEvents());
   }
 
   private stored(pullRequest: PullRequest) {
     this.dispatched.push(...pullRequest.pullEvents());
-    this.held.set(
+    this.rows.set(
       pullRequest.url.value,
       PullRequest.rehydrate({
         workspaceId: pullRequest.workspaceId,
@@ -196,7 +196,7 @@ class ConnectionsInMemory implements GitHubConnectionRepository {
       : null;
   }
 
-  async heldClaimantOf(installation: GitHubInstallation) {
+  async lockedClaimantOf(installation: GitHubInstallation) {
     return this.claimantOf(installation);
   }
 
@@ -240,7 +240,7 @@ describe('RecordPullRequests', () => {
 
     await service.described(FROM, factsOf(7));
 
-    expect(pullRequests.held.get(urlOf(7).value)?.title).toBe('Change 7');
+    expect(pullRequests.rows.get(urlOf(7).value)?.title).toBe('Change 7');
     expect(pullRequests.dispatched.map((each) => each.kind)).toEqual([
       'pull-request.recorded',
     ]);
@@ -257,7 +257,7 @@ describe('RecordPullRequests', () => {
       at: new Date('2026-09-20T09:00:00Z'),
     });
 
-    expect(pullRequests.held.get(urlOf(7).value)?.reviewRounds).toBe(1);
+    expect(pullRequests.rows.get(urlOf(7).value)?.reviewRounds).toBe(1);
   });
 
   it('waits to hear what a pull request is before recording a review comment on it', async () => {
@@ -272,7 +272,7 @@ describe('RecordPullRequests', () => {
       byBot: false,
     });
 
-    expect(pullRequests.held.size).toBe(0);
+    expect(pullRequests.rows.size).toBe(0);
   });
 
   it('tries again where the record changed under it', async () => {
@@ -289,10 +289,10 @@ describe('RecordPullRequests', () => {
       byBot: false,
     });
 
-    expect(pullRequests.held.get(urlOf(7).value)?.comments).toEqual([1]);
+    expect(pullRequests.rows.get(urlOf(7).value)?.comments).toEqual([1]);
   });
 
-  it('records a review thread resolved on a pull request it holds', async () => {
+  it('records a review thread resolved on a pull request it has', async () => {
     const { service, pullRequests } = recording();
     await service.described(FROM, factsOf(7));
 
@@ -304,7 +304,7 @@ describe('RecordPullRequests', () => {
       resolved: true,
     });
 
-    expect(pullRequests.held.get(urlOf(7).value)?.threads).toEqual([
+    expect(pullRequests.rows.get(urlOf(7).value)?.threads).toEqual([
       {
         id: 'PRRT_1',
         opener: 10,
@@ -332,7 +332,7 @@ describe('RecordPullRequests', () => {
       ),
     );
 
-    expect(pullRequests.held.get(urlOf(7).value)?.revertedBy).toEqual(urlOf(9));
+    expect(pullRequests.rows.get(urlOf(7).value)?.revertedBy).toEqual(urlOf(9));
   });
 
   it('marks the last merged pull request of a reverted title reverted', async () => {
@@ -352,7 +352,7 @@ describe('RecordPullRequests', () => {
       ),
     );
 
-    expect(pullRequests.held.get(urlOf(7).value)?.revertedBy).toEqual(urlOf(9));
+    expect(pullRequests.rows.get(urlOf(7).value)?.revertedBy).toEqual(urlOf(9));
   });
 
   it('forgets pull requests past retention, and keeps the rest', async () => {
@@ -378,7 +378,7 @@ describe('RecordPullRequests', () => {
     ).service;
 
     expect(await later.pastRetention()).toBe(1);
-    expect([...pullRequests.held.keys()]).toEqual([
+    expect([...pullRequests.rows.keys()]).toEqual([
       urlOf(8).value,
       urlOf(9).value,
     ]);
@@ -402,7 +402,7 @@ describe('RecordPullRequests', () => {
       }),
     );
 
-    expect(pullRequests.held.size).toBe(0);
+    expect(pullRequests.rows.size).toBe(0);
   });
 
   it('forgets every pull request of a workspace whose GitHub App was uninstalled', async () => {
@@ -411,7 +411,7 @@ describe('RecordPullRequests', () => {
     await service.described(FROM, factsOf(8));
 
     expect(await service.uninstalled(WORKSPACE)).toBe(2);
-    expect(pullRequests.held.size).toBe(0);
+    expect(pullRequests.rows.size).toBe(0);
     expect(
       pullRequests.dispatched.filter(
         (each) => each.kind === 'pull-request.forgotten',
@@ -434,7 +434,7 @@ describe('RecordPullRequests', () => {
         if (pullRequest.number === 7) {
           throw new Error('Database went away');
         }
-        pullRequests.held.delete(pullRequest.url.value);
+        pullRequests.rows.delete(pullRequest.url.value);
       },
     });
     const { service: later, logged } = recordingAt(
@@ -443,7 +443,7 @@ describe('RecordPullRequests', () => {
     );
 
     expect(await later.pastRetention()).toBe(1);
-    expect([...pullRequests.held.keys()]).toEqual([urlOf(7).value]);
+    expect([...pullRequests.rows.keys()]).toEqual([urlOf(7).value]);
     expect(logged).toHaveLength(1);
   });
 
@@ -458,7 +458,7 @@ describe('RecordPullRequests', () => {
       { id: 1, state: 'approved', login: 'grace', byBot: false, at: NOW },
     );
 
-    expect(pullRequests.held.get(urlOf(7).value)).toMatchObject({
+    expect(pullRequests.rows.get(urlOf(7).value)).toMatchObject({
       title: 'Renamed',
       reviewRounds: 1,
     });
@@ -476,7 +476,7 @@ describe('RecordPullRequests', () => {
 
     await service.reviewDismissed(FROM, urlOf(7).value, factsOf(7), 1);
 
-    expect(pullRequests.held.get(urlOf(7).value)?.reviewRounds).toBe(0);
+    expect(pullRequests.rows.get(urlOf(7).value)?.reviewRounds).toBe(0);
   });
   it("fails forgetting a removed installation's pull requests where one could not be forgotten, after forgetting the rest", async () => {
     const { service, pullRequests } = recording();
@@ -487,14 +487,14 @@ describe('RecordPullRequests', () => {
         if (pullRequest.number === 7) {
           throw new Error('Database went away');
         }
-        pullRequests.held.delete(pullRequest.url.value);
+        pullRequests.rows.delete(pullRequest.url.value);
       },
     });
 
     await expect(service.uninstalled(WORKSPACE)).rejects.toBeInstanceOf(
       PullRequestsNotForgottenError,
     );
-    expect([...pullRequests.held.keys()]).toEqual([urlOf(7).value]);
+    expect([...pullRequests.rows.keys()]).toEqual([urlOf(7).value]);
   });
 
   it('forgets past retention beyond a full batch that could not be forgotten', async () => {
@@ -513,7 +513,7 @@ describe('RecordPullRequests', () => {
         if (pullRequest.number <= 200) {
           throw new Error('Database went away');
         }
-        pullRequests.held.delete(pullRequest.url.value);
+        pullRequests.rows.delete(pullRequest.url.value);
       },
     });
 
@@ -523,16 +523,16 @@ describe('RecordPullRequests', () => {
     ).service;
 
     expect(await later.pastRetention()).toBe(1);
-    expect(pullRequests.held.has(urlOf(201).value)).toBe(false);
+    expect(pullRequests.rows.has(urlOf(201).value)).toBe(false);
   });
 
-  it('records nothing once the workspace no longer holds the installation the delivery came through', async () => {
+  it('records nothing once the workspace no longer has the installation the delivery came through', async () => {
     const { service, pullRequests, connections } = recording();
     await connections.save(connections.connection.disconnectFrom(INSTALLATION));
 
     await service.described(FROM, factsOf(7));
 
-    expect(pullRequests.held.size).toBe(0);
+    expect(pullRequests.rows.size).toBe(0);
   });
 
   it("lets go of a closed workspace's installation before forgetting its pull requests", async () => {
@@ -545,6 +545,6 @@ describe('RecordPullRequests', () => {
     expect(connections.dispatched.map((each) => each.kind)).toEqual([
       'workspace.disconnected',
     ]);
-    expect(pullRequests.held.size).toBe(0);
+    expect(pullRequests.rows.size).toBe(0);
   });
 });

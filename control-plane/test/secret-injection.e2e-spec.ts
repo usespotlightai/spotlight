@@ -80,7 +80,7 @@ const secretBoundTo = (host: string) => ({
 describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
   const fetch = vi.fn(
@@ -99,8 +99,8 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
 
   const task = (): BoundTaskDto => ({
     taskId: 'task_1',
-    workspaceId: held,
-    teamId: held,
+    workspaceId,
+    teamId: workspaceId,
     line: 'delivery',
     station: 'Implementation',
     stationKey: 'implementation',
@@ -147,12 +147,13 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `injection-${randomUUID().slice(0, 8)}`;
-    seat = await seatTeam(db, held);
+    workspaceId = `injection-${randomUUID().slice(0, 8)}`;
+    seat = await seatTeam(db, workspaceId);
     fetch.mockClear();
 
     expect(
-      (await post(`/api/resources/teams/${held}/integrations`, LINEAR)).status,
+      (await post(`/api/resources/teams/${workspaceId}/integrations`, LINEAR))
+        .status,
     ).toBe(201);
   });
 
@@ -162,29 +163,31 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
       .where(inArray(schema.idempotentCreate.scope, [`person:${seat.owner}`]));
     await db
       .delete(schema.integrationDefinition)
-      .where(eq(schema.integrationDefinition.teamId, held));
+      .where(eq(schema.integrationDefinition.teamId, workspaceId));
     await db
       .delete(schema.hostConnection)
-      .where(eq(schema.hostConnection.teamId, held));
+      .where(eq(schema.hostConnection.teamId, workspaceId));
     await db
       .delete(schema.learnedOutput)
-      .where(eq(schema.learnedOutput.teamId, held));
-    await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+      .where(eq(schema.learnedOutput.teamId, workspaceId));
+    await db
+      .delete(schema.secret)
+      .where(eq(schema.secret.workspaceId, workspaceId));
     await db
       .delete(schema.runGrants)
-      .where(eq(schema.runGrants.workspaceId, held));
+      .where(eq(schema.runGrants.workspaceId, workspaceId));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
     await db
       .delete(schema.secretDataKey)
-      .where(eq(schema.secretDataKey.workspaceId, held));
+      .where(eq(schema.secretDataKey.workspaceId, workspaceId));
     await seat.unseat();
   });
 
   it('reaches the host wearing a secret bound to it', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -199,7 +202,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   });
 
   it('reaches the host with a secret bound to a query parameter, and keeps it out of the answer', async () => {
-    await post(`/api/resources/workspaces/${held}/secrets`, {
+    await post(`/api/resources/workspaces/${workspaceId}/secrets`, {
       ...secretBoundTo('api.linear.app'),
       bindings: [{ host: 'api.linear.app', carrier: 'query', name: 'key' }],
     });
@@ -223,7 +226,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
 
   it('learns what the tool answered, without its values, for the next run’s manifest', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -233,7 +236,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
       db
         .select()
         .from(schema.learnedOutput)
-        .where(eq(schema.learnedOutput.teamId, held))
+        .where(eq(schema.learnedOutput.teamId, workspaceId))
         .then((rows) => (rows.length > 0 ? rows : null)),
     );
     expect(kept?.tool).toBe('linear.comment');
@@ -241,13 +244,13 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
 
     const [offered] = await app
       .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-      .offered(TeamId.of(held), ['linear.comment']);
+      .offered(TeamId.of(workspaceId), ['linear.comment']);
     expect(offered?.learnedOutput).toEqual({ type: 'string' });
   });
 
   it('grants the run the secret toward its host alone', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -265,22 +268,20 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
             schema.runGrants,
             eq(schema.runGrants.runId, schema.secretGrant.runId),
           )
-          .where(eq(schema.runGrants.workspaceId, held))
+          .where(eq(schema.runGrants.workspaceId, workspaceId))
       ).map((each) => [each.runId, each.host]),
     ).toEqual([['run_7', 'api.linear.app']]);
   });
 
   it('grants each attempt of a run afresh, and nothing more to an attempt the run moved past', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
     await expect(comment('run_8', 1)).resolves.toBe('https://linear.app/c/1');
     await expect(comment('run_8', 2)).resolves.toBe('https://linear.app/c/1');
-    await expect(comment('run_8', 1)).rejects.toThrow(
-      /no longer holds attempt 1/,
-    );
+    await expect(comment('run_8', 1)).rejects.toThrow(/for attempt 1 is over/);
     expect(fetch).toHaveBeenCalledTimes(2);
 
     const [kept] = await db
@@ -291,33 +292,31 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     expect(kept?.attempt).toBe(2);
   });
 
-  it('sends nothing for an attempt once its lost hold is heard, and grants the next attempt afresh', async () => {
+  it('sends nothing for an attempt once its lost lease is heard, and grants the next attempt afresh', async () => {
     const grants = app.get<RunGrantsPort>(RUN_GRANTS);
 
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
     await expect(comment('run_9', 1)).resolves.toBe('https://linear.app/c/1');
-    await grants.holdLost({ workspaceId: held, runId: 'run_9', attempt: 1 });
+    await grants.leaseLost({ workspaceId, runId: 'run_9', attempt: 1 });
 
-    await expect(comment('run_9', 1)).rejects.toThrow(
-      /no longer holds attempt 1/,
-    );
+    await expect(comment('run_9', 1)).rejects.toThrow(/for attempt 1 is over/);
     await expect(comment('run_9', 2)).resolves.toBe('https://linear.app/c/1');
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it('sends nothing for a run whose end was heard before anything was granted to it', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
     await app
       .get<RunGrantsPort>(RUN_GRANTS)
-      .endedFor({ workspaceId: held, runId: 'run_10', attempt: 1 });
+      .endedFor({ workspaceId, runId: 'run_10', attempt: 1 });
 
     await expect(comment('run_10', 1)).rejects.toThrow(/has ended/);
     expect(fetch).not.toHaveBeenCalled();
@@ -332,7 +331,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
 
   it('sends nothing where the secret is bound to another host', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('uploads.linear.app'),
     );
 
@@ -340,7 +339,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('sends nothing where the workspace holds no such secret', async () => {
+  it('sends nothing where the workspace has no such secret', async () => {
     await expect(comment()).rejects.toThrow(/Secret LINEAR_API_KEY not found/);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -350,8 +349,8 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
 
     await connections.save(
       HostConnection.linkFrom({
-        workspaceId: WorkspaceId.of(held),
-        teamId: TeamId.of(held),
+        workspaceId: WorkspaceId.of(workspaceId),
+        teamId: TeamId.of(workspaceId),
         source: SourceKey.of('slack'),
         holder: ConnectionHolder.team(),
         grant: HostGrant.of({
@@ -366,12 +365,12 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
       .from(schema.hostConnection)
       .where(
         and(
-          eq(schema.hostConnection.teamId, held),
+          eq(schema.hostConnection.teamId, workspaceId),
           eq(schema.hostConnection.source, 'slack'),
         ),
       );
     const read = await connections.of(
-      TeamId.of(held),
+      TeamId.of(workspaceId),
       SourceKey.of('slack'),
       ConnectionHolder.team(),
     );

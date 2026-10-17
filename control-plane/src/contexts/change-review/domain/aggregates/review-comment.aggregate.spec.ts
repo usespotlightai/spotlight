@@ -106,8 +106,8 @@ describe('ReviewComment', () => {
   it('belongs to the one review that submitted it', () => {
     const submitted = drafted().submittedIn(ReviewId.of('review_1'));
 
-    expect(submitted.heldBy(ReviewId.of('review_1'))).toBe(true);
-    expect(submitted.heldBy(ReviewId.of('review_2'))).toBe(false);
+    expect(submitted.belongsTo(ReviewId.of('review_1'))).toBe(true);
+    expect(submitted.belongsTo(ReviewId.of('review_2'))).toBe(false);
     expect(() => submitted.submittedIn(ReviewId.of('review_2'))).toThrow(
       InvalidReviewError,
     );
@@ -339,7 +339,7 @@ describe('ReviewComment', () => {
     );
   });
 
-  it('goes back to draft where the review holding it never reached GitHub', () => {
+  it('goes back to draft where the review that contains it never reached GitHub', () => {
     const returned = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .rewritten('Clearer', ADA, NOW)

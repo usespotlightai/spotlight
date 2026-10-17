@@ -94,12 +94,12 @@ export class DrizzleWorkspaceInviteRepository
     }
   }
 
-  private async teamsWritten(held: WorkspaceInvite): Promise<void> {
-    const teams = held.terms.teams.map((each) => each.value);
+  private async teamsWritten(invite: WorkspaceInvite): Promise<void> {
+    const teams = invite.terms.teams.map((each) => each.value);
 
     await this.context.db
       .delete(workspaceInviteTeam)
-      .where(eq(workspaceInviteTeam.inviteId, held.id.value));
+      .where(eq(workspaceInviteTeam.inviteId, invite.id.value));
 
     if (teams.length === 0) {
       return;
@@ -108,7 +108,7 @@ export class DrizzleWorkspaceInviteRepository
     await this.context.db.insert(workspaceInviteTeam).select(
       this.context.db
         .select({
-          inviteId: sql<string>`${held.id.value}::text`.as('invite_id'),
+          inviteId: sql<string>`${invite.id.value}::text`.as('invite_id'),
           teamId: team.id,
         })
         .from(team)
@@ -163,19 +163,19 @@ export class DrizzleWorkspaceInviteRepository
     );
   }
 
-  private written(held: WorkspaceInvite) {
+  private written(invite: WorkspaceInvite) {
     return {
-      id: held.id.value,
-      workspaceId: held.workspaceId.value,
-      email: held.email.value,
-      role: held.terms.role.value,
-      tokenHash: held.tokenHash.value,
-      invitedBy: held.invitedBy?.value ?? null,
-      invitedAt: held.invitedAt,
-      expiresAt: held.expiresAt,
-      acceptedAt: held.acceptedAt,
-      acceptedBy: held.acceptedBy?.value ?? null,
-      revokedAt: held.revokedAt,
+      id: invite.id.value,
+      workspaceId: invite.workspaceId.value,
+      email: invite.email.value,
+      role: invite.terms.role.value,
+      tokenHash: invite.tokenHash.value,
+      invitedBy: invite.invitedBy?.value ?? null,
+      invitedAt: invite.invitedAt,
+      expiresAt: invite.expiresAt,
+      acceptedAt: invite.acceptedAt,
+      acceptedBy: invite.acceptedBy?.value ?? null,
+      revokedAt: invite.revokedAt,
     };
   }
 

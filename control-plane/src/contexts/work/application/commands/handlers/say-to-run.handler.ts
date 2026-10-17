@@ -74,7 +74,7 @@ export class SayToRunHandler
       throw new UnknownTaskError(command.runId);
     }
 
-    const line = await this.lines.holding(task.stationId);
+    const line = await this.lines.findByStation(task.stationId);
     const station = line?.stationAt(task.stationId);
 
     const heard = task.spokenTo(

@@ -30,7 +30,7 @@ import {
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { type Bindings, bound } from '@platform/expressions/bindings';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
-import { holds, reads, value } from '@platform/expressions/readings';
+import { isTrue, reads, value } from '@platform/expressions/readings';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 
@@ -256,8 +256,8 @@ export class WebhookRuntime implements WebhookSourcePort {
     return Math.abs(this.now() / 1000 - at) <= freshness.within;
   }
 
-  private templated(held: Templated, delivered: Delivered): string | null {
-    return textOf(held, this.bindings(delivered));
+  private templated(template: Templated, delivered: Delivered): string | null {
+    return textOf(template, this.bindings(delivered));
   }
 
   answer(delivered: Delivered): string | null {
@@ -269,7 +269,7 @@ export class WebhookRuntime implements WebhookSourcePort {
 
     const against = this.bindings(delivered);
 
-    return holds(respond.when, against) ? reads(respond.body, against) : null;
+    return isTrue(respond.when, against) ? reads(respond.body, against) : null;
   }
 
   delivery(delivered: Delivered): string {
@@ -296,7 +296,7 @@ export class WebhookRuntime implements WebhookSourcePort {
       this.readable.webhook?.events ?? [],
       (happening) => this.declaring(happening),
       this.bindings(delivered),
-      (against) => (mine ? holds(mine, against) : false),
+      (against) => (mine ? isTrue(mine, against) : false),
       (event, against) => this.enriched(event, against),
       (request, against) =>
         this.outbound.bytes(request, against, this.credentials),

@@ -57,8 +57,8 @@ const problemOf = (
 export class HarnessProfileCompiler implements HarnessProfileCompilerPort {
   constructor(private readonly harnesses: HarnessReviewPort) {}
 
-  compile(held: unknown): ParsedProfile {
-    const read = this.read(held);
+  compile(input: unknown): ParsedProfile {
+    const read = this.read(input);
 
     if (!read.ok) {
       return read;
@@ -71,8 +71,8 @@ export class HarnessProfileCompiler implements HarnessProfileCompilerPort {
     return problems.length > 0 ? { ok: false, problems } : read;
   }
 
-  read(held: unknown): ParsedProfile {
-    const read = profileSchema.safeParse(held);
+  read(input: unknown): ParsedProfile {
+    const read = profileSchema.safeParse(input);
 
     if (!read.success) {
       return { ok: false, problems: problemsIn(HARNESS_PROFILES, read.error) };

@@ -21,9 +21,9 @@ describe('what the built-in line tells its agents', () => {
       const named = BUILT_IN_TOOLS.map((each) => each.declared.tool)
         .filter((tool) => prompt.includes(`spotlight ${tool.value}`))
         .map((tool) => tool.value);
-      const held = opening.tools.map((tool) => tool.value);
+      const given = opening.tools.map((tool) => tool.value);
 
-      expect(held).toEqual(expect.arrayContaining(named));
+      expect(given).toEqual(expect.arrayContaining(named));
     }
   });
 

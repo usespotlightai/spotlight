@@ -30,20 +30,20 @@ export class NotePullRequestReviewed {
     }
 
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(review.workspaceId, null);
-      const held = await this.deliveries.forPullRequest(
+      await this.forgotten.lockForgetting(review.workspaceId, null);
+      const existing = await this.deliveries.forPullRequest(
         review.workspaceId,
         review.pullRequest,
       );
 
-      if (!held) {
+      if (!existing) {
         const keptFrom = longestLookbackFrom(this.clock.now());
 
         if (
           review.at.getTime() >= keptFrom.getTime() &&
           !(await this.forgotten.forgot(review.workspaceId, null))
         ) {
-          await this.reviews.hold(review.workspaceId, {
+          await this.reviews.add(review.workspaceId, {
             pullRequest: review.pullRequest,
             at: review.at,
           });
@@ -53,9 +53,9 @@ export class NotePullRequestReviewed {
         return;
       }
 
-      const reviewed = held.recordReview(review);
+      const reviewed = existing.recordReview(review);
 
-      if (reviewed !== held) {
+      if (reviewed !== existing) {
         await this.deliveries.save(reviewed);
       }
     });

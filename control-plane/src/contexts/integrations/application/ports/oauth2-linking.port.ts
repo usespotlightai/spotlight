@@ -4,7 +4,7 @@ export const OAUTH2_LINKING = Symbol('OAUTH2_LINKING');
 
 export const OAUTH2_CALLBACK_ROUTE = 'integrations/oauth/callback';
 
-export type OAuth2Holding = 'team' | 'person';
+export type OAuth2HolderKind = 'team' | 'person';
 
 export interface OAuth2Begun {
   readonly url: string;
@@ -23,7 +23,7 @@ export interface OAuth2Asked {
   readonly teamId: string;
   readonly source: string;
   readonly by: string;
-  readonly holder: OAuth2Holding;
+  readonly holder: OAuth2HolderKind;
   readonly back: string | null;
 }
 

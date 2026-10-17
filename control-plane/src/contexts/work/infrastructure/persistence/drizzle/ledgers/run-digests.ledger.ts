@@ -100,9 +100,12 @@ export const spendAcross = (readings: readonly Told[]): RunSpend => {
 
   for (const each of sessions) {
     if (each.cost) {
-      const held = costs.get(each.cost.currency);
+      const existing = costs.get(each.cost.currency);
 
-      costs.set(each.cost.currency, held ? held.plus(each.cost) : each.cost);
+      costs.set(
+        each.cost.currency,
+        existing ? existing.plus(each.cost) : each.cost,
+      );
     }
   }
 
@@ -318,7 +321,7 @@ export class DrizzleRunDigests
       return new Map();
     }
 
-    const held = await this.db
+    const rows = await this.db
       .select({
         runId: runDigest.runId,
         ms: runDigest.ms,
@@ -342,7 +345,7 @@ export class DrizzleRunDigests
       .where(inArray(runDigest.runId, ids));
 
     return new Map(
-      held.map((each) => [
+      rows.map((each) => [
         each.runId,
         {
           ms: each.ms,
@@ -364,7 +367,7 @@ export class DrizzleRunDigests
   }
 
   async toolsFor(runId: RunId): Promise<ToolUse | null> {
-    const [held] = await this.db
+    const [row] = await this.db
       .select({ tools: runDigest.tools })
       .from(runDigest)
       .innerJoin(
@@ -374,13 +377,13 @@ export class DrizzleRunDigests
       .where(eq(runDigest.runId, runId.value))
       .limit(1);
 
-    return held
+    return row
       ? ToolUse.of({
-          servers: held.tools.servers.map((called) => ({
+          servers: row.tools.servers.map((called) => ({
             ...called,
             latency: LatencyHistogram.of(called.latency),
           })),
-          skills: held.tools.skills,
+          skills: row.tools.skills,
         })
       : null;
   }

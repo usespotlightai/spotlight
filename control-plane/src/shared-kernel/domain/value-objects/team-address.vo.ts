@@ -24,8 +24,8 @@ export class TeamAddress {
       : refused();
   }
 
-  static parse(held: string): TeamAddress {
-    const [teamKey, key, ...rest] = held.trim().split(SEPARATOR);
+  static parse(text: string): TeamAddress {
+    const [teamKey, key, ...rest] = text.trim().split(SEPARATOR);
 
     return teamKey && key && rest.length === 0
       ? TeamAddress.of(teamKey, key)

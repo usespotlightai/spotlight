@@ -9,7 +9,7 @@ import { TeamInUseError } from '@identity/domain/exceptions/team-in-use.error';
 import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
-import type { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import type { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -106,7 +106,7 @@ export class Team extends EventRecorder {
     );
   }
 
-  holds(userId: UserId): boolean {
+  hasMember(userId: UserId): boolean {
     return this.members.some((each) => each.equals(userId));
   }
 
@@ -114,10 +114,10 @@ export class Team extends EventRecorder {
     if (!workspace.id.equals(this.workspaceId)) {
       throw new TeamOutsideWorkspaceError(this.id.value);
     }
-    if (!workspace.holds(userId)) {
+    if (!workspace.hasMember(userId)) {
       throw new NotInTheWorkspaceError();
     }
-    if (this.holds(userId)) {
+    if (this.hasMember(userId)) {
       return this;
     }
 
@@ -129,7 +129,7 @@ export class Team extends EventRecorder {
   }
 
   addMember(userId: UserId, workspace: Workspace): Team {
-    if (this.holds(userId)) {
+    if (this.hasMember(userId)) {
       throw new AlreadyOnTheTeamError(this.name.value);
     }
 
@@ -173,11 +173,11 @@ export class Team extends EventRecorder {
     return redefined;
   }
 
-  disband(holdings: Holdings, by: Attribution): Team {
+  disband(dependents: Dependents, by: Attribution): Team {
     this.guardStanding();
 
-    if (!holdings.isEmpty) {
-      throw new TeamInUseError(this.key.value, holdings);
+    if (!dependents.isEmpty) {
+      throw new TeamInUseError(this.key.value, dependents);
     }
 
     const disbanded = this.with({ disbanded: true });

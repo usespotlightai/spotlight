@@ -7,7 +7,7 @@ import type {
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { AdmittedWay } from '@runners/application/ports/runner-admissions.port';
 import type {
-  HeldWork,
+  LeasedWork,
   ProvisionedRunner,
   ProvisionRequest,
   RunnersPort,
@@ -222,7 +222,7 @@ export class Runners implements RunnersPort {
     return { outcome: 'failed', kind: answer.outcome, detail: answer.detail };
   }
 
-  async took(runnerId: RunnerId, work: HeldWork, at: Date): Promise<void> {
+  async took(runnerId: RunnerId, work: LeasedWork, at: Date): Promise<void> {
     await reviseRunner(this.runners, runnerId, (runner) =>
       runner.took(RunnerWork.of(work.kind, work.id), at),
     );
@@ -238,11 +238,11 @@ export class Runners implements RunnersPort {
     );
   }
 
-  async workEnded(work: HeldWork, at: Date): Promise<void> {
-    for (const holding of await this.runners.holding(
+  async workEnded(work: LeasedWork, at: Date): Promise<void> {
+    for (const leasing of await this.runners.findByWork(
       RunnerWork.of(work.kind, work.id),
     )) {
-      await reviseRunner(this.runners, holding.id, (runner) =>
+      await reviseRunner(this.runners, leasing.id, (runner) =>
         runner.ended(at),
       );
     }

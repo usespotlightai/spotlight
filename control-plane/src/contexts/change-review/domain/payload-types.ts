@@ -12,8 +12,8 @@ import { DecisionsAsked } from '@change-review/domain/events/decisions-asked.eve
 import { DecisionsDiscarded } from '@change-review/domain/events/decisions-discarded.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
 import { DecisionsStood } from '@change-review/domain/events/decisions-stood.event';
-import { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
+import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
 import { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
 import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
 import { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
@@ -67,7 +67,7 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   ChangeStackSettled,
   ChangeStackShaped,
   CheckReservationDropped,
-  HeldCheckForgotten,
+  LeasedCheckForgotten,
   LayersFailedCheck,
   ReviewCommentNotPosted,
   ReviewCommentPlaced,

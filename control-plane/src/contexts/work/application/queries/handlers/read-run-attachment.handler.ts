@@ -19,7 +19,7 @@ export class ReadRunAttachmentHandler
     query: ReadRunAttachmentQuery,
   ): Promise<AttachmentContent | null> {
     try {
-      const work = await this.works.workHeldBy(query.runId, query.runnerId);
+      const work = await this.works.workLeasedBy(query.runId, query.runnerId);
       const given = work?.gave(query.attachmentId) ?? null;
 
       return work && given

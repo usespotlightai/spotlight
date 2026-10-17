@@ -197,7 +197,7 @@ export class Chat extends EventRecorder {
     return this.currentRunId !== null;
   }
 
-  heldBy(runId: RunId): boolean {
+  hasCurrentRun(runId: RunId): boolean {
     return this.currentRunId?.equals(runId) ?? false;
   }
 
@@ -262,7 +262,7 @@ export class Chat extends EventRecorder {
       throw new NotASetupChatError(this.id.value);
     }
 
-    if (!this.heldBy(runId)) {
+    if (!this.hasCurrentRun(runId)) {
       throw new InvalidChatTransitionError(
         `Run ${runId.value} no longer works chat ${this.id.value}.`,
       );
@@ -332,7 +332,7 @@ export class Chat extends EventRecorder {
   }
 
   runKeptNothing(runId: RunId): Chat {
-    if (!this.heldBy(runId)) {
+    if (!this.hasCurrentRun(runId)) {
       return this;
     }
 
@@ -352,7 +352,7 @@ export class Chat extends EventRecorder {
       readonly stopped: boolean;
     },
   ): ChatAfterRun {
-    if (!this.heldBy(runId)) {
+    if (!this.hasCurrentRun(runId)) {
       return { chat: this, followsUp: false };
     }
 
@@ -379,7 +379,7 @@ export class Chat extends EventRecorder {
   }
 
   markDeliveredUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
-    if (!this.heldBy(runId)) {
+    if (!this.hasCurrentRun(runId)) {
       return this;
     }
 

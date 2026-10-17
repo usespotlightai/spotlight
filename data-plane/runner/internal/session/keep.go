@@ -66,21 +66,21 @@ func (k *keeper) restore(ctx context.Context) error {
 }
 
 func (k *keeper) restored(ctx context.Context) {
-	held, err := k.control.WorkspaceArchive(ctx, k.run.ID)
+	stored, err := k.control.WorkspaceArchive(ctx, k.run.ID)
 	if err != nil {
 		k.say(restoreStep, "Started afresh: %v", err)
 		return
 	}
-	if held == nil {
+	if stored == nil {
 		return
 	}
 
-	if err := k.unpacked(ctx, *held); err != nil {
+	if err := k.unpacked(ctx, *stored); err != nil {
 		k.say(restoreStep, "Started afresh: %v", err)
 		return
 	}
 
-	k.say(restoreStep, "Restored the workspace the last run left (%s)", sized(held.Size))
+	k.say(restoreStep, "Restored the workspace the last run left (%s)", sized(stored.Size))
 }
 
 func (k *keeper) restoreReplayed(ctx context.Context) error {
@@ -98,24 +98,24 @@ func (k *keeper) restoreReplayed(ctx context.Context) error {
 }
 
 func (k *keeper) restoredExactly(ctx context.Context, wanted string) error {
-	held, err := k.control.WorkspaceArchive(ctx, k.run.ID)
+	stored, err := k.control.WorkspaceArchive(ctx, k.run.ID)
 	if err != nil {
 		return fmt.Errorf("read the archive the replay starts from: %w", err)
 	}
-	if held == nil || held.ID != wanted {
+	if stored == nil || stored.ID != wanted {
 		return fmt.Errorf("the archive the replay starts from, %s, is no longer kept", wanted)
 	}
 
-	if err := k.unpacked(ctx, *held); err != nil {
+	if err := k.unpacked(ctx, *stored); err != nil {
 		return fmt.Errorf("restore the archive the replay starts from: %w", err)
 	}
 
-	k.say(restoreStep, "Restored the workspace the replayed run started from (%s)", sized(held.Size))
+	k.say(restoreStep, "Restored the workspace the replayed run started from (%s)", sized(stored.Size))
 	return nil
 }
 
-func (k *keeper) unpacked(ctx context.Context, held protocol.HeldArchive) error {
-	fetched, err := archive.Fetch(ctx, k.through, held, k.scratch)
+func (k *keeper) unpacked(ctx context.Context, stored protocol.StoredArchive) error {
+	fetched, err := archive.Fetch(ctx, k.through, stored, k.scratch)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (k *keeper) unpacked(ctx context.Context, held protocol.HeldArchive) error 
 		return err
 	}
 
-	k.restoredFrom = held.ID
+	k.restoredFrom = stored.ID
 	return nil
 }
 

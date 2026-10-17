@@ -49,6 +49,6 @@ export class ChatOutcomes implements RunOutcomes {
 
     const chat = await this.chats.find(chatId);
 
-    return chat?.heldBy(runId) ? chat : null;
+    return chat?.hasCurrentRun(runId) ? chat : null;
   }
 }

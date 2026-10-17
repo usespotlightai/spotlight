@@ -47,22 +47,22 @@ const DONE = {
   configured: true,
 };
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let tasks: DrizzleTaskRepository;
 
 const openTeam = (slug: string) => opening(db, tasks, slug);
 
 beforeAll(async () => {
-  held = await openDatabase('setup');
-  db = held.db;
+  database = await openDatabase('setup');
+  db = database.db;
   tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('the setup lists a team still has standing', () => {
@@ -134,7 +134,7 @@ describe('the setup lists a team still has standing', () => {
     await expect(tasks.settingUpFor(teamId)).resolves.not.toBeNull();
   });
 
-  it('leaves a task that never held a list out', async () => {
+  it('leaves out a task that never had a list', async () => {
     const { workspaceId, teamId, stationId, list } = await openTeam('angier');
 
     await db.insert(schema.task).values({

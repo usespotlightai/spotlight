@@ -186,12 +186,12 @@ export class ProblemException extends HttpException {
     });
   }
 
-  static malformedPrecondition(held: string): ProblemException {
+  static malformedPrecondition(received: string): ProblemException {
     return new ProblemException({
       type: problemType('malformed-if-match'),
       title: 'If-Match names no version this API issued',
       status: HttpStatus.BAD_REQUEST,
-      detail: `If-Match must be one ETag, such as "3". Received: ${held}`,
+      detail: `If-Match must be one ETag, such as "3". Received: ${received}`,
     });
   }
 

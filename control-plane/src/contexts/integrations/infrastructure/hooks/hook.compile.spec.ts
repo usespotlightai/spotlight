@@ -4,7 +4,7 @@ import {
   secretIn,
 } from '@integrations/infrastructure/hooks/hook.compile';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { holds } from '@platform/expressions/readings';
+import { isTrue } from '@platform/expressions/readings';
 import { describe, expect, it } from 'vitest';
 
 const engine = new CelExpressionEngine();
@@ -75,8 +75,8 @@ const moment = (event: Record<string, unknown>) => ({
   hook: { key: 'k' },
 });
 
-const problemsOf = (held: unknown) => {
-  const compiled = compileHook(held, engine);
+const problemsOf = (raw: unknown) => {
+  const compiled = compileHook(raw, engine);
 
   return compiled.ok
     ? []
@@ -130,7 +130,7 @@ describe('compileHook', () => {
 
     const matched = (tool: string) =>
       compiled.ir.conditions.every((condition) =>
-        holds(
+        isTrue(
           condition,
           moment({ tool, inputs: {}, output: null, failed: false }),
         ),
@@ -146,7 +146,7 @@ describe('compileHook', () => {
 
     const matched = (changed: string[]) =>
       compiled.ir.conditions.every((condition) =>
-        holds(
+        isTrue(
           condition,
           moment({
             repository: 'acme/api',

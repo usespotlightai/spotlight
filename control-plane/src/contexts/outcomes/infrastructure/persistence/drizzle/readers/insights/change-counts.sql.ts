@@ -194,14 +194,14 @@ export const changeCountsIn = async (
 
   for (const each of rubrics) {
     const key = keyOf(each.marker, each.side);
-    const held = judgedBy.get(key) ?? [];
+    const entries = judgedBy.get(key) ?? [];
 
-    held.push({
+    entries.push({
       rubricVersion: each.rubric_version,
       sum: each.sum,
       judged: each.judged,
     });
-    judgedBy.set(key, held);
+    judgedBy.set(key, entries);
   }
 
   const sideOf = (marker: string, side: Side): GroupCounts =>

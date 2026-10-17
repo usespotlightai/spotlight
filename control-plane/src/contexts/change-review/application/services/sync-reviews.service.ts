@@ -246,13 +246,15 @@ export class SyncReviews implements ReviewSyncWorkPort {
       return;
     }
 
-    const held = (
+    const ownComments = (
       await Promise.all(review.comments.map((id) => this.comments.find(id)))
     ).flatMap((comment) =>
-      comment?.sending && comment.heldBy(review.id) ? [comment] : [],
+      comment?.sending && comment.belongsTo(review.id) ? [comment] : [],
     );
-    const sent = held.filter((comment) => comment.state === 'submitted');
-    const withdrawn = held.filter((comment) => comment.state === 'deleted');
+    const sent = ownComments.filter((comment) => comment.state === 'submitted');
+    const withdrawn = ownComments.filter(
+      (comment) => comment.state === 'deleted',
+    );
 
     if (review.silentWith(sent)) {
       await this.reviews.save(review.withdraw(sent));

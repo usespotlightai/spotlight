@@ -72,8 +72,10 @@ const line = {
   stationAt: () => ({ name: { value: 'Triage' }, key: { value: 'triage' } }),
 } as unknown as Line;
 
-const binding = (held: Line | null = line) =>
-  new TaskBindings({ holding: async () => held } as unknown as LineRepository);
+const binding = (found: Line | null = line) =>
+  new TaskBindings({
+    findByStation: async () => found,
+  } as unknown as LineRepository);
 
 describe('TaskBindings', () => {
   it('says where a task stands, in words an outside host can use', async () => {

@@ -4,7 +4,7 @@ import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSke
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { ChatInputSkeleton } from '@/components/shared/chat-input/ChatInputSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { HELD_AT_TOP } from '@/lib/inbox';
+import { STICKY_AT_TOP } from '@/lib/inbox';
 
 export function ConversationSkeleton() {
   return (
@@ -14,7 +14,7 @@ export function ConversationSkeleton() {
           <SkeletonLine className="w-28 self-center text-xs" />
 
           <section className="flex flex-col">
-            <div className={HELD_AT_TOP}>
+            <div className={STICKY_AT_TOP}>
               <SaidCard>
                 <StationNameSkeleton />
 

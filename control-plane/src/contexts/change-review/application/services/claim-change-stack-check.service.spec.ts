@@ -7,7 +7,7 @@ import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknow
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { MAX_HOLD_MS } from '@change-review/domain/value-objects/check-claim.vo';
+import { MAX_LEASE_MS } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
@@ -245,7 +245,7 @@ describe('ClaimChangeStackCheck', () => {
   });
 
   describe('unclaiming a check its runner could not take', () => {
-    const unclaiming = (held: StackCheck | null, clashes = 0) => {
+    const unclaiming = (stored: StackCheck | null, clashes = 0) => {
       const saved: StackCheck[] = [];
       let left = clashes;
 
@@ -253,7 +253,7 @@ describe('ClaimChangeStackCheck', () => {
         saved,
         service: new ClaimChangeStackCheck(
           {
-            find: async () => held,
+            find: async () => stored,
             save: async (check: StackCheck) => {
               if (left > 0) {
                 left -= 1;
@@ -280,16 +280,16 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved[0]?.claim.attempts).toBe(0);
     });
 
-    it('leaves a check another runner holds, or nobody does, as it is', async () => {
-      const held = unclaiming(
+    it('leaves a check that another runner leases, or that nobody leases, as it is', async () => {
+      const unclaimed = unclaiming(
         waitingCheck().claimedFor(RunnerId.of('runner_9'), LAPTOP, NOW),
       );
       const free = unclaiming(waitingCheck());
 
-      await held.service.unclaim('stack_1', false, RUNNER, NOW);
+      await unclaimed.service.unclaim('stack_1', false, RUNNER, NOW);
       await free.service.unclaim('stack_1', false, RUNNER, NOW);
 
-      expect(held.saved).toEqual([]);
+      expect(unclaimed.saved).toEqual([]);
       expect(free.saved).toEqual([]);
     });
 
@@ -332,13 +332,13 @@ describe('ClaimChangeStackCheck', () => {
       };
     };
 
-    const held = () => waitingCheck().claimedFor(RUNNER, LAPTOP, NOW);
+    const leased = () => waitingCheck().claimedFor(RUNNER, LAPTOP, NOW);
 
     const leaseOf = (check: StackCheck) =>
       check.claim.leaseExpiresAt?.getTime() ?? 0;
 
-    it('keeps the runner holding the check past its first lease', async () => {
-      const check = held();
+    it('renews the lease of the runner on the check past the first lease period', async () => {
+      const check = leased();
       const nearlyLapsed = new Date(leaseOf(check) - 1000);
       const { service, saved } = renewing(check);
 
@@ -350,7 +350,7 @@ describe('ClaimChangeStackCheck', () => {
       ).toBe(true);
     });
 
-    it('keeps renewing past the hour while the runner still holds the check', async () => {
+    it('keeps renewing past the hour while the runner still has the lease on the check', async () => {
       const check = waitingCheck().claimedFor(
         RUNNER,
         LAPTOP,
@@ -371,7 +371,7 @@ describe('ClaimChangeStackCheck', () => {
     });
 
     it('tries again when the check changed while it was renewed', async () => {
-      const { service, saved } = renewing(held(), 2);
+      const { service, saved } = renewing(leased(), 2);
 
       await expect(
         service.renewLease(RUN, 'stack_1', false, RUNNER, NOW),
@@ -380,7 +380,7 @@ describe('ClaimChangeStackCheck', () => {
     });
 
     it('gives up once the check keeps moving on', async () => {
-      const { service, saved } = renewing(held(), 3);
+      const { service, saved } = renewing(leased(), 3);
 
       await expect(
         service.renewLease(RUN, 'stack_1', false, RUNNER, NOW),
@@ -399,9 +399,9 @@ describe('ClaimChangeStackCheck', () => {
 
     it('tells the runner to stop once the check was settled, or its lease lapsed past the hour', async () => {
       const skipped = renewing(
-        held().skip(RUNNER, skipOf('no-room', null), NOW),
+        leased().skip(RUNNER, skipOf('no-room', null), NOW),
       );
-      const overdue = renewing(held());
+      const overdue = renewing(leased());
 
       await expect(
         skipped.service.renewLease(RUN, 'stack_1', false, RUNNER, NOW),
@@ -419,8 +419,8 @@ describe('ClaimChangeStackCheck', () => {
       expect(overdue.saved).toEqual([]);
     });
 
-    it('answers a runner that does not hold the check as it answers one naming no check at all', async () => {
-      const check = held();
+    it('answers a runner without the lease on the check as it answers one naming no check at all', async () => {
+      const check = leased();
       const lapsed = new Date(leaseOf(check) + 1000);
       const elsewhere = renewing(check);
       const lapsing = renewing(check);
@@ -450,9 +450,9 @@ describe('ClaimChangeStackCheck', () => {
       expect([...elsewhere.saved, ...lapsing.saved]).toEqual([]);
     });
 
-    it('tells a runner that kept renewing past the most a check may be held to stop', async () => {
-      const ceiling = NOW.getTime() + MAX_HOLD_MS;
-      let check = held();
+    it('tells a runner that kept renewing past the most a check may be leased to stop', async () => {
+      const ceiling = NOW.getTime() + MAX_LEASE_MS;
+      let check = leased();
       for (let at = NOW.getTime(); at < ceiling; at += 5 * 60_000) {
         check = check.renewedFor(RUNNER, new Date(at));
       }
@@ -465,9 +465,9 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved).toEqual([]);
     });
 
-    it('refuses the runner holding the check a stack another run drafted', async () => {
+    it('refuses the runner with the lease on the check a stack another run drafted', async () => {
       await expect(
-        renewing(held()).service.renewLease(
+        renewing(leased()).service.renewLease(
           RunId.of('run_2'),
           'stack_1',
           false,

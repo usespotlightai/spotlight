@@ -61,6 +61,6 @@ export class ParkRunHandler
       await this.runs.save(parked);
     }
 
-    return { parked: !parked.isHeldBy(runner) };
+    return { parked: !parked.isLeasedBy(runner) };
   }
 }

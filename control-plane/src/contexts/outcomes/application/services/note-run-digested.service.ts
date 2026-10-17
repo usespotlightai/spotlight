@@ -79,18 +79,18 @@ export class NoteRunDigested {
     const teamId = run ? TeamId.of(run.teamId) : null;
 
     await this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(workspaceId, taskId, teamId);
+      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
       const runId = RunId.of(heard.runId);
-      const held = await this.records.of(runId);
+      const existing = await this.records.of(runId);
 
       if (await this.forgotten.forgot(workspaceId, taskId, teamId)) {
-        if (held && taskId) {
+        if (existing && taskId) {
           await this.records.removeForTask(taskId);
         }
         return;
       }
 
-      if (!held) {
+      if (!existing) {
         await this.records.add(
           RunRecord.heardOf(runId, workspaceId, taskId).recordDigest(
             cost,
@@ -100,9 +100,9 @@ export class NoteRunDigested {
         return;
       }
 
-      const digested = held.recordDigest(cost, tools);
+      const digested = existing.recordDigest(cost, tools);
 
-      if (digested !== held) {
+      if (digested !== existing) {
         await this.records.save(digested);
       }
     });

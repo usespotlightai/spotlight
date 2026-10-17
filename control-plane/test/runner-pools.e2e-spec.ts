@@ -90,7 +90,7 @@ const listening = async (
 describe('runner pools (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let owner: string;
   let unseat: () => Promise<void>;
 
@@ -98,7 +98,7 @@ describe('runner pools (e2e)', () => {
 
   const define = (body: object) =>
     http()
-      .post(`/api/resources/workspaces/${held}/runner-pools`)
+      .post(`/api/resources/workspaces/${workspaceId}/runner-pools`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
@@ -118,7 +118,7 @@ describe('runner pools (e2e)', () => {
 
     await db.insert(schema.run).values({
       id,
-      workspaceId: held,
+      workspaceId,
       harness: 'dev',
       state: 'queued',
       placement,
@@ -201,8 +201,8 @@ describe('runner pools (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `pools-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    workspaceId = `pools-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     unseat = seat.unseat;
   });
@@ -213,12 +213,14 @@ describe('runner pools (e2e)', () => {
       .where(inArray(schema.idempotentCreate.scope, [`person:${owner}`]));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
     await db
       .delete(schema.githubConnection)
-      .where(eq(schema.githubConnection.workspaceId, held));
-    await forgetRunnersOf(db, held);
-    await db.delete(schema.chat).where(eq(schema.chat.workspaceId, held));
+      .where(eq(schema.githubConnection.workspaceId, workspaceId));
+    await forgetRunnersOf(db, workspaceId);
+    await db
+      .delete(schema.chat)
+      .where(eq(schema.chat.workspaceId, workspaceId));
     await unseat();
   });
 
@@ -256,7 +258,7 @@ describe('runner pools (e2e)', () => {
       const token = tokenOf('i');
       await define({ key: 'ephemeral', token }).expect(201);
       await http()
-        .post(`/api/resources/teams/${held}/lines`)
+        .post(`/api/resources/teams/${workspaceId}/lines`)
         .set(TEST_USER_HEADER, owner)
         .set('Idempotency-Key', randomUUID())
         .send({
@@ -337,7 +339,7 @@ describe('runner pools (e2e)', () => {
       await claimWith(tokenOf('z')).expect(401);
     });
 
-    it('holds no more runs at once than maxRuns, keeping a host that asks for more waiting out its poll', async () => {
+    it('gives out no more runs at once than maxRuns, keeping a host that asks for more waiting out its poll', async () => {
       const token = tokenOf('c');
       await define({ key: 'ephemeral', token, maxRuns: 1 }).expect(201);
       await report(token).expect(200);
@@ -450,8 +452,8 @@ describe('runner pools (e2e)', () => {
       ]);
     });
 
-    it('refuses the token a live pool holds as taken, while letting that pool be given it again', async () => {
-      const token = tokenOf('held');
+    it('refuses the token a live pool has as taken, while letting that pool be given it again', async () => {
+      const token = tokenOf('used');
       const holder = await define({
         key: 'ephemeral',
         token,
@@ -528,7 +530,7 @@ describe('runner pools (e2e)', () => {
         await db
           .select()
           .from(schema.runnerPool)
-          .where(eq(schema.runnerPool.workspaceId, held)),
+          .where(eq(schema.runnerPool.workspaceId, workspaceId)),
       ).toHaveLength(1);
     });
 
@@ -600,17 +602,17 @@ describe('runner pools (e2e)', () => {
         new DrizzleTaskRepository(new DrizzleContext(db), {
           dispatch: async () => {},
         }),
-        { workspaceId: held, teamId: held, owner },
+        { workspaceId, teamId: workspaceId, owner },
       );
       await db.insert(schema.githubConnection).values({
-        workspaceId: held,
+        workspaceId,
         installationId: String(randomInt(1, 2 ** 31)),
         version: 1,
       });
       await db.insert(schema.chat).values({
         id: randomUUID(),
-        workspaceId: held,
-        teamId: held,
+        workspaceId,
+        teamId: workspaceId,
         startedById: owner,
         title: 'Set up our configuration.',
         harness: 'claude-code',
@@ -651,10 +653,10 @@ describe('runner pools (e2e)', () => {
       await define({ key: 'ephemeral', token: tokenOf('h') }).expect(201);
 
       const workspace = await http()
-        .get(`/api/resources/workspaces/${held}`)
+        .get(`/api/resources/workspaces/${workspaceId}`)
         .set(TEST_USER_HEADER, owner);
       const refused = await http()
-        .delete(`/api/resources/workspaces/${held}`)
+        .delete(`/api/resources/workspaces/${workspaceId}`)
         .set(TEST_USER_HEADER, owner)
         .set('If-Match', `"${workspace.body.version}"`);
 
@@ -663,7 +665,7 @@ describe('runner pools (e2e)', () => {
 
       const changes = (
         await http()
-          .get(`/api/workspaces/${held}/configuration-changes`)
+          .get(`/api/workspaces/${workspaceId}/configuration-changes`)
           .set(TEST_USER_HEADER, owner)
       ).body as { resource: string; action: string; details: object }[];
 
@@ -803,7 +805,7 @@ describe('runner pools (e2e)', () => {
 
       await eventually(async () => (await hostRow()) === null);
       const fleet = await http()
-        .get(`/api/workspaces/${held}/runners`)
+        .get(`/api/workspaces/${workspaceId}/runners`)
         .set(TEST_USER_HEADER, owner)
         .expect(200);
 
@@ -874,7 +876,7 @@ describe('runner pools (e2e)', () => {
       expect(await hostRow()).toBeNull();
     });
 
-    it('shows on the Runners page, answering, beside the runner holding the work it claimed', async () => {
+    it('shows on the Runners page, answering, beside the runner with the lease on the work it claimed', async () => {
       const token = tokenOf('o');
       await define({ key: 'ephemeral', token }).expect(201);
       await report(token, HOST, []).expect(200);
@@ -882,7 +884,7 @@ describe('runner pools (e2e)', () => {
       const claimed = await claimWith(token).expect(200);
 
       const fleet = await http()
-        .get(`/api/workspaces/${held}/runners`)
+        .get(`/api/workspaces/${workspaceId}/runners`)
         .set(TEST_USER_HEADER, owner)
         .expect(200);
 
@@ -993,7 +995,7 @@ describe('runner pools (e2e)', () => {
         const wearing = randomUUID();
         await db.insert(schema.run).values({
           id: wearing,
-          workspaceId: held,
+          workspaceId,
           harness: 'dev',
           state: 'queued',
           placement: [['sandbox']],
@@ -1082,7 +1084,7 @@ describe('runner pools (e2e)', () => {
           labels: ['sandbox'],
           provision: { url: endpoint.url, secret: SECRET, secretVersion: 1 },
         }).expect(201);
-        const stackId = await awaitingCheck(db, held, [['sandbox']]);
+        const stackId = await awaitingCheck(db, workspaceId, [['sandbox']]);
 
         const [call] = await eventually(async () =>
           endpoint.calls.length > 0 ? endpoint.calls : null,
@@ -1142,7 +1144,7 @@ describe('runner pools (e2e)', () => {
         key: 'sandboxes',
         provision: { url: endpoint.url, secret: SECRET },
       }).expect(201);
-      const stackId = await awaitingCheck(db, held, []);
+      const stackId = await awaitingCheck(db, workspaceId, []);
 
       const skipped = await eventually(async () => {
         await db
@@ -1175,11 +1177,11 @@ describe('runner pools (e2e)', () => {
     }, 30_000);
 
     it('settles a check nobody took up within its hour, letting go of the runner reserved for it', async () => {
-      const stackId = await awaitingCheck(db, held, []);
+      const stackId = await awaitingCheck(db, workspaceId, []);
       const reserved = randomUUID();
       await db.insert(schema.runner).values({
         id: reserved,
-        workspaceId: held,
+        workspaceId,
         poolId: randomUUID(),
         tokenHash: createHash('sha256').update(reserved).digest('hex'),
         claimBy: new Date(Date.now() + 60_000),

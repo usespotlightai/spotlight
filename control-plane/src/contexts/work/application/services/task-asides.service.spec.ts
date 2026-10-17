@@ -13,22 +13,22 @@ const TASK = TaskId.of('task_1');
 const MEMORIES = { taskId: TASK, form: 'memories', about: 'run_1' };
 
 const asiding = (input: { task?: boolean } = {}) => {
-  const held: TaskAside[] = [];
+  const stored: TaskAside[] = [];
 
   const asides = new TaskAsides(
     {
       add: async (aside: TaskAside) => {
-        held.push(aside);
+        stored.push(aside);
       },
       save: async (aside: TaskAside) => {
-        held.splice(
-          held.findIndex((each) => each.id.equals(aside.id)),
+        stored.splice(
+          stored.findIndex((each) => each.id.equals(aside.id)),
           1,
           aside,
         );
       },
       about: async (taskId: TaskId, form: string, about: AsideAbout) =>
-        held.find(
+        stored.find(
           (each) =>
             each.taskId.equals(taskId) &&
             each.form === form &&
@@ -46,19 +46,19 @@ const asiding = (input: { task?: boolean } = {}) => {
     { now: () => NOW, sleep: async () => undefined },
   );
 
-  return { asides, held };
+  return { asides, stored };
 };
 
 describe('TaskAsides', () => {
   it('raises an aside on a task once, however often it is asked', async () => {
-    const { asides, held } = asiding();
+    const { asides, stored } = asiding();
 
     await asides.raise(MEMORIES);
     await asides.raise(MEMORIES);
 
-    expect(held).toHaveLength(1);
-    expect(held[0]?.open).toBe(true);
-    expect(held[0]?.workspaceId.value).toBe('ws_1');
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.open).toBe(true);
+    expect(stored[0]?.workspaceId.value).toBe('ws_1');
   });
 
   it('names the aside it raised, and none it did not', async () => {
@@ -73,46 +73,48 @@ describe('TaskAsides', () => {
   });
 
   it('raises nothing on a task that is gone', async () => {
-    const { asides, held } = asiding({ task: false });
+    const { asides, stored } = asiding({ task: false });
 
     await asides.raise(MEMORIES);
 
-    expect(held).toHaveLength(0);
+    expect(stored).toHaveLength(0);
   });
 
   it('settles the aside it raised, and no other', async () => {
-    const { asides, held } = asiding();
+    const { asides, stored } = asiding();
     await asides.raise(MEMORIES);
 
     await asides.settle(MEMORIES);
 
-    expect(held.find((each) => each.about.value === 'run_1')?.open).toBe(false);
+    expect(stored.find((each) => each.about.value === 'run_1')?.open).toBe(
+      false,
+    );
   });
 
   it('keeps an aside settled when its settling arrives before its raising', async () => {
-    const { asides, held } = asiding();
+    const { asides, stored } = asiding();
 
     await asides.settle(MEMORIES);
     await asides.raise(MEMORIES);
 
-    expect(held).toHaveLength(1);
-    expect(held[0]?.open).toBe(false);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.open).toBe(false);
   });
 
   it('reopens a settled aside, or raises it when none was raised yet', async () => {
-    const { asides, held } = asiding();
+    const { asides, stored } = asiding();
     await asides.settle(MEMORIES);
 
     await asides.reopen(MEMORIES);
     await asides.reopen(MEMORIES);
 
-    expect(held).toHaveLength(1);
-    expect(held[0]?.open).toBe(true);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.open).toBe(true);
 
     const fresh = asiding();
     await fresh.asides.reopen(MEMORIES);
 
-    expect(fresh.held).toHaveLength(1);
-    expect(fresh.held[0]?.open).toBe(true);
+    expect(fresh.stored).toHaveLength(1);
+    expect(fresh.stored[0]?.open).toBe(true);
   });
 });

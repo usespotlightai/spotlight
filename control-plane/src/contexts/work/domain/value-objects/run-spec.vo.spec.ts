@@ -49,7 +49,7 @@ describe('RunSpec', () => {
     expect(RunSpec.of(parts()).value.diffs).toBeUndefined();
   });
 
-  it('keeps the check its change is held to, so a later station edit does not change it', () => {
+  it('keeps the check its change must pass, so a later station edit does not change it', () => {
     expect(RunSpec.of(parts({ check: 'npm test' })).check).toBe('npm test');
     expect(RunSpec.of(parts()).check).toBeNull();
     expect(() => RunSpec.of(parts({ check: '  ' }))).toThrow(
@@ -66,7 +66,7 @@ describe('RunSpec', () => {
     ).toThrow(InvalidRunSpecError);
   });
 
-  it('refuses a note limit it cannot be held to', () => {
+  it('refuses a note limit it cannot keep to', () => {
     for (const noteLimit of [-1, 1.5, Number.NaN]) {
       expect(() =>
         RunSpec.of(parts({ handover: { options: [], noteLimit } })),

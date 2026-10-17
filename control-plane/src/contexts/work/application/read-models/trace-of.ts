@@ -136,11 +136,11 @@ const overlaps = (one: Stretch, other: Stretch): boolean =>
 const isToolSpan = (span: RunSpan): boolean => span.name.endsWith('.tool');
 
 const stretched = <T extends { startedAt: Date; ms: number }>(
-  held: T,
-): Stretch & { held: T } => ({
-  held,
-  from: at(held.startedAt),
-  to: at(held.startedAt) + Math.max(held.ms, 0),
+  item: T,
+): Stretch & { item: T } => ({
+  item,
+  from: at(item.startedAt),
+  to: at(item.startedAt) + Math.max(item.ms, 0),
 });
 
 export const paired = (
@@ -160,12 +160,12 @@ export const paired = (
     .map(stretched)
     .sort((one, other) => one.from - other.from)) {
     const found = tools.find(
-      (tool) => !taken.has(tool.held) && overlaps(span, tool),
+      (tool) => !taken.has(tool.item) && overlaps(span, tool),
     );
 
     if (found) {
-      taken.add(found.held);
-      pairs.set(span.held.id, found.held);
+      taken.add(found.item);
+      pairs.set(span.item.id, found.item);
     }
   }
 
@@ -176,12 +176,12 @@ const nested = (
   spans: readonly RunSpan[],
   pairs: ReadonlyMap<string, JournalStep>,
 ): TraceNode[] => {
-  const held = new Set(spans.map((span) => span.id));
+  const ids = new Set(spans.map((span) => span.id));
   const under = new Map<string, RunSpan[]>();
   const roots: RunSpan[] = [];
 
   for (const span of spans) {
-    if (span.parentId && held.has(span.parentId)) {
+    if (span.parentId && ids.has(span.parentId)) {
       under.set(span.parentId, [...(under.get(span.parentId) ?? []), span]);
     } else {
       roots.push(span);
@@ -310,7 +310,7 @@ const grouped = (arriving: readonly Arriving[], until: Date): TraceNode[] => {
   return [...groups.values()].map((group) => nodeOfGroup(group, until));
 };
 
-const holds = (node: TraceNode, when: Date): boolean =>
+const covers = (node: TraceNode, when: Date): boolean =>
   node.kind !== 'connection' && node.from <= when && when <= node.to;
 
 const settled = (node: TraceNode, arriving: readonly Arriving[]): TraceNode => {
@@ -324,7 +324,7 @@ const settled = (node: TraceNode, arriving: readonly Arriving[]): TraceNode => {
   for (const each of arriving) {
     const child = [...node.children]
       .reverse()
-      .find((found) => holds(found, each.connection.at));
+      .find((found) => covers(found, each.connection.at));
 
     if (child) {
       below.set(child, [...(below.get(child) ?? []), each]);
@@ -352,7 +352,7 @@ const runNode = (run: WorkedRun): TraceNode => {
   const pairs = paired(spans, steps);
   const merged = new Set(pairs.values());
 
-  const held: TraceNode[] = [
+  const nodes: TraceNode[] = [
     ...steps
       .filter((step) => !merged.has(step))
       .map((step, index) => nodeOfStep(step, `${run.id.value}:step:${index}`)),
@@ -376,10 +376,10 @@ const runNode = (run: WorkedRun): TraceNode => {
     cost: null,
     connection: null,
     egress: null,
-    children: held.filter((node) => inside(node)?.id === phase.id),
+    children: nodes.filter((node) => inside(node)?.id === phase.id),
   }));
 
-  const loose = held.filter((node) => !inside(node));
+  const loose = nodes.filter((node) => !inside(node));
 
   const arriving = run.connections
     .filter((each) => each.wentWrong)

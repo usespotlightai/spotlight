@@ -270,7 +270,7 @@ describe('WorkspaceMembers', () => {
     expect(screen.getByText('No pending invites.')).toBeInTheDocument();
   });
 
-  it('says no one matches a role nobody holds', () => {
+  it('says no one matches a role nobody has', () => {
     members.mockReturnValue([member({})]);
     showing('/w/acme/settings/members?show=admin');
 
@@ -414,7 +414,7 @@ describe('WorkspaceMembers', () => {
     expect(askedMembers).not.toHaveBeenCalledWith('acme');
   });
 
-  it('holds the shape of the list while it loads', () => {
+  it('keeps the shape of the list while it loads', () => {
     members.mockReturnValue(undefined);
     invites.mockReturnValue(undefined);
     showing();

@@ -38,8 +38,8 @@ export class AnswerRemarkHandler
 
       const at = RemarkHandle.of(command.handle);
       const answering = task.remarkAnswerableFrom(run.id, run.stationId, at);
-      const line = await this.lines.holding(task.stationId);
-      // Post to the host before you record the answer. Then the trail never holds an answer that the pull request does not have.
+      const line = await this.lines.findByStation(task.stationId);
+      // Post to the host before you record the answer. Then the trail never has an answer that the pull request does not have.
       await this.remarks.answer({
         workspaceId: task.workspaceId,
         repository: answering.repository,

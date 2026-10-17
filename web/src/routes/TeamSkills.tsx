@@ -22,7 +22,7 @@ export function TeamSkills() {
     return null;
   }
 
-  const held = skills.data?.skills ?? [];
+  const listed = skills.data?.skills ?? [];
 
   return (
     <SettingsPage
@@ -52,9 +52,9 @@ export function TeamSkills() {
         <SettingsEmpty>No skills defined for this team.</SettingsEmpty>
       )}
 
-      {held.length > 0 && (
+      {listed.length > 0 && (
         <SettingsSection>
-          {held.map((skill) => (
+          {listed.map((skill) => (
             <TeamSkillRow
               key={skill.key}
               skill={skill}

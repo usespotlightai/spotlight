@@ -60,9 +60,9 @@ const proposing = async (
 ): Promise<RunId> => {
   const runId = RunId.of(`run_${randomUUID().slice(0, 8)}`);
   const drafts = app.get(DrizzleMemoryDraftRepository);
-  const held = await drafts.forTask(team.list.id);
+  const existing = await drafts.forTask(team.list.id);
   const asked = (
-    held ??
+    existing ??
     MemoryDraft.open({
       id: MemoryDraftId.of(randomUUID()),
       taskId: team.list.id,
@@ -94,7 +94,7 @@ const proposing = async (
     now: NOW,
   });
 
-  if (held) {
+  if (existing) {
     await drafts.save(drafted);
   } else {
     await drafts.add(drafted);

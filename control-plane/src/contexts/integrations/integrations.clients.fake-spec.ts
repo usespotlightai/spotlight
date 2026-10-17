@@ -6,6 +6,6 @@ export const clientsFrom = (json = '{}'): OAuth2ClientsPort => {
 
   return {
     clientFor: async (_teamId, source) => configured.of(source.value),
-    heldFor: async (_teamId, source) => configured.of(source.value),
+    existingFor: async (_teamId, source) => configured.of(source.value),
   };
 };

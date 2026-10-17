@@ -36,17 +36,17 @@ describe('TaskNoteBody.heard', () => {
   });
 });
 
-describe('TaskNoteBody.heldBack', () => {
-  it('says a run held the task, where it moves once the run ends, and then what was heard', () => {
+describe('TaskNoteBody.deferredMove', () => {
+  it('says a run worked on the task, where it moves once the run ends, and then what was heard', () => {
     expect(
-      TaskNoteBody.heldBack(
+      TaskNoteBody.deferredMove(
         'The checks failed on the pull request.',
         null,
         StationName.of('Implementation'),
       ).value,
     ).toBe(
       [
-        'Heard while a run held the task. If the run does not pass the task on, the task moves to Implementation when the run ends.',
+        'Heard while a run worked on the task. If the run does not pass the task on, the task moves to Implementation when the run ends.',
         '',
         'The checks failed on the pull request.',
       ].join('\n'),

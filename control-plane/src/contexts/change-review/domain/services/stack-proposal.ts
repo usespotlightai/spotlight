@@ -110,7 +110,7 @@ const shapeProblems = (
         );
       }
       if (layer.ranges.length === 0) {
-        problems.push(`${at} holds no changes`);
+        problems.push(`${at} has no changes`);
       }
 
       for (const range of layer.ranges) {

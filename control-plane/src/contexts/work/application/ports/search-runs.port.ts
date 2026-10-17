@@ -1,6 +1,6 @@
 export const SEARCH_RUNS = Symbol('SEARCH_RUNS');
 
-export interface HeldSearchRun {
+export interface LeasedSearchRun {
   readonly searchId: string;
   readonly iteration: number;
 }
@@ -15,7 +15,10 @@ export interface SearchRunStanding {
 }
 
 export interface SearchRunsPort {
-  heldSearchRun(runId: string, runnerId: string): Promise<HeldSearchRun | null>;
+  leasedSearchRun(
+    runId: string,
+    runnerId: string,
+  ): Promise<LeasedSearchRun | null>;
 
   standing(runIds: readonly string[]): Promise<readonly SearchRunStanding[]>;
 }

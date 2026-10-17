@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'react';
 
 export function useLingering<T>(current: T | null, ms: number): T | null {
-  const [held, setHeld] = useState<T | null>(current);
+  const [lingering, setLingering] = useState<T | null>(current);
 
   useEffect(() => {
     if (current !== null) {
-      setHeld(current);
+      setLingering(current);
       return;
     }
 
-    if (held === null) {
+    if (lingering === null) {
       return;
     }
 
-    const timer = setTimeout(() => setHeld(null), ms);
+    const timer = setTimeout(() => setLingering(null), ms);
     return () => clearTimeout(timer);
-  }, [current, held, ms]);
+  }, [current, lingering, ms]);
 
-  return current ?? held;
+  return current ?? lingering;
 }

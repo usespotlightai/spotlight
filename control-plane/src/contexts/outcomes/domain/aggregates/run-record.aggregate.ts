@@ -96,7 +96,7 @@ export class RunRecord extends EventRecorder {
       );
     }
     if (input.tools !== null && input.cost === null) {
-      throw new InvalidOutcomeError('must hold its tools once digested');
+      throw new InvalidOutcomeError('must have its tools once digested');
     }
 
     return new RunRecord(

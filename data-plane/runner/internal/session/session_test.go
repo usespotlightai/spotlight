@@ -255,10 +255,10 @@ func (j *journal) Delivered(_ context.Context, _ string, upTo int) error {
 
 func (j *journal) Attachment(_ context.Context, _ string, id string, into io.Writer) error {
 	j.mu.Lock()
-	content, held := j.files[id]
+	content, found := j.files[id]
 	j.mu.Unlock()
 
-	if !held {
+	if !found {
 		return errors.New("404 Not Found: no such attachment")
 	}
 	_, err := io.WriteString(into, content)
@@ -277,7 +277,7 @@ func (j *journal) AskPermission(
 	return protocol.PermissionAnswer{Decision: j.decision}, nil
 }
 
-func (j *journal) WorkspaceArchive(_ context.Context, _ string) (*protocol.HeldArchive, error) {
+func (j *journal) WorkspaceArchive(_ context.Context, _ string) (*protocol.StoredArchive, error) {
 	if j.archives == nil {
 		return nil, nil
 	}
@@ -340,7 +340,7 @@ process.stdin.on("data", (chunk) => {
     if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
     if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_opened" } });
     if (msg.method === "session/load") {
-      if (msg.params.sessionId === "session_held") send({ jsonrpc: "2.0", id: msg.id, result: {} });
+      if (msg.params.sessionId === "session_known") send({ jsonrpc: "2.0", id: msg.id, result: {} });
       else send({ jsonrpc: "2.0", id: msg.id,
                   error: { code: -32002, message: "Resource not found: " + msg.params.sessionId } });
     }
@@ -798,13 +798,13 @@ func TestTheWorkspaceGoesWithTheRun(t *testing.T) {
 
 func TestTakesUpTheSessionItWasGiven(t *testing.T) {
 	written := run(t, harness(t, `said = sessionId;`, "end_turn"), func(o *runOptions) {
-		o.continuity = protocol.Continuity{SessionID: "session_held"}
+		o.continuity = protocol.Continuity{SessionID: "session_known"}
 	})
 
-	if got := said(t, written); got != "session_held" {
+	if got := said(t, written); got != "session_known" {
 		t.Errorf("worked in session %q", got)
 	}
-	if written.done.SessionID != "session_held" {
+	if written.done.SessionID != "session_known" {
 		t.Errorf("reported session %q", written.done.SessionID)
 	}
 }
@@ -1079,7 +1079,7 @@ func TestAMemoryFileThatWouldLeaveTheFolderIsLeftOut(t *testing.T) {
 	}
 }
 
-func TestARestoredWorkspaceHoldsOnlyTheSkillsThisRunWasGiven(t *testing.T) {
+func TestARestoredWorkspaceHasOnlyTheSkillsThisRunWasGiven(t *testing.T) {
 	root := t.TempDir()
 
 	handingOver := protocol.SkillFile{Path: ".claude/skills/spotlight-handover/SKILL.md", Text: "how to hand over"}
@@ -1106,7 +1106,7 @@ said = JSON.stringify([
 	}
 }
 
-func TestARestoredWorkspaceHoldsNoSkillsOfAnEarlierStationWhenThisRunWasGivenNone(t *testing.T) {
+func TestARestoredWorkspaceHasNoSkillsOfAnEarlierStationWhenThisRunWasGivenNone(t *testing.T) {
 	root := t.TempDir()
 
 	leaveSkills(t, root,
@@ -1131,7 +1131,7 @@ said = JSON.stringify([
 	}
 }
 
-func TestARestoredWorkspaceHoldsOnlyTheHarnessSettingsThisRunWasGiven(t *testing.T) {
+func TestARestoredWorkspaceHasOnlyTheHarnessSettingsThisRunWasGiven(t *testing.T) {
 	root := t.TempDir()
 
 	leaveSkills(t, root,

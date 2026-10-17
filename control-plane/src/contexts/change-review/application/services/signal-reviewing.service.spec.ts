@@ -96,7 +96,7 @@ describe('SignalReviewing', () => {
     expect(told).toEqual([]);
   });
 
-  it('never starts looking for a run the task no longer holds', async () => {
+  it('never starts looking for a run that is no longer the current run of the task', async () => {
     const { signal, told } = signalling({ task: { currentRunId: NEXT } });
 
     await signal.began(TASK, RUN);

@@ -39,12 +39,12 @@ export class AskForMemories {
 
     await this.transaction.inTransaction(async () => {
       const now = this.clock.now();
-      const held = await this.drafts.forTask(taskId);
+      const existing = await this.drafts.forTask(taskId);
 
-      if (held) {
-        const asked = held.asked(runId, now);
+      if (existing) {
+        const asked = existing.asked(runId, now);
 
-        if (asked !== held) {
+        if (asked !== existing) {
           await this.drafts.save(asked);
         }
         return;

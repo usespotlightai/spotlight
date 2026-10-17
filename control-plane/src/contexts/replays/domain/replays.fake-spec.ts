@@ -398,10 +398,10 @@ export const replayedAs = (
 ): Replay => {
   const reserved = replay.reserving(replay.entries.length, runIds());
 
-  return reserved.entries.reduce((held, entry) => {
+  return reserved.entries.reduce((built, entry) => {
     const run = entry.run as RunId;
 
-    return held
+    return built
       .confirm(run, FINGERPRINT, NOW)
       .recordRunEnd(run, endOf(outcomeOf(entry.original.value, entry.repeat)))
       .recordReview(run, PASSED, null, later(60_000))
@@ -441,7 +441,7 @@ export const concludedAll = (
     judgingCost?: number;
   } = {},
 ): Replay => {
-  let held = replay.reserving(
+  let built = replay.reserving(
     replay.entries.length,
     (() => {
       let at = 0;
@@ -453,9 +453,9 @@ export const concludedAll = (
     })(),
   );
 
-  for (const entry of held.entries) {
+  for (const entry of built.entries) {
     const run = entry.run as RunId;
-    held = held
+    built = built
       .confirm(run, FINGERPRINT, NOW)
       .recordRunEnd(run, endOf('completed'))
       .measure(
@@ -466,7 +466,7 @@ export const concludedAll = (
       .recordReview(run, CONCLUDING_CHECKS, null, later(62_000));
 
     if (options.judged ?? true) {
-      held = held.recordVerdict(
+      built = built.recordVerdict(
         run,
         CONCLUDING_VERDICT,
         options.judgingCost === undefined
@@ -477,8 +477,8 @@ export const concludedAll = (
     }
   }
 
-  held.pullEvents();
-  return held;
+  built.pullEvents();
+  return built;
 };
 
 export const pairVerdictOf = (winner: 'run' | 'against' | 'tie'): PairVerdict =>

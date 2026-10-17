@@ -40,7 +40,7 @@ export class NoteByCallbackHandler
         return 'empty';
       }
 
-      const grant = await this.grants.heldBy(command.token);
+      const grant = await this.grants.findByToken(command.token);
 
       if (!grant) {
         return 'refused';

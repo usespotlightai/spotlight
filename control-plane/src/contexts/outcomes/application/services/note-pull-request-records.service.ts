@@ -45,8 +45,8 @@ export class NotePullRequestRecords {
 
   seen(seen: PullRequestSeen): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(seen.workspaceId, null);
-      await this.forgotten.holdingPullRequest(
+      await this.forgotten.lockForgetting(seen.workspaceId, null);
+      await this.forgotten.lockForgettingPullRequest(
         seen.workspaceId,
         seen.pullRequest,
       );
@@ -72,8 +72,8 @@ export class NotePullRequestRecords {
 
   forgottenByGitHub(forgotten: PullRequestForgottenByGitHub): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(forgotten.workspaceId, null);
-      await this.forgotten.holdingPullRequest(
+      await this.forgotten.lockForgetting(forgotten.workspaceId, null);
+      await this.forgotten.lockForgettingPullRequest(
         forgotten.workspaceId,
         forgotten.pullRequest,
       );
@@ -87,20 +87,20 @@ export class NotePullRequestRecords {
         forgotten.pullRequest,
         { updatedAt: forgotten.updatedAt },
       );
-      const held = await this.records.at(
+      const existing = await this.records.at(
         forgotten.workspaceId,
         forgotten.pullRequest,
       );
 
-      if (!held) {
+      if (!existing) {
         return;
       }
 
-      const kept = held.forgottenByGitHub(forgotten.updatedAt);
+      const kept = existing.forgottenByGitHub(forgotten.updatedAt);
 
       if (kept === null) {
-        await this.records.remove(held);
-      } else if (kept !== held) {
+        await this.records.remove(existing);
+      } else if (kept !== existing) {
         await this.records.save(kept);
       }
     });
@@ -108,12 +108,12 @@ export class NotePullRequestRecords {
 
   owned(owned: PullRequestOwned): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(
+      await this.forgotten.lockForgetting(
         owned.workspaceId,
         owned.taskId,
         owned.teamId,
       );
-      await this.forgotten.holdingPullRequest(
+      await this.forgotten.lockForgettingPullRequest(
         owned.workspaceId,
         owned.pullRequest,
       );
@@ -136,8 +136,11 @@ export class NotePullRequestRecords {
 
   reviewed(reviewed: PullRequestReviewed): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(reviewed.workspaceId, reviewed.taskId);
-      await this.forgotten.holdingPullRequest(
+      await this.forgotten.lockForgetting(
+        reviewed.workspaceId,
+        reviewed.taskId,
+      );
+      await this.forgotten.lockForgettingPullRequest(
         reviewed.workspaceId,
         reviewed.pullRequest,
       );
@@ -159,14 +162,14 @@ export class NotePullRequestRecords {
     pullRequest: PullRequestUrl,
     change: (record: PullRequestRecord) => PullRequestRecord,
   ): Promise<void> {
-    const held = await this.records.at(workspaceId, pullRequest);
+    const existing = await this.records.at(workspaceId, pullRequest);
     const changed = change(
-      held ?? PullRequestRecord.noted(workspaceId, pullRequest),
+      existing ?? PullRequestRecord.noted(workspaceId, pullRequest),
     );
 
-    if (!held) {
+    if (!existing) {
       await this.records.add(changed);
-    } else if (changed !== held) {
+    } else if (changed !== existing) {
       await this.records.save(changed);
     }
   }

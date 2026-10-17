@@ -82,7 +82,8 @@ export class RunnerChangeStackController {
     description: 'Not a run this runner worked, or no such stack of it',
   })
   @ApiConflictResponse({
-    description: 'This runner does not hold the check of that stack',
+    description:
+      'This runner does not have the lease on the check of that stack',
   })
   @ApiUnprocessableEntityResponse({
     description: 'The stack was already checked, or names steps it has not',

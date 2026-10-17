@@ -27,7 +27,7 @@ export function JudgeReasonItem({ reason }: JudgeReasonItemProps) {
   const follow = (citation: Citation) => {
     const step = citation.step?.index;
 
-    if (step !== undefined && anchors.holds(step)) {
+    if (step !== undefined && anchors.has(step)) {
       setUnfolded(null);
       anchors.focus(step);
       return;

@@ -1,7 +1,7 @@
 import type {
-  HeldRunResponseDto,
   HostImageResponseDto,
   HostResponseDto,
+  LeasedRunResponseDto,
   LiveRunnerResponseDto,
   RunnerActivityResponseDto,
   RunnerPoolResourceResponseDto,
@@ -160,11 +160,11 @@ const RUNNERS: LiveRunnerResponseDto[] = [
   pushed('runner_push_3', 9),
 ];
 
-const held = (
+const leasedRun = (
   id: string,
   teamId: string,
   title: string,
-): HeldRunResponseDto => ({
+): LeasedRunResponseDto => ({
   id,
   state: 'claimed',
   kind: 'task',
@@ -176,7 +176,7 @@ const held = (
 const ACTIVITY: RunnerActivityResponseDto[] = [
   {
     runnerId: 'runner_build_1',
-    currentRun: held(
+    currentRun: leasedRun(
       'run_retries_3',
       PLATFORM_ID,
       'Drain the stuck retry queues',
@@ -184,7 +184,7 @@ const ACTIVITY: RunnerActivityResponseDto[] = [
   },
   {
     runnerId: 'runner_build_2',
-    currentRun: held(
+    currentRun: leasedRun(
       'run_checkout_1',
       PLATFORM_ID,
       'Flaky checkout test on CI',
@@ -192,7 +192,7 @@ const ACTIVITY: RunnerActivityResponseDto[] = [
   },
   {
     runnerId: 'runner_push_1',
-    currentRun: held(
+    currentRun: leasedRun(
       'run_latency_1',
       PLATFORM_ID,
       'p99 latency alert on the payments API',
@@ -200,7 +200,7 @@ const ACTIVITY: RunnerActivityResponseDto[] = [
   },
   {
     runnerId: 'runner_push_2',
-    currentRun: held(
+    currentRun: leasedRun(
       'run_pricing_2',
       GROWTH_ID,
       'Annual pricing toggle on the plans page',
@@ -208,7 +208,7 @@ const ACTIVITY: RunnerActivityResponseDto[] = [
   },
   {
     runnerId: 'runner_push_3',
-    currentRun: held(
+    currentRun: leasedRun(
       'run_survey_1',
       GROWTH_ID,
       'Ask new signups where they heard of us',

@@ -55,8 +55,8 @@ const rehydrated = (row: Row): Secret =>
     version: row.version,
   });
 
-const inPlace = (held: Secret) =>
-  and(eq(secret.id, held.id.value), eq(secret.version, held.version));
+const inPlace = (record: Secret) =>
+  and(eq(secret.id, record.id.value), eq(secret.version, record.version));
 
 export class DrizzleSecrets implements SecretRepository {
   constructor(
@@ -87,41 +87,41 @@ export class DrizzleSecrets implements SecretRepository {
     ).map(rehydrated);
   }
 
-  async save(held: Secret): Promise<void> {
+  async save(record: Secret): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.stored(held);
-      await this.settled(held);
+      await this.stored(record);
+      await this.settled(record);
 
-      await this.events.dispatch(held.pullEvents());
+      await this.events.dispatch(record.pullEvents());
     });
   }
 
-  private async stored(held: Secret): Promise<void> {
+  private async stored(record: Secret): Promise<void> {
     const fields = {
-      source: held.source.kind,
-      sourceSecretId: held.source.secretId,
-      sourceField: held.source.field,
-      bindings: held.bindings.all.map((each) => ({
+      source: record.source.kind,
+      sourceSecretId: record.source.secretId,
+      sourceField: record.source.field,
+      bindings: record.bindings.all.map((each) => ({
         host: each.host,
         carrier: each.carrier.kind,
         name: each.carrier.name,
         prefix: each.prefix,
       })),
-      valueVersion: held.valueVersion,
-      rotatedAt: held.rotatedAt,
+      valueVersion: record.valueVersion,
+      rotatedAt: record.rotatedAt,
     };
 
-    if (held.isNew) {
+    if (record.isNew) {
       try {
         await this.context.db.insert(secret).values({
-          id: held.id.value,
-          workspaceId: held.workspaceId.value,
-          name: held.name.value,
+          id: record.id.value,
+          workspaceId: record.workspaceId.value,
+          name: record.name.value,
           ...fields,
         });
       } catch (error) {
         if (collided(error)) {
-          throw new SecretAlreadyDefinedError(held.name.value);
+          throw new SecretAlreadyDefinedError(record.name.value);
         }
 
         throw error;
@@ -130,27 +130,27 @@ export class DrizzleSecrets implements SecretRepository {
       return;
     }
 
-    const touched = held.isDeleted
+    const touched = record.isDeleted
       ? await this.context.db
           .delete(secret)
-          .where(inPlace(held))
+          .where(inPlace(record))
           .returning({ id: secret.id })
       : await this.context.db
           .update(secret)
-          .set({ ...fields, version: held.version + 1 })
-          .where(inPlace(held))
+          .set({ ...fields, version: record.version + 1 })
+          .where(inPlace(record))
           .returning({ id: secret.id });
 
     if (touched.length === 0) {
-      throw new SecretVersionConflictError(held.name.value);
+      throw new SecretVersionConflictError(record.name.value);
     }
   }
 
-  private async settled(held: Secret): Promise<void> {
-    if (held.keeping) {
-      await this.values.keep(held, held.keeping);
-    } else if (held.forgetsValue) {
-      await this.values.forget(held);
+  private async settled(record: Secret): Promise<void> {
+    if (record.keeping) {
+      await this.values.keep(record, record.keeping);
+    } else if (record.forgetsValue) {
+      await this.values.forget(record);
     }
   }
 

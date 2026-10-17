@@ -13,7 +13,7 @@ import { and, asc, eq, gte, lt } from 'drizzle-orm';
 export class DrizzlePendingReviews implements PendingReviewsPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async hold(workspaceId: WorkspaceId, review: PendingReview): Promise<void> {
+  async add(workspaceId: WorkspaceId, review: PendingReview): Promise<void> {
     await this.context.db
       .insert(pendingReview)
       .values({
@@ -24,7 +24,7 @@ export class DrizzlePendingReviews implements PendingReviewsPort {
       .onConflictDoNothing();
   }
 
-  async heldFor(
+  async pendingFor(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
     since: Date,

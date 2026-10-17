@@ -15,7 +15,7 @@ export const givenSetup = (
     typeof folder !== 'string'
   ) {
     throw new BadRequestException(
-      'Field setup must hold a repository and a folder, both text.',
+      'Field setup must contain a repository and a folder, both text.',
     );
   }
 

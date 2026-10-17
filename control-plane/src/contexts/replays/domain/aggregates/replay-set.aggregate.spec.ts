@@ -40,7 +40,7 @@ describe('ReplaySet', () => {
     ]);
   });
 
-  it('refuses a run it holds already', () => {
+  it('refuses a run it contains already', () => {
     const set = aSet().withEntry(replayable('run_1'), NOW, false);
 
     expect(() => set.withEntry(replayable('run_1'), NOW, false)).toThrow(
@@ -48,7 +48,7 @@ describe('ReplaySet', () => {
     );
   });
 
-  it(`holds at most ${MAX_SET_ENTRIES} runs`, () => {
+  it(`contains at most ${MAX_SET_ENTRIES} runs`, () => {
     const full = aSet(MAX_SET_ENTRIES);
 
     expect(full.entries).toHaveLength(MAX_SET_ENTRIES);
@@ -89,7 +89,7 @@ describe('ReplaySet', () => {
     ).toThrow(UnreplayableEntryError);
   });
 
-  it('lets a run go, and refuses to let go of one it never held', () => {
+  it('lets a run go, and refuses to let go of one it never contained', () => {
     const set = aSet(2);
     set.pullEvents();
 
@@ -153,7 +153,7 @@ describe('ReplaySet', () => {
     expect(() => ReplaySetName.of('x'.repeat(101))).toThrow();
   });
 
-  it('is marked as searched, so a writer holding an older copy moves on', () => {
+  it('is marked as searched, so a writer with an older copy moves on', () => {
     const set = aSet(2);
     set.pullEvents();
     const searched = set.recordSearch();

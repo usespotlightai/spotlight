@@ -25,10 +25,10 @@ export class NoteChangeChecked {
     const verdict = verdictOf(passed);
 
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(workspaceId, taskId);
-      const held = await this.records.of(runId);
+      await this.forgotten.lockForgetting(workspaceId, taskId);
+      const existing = await this.records.of(runId);
 
-      if (!held) {
+      if (!existing) {
         if (await this.forgotten.forgot(workspaceId, taskId)) {
           return;
         }
@@ -42,9 +42,9 @@ export class NoteChangeChecked {
         return;
       }
 
-      const checked = held.recordCheck(verdict, this.clock.now());
+      const checked = existing.recordCheck(verdict, this.clock.now());
 
-      if (checked !== held) {
+      if (checked !== existing) {
         await this.records.save(checked);
       }
     });

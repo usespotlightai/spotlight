@@ -22,7 +22,7 @@ const NOW = new Date('2026-09-13T09:00:00.000Z');
 const ACME = WorkspaceId.of('ws_1');
 
 describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
-  let held: TestDatabase;
+  let database: TestDatabase;
   let invites: DrizzleWorkspaceInviteRepository;
   const recorded: DomainEvent[] = [];
   let sequence = 0;
@@ -59,23 +59,23 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     (await invites.find(invite.id)) as WorkspaceInvite;
 
   beforeAll(async () => {
-    held = await openDatabase('workspace_invites');
-    await held.db.insert(schema.user).values(
+    database = await openDatabase('workspace_invites');
+    await database.db.insert(schema.user).values(
       ['user_leon', 'user_ada', 'user_left', 'user_gone'].map((id) => ({
         id,
         name: id,
         email: `${id}@example.com`,
       })),
     );
-    await held.db
+    await database.db
       .insert(schema.workspace)
       .values({ id: 'ws_1', name: 'Acme', slug: 'acme' });
-    await held.db.insert(schema.team).values([
+    await database.db.insert(schema.team).values([
       { id: 'team_1', workspaceId: 'ws_1', key: 'platform', name: 'Platform' },
       { id: 'team_2', workspaceId: 'ws_1', key: 'mobile', name: 'Mobile' },
     ]);
     invites = new DrizzleWorkspaceInviteRepository(
-      new DrizzleContext(held.db),
+      new DrizzleContext(database.db),
       {
         dispatch: async (events) => {
           recorded.push(...events);
@@ -85,11 +85,11 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
   });
 
   afterAll(async () => {
-    await held.close();
+    await database.close();
   });
 
   beforeEach(async () => {
-    await held.db.delete(schema.workspaceInvite);
+    await database.db.delete(schema.workspaceInvite);
     recorded.length = 0;
   });
 
@@ -142,7 +142,9 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     const invite = offered();
     await invites.add(invite);
     await invites.save(accepted(await readBack(invite), 'user_gone'));
-    await held.db.delete(schema.user).where(eq(schema.user.id, 'user_gone'));
+    await database.db
+      .delete(schema.user)
+      .where(eq(schema.user.id, 'user_gone'));
 
     const read = await invites.withToken(invite.tokenHash);
 
@@ -157,7 +159,9 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
   it('keeps an invite whose inviter’s account was deleted, with nobody as its inviter', async () => {
     const invite = offered('ada@example.com', [], 'user_left');
     await invites.add(invite);
-    await held.db.delete(schema.user).where(eq(schema.user.id, 'user_left'));
+    await database.db
+      .delete(schema.user)
+      .where(eq(schema.user.id, 'user_left'));
 
     const read = await readBack(invite);
 
@@ -168,7 +172,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
   it('leaves the team links alone on a save that keeps the terms', async () => {
     const invite = offered();
     await invites.add(invite);
-    await held.db
+    await database.db
       .delete(schema.workspaceInviteTeam)
       .where(eq(schema.workspaceInviteTeam.teamId, 'team_2'));
 
@@ -198,13 +202,13 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
   });
 
   it('forgets a team deleted since the invite was sent', async () => {
-    await held.db
+    await database.db
       .insert(schema.team)
       .values({ id: 'team_3', workspaceId: 'ws_1', key: 'gone', name: 'Gone' });
     const invite = offered('ada@example.com', ['team_1', 'team_3']);
     await invites.add(invite);
 
-    await held.db.delete(schema.team).where(eq(schema.team.id, 'team_3'));
+    await database.db.delete(schema.team).where(eq(schema.team.id, 'team_3'));
 
     expect(
       (await readBack(invite)).terms.teams.map((each) => each.value),

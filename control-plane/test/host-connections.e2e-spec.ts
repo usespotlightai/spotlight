@@ -50,15 +50,15 @@ const labelled: CredentialSealingPort = {
   },
 };
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let connections: DrizzleHostConnections;
 let registrations: DrizzleOAuth2ClientRegistrations;
 let tasks: DrizzleTaskRepository;
 
 beforeAll(async () => {
-  held = await openDatabase('host_connections');
-  db = held.db;
+  database = await openDatabase('host_connections');
+  db = database.db;
   const context = new DrizzleContext(db);
   connections = new DrizzleHostConnections(
     context,
@@ -70,7 +70,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const linked = (

@@ -35,7 +35,7 @@ import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outboun
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { InMemoryHostConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { learningInto } from '@integrations/integrations.learned.fake-spec';
 import {
   discoveringNothing,
@@ -199,24 +199,24 @@ class FakeLinear {
 }
 
 class InMemoryRegistrations implements OAuth2ClientRegistrationRepository {
-  held: OAuth2ClientRegistration | null = null;
+  stored: OAuth2ClientRegistration | null = null;
 
   async of(): Promise<OAuth2ClientRegistration | null> {
-    return this.held;
+    return this.stored;
   }
 
   async save(registration: OAuth2ClientRegistration): Promise<void> {
-    if (registration.isNew && this.held) {
+    if (registration.isNew && this.stored) {
       throw new OAuth2ClientRegistrationVersionConflictError(
         registration.source.value,
       );
     }
 
-    this.held = registration;
+    this.stored = registration;
   }
 
   async forgetTeam(): Promise<void> {
-    this.held = null;
+    this.stored = null;
   }
 }
 
@@ -292,7 +292,7 @@ const settingUp = ({
   const connections = new InMemoryHostConnections();
   const registrations = new InMemoryRegistrations();
   if (registered) {
-    registrations.held = OAuth2ClientRegistration.rehydrate({
+    registrations.stored = OAuth2ClientRegistration.rehydrate({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TEAM,
       source: LINEAR,
@@ -312,7 +312,7 @@ const settingUp = ({
         : defined(DEFINITION),
     ],
   };
-  const holding = operationsHolding(
+  const operations = operationsContaining(
     DescribedDocument.read({
       hash: HASH,
       kind: 'graphql',
@@ -333,7 +333,7 @@ const settingUp = ({
   );
   const exchange = new OAuth2Exchange(policy, clock, linear.fetch);
   const runtime = new CompiledIntegrationRuntime(
-    new IntegrationReader(expressions, holding),
+    new IntegrationReader(expressions, operations),
     new HttpOutbound(['linear.app', 'api.linear.app'], linear.fetch),
     clients,
     exchange,
@@ -364,7 +364,7 @@ const settingUp = ({
   );
   const linking = new OAuth2Linking(
     definitions as unknown as DefinedIntegrationsPort,
-    new IntegrationReader(expressions, holding),
+    new IntegrationReader(expressions, operations),
     discoveringNothing(),
     clients,
     exchange,
@@ -378,7 +378,7 @@ const settingUp = ({
   );
 
   const connectedAs = (accessToken: string, refreshToken = 'rt-1') =>
-    connections.hold(
+    connections.add(
       HostConnection.rehydrate({
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TEAM,
@@ -395,7 +395,7 @@ const settingUp = ({
       }),
     );
 
-  const held = () =>
+  const storedConnection = () =>
     connections.of(TEAM, LINEAR, ConnectionHolder.person(ALICE));
 
   const issue = async () => {
@@ -425,7 +425,7 @@ const settingUp = ({
     connections,
     registrations,
     connectedAs,
-    held,
+    storedConnection,
     comment,
     issue,
     tools,
@@ -435,7 +435,7 @@ const settingUp = ({
 
 describe('OAuth that recovers from a refused token', () => {
   it('renews a token the host refused, then sends the call once more, and keeps the rotated tokens', async () => {
-    const { linear, connectedAs, held, comment } = settingUp();
+    const { linear, connectedAs, storedConnection, comment } = settingUp();
     connectedAs('at-1');
     linear.revoke();
 
@@ -443,7 +443,7 @@ describe('OAuth that recovers from a refused token', () => {
       'https://linear.app/acme/issue/ENG-12#at-2',
     );
 
-    const kept = await held();
+    const kept = await storedConnection();
     expect(linear.tokenCalls).toBe(1);
     expect(linear.apiCalls).toBe(2);
     expect(kept?.accessToken.value).toBe('at-2');
@@ -452,7 +452,9 @@ describe('OAuth that recovers from a refused token', () => {
   });
 
   it('renews and sends once more for a tool generated from the API description too', async () => {
-    const { linear, connectedAs, held, issue } = settingUp({ generated: true });
+    const { linear, connectedAs, storedConnection, issue } = settingUp({
+      generated: true,
+    });
     connectedAs('at-1');
     linear.revoke();
 
@@ -460,7 +462,7 @@ describe('OAuth that recovers from a refused token', () => {
 
     expect(linear.tokenCalls).toBe(1);
     expect(linear.apiCalls).toBe(2);
-    expect((await held())?.accessToken.value).toBe('at-2');
+    expect((await storedConnection())?.accessToken.value).toBe('at-2');
   });
 
   it('sends a call refused again after renewal no third time', async () => {
@@ -495,7 +497,8 @@ describe('OAuth that recovers from a refused token', () => {
   });
 
   it('keeps the rotated refresh token even when the connection changed while it renewed', async () => {
-    const { linear, connections, connectedAs, held, comment } = settingUp();
+    const { linear, connections, connectedAs, storedConnection, comment } =
+      settingUp();
     connectedAs('at-1');
     linear.revoke();
     linear.whileRenewing = () =>
@@ -505,7 +508,7 @@ describe('OAuth that recovers from a refused token', () => {
       'https://linear.app/acme/issue/ENG-12#at-2',
     );
 
-    expect((await held())?.refreshToken?.value).toBe('rt-2');
+    expect((await storedConnection())?.refreshToken?.value).toBe('rt-2');
 
     linear.whileRenewing = () => {};
     linear.revoke();
@@ -517,13 +520,14 @@ describe('OAuth that recovers from a refused token', () => {
   });
 
   it('marks the connection refused when the host will not renew it, and asks the person to connect again', async () => {
-    const { linear, connectedAs, held, comment, tools } = settingUp();
+    const { linear, connectedAs, storedConnection, comment, tools } =
+      settingUp();
     connectedAs('at-1', 'rt-stale');
     linear.revoke();
 
     await expect(comment()).rejects.toThrow(/answered 401/);
 
-    expect((await held())?.renewalRefusedAt).toEqual(NOW);
+    expect((await storedConnection())?.renewalRefusedAt).toEqual(NOW);
     expect(
       (
         await tools.reach(
@@ -615,7 +619,7 @@ describe('OAuth that recovers from a refused token', () => {
 
     expect(linear.registrations).toBe(1);
     expect(linear.tokenCalls).toBe(1);
-    expect(registrations.held?.clientId).toBe('dcr-client');
+    expect(registrations.stored?.clientId).toBe('dcr-client');
   });
 
   it('never registers a client while it renews', async () => {

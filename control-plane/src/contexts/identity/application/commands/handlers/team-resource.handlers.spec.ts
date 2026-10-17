@@ -9,7 +9,7 @@ import { TeamAlreadyDefinedError } from '@identity/domain/exceptions/team-alread
 import {
   access,
   creates,
-  holdings,
+  dependents,
   OWNER,
   teamAt,
   teams,
@@ -140,12 +140,12 @@ describe('UpdateTeamHandler', () => {
 });
 
 describe('DeleteTeamHandler', () => {
-  const deleting = (held: readonly string[] = []) => {
+  const deleting = (names: readonly string[] = []) => {
     const kept = teams({ standing: teamAt(3) });
     const handler = new DeleteTeamHandler(
       access(),
       kept,
-      holdings(held),
+      dependents(names),
       transaction,
     );
 
@@ -158,14 +158,14 @@ describe('DeleteTeamHandler', () => {
     };
   };
 
-  it('disbands a team that holds nothing', async () => {
+  it('disbands a team that has nothing', async () => {
     const { remove, kept } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
     expect((kept.save.mock.calls[0] as [Team])[0].isDisbanded).toBe(true);
   });
 
-  it('will not disband a team that still holds configuration, and says what', async () => {
+  it('will not disband a team that still has configuration, and says what', async () => {
     const { remove, kept } = deleting(['line delivery', 'integration linear']);
 
     expect(await remove()).toEqual({

@@ -11,15 +11,15 @@ import type { ExpressionEnginePort } from '@platform/expressions/expression-engi
 export class HookCompiler implements HookCompilerPort {
   constructor(private readonly expressions: ExpressionEnginePort) {}
 
-  compile(held: unknown): ParsedHookDefinition {
-    const compiled = compileHook(held, this.expressions);
+  compile(raw: unknown): ParsedHookDefinition {
+    const compiled = compileHook(raw, this.expressions);
 
     return compiled.ok
       ? {
           ok: true,
           hook: compiled.ir.hook,
           document: compiled.document,
-          secret: secretIn(held),
+          secret: secretIn(raw),
         }
       : compiled;
   }

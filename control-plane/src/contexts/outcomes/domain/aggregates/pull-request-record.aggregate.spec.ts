@@ -95,7 +95,7 @@ describe('PullRequestRecord', () => {
     expect(kept?.forgottenByGitHub(LATER)).toBe(kept);
   });
 
-  it('lets go of a task, and of itself once nothing holds it and GitHub forgot it', () => {
+  it('lets go of a task, and of itself once nothing refers to it and GitHub forgot it', () => {
     const owned = noted().assignOwner(OWNER).seenAs(seenOf());
     const forgotten = owned.forgottenByGitHub(SEEN_AT);
     const unseen = noted().recordReview(TaskId.of('task_2'));

@@ -210,17 +210,17 @@ describe('Remembering, what an agent asks its team to keep', () => {
   });
 
   it('corrects only a memory still standing in the run’s team', () => {
-    const held = standing();
+    const existing = standing();
 
-    expect(proposed({ supersedes: held }).supersedes?.equals(held.id)).toBe(
-      true,
-    );
+    expect(
+      proposed({ supersedes: existing }).supersedes?.equals(existing.id),
+    ).toBe(true);
     expect(() =>
       proposed({ supersedes: standing(TeamId.of('team_other')) }),
     ).toThrow(/M-7 is not one/);
     expect(() =>
       proposed({
-        supersedes: held.retire({
+        supersedes: existing.retire({
           by: UserId.of('user_1'),
           reason: 'No longer true.',
           at: NOW,

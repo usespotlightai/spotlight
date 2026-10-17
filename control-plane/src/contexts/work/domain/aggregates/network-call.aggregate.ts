@@ -86,7 +86,7 @@ export class NetworkCall extends EventRecorder {
     ) {
       throw new InconsistentStateError(
         'network call',
-        'still holds what it sent once it was settled',
+        'still has what it sent once it was settled',
       );
     }
 

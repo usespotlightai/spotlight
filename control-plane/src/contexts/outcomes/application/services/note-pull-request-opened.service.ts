@@ -29,15 +29,15 @@ export class NotePullRequestOpened {
 
   opened(opening: PullRequestOpening): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(
+      await this.forgotten.lockForgetting(
         opening.workspaceId,
         opening.taskId,
         opening.teamId,
       );
-      const held = await this.deliveries.forTask(opening.taskId);
+      const existing = await this.deliveries.forTask(opening.taskId);
 
       if (
-        !held &&
+        !existing &&
         (await this.forgotten.forgot(
           opening.workspaceId,
           opening.taskId,
@@ -47,10 +47,10 @@ export class NotePullRequestOpened {
         return;
       }
 
-      const opened = held
-        ? held.reopen(opening.pullRequest, opening.at)
+      const opened = existing
+        ? existing.reopen(opening.pullRequest, opening.at)
         : TaskDelivery.open(opening);
-      const pending = await this.reviews.heldFor(
+      const pending = await this.reviews.pendingFor(
         opening.workspaceId,
         opening.pullRequest,
         longestLookbackFrom(this.clock.now()),
@@ -61,9 +61,9 @@ export class NotePullRequestOpened {
         opened,
       );
 
-      if (!held) {
+      if (!existing) {
         await this.deliveries.add(reviewed);
-      } else if (reviewed !== held) {
+      } else if (reviewed !== existing) {
         await this.deliveries.save(reviewed);
       }
 

@@ -168,7 +168,7 @@ export class ReviewComment extends EventRecorder {
     if (input.state === 'draft' && input.reviewId) {
       throw new InconsistentStateError(
         'review comment',
-        'is a draft that a review already holds',
+        'is a draft that a review already contains',
       );
     }
     if (
@@ -293,7 +293,7 @@ export class ReviewComment extends EventRecorder {
     );
   }
 
-  heldBy(reviewId: ReviewId): boolean {
+  belongsTo(reviewId: ReviewId): boolean {
     return this.reviewId?.equals(reviewId) ?? false;
   }
 

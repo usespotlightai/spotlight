@@ -14,7 +14,7 @@ const ORIGINAL = 'run_original';
 const REPLAY = 'run_replay';
 
 let claims: Map<string, ReplayRunClaim>;
-let held: Map<string, Run>;
+let stored: Map<string, Run>;
 let saved: string[];
 let enqueued: string[];
 
@@ -39,7 +39,7 @@ const aRun = (input: {
 };
 
 const runs = {
-  findById: async (id: RunId) => held.get(id.value) ?? null,
+  findById: async (id: RunId) => stored.get(id.value) ?? null,
   save: async (run: Run) => {
     saved.push(`${run.id.value}:${run.state}`);
   },
@@ -47,9 +47,9 @@ const runs = {
 
 const claiming: ReplayRunClaimsPort = {
   claim: async (first) => {
-    const held = claims.get(first.runId.value) ?? first;
-    claims.set(first.runId.value, held);
-    return held;
+    const taken = claims.get(first.runId.value) ?? first;
+    claims.set(first.runId.value, taken);
+    return taken;
   },
   save: async (claim) => {
     claims.set(claim.runId.value, claim);
@@ -65,10 +65,10 @@ const replayRuns = () =>
       withStation: async () => ({ ok: true, line: {}, station: {} }),
     } as unknown as CandidateLines,
     {
-      alreadyQueued: async (id: RunId) => held.has(id.value),
+      alreadyQueued: async (id: RunId) => stored.has(id.value),
       enqueue: async ({ id }: { id: RunId }) => {
         enqueued.push(id.value);
-        held.set(id.value, aRun({ id: id.value, replayOf: ORIGINAL }));
+        stored.set(id.value, aRun({ id: id.value, replayOf: ORIGINAL }));
         return id;
       },
     } as unknown as DispatchReplay,
@@ -90,14 +90,14 @@ const order = (workspaceId = 'ws_1') => ({
 
 beforeEach(() => {
   claims = new Map();
-  held = new Map([[ORIGINAL, aRun({ id: ORIGINAL, state: 'completed' })]]);
+  stored = new Map([[ORIGINAL, aRun({ id: ORIGINAL, state: 'completed' })]]);
   saved = [];
   enqueued = [];
 });
 
 describe('ReplayRuns', () => {
   it('says which runs have an answer to hand a replay', async () => {
-    held.set(ORIGINAL, aRun({ id: ORIGINAL }));
+    stored.set(ORIGINAL, aRun({ id: ORIGINAL }));
 
     await expect(
       replayRuns().answerable([

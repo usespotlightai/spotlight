@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TraceNodeResponseDto } from '@/lib/api';
-import { answeredBy, askedOf, holdings, restOf, shaped } from '@/lib/detail';
+import { answeredBy, askedOf, contentsOf, restOf, shaped } from '@/lib/detail';
 
 const node = (
   part: Partial<TraceNodeResponseDto> & { id: string; name: string },
@@ -61,24 +61,24 @@ describe('shaped', () => {
 
 describe('askedOf and answeredBy', () => {
   it('reads a tool by what it was given and what it returned', () => {
-    const held = node({
+    const call = node({
       id: 'a',
       name: 'npm test',
       step: step({ given: '{"cmd":"npm test"}', detail: 'ok' }),
     });
 
-    expect(askedOf(held)?.body).toBe('{"cmd":"npm test"}');
-    expect(answeredBy(held)?.body).toBe('ok');
+    expect(askedOf(call)?.body).toBe('{"cmd":"npm test"}');
+    expect(answeredBy(call)?.body).toBe('ok');
   });
 
   it('reads what was said as the answer, where the row only says it spoke', () => {
-    const held = node({
+    const call = node({
       id: 'b',
       name: 'Said',
       step: step({ kind: 'said', text: 'All done.' }),
     });
 
-    expect(answeredBy(held)).toEqual({
+    expect(answeredBy(call)).toEqual({
       title: 'Message',
       body: 'All done.',
       prose: true,
@@ -86,16 +86,16 @@ describe('askedOf and answeredBy', () => {
   });
 
   it('has nothing to say about a row that recorded nothing', () => {
-    const held = node({ id: 'c', name: 'Prepare', kind: 'phase' });
+    const call = node({ id: 'c', name: 'Prepare', kind: 'phase' });
 
-    expect(askedOf(held)).toBeNull();
-    expect(answeredBy(held)).toBeNull();
+    expect(askedOf(call)).toBeNull();
+    expect(answeredBy(call)).toBeNull();
   });
 });
 
-describe('holdings', () => {
+describe('contentsOf', () => {
   it('counts what sits beneath a row, by sort, however deep', () => {
-    const held = holdings(
+    const contents = contentsOf(
       node({
         id: 'run',
         name: 'Implementation',
@@ -119,9 +119,9 @@ describe('holdings', () => {
       }),
     );
 
-    expect(held.rows).toBe(3);
-    expect(held.faults).toBe(1);
-    expect([...held.kinds]).toEqual([
+    expect(contents.rows).toBe(3);
+    expect(contents.faults).toBe(1);
+    expect([...contents.kinds]).toEqual([
       ['Tools', 1],
       ['Thoughts', 1],
     ]);
@@ -130,7 +130,7 @@ describe('holdings', () => {
 
 describe('restOf', () => {
   it('leaves out what the header already says', () => {
-    const held = node({
+    const span = node({
       id: 'span',
       name: 'llm_request',
       kind: 'span',
@@ -148,7 +148,7 @@ describe('restOf', () => {
       },
     });
 
-    expect(restOf(held).map((each) => each.name)).toEqual([
+    expect(restOf(span).map((each) => each.name)).toEqual([
       'gen_ai.request.temperature',
     ]);
   });

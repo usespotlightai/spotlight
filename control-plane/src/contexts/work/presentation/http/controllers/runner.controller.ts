@@ -180,7 +180,7 @@ export class RunnerController {
     summary: 'What a person has said to the agent working this run',
   })
   @ApiOkResponse({ type: PendingMessageResponseDto, isArray: true })
-  @ApiNotFoundResponse({ description: 'No such run held by this runner' })
+  @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
   async messages(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -323,7 +323,7 @@ export class RunnerController {
     summary: 'Say what the agent has been given',
   })
   @ApiNoContentResponse()
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async delivered(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -345,7 +345,7 @@ export class RunnerController {
   @ApiOkResponse({ type: RenewLeaseResponseDto })
   @ApiNotFoundResponse({
     description:
-      'The run is no longer held by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.',
+      'The run is no longer leased by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.',
   })
   @ApiConflictResponse({
     description:
@@ -370,7 +370,7 @@ export class RunnerController {
     operationId: 'renewCheckLease',
     summary: 'Say the check of a change stack is still being worked on',
     description:
-      'The runner holding a check renews its lease while the check runs, ' +
+      'The runner with the lease on a check renews that lease while the check runs, ' +
       'so a long check is not handed to a second runner. The answer ' +
       'carries back whether the runner should stop checking.',
   })
@@ -384,7 +384,7 @@ export class RunnerController {
   @ApiOkResponse({ type: RenewCheckLeaseResponseDto })
   @ApiNotFoundResponse({
     description:
-      'No such runner, or the check this runner holds is of another run',
+      'No such runner, or the check this runner leases is of another run',
   })
   @ApiConflictResponse({
     description: 'The check kept moving on while it was renewed',
@@ -412,7 +412,7 @@ export class RunnerController {
       'The host pulls the image named for the run just after it claims it, and records the digest it pulled here, so the run shows the environment it had.',
   })
   @ApiNoContentResponse()
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async recordImage(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -436,7 +436,7 @@ export class RunnerController {
   @ApiNotFoundResponse({ description: 'No such run' })
   @ApiConflictResponse({
     description:
-      'The run is not held by this runner on that attempt, works no task, or already started from somewhere else',
+      'The run is not leased by this runner on that attempt, works no task, or already started from somewhere else',
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -471,7 +471,7 @@ export class RunnerController {
     summary: 'Add to the run’s journal',
   })
   @ApiNoContentResponse()
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async appendEvents(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -536,11 +536,11 @@ export class RunnerController {
     summary: 'Ask whether the harness may do what it asked to',
     description:
       'Only for a run whose station names a harness profile. An approval the ' +
-      'task already holds for this exact call is spent on it; otherwise a ' +
+      'task already has for this exact call is spent on it; otherwise a ' +
       'person is asked in their inbox, and the run waits for their answer once its turn ends.',
   })
   @ApiOkResponse({ type: PermissionAnswerResponseDto })
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async askPermission(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -632,7 +632,7 @@ export class RunnerController {
       'Asked before the runner keeps the workspace at the end of a turn. Nothing changes: the completion decides.',
   })
   @ApiOkResponse({ type: TurnAsksAPersonResponseDto })
-  @ApiNotFoundResponse({ description: 'No such run held by this runner' })
+  @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
   async asks(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -661,7 +661,7 @@ export class RunnerController {
       'The runner has sealed the workspace archive and lets its sandbox go. A later answer requeues the same run, and any runner takes it up from the archive. If the answer arrived first, the run is not parked: it is working again, and the runner delivers the answer to the live session.',
   })
   @ApiOkResponse({ type: RunParkingResponseDto })
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async park(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,

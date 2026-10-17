@@ -40,23 +40,23 @@ export class DrizzleIdempotentCreates
   constructor(private readonly context: DrizzleContext) {}
 
   async recall(create: IdempotentCreate): Promise<IdempotentRecall> {
-    const held = await this.held(
+    const existing = await this.find(
       and(
         matching(create),
         sql`${idempotentCreate.createdAt} >= now() - ${KEPT_FOR}::interval`,
       ),
     );
 
-    if (!held) {
+    if (!existing) {
       return { kind: 'unseen' };
     }
 
-    if (held.fingerprint !== fingerprintOf(create)) {
+    if (existing.fingerprint !== fingerprintOf(create)) {
       return { kind: 'reused' };
     }
 
-    return held.createdId
-      ? { kind: 'replay', createdId: held.createdId }
+    return existing.createdId
+      ? { kind: 'replay', createdId: existing.createdId }
       : { kind: 'unseen' };
   }
 
@@ -76,10 +76,10 @@ export class DrizzleIdempotentCreates
       return { kind: 'fresh' };
     }
 
-    const held = await this.held(matching(create));
+    const existing = await this.find(matching(create));
 
-    return held?.fingerprint === fingerprint && held.createdId
-      ? { kind: 'replay', createdId: held.createdId }
+    return existing?.fingerprint === fingerprint && existing.createdId
+      ? { kind: 'replay', createdId: existing.createdId }
       : { kind: 'reused' };
   }
 
@@ -90,8 +90,8 @@ export class DrizzleIdempotentCreates
       .where(matching(create));
   }
 
-  private async held(where: SQL | undefined) {
-    const [held] = await this.context.db
+  private async find(where: SQL | undefined) {
+    const [row] = await this.context.db
       .select({
         fingerprint: idempotentCreate.fingerprint,
         createdId: idempotentCreate.createdId,
@@ -99,6 +99,6 @@ export class DrizzleIdempotentCreates
       .from(idempotentCreate)
       .where(where);
 
-    return held;
+    return row;
   }
 }

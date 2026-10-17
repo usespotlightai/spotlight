@@ -24,7 +24,7 @@ const PENDING = 'pending/ws_1/file_1';
 const notThere = () =>
   Object.assign(new Error('NoSuchKey'), { $metadata: { httpStatusCode: 404 } });
 
-const held = () => ({
+const headOutput = () => ({
   ContentType: 'image/png',
   ContentLength: 4096,
   Metadata: { name: encodeURIComponent('queue.png') },
@@ -32,11 +32,11 @@ const held = () => ({
 
 type Command = HeadObjectCommand | CopyObjectCommand | DeleteObjectCommand;
 
-const bucketHolding = (keys: readonly string[], failing: Error[] = []) => {
+const bucketWith = (keys: readonly string[], failing: Error[] = []) => {
   const send = vi.fn(async (command: Command) => {
     if (command instanceof HeadObjectCommand) {
       if (keys.includes(command.input.Key ?? '')) {
-        return held();
+        return headOutput();
       }
       throw notThere();
     }
@@ -76,7 +76,7 @@ const sent = (send: { mock: { calls: unknown[][] } }) =>
 describe('S3AttachmentStore', () => {
   describe('received', () => {
     it('reads an attachment already kept under its workspace without touching pending', async () => {
-      const { send, store } = bucketHolding([KEPT, PENDING]);
+      const { send, store } = bucketWith([KEPT, PENDING]);
 
       await expect(
         store.received(WORKSPACE, [AttachmentId.of('file_1')]),
@@ -86,7 +86,7 @@ describe('S3AttachmentStore', () => {
     });
 
     it('reads an upload still pending', async () => {
-      const { send, store } = bucketHolding([PENDING]);
+      const { send, store } = bucketWith([PENDING]);
 
       await expect(
         store.received(WORKSPACE, [AttachmentId.of('file_1')]),
@@ -99,7 +99,7 @@ describe('S3AttachmentStore', () => {
     });
 
     it('refuses an id nothing was uploaded for', async () => {
-      const { store } = bucketHolding([]);
+      const { store } = bucketWith([]);
 
       await expect(
         store.received(WORKSPACE, [AttachmentId.of('file_1')]),
@@ -109,7 +109,7 @@ describe('S3AttachmentStore', () => {
 
   describe('taken', () => {
     it('copies the pending upload under the workspace with its metadata, then drops the original', async () => {
-      const { send, store } = bucketHolding([PENDING]);
+      const { send, store } = bucketWith([PENDING]);
 
       await store.taken(WORKSPACE, [FILE]);
 
@@ -128,7 +128,7 @@ describe('S3AttachmentStore', () => {
     });
 
     it('leaves an attachment already kept alone, whatever is still pending', async () => {
-      const { send, store } = bucketHolding([KEPT, PENDING]);
+      const { send, store } = bucketWith([KEPT, PENDING]);
 
       await expect(store.taken(WORKSPACE, [FILE])).resolves.toBeUndefined();
 
@@ -137,7 +137,7 @@ describe('S3AttachmentStore', () => {
 
     it('is content with a pending copy another message moved meanwhile', async () => {
       const keys = [PENDING];
-      const { send, store } = bucketHolding(keys);
+      const { send, store } = bucketWith(keys);
       send.mockImplementationOnce(async () => {
         throw notThere();
       });
@@ -156,7 +156,7 @@ describe('S3AttachmentStore', () => {
     });
 
     it('refuses an upload that is neither pending nor kept', async () => {
-      const { store } = bucketHolding([]);
+      const { store } = bucketWith([]);
 
       await expect(store.taken(WORKSPACE, [FILE])).rejects.toThrow(
         'was never uploaded',
@@ -164,19 +164,19 @@ describe('S3AttachmentStore', () => {
     });
 
     it('shrugs at a pending copy that is already gone, but not at a refused delete', async () => {
-      const gone = bucketHolding([PENDING], [notThere()]);
+      const gone = bucketWith([PENDING], [notThere()]);
       await expect(
         gone.store.taken(WORKSPACE, [FILE]),
       ).resolves.toBeUndefined();
 
-      const refused = bucketHolding([PENDING], [new Error('AccessDenied')]);
+      const refused = bucketWith([PENDING], [new Error('AccessDenied')]);
       await expect(refused.store.taken(WORKSPACE, [FILE])).rejects.toThrow(
         'AccessDenied',
       );
     });
 
     it('moves nothing when nothing was handed over', async () => {
-      const { send, store } = bucketHolding([]);
+      const { send, store } = bucketWith([]);
 
       await store.taken(WORKSPACE, []);
 

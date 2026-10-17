@@ -270,19 +270,19 @@ func TestPassesNamedVariablesOfItsOwnIntoSandboxes(t *testing.T) {
 func TestOnlyOneHostServesFromAStateDirectory(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "state")
 
-	release, err := config.Hold(state)
+	release, err := config.Lock(state)
 	if err != nil {
-		t.Fatalf("hold: %v", err)
+		t.Fatalf("lock: %v", err)
 	}
 
-	if _, err := config.Hold(state); err == nil || !strings.Contains(err.Error(), "another spotlight host") {
+	if _, err := config.Lock(state); err == nil || !strings.Contains(err.Error(), "another spotlight host") {
 		t.Fatalf("a second host was let in: %v", err)
 	}
 
 	release()
-	again, err := config.Hold(state)
+	again, err := config.Lock(state)
 	if err != nil {
-		t.Fatalf("hold after release: %v", err)
+		t.Fatalf("lock after release: %v", err)
 	}
 	again()
 }
@@ -323,11 +323,11 @@ func TestReadsWhatSandboxesMayReachAndWhatEgressRunsWith(t *testing.T) {
 		t.Errorf("egress %+v", cfg.Egress)
 	}
 	if slices.Contains(cfg.SandboxEnv, "AWS_REGION=eu-west-1") {
-		t.Error("gave the sandbox what only egress holds")
+		t.Error("gave the sandbox what only egress has")
 	}
 }
 
-func TestRefusesAnAllowListThatNamesNoHostAndAnEgressHoldingTheHostsCredential(t *testing.T) {
+func TestRefusesAnAllowListThatNamesNoHostAndAnEgressWithTheHostsCredential(t *testing.T) {
 	dir := isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
 	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
@@ -353,7 +353,7 @@ func TestReadsTheAuthoritiesEgressTrustsForPrivateHosts(t *testing.T) {
 
 	write(t, trust, "not a certificate")
 	if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "no PEM certificate") {
-		t.Errorf("took what holds no certificate: %v", err)
+		t.Errorf("took what has no certificate: %v", err)
 	}
 
 	authority := authorityPEM(t)

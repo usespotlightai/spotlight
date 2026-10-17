@@ -86,7 +86,7 @@ export class RunEvidences implements RunEvidencePort {
     private readonly digest: ContentDigestPort,
   ) {}
 
-  async holds(runId: string): Promise<boolean> {
+  async hasTask(runId: string): Promise<boolean> {
     const run = await this.runs.findById(RunId.of(runId));
 
     return Boolean(run?.taskId && (await this.tasks.find(run.taskId)));
@@ -138,7 +138,7 @@ export class RunEvidences implements RunEvidencePort {
 
   async judgeAt(stationId: string): Promise<StationJudgeSettings | null> {
     const at = StationId.of(stationId);
-    const line = await this.lines.holding(at);
+    const line = await this.lines.findByStation(at);
     const judge = line?.stationAt(at)?.judge ?? null;
 
     return line && judge ? this.settingsOf(line, judge) : null;

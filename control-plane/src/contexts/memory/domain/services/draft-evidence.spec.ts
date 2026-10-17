@@ -121,7 +121,7 @@ describe('DraftEvidence', () => {
   });
 
   describe('where a proposal applies', () => {
-    it('holds a team-wide memory to the team alone', () => {
+    it('keeps a team-wide memory to the team alone', () => {
       const { scope } = proposalOf(remembered({ reach: 'team' }));
 
       expect(scope.teamId.value).toBe('team_1');
@@ -129,14 +129,14 @@ describe('DraftEvidence', () => {
       expect(scope.stationId).toBeNull();
     });
 
-    it('holds a line’s memory to the run’s line', () => {
+    it('keeps a line’s memory to the run’s line', () => {
       const { scope } = proposalOf(remembered({ reach: 'line' }));
 
       expect(scope.lineId).toBe('line_1');
       expect(scope.stationId).toBeNull();
     });
 
-    it('holds a station’s memory to the run’s line and station', () => {
+    it('keeps a station’s memory to the run’s line and station', () => {
       const { scope } = proposalOf(remembered({ reach: 'station' }));
 
       expect([scope.lineId, scope.stationId]).toEqual(['line_1', 'station_1']);
@@ -367,7 +367,7 @@ describe('DraftEvidence', () => {
       ).toThrow(InvalidMemoryError);
     });
 
-    it('leaves out a changed file whose path no memory could hold', () => {
+    it('leaves out a changed file whose path no memory could cover', () => {
       const evidence = told({
         steps: 1,
         notesRead: 0,

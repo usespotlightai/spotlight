@@ -15,7 +15,7 @@ import { DefinitionDocument } from '@integrations/domain/value-objects/definitio
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
-import { documentsHolding } from '@integrations/integrations.documents.fake-spec';
+import { documentsContaining } from '@integrations/integrations.documents.fake-spec';
 import type {
   IdempotentClaim,
   IdempotentCreatesPort,
@@ -37,24 +37,24 @@ export const LINEAR = { integration: 'linear', name: 'Linear' };
 
 export const SLACK = { integration: 'slack', name: 'Slack' };
 
-const compiledFor = (source: string, held: object): ParsedIntegration => ({
+const compiledFor = (source: string, raw: object): ParsedIntegration => ({
   ok: true,
   integration: Integration.of({
     source: SourceKey.of(source),
     actions: DefinedActions.of(['comment']),
   }),
-  document: DefinitionDocument.of(held),
+  document: DefinitionDocument.of(raw),
   source: null,
   passedOver: [],
   warnings: [],
 });
 
 const compiler: IntegrationCompilerPort = {
-  compile: (held): ParsedIntegration =>
-    held === LINEAR
-      ? compiledFor('linear', held)
-      : held === SLACK
-        ? compiledFor('slack', held)
+  compile: (raw): ParsedIntegration =>
+    raw === LINEAR
+      ? compiledFor('linear', raw)
+      : raw === SLACK
+        ? compiledFor('slack', raw)
         : {
             ok: false,
             problems: [
@@ -96,7 +96,7 @@ export const teams = (): TeamDirectoryPort => ({
 
 export const sources = new IntegrationSources(
   compiler,
-  documentsHolding(),
+  documentsContaining(),
   {
     read: vi.fn(async () => ({ kind: 'unread' as const, problem: 'unread' })),
   },

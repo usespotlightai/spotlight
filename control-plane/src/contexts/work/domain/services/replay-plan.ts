@@ -69,7 +69,7 @@ const checkoutsAt = (
   });
 };
 
-const UNHELD = { awaitingReview: false, heldBackTo: null } as const;
+const NOT_DEFERRED = { awaitingReview: false, deferredMoveTo: null } as const;
 
 const movesOnAfter = (candidate: Line, stationId: StationId): string[] =>
   [
@@ -87,7 +87,7 @@ const movesOnAfter = (candidate: Line, stationId: StationId): string[] =>
           stationId,
         ),
         candidate,
-        UNHELD,
+        NOT_DEFERRED,
       );
 
       return !putsItToAPerson(routing);

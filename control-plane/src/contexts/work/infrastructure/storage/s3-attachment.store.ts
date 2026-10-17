@@ -37,9 +37,9 @@ const keyOf = (workspaceId: WorkspaceId, id: AttachmentId): string =>
 
 const encoded = (name: string): string => encodeURIComponent(name);
 
-const decoded = (held: string | undefined, fallback: string): string => {
+const decoded = (name: string | undefined, fallback: string): string => {
   try {
-    return held ? decodeURIComponent(held) : fallback;
+    return name ? decodeURIComponent(name) : fallback;
   } catch {
     return fallback;
   }
@@ -100,19 +100,19 @@ export class S3AttachmentStore implements AttachmentStorePort {
 
     return Promise.all(
       [...new Set(ids)].map(async (id) => {
-        const held =
+        const head =
           (await this.kept(workspaceId, id)) ??
           (await this.pending(workspaceId, id));
 
-        if (!held) {
+        if (!head) {
           throw new InvalidAttachmentError('was never uploaded');
         }
 
         return Attachment.of({
           id: id.value,
-          name: decoded(held.Metadata?.[NAME], id.value),
-          contentType: held.ContentType,
-          size: held.ContentLength ?? -1,
+          name: decoded(head.Metadata?.[NAME], id.value),
+          contentType: head.ContentType,
+          size: head.ContentLength ?? -1,
         });
       }),
     );

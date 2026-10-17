@@ -72,7 +72,7 @@ export class StartOracleReplay {
       const locked = await this.sets.locked(set.id);
       const against = await this.replays.find(baseline.id);
       const answers = locked
-        ? answered.filter((each) => locked.holds(each.run))
+        ? answered.filter((each) => locked.includes(each.run))
         : [];
 
       if (

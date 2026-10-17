@@ -2,10 +2,10 @@ import { useState } from 'react';
 
 export function useOpenWhenFocused(focused: boolean) {
   const [open, setOpen] = useState(false);
-  const [held, setHeld] = useState(false);
+  const [wasFocused, setWasFocused] = useState(false);
 
-  if (focused !== held) {
-    setHeld(focused);
+  if (focused !== wasFocused) {
+    setWasFocused(focused);
 
     if (focused) {
       setOpen(true);

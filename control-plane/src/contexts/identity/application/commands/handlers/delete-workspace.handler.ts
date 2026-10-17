@@ -1,10 +1,10 @@
 import type { DeleteWorkspaceCommand } from '@identity/application/commands/delete-workspace.command';
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
-import type { WorkspaceHoldingsPort } from '@identity/application/ports/workspace-holdings.port';
+import type { WorkspaceDependentsPort } from '@identity/application/ports/workspace-dependents.port';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
-import { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
@@ -24,7 +24,7 @@ export class DeleteWorkspaceHandler
   constructor(
     private readonly workspaces: WorkspaceRepository,
     private readonly resources: IdentityResourcesPort,
-    private readonly holdings: WorkspaceHoldingsPort,
+    private readonly dependents: WorkspaceDependentsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -48,7 +48,7 @@ export class DeleteWorkspaceHandler
 
       standing.assertVersion(command.expectedVersion);
 
-      const held = Holdings.of(await this.holdings.of(id));
+      const remaining = Dependents.of(await this.dependents.of(id));
 
       await this.transaction.inTransaction(async () => {
         const teams = await this.resources.teamKeysIn(id);
@@ -62,7 +62,7 @@ export class DeleteWorkspaceHandler
             tokens.map((each) => TokenName.of(each)),
             trusts.map((each) => TokenTrustKey.of(each)),
             minting.map((each) => TokenTrustKey.of(each)),
-            held,
+            remaining,
             Attribution.of(command.actor, id),
           ),
         );

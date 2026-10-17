@@ -24,9 +24,9 @@ const earliest = (seen: readonly Seen[]): ReadonlyMap<string, Date> => {
       continue;
     }
 
-    const held = first.get(each.person);
+    const known = first.get(each.person);
 
-    if (!held || at.getTime() < held.getTime()) {
+    if (!known || at.getTime() < known.getTime()) {
       first.set(each.person, at);
     }
   }

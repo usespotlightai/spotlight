@@ -36,20 +36,20 @@ const CALL = ApprovalSubject.toolCall(
   ),
 );
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let tasks: DrizzleTaskRepository;
 
 beforeAll(async () => {
-  held = await openDatabase('tool_approvals');
-  db = held.db;
+  database = await openDatabase('tool_approvals');
+  db = database.db;
   tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const readBack = async (task: Task): Promise<Task> => {

@@ -98,7 +98,7 @@ type exchanging struct {
 	now      func() time.Time
 
 	mu      sync.Mutex
-	held    string
+	cached  string
 	renewAt time.Time
 }
 
@@ -114,8 +114,8 @@ func (e *exchanging) token(renewed bool) (string, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.held != "" && !renewed && e.now().Before(e.renewAt) {
-		return e.held, nil
+	if e.cached != "" && !renewed && e.now().Before(e.renewAt) {
+		return e.cached, nil
 	}
 
 	workload, err := e.workload(e.audience)
@@ -164,10 +164,10 @@ func (e *exchanging) token(renewed bool) (string, error) {
 		return "", fmt.Errorf("the minted token's expiry %q is not a time", minted.ExpiresAt)
 	}
 
-	e.held = minted.Token
+	e.cached = minted.Token
 	e.renewAt = renewalOf(expiresAt, e.now())
 
-	return e.held, nil
+	return e.cached, nil
 }
 
 func refusalOf(status int, body []byte) string {

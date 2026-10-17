@@ -73,11 +73,11 @@ export type ParsedWorkspaceRunners =
   | Refused;
 
 export interface RunnerDefinitionsPort {
-  trust(held: unknown): ParsedTrust;
+  trust(input: unknown): ParsedTrust;
 
-  pool(held: unknown): ParsedPool;
+  pool(input: unknown): ParsedPool;
 
-  egress(held: unknown): ParsedEgress;
+  egress(input: unknown): ParsedEgress;
 
-  workspaceRunners(held: unknown): ParsedWorkspaceRunners;
+  workspaceRunners(input: unknown): ParsedWorkspaceRunners;
 }

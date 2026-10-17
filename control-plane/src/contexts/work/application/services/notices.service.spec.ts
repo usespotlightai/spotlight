@@ -14,28 +14,28 @@ import { beforeEach, describe, expect, it } from 'vitest';
 const NOW = new Date('2026-10-01T09:00:00.000Z');
 
 class InMemoryNotices implements NoticeRepository {
-  readonly held = new Map<string, Notice>();
+  readonly stored = new Map<string, Notice>();
 
   add = async (notice: Notice) => {
-    this.held.set(notice.id.value, notice);
+    this.stored.set(notice.id.value, notice);
   };
 
   save = async (notice: Notice) => {
-    this.held.set(notice.id.value, notice);
+    this.stored.set(notice.id.value, notice);
   };
 
-  find = async (id: { value: string }) => this.held.get(id.value) ?? null;
+  find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
 
   about = async (addressee: UserId, form: string, subject: string) =>
-    [...this.held.values()].find(
+    [...this.stored.values()].find(
       (each) =>
         each.isFor(addressee) && each.form === form && each.subject === subject,
     ) ?? null;
 
   forgetTeam = async (teamId: TeamId) => {
-    for (const [id, each] of this.held) {
+    for (const [id, each] of this.stored) {
       if (each.teamId.equals(teamId)) {
-        this.held.delete(id);
+        this.stored.delete(id);
       }
     }
   };
@@ -97,7 +97,7 @@ describe('Notices', () => {
       subject: 'replay-search search_2 iteration 3',
     });
 
-    expect(memory.held.size).toBe(2);
+    expect(memory.stored.size).toBe(2);
   });
 
   it('refuses a form it does not know', async () => {
@@ -118,9 +118,9 @@ describe('Notices', () => {
     });
     await notices.forgetTeam(TeamId.of('team_1'));
 
-    expect([...memory.held.values()].map((each) => each.teamId.value)).toEqual([
-      'team_2',
-    ]);
+    expect(
+      [...memory.stored.values()].map((each) => each.teamId.value),
+    ).toEqual(['team_2']);
   });
 
   it('raises nothing for a team its person is no longer on, or that is gone', async () => {
@@ -131,7 +131,7 @@ describe('Notices', () => {
       teamId: TeamId.of('team_gone'),
     });
 
-    expect(memory.held.size).toBe(0);
+    expect(memory.stored.size).toBe(0);
   });
 
   it('lets only its person, still on its team, in its workspace, settle it', async () => {
@@ -145,7 +145,7 @@ describe('Notices', () => {
 
     await noticesOver(memory).raise(STALLED);
 
-    const [id] = [...memory.held.keys()] as [string];
+    const [id] = [...memory.stored.keys()] as [string];
 
     members.add('team_1:user_2');
     await expect(settle(id, 'acme', 'user_2')).rejects.toMatchObject({
@@ -155,7 +155,7 @@ describe('Notices', () => {
       kind: 'not-found',
     });
     await settle(id, 'acme', 'user_1');
-    expect(memory.held.get(id)?.settledAt).toEqual(NOW);
+    expect(memory.stored.get(id)?.settledAt).toEqual(NOW);
     await expect(
       settle('notice_missing', 'acme', 'user_1'),
     ).rejects.toMatchObject({ kind: 'not-found' });

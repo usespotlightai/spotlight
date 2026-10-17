@@ -56,8 +56,8 @@ export class NotePersonAct {
     const teamId = run ? TeamId.of(run.teamId) : null;
 
     await this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(workspaceId, taskId, teamId);
-      const held = heard.after
+      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
+      const existing = heard.after
         ? await this.records.of(RunId.of(heard.after))
         : await this.records.lastEndedOfTaskAt(
             taskId,
@@ -69,16 +69,16 @@ export class NotePersonAct {
         await this.forgotten.forgot(
           workspaceId,
           taskId,
-          teamId ?? held?.end?.place.teamId,
+          teamId ?? existing?.end?.place.teamId,
         )
       ) {
-        if (held) {
+        if (existing) {
           await this.records.removeForTask(taskId);
         }
         return;
       }
 
-      if (!held) {
+      if (!existing) {
         if (heard.after) {
           await this.records.add(
             noted(
@@ -89,9 +89,9 @@ export class NotePersonAct {
         return;
       }
 
-      const acted = noted(held);
+      const acted = noted(existing);
 
-      if (acted !== held) {
+      if (acted !== existing) {
         await this.records.save(acted);
       }
     });

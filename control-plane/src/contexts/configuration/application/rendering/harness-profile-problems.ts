@@ -16,12 +16,12 @@ export const HarnessProfileProblems = {
     });
   },
 
-  unheld(key: string, unheld: readonly WornSecret[]): ConfigurationProblem[] {
-    return unheld.map((worn) =>
+  missing(key: string, missing: readonly WornSecret[]): ConfigurationProblem[] {
+    return missing.map((worn) =>
       ConfigurationProblem.of({
         path: profileAt(key),
         at: FieldPath.of([...worn.at]),
-        reason: `uses secret ${worn.secret.value} that the workspace does not hold`,
+        reason: `uses secret ${worn.secret.value} that the workspace does not have`,
       }),
     );
   },

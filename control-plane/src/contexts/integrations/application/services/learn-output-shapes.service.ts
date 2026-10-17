@@ -41,12 +41,12 @@ export class LearnOutputShapes {
   ): Promise<void> {
     for (let attempt = 1; ; attempt += 1) {
       const at = this.clock.now();
-      const held = await this.learned.of(teamId, tool);
+      const existing = await this.learned.of(teamId, tool);
 
       try {
         await this.learned.save(
-          held
-            ? held.learnFrom(answer, at)
+          existing
+            ? existing.learnFrom(answer, at)
             : LearnedOutput.first({ teamId, tool, answer, at }),
         );
         return;

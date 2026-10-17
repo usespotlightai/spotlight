@@ -23,7 +23,7 @@ const server = (token = 'https://auth.tracker.example/token') =>
   });
 
 const resolving = (configured = '{}') => {
-  let held: OAuth2ClientRegistration | null = null;
+  let stored: OAuth2ClientRegistration | null = null;
   const register = vi.fn(async () => ({
     clientId: `client-${register.mock.calls.length}`,
     clientSecret: null,
@@ -32,9 +32,9 @@ const resolving = (configured = '{}') => {
   const clients = new OAuth2ClientResolution(
     OAuth2Clients.from(configured),
     {
-      of: async () => held,
+      of: async () => stored,
       save: async (registration: OAuth2ClientRegistration) => {
-        held = registration;
+        stored = registration;
       },
       forgetTeam: async () => {},
     } as OAuth2ClientRegistrationRepository,
@@ -57,20 +57,22 @@ const resolving = (configured = '{}') => {
 };
 
 describe('OAuth2ClientResolution', () => {
-  it('holds a client registered with one authorization server only for that server', async () => {
+  it('uses a client registered with one authorization server only for that server', async () => {
     const { clients } = resolving();
 
     await expect(
       clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
     ).resolves.toEqual({ id: 'client-1', secret: null });
-    await expect(clients.heldFor(TEAM, TRACKER, server())).resolves.toEqual({
-      id: 'client-1',
-      secret: null,
-    });
+    await expect(clients.existingFor(TEAM, TRACKER, server())).resolves.toEqual(
+      {
+        id: 'client-1',
+        secret: null,
+      },
+    );
     await expect(
-      clients.heldFor(TEAM, TRACKER, server('https://evil.example/token')),
+      clients.existingFor(TEAM, TRACKER, server('https://evil.example/token')),
     ).resolves.toBeNull();
-    await expect(clients.heldFor(TEAM, TRACKER, null)).resolves.toBeNull();
+    await expect(clients.existingFor(TEAM, TRACKER, null)).resolves.toBeNull();
   });
 
   it('registers again when the server discovered moved', async () => {
@@ -99,9 +101,9 @@ describe('OAuth2ClientResolution', () => {
     await expect(
       unbound.clients.clientFor(TEAM, TRACKER, REGISTRATION, server()),
     ).resolves.toBeNull();
-    await expect(unbound.clients.heldFor(TEAM, TRACKER, null)).resolves.toEqual(
-      { id: 'c-1', secret: 's-1' },
-    );
+    await expect(
+      unbound.clients.existingFor(TEAM, TRACKER, null),
+    ).resolves.toEqual({ id: 'c-1', secret: 's-1' });
     expect(unbound.register).not.toHaveBeenCalled();
   });
 });

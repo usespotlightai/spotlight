@@ -65,10 +65,10 @@ const firstSucceeded = (original: string) =>
 const scoredOn = (replay: Replay, tasks: number): Replay => {
   const reserved = replay.reserving(replay.entries.length, runIds());
 
-  return reserved.entries.slice(0, tasks).reduce((held, entry) => {
+  return reserved.entries.slice(0, tasks).reduce((built, entry) => {
     const run = entry.run as RunId;
 
-    return held
+    return built
       .confirm(run, FINGERPRINT, NOW)
       .recordRunEnd(run, endOf('completed'))
       .recordReview(run, CONCLUDING_CHECKS, null, later(60_000))

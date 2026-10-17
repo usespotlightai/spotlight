@@ -3,7 +3,7 @@ import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { describe, expect, it } from 'vitest';
 
 describe('MemoryBody', () => {
-  it('holds what is remembered, trimmed, compared by value', () => {
+  it('contains what is remembered, trimmed, compared by value', () => {
     expect(MemoryBody.of('  Retry twice.  ').value).toBe('Retry twice.');
     expect(
       MemoryBody.of('Retry twice.').equals(MemoryBody.of(' Retry twice.')),

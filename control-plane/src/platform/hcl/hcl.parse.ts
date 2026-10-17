@@ -365,15 +365,15 @@ function itemsOf(node: Node, text: string): HclListItem[] | null {
 
 function entriesOf(node: Node, text: string): Record<string, HclRead> | null {
   const object = inner(node);
-  const held =
+  const element =
     object.type === 'collection_value' ? namedOf(object)[0] : undefined;
 
-  if (held?.type !== 'object') {
+  if (element?.type !== 'object') {
     return null;
   }
 
   return Object.fromEntries(
-    namedOf(held)
+    namedOf(element)
       .filter((each) => each.type === 'object_elem')
       .flatMap((each) => {
         const [key, value] = namedOf(each).filter(

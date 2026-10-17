@@ -99,7 +99,7 @@ export class WorkspaceInviteController {
     description: 'No such workspace, or not yours to invite to',
   })
   @ApiUnprocessableEntityResponse({
-    description: 'An address, role or team that does not hold',
+    description: 'An address, role or team that is not valid',
   })
   async invite(
     @Param('slug') slug: string,

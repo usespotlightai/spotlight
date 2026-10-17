@@ -3,7 +3,7 @@ import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('ScoreScale', () => {
-  it('holds yes as 1 and no as 0', () => {
+  it('has yes as 1 and no as 0', () => {
     const scale = ScoreScale.yesNo();
 
     expect(scale.valueOf(true)).toBe(1);
@@ -12,7 +12,7 @@ describe('ScoreScale', () => {
     expect(scale.categorical).toBe(true);
   });
 
-  it('holds whole numbers from 1 to 5', () => {
+  it('has whole numbers from 1 to 5', () => {
     const scale = ScoreScale.oneToFive();
 
     expect(scale.valueOf(4)).toBe(4);
@@ -33,12 +33,12 @@ describe('ScoreScale', () => {
     expect(() => ScoreScale.of('stars')).toThrow(InvalidScoreError);
   });
 
-  it('holds the share of claims met, given claim by claim', () => {
+  it('has the share of claims met, given claim by claim', () => {
     const scale = ScoreScale.claims();
 
     expect(scale.valueOfClaims([true, false, true, true], 4)).toBe(0.75);
-    expect(scale.holds(0.75)).toBe(true);
-    expect(scale.holds(1.5)).toBe(false);
+    expect(scale.includes(0.75)).toBe(true);
+    expect(scale.includes(1.5)).toBe(false);
     expect(scale.byClaims).toBe(true);
     expect(scale.categorical).toBe(false);
     expect(() => scale.valueOfClaims([true], 2)).toThrow(InvalidScoreError);

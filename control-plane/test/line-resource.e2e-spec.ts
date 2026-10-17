@@ -60,21 +60,21 @@ const judged = (
 
 const seated = async (
   app: INestApplication,
-): Promise<ResourceFixture & { readonly held: string }> => {
+): Promise<ResourceFixture & { readonly workspaceId: string }> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `lines-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `lines-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
-    held,
+    workspaceId,
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${held}/lines`,
+    collection: `/api/resources/teams/${workspaceId}/lines`,
     item: (id) => `/api/resources/lines/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/lines/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/lines/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/lines`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: `team/${DELIVERY.key}`,
     valid: judged(JUDGE, ALERTS),
     changed: {
@@ -549,9 +549,9 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
-  it('holds a role to one line per team even past the check before writing', async () => {
+  it('limits a role to one line per team even past the check before writing', async () => {
     const lines = app.get(DrizzleLineRepository);
-    const teamId = fixture.held;
+    const teamId = fixture.workspaceId;
     const opening = BUILT_IN_LINES.find((each) => each.role) as LineOpening;
     let next = 0;
     const opened = (key: string) =>
@@ -572,7 +572,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
   it('lists every line across the workspace’s teams in address order, each as its read answers it', async () => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
-    const workspaceId = fixture.held;
+    const workspaceId = fixture.workspaceId;
     const alpha = await served(app)
       .post(`/api/resources/workspaces/${workspaceId}/teams`)
       .set(TEST_USER_HEADER, fixture.admin)
@@ -604,7 +604,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
   it('reads several lines across teams at once, each exactly as it reads alone', async () => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
-    const workspaceId = fixture.held;
+    const workspaceId = fixture.workspaceId;
     const alpha = await served(app)
       .post(`/api/resources/workspaces/${workspaceId}/teams`)
       .set(TEST_USER_HEADER, fixture.admin)

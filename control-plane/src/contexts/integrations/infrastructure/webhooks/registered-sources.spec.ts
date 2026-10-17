@@ -57,7 +57,7 @@ const byFactory = (named: string) => {
 };
 
 describe('markedSources', () => {
-  it('holds every provider wearing the mark', () => {
+  it('contains every provider wearing the mark', () => {
     const sources = markedSources(
       discovering([asClass('github'), asClass('sentry')]),
     );
@@ -65,13 +65,13 @@ describe('markedSources', () => {
     expect(sources.map((each) => each.key)).toEqual(['github', 'sentry']);
   });
 
-  it('holds one the container was given a factory for', () => {
+  it('contains one the container was given a factory for', () => {
     const sources = markedSources(discovering([byFactory('github')]));
 
     expect(sources.map((each) => each.key)).toEqual(['github']);
   });
 
-  it('holds nothing else the container happens to have', () => {
+  it('contains nothing else the container happens to have', () => {
     const sources = markedSources(
       discovering([
         asClass('github'),

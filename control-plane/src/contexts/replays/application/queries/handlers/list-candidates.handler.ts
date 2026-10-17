@@ -34,13 +34,13 @@ export class ListCandidatesHandler
         return null;
       }
 
-      const held = await this.candidates.ofTeams(
+      const found = await this.candidates.ofTeams(
         teams
           .filter((each) => !at || each.key === at.teamKey)
           .map((each) => each.teamId),
       );
 
-      return held
+      return found
         .filter(
           (each) => each.isProposed && (!at || each.stationAddress.equals(at)),
         )
@@ -50,11 +50,11 @@ export class ListCandidatesHandler
     }
   }
 
-  private stationAt(held: string): StationAddress {
-    const at = StationAddress.parsed(held);
+  private stationAt(raw: string): StationAddress {
+    const at = StationAddress.parsed(raw);
 
     if (!at) {
-      throw new InvalidStationAddressError(held);
+      throw new InvalidStationAddressError(raw);
     }
 
     return at;

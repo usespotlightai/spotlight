@@ -110,9 +110,11 @@ export class ModelUsage {
   }
 
   private costing(cost: ModelCost): readonly ModelCost[] {
-    const held = this.costs.some((each) => each.currency === cost.currency);
+    const hasCurrency = this.costs.some(
+      (each) => each.currency === cost.currency,
+    );
 
-    return held
+    return hasCurrency
       ? this.costs.map((each) =>
           each.currency === cost.currency
             ? {

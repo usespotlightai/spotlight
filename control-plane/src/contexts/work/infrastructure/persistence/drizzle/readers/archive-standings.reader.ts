@@ -47,17 +47,17 @@ const sameContinuity = and(
 
 interface HolderRow {
   readonly taskId: string | null;
-  readonly heldTask: string | null;
+  readonly standingTask: string | null;
   readonly taskFinishedAt: Date | null;
   readonly taskUpdatedAt: Date | null;
-  readonly heldChat: string | null;
+  readonly standingChat: string | null;
   readonly chatSession: string | null;
   readonly chatUpdatedAt: Date | null;
 }
 
 const holderOf = (row: HolderRow): HolderState | null => {
   if (row.taskId) {
-    return row.heldTask && row.taskUpdatedAt
+    return row.standingTask && row.taskUpdatedAt
       ? {
           kind: 'task',
           finished: row.taskFinishedAt !== null,
@@ -66,7 +66,7 @@ const holderOf = (row: HolderRow): HolderState | null => {
       : null;
   }
 
-  return row.heldChat && row.chatUpdatedAt
+  return row.standingChat && row.chatUpdatedAt
     ? {
         kind: 'chat',
         conversing: row.chatSession !== null,
@@ -92,10 +92,10 @@ export class DrizzleArchiveStandings implements ArchiveStandingsPort {
       .select({
         id: workspaceArchive.id,
         taskId: workspaceArchive.taskId,
-        heldTask: task.id,
+        standingTask: task.id,
         taskFinishedAt: task.finishedAt,
         taskUpdatedAt: task.updatedAt,
-        heldChat: chat.id,
+        standingChat: chat.id,
         chatSession: chat.sessionId,
         chatUpdatedAt: chat.updatedAt,
         supersededAt: sql<Date | null>`(${this.db

@@ -8,7 +8,7 @@ import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
-import { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
@@ -52,7 +52,7 @@ describe('Workspace', () => {
     ]);
   });
 
-  it('says it opened, naming the first team it should hold', () => {
+  it('says it opened, naming the first team it should have', () => {
     expect(build().pullEvents()).toEqual([
       new WorkspaceOpened(
         WorkspaceId.of('ws_1'),
@@ -63,7 +63,7 @@ describe('Workspace', () => {
     ]);
   });
 
-  it('is the same workspace as another holding its identity', () => {
+  it('is the same workspace as another that has its identity', () => {
     expect(build().equals(build())).toBe(true);
     expect(build().equals(build('ws_2'))).toBe(false);
   });
@@ -89,7 +89,7 @@ describe('Workspace', () => {
       expect(workspace.roleOf(OWNER)).toBe(WorkspaceRole.owner);
       expect(workspace.roleOf(UserId.of('user_2'))).toBe(WorkspaceRole.member);
       expect(workspace.roleOf(UserId.of('stranger'))).toBeNull();
-      expect(workspace.holds(UserId.of('stranger'))).toBe(false);
+      expect(workspace.hasMember(UserId.of('stranger'))).toBe(false);
     });
 
     it('lets an owner or an admin connect it', () => {
@@ -132,9 +132,9 @@ describe('Workspace', () => {
       expect(workspace.administeredBy(STRANGER)).toBe(false);
     });
 
-    it('holds everybody of it, and nobody outside it', () => {
-      expect(workspace.holds(MEMBER)).toBe(true);
-      expect(workspace.holds(STRANGER)).toBe(false);
+    it('has everybody of it as a member, and nobody outside it', () => {
+      expect(workspace.hasMember(MEMBER)).toBe(true);
+      expect(workspace.hasMember(STRANGER)).toBe(false);
     });
   });
 
@@ -145,7 +145,7 @@ describe('Workspace', () => {
       const joined = build().join(ADA, WorkspaceRole.member);
 
       expect(joined.roleOf(ADA)).toBe(WorkspaceRole.member);
-      expect(joined.holds(ADA)).toBe(true);
+      expect(joined.hasMember(ADA)).toBe(true);
     });
 
     it('says so', () => {
@@ -277,7 +277,7 @@ describe('Workspace', () => {
       ).toThrow(NotYoursToGiveError);
     });
 
-    it('refuses an admin handing out a rank they do not hold', () => {
+    it('refuses an admin handing out a rank they do not have', () => {
       expect(() =>
         staff().changeRole(MEMBER, WorkspaceRole.owner, ADMIN),
       ).toThrow(/cannot give a role above your own/);
@@ -441,45 +441,45 @@ describe('Workspace', () => {
       ).toThrow(WorkspaceSlugFixedError);
     });
 
-    it('closes only once it holds no team, no token, no token trust, no token minted and nothing else', () => {
+    it('closes only once it has no team, no token, no token trust, no token minted and nothing else', () => {
       expect(() =>
-        kept().close([TeamKey.of('core')], [], [], [], Holdings.none(), BY),
-      ).toThrow(/Still holds: team core/);
+        kept().close([TeamKey.of('core')], [], [], [], Dependents.none(), BY),
+      ).toThrow(/It still has: team core/);
       expect(() =>
-        kept().close([], [TokenName.of('ci')], [], [], Holdings.none(), BY),
-      ).toThrow(/Still holds: token ci/);
+        kept().close([], [TokenName.of('ci')], [], [], Dependents.none(), BY),
+      ).toThrow(/It still has: token ci/);
       expect(() =>
         kept().close(
           [],
           [],
           [TokenTrustKey.of('github-main')],
           [],
-          Holdings.none(),
+          Dependents.none(),
           BY,
         ),
-      ).toThrow(/Still holds: token trust github-main/);
+      ).toThrow(/It still has: token trust github-main/);
       expect(() =>
         kept().close(
           [],
           [],
           [],
           [TokenTrustKey.of('github-main')],
-          Holdings.none(),
+          Dependents.none(),
           BY,
         ),
-      ).toThrow(/Still holds: tokens minted through github-main/);
+      ).toThrow(/It still has: tokens minted through github-main/);
       expect(() =>
         kept().close(
           [],
           [],
           [],
           [],
-          Holdings.of(['secret LINEAR_API_KEY']),
+          Dependents.of(['secret LINEAR_API_KEY']),
           BY,
         ),
-      ).toThrow(/Still holds: secret LINEAR_API_KEY/);
+      ).toThrow(/It still has: secret LINEAR_API_KEY/);
 
-      const closed = kept().close([], [], [], [], Holdings.none(), BY);
+      const closed = kept().close([], [], [], [], Dependents.none(), BY);
 
       expect(closed.isClosed).toBe(true);
       expect(closed.pullEvents()).toEqual([
@@ -597,7 +597,7 @@ describe('Workspace', () => {
     it('clears nothing once it has closed', () => {
       expect(
         acme
-          .close([], [], [], [], Holdings.none(), BY)
+          .close([], [], [], [], Dependents.none(), BY)
           .permissionsFor(person('owner')).reads,
       ).toBe(false);
     });

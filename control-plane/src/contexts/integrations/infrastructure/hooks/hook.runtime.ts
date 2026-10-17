@@ -34,7 +34,7 @@ import {
 } from '@integrations/infrastructure/integrations/templating';
 import { type Bindings, bound } from '@platform/expressions/bindings';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
-import { holds } from '@platform/expressions/readings';
+import { isTrue } from '@platform/expressions/readings';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { JsonValue } from '@shared-kernel/domain/services/json-value';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -156,20 +156,20 @@ const inputsFor = (
   given: unknown,
   defaultFor: (name: string) => unknown,
 ): ToolInputValues => {
-  const held =
+  const fields =
     given && typeof given === 'object' && !Array.isArray(given)
       ? (given as Record<string, unknown>)
       : {};
   const inputs: Record<string, JsonValue> = {};
 
-  for (const name of Object.keys(held)) {
+  for (const name of Object.keys(fields)) {
     if (!declared.inputs.some((input) => input.name === name)) {
       throw new Error(`${declared.tool} takes no input called ${name}`);
     }
   }
 
   for (const input of declared.inputs) {
-    const value = held[input.name] ?? defaultFor(input.name) ?? undefined;
+    const value = fields[input.name] ?? defaultFor(input.name) ?? undefined;
 
     if (value === undefined || value === null || value === '') {
       if (input.required) {
@@ -236,7 +236,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     const bindings = bindingsFor(compiled, moment);
 
     return compiled.ir.conditions.every((condition) =>
-      holds(condition, bindings),
+      isTrue(condition, bindings),
     );
   }
 
@@ -376,7 +376,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
         );
       }
 
-      if (reachable.integration.holding.byRequester) {
+      if (reachable.integration.holder.byRequester) {
         throw new StepRefused(
           'not-allowed',
           `names ${step.tool}, which acts as the person who started a task. A hook acts as nobody`,

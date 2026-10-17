@@ -366,7 +366,7 @@ describe('Task', () => {
     );
   });
 
-  it('holds the shape of a task while it loads, keeping what never changes', () => {
+  it('keeps the shape of a task while it loads, keeping what never changes', () => {
     listed.mockReturnValue(undefined);
 
     renderAt('task_1');

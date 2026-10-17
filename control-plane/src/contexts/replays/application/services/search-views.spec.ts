@@ -81,7 +81,7 @@ const heldOutWorld = (
       replayedAs(
         replayFor(
           set,
-          'replay_held_terse',
+          'replay_held_out_terse',
           'candidate_terse',
           search.split.heldOutRuns,
         ),

@@ -59,7 +59,7 @@ describe('Runner', () => {
     expect(waiting.took(RUN, later(10)).standsAt(later(60_000))).toBe(true);
   });
 
-  it('no longer stands once it has gone unseen longer than the work it holds allows', () => {
+  it('no longer stands once it has gone unseen longer than the work it leases allows', () => {
     const running = aRunner().took(RUN, later(0));
     const checking = aRunner().took(RunnerWork.check('stack_1'), later(0));
 
@@ -114,7 +114,7 @@ describe('Runner', () => {
     expect(working.reservationDropped(later(2))).toBe(working);
   });
 
-  it('lets its egress act only for the work it holds, while it stands', () => {
+  it('lets its egress act only for the work it leases, while it stands', () => {
     const waiting = aRunner();
     const working = waiting.took(RUN, later(1));
 
@@ -145,11 +145,11 @@ describe('Runner', () => {
     expect(provisioned.workEgressActsFor(later(2))).toBeNull();
   });
 
-  it('knows the work it holds', () => {
+  it('knows the work it leases', () => {
     const working = aRunner().took(RUN, later(1));
 
-    expect(working.holds(RunnerWork.run('run_1'))).toBe(true);
-    expect(working.holds(RunnerWork.check('run_1'))).toBe(false);
+    expect(working.hasLeaseOn(RunnerWork.run('run_1'))).toBe(true);
+    expect(working.hasLeaseOn(RunnerWork.check('run_1'))).toBe(false);
   });
 
   it('is admitted through the pool or trust it started under, on the host that asked', () => {

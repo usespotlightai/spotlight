@@ -23,7 +23,7 @@ export class EnqueueTaskRun {
       return;
     }
 
-    const line = await this.lines.holding(task.stationId);
+    const line = await this.lines.findByStation(task.stationId);
 
     if (
       line &&

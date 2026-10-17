@@ -139,7 +139,7 @@ describe('StationSearches', () => {
     sets.mockReturnValue([]);
   });
 
-  it('holds the place of the searches while they load', () => {
+  it('keeps the place of the searches while they load', () => {
     renderSearches();
 
     expect(

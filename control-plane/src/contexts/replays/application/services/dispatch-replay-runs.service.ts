@@ -101,13 +101,13 @@ export class DispatchReplayRuns implements OwedWorkPort {
       answer: replay.answerTo(entry.original),
     });
 
-    const held = await this.changed(replay, (fresh, now) =>
+    const updated = await this.changed(replay, (fresh, now) =>
       queued.queued
         ? fresh.confirm(run, queued.fingerprint, now)
         : fresh.refused(run, queued.refusal, now),
     );
 
-    if (queued.queued && held && !held.isDispatching) {
+    if (queued.queued && updated && !updated.isDispatching) {
       await this.work.forgo(run, false);
     }
   }

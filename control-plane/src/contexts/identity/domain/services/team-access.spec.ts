@@ -90,7 +90,7 @@ describe('TeamAccess', () => {
     expect(admits(tokenOf(['read'], 'ws_2'))).toBe(false);
   });
 
-  it('turns away anyone for a team held by another workspace', () => {
+  it('turns away anyone for a team of another workspace', () => {
     expect(
       admits(PersonPrincipal.of(ADMIN), team('Platform', [ADMIN], 'ws_2')),
     ).toBe(false);

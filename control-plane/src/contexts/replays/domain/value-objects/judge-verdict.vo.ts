@@ -27,7 +27,7 @@ const isScale = (raw: string): raw is JudgeScale =>
 const isShare = (value: number): boolean =>
   Number.isFinite(value) && value >= 0 && value <= YES;
 
-const holds = (scale: JudgeScale, value: number): boolean => {
+const isOnScale = (scale: JudgeScale, value: number): boolean => {
   switch (scale) {
     case 'yes-no':
       return value === 0 || value === YES;
@@ -41,7 +41,7 @@ const holds = (scale: JudgeScale, value: number): boolean => {
 const shareOf = (marks: readonly boolean[]): number =>
   marks.filter(Boolean).length / marks.length;
 
-const marksHold = (
+const marksAreValid = (
   scale: JudgeScale,
   value: number,
   marks: readonly boolean[] | null,
@@ -81,12 +81,12 @@ export class JudgeVerdict {
         `judge must score yes or no, ${LOWEST} to ${HIGHEST}, or by claims, not ${input.scale}`,
       );
     }
-    if (!holds(input.scale, input.value)) {
+    if (!isOnScale(input.scale, input.value)) {
       throw new InvalidReplayError(
         `judge score ${input.value} is not on the ${input.scale} scale`,
       );
     }
-    if (!marksHold(input.scale, input.value, marks)) {
+    if (!marksAreValid(input.scale, input.value, marks)) {
       throw new InvalidReplayError(
         'judge must mark claims only when it judges by claims',
       );

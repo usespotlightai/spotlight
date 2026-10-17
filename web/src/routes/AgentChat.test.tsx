@@ -130,7 +130,7 @@ describe('AgentChat', () => {
   });
 
   describe('while it loads', () => {
-    it('holds the shape of the chat rather than calling it gone', () => {
+    it('keeps the shape of the chat rather than calling it gone', () => {
       chat.mockReturnValue(undefined);
 
       renderChat();

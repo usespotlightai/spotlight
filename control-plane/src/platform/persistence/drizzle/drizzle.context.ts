@@ -45,17 +45,17 @@ export class DrizzleContext implements TransactionPort, SavepointPort {
   }
 
   async inSavepoint<T>(work: () => Promise<T>): Promise<T> {
-    const held = this.ambient.getStore();
+    const current = this.ambient.getStore();
 
-    if (!held) {
+    if (!current) {
       return this.inTransaction(work);
     }
 
-    return held.db.transaction((savepoint) =>
+    return current.db.transaction((savepoint) =>
       this.ambient.run(
         {
           db: savepoint as unknown as DrizzleDatabase,
-          committed: held.committed,
+          committed: current.committed,
         },
         work,
       ),
@@ -63,10 +63,10 @@ export class DrizzleContext implements TransactionPort, SavepointPort {
   }
 
   afterCommit(then: () => void): void {
-    const held = this.ambient.getStore();
+    const current = this.ambient.getStore();
 
-    if (held) {
-      held.committed.push(then);
+    if (current) {
+      current.committed.push(then);
     } else {
       then();
     }

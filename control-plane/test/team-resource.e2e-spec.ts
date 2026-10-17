@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
-  TEAM_HOLDINGS,
-  type TeamHoldingsPort,
-} from '@identity/application/ports/team-holdings.port';
+  TEAM_DEPENDENTS,
+  type TeamDependentsPort,
+} from '@identity/application/ports/team-dependents.port';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -38,18 +38,18 @@ import { seatTeam } from './support/team';
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `teams-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `teams-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/workspaces/${held}/teams`,
+    collection: `/api/resources/workspaces/${workspaceId}/teams`,
     item: (id) => `/api/resources/teams/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/teams/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/teams/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/teams`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'core',
     valid: { key: 'core', name: 'Core' },
     changed: { key: 'core', name: 'Core, again' },
@@ -162,7 +162,7 @@ describe('a team, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('will not be deleted while it holds a line', async () => {
+  it('will not be deleted while it has a line', async () => {
     const made = await create(fixture.valid);
 
     await app.get<DrizzleDatabase>(DRIZZLE).insert(schema.line).values({
@@ -192,7 +192,7 @@ describe('a team, created through the resource API (e2e)', () => {
       );
   });
 
-  const holdEverything = async (teamId: string) => {
+  const addEveryDependent = async (teamId: string) => {
     let next = 0;
 
     await app.get(DrizzleLineRepository).add(
@@ -230,7 +230,7 @@ describe('a team, created through the resource API (e2e)', () => {
     });
   };
 
-  const heldBy = async (teamId: string) => {
+  const dependentsOf = async (teamId: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
 
     return [
@@ -269,13 +269,13 @@ describe('a team, created through the resource API (e2e)', () => {
       key: 'core',
     } as DomainEvent);
 
-  it('counts every kind of thing a team can hold, from every context', async () => {
+  it('counts every kind of dependent a team can have, from every context', async () => {
     const teamId = randomUUID();
 
-    await holdEverything(teamId);
+    await addEveryDependent(teamId);
 
     expect(
-      await app.get<TeamHoldingsPort>(TEAM_HOLDINGS).of(TeamId.of(teamId)),
+      await app.get<TeamDependentsPort>(TEAM_DEPENDENTS).of(TeamId.of(teamId)),
     ).toEqual(
       expect.arrayContaining([
         `line ${(BUILT_IN_LINES[0] as LineOpening).key.value}`,
@@ -291,7 +291,7 @@ describe('a team, created through the resource API (e2e)', () => {
   it('abandons, in every context, whatever reached a team as it disbanded', async () => {
     const teamId = randomUUID();
 
-    await holdEverything(teamId);
+    await addEveryDependent(teamId);
     await abandon(teamId);
 
     expect(
@@ -321,6 +321,6 @@ describe('a team, created through the resource API (e2e)', () => {
       'work.abandon-lines-of-disbanded-team',
       'work.forget-notices-of-disbanded-team',
     ]);
-    expect(await heldBy(teamId)).toEqual([]);
+    expect(await dependentsOf(teamId)).toEqual([]);
   });
 });

@@ -114,10 +114,10 @@ export class DrizzleMemberReader implements MemberReaderPort {
     const teamsOf = new Map<string, TeamNamed[]>();
 
     for (const each of onTeams) {
-      const held = teamsOf.get(each.userId) ?? [];
+      const memberTeams = teamsOf.get(each.userId) ?? [];
 
-      held.push({ id: each.id, name: each.name });
-      teamsOf.set(each.userId, held);
+      memberTeams.push({ id: each.id, name: each.name });
+      teamsOf.set(each.userId, memberTeams);
     }
 
     return rows.map((row) => ({ ...row, teams: teamsOf.get(row.id) ?? [] }));

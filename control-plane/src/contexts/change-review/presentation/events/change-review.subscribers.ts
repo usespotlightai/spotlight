@@ -16,8 +16,8 @@ import type { ChangeStackSettled } from '@change-review/domain/events/change-sta
 import type { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import type { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import type { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
-import type { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
 import type { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
+import type { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
 import type { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
 import type { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
 import type { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
@@ -77,9 +77,9 @@ export const changeReviewSubscribers = (
     ['change-stack.checked', 'change-stack.layers-failed-check'],
     (event) => runners.released(event.stackId),
   ),
-  subscribing<HeldCheckForgotten>(
+  subscribing<LeasedCheckForgotten>(
     'change-review.release-runner-of-forgotten-check',
-    ['change-stack.held-check-forgotten'],
+    ['change-stack.leased-check-forgotten'],
     (event) => runners.released(event.stackId),
   ),
   subscribing<CheckReservationDropped>(

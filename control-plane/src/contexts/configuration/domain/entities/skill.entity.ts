@@ -106,14 +106,14 @@ export class Skill {
     );
   }
 
-  missingFrom(held: readonly SecretName[]): readonly SkillSecret[] {
+  missingFrom(existing: readonly SecretName[]): readonly SkillSecret[] {
     return this.secrets.filter(
-      (needed) => !held.some((each) => each.equals(needed.name)),
+      (needed) => !existing.some((each) => each.equals(needed.name)),
     );
   }
 
-  isReadyWith(held: readonly SecretName[]): boolean {
-    return this.missingFrom(held).length === 0;
+  isReadyWith(existing: readonly SecretName[]): boolean {
+    return this.missingFrom(existing).length === 0;
   }
 
   equals(other: Skill): boolean {

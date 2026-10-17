@@ -69,7 +69,7 @@ const compiled = (options: Parameters<typeof hook>[0] = {}) => ({
 
 const given = (fill: string, version: number): SecretGiven => ({
   kind: 'given',
-  held: { secret: secret(fill), version },
+  versioned: { secret: secret(fill), version },
 });
 
 const OFFERED = {

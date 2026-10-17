@@ -71,14 +71,14 @@ const lookingUp = (wearers: readonly Task[]) =>
   new WorkLookup(
     {} as RunRepository,
     {
-      holding: async (_at: WorkspaceId, concerns: Concerns) =>
+      findByMarks: async (_at: WorkspaceId, concerns: Concerns) =>
         wearers.find((each) =>
           concerns.marks.some((mark) =>
             each.marks.some((worn) => worn.equals(mark)),
           ),
         ) ?? null,
     } as unknown as TaskRepository,
-    { holding: async () => line } as unknown as LineRepository,
+    { findByStation: async () => line } as unknown as LineRepository,
     {} as ChatRepository,
     {} as RunJournalReaderPort,
   );
@@ -153,7 +153,7 @@ describe('WorkLookup, looking up a run', () => {
         }),
       } as unknown as RunRepository,
       {} as TaskRepository,
-      { holding: async () => line } as unknown as LineRepository,
+      { findByStation: async () => line } as unknown as LineRepository,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
     );
@@ -389,7 +389,7 @@ describe('WorkLookup, reading what a run changed', () => {
       } as unknown as RunRepository,
       {} as TaskRepository,
       {
-        holding: async () => ({ repositories: { all: [API, WEB] } }),
+        findByStation: async () => ({ repositories: { all: [API, WEB] } }),
       } as unknown as LineRepository,
       {} as ChatRepository,
       {
@@ -487,14 +487,14 @@ describe('WorkLookup, reading a team’s lines', () => {
   });
 });
 
-describe('WorkLookup, finding the run a runner holds', () => {
+describe('WorkLookup, finding the run a runner leases', () => {
   const API = Repository.of('acme/api');
   const WEB = Repository.of('acme/web');
   const RUNNER = RunnerId.of('runner_1');
   const TEAM = TeamId.of('team_1');
 
   const lookingAt = (run: {
-    held: boolean;
+    leased: boolean;
     chatId?: string | null;
     stationId?: string | null;
     ranFor?: TeamId;
@@ -513,12 +513,12 @@ describe('WorkLookup, finding the run a runner holds', () => {
           isSearch: run.isSearch ?? false,
           isReplay: !run.isSearch,
           ...(run.isSearch ? {} : { replayedRepositories: [WEB] }),
-          isHeldBy: (by: RunnerId) => run.held && by.equals(RUNNER),
+          isLeasedBy: (by: RunnerId) => run.leased && by.equals(RUNNER),
         }),
       } as unknown as RunRepository,
       { find: async () => null } as unknown as TaskRepository,
       {
-        holding: async () =>
+        findByStation: async () =>
           run.lineGone
             ? null
             : {
@@ -536,34 +536,34 @@ describe('WorkLookup, finding the run a runner holds', () => {
       {} as RunJournalReaderPort,
     );
 
-  const holding = (run: Parameters<typeof lookingAt>[0]) =>
-    lookingAt(run).heldBy(RunId.of('run_1'), RUNNER);
+  const leasedRun = (run: Parameters<typeof lookingAt>[0]) =>
+    lookingAt(run).leasedBy(RunId.of('run_1'), RUNNER);
 
-  it('names the team, task and workspace of a task’s run the runner holds', async () => {
-    const held = await holding({ held: true, stationId: 'station_1' });
+  it('names the team, task and workspace of a task’s run the runner leases', async () => {
+    const found = await leasedRun({ leased: true, stationId: 'station_1' });
 
-    expect(held?.teamId.equals(TEAM)).toBe(true);
-    expect(held?.lineId).toBe('line_1');
-    expect(held?.stationId).toBe('station_1');
-    expect(held?.repositories).toEqual([API]);
-    expect(held?.taskId?.value).toBe('task_1');
-    expect(held?.workspaceId.equals(WORKSPACE)).toBe(true);
+    expect(found?.teamId.equals(TEAM)).toBe(true);
+    expect(found?.lineId).toBe('line_1');
+    expect(found?.stationId).toBe('station_1');
+    expect(found?.repositories).toEqual([API]);
+    expect(found?.taskId?.value).toBe('task_1');
+    expect(found?.workspaceId.equals(WORKSPACE)).toBe(true);
   });
 
   it('names the team a replay runs for, and the repositories it replays, even once its station is gone', async () => {
-    const held = await holding({
-      held: true,
+    const found = await leasedRun({
+      leased: true,
       ranFor: TEAM,
       lineGone: true,
     });
 
-    expect(held?.teamId.equals(TEAM)).toBe(true);
-    expect(held?.lineId).toBeNull();
-    expect(held?.stationId).toBeNull();
-    expect(held?.repositories).toEqual([WEB]);
+    expect(found?.teamId.equals(TEAM)).toBe(true);
+    expect(found?.lineId).toBeNull();
+    expect(found?.stationId).toBeNull();
+    expect(found?.repositories).toEqual([WEB]);
 
-    const atItsStation = await holding({
-      held: true,
+    const atItsStation = await leasedRun({
+      leased: true,
       ranFor: TEAM,
       stationId: 'station_1',
     });
@@ -573,50 +573,52 @@ describe('WorkLookup, finding the run a runner holds', () => {
   });
 
   it('says a search searches, for its team at its station, with no repositories', async () => {
-    const held = await holding({
-      held: true,
+    const found = await leasedRun({
+      leased: true,
       ranFor: TEAM,
       stationId: 'station_1',
       isSearch: true,
     });
 
-    expect(held?.isSearch).toBe(true);
-    expect(held?.teamId.equals(TEAM)).toBe(true);
-    expect(held?.stationId).toBe('station_1');
-    expect(held?.repositories).toEqual([]);
+    expect(found?.isSearch).toBe(true);
+    expect(found?.teamId.equals(TEAM)).toBe(true);
+    expect(found?.stationId).toBe('station_1');
+    expect(found?.repositories).toEqual([]);
     expect(
-      (await holding({ held: true, stationId: 'station_1' }))?.isSearch,
+      (await leasedRun({ leased: true, stationId: 'station_1' }))?.isSearch,
     ).toBe(false);
   });
 
   it('names a chat’s own team for a chat’s run', async () => {
-    const held = await holding({ held: true, chatId: 'chat_1' });
+    const found = await leasedRun({ leased: true, chatId: 'chat_1' });
 
-    expect(held?.teamId.value).toBe('team_chat');
-    expect(held?.taskId).toBeNull();
+    expect(found?.teamId.value).toBe('team_chat');
+    expect(found?.taskId).toBeNull();
   });
 
-  it('knows no run the runner does not hold, or one belonging to no team', async () => {
-    expect(await holding({ held: false, stationId: 'station_1' })).toBeNull();
-    expect(await holding({ held: true })).toBeNull();
+  it('knows no run the runner does not lease, or one belonging to no team', async () => {
+    expect(
+      await leasedRun({ leased: false, stationId: 'station_1' }),
+    ).toBeNull();
+    expect(await leasedRun({ leased: true })).toBeNull();
   });
 
-  it('names the team of any run, held or not, by its chat or its line', async () => {
+  it('names the team of any run, leased or not, by its chat or its line', async () => {
     const teamOf = (run: Parameters<typeof lookingAt>[0]) =>
       lookingAt(run).siteOfRun(RunId.of('run_1'));
 
-    expect(await teamOf({ held: false, stationId: 'station_1' })).toEqual({
+    expect(await teamOf({ leased: false, stationId: 'station_1' })).toEqual({
       teamId: TEAM,
       lineId: 'line_1',
       stationId: 'station_1',
       repositories: [API],
     });
-    expect(await teamOf({ held: false, chatId: 'chat_1' })).toEqual({
+    expect(await teamOf({ leased: false, chatId: 'chat_1' })).toEqual({
       teamId: TeamId.of('team_chat'),
       lineId: null,
       stationId: null,
       repositories: [WEB],
     });
-    expect(await teamOf({ held: false })).toBeNull();
+    expect(await teamOf({ leased: false })).toBeNull();
   });
 });

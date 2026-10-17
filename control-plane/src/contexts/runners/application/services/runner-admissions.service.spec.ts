@@ -83,7 +83,7 @@ const trusted = { bearer: WORKLOAD_TOKEN, trust: TRUST_ID.value };
 
 describe('RunnerAdmissions', () => {
   describe('through a pool', () => {
-    it('admits a host holding the token a pull pool pulls with, to the pool’s workspace', async () => {
+    it('admits a host with the token a pull pool pulls with, to the pool’s workspace', async () => {
       await expect(admitting().admissions.admit(pooled)).resolves.toEqual({
         way: expect.objectContaining({ kind: 'pool', id: POOL_ID.value }),
         workspaceId: WorkspaceId.of('ws_1'),

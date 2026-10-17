@@ -23,8 +23,8 @@ export class HookAddress {
     return isSlug(teamKey) ? new HookAddress(teamKey, key) : refused();
   }
 
-  static parse(held: string): HookAddress {
-    const [teamKey, key, ...rest] = held.trim().split(SEPARATOR);
+  static parse(raw: string): HookAddress {
+    const [teamKey, key, ...rest] = raw.trim().split(SEPARATOR);
 
     return teamKey && key && rest.length === 0
       ? HookAddress.of(teamKey, HookKey.of(key))

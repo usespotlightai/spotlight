@@ -24,26 +24,26 @@ import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import {
   AdmitThroughEgressCommand,
-  KeepEgressHoldsCommand,
+  CheckActiveRunsCommand,
   RecordEgressConnectionsCommand,
   RedeemEgressCommand,
   RedeemThroughEgressCommand,
 } from '@work/application/commands/egress.commands';
 import type {
+  EgressActiveRunsDto,
   EgressAdmissionDto,
-  EgressHoldsDto,
 } from '@work/application/dto/egress-admission.dto';
 import type { EgressConnectionsRecordedDto } from '@work/application/dto/egress-connections.dto';
 import type { EgressRedemptionDto } from '@work/application/dto/egress-redemption.dto';
 import {
   AdmitThroughEgressRequestDto,
-  KeepEgressHoldsRequestDto,
+  CheckActiveRunsRequestDto,
   RecordEgressConnectionsRequestDto,
   SharedRedeemEgressRequestDto,
 } from '@work/presentation/http/dto/egress.request.dto';
 import {
+  EgressActiveRunsResponseDto,
   EgressAdmissionResponseDto,
-  EgressHoldsResponseDto,
   EgressRedemptionResponseDto,
   ReadInNetworkResponseDto,
   RedeemedSecretResponseDto,
@@ -52,13 +52,13 @@ import {
 } from '@work/presentation/http/dto/egress.response.dto';
 
 const REFUSED =
-  'Missing or unknown egress token, or its runner no longer holds work';
+  'Missing or unknown egress token, or its runner no longer has a lease on work';
 
 const tooMany = (max: number, what: string): string =>
-  `The call holds more than ${max} ${what}. Please send at most ${max} in one call.`;
+  `The request has more than ${max} ${what}. Please send at most ${max} in one request.`;
 
 const WAITING =
-  'The runner of this proxy credential holds no run yet. Please redeem again after it claims one';
+  'The runner of this proxy credential has no lease on a run yet. Please redeem again after it claims one';
 
 const texts = (given: unknown): readonly string[] =>
   Array.isArray(given)
@@ -99,7 +99,7 @@ export class EgressController {
   @ApiOperation({
     operationId: 'redeemEgress',
     summary:
-      'The secrets the run a sandbox holds may wear, for the egress beside it to inject toward their hosts',
+      'The secrets that the run in a sandbox may wear, for the egress beside it to inject toward their hosts',
     description:
       'Called by the egress beside a sandbox with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets the run wears; values Spotlight keeps come back sealed to the recipient, and values read from an external store come back as where egress reads them.',
   })
@@ -199,44 +199,43 @@ export class EgressController {
     );
   }
 
-  @Post('holds')
+  @Post('active-runs')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'keepEgressHolds',
-    summary:
-      'The runs a shared egress serves whose runner still holds its work',
+    operationId: 'checkActiveRuns',
+    summary: 'The runs of a shared egress that their runners still lease',
     description:
       'Called by each node of a shared egress about every 30 seconds. The node forgets the secrets of every run that is not in the answer.',
   })
-  @ApiOkResponse({ type: EgressHoldsResponseDto })
+  @ApiOkResponse({ type: EgressActiveRunsResponseDto })
   @ApiUnprocessableEntityResponse({
-    description: 'The call holds more than 500 proxy credentials',
+    description: 'The request has more than 500 proxy credentials',
   })
-  async holds(
+  async checkActiveRuns(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: KeepEgressHoldsRequestDto,
-  ): Promise<EgressHoldsResponseDto> {
-    const kept = await this.commandBus.execute<
-      KeepEgressHoldsCommand,
-      EgressHoldsDto
+    @Body() body: CheckActiveRunsRequestDto,
+  ): Promise<EgressActiveRunsResponseDto> {
+    const checked = await this.commandBus.execute<
+      CheckActiveRunsCommand,
+      EgressActiveRunsDto
     >(
-      new KeepEgressHoldsCommand(
+      new CheckActiveRunsCommand(
         bearerIn(authorization),
         texts(body?.proxyCredentials),
       ),
     );
 
-    if (kept.outcome === 'refused') {
+    if (checked.outcome === 'refused') {
       throw new UnauthorizedException(REFUSED);
     }
 
-    if (kept.outcome === 'too-many') {
+    if (checked.outcome === 'too-many') {
       throw new UnprocessableEntityException(
-        tooMany(kept.max, 'proxy credentials'),
+        tooMany(checked.max, 'proxy credentials'),
       );
     }
 
-    return new EgressHoldsResponseDto(kept.held);
+    return new EgressActiveRunsResponseDto(checked.active);
   }
 
   @Post('connections')
@@ -249,7 +248,7 @@ export class EgressController {
   })
   @ApiNoContentResponse({ description: 'The records were taken' })
   @ApiUnprocessableEntityResponse({
-    description: 'The call holds more than 2000 records',
+    description: 'The request has more than 2000 records',
   })
   async connections(
     @Headers('authorization') authorization: string | undefined,

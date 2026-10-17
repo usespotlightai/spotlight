@@ -92,12 +92,12 @@ export const heldOutOf = (
   replays: readonly Replay[],
   ids: () => RunId,
 ): Search => {
-  let held = search
+  let built = search
     .recordRunEnd(RUN_ONE, { failed: false, started: true }, later(1), ids)
     .recordAgentSpend(RUN_ONE, ModelSpent.of([], 0), later(1), ids);
 
   for (const replayId of ['replay_terse', 'replay_wordy']) {
-    held = held.recordReplayEnd(
+    built = built.recordReplayEnd(
       ReplayId.of(replayId),
       'finished',
       { spent: Spend.of(1, 'USD'), unpriced: 0 },
@@ -106,18 +106,18 @@ export const heldOutOf = (
       true,
     );
   }
-  while (held.heldRun) {
-    const run = held.heldRun;
+  while (built.activeRun) {
+    const run = built.activeRun;
 
-    held = held
+    built = built
       .recordRunEnd(run, { failed: false, started: true }, later(3), ids)
       .recordAgentSpend(run, ModelSpent.of([], 0), later(3), ids);
   }
 
-  return held.heldOutFrom(
+  return built.heldOutFrom(
     replays,
     0.05,
-    () => ReplayId.of('replay_held_terse'),
+    () => ReplayId.of('replay_held_out_terse'),
     later(4),
   );
 };
@@ -180,7 +180,7 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
             replayedAs(
               replayFor(
                 set,
-                'replay_held_terse',
+                'replay_held_out_terse',
                 'candidate_terse',
                 search.split.heldOutRuns,
               ),

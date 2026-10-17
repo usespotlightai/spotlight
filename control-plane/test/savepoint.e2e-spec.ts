@@ -4,24 +4,24 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let context: DrizzleContext;
 
 beforeAll(async () => {
-  held = await openDatabase('savepoint');
-  context = new DrizzleContext(held.db);
-  await held.db.execute(
+  database = await openDatabase('savepoint');
+  context = new DrizzleContext(database.db);
+  await database.db.execute(
     sql`create table savepoint_check (id text primary key)`,
   );
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const kept = async (id: string) =>
   (
-    await held.db.execute(
+    await database.db.execute(
       sql`select count(*)::int as n from savepoint_check where id = ${id}`,
     )
   ).rows[0] as { n: number };

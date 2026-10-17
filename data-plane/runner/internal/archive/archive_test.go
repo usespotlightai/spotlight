@@ -296,7 +296,7 @@ func TestUnpacksOverWhatIsAlreadyThere(t *testing.T) {
 	}
 
 	if got, err := os.ReadFile(filepath.Join(into, "notes.md")); err != nil || string(got) != "kept\n" {
-		t.Errorf("notes.md holds %q: %v", got, err)
+		t.Errorf("notes.md contains %q: %v", got, err)
 	}
 	if link, err := os.Readlink(filepath.Join(into, "entry")); err != nil || link != "notes.md" {
 		t.Errorf("entry links to %q: %v", link, err)

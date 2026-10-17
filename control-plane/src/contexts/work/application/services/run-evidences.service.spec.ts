@@ -99,7 +99,7 @@ const evidences = (judge: StationJudge | null = null) =>
       }),
     } as unknown as TaskRepository,
     {
-      holding: async () => ({
+      findByStation: async () => ({
         teamId: TeamId.of('team_1'),
         id: { value: 'line_1' },
         stationAt: () => ({ judge }),
@@ -224,12 +224,12 @@ describe('RunEvidences', () => {
   });
 
   it('gives the judges of a team’s stations on every line as the station gives each one', async () => {
-    const held = evidences(
+    const reader = evidences(
       StationJudge.of({ rubric: 'Did it retry?', sample: 0.5, trust: 0.6 }),
     );
-    const judge = await held.judgeAt('station_1');
+    const judge = await reader.judgeAt('station_1');
 
-    expect(await held.judgesOnTeam('team_1')).toEqual(
+    expect(await reader.judgesOnTeam('team_1')).toEqual(
       new Map([
         ['station_1', judge],
         ['station_3', judge && { ...judge, lineId: 'line_2' }],
@@ -241,7 +241,7 @@ describe('RunEvidences', () => {
     expect(await evidences().judgeAt('station_1')).toBeNull();
   });
 
-  it('holds a run while its task is still there', async () => {
-    expect(await evidences().holds('run_1')).toBe(true);
+  it('says a run has a task while its task is still there', async () => {
+    expect(await evidences().hasTask('run_1')).toBe(true);
   });
 });

@@ -39,9 +39,9 @@ export const spanToDto = (span: RunSpan): RunSpanDto => ({
   startedAt: span.startedAt.toISOString(),
   ms: span.ms,
   failed: span.failed,
-  attributes: span.attributes.map((held) => ({
-    name: held.name,
-    value: held.value,
+  attributes: span.attributes.map((attribute) => ({
+    name: attribute.name,
+    value: attribute.value,
   })),
 });
 

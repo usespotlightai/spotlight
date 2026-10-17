@@ -95,7 +95,7 @@ describe('TaskTrace', () => {
     expect(screen.getByText('Implementation')).toBeInTheDocument();
   });
 
-  it('holds the shape of the trace while it loads, keeping the way back', () => {
+  it('keeps the shape of the trace while it loads, keeping the way back', () => {
     traced.mockReturnValue(undefined);
 
     renderPage();
@@ -110,7 +110,7 @@ describe('TaskTrace', () => {
     expect(screen.queryByText('No runs yet')).not.toBeInTheDocument();
   });
 
-  it('holds the place of the task’s name until the task has loaded', () => {
+  it('keeps the place of the task’s name until the task has loaded', () => {
     listed.mockReturnValue(undefined);
 
     renderPage();

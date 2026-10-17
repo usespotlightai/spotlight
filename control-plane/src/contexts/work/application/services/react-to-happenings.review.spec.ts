@@ -145,7 +145,7 @@ const asked = (
 
 const world = (input: {
   lines: readonly Line[];
-  holding?: (concerns: Concerns) => Task | null;
+  findByMarks?: (concerns: Concerns) => Task | null;
 }) => {
   const added: Task[] = [];
   const saved: Task[] = [];
@@ -162,9 +162,9 @@ const world = (input: {
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(
+    findByMarks: vi.fn(
       async (_at: WorkspaceId, concerns: Concerns) =>
-        input.holding?.(concerns) ?? null,
+        input.findByMarks?.(concerns) ?? null,
     ),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
@@ -176,7 +176,7 @@ const world = (input: {
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => null),
-    holding: vi.fn(
+    findByStation: vi.fn(
       async (stationId) =>
         input.lines.find((line) => line.stationAt(stationId)) ?? null,
     ),
@@ -350,7 +350,7 @@ describe('ReactToHappenings, asked for a review', () => {
     }).markedBy(Mark.pullRequest(PullRequestUrl.of(PULL)));
     const { react, added } = world({
       lines: [delivery, reviewing({ reviews: policy('opened') })],
-      holding: (concerns) =>
+      findByMarks: (concerns) =>
         concerns.marks.some((mark) => mark.kind === PULL_REQUEST_MARK)
           ? own
           : null,
@@ -374,7 +374,7 @@ describe('ReactToHappenings, asked for a review', () => {
     }).reviews(PullRequestUrl.of(PULL), { outside: false });
     const { react, added, saved } = world({
       lines: [line],
-      holding: (concerns) =>
+      findByMarks: (concerns) =>
         concerns.marks.some((mark) => mark.kind === REVIEW_MARK)
           ? underway
           : null,
@@ -416,7 +416,7 @@ describe('ReactToHappenings, asked for a review', () => {
     });
     const { react, added } = world({
       lines: [line],
-      holding: () => finished,
+      findByMarks: () => finished,
     });
 
     await react(asked('mentioned', { body: '@spotlight once more' }));

@@ -85,7 +85,7 @@ const tasks = (found: Task | null = task()) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => null),
+    findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -106,10 +106,10 @@ const people: PersonReaderPort = {
 const assign = (
   assigneeId: string | null,
   viewerId = 'user_1',
-  held: TaskRepository = tasks(),
+  stored: TaskRepository = tasks(),
   team: TeamDirectoryPort = teams(),
 ) =>
-  new AssignTaskHandler(held, team, transaction, people).execute(
+  new AssignTaskHandler(stored, team, transaction, people).execute(
     new AssignTaskCommand('team_1', 'task_1', assigneeId, viewerId),
   );
 
@@ -126,9 +126,9 @@ describe('AssignTaskHandler', () => {
   });
 
   it('takes a task back to unclaimed', async () => {
-    const held = tasks(task().assign(UserId.of('user_2')));
+    const stored = tasks(task().assign(UserId.of('user_2')));
 
-    const dto = await assign(null, 'user_1', held);
+    const dto = await assign(null, 'user_1', stored);
 
     expect(saved?.assignee).toBeNull();
     expect(dto.assignee).toBeNull();
@@ -144,7 +144,7 @@ describe('AssignTaskHandler', () => {
     );
   });
 
-  it('turns away a task the team does not hold', async () => {
+  it('turns away a task the team does not have', async () => {
     await expect(
       assign('user_2', 'user_1', tasks(task('ws_other'))),
     ).rejects.toThrow(ApplicationError);

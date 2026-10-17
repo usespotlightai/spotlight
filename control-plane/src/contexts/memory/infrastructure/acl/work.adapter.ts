@@ -1,6 +1,6 @@
 import type {
   ChangedFile,
-  HeldRun,
+  LeasedRun,
   NamedStationSite,
   ReasonedStep,
   RememberedRun,
@@ -36,20 +36,20 @@ export class Work implements WorkPort {
     );
   }
 
-  async heldBy(runId: RunId, runner: RunnerId): Promise<HeldRun | null> {
-    const held = await this.work.heldBy(runId, runner);
+  async leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRun | null> {
+    const leased = await this.work.leasedBy(runId, runner);
 
     return (
-      held && {
-        id: held.id,
-        workspaceId: held.workspaceId,
-        teamId: held.teamId,
-        taskId: held.taskId,
-        replaysFrom: held.replaysFrom,
-        isSearch: held.isSearch,
-        lineId: held.lineId,
-        stationId: held.stationId,
-        repositories: held.repositories,
+      leased && {
+        id: leased.id,
+        workspaceId: leased.workspaceId,
+        teamId: leased.teamId,
+        taskId: leased.taskId,
+        replaysFrom: leased.replaysFrom,
+        isSearch: leased.isSearch,
+        lineId: leased.lineId,
+        stationId: leased.stationId,
+        repositories: leased.repositories,
       }
     );
   }

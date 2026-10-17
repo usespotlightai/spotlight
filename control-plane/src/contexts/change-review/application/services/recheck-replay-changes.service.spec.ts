@@ -54,9 +54,9 @@ const checkOf = (
     version: 0,
   });
 
-const rechecking = (held: StackCheck[]) => {
+const rechecking = (stored: StackCheck[]) => {
   const added: StackCheck[] = [];
-  const all = () => [...held, ...added];
+  const all = () => [...stored, ...added];
   const checks = {
     ofRun: async () => all(),
     find: async (stackId: { value: string }, recheck: boolean) =>

@@ -163,43 +163,43 @@ export interface RunPage {
 }
 
 export class RunRecordsInMemory implements RunRecordRepository {
-  readonly held = new Map<string, RunRecord>();
+  readonly stored = new Map<string, RunRecord>();
   readonly raised: DomainEvent[] = [];
 
   async add(record: RunRecord): Promise<void> {
-    if (this.held.has(record.runId.value)) {
+    if (this.stored.has(record.runId.value)) {
       throw new RunRecordVersionConflictError(record.runId.value);
     }
     this.raised.push(...record.pullEvents());
-    this.held.set(record.runId.value, record);
+    this.stored.set(record.runId.value, record);
   }
 
   async save(record: RunRecord): Promise<void> {
-    const held = this.held.get(record.runId.value);
+    const existing = this.stored.get(record.runId.value);
 
-    if (!held || held.version !== record.version) {
+    if (!existing || existing.version !== record.version) {
       throw new RunRecordVersionConflictError(record.runId.value);
     }
     this.raised.push(...record.pullEvents());
-    this.held.set(
+    this.stored.set(
       record.runId.value,
       RunRecord.rehydrate({ ...record, version: record.version + 1 }),
     );
   }
 
   async of(runId: RunId): Promise<RunRecord | null> {
-    return this.held.get(runId.value) ?? null;
+    return this.stored.get(runId.value) ?? null;
   }
 
   async ofRuns(runIds: readonly RunId[]): Promise<readonly RunRecord[]> {
     return runIds.flatMap((each) => {
-      const held = this.held.get(each.value);
-      return held ? [held] : [];
+      const existing = this.stored.get(each.value);
+      return existing ? [existing] : [];
     });
   }
 
   async ofTasks(taskIds: readonly TaskId[]): Promise<readonly RunRecord[]> {
-    return [...this.held.values()].filter((each) =>
+    return [...this.stored.values()].filter((each) =>
       taskIds.some((taskId) => each.taskId?.equals(taskId)),
     );
   }
@@ -303,9 +303,9 @@ export class RunRecordsInMemory implements RunRecordRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.taskId?.equals(taskId)) {
-        this.held.delete(each.runId.value);
+        this.stored.delete(each.runId.value);
       }
     }
   }
@@ -316,15 +316,15 @@ export class RunRecordsInMemory implements RunRecordRepository {
         each.workspaceId.equals(workspaceId) &&
         each.end?.place.teamId.equals(teamId)
       ) {
-        this.held.delete(each.runId.value);
+        this.stored.delete(each.runId.value);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.runId.value);
+        this.stored.delete(each.runId.value);
       }
     }
   }
@@ -342,43 +342,43 @@ export class RunRecordsInMemory implements RunRecordRepository {
   }
 
   private ended(): RunRecord[] {
-    return [...this.held.values()].filter((each) => each.hasEnded);
+    return [...this.stored.values()].filter((each) => each.hasEnded);
   }
 }
 
 export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
-  readonly held = new Map<string, TaskDelivery>();
+  readonly stored = new Map<string, TaskDelivery>();
   readonly raised: DomainEvent[] = [];
 
   async add(delivery: TaskDelivery): Promise<void> {
-    if (this.held.has(delivery.taskId.value)) {
+    if (this.stored.has(delivery.taskId.value)) {
       throw new TaskDeliveryVersionConflictError(delivery.taskId.value);
     }
     this.raised.push(...delivery.pullEvents());
-    this.held.set(delivery.taskId.value, delivery);
+    this.stored.set(delivery.taskId.value, delivery);
   }
 
   async save(delivery: TaskDelivery): Promise<void> {
-    const held = this.held.get(delivery.taskId.value);
+    const existing = this.stored.get(delivery.taskId.value);
 
-    if (!held || held.version !== delivery.version) {
+    if (!existing || existing.version !== delivery.version) {
       throw new TaskDeliveryVersionConflictError(delivery.taskId.value);
     }
     this.raised.push(...delivery.pullEvents());
-    this.held.set(
+    this.stored.set(
       delivery.taskId.value,
       TaskDelivery.rehydrate({ ...delivery, version: delivery.version + 1 }),
     );
   }
 
   async forTask(taskId: TaskId): Promise<TaskDelivery | null> {
-    return this.held.get(taskId.value) ?? null;
+    return this.stored.get(taskId.value) ?? null;
   }
 
   async forTasks(taskIds: readonly TaskId[]): Promise<readonly TaskDelivery[]> {
     return taskIds.flatMap((each) => {
-      const held = this.held.get(each.value);
-      return held ? [held] : [];
+      const existing = this.stored.get(each.value);
+      return existing ? [existing] : [];
     });
   }
 
@@ -386,7 +386,7 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
     window: TeamWindow,
     max: number,
   ): Promise<readonly TaskDelivery[]> {
-    return [...this.held.values()]
+    return [...this.stored.values()]
       .filter(
         (each) =>
           each.workspaceId.equals(window.workspaceId) &&
@@ -405,7 +405,7 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
     workspaceId: WorkspaceId,
     teamId: TeamId,
   ): Promise<readonly TaskDelivery[]> {
-    return [...this.held.values()].filter(
+    return [...this.stored.values()].filter(
       (each) =>
         each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId),
     );
@@ -416,7 +416,7 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
     pullRequest: PullRequestUrl,
   ): Promise<TaskDelivery | null> {
     return (
-      [...this.held.values()].find(
+      [...this.stored.values()].find(
         (each) =>
           each.workspaceId.equals(workspaceId) &&
           each.pullRequest.equals(pullRequest),
@@ -425,21 +425,21 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    this.held.delete(taskId.value);
+    this.stored.delete(taskId.value);
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId) && each.teamId.equals(teamId)) {
-        this.held.delete(each.taskId.value);
+        this.stored.delete(each.taskId.value);
       }
     }
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    for (const each of [...this.held.values()]) {
+    for (const each of [...this.stored.values()]) {
       if (each.workspaceId.equals(workspaceId)) {
-        this.held.delete(each.taskId.value);
+        this.stored.delete(each.taskId.value);
       }
     }
   }

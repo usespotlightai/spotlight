@@ -23,9 +23,9 @@ describe('useRemembered', () => {
     );
   });
 
-  it('keeps what is held under one key out of another', () => {
-    const held = renderHook(() => useRemembered(KEY, '30d'));
-    act(() => held.result.current[1]('7d'));
+  it('keeps what is remembered under one key out of another', () => {
+    const first = renderHook(() => useRemembered(KEY, '30d'));
+    act(() => first.result.current[1]('7d'));
 
     expect(
       renderHook(() => useRemembered('test.other', '30d')).result.current[0],

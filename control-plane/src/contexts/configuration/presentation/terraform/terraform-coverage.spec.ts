@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  HELD_KINDS,
-  type HeldKind,
-} from '@configuration/application/dto/held-configuration.dto';
+  EXPORTABLE_KINDS,
+  type ExportableKind,
+} from '@configuration/application/dto/exportable-configuration.dto';
 import { RESOURCE_EXTENSION } from '@platform/http/resources/resource-headers';
 import { describe, expect, it } from 'vitest';
 
@@ -36,7 +36,7 @@ const kindsInOpenApi = (): readonly string[] => {
 
 describe('the kinds a workspace export covers', () => {
   it('exports every resource kind the API serves, or names why not', () => {
-    const exported = new Set<string>(HELD_KINDS);
+    const exported = new Set<string>(EXPORTABLE_KINDS);
     const forgotten = kindsInOpenApi().filter(
       (kind) => !exported.has(kind) && !(kind in NOT_EXPORTED),
     );
@@ -45,14 +45,14 @@ describe('the kinds a workspace export covers', () => {
   });
 
   it('does not both export a kind and say why it does not', () => {
-    expect(HELD_KINDS.filter((kind: HeldKind) => kind in NOT_EXPORTED)).toEqual(
-      [],
-    );
+    expect(
+      EXPORTABLE_KINDS.filter((kind: ExportableKind) => kind in NOT_EXPORTED),
+    ).toEqual([]);
   });
 
   it('exports nothing the API does not serve', () => {
     expect(
-      HELD_KINDS.filter((kind) => !kindsInOpenApi().includes(kind)),
+      EXPORTABLE_KINDS.filter((kind) => !kindsInOpenApi().includes(kind)),
     ).toEqual([]);
   });
 });

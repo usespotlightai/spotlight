@@ -87,12 +87,12 @@ beforeAll(async () => {
 
   const heard = async (
     events: readonly unknown[],
-    held: () => Promise<unknown>,
+    check: () => Promise<unknown>,
   ) => {
     await app.get(EventOutbox).record(events as DomainEvent[]);
     await eventually(async () => {
       await app.get(EventDelivery).drain(2_000);
-      return held();
+      return check();
     }, 60_000);
   };
 

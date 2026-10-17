@@ -126,21 +126,21 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
   }
 
   static standingOf(
-    held: {
+    invite: {
       readonly acceptedAt: Date | null;
       readonly revokedAt: Date | null;
       readonly expiresAt: Date;
     },
     now: Date,
   ): InviteStatus {
-    if (held.acceptedAt) {
+    if (invite.acceptedAt) {
       return 'accepted';
     }
-    if (held.revokedAt) {
+    if (invite.revokedAt) {
       return 'revoked';
     }
 
-    return held.expiresAt <= now ? 'expired' : 'open';
+    return invite.expiresAt <= now ? 'expired' : 'open';
   }
 
   static rehydrate(input: Standing): WorkspaceInvite {

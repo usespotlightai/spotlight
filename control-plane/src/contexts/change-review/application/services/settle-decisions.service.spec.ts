@@ -58,10 +58,13 @@ const decided = () =>
     });
 
 const settling = (
-  over: { task?: Partial<ReviewedTask> | null; held?: DecisionSet | null } = {},
+  over: {
+    task?: Partial<ReviewedTask> | null;
+    stored?: DecisionSet | null;
+  } = {},
 ) => {
   let stored: DecisionSet | null =
-    over.held === undefined ? decided() : over.held;
+    over.stored === undefined ? decided() : over.stored;
 
   const work = {
     taskWithPullRequest: async (): Promise<ReviewedTask | null> =>
@@ -136,7 +139,7 @@ describe('settling a task’s decisions when its pull request closes', () => {
     expect(stored()?.decisions).toHaveLength(1);
   });
 
-  it('does nothing for a pull request no task holds', async () => {
+  it('does nothing for a pull request that no task has', async () => {
     const { service, stored } = settling({ task: null });
 
     await service.closed(MERGED);

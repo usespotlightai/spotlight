@@ -12,7 +12,7 @@ export const takeWornMarks = async (
   for (const mark of taker.marks) {
     const concerns = Concerns.of({ marks: [mark] });
     const wearer = concerns
-      ? await tasks.holding(taker.workspaceId, concerns)
+      ? await tasks.findByMarks(taker.workspaceId, concerns)
       : null;
 
     if (wearer && !wearer.equals(taker)) {

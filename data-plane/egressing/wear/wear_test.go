@@ -59,7 +59,7 @@ func onto(wearing *Wearing, host string, header http.Header) {
 	wearing.Onto(host, &http.Request{Header: header, URL: &url.URL{}})
 }
 
-func holding(t *testing.T) (*Wearing, *bytes.Buffer) {
+func wearingSome(t *testing.T) (*Wearing, *bytes.Buffer) {
 	t.Helper()
 
 	var logged bytes.Buffer
@@ -75,7 +75,7 @@ func holding(t *testing.T) (*Wearing, *bytes.Buffer) {
 }
 
 func TestWearsEachSecretOnlyTowardItsOwnHost(t *testing.T) {
-	wearing, _ := holding(t)
+	wearing, _ := wearingSome(t)
 
 	if got := wearing.Hosts(); !slices.Equal(got, []string{"mcp.linear.app", "sentry.io"}) {
 		t.Errorf("wears toward %v", got)
@@ -108,7 +108,7 @@ func TestWearsEachSecretOnlyTowardItsOwnHost(t *testing.T) {
 }
 
 func TestWearsARunSecretOnlyInPlaceOfItsStandIn(t *testing.T) {
-	wearing, logged := holding(t)
+	wearing, logged := wearingSome(t)
 
 	for _, sent := range []string{"Bearer spotlight-egress:LINEAR_API_KEY", "spotlight-egress:LINEAR_API_KEY"} {
 		header := http.Header{"Authorization": {sent}}
@@ -133,7 +133,7 @@ func TestWearsARunSecretOnlyInPlaceOfItsStandIn(t *testing.T) {
 	unknown := http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEYS"}, "X-Other": {"spotlight-egress:NOWHERE"}, "X-Shout": {"SPOTLIGHT-EGRESS:NOWHERE"}}
 	onto(wearing, "mcp.linear.app", unknown)
 	if len(unknown) != 0 {
-		t.Errorf("sent on a stand-in it does not hold: %v", unknown)
+		t.Errorf("sent on a stand-in it has no value for: %v", unknown)
 	}
 	if !strings.Contains(logged.String(), "X-Other") {
 		t.Errorf("did not say it took a stand-in off: %s", logged)
@@ -145,11 +145,11 @@ func TestWearsARunSecretOnlyInPlaceOfItsStandIn(t *testing.T) {
 	}
 }
 
-func TestHoldsNothingItCouldNotReadOrWearAndSaysWhyWithoutTheValue(t *testing.T) {
-	wearing, logged := holding(t)
+func TestKeepsNothingItCouldNotReadOrWearAndSaysWhyWithoutTheValue(t *testing.T) {
+	wearing, logged := wearingSome(t)
 
 	if wearing.Wears("gone.example.com") || wearing.Wears("multi.example.com") {
-		t.Error("holds a secret it could not read or wear")
+		t.Error("keeps a secret it could not read or wear")
 	}
 	for _, said := range []string{
 		"NOWHERE", "no such secret", "GONE", "ResourceNotFoundException", "MULTI",
@@ -171,21 +171,21 @@ func TestHoldsNothingItCouldNotReadOrWearAndSaysWhyWithoutTheValue(t *testing.T)
 	}
 }
 
-func TestForgetsEveryValueItHeld(t *testing.T) {
-	wearing, _ := holding(t)
-	held := wearing.toward["mcp.linear.app"][0].value
+func TestForgetsEveryValueItKept(t *testing.T) {
+	wearing, _ := wearingSome(t)
+	value := wearing.toward["mcp.linear.app"][0].value
 
 	wearing.Forget()
 
 	if wearing.Wears("mcp.linear.app") || len(wearing.Hosts()) != 0 {
 		t.Error("still wears a secret after forgetting")
 	}
-	if strings.Trim(string(held), "\x00") != "" {
-		t.Errorf("the value is still in memory: %q", held)
+	if strings.Trim(string(value), "\x00") != "" {
+		t.Errorf("the value is still in memory: %q", value)
 	}
 }
 
-func TestWearsAKeyTheHostHoldsOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
+func TestWearsAKeyOfTheHostOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
 	var logged bytes.Buffer
 	hosts, _ := reach.Parse([]string{"api.anthropic.com", "api.openai.com"})
 	wearing := From(context.Background(), protocol.EgressRedemption{
@@ -194,7 +194,7 @@ func TestWearsAKeyTheHostHoldsOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
 			{Secret: "CLAUDE_OAUTH", Host: "api.anthropic.com", Carrier: "header", Name: "x-other", Sealed: "sealed:from-a-run"},
 			{Secret: "DOTTED", Host: "API.anthropic.com.", Carrier: "header", Name: "x-dotted", Sealed: "sealed:dotted"},
 		},
-	}, []protocol.HeldByTheHost{
+	}, []protocol.HostCredential{
 		{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-ant-api"},
 		{Name: "CLAUDE_CODE_OAUTH_TOKEN", Host: "api.anthropic.com", Header: "authorization", Prefix: "Bearer ", Value: "sk-ant-oat"},
 		{Name: "OPENAI_API_KEY", Host: "api.openai.com", Header: "authorization", Prefix: "Bearer ", Value: "sk-openai"},
@@ -228,7 +228,7 @@ func TestWearsAKeyTheHostHoldsOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
 
 	for _, said := range []string{
 		"GITHUB_TOKEN", "allow-list does not admit api.github.com",
-		"CLAUDE_OAUTH", "holds a key of its own for api.anthropic.com",
+		"CLAUDE_OAUTH", "has a key of its own for api.anthropic.com",
 		"DOTTED",
 	} {
 		if !strings.Contains(logged.String(), said) {
@@ -236,7 +236,7 @@ func TestWearsAKeyTheHostHoldsOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
 		}
 	}
 	if got := sent("api.anthropic.com", http.Header{}); got.Get("X-Dotted") != "" {
-		t.Errorf("a secret bound to a dotted spelling of a host-held host was worn: %v", got)
+		t.Errorf("a secret bound to a dotted spelling of a host with a host key was worn: %v", got)
 	}
 	for _, value := range []string{"sk-ant-api", "sk-ant-oat", "sk-openai", "sk-codex", "ghp", "from-a-run", "dotted"} {
 		if strings.Contains(logged.String(), value) {
@@ -281,7 +281,7 @@ func TestWearsAQuerySecretOnlyInPlaceOfItsStandInKeepingTheRestOfTheQuery(t *tes
 		t.Errorf("rewrote a query with no stand-in: %q", got)
 	}
 	if got := sent("maps.googleapis.com", "a=1&other=spotlight-egress:MAPS_KEY&key=spotlight-egress:NOWHERE&k=%73potlight-egress%3AX&b=2"); got != "a=1&b=2" {
-		t.Errorf("sent on a query stand-in it does not hold: %q", got)
+		t.Errorf("sent on a query stand-in it has no value for: %q", got)
 	}
 	if got := sent("api.github.com", "key=spotlight-egress:MAPS_KEY"); got != "" {
 		t.Errorf("wore a query secret toward a host it is not bound to: %q", got)
@@ -393,7 +393,7 @@ func plainRequest(header http.Header) *http.Request {
 }
 
 func TestTowardControlPlaneWearsTheRunsTokenInPlaceOfItsStandIn(t *testing.T) {
-	wearing, _ := holding(t)
+	wearing, _ := wearingSome(t)
 	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://Spotlight.example.com"), "run_1", opener{}); err != nil {
 		t.Fatal(err)
 	}
@@ -409,19 +409,19 @@ func TestTowardControlPlaneWearsTheRunsTokenInPlaceOfItsStandIn(t *testing.T) {
 	}
 }
 
-func TestTowardControlPlaneHoldsNothingWithoutAToken(t *testing.T) {
-	wearing, _ := holding(t)
+func TestTowardControlPlaneKeepsNothingWithoutAToken(t *testing.T) {
+	wearing, _ := wearingSome(t)
 	if err := wearing.TowardControlPlane(nil, controlPlane(t, "https://spotlight.example.com"), "run_1", opener{}); err != nil {
 		t.Fatal(err)
 	}
 
 	if wearing.Wears("spotlight.example.com") {
-		t.Fatal("egress should hold nothing for the control plane")
+		t.Fatal("egress should keep nothing for the control plane")
 	}
 }
 
 func TestTowardControlPlaneRefusesATokenSealedForAnotherRun(t *testing.T) {
-	wearing, _ := holding(t)
+	wearing, _ := wearingSome(t)
 
 	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://spotlight.example.com"), "run_2", opener{}); err == nil {
 		t.Fatal("a token sealed for another run should not open")
@@ -429,7 +429,7 @@ func TestTowardControlPlaneRefusesATokenSealedForAnotherRun(t *testing.T) {
 }
 
 func TestTowardControlPlaneRefusesAHeaderAnotherSecretWears(t *testing.T) {
-	wearing, _ := holding(t)
+	wearing, _ := wearingSome(t)
 
 	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://mcp.linear.app"), "run_1", opener{}); err == nil {
 		t.Fatal("the run's token should not take the Authorization header another secret wears")
@@ -437,7 +437,7 @@ func TestTowardControlPlaneRefusesAHeaderAnotherSecretWears(t *testing.T) {
 }
 
 func TestOntoPlainWearsTheRunsTokenOnlyOnThePlainControlPlanesOwnPort(t *testing.T) {
-	wearing, _ := holding(t)
+	wearing, _ := wearingSome(t)
 	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "http://control-plane:3000"), "run_1", opener{}); err != nil {
 		t.Fatal(err)
 	}
@@ -456,7 +456,7 @@ func TestOntoPlainWearsTheRunsTokenOnlyOnThePlainControlPlanesOwnPort(t *testing
 }
 
 func TestOntoPlainNeverWearsTheTokenOfAnHTTPSControlPlane(t *testing.T) {
-	wearing, _ := holding(t)
+	wearing, _ := wearingSome(t)
 	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://spotlight.example.com"), "run_1", opener{}); err != nil {
 		t.Fatal(err)
 	}
@@ -470,7 +470,7 @@ func TestOntoPlainNeverWearsTheTokenOfAnHTTPSControlPlane(t *testing.T) {
 }
 
 func TestOntoPlainWearsNoOtherSecret(t *testing.T) {
-	wearing, _ := holding(t)
+	wearing, _ := wearingSome(t)
 
 	header := http.Header{"X-Workspace": {protocol.StandInPrefix + "LINEAR_WORKSPACE"}}
 	wearing.OntoPlain("mcp.linear.app", "80", plainRequest(header))

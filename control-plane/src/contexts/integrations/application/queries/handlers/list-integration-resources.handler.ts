@@ -36,7 +36,7 @@ export class ListIntegrationResourcesHandler
       }
 
       const teams = await this.teams.inWorkspace(workspace.workspaceId);
-      const held = await Promise.all(
+      const listed = await Promise.all(
         teams.map(async (team) =>
           (await this.resources.ofTeam(team.id)).map((each) =>
             this.views.onTeam(each, team.key),
@@ -44,7 +44,7 @@ export class ListIntegrationResourcesHandler
         ),
       );
 
-      return held.flat();
+      return listed.flat();
     } catch (error) {
       rethrowAsApplicationError(error);
     }

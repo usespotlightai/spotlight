@@ -9,7 +9,7 @@ import {
   type ReportedCheckout,
 } from '@work/application/commands/runner.commands';
 import {
-  aHeldRun,
+  aLeasedRun,
   InMemoryArchives,
 } from '@work/application/services/workspace-archives.fake-spec';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
@@ -33,14 +33,14 @@ const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 const AT_API: readonly ReportedCheckout[] = [{ path: 'api', commit: COMMIT }];
 
 const setUp = async (
-  run: Run = aHeldRun({ checkouts: ['api'] }),
+  run: Run = aLeasedRun({ checkouts: ['api'] }),
   known = true,
 ) => {
-  const held = new Map<string, Run>([[run.id.value, run]]);
+  const stored = new Map<string, Run>([[run.id.value, run]]);
   const runs = {
-    findById: async (id: { value: string }) => held.get(id.value) ?? null,
+    findById: async (id: { value: string }) => stored.get(id.value) ?? null,
     save: async (saved: Run) => {
-      held.set(saved.id.value, saved);
+      stored.set(saved.id.value, saved);
     },
   } as unknown as RunRepository;
   const archives = new InMemoryArchives();
@@ -49,7 +49,7 @@ const setUp = async (
   await archives.add(anArchive({ id: 'archive_unsealed' }));
 
   return {
-    held,
+    stored,
     archives,
     record: new RecordStartingPointHandler(
       runs,
@@ -120,22 +120,22 @@ describe('RecordStartingPointHandler', () => {
   });
 
   it('records the sealed archive the run restored and where each checkout began', async () => {
-    const { held, record } = await setUp();
+    const { stored, record } = await setUp();
 
     await record.execute(told('archive_1'));
 
-    const started = held.get('run_1')?.startedFrom;
+    const started = stored.get('run_1')?.startedFrom;
     expect(started?.archive?.value).toBe('archive_1');
     expect(started?.parts.checkouts).toEqual(AT_API);
     expect(started?.at).toEqual(GRANTED_AT);
   });
 
   it('records a run that restored nothing as starting afresh', async () => {
-    const { held, record } = await setUp();
+    const { stored, record } = await setUp();
 
     await record.execute(told(null));
 
-    expect(held.get('run_1')?.startedFrom?.archive).toBeNull();
+    expect(stored.get('run_1')?.startedFrom?.archive).toBeNull();
   });
 
   it('refuses an archive the run could not have restored', async () => {
@@ -180,7 +180,7 @@ describe('RecordStartingPointHandler', () => {
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
-  it('refuses a runner that does not hold the run, before looking at the archive', async () => {
+  it('refuses a runner that does not lease the run, before looking at the archive', async () => {
     const { record } = await setUp();
 
     await expect(
@@ -190,7 +190,7 @@ describe('RecordStartingPointHandler', () => {
 
   it('refuses a run that works no task', async () => {
     const { record } = await setUp(
-      aHeldRun({ carriesOn: false, checkouts: ['api'] }),
+      aLeasedRun({ carriesOn: false, checkouts: ['api'] }),
     );
 
     await expect(record.execute(told(null))).rejects.toMatchObject({

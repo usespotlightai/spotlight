@@ -178,7 +178,7 @@ describe('Replay, set side by side with its baseline', () => {
     );
   });
 
-  it('asks only as many as its headroom holds, reserving twice each entry’s judging cost per attempt it pays for, and asks again once a verdict frees room', () => {
+  it('asks only as many as its headroom allows, reserving twice each entry’s judging cost per attempt it pays for, and asks again once a verdict frees room', () => {
     const replay = concludedAll(judging('replay_1', 1, 4), {
       judgingCost: 0.25,
     });
@@ -348,8 +348,8 @@ const pairedAs = (
   const asked = replay.pairAgainst(against, everyOriginal);
 
   return asked.entries.reduce(
-    (held, entry, at) =>
-      held.pair(
+    (built, entry, at) =>
+      built.pair(
         entry.run as RunId,
         entry.pairing?.against as RunId,
         pairVerdictOf(winners[at] ?? 'tie'),

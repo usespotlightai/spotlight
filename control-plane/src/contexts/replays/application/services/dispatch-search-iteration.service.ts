@@ -29,7 +29,7 @@ const UNBRIEFED: SearchRunQueued = {
     'its station or the config it started from is gone, or it had no failing task to look into',
 };
 
-interface HeldReflection {
+interface ReflectionFocus {
   readonly standing: CandidateId;
   readonly tasks: readonly ReflectedTask[];
 }
@@ -91,7 +91,7 @@ export class DispatchSearchIteration {
         await this.searches.save(changed);
       }
 
-      return changed.heldRun?.equals(iteration.runId) ?? false;
+      return changed.activeRun?.equals(iteration.runId) ?? false;
     });
 
     if (queued.queued && !stillWanted) {
@@ -159,13 +159,13 @@ export class DispatchSearchIteration {
     iteration: SearchIteration,
     { station }: Grounds,
   ): Promise<string | null> {
-    const held = await this.reflectingOn(search, iteration);
+    const focus = await this.reflectingOn(search, iteration);
 
-    if (!held) {
+    if (!focus) {
       return null;
     }
 
-    const seed = search.seed.candidateId.equals(held.standing);
+    const seed = search.seed.candidateId.equals(focus.standing);
 
     return ReflectionBriefing.of({
       stationKey: station.key,
@@ -176,44 +176,44 @@ export class DispatchSearchIteration {
       standing: seed
         ? SEED_NAME
         : (search.proposals.find((each) =>
-            each.candidateId.equals(held.standing),
+            each.candidateId.equals(focus.standing),
           )?.name.value ?? SEED_NAME),
       seed,
-      tasks: held.tasks,
+      tasks: focus.tasks,
     });
   }
 
   private async reflectingOn(
     seen: Search,
     reflection: SearchIteration,
-  ): Promise<HeldReflection | null> {
+  ): Promise<ReflectionFocus | null> {
     const { minGain } = await this.healths.standardAt(seen.station);
     const replays = await this.replays.ofSearch(seen.id);
 
     return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(seen.id);
-      const held = search?.iterationOf(reflection.runId);
+      const current = search?.iterationOf(reflection.runId);
 
-      if (!search || !held?.holdsItsRun) {
+      if (!search || !current?.ownsActiveRun) {
         return null;
       }
-      if (held.standing) {
-        return { standing: held.standing, tasks: held.reflectedOn };
+      if (current.standing) {
+        return { standing: current.standing, tasks: current.reflectedOn };
       }
 
       const failing = failingSearchedTasksOf(search, replays, minGain);
       const reflecting = search.reflectingOn(
-        held.runId,
+        current.runId,
         failing.candidateId,
         failing.tasks,
         this.clock.now(),
         () => RunId.of(this.ids.generate()),
       );
-      const after = reflecting.iterationOf(held.runId);
+      const after = reflecting.iterationOf(current.runId);
 
       await this.searches.save(reflecting);
 
-      return after?.holdsItsRun && after.standing
+      return after?.ownsActiveRun && after.standing
         ? { standing: after.standing, tasks: after.reflectedOn }
         : null;
     });

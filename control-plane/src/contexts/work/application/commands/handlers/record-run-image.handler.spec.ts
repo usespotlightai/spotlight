@@ -58,7 +58,7 @@ const recording = (given: { run?: Run | null; known?: boolean } = {}) => {
 };
 
 describe('RecordRunImageHandler', () => {
-  it('records the image the runner holding the run started it in', async () => {
+  it('records the image the runner that leases the run started it in', async () => {
     const { handler, save, seen } = recording();
 
     await handler.execute(
@@ -87,7 +87,7 @@ describe('RecordRunImageHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses a runner that does not hold the run', async () => {
+  it('refuses a runner that does not lease the run', async () => {
     const { handler, save } = recording();
 
     await expect(

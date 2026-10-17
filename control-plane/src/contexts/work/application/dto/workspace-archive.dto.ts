@@ -4,7 +4,7 @@ export interface ArchiveGrantDto {
   readonly headers: Readonly<Record<string, string>>;
 }
 
-interface HeldArchiveDto {
+interface StoredArchiveDto {
   readonly id: string;
   readonly url: string;
   readonly size: number;
@@ -12,5 +12,5 @@ interface HeldArchiveDto {
 }
 
 export type WorkspaceArchiveAnswer =
-  | { readonly held: false }
-  | { readonly held: true; readonly archive: HeldArchiveDto | null };
+  | { readonly leased: false }
+  | { readonly leased: true; readonly archive: StoredArchiveDto | null };

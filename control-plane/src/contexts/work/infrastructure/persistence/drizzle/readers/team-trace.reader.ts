@@ -105,7 +105,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
 
     const answers = new Map(said.map((each) => [each.runId, each.body]));
 
-    const held = await stationsPerLine(
+    const stationCounts = await stationsPerLine(
       this.db,
       worked.flatMap((row) =>
         [row.ranLineId, row.standsLineId].flatMap((each) =>
@@ -128,7 +128,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
             name: called,
             color: shade,
             position,
-            count: held.get(lineId ?? '') ?? 1,
+            count: stationCounts.get(lineId ?? '') ?? 1,
           }
         : null;
     };

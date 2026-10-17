@@ -62,7 +62,7 @@ describe('placed', () => {
     ]);
   });
 
-  it('leaves the board alone for a task it does not hold', () => {
+  it('leaves the board alone for a task it does not have', () => {
     expect(titles(placed(board, 'missing', 'triage', null))).toEqual(
       titles(board),
     );
@@ -166,7 +166,7 @@ describe('startsAgainWhenTold', () => {
     );
   });
 
-  it('leaves a task a run still holds to that run', () => {
+  it('leaves a task that still has a current run to that run', () => {
     expect(
       startsAgainWhenTold(
         { ...task('a', 'spec'), running: true },

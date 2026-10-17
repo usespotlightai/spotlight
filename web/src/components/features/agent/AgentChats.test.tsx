@@ -59,7 +59,7 @@ describe('AgentChats', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/agent/chat_1');
   });
 
-  it('holds the shape of a chat while they load, keeping the composer', () => {
+  it('keeps the shape of a chat while they load, keeping the composer', () => {
     chats.mockReturnValue(undefined);
     showing();
 

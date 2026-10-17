@@ -149,7 +149,7 @@ export class WorkspaceResourceController {
 
   @WorkspaceResource.Delete(
     'workspaces/:id',
-    'Delete a workspace that holds no teams',
+    'Delete a workspace that has no teams',
   )
   @ID
   async delete(

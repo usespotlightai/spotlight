@@ -262,7 +262,7 @@ describe('TeamGeneral', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('holds the shape of the team while it loads, keeping what never changes', () => {
+  it('keeps the shape of the team while it loads, keeping what never changes', () => {
     workspace.mockReturnValue(undefined);
     members.mockReturnValue(undefined);
     showing();

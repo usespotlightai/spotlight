@@ -230,7 +230,7 @@ export class SearchesController {
     required: false,
     type: String,
     description:
-      'Only searches started before this one, by its id; a search the team does not hold answers an empty page',
+      'Only searches started before this one, by its id; a search that the team does not own answers an empty page',
   })
   @ApiQuery({
     name: 'limit',

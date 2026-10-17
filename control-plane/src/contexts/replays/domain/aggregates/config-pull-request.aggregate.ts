@@ -26,7 +26,7 @@ const RETRY_GROWTH = 4;
 const retryAfterMs = (tries: number): number =>
   FIRST_RETRY_MS * RETRY_GROWTH ** (tries - 1);
 
-const HOLDER = 'config pull request';
+const AGGREGATE = 'config pull request';
 
 const SEARCH_PREFIX = 8;
 
@@ -111,31 +111,31 @@ export class ConfigPullRequest extends EventRecorder {
 
     if ((current === 'opened') !== (url !== null)) {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         'has a pull request link when, and only when, it opened',
       );
     }
     if ((current === 'refused') !== (reason !== null)) {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         'says why when, and only when, it was refused',
       );
     }
     if (current !== 'refused' && (repository === null || path === null)) {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         'knows the repository and file it opens against unless it was refused',
       );
     }
     if ((current === 'opening') !== (state.dueAt !== null)) {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         'is due to be tried when, and only when, it is opening',
       );
     }
     if (!Number.isInteger(state.attempts) || state.attempts < 1) {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         `counts ${state.attempts} attempts, not one or more`,
       );
     }
@@ -283,7 +283,7 @@ export class ConfigPullRequest extends EventRecorder {
   }): ConfigPullRequest {
     if (!this.isRetryable) {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         `is ${this.state.state}, and only a refused one is tried again`,
       );
     }
@@ -368,7 +368,7 @@ export class ConfigPullRequest extends EventRecorder {
   private mustBeOpening(): void {
     if (this.state.state !== 'opening') {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         `is ${this.state.state}, not opening`,
       );
     }

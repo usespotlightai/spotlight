@@ -126,10 +126,10 @@ export class DrizzleInviteReader implements InviteReaderPort {
     const teams = new Map<string, TeamNamed[]>();
 
     for (const row of rows) {
-      const held = teams.get(row.inviteId) ?? [];
+      const inviteTeams = teams.get(row.inviteId) ?? [];
 
-      held.push({ id: row.id, name: row.name });
-      teams.set(row.inviteId, held);
+      inviteTeams.push({ id: row.id, name: row.name });
+      teams.set(row.inviteId, inviteTeams);
     }
 
     return teams;

@@ -97,7 +97,7 @@ describe('RunJudgeScore', () => {
         value={{
           focused: null,
           anchorOf: () => null,
-          holds: () => true,
+          has: () => true,
           focus,
         }}
       >
@@ -185,7 +185,7 @@ describe('RunJudgeScore', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('holds its place while the score loads, and offers to try again when it fails', async () => {
+  it('keeps its place while the score loads, and offers to try again when it fails', async () => {
     scores.mockReturnValue(undefined);
     const { rerender } = showing();
 

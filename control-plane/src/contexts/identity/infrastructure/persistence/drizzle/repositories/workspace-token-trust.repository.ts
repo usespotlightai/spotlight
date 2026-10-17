@@ -131,7 +131,7 @@ export class DrizzleWorkspaceTokenTrustRepository
     return found ? toTrust(found) : null;
   }
 
-  async holding(
+  async findLocked(
     id: WorkspaceTokenTrustId,
   ): Promise<WorkspaceTokenTrust | null> {
     const [found] = await this.context.db

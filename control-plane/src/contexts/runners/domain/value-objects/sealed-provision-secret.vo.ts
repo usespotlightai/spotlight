@@ -9,7 +9,7 @@ export class SealedProvisionSecret {
     if (sealed.length === 0) {
       throw new InconsistentStateError(
         'sealed provision secret',
-        'holds nothing to open',
+        'has nothing to open',
       );
     }
 

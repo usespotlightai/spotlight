@@ -382,7 +382,7 @@ func TestRecheckCallsNameTheRecheck(t *testing.T) {
 	}
 }
 
-func TestRenewCheckLeaseCarriesOnWhileTheCheckIsHeld(t *testing.T) {
+func TestRenewCheckLeaseCarriesOnWhileTheRunnerHasTheLease(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"stop":false}`))
 	})
@@ -392,11 +392,11 @@ func TestRenewCheckLeaseCarriesOnWhileTheCheckIsHeld(t *testing.T) {
 		t.Fatalf("renew: %v", err)
 	}
 	if stop {
-		t.Error("the check is still held, yet a stop was reported")
+		t.Error("the runner still has the lease on the check, yet a stop was reported")
 	}
 }
 
-func TestRenewCheckLeaseRejectedWhenTheRunnerNoLongerHoldsIt(t *testing.T) {
+func TestRenewCheckLeaseRejectedWhenTheRunnerHasNoLease(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/problem+json")
 		w.WriteHeader(http.StatusConflict)
@@ -486,12 +486,12 @@ func TestAsksForTheWorkspaceToRestoreAndHearsWhenThereIsNone(t *testing.T) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(protocol.HeldArchive{ID: "archive_1", URL: "https://storage.test/a", Size: 12, SHA256: "ab"})
+		_ = json.NewEncoder(w).Encode(protocol.StoredArchive{ID: "archive_1", URL: "https://storage.test/a", Size: 12, SHA256: "ab"})
 	})
 
-	held, err := client.WorkspaceArchive(context.Background(), "run_1")
-	if err != nil || held == nil || held.ID != "archive_1" || held.Size != 12 {
-		t.Fatalf("held %+v, %v", held, err)
+	stored, err := client.WorkspaceArchive(context.Background(), "run_1")
+	if err != nil || stored == nil || stored.ID != "archive_1" || stored.Size != 12 {
+		t.Fatalf("stored %+v, %v", stored, err)
 	}
 	if asked != "GET /api/runs/run_1/workspace-archive" {
 		t.Errorf("asked %s", asked)
@@ -940,8 +940,8 @@ func TestTheEgressCallsCarryTheContract(t *testing.T) {
 			_, _ = w.Write([]byte(`{"runnerId":"runner_1","workspaceId":"ws_1","controlPlaneHost":"spotlight.example.com","controlPlanePort":443,"reaches":["storage.example.com"]}`))
 		case "/api/egress/redeem":
 			_, _ = w.Write([]byte(`{"runId":"run_1","reaches":[],"secrets":[],"withheld":[],"bound":["mcp.example.com"]}`))
-		case "/api/egress/holds":
-			_, _ = w.Write([]byte(`{"held":["one"]}`))
+		case "/api/egress/active-runs":
+			_, _ = w.Write([]byte(`{"active":["one"]}`))
 		case "/api/egress/connections":
 			w.WriteHeader(http.StatusNoContent)
 		}
@@ -957,9 +957,9 @@ func TestTheEgressCallsCarryTheContract(t *testing.T) {
 	if err != nil || redeemed.RunID != "run_1" || len(redeemed.Bound) != 1 || redeemed.Bound[0] != "mcp.example.com" {
 		t.Errorf("redeemed %+v: %v", redeemed, err)
 	}
-	held, err := client.EgressHolds(ctx, []string{"one", "two"})
-	if err != nil || len(held) != 1 || held[0] != "one" {
-		t.Errorf("held %v: %v", held, err)
+	active, err := client.ActiveRuns(ctx, []string{"one", "two"})
+	if err != nil || len(active) != 1 || active[0] != "one" {
+		t.Errorf("active %v: %v", active, err)
 	}
 	at := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
 	if err := client.RecordConnections(ctx, []protocol.EgressConnection{{
@@ -971,7 +971,7 @@ func TestTheEgressCallsCarryTheContract(t *testing.T) {
 	want := map[string]string{
 		"/api/egress/admit":       `{"proxyCredential":"one"}`,
 		"/api/egress/redeem":      `{"proxyCredential":"one","recipient":"recipient"}`,
-		"/api/egress/holds":       `{"proxyCredentials":["one","two"]}`,
+		"/api/egress/active-runs": `{"proxyCredentials":["one","two"]}`,
 		"/api/egress/connections": `{"records":[{"proxyCredential":"one","host":"api.example.com","port":443,"bytesOut":10,"bytesIn":20,"ms":30,"outcome":"tunnelled","at":"2026-10-16T12:00:00Z"}]}`,
 	}
 	for path, body := range want {

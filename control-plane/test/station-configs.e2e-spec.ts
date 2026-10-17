@@ -25,7 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let runs: DrizzleRunRepository;
 let stationRuns: DrizzleStationRunReader;
@@ -33,8 +33,8 @@ let runReader: DrizzleRunReader;
 let chats: DrizzleChatRepository;
 
 beforeAll(async () => {
-  held = await openDatabase('station_configs');
-  db = held.db;
+  database = await openDatabase('station_configs');
+  db = database.db;
   runs = new DrizzleRunRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
@@ -54,7 +54,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const PARTS: StationConfigParts = {

@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 const listing = (member: boolean) => {
-  const heldIn = vi.fn(async () => [
+  const leasedIn = vi.fn(async () => [
     {
       runnerId: 'runner_1',
       runId: 'run_7',
@@ -52,15 +52,15 @@ const listing = (member: boolean) => {
         teamId === 'team_read' ? { workspaceId: WORKSPACE, teamId } : null,
       ),
     } as unknown as WorkspaceAccessPort,
-    { heldIn } as RunnerActivityReaderPort,
+    { leasedIn } as RunnerActivityReaderPort,
   );
 
-  return { handler, heldIn };
+  return { handler, leasedIn };
 };
 
 describe('ListRunnerActivityHandler', () => {
   it('says which run each busy runner of the workspace is working on, naming it only for the teams the viewer reads', async () => {
-    const { handler, heldIn } = listing(true);
+    const { handler, leasedIn } = listing(true);
 
     await expect(
       handler.execute(new ListRunnerActivityQuery('acme', 'user_1')),
@@ -99,15 +99,15 @@ describe('ListRunnerActivityHandler', () => {
         },
       },
     ]);
-    expect(heldIn).toHaveBeenCalledWith(WORKSPACE);
+    expect(leasedIn).toHaveBeenCalledWith(WORKSPACE);
   });
 
   it('shows nothing to someone outside the workspace', async () => {
-    const { handler, heldIn } = listing(false);
+    const { handler, leasedIn } = listing(false);
 
     await expect(
       handler.execute(new ListRunnerActivityQuery('acme', 'user_1')),
     ).resolves.toBeNull();
-    expect(heldIn).not.toHaveBeenCalled();
+    expect(leasedIn).not.toHaveBeenCalled();
   });
 });

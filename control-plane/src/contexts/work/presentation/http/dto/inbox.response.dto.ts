@@ -397,7 +397,7 @@ export class InboxItemResponseDto {
   @ApiProperty({ example: 2, description: 'Its place in the line, from zero' })
   readonly stationPosition: number;
 
-  @ApiProperty({ example: 4, description: 'How many stations the line holds' })
+  @ApiProperty({ example: 4, description: 'How many stations the line has' })
   readonly stationCount: number;
 
   @ApiProperty({
@@ -463,7 +463,7 @@ export class InboxItemResponseDto {
     type: InboxAsideResponseDto,
     nullable: true,
     description:
-      'What this item puts aside for a person to settle, where it is not a conversation; it never holds the task up',
+      'What this item puts aside for a person to settle, where it is not a conversation; it never blocks the task',
   })
   readonly aside: InboxAsideResponseDto | null;
 

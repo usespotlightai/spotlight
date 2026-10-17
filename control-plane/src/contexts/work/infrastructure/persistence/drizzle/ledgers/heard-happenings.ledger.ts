@@ -14,7 +14,7 @@ export class DrizzleHeardHappenings implements HeardHappeningsPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async heard(workspaceId: WorkspaceId, key: string): Promise<boolean> {
-    const [held] = await this.context.db
+    const [found] = await this.context.db
       .select({ key: heardHappening.key })
       .from(heardHappening)
       .where(
@@ -24,7 +24,7 @@ export class DrizzleHeardHappenings implements HeardHappeningsPort {
         ),
       );
 
-    return held !== undefined;
+    return found !== undefined;
   }
 
   async hearing(

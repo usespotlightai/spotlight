@@ -18,9 +18,9 @@ describe('LearnOutputShapes', () => {
     await learning.learn(TEAM, TOOL.value, { url: 'https://linear.app/c/1' });
     await learning.learn(TEAM, TOOL.value, { url: 'x', id: 'c_1' });
 
-    const held = await learned.of(TEAM, TOOL);
-    expect(held?.calls).toBe(2);
-    expect(JSON.stringify(held?.shape.toJson())).not.toContain('linear.app');
+    const output = await learned.of(TEAM, TOOL);
+    expect(output?.calls).toBe(2);
+    expect(JSON.stringify(output?.shape.toJson())).not.toContain('linear.app');
   });
 
   it('tries again when another call learned meanwhile', async () => {

@@ -286,7 +286,7 @@ export class RunChangeStacksResponseDto {
 }
 
 export class LatestChangeStackResponseDto {
-  @ApiProperty({ description: 'The run whose page holds the stack' })
+  @ApiProperty({ description: 'The run whose page shows the stack' })
   readonly runId: string;
 
   @ApiProperty({ nullable: true, type: String })

@@ -68,8 +68,8 @@ export function RetireInPlace({
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Why it no longer holds"
-            aria-label="Why it no longer holds"
+            placeholder="Why it no longer applies"
+            aria-label="Why it no longer applies"
             maxLength={MAX_RETIRE_REASON}
             className="max-h-72 text-foreground text-sm leading-5"
           />

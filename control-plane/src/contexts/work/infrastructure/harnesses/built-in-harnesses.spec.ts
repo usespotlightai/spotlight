@@ -21,7 +21,7 @@ describe('the harnesses Spotlight knows', () => {
     expect(known.commandFor(HarnessId.of('nothing'), null_())).toBeNull();
   });
 
-  it('holds no two harnesses under one name', () => {
+  it('has no two harnesses under one name', () => {
     const named = known.all().map((harness) => harness.id.value);
 
     expect(new Set(named).size).toBe(named.length);

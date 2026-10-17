@@ -39,7 +39,7 @@ const conversing: HolderState = {
   changedAt: later(0),
 };
 
-const held: ArchiveFacts = {
+const owned: ArchiveFacts = {
   holder: carryingOn,
   supersededAt: null,
   lastStartedFromAt: null,
@@ -99,7 +99,7 @@ describe('WorkspaceArchive', () => {
     expect(granted({}).isSealed).toBe(false);
   });
 
-  it('is sealed once storage holds exactly what was granted', () => {
+  it('is sealed once storage has exactly what was granted', () => {
     const sealed = anArchive().seal(storedAs(1_024), later(5_000));
 
     expect(sealed.isSealed).toBe(true);
@@ -127,12 +127,12 @@ describe('WorkspaceArchive', () => {
   it('is removed a day after it was granted, if it was never sealed', () => {
     const waiting = anArchive();
 
-    expect(waiting.removableAt(later(DAY - 1), held)).toBe(false);
-    expect(waiting.removableAt(later(DAY), held)).toBe(true);
+    expect(waiting.removableAt(later(DAY - 1), owned)).toBe(false);
+    expect(waiting.removableAt(later(DAY), owned)).toBe(true);
   });
 
   it('is kept while the task or chat it belongs to carries on', () => {
-    expect(aSealedArchive().removableAt(later(365 * DAY), held)).toBe(false);
+    expect(aSealedArchive().removableAt(later(365 * DAY), owned)).toBe(false);
   });
 
   it('is removed at once when the task or chat it belongs to is gone', () => {
@@ -147,7 +147,7 @@ describe('WorkspaceArchive', () => {
   });
 
   it('is removed an hour after a newer archive of the same work is sealed', () => {
-    const facts = { ...held, supersededAt: later(DAY) };
+    const facts = { ...owned, supersededAt: later(DAY) };
 
     expect(aSealedArchive().removableAt(later(DAY + HOUR - 1), facts)).toBe(
       false,
@@ -191,7 +191,7 @@ describe('WorkspaceArchive', () => {
   describe('once a task run started from it', () => {
     const startedFrom = (
       at: Date,
-      facts: ArchiveFacts = held,
+      facts: ArchiveFacts = owned,
     ): ArchiveFacts => ({
       ...facts,
       lastStartedFromAt: at,
@@ -199,7 +199,7 @@ describe('WorkspaceArchive', () => {
 
     it('is kept for thirty days after the latest such run started, though a newer one is sealed', () => {
       const facts = startedFrom(later(2 * DAY), {
-        ...held,
+        ...owned,
         supersededAt: later(DAY),
       });
 
@@ -318,10 +318,10 @@ describe('WorkspaceArchive', () => {
   });
 
   it('refuses to be removed while a later run may still restore it', () => {
-    expect(() => aSealedArchive().remove(later(365 * DAY), held)).toThrow(
+    expect(() => aSealedArchive().remove(later(365 * DAY), owned)).toThrow(
       InvalidWorkspaceArchiveTransitionError,
     );
-    expect(() => anArchive().remove(later(DAY - 1), held)).toThrow(
+    expect(() => anArchive().remove(later(DAY - 1), owned)).toThrow(
       InvalidWorkspaceArchiveTransitionError,
     );
   });
@@ -335,7 +335,7 @@ describe('WorkspaceArchive', () => {
       letGoBy: later(DAY),
       startedFromBy: later(8 * DAY - 30 * DAY),
     });
-    expect(anArchive().removableAt(later(DAY), held)).toBe(true);
+    expect(anArchive().removableAt(later(DAY), owned)).toBe(true);
     expect(
       aSealedArchive().removableAt(later(8 * DAY), {
         holder: { kind: 'task', finished: true, changedAt: later(DAY) },

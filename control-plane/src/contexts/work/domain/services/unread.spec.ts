@@ -17,7 +17,7 @@ describe('unread', () => {
     expect(unread({ kind: 'answered', readAt: null })).toBe(false);
   });
 
-  it('holds for a conversation while anything asked in it is unread', () => {
+  it('is true for a conversation while anything asked in it is unread', () => {
     expect(
       anyUnread([
         { kind: 'asked', readAt: at },
@@ -27,7 +27,7 @@ describe('unread', () => {
     ).toBe(true);
   });
 
-  it('does not hold once every ask has been read', () => {
+  it('is false once every ask has been read', () => {
     expect(
       anyUnread([
         { kind: 'asked', readAt: at },

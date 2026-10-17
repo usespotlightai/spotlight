@@ -1,8 +1,8 @@
 import type {
   AdmittedThroughResponseDto,
-  HeldRunResponseDto,
   HostHarnessResponseDto,
   HostResponseDto,
+  LeasedRunResponseDto,
   LiveRunnerResponseDto,
   RunnerActivityResponseDto,
   RunnerFleetResponseDto,
@@ -11,10 +11,10 @@ import { runPath } from '@/lib/run';
 import { settingsPath } from '@/lib/settings';
 import { since } from '@/lib/since';
 
-export type HeldRun = HeldRunResponseDto;
+export type LeasedRun = LeasedRunResponseDto;
 
 export type ActiveRunner = LiveRunnerResponseDto & {
-  readonly currentRun: HeldRun | null;
+  readonly currentRun: LeasedRun | null;
 };
 
 export type Host = HostResponseDto & {
@@ -54,12 +54,12 @@ export const withActivity = (
       runners: runners.filter((runner) => runner.hostId === host.id),
     })),
     pools: pools.flatMap((key) => {
-      const held = unhosted.filter(
+      const pooled = unhosted.filter(
         (runner) => poolKeyOf(runner.through) === key,
       );
-      const first = held[0];
+      const first = pooled[0];
 
-      return first ? [{ through: first.through, runners: held }] : [];
+      return first ? [{ through: first.through, runners: pooled }] : [];
     }),
   };
 };
@@ -141,7 +141,7 @@ export const servedBy = (
     harnesses,
   );
 
-export const heldBy = (
+export const poolHarnesses = (
   pool: PushPool,
   harnesses: readonly NamedHarness[] | undefined,
 ): NamedHarness[] =>
@@ -207,7 +207,7 @@ export const runnerStanding = (runner: ActiveRunner): string => {
     : 'Running';
 };
 
-type UnnamedKind = Exclude<HeldRun['kind'], 'task' | 'chat'>;
+type UnnamedKind = Exclude<LeasedRun['kind'], 'task' | 'chat'>;
 
 const UNNAMED_RUNS: Record<UnnamedKind, string> = {
   replay: 'A replay run',
@@ -215,15 +215,15 @@ const UNNAMED_RUNS: Record<UnnamedKind, string> = {
   spec: 'A run queued by hand',
 };
 
-const isUnnamed = (kind: HeldRun['kind']): kind is UnnamedKind =>
+const isUnnamed = (kind: LeasedRun['kind']): kind is UnnamedKind =>
   kind in UNNAMED_RUNS;
 
-export const hiddenRunTip = (run: HeldRun): string =>
+export const hiddenRunTip = (run: LeasedRun): string =>
   run.kind === 'chat'
     ? 'Title hidden. This agent chat belongs to a team you’re not on.'
     : 'Title hidden. This run belongs to a team you’re not on.';
 
-export const formatRun = (run: HeldRun | null): string => {
+export const formatRun = (run: LeasedRun | null): string => {
   if (run === null) {
     return 'No run yet';
   }
@@ -234,15 +234,15 @@ export const formatRun = (run: HeldRun | null): string => {
   );
 };
 
-export const hiddenFromViewer = (run: HeldRun | null): boolean =>
+export const hiddenFromViewer = (run: LeasedRun | null): boolean =>
   run !== null &&
   !run.readable &&
   run.teamId !== null &&
   (run.kind === 'task' || run.kind === 'chat');
 
-export const heldRunPath = (
+export const leasedRunPath = (
   slug: string,
-  run: HeldRun | null,
+  run: LeasedRun | null,
 ): string | null =>
   run?.kind === 'task' && run.readable && run.teamId !== null
     ? runPath(slug, run.teamId, run.id)

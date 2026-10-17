@@ -93,7 +93,7 @@ const line = () =>
     ],
   });
 
-const task = (held = 'run_1') =>
+const task = (runId = 'run_1') =>
   Task.add({
     line: line(),
     at: StationId.of('station_1'),
@@ -102,7 +102,7 @@ const task = (held = 'run_1') =>
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RunId.of(held), line());
+  }).handedTo(RunId.of(runId), line());
 
 const LATER = new Date(NOW.getTime() + 120_000);
 
@@ -179,7 +179,7 @@ const tasks = (found: Task | null = task()) =>
     remove: vi.fn(),
     standingAt: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => null),
+    findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -191,7 +191,7 @@ const lines = () =>
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => line()),
-    holding: vi.fn(async () => line()),
+    findByStation: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
   }) satisfies LineRepository;
@@ -200,11 +200,11 @@ const dispatch: TaskDispatching = {
   runIdFor: async () => RunId.of('run_2'),
 };
 
-const handOver = (ended = run(false), held: TaskRepository = tasks()) => {
+const handOver = (ended = run(false), stored: TaskRepository = tasks()) => {
   const handler = new HandOver(
-    held,
+    stored,
     runs,
-    held as TaskRepository & TaskPlacementsPort,
+    stored as TaskRepository & TaskPlacementsPort,
     lines(),
     dispatch,
     clock,
@@ -259,7 +259,7 @@ describe('HandOver', () => {
     expect(savedRun?.outcome?.failure?.code).toBe('superseded');
   });
 
-  it('refuses to hand over a task held by a run given a revision it has since moved on from', async () => {
+  it('refuses to hand over a task whose current run was given a revision it has since moved on from', async () => {
     const runner = RunnerId.of('runner_1');
     const stale = Run.enqueue({
       id: RunId.of('run_1'),
@@ -419,8 +419,8 @@ describe('HandOver', () => {
       expect(saved?.awaitingReview).toBe(true);
     });
 
-    const heldBackWhileAsked = () =>
-      asked().heldBack(line(), StationId.of('station_4'), {
+    const deferredWhileAsked = () =>
+      asked().deferMove(line(), StationId.of('station_4'), {
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('The checks failed on the pull request.'),
         at: NOW,
@@ -441,9 +441,9 @@ describe('HandOver', () => {
       ],
       ['fails', () => run(true)],
     ])(
-      'moves the task where a move was held back to while it waited, when the waiting run %s',
+      'moves the task where a move was deferred to while it waited, when the waiting run %s',
       async (_, ending) => {
-        await handOver(ending(), tasks(heldBackWhileAsked()));
+        await handOver(ending(), tasks(deferredWhileAsked()));
 
         expect(saved?.stationId).toEqual(StationId.of('station_4'));
         expect(saved?.awaitingReview).toBe(false);
@@ -462,9 +462,9 @@ describe('HandOver', () => {
     });
   });
 
-  describe('a move held back while the run worked', () => {
-    const heldBack = (to = 'station_4') =>
-      task().heldBack(line(), StationId.of(to), {
+  describe('a move deferred while the run worked', () => {
+    const deferred = (to = 'station_4') =>
+      task().deferMove(line(), StationId.of(to), {
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('The checks failed on the pull request.'),
         at: NOW,
@@ -492,9 +492,9 @@ describe('HandOver', () => {
       'Moved to Build when the run ended. An event arrived while the run worked.';
 
     it.each(endings)(
-      'moves the task where it was held back from when the run %s',
+      'moves the task where it was deferred to when the run %s',
       async (_, ending, form) => {
-        await handOver(ending(), tasks(heldBack()));
+        await handOver(ending(), tasks(deferred()));
 
         expect(saved?.stationId).toEqual(StationId.of('station_4'));
         expect(saved?.awaitingReview).toBe(false);
@@ -505,12 +505,12 @@ describe('HandOver', () => {
           ['passed', form],
         ]);
         expect(saved?.notes[1]?.body.value).toMatch(new RegExp(`^${MOVED}`));
-        expect(saved?.heldBackTo).toBeNull();
+        expect(saved?.deferredMoveTo).toBeNull();
       },
     );
 
     it.each(endings)(
-      'leaves the task where it stands when the run %s with nothing held back',
+      'leaves the task where it stands when the run %s with nothing deferred',
       async (_, ending) => {
         await handOver(ending());
 
@@ -520,7 +520,7 @@ describe('HandOver', () => {
     );
 
     const approvedMidRun = () => {
-      const asked = heldBack().clearFor(
+      const asked = deferred().clearFor(
         ApprovalSubject.toolCall(
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
         ),
@@ -551,7 +551,7 @@ describe('HandOver', () => {
       ['says the work is done', () => declaring('done')],
       ['asks a person', () => declaring('review')],
     ])(
-      'moves the task where it was held back to across a tool approval granted mid-run, when the run %s',
+      'moves the task where it was deferred to across a tool approval granted mid-run, when the run %s',
       async (_, ending) => {
         await handOver(ending(), tasks(approvedMidRun()));
 
@@ -561,38 +561,38 @@ describe('HandOver', () => {
       },
     );
 
-    it('drops the held-back move when the run passes the task on', async () => {
-      await handOver(declaring('spec'), tasks(heldBack()));
+    it('drops the deferred move when the run passes the task on', async () => {
+      await handOver(declaring('spec'), tasks(deferred()));
 
       expect(saved?.stationId).toEqual(StationId.of('station_2'));
       expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
-      expect(saved?.heldBackTo).toBeNull();
+      expect(saved?.deferredMoveTo).toBeNull();
     });
 
-    it('passes the task on as before with nothing held back', async () => {
+    it('passes the task on as before with nothing deferred', async () => {
       await handOver(declaring('spec'));
 
       expect(saved?.stationId).toEqual(StationId.of('station_2'));
       expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
     });
 
-    it('keeps the run’s own words on the task when a held-back move takes it on', async () => {
-      await handOver(declaring('review'), tasks(heldBack()));
+    it('keeps the run’s own words on the task when a deferred move takes it on', async () => {
+      await handOver(declaring('review'), tasks(deferred()));
 
       expect(saved?.notes[1]?.body.value).toBe(`${MOVED}\n\nOver to you.`);
       expect(saved?.notes[1]?.voice.run).toEqual(RunId.of('run_1'));
     });
 
-    it('tells nobody it is back with them when a held-back move takes a stopped run’s task on', async () => {
-      await handOver(stoppedRun(), tasks(heldBack()));
+    it('tells nobody it is back with them when a deferred move takes a stopped run’s task on', async () => {
+      await handOver(stoppedRun(), tasks(deferred()));
 
       expect(saved?.notes[1]?.body.value).toBe(
         `${MOVED}\n\nA person stopped the run.`,
       );
     });
 
-    it('keeps a failed run’s failure where a held-back move takes its task on', async () => {
-      await handOver(run(true), tasks(heldBack()));
+    it('keeps a failed run’s failure where a deferred move takes its task on', async () => {
+      await handOver(run(true), tasks(deferred()));
 
       expect(saved?.notes[1]?.failure).toMatchObject({
         source: 'run',
@@ -602,9 +602,9 @@ describe('HandOver', () => {
     });
 
     it.each(endings)(
-      'ends as the run said where the station held back to has left the line, when the run %s',
+      'ends as the run said where the station deferred to has left the line, when the run %s',
       async (_, ending) => {
-        await handOver(ending(), tasks(heldBack('station_gone')));
+        await handOver(ending(), tasks(deferred('station_gone')));
 
         expect(saved?.stationId).toEqual(StationId.of('station_1'));
         expect(saved?.currentRunId).toBeNull();
@@ -612,8 +612,8 @@ describe('HandOver', () => {
       },
     );
 
-    it('finishes the task the run said was done where the station held back to has left the line', async () => {
-      await handOver(declaring('done'), tasks(heldBack('station_gone')));
+    it('finishes the task the run said was done where the station deferred to has left the line', async () => {
+      await handOver(declaring('done'), tasks(deferred('station_gone')));
 
       expect(saved?.finished).toBe(true);
       expect(saved?.notes[1]?.body.value).toBe('Over to you.');

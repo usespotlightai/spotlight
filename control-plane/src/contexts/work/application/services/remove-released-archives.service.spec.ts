@@ -21,7 +21,7 @@ const setUp = async (due: ArchiveStandingsPort['due']) => {
   const logger = { error: vi.fn() };
 
   await archives.add(aSealedArchive({ id: 'gone' }));
-  await archives.add(aSealedArchive({ id: 'held' }));
+  await archives.add(aSealedArchive({ id: 'owned' }));
 
   const service = new RemoveReleasedArchives(
     { due },
@@ -73,7 +73,7 @@ describe('RemoveReleasedArchives', () => {
         },
       },
       {
-        id: WorkspaceArchiveId.of('held'),
+        id: WorkspaceArchiveId.of('owned'),
         facts: {
           holder: { kind: 'task', finished: false, changedAt: later(0) },
           supersededAt: null,
@@ -86,7 +86,7 @@ describe('RemoveReleasedArchives', () => {
     await service.workDue();
 
     expect(store.removed).toEqual(['gone']);
-    expect([...archives.kept.keys()]).toEqual(['held']);
+    expect([...archives.kept.keys()]).toEqual(['owned']);
   });
 
   it('keeps the object of an archive sealed while it was being removed', async () => {
@@ -124,7 +124,7 @@ describe('RemoveReleasedArchives', () => {
         },
       },
       {
-        id: WorkspaceArchiveId.of('held'),
+        id: WorkspaceArchiveId.of('owned'),
         facts: {
           holder: null,
           supersededAt: null,
@@ -143,7 +143,7 @@ describe('RemoveReleasedArchives', () => {
 
     await service.workDue();
 
-    expect(store.removed).toEqual(['held']);
+    expect(store.removed).toEqual(['owned']);
     expect(archives.kept.size).toBe(0);
     expect(logger.error).toHaveBeenCalledOnce();
     expect(logger.error).toHaveBeenCalledWith(

@@ -16,7 +16,7 @@ export interface PullRequestRecordRepository {
 
   remove(record: PullRequestRecord): Promise<void>;
 
-  heldByTask(
+  findByTask(
     workspaceId: WorkspaceId,
     taskId: TaskId,
   ): Promise<readonly PullRequestRecord[]>;

@@ -1,7 +1,7 @@
 import type {
   AgentRefusal,
   ExaminedCandidate,
-  HeldSearchRun,
+  LeasedSearchRun,
   LiveConfig,
   OracleAnswerAsked,
   PickableRun,
@@ -91,7 +91,7 @@ export class Work implements WorkPort {
     private readonly runs: ReplayableRunsPort,
     private readonly candidates: ReplayCandidatesPort,
     private readonly dispatching: ReplayDispatchPort,
-    private readonly holds: StartingPointHoldsPort,
+    private readonly startingPointHolds: StartingPointHoldsPort,
     private readonly searching: SearchDispatchPort,
     private readonly searchRuns: SearchRunsPort,
   ) {}
@@ -308,14 +308,14 @@ export class Work implements WorkPort {
     return this.searching.withdrawUnclaimed(run.value);
   }
 
-  async heldSearchRun(
+  async leasedSearchRun(
     run: RunId,
     runnerId: string,
-  ): Promise<HeldSearchRun | null> {
-    const held = await this.searchRuns.heldSearchRun(run.value, runnerId);
+  ): Promise<LeasedSearchRun | null> {
+    const leased = await this.searchRuns.leasedSearchRun(run.value, runnerId);
 
-    return held
-      ? { searchId: SearchId.of(held.searchId), iteration: held.iteration }
+    return leased
+      ? { searchId: SearchId.of(leased.searchId), iteration: leased.iteration }
       : null;
   }
 
@@ -336,7 +336,7 @@ export class Work implements WorkPort {
     workspaceId: WorkspaceId,
     runs: readonly RunId[],
   ): Promise<void> {
-    return this.holds.hold(
+    return this.startingPointHolds.hold(
       holder,
       workspaceId.value,
       runs.map((each) => each.value),
@@ -344,6 +344,6 @@ export class Work implements WorkPort {
   }
 
   release(holder: string): Promise<void> {
-    return this.holds.release(holder);
+    return this.startingPointHolds.release(holder);
   }
 }

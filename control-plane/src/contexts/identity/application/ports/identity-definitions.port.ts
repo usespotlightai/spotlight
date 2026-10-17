@@ -34,11 +34,11 @@ export type ParsedWorkspaceTokenTrust =
   | Refused;
 
 export interface IdentityDefinitionsPort {
-  workspace(held: unknown): ParsedWorkspace;
+  workspace(input: unknown): ParsedWorkspace;
 
-  team(held: unknown): ParsedTeam;
+  team(input: unknown): ParsedTeam;
 
-  workspaceToken(held: unknown): ParsedWorkspaceToken;
+  workspaceToken(input: unknown): ParsedWorkspaceToken;
 
-  workspaceTokenTrust(held: unknown): ParsedWorkspaceTokenTrust;
+  workspaceTokenTrust(input: unknown): ParsedWorkspaceTokenTrust;
 }

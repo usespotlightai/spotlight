@@ -312,7 +312,7 @@ describe('IntegrationDefinition', () => {
   });
 
   it('is reread from upstream, stranding the tools upstream no longer offers', () => {
-    const held = standing(
+    const existing = standing(
       ['linear.issue-create', 'linear.issue-delete'],
       3,
       readingOf(),
@@ -323,10 +323,10 @@ describe('IntegrationDefinition', () => {
       readAt: READ_AT,
     });
 
-    expect(held.rereads(readingOf())).toBe(false);
-    expect(held.rereads(again)).toBe(true);
+    expect(existing.rereads(readingOf())).toBe(false);
+    expect(existing.rereads(again)).toBe(true);
 
-    const reread = held.reread(
+    const reread = existing.reread(
       compiled('linear', { generated: ['issue-create'], from: OTHER_HASH }),
       again,
       BY,
@@ -354,14 +354,14 @@ describe('IntegrationDefinition', () => {
   });
 
   it('keeps its tools when reading again fails, recording only why', () => {
-    const held = standing(['linear.issue-create'], 3, readingOf());
+    const existing = standing(['linear.issue-create'], 3, readingOf());
     const failed = readingOf().stillAfter(
       'could not be read: api.linear.app: ENOTFOUND',
     );
 
-    expect(held.rereads(failed)).toBe(true);
+    expect(existing.rereads(failed)).toBe(true);
 
-    const reread = held.reread(
+    const reread = existing.reread(
       compiled('linear', { generated: ['issue-create'] }),
       failed,
       BY,

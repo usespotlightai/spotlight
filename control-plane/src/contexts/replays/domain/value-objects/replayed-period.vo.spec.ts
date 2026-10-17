@@ -26,12 +26,12 @@ describe('ReplayedPeriod', () => {
     expect(period.to).toEqual(new Date('2026-10-02T00:00:00.000Z'));
   });
 
-  it('holds its start but not its end', () => {
+  it('includes its start but not its end', () => {
     const period = ReplayedPeriod.of('30d', NOW);
 
-    expect(period.holds(period.from)).toBe(true);
-    expect(period.holds(new Date(period.from.getTime() - 1))).toBe(false);
-    expect(period.holds(period.to)).toBe(false);
+    expect(period.includes(period.from)).toBe(true);
+    expect(period.includes(new Date(period.from.getTime() - 1))).toBe(false);
+    expect(period.includes(period.to)).toBe(false);
   });
 
   it('is only ever 7, 30 or 90 days, without repeating what it was asked', () => {

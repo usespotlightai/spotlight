@@ -42,7 +42,7 @@ describe('digestOf', () => {
     expect(digest.changedLines).toBe(3);
   });
 
-  it('says a run did nothing where its journal held nothing', () => {
+  it('says a run did nothing where its journal had nothing', () => {
     const digest = digestOf({
       ms: null,
       statuses: [],

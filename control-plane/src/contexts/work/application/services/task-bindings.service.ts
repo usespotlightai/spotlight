@@ -8,7 +8,7 @@ export class TaskBindings {
   constructor(private readonly lines: LineRepository) {}
 
   async of(task: Task, on?: Line): Promise<BoundTaskDto | null> {
-    const line = on ?? (await this.lines.holding(task.stationId));
+    const line = on ?? (await this.lines.findByStation(task.stationId));
     if (!line) {
       return null;
     }

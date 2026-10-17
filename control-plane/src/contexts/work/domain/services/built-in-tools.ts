@@ -68,7 +68,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     declared: DeclaredTool.of({
       tool: REVIEW_COMMENT,
       description:
-        'Leave a comment on a line of the pull request this task reviews. It is held until the review is submitted.',
+        'Leave a comment on a line of the pull request this task reviews. Spotlight keeps it until the review is submitted.',
       inputs: [
         {
           name: 'path',

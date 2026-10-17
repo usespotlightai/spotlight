@@ -54,7 +54,7 @@ export function useBoardDrag(board: Board) {
   };
 
   const landingOver = (moving: Task, over: DragOverEvent['over']) => {
-    const held =
+    const target =
       over &&
       landingFor(board.tasks, moving.id, {
         kind: over.data.current?.kind === 'task' ? 'task' : 'station',
@@ -62,8 +62,8 @@ export function useBoardDrag(board: Board) {
         stationId: String(over.data.current?.stationId ?? over.id),
       });
 
-    return held && mayLand(board.stations, moving, held.stationId)
-      ? held
+    return target && mayLand(board.stations, moving, target.stationId)
+      ? target
       : null;
   };
 
@@ -89,15 +89,15 @@ export function useBoardDrag(board: Board) {
     }
 
     const moving = board.tasks.find((each) => each.id === active.id);
-    const held = moving ? landingOver(moving, over) : null;
+    const target = moving ? landingOver(moving, over) : null;
 
-    if (moving && held) {
+    if (moving && target) {
       moveTask.mutate({
         teamId: board.teamId,
         lineId: board.lineId,
         taskId: moving.id,
         revision: moving.revision,
-        ...held,
+        ...target,
       });
     }
   };

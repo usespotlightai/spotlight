@@ -48,7 +48,7 @@ type controlPlane struct {
 
 	mu       sync.Mutex
 	runs     map[string]*granted
-	held     map[string]bool
+	active   map[string]bool
 	recorded []protocol.EgressConnection
 	redeems  int
 	asked    []int
@@ -97,15 +97,15 @@ func (c *controlPlane) RedeemEgressFor(_ context.Context, credential, recipient 
 	return redeemed, nil
 }
 
-func (c *controlPlane) EgressHolds(_ context.Context, credentials []string) ([]string, error) {
+func (c *controlPlane) ActiveRuns(_ context.Context, credentials []string) ([]string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.asked = append(c.asked, len(credentials))
-	if len(credentials) > protocol.MaxHoldsAtOnce {
+	if len(credentials) > protocol.MaxRunsAtOnce {
 		return nil, &control.Rejection{Status: http.StatusUnprocessableEntity, Err: fmt.Errorf("too many")}
 	}
-	return slices.DeleteFunc(slices.Clone(credentials), func(credential string) bool { return !c.held[credential] }), nil
+	return slices.DeleteFunc(slices.Clone(credentials), func(credential string) bool { return !c.active[credential] }), nil
 }
 
 func (c *controlPlane) RecordConnections(_ context.Context, records []protocol.EgressConnection) error {
@@ -188,8 +188,8 @@ func riggedAllowing(t *testing.T, settings Settings, allow []string) *rig {
 			"one": {workspace: "ws_1", runID: "run_1", secrets: map[string]string{"mcp.example.com": linearKey}, bound: []string{"mcp.example.com"}},
 			"two": {workspace: "ws_2", runID: "run_2"},
 		},
-		held: map[string]bool{"one": true, "two": true},
-		port: 443,
+		active: map[string]bool{"one": true, "two": true},
+		port:   443,
 	}
 
 	settings.Allow, _ = reach.Parse(allow)
@@ -468,18 +468,18 @@ func TestLimitsOpenConnectionsForEachWorkspace(t *testing.T) {
 	}
 }
 
-func TestForgetsARunTheControlPlaneNoLongerHolds(t *testing.T) {
+func TestForgetsARunThatIsNoLongerActive(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.forward(t, "one", "mcp.example.com:443", "/", standIn())
-	held := r.egress.runs["one"]
+	forgotten := r.egress.runs["one"]
 
-	r.control.held["one"] = false
-	r.egress.checkHolds(context.Background())
+	r.control.active["one"] = false
+	r.egress.checkActiveRuns(context.Background())
 
 	if _, ok := r.egress.runs["one"]; ok {
-		t.Fatal("still holds the run")
+		t.Fatal("still keeps the run")
 	}
-	if held.wearing.Wears("mcp.example.com") {
+	if forgotten.wearing.Wears("mcp.example.com") {
 		t.Error("still wears the run's secret")
 	}
 }
@@ -503,8 +503,8 @@ func TestSendsTheRecordsOfARunBeforeItForgetsTheRun(t *testing.T) {
 	r.forward(t, "one", "mcp.example.com:443", "/", standIn())
 	pendingRecords(t, r.egress, 1)
 
-	r.control.held["one"] = false
-	r.egress.checkHolds(context.Background())
+	r.control.active["one"] = false
+	r.egress.checkActiveRuns(context.Background())
 
 	if len(r.control.recorded) != 1 || r.control.recorded[0].ProxyCredential != "one" {
 		t.Errorf("recorded %+v", r.control.recorded)
@@ -542,7 +542,7 @@ func TestForgetsARunAfterTwoMinutesWithoutUse(t *testing.T) {
 	r.egress.sweep(context.Background())
 
 	if _, ok := r.egress.runs["one"]; ok {
-		t.Error("still holds the unused run")
+		t.Error("still keeps the unused run")
 	}
 	if _, ok := r.egress.runs["two"]; !ok {
 		t.Error("let go of a run in use")
@@ -728,22 +728,22 @@ func admittedAlready(e *Egress, credentials ...string) {
 	}
 }
 
-func TestAsksWhichRunsAreHeldInBatchesTheControlPlaneTakes(t *testing.T) {
+func TestAsksWhichRunsAreActiveInBatchesTheControlPlaneTakes(t *testing.T) {
 	r := rigged(t, Settings{})
 	var credentials []string
-	for at := range 2*protocol.MaxHoldsAtOnce + 1 {
+	for at := range 2*protocol.MaxRunsAtOnce + 1 {
 		credentials = append(credentials, fmt.Sprintf("many_%d", at))
 	}
 	admittedAlready(r.egress, credentials...)
-	r.control.held["many_0"] = true
+	r.control.active["many_0"] = true
 
-	r.egress.checkHolds(context.Background())
+	r.egress.checkActiveRuns(context.Background())
 
-	if !slices.Equal(r.control.asked, []int{protocol.MaxHoldsAtOnce, protocol.MaxHoldsAtOnce, 1}) {
+	if !slices.Equal(r.control.asked, []int{protocol.MaxRunsAtOnce, protocol.MaxRunsAtOnce, 1}) {
 		t.Errorf("asked in batches of %v", r.control.asked)
 	}
 	if len(r.egress.runs) != 1 || r.egress.runs["many_0"] == nil {
-		t.Errorf("still holds %d runs", len(r.egress.runs))
+		t.Errorf("still keeps %d runs", len(r.egress.runs))
 	}
 }
 
@@ -824,7 +824,7 @@ func TestTrustsTheAuthorityItIsGiven(t *testing.T) {
 	}
 }
 
-func TestRefusesATrustThatHoldsNoCertificate(t *testing.T) {
+func TestRefusesATrustThatHasNoCertificate(t *testing.T) {
 	path := t.TempDir() + "/empty.pem"
 	if err := os.WriteFile(path, []byte("nothing"), 0o644); err != nil {
 		t.Fatal(err)
@@ -866,9 +866,9 @@ func TestHandsBackTheStandInWhenTheRunIsForgottenDuringARequest(t *testing.T) {
 	<-r.arrived
 
 	r.control.mu.Lock()
-	r.control.held["one"] = false
+	r.control.active["one"] = false
 	r.control.mu.Unlock()
-	r.egress.checkHolds(context.Background())
+	r.egress.checkActiveRuns(context.Background())
 	close(r.answer)
 
 	body := <-answered
@@ -876,7 +876,7 @@ func TestHandsBackTheStandInWhenTheRunIsForgottenDuringARequest(t *testing.T) {
 		t.Errorf("the sandbox read %s", body)
 	}
 	if _, ok := r.egress.runs["one"]; ok {
-		t.Error("still holds the run")
+		t.Error("still keeps the run")
 	}
 }
 

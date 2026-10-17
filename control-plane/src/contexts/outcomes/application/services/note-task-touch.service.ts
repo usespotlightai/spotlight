@@ -55,7 +55,7 @@ export class NoteTaskTouch {
 
     return this.touched(
       heard,
-      (held) => held.recordOpen(opening),
+      (touches) => touches.recordOpen(opening),
       opening.teamId,
     );
   }
@@ -63,7 +63,7 @@ export class NoteTaskTouch {
   asked(heard: TaskAskedHeard): Promise<void> {
     const ask = InboxAsk.of(heard.stationId, new Date(heard.at));
 
-    return this.touched(heard, (held) => held.asked(ask));
+    return this.touched(heard, (touches) => touches.asked(ask));
   }
 
   acted(heard: TaskActedOnHeard): Promise<void> {
@@ -80,32 +80,32 @@ export class NoteTaskTouch {
       at: new Date(heard.at),
     });
 
-    return this.touched(heard, (held) => held.recordAction(touch));
+    return this.touched(heard, (touches) => touches.recordAction(touch));
   }
 
   private touched(
     heard: { readonly taskId: string; readonly workspaceId: string },
-    change: (held: TaskTouches) => TaskTouches,
+    change: (touches: TaskTouches) => TaskTouches,
     teamId: TeamId | null = null,
   ): Promise<void> {
     const taskId = TaskId.of(heard.taskId);
     const workspaceId = WorkspaceId.of(heard.workspaceId);
 
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.holding(workspaceId, taskId, teamId);
-      const held = await this.touches.of(taskId);
+      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
+      const existing = await this.touches.of(taskId);
 
       if (
         teamId &&
         (await this.forgotten.forgot(workspaceId, taskId, teamId))
       ) {
-        if (held) {
+        if (existing) {
           await this.touches.removeForTask(taskId);
         }
         return;
       }
 
-      if (!held) {
+      if (!existing) {
         if (!(await this.forgotten.forgot(workspaceId, taskId))) {
           await this.touches.add(
             change(TaskTouches.heardOf(taskId, workspaceId)),
@@ -114,9 +114,9 @@ export class NoteTaskTouch {
         return;
       }
 
-      const touched = change(held);
+      const touched = change(existing);
 
-      if (touched !== held) {
+      if (touched !== existing) {
         await this.touches.save(touched);
       }
     });

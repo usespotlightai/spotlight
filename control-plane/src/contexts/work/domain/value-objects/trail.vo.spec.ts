@@ -40,11 +40,11 @@ describe('Trail', () => {
     expect(trail(said('asked'), said('answered')).owed).toBeNull();
   });
 
-  it('holds what was said in one conversation, whole', () => {
-    const held = trail(said('passed'), said('asked'), said('answered'));
+  it('keeps what was said in one conversation, whole', () => {
+    const whole = trail(said('passed'), said('asked'), said('answered'));
 
-    expect(held.within({ value: 1 } as never)).toHaveLength(2);
-    expect(held.within({ value: 0 } as never)).toBeNull();
+    expect(whole.within({ value: 1 } as never)).toHaveLength(2);
+    expect(whole.within({ value: 0 } as never)).toBeNull();
   });
 
   it('waits to hand a person’s word and the world’s to an agent', () => {

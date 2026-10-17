@@ -230,7 +230,7 @@ describe('InboxItem', () => {
   });
 
   describe('while it loads', () => {
-    it('holds the shape of the conversation rather than calling it gone', () => {
+    it('keeps the shape of the conversation rather than calling it gone', () => {
       waiting.mockReturnValue(undefined);
 
       renderItem();
@@ -291,14 +291,14 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    const holding = screen.getByRole('button', { name: /Worked for 56s/ });
-    expect(holding).toHaveTextContent('2 steps');
-    expect(holding).toHaveTextContent('12.2k/200k');
-    expect(holding).toHaveAttribute('aria-expanded', 'false');
+    const worked = screen.getByRole('button', { name: /Worked for 56s/ });
+    expect(worked).toHaveTextContent('2 steps');
+    expect(worked).toHaveTextContent('12.2k/200k');
+    expect(worked).toHaveAttribute('aria-expanded', 'false');
 
-    await person.click(holding);
+    await person.click(worked);
 
-    expect(holding).toHaveAttribute('aria-expanded', 'true');
+    expect(worked).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('The queue looks stuck.')).toBeInTheDocument();
 
     const ran = screen.getByRole('button', { name: /ls -la \/workspaces/ });
@@ -565,7 +565,7 @@ describe('InboxItem', () => {
     expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
   });
 
-  describe('when the run asked and holds its place for the answer', () => {
+  describe('when the run asked and keeps its place for the answer', () => {
     const step = (text: string, startedAt: string) => ({
       kind: 'tool',
       text,

@@ -94,10 +94,10 @@ export class CelExpressionEngine implements ExpressionEnginePort {
   }
 
   private environmentOf(scope: Scope): Environment {
-    const held = this.environments.get(scope);
+    const cached = this.environments.get(scope);
 
-    if (held) {
-      return held;
+    if (cached) {
+      return cached;
     }
 
     const environment = new Environment({

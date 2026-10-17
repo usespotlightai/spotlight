@@ -13,7 +13,7 @@ export interface StationWatchRepository {
 
   raising(alertId: AlertId): Promise<StationWatch | null>;
 
-  stationsHolding(taskId: TaskId): Promise<readonly string[]>;
+  stationsWithTask(taskId: TaskId): Promise<readonly string[]>;
 
   removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void>;
 

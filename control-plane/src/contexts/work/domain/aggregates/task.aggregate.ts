@@ -56,10 +56,10 @@ import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { Happening } from '@work/domain/value-objects/happening.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
@@ -230,7 +230,7 @@ export class Task extends EventRecorder {
     if (input.finishedAt !== null && input.currentRunId !== null) {
       throw new InconsistentStateError(
         'task',
-        'is finished yet still held by a run',
+        'is finished yet still has a current run',
       );
     }
 
@@ -325,10 +325,10 @@ export class Task extends EventRecorder {
     return this.relocated(line, to, rank, saying, null);
   }
 
-  heldBack(line: Line, to: StationId, saying: Saying): Task {
+  deferMove(line: Line, to: StationId, saying: Saying): Task {
     if (!this.running) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is not being worked by a run. There is no move to hold back.`,
+        `Task ${this.id.value} is not being worked by a run. There is no move to defer.`,
       );
     }
 
@@ -340,17 +340,17 @@ export class Task extends EventRecorder {
 
     if (line.completed.id.equals(to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} cannot hold back a move to the end of its line. That move interrupts its run.`,
+        `Task ${this.id.value} cannot defer a move to the end of its line. That move interrupts its run.`,
       );
     }
 
-    return this.with(this.spoke(saying, 'said', HeldBack.moveTo(to)));
+    return this.with(this.spoke(saying, 'said', DeferredMove.moveTo(to)));
   }
 
-  get heldBackTo(): StationId | null {
+  get deferredMoveTo(): StationId | null {
     for (const note of [...this.notes].reverse()) {
-      if (note.heldBack) {
-        return note.heldBack.to;
+      if (note.deferredMove) {
+        return note.deferredMove.to;
       }
 
       if (
@@ -364,18 +364,18 @@ export class Task extends EventRecorder {
     return null;
   }
 
-  movedAsHeldBack(
+  moveAsDeferred(
     by: RunId,
     line: Line,
     to: StationId,
     rank: TaskRank,
     ending: { saying: Saying; handover: Handover },
   ): Task {
-    this.refuseAnotherRun(by, 'move it where it was held back to');
+    this.refuseAnotherRun(by, 'make its deferred move');
 
-    if (!this.heldBackTo?.equals(to)) {
+    if (!this.deferredMoveTo?.equals(to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has no move held back to that station.`,
+        `Task ${this.id.value} has no deferred move to that station.`,
       );
     }
 
@@ -393,7 +393,7 @@ export class Task extends EventRecorder {
       rank,
       {
         ...ending.saying,
-        body: TaskNoteBody.movedAsHeldBack(
+        body: TaskNoteBody.movedAsDeferred(
           Task.stationOn(line, to).name,
           ending.handover.account,
         ),
@@ -435,7 +435,7 @@ export class Task extends EventRecorder {
     }
 
     if (this.awaitsAnAnswer) {
-      return this.with(this.spoke(saying, 'said', HeldBack.cleared()));
+      return this.with(this.spoke(saying, 'said', DeferredMove.cleared()));
     }
 
     return this.stopped(saying.at).asked(saying, null, null, {
@@ -596,7 +596,7 @@ export class Task extends EventRecorder {
     return this.currentRunId !== null;
   }
 
-  heldBy(runId: RunId): boolean {
+  hasCurrentRun(runId: RunId): boolean {
     return this.currentRunId?.equals(runId) ?? false;
   }
 
@@ -609,7 +609,7 @@ export class Task extends EventRecorder {
   }
 
   takesUp(runId: RunId): boolean {
-    return this.heldBy(runId) && !this.awaitingReview;
+    return this.hasCurrentRun(runId) && !this.awaitingReview;
   }
 
   get idle(): boolean {
@@ -632,7 +632,7 @@ export class Task extends EventRecorder {
 
   spokenTo(by: RunId, saying: Saying, at: StationId | null): Task {
     const answering =
-      this.heldBy(by) ||
+      this.hasCurrentRun(by) ||
       (!this.running && at !== null && this.stationId.equals(at));
     const owed = answering ? this.owedConversation : null;
 
@@ -768,11 +768,11 @@ export class Task extends EventRecorder {
   }
 
   dropUnstartedRun(runId: RunId): Task {
-    return this.heldBy(runId) ? this.with({ currentRunId: null }) : this;
+    return this.hasCurrentRun(runId) ? this.with({ currentRunId: null }) : this;
   }
 
   leaveRun(runId: RunId, at: Date): Task {
-    return this.heldBy(runId)
+    return this.hasCurrentRun(runId)
       ? this.with({ currentRunId: null }).handedOnAt(at)
       : this;
   }
@@ -1002,7 +1002,7 @@ export class Task extends EventRecorder {
     saying: Saying,
     by: RunId | null,
     line: Line | null,
-    heldBackRank: TaskRank | null = null,
+    deferredMoveRank: TaskRank | null = null,
   ): Task {
     if (this.finished) {
       throw new InvalidTaskTransitionError(
@@ -1014,18 +1014,18 @@ export class Task extends EventRecorder {
       this.refuseAnotherRun(by, 'report a failure of it');
     }
 
-    const heldBackTo = by || !this.running ? null : this.heldBackTo;
+    const deferredMoveTo = by || !this.running ? null : this.deferredMoveTo;
 
-    if (heldBackTo && heldBackRank && line?.stationAt(heldBackTo)) {
+    if (deferredMoveTo && deferredMoveRank && line?.stationAt(deferredMoveTo)) {
       return this.failing(failure, by, saying.at, line)
         .relocated(
           line,
-          heldBackTo,
-          heldBackRank,
+          deferredMoveTo,
+          deferredMoveRank,
           {
             ...saying,
-            body: TaskNoteBody.movedAsHeldBack(
-              Task.stationOn(line, heldBackTo).name,
+            body: TaskNoteBody.movedAsDeferred(
+              Task.stationOn(line, deferredMoveTo).name,
               saying.body,
             ),
             form: 'failure',
@@ -1342,9 +1342,9 @@ export class Task extends EventRecorder {
   }
 
   private refuseAnotherRun(by: RunId | null, doing: string): void {
-    const holding = by ? this.heldBy(by) : !this.running;
+    const isCurrentRun = by ? this.hasCurrentRun(by) : !this.running;
 
-    if (!holding) {
+    if (!isCurrentRun) {
       throw new InvalidTaskTransitionError(
         `Only the run working task ${this.id.value} can ${doing}.`,
       );
@@ -1382,7 +1382,7 @@ export class Task extends EventRecorder {
   private spoke(
     saying: Saying,
     kind: TaskNoteKind,
-    heldBack: HeldBack | null = null,
+    deferredMove: DeferredMove | null = null,
   ): { notes: readonly TaskNote[]; finishedAt?: null } {
     return {
       notes: [
@@ -1391,7 +1391,7 @@ export class Task extends EventRecorder {
           ...saying,
           kind,
           position: NotePosition.of(this.notes.length),
-          heldBack,
+          deferredMove,
         }),
       ],
       ...(saying.voice.isStation ? {} : { finishedAt: null }),

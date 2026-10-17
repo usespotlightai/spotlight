@@ -8,13 +8,13 @@ export const tokenGivenTo = (
   pool: RunnerPool,
   before: RunnerPool | null,
 ): TokenHash | null => {
-  const held = pool.isRetired ? null : pool.tokenHash;
+  const current = pool.isRetired ? null : pool.tokenHash;
 
-  return held && !before?.tokenHash?.equals(held) ? held : null;
+  return current && !before?.tokenHash?.equals(current) ? current : null;
 };
 
 export const refuseTokenGivenBefore = (standing: PoolTokenStanding): void => {
-  if (standing.held) {
+  if (standing.inUse) {
     throw new PoolTokenTakenError();
   }
 

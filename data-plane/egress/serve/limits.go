@@ -30,36 +30,36 @@ func (l *limits) take(workspace string) (func(), string) {
 	defer l.mu.Unlock()
 
 	now := l.now()
-	held, ok := l.buckets[workspace]
+	found, ok := l.buckets[workspace]
 	if !ok {
-		held = &bucket{tokens: l.burst(), at: now}
-		l.buckets[workspace] = held
+		found = &bucket{tokens: l.burst(), at: now}
+		l.buckets[workspace] = found
 	}
 
 	if l.rate > 0 {
-		held.tokens = min(l.burst(), held.tokens+now.Sub(held.at).Seconds()*l.rate)
-		held.at = now
-		if held.tokens < 1 {
+		found.tokens = min(l.burst(), found.tokens+now.Sub(found.at).Seconds()*l.rate)
+		found.at = now
+		if found.tokens < 1 {
 			return nil, fmt.Sprintf(
 				"Sorry, this workspace sends more than %g requests each second through egress. Please send fewer requests.", l.rate)
 		}
 	}
-	if l.most > 0 && held.open >= l.most {
+	if l.most > 0 && found.open >= l.most {
 		return nil, fmt.Sprintf(
 			"Sorry, this workspace has more than %d connections open through egress. Please close some connections.", l.most)
 	}
 
 	if l.rate > 0 {
-		held.tokens--
+		found.tokens--
 	}
-	held.open++
+	found.open++
 
 	var once sync.Once
 	return func() {
 		once.Do(func() {
 			l.mu.Lock()
 			defer l.mu.Unlock()
-			held.open--
+			found.open--
 		})
 	}, ""
 }
@@ -73,8 +73,8 @@ func (l *limits) sweep() {
 	defer l.mu.Unlock()
 
 	now := l.now()
-	for workspace, held := range l.buckets {
-		if held.open == 0 && held.tokens+now.Sub(held.at).Seconds()*l.rate >= l.burst() {
+	for workspace, found := range l.buckets {
+		if found.open == 0 && found.tokens+now.Sub(found.at).Seconds()*l.rate >= l.burst() {
 			delete(l.buckets, workspace)
 		}
 	}

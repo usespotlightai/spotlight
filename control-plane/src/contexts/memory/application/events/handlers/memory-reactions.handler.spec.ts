@@ -50,7 +50,7 @@ const approved = (supersedes: MemoryId | null = null) =>
     ADA,
   );
 
-const reacting = (held: Memory[] = []) => {
+const reacting = (stored: Memory[] = []) => {
   const reviews = { raise: vi.fn(), settle: vi.fn() };
   let handles = 100;
   const memories = {
@@ -59,13 +59,13 @@ const reacting = (held: Memory[] = []) => {
       return MemoryHandle.of(handles);
     },
     find: async (id: MemoryId) =>
-      held.find((each) => each.id.equals(id)) ?? null,
+      stored.find((each) => each.id.equals(id)) ?? null,
     add: vi.fn(async (memory: Memory) => {
-      held.push(memory);
+      stored.push(memory);
     }),
     save: vi.fn(async (memory: Memory) => {
-      held.splice(
-        held.findIndex((each) => each.id.equals(memory.id)),
+      stored.splice(
+        stored.findIndex((each) => each.id.equals(memory.id)),
         1,
         memory,
       );
@@ -81,7 +81,7 @@ const reacting = (held: Memory[] = []) => {
     ),
     reviews,
     memories,
-    held,
+    stored,
   };
 };
 
@@ -111,14 +111,14 @@ describe('reacting to memories being proposed and decided', () => {
   });
 
   it('keeps an approved memory standing, once however often it hears so', async () => {
-    const { reactions, memories, held } = reacting();
+    const { reactions, memories, stored } = reacting();
 
     await reactions.onApproved(approved());
     await reactions.onApproved(approved());
 
     expect(memories.add).toHaveBeenCalledTimes(1);
-    expect(held[0]?.standing).toBe('stands');
-    expect(held[0]?.approval.equals(ADA)).toBe(true);
+    expect(stored[0]?.standing).toBe('stands');
+    expect(stored[0]?.approval.equals(ADA)).toBe(true);
   });
 
   it('keeps an approved memory without claiming to replace one that no longer stands', async () => {
@@ -134,11 +134,11 @@ describe('reacting to memories being proposed and decided', () => {
       supersedes: null,
       approval: ADA,
     }).retire({ by: UserId.of('user_bea'), reason: 'Wrong.', at: NOW });
-    const { reactions, held } = reacting([gone]);
+    const { reactions, stored } = reacting([gone]);
 
     await reactions.onApproved(approved(OLD));
 
-    expect(held.find((each) => each.id.equals(NEW))?.supersedes).toBeNull();
+    expect(stored.find((each) => each.id.equals(NEW))?.supersedes).toBeNull();
   });
 
   it('retires the memory a newly standing one supersedes', async () => {
@@ -154,12 +154,12 @@ describe('reacting to memories being proposed and decided', () => {
       supersedes: null,
       approval: ADA,
     });
-    const { reactions, held } = reacting([old]);
+    const { reactions, stored } = reacting([old]);
 
     await reactions.onStood(new MemoryStood(NEW, OLD));
 
-    expect(held[0]?.standing).toBe('retired');
-    expect(held[0]?.retirement?.supersededBy?.equals(NEW)).toBe(true);
+    expect(stored[0]?.standing).toBe('retired');
+    expect(stored[0]?.retirement?.supersededBy?.equals(NEW)).toBe(true);
   });
 
   it('leaves a memory already superseded by another standing as it was', async () => {
@@ -175,13 +175,13 @@ describe('reacting to memories being proposed and decided', () => {
       supersedes: null,
       approval: ADA,
     }).supersedeWith(MemoryId.of('memory_first'), NOW);
-    const { reactions, memories, held } = reacting([old]);
+    const { reactions, memories, stored } = reacting([old]);
 
     await reactions.onStood(new MemoryStood(NEW, OLD));
 
     expect(memories.save).not.toHaveBeenCalled();
     expect(
-      held[0]?.retirement?.supersededBy?.equals(MemoryId.of('memory_first')),
+      stored[0]?.retirement?.supersededBy?.equals(MemoryId.of('memory_first')),
     ).toBe(true);
   });
 });

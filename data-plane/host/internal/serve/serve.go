@@ -119,29 +119,29 @@ type Host struct {
 	engineIs  string
 	session   string
 
-	mu         sync.Mutex
-	served     map[string]*served
-	unadmitted []string
-	required   protocol.HostRequirements
-	running    map[string]string
-	held       map[string]time.Time
-	failures   map[string]int
-	egressIs   string
+	mu           sync.Mutex
+	served       map[string]*served
+	unadmitted   []string
+	required     protocol.HostRequirements
+	running      map[string]string
+	claimBackoff map[string]time.Time
+	failures     map[string]int
+	egressIs     string
 }
 
 func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors, log *slog.Logger) *Host {
 	return &Host{
-		opts:     opts,
-		pool:     pool,
-		engine:   engine,
-		mirrors:  mirrors,
-		log:      log,
-		slots:    make(chan struct{}, max(opts.Capacity, 1)),
-		session:  crand.Text(),
-		served:   map[string]*served{},
-		running:  map[string]string{},
-		held:     map[string]time.Time{},
-		failures: map[string]int{},
+		opts:         opts,
+		pool:         pool,
+		engine:       engine,
+		mirrors:      mirrors,
+		log:          log,
+		slots:        make(chan struct{}, max(opts.Capacity, 1)),
+		session:      crand.Text(),
+		served:       map[string]*served{},
+		running:      map[string]string{},
+		claimBackoff: map[string]time.Time{},
+		failures:     map[string]int{},
 	}
 }
 
@@ -342,7 +342,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 			continue
 		}
 
-		if wait := h.heldFor(image); wait > 0 {
+		if wait := h.claimBackoffFor(image); wait > 0 {
 			if !sleep(ctx, wait) {
 				return nil
 			}
@@ -355,7 +355,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 			return nil
 		}
 
-		if h.heldFor(image) > 0 {
+		if h.claimBackoffFor(image) > 0 {
 			<-h.slots
 			continue
 		}
@@ -391,11 +391,11 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 	}
 }
 
-func (h *Host) heldFor(image string) time.Duration {
+func (h *Host) claimBackoffFor(image string) time.Duration {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	return time.Until(h.held[image])
+	return time.Until(h.claimBackoff[image])
 }
 
 func (h *Host) started(image string, ok bool) {
@@ -404,13 +404,13 @@ func (h *Host) started(image string, ok bool) {
 
 	if ok {
 		delete(h.failures, image)
-		delete(h.held, image)
+		delete(h.claimBackoff, image)
 		return
 	}
 
 	h.failures[image]++
 	pause := min(retryFloor<<min(h.failures[image], 5), retryCeiling)
-	h.held[image] = time.Now().Add(jitter(pause))
+	h.claimBackoff[image] = time.Now().Add(jitter(pause))
 }
 
 func Final(err error) bool {
@@ -453,8 +453,8 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		return
 	}
 
-	held, told := h.holding(ctx, handed, worker, log)
-	defer held()
+	stopRenewing, told := h.renewingLease(ctx, handed, worker, log)
+	defer stopRenewing()
 
 	ready, ok := h.readied(ctx, image, handed, worker, log)
 	if !ok {
@@ -517,7 +517,7 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		return
 	}
 
-	held()
+	stopRenewing()
 	h.track(handed.RunnerID, id)
 	defer h.untrack(handed.RunnerID)
 	log.Info("started a sandbox", "sandbox", id)
@@ -569,7 +569,7 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	drain()
 
 	if ranOut {
-		held()
+		stopRenewing()
 		h.timedOut(ctx, handed, worker, log)
 	}
 }
@@ -616,8 +616,8 @@ func (h *Host) readied(
 		reason = fmt.Sprintf("Runner image %s can't be pulled. Error: %v", image, err)
 	case ready.refused != "":
 		reason = fmt.Sprintf("Runner image %s is refused. %s", image, ready.refused)
-	case handed.Work.Run != nil && handed.Work.Run.Harness != "" && !ready.holds(handed.Work.Run.Harness):
-		reason = fmt.Sprintf("Runner image %s no longer holds the %s harness.", ready.digest, handed.Work.Run.Harness)
+	case handed.Work.Run != nil && handed.Work.Run.Harness != "" && !ready.hasHarness(handed.Work.Run.Harness):
+		reason = fmt.Sprintf("Runner image %s no longer has the %s harness.", ready.digest, handed.Work.Run.Harness)
 	}
 
 	if ok && (ready.id != before.id || ready.refused != before.refused) {
@@ -641,7 +641,7 @@ func (h *Host) readied(
 	return ready, true
 }
 
-func (h *Host) holding(
+func (h *Host) renewingLease(
 	ctx context.Context, handed protocol.Handed, worker Worker, log *slog.Logger,
 ) (release func(), told func() bool) {
 	renew := renewal(handed.Work, worker)

@@ -25,7 +25,7 @@ describe('JudgeVerdict', () => {
     expect(verdict('number', PASSING_SCORE - 1).passes).toBe(false);
   });
 
-  it('holds only a score on its scale', () => {
+  it('takes only a score on its scale', () => {
     expect(() => verdict('number', 6)).toThrow(InvalidReplayError);
     expect(() => verdict('yes-no', 2)).toThrow(InvalidReplayError);
     expect(() => verdict('stars', 1)).toThrow(InvalidReplayError);
@@ -52,7 +52,7 @@ describe('JudgeVerdict', () => {
     expect(claims([true, false], 1).claims).toEqual(['Claim 0.', 'Claim 1.']);
   });
 
-  it('holds marks only on claims, and a score that is the share they give', () => {
+  it('has marks only on claims, and a score that is the share they give', () => {
     const base = {
       model: 'judge/model',
       referenced: false,

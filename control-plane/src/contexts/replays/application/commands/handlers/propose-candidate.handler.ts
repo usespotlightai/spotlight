@@ -51,9 +51,9 @@ class ProposalRefusedError extends Error {
   }
 }
 
-const fieldsOf = (held: unknown): Readonly<Record<string, unknown>> =>
-  typeof held === 'object' && held !== null && !Array.isArray(held)
-    ? (held as Record<string, unknown>)
+const fieldsOf = (raw: unknown): Readonly<Record<string, unknown>> =>
+  typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
     : {};
 
 export class ProposeCandidateHandler

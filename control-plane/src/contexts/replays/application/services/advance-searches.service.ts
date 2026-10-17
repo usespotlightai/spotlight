@@ -23,7 +23,7 @@ export class AdvanceSearches implements OwedWorkPort {
     private readonly replays: ReplayRepository,
     private readonly work: WorkPort,
     private readonly dispatching: DispatchSearchIteration,
-    private readonly holding: HoldOutSearch,
+    private readonly holdingOut: HoldOutSearch,
     private readonly noting: NoteSearchProgress,
     private readonly lettingGo: LetSearchGo,
     private readonly clock: ClockPort,
@@ -53,11 +53,11 @@ export class AdvanceSearches implements OwedWorkPort {
       await this.dispatching.wanted(fresh.id);
     }
     if (fresh.wantsHoldingOut) {
-      await this.holding.wanted(fresh.id);
+      await this.holdingOut.wanted(fresh.id);
     }
     if (!fresh.isActive) {
-      if (fresh.heldRun) {
-        await this.work.withdrawSearch(fresh.heldRun);
+      if (fresh.activeRun) {
+        await this.work.withdrawSearch(fresh.activeRun);
       }
       await this.lettingGo.leftOver(
         fresh,

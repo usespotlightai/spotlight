@@ -15,7 +15,7 @@ import type { PlannedReference } from '@replays/domain/value-objects/planned-ref
 import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import {
-  holdsRepeats,
+  isValidRepeatCount,
   MAX_REPEATS,
 } from '@replays/domain/value-objects/replay-repeats';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -76,7 +76,7 @@ export class ReplayCheck extends EventRecorder {
     if (!Number.isInteger(state.attempt) || state.attempt < 1) {
       throw new InvalidReplayCheckError('attempts must count from 1');
     }
-    if (!holdsRepeats(state.repeats)) {
+    if (!isValidRepeatCount(state.repeats)) {
       throw new InvalidReplayCheckError(
         `repeats must be from 1 to ${MAX_REPEATS}`,
       );

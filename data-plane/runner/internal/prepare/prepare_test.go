@@ -267,7 +267,7 @@ func TestSaysNothingOfCatchingUpWhereTheLastRunIsAheadOfWhatWasPushed(t *testing
 	}
 }
 
-func TestChecksOutARefTheCloneDoesNotHold(t *testing.T) {
+func TestChecksOutARefTheCloneDoesNotHave(t *testing.T) {
 	f := setUp(t)
 	git(t, f.origin, "switch", "--quiet", "-c", "feature")
 	head := f.commit(t, "feature.md", "reviewed\n")
@@ -287,7 +287,7 @@ func TestChecksOutARefTheCloneDoesNotHold(t *testing.T) {
 	}
 }
 
-func TestChecksOutACommitOnlyTheRestoredCheckoutHolds(t *testing.T) {
+func TestChecksOutACommitOnlyTheRestoredCheckoutHas(t *testing.T) {
 	f := setUp(t)
 	f.restored(t, "spotlight/task-1")
 	write(t, filepath.Join(f.tree(), "local.md"), "never pushed\n")
@@ -304,7 +304,7 @@ func TestChecksOutACommitOnlyTheRestoredCheckoutHolds(t *testing.T) {
 	}
 
 	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != local {
-		t.Errorf("at %s, want the commit only the restored checkout holds, %s", got, local)
+		t.Errorf("at %s, want the commit only the restored checkout has, %s", got, local)
 	}
 }
 

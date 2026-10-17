@@ -89,7 +89,7 @@ type SkillRow = {
   skill: string;
 };
 
-const holdsStation = (row: Row): row is Row & StationRow =>
+const hasStation = (row: Row): row is Row & StationRow =>
   row.stationId !== null;
 
 @Injectable()
@@ -219,7 +219,7 @@ const group = (
       stations: [],
     };
 
-    if (holdsStation(row)) {
+    if (hasStation(row)) {
       line.stations.push(summaryOf(row, skills));
     }
 

@@ -292,9 +292,9 @@ export const searchCandidateOf = (
     ? replaySpec(spec.heldOutReplayId)
     : undefined;
   const searched = rateIn(replay);
-  const held = rateIn(heldOut);
+  const heldOutRate = rateIn(heldOut);
   const against = replay ? againstOf(replay) : null;
-  const heldAgainst = heldOut ? againstOf(heldOut) : null;
+  const heldOutAgainst = heldOut ? againstOf(heldOut) : null;
   const totals = replay ? replayOf(replay).totals : null;
 
   return {
@@ -312,12 +312,12 @@ export const searchCandidateOf = (
     searchScore: searched.score,
     searchInterval: searched.interval,
     searchScored: searched.scored,
-    heldOutScore: held.score,
-    heldOutInterval: held.interval,
+    heldOutScore: heldOutRate.score,
+    heldOutInterval: heldOutRate.interval,
     searchedGain: against?.gain ?? null,
-    heldOutGain: heldAgainst?.gain ?? null,
+    heldOutGain: heldOutAgainst?.gain ?? null,
     searchedPairs: against?.pairs ?? null,
-    heldOutPairs: heldAgainst?.pairs ?? null,
+    heldOutPairs: heldOutAgainst?.pairs ?? null,
     costPerRun:
       totals && totals.settled > 0
         ? rounded(totals.spent.amount / totals.settled)

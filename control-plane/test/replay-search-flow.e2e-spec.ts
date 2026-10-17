@@ -28,9 +28,9 @@ import {
   entryOf,
   finished,
   fiveTasks,
-  heldSearchRun,
   http,
   judged,
+  leasedSearchRun,
   liveBlock,
   openSearchFlow,
   openSet,
@@ -231,9 +231,11 @@ describe('a search for a better station config', () => {
     await drained(() => ({ score: 4, cost: 0.2 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    const agent = await heldSearchRun(id, 1);
-    const held = new Set(started.split.heldOut.map((each) => each.taskId));
-    const heldRuns = started.split.heldOut.map((each) => each.runId).sort();
+    const agent = await leasedSearchRun(id, 1);
+    const heldOutTaskIds = new Set(
+      started.split.heldOut.map((each) => each.taskId),
+    );
+    const heldOutRuns = started.split.heldOut.map((each) => each.runId).sort();
     const searchedRuns = started.split.searched
       .map((each) => each.runId)
       .sort();
@@ -252,7 +254,9 @@ describe('a search for a better station config', () => {
     };
 
     expect(history.seedBlock.key).toBe('build');
-    expect(history.runs.some((each) => held.has(each.taskId))).toBe(false);
+    expect(history.runs.some((each) => heldOutTaskIds.has(each.taskId))).toBe(
+      false,
+    );
     expect(history.candidates.map((each) => each.candidateName)).toEqual([
       'seed',
     ]);
@@ -339,7 +343,9 @@ describe('a search for a better station config', () => {
       })
       .expect(404);
 
-    expect(byStander.body.detail).toBe('The search no longer holds this run');
+    expect(byStander.body.detail).toBe(
+      'This run is no longer the active run of the search',
+    );
     await finished(
       bystander,
       ((await entryOf(bystander.runId))?.replayId ?? '') === strong.replayId
@@ -438,7 +444,7 @@ describe('a search for a better station config', () => {
     expect(ofRun.search).toEqual({ searchId: id, candidateName: 'in-order' });
     expect(await replayEnded(weak.replayId)).toBe('finished');
 
-    const second = await heldSearchRun(id, 2);
+    const second = await leasedSearchRun(id, 2);
     const later = (
       await bearing(second.token)
         .get(`/api/runs/${second.runId}/history?station=build`)
@@ -454,12 +460,16 @@ describe('a search for a better station config', () => {
       expect(candidate.runs.map((each) => each.original).sort()).toEqual(
         searchedRuns,
       );
-      expect(candidate.runs.some((each) => held.has(each.taskId))).toBe(false);
+      expect(
+        candidate.runs.some((each) => heldOutTaskIds.has(each.taskId)),
+      ).toBe(false);
     }
     expect(
       later.candidates[2]?.runs.every((each) => each.succeeded === false),
     ).toBe(true);
-    expect(later.runs.some((each) => held.has(each.taskId))).toBe(false);
+    expect(later.runs.some((each) => heldOutTaskIds.has(each.taskId))).toBe(
+      false,
+    );
 
     await endedSearchRun(second);
     await eventually(async () => {
@@ -467,17 +477,17 @@ describe('a search for a better station config', () => {
       return (await searchRow(id))?.heldOut.length === 1;
     }, WITHIN);
 
-    const holding = await searchOf(id);
-    const heldOutReplayId = holding.candidates.find(
+    const current = await searchOf(id);
+    const heldOutReplayId = current.candidates.find(
       (each) => each.name === 'in-order',
     )?.heldOutReplayId as string;
 
-    expect(holding.state).toBe('holding-out');
-    expect(holding.ending).toBe('iterations-spent');
+    expect(current.state).toBe('holding-out');
+    expect(current.ending).toBe('iterations-spent');
     expect(
-      holding.candidates.find((each) => each.name === 'terse')?.heldOutReplayId,
+      current.candidates.find((each) => each.name === 'terse')?.heldOutReplayId,
     ).toBeNull();
-    expect(await originalsOf(heldOutReplayId)).toEqual(heldRuns);
+    expect(await originalsOf(heldOutReplayId)).toEqual(heldOutRuns);
 
     await drained(() => ({ score: 5, cost: 0.1 }));
     await eventually(async () => {

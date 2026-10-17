@@ -37,7 +37,10 @@ export class NotifyOutsideTools {
         return;
       }
 
-      const marked = kept.reduce((held, mark) => held.markedBy(mark), current);
+      const marked = kept.reduce(
+        (wearer, mark) => wearer.markedBy(mark),
+        current,
+      );
 
       await takeWornMarks(this.tasks, marked);
       await this.tasks.save(marked);

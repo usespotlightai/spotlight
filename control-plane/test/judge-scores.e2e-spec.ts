@@ -125,7 +125,7 @@ const endedRecord = (runId: string) =>
     }),
   );
 
-let held: TestDatabase;
+let database: TestDatabase;
 let judgings: DrizzleJudgingRepository;
 let scores: DrizzleScoreRepository;
 let records: DrizzleRunRecordRepository;
@@ -134,8 +134,8 @@ let context: DrizzleContext;
 const dispatched: DomainEvent[] = [];
 
 beforeAll(async () => {
-  held = await openDatabase('judge_scores');
-  context = new DrizzleContext(held.db);
+  database = await openDatabase('judge_scores');
+  context = new DrizzleContext(database.db);
   const dispatcher = {
     dispatch: async (events: readonly DomainEvent[]) => {
       dispatched.push(...events);
@@ -150,7 +150,7 @@ beforeAll(async () => {
   );
   reports = new StationJudgeReports(
     {
-      holds: async () => true,
+      hasTask: async () => true,
       of: async () => null,
       judgesOnTeam: async () => new Map(),
       judgeAt: async (stationId) =>
@@ -187,11 +187,11 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('judgings, kept', () => {
-  it('holds a judging as owed work until it is judged, and says so', async () => {
+  it('keeps a judging as owed work until it is judged, and says so', async () => {
     await judgings.add(
       Judging.asked({
         runId: RunId.of('run_judged'),
@@ -213,9 +213,9 @@ describe('judgings, kept', () => {
     await judgings.save(leased);
     expect(await judgings.dueForWork(NOW)).toBeNull();
 
-    const held = await judgings.of(RunId.of('run_judged'));
+    const judging = await judgings.of(RunId.of('run_judged'));
     await judgings.save(
-      held?.recordVerdict({
+      judging?.recordVerdict({
         verdict: {
           value: true,
           reasons: [{ text: 'It retried.', steps: [4], hunks: [] }],

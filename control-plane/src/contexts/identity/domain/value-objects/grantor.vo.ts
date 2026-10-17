@@ -12,11 +12,11 @@ export class Grantor {
 
   static of(principal: Principal): Grantor {
     return principal.kind === 'token'
-      ? Grantor.holding(principal.scopes)
+      ? Grantor.withScopes(principal.scopes)
       : Grantor.unlimited;
   }
 
-  static holding(scopes: TokenScopes): Grantor {
+  static withScopes(scopes: TokenScopes): Grantor {
     return new Grantor({ kind: 'scoped', scopes });
   }
 

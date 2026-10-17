@@ -36,13 +36,13 @@ type CheckRow = typeof replayCheck.$inferSelect;
 
 const ATTEMPT_INDEX = 'replay_check_attempt_idx';
 
-const scoringFieldOf = (held: string): ScoringField => {
-  const field = SCORING_FIELDS.find((each) => each === held);
+const scoringFieldOf = (raw: string): ScoringField => {
+  const field = SCORING_FIELDS.find((each) => each === raw);
 
   if (!field) {
     throw new InconsistentStateError(
       'replay check',
-      `kept a part of the live station no longer known, ${held}`,
+      `kept a part of the live station no longer known, ${raw}`,
     );
   }
 

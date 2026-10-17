@@ -51,7 +51,7 @@ describe('AutoGrowTextarea', () => {
     expect(textarea).toHaveAttribute('rows', '2');
   });
 
-  it('grows to what it holds where it can be measured', () => {
+  it('grows to what it contains where it can be measured', () => {
     const scrollHeight = Object.getOwnPropertyDescriptor(
       HTMLElement.prototype,
       'scrollHeight',

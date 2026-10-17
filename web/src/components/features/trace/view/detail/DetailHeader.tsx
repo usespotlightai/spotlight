@@ -1,5 +1,5 @@
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
-import { holdings, reported } from '@/lib/detail';
+import { contentsOf, reported } from '@/lib/detail';
 import { counted, spentOn, spokenAt, took } from '@/lib/inbox';
 import { REASON_LABELS, TROUBLE_LABELS } from '@/lib/run-network';
 import type { TraceNode } from '@/lib/trace';
@@ -19,7 +19,7 @@ const tokensOf = (node: TraceNode): string | null => {
 };
 
 export function DetailHeader({ node }: { node: TraceNode }) {
-  const held = holdings(node);
+  const contents = contentsOf(node);
   const model = reported(node, 'gen_ai.request.model', 'llm.model_name');
   const tokens = tokensOf(node);
 
@@ -71,12 +71,12 @@ export function DetailHeader({ node }: { node: TraceNode }) {
         {node.cost !== null && (
           <DetailProperty name="Cost">{spentOn(node.cost)}</DetailProperty>
         )}
-        {held.rows > 0 && (
-          <DetailProperty name="Rows">{held.rows}</DetailProperty>
+        {contents.rows > 0 && (
+          <DetailProperty name="Rows">{contents.rows}</DetailProperty>
         )}
-        {held.faults > 0 && (
+        {contents.faults > 0 && (
           <DetailProperty name="Faults" failed>
-            {held.faults}
+            {contents.faults}
           </DetailProperty>
         )}
       </dl>

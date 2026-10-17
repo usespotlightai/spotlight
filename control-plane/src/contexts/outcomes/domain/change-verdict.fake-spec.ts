@@ -21,13 +21,13 @@ const readingOfRuns = (
   deliveries: readonly TaskDelivery[],
 ): MeasureReading => {
   const settled = settledFor(measure, deliveries);
-  const held = records.filter((each) => each.ran && settled(each));
+  const settledRuns = records.filter((each) => each.ran && settled(each));
 
   return {
-    value: measureOf(measure, held, deliveries),
-    settled: held.length,
+    value: measureOf(measure, settledRuns, deliveries),
+    settled: settledRuns.length,
     currency:
-      spendingOf(held.map((each) => each.cost?.spend ?? null)).spend
+      spendingOf(settledRuns.map((each) => each.cost?.spend ?? null)).spend
         ?.currency ?? null,
   };
 };

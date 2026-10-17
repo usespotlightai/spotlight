@@ -14,7 +14,7 @@ import type {
 import type { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
+import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -56,14 +56,14 @@ describe('BeginOAuth2ConnectionHandler', () => {
     over: {
       allowed?: boolean;
       member?: boolean;
-      holding?: ConnectionHolding;
+      holder?: ConnectionHolderRule;
     } = {},
   ) => {
     const begin = vi.fn(async () => BEGUN);
     const integration = Integration.of({
       source: SourceKey.of('slack'),
       connects: true,
-      holding: over.holding ?? ConnectionHolding.team(),
+      holder: over.holder ?? ConnectionHolderRule.team(),
     });
 
     return {
@@ -108,7 +108,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
   it('lets any member connect their own account where the integration acts as each person', async () => {
     const { handler, begin } = beginning({
       allowed: false,
-      holding: ConnectionHolding.requester(),
+      holder: ConnectionHolderRule.requester(),
     });
 
     expect(
@@ -132,7 +132,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
   it('refuses someone who is not on the team', async () => {
     const { handler, begin } = beginning({
       member: false,
-      holding: ConnectionHolding.requester(),
+      holder: ConnectionHolderRule.requester(),
     });
 
     expect(await handler.execute(command('person'))).toBeNull();
@@ -163,13 +163,13 @@ describe('FinishOAuth2ConnectionHandler', () => {
       authorized?: OAuth2Authorized | null;
       allowed?: boolean;
       member?: boolean;
-      holding?: ConnectionHolding;
+      holder?: ConnectionHolderRule;
     } = {},
   ) => {
     const integration = Integration.of({
       source: SourceKey.of('slack'),
       connects: true,
-      holding: over.holding ?? ConnectionHolding.requester(),
+      holder: over.holder ?? ConnectionHolderRule.requester(),
     });
     const dispatch = vi.fn(
       async (_events: readonly { kind: string }[]) => undefined,
@@ -235,7 +235,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     );
   });
 
-  it('stores nothing when the callback does not hold up', async () => {
+  it('stores nothing when the callback is not valid', async () => {
     const { handler, save } = finishing({ authorized: null });
 
     expect(await handler.execute(command())).toBeNull();
@@ -281,7 +281,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
 
   it('refuses a person’s own connection once the integration acts as the team', async () => {
     const { handler, save } = finishing({
-      holding: ConnectionHolding.team(),
+      holder: ConnectionHolderRule.team(),
       authorized: { ...authorized, holder: 'person' },
     });
 

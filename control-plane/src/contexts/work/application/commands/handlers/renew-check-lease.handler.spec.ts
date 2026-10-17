@@ -48,7 +48,7 @@ const renewal = () =>
   new RenewCheckLeaseCommand('run_1', 'stack_1', false, 'runner_1');
 
 describe('RenewCheckLeaseHandler', () => {
-  it('keeps the runner standing while it renews the check it holds', async () => {
+  it('keeps the runner standing while it renews the check it leases', async () => {
     const { handler, seen, renewLease } = renewing();
 
     await expect(handler.execute(renewal())).resolves.toBe('renewed');
@@ -79,10 +79,10 @@ describe('RenewCheckLeaseHandler', () => {
   });
 
   it('answers a refusal to renew as a fault', async () => {
-    const notHeld = Object.assign(new Error('not held'), {
+    const notLeased = Object.assign(new Error('not leased'), {
       violation: 'conflict' as const,
     });
-    const { handler } = renewing({ answer: notHeld });
+    const { handler } = renewing({ answer: notLeased });
 
     await expect(handler.execute(renewal())).rejects.toMatchObject({
       kind: 'conflict',

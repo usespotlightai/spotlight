@@ -47,7 +47,7 @@ const pessimisticCeiling = ({ version, segments }: Clause): CatalogVersion =>
     ? CatalogVersion.at(version.major, version.minor + 1)
     : CatalogVersion.at(version.major + 1);
 
-const holds = (clause: Clause, version: CatalogVersion): boolean => {
+const satisfies = (clause: Clause, version: CatalogVersion): boolean => {
   const against = version.compare(clause.version);
 
   switch (clause.operator) {
@@ -88,7 +88,7 @@ export class VersionConstraint {
   }
 
   admits(version: CatalogVersion): boolean {
-    return this.clauses.every((each) => holds(each, version));
+    return this.clauses.every((each) => satisfies(each, version));
   }
 
   toString(): string {

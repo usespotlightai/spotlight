@@ -35,7 +35,7 @@ export class IntegrationTools implements IntegrationToolsPort {
 
     const [task, line] = await Promise.all([
       this.tasks.find(context.taskId),
-      this.lines.holding(context.stationId),
+      this.lines.findByStation(context.stationId),
     ]);
     const bound = task && line ? await this.bindings.of(task, line) : null;
     const found = bound

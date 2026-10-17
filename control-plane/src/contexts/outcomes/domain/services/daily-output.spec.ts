@@ -364,7 +364,7 @@ describe('configMarkersOf, carrying on from before the lookback', () => {
     ).toEqual([]);
   });
 
-  it('carries on from where the history it holds starts in full, passing over runs held from before then', () => {
+  it('carries on from where the history it has starts in full, passing over runs from before then', () => {
     expect(
       configMarkersOf(
         historyOf({

@@ -31,7 +31,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
   let app: INestApplication;
   let db: DrizzleDatabase;
   let platform: WorkloadIssuer;
-  let held: string;
+  let workspaceId: string;
   let owner: string;
   let unseat: () => Promise<void>;
 
@@ -39,7 +39,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
   const trusted = async (labels: string[] = ['vpc-internal']) => {
     const made = await http()
-      .post(`/api/resources/workspaces/${held}/runner-trusts`)
+      .post(`/api/resources/workspaces/${workspaceId}/runner-trusts`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({
@@ -101,7 +101,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
     await db.insert(schema.run).values({
       id,
-      workspaceId: held,
+      workspaceId,
       harness: 'dev',
       state: 'queued',
       priority: 1000,
@@ -129,8 +129,8 @@ describe('a host claiming through a runner trust, as a platform workload with no
   });
 
   beforeEach(async () => {
-    held = `workload-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    workspaceId = `workload-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     unseat = seat.unseat;
   });
@@ -139,7 +139,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     await db
       .delete(schema.idempotentCreate)
       .where(eq(schema.idempotentCreate.scope, `person:${owner}`));
-    await forgetRunnersOf(db, held);
+    await forgetRunnersOf(db, workspaceId);
     await unseat();
   });
 
@@ -199,7 +199,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
   it('hands over a check placed on its trust’s label', async () => {
     const trust = await trusted();
-    const stackId = await awaitingCheck(db, held, [['vpc-internal']]);
+    const stackId = await awaitingCheck(db, workspaceId, [['vpc-internal']]);
     await present(trust.id, await workload()).expect(200);
 
     const claimed = await claim(trust.id, await workload());
@@ -261,7 +261,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     expect((await claim(trust.id, await workload())).status).toBe(401);
   });
 
-  it('lets a host through a trust say it is here, what it holds and what it runs, and ask what it should serve', async () => {
+  it('lets a host through a trust say it is here, what it has and what it runs, and ask what it should serve', async () => {
     const trust = await trusted();
 
     const answered = await present(trust.id, await workload(), ['run-1']);

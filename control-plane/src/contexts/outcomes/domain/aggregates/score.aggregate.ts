@@ -63,7 +63,7 @@ const markedClaims = (state: ScoreState): boolean => {
 };
 
 const checked = (state: ScoreState): ScoreState => {
-  if (!state.scale.holds(state.value)) {
+  if (!state.scale.includes(state.value)) {
     throw new InvalidScoreError(
       `${state.value} is not on the ${state.scale.kind} scale`,
     );

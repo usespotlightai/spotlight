@@ -616,12 +616,12 @@ describe('a replay set', () => {
       );
 
     await eventually(async () => {
-      const [hold] = await db
+      const [startingPointHold] = await db
         .select()
         .from(schema.startingPointHold)
         .where(eq(schema.startingPointHold.holder, `replay-set:${setId}`));
 
-      return hold?.runIds.includes(original.runId) ?? false;
+      return startingPointHold?.runIds.includes(original.runId) ?? false;
     });
 
     expect(await due()).toBeUndefined();
@@ -1174,11 +1174,11 @@ describe('a replay', () => {
 
     await owner().delete(`${teamPath()}/replay-sets/${setId}`).expect(204);
     await eventually(async () => {
-      const held = await db
+      const startingPointHolds = await db
         .select()
         .from(schema.startingPointHold)
         .where(and(eq(schema.startingPointHold.holder, `replay-set:${setId}`)));
-      return held.length === 0;
+      return startingPointHolds.length === 0;
     });
     await eventually(async () => (await replayRow(id)) === undefined);
   });
@@ -1407,13 +1407,13 @@ describe('a replay set whose station leaves its line', () => {
   it('is still listed for the team, lets go of its archives, starts nothing, and may be deleted', async () => {
     const original = await anOriginal({ stationId: POLISH });
     const setId = await openSetAt(POLISH, 'Reviewed', original);
-    const holdOf = () =>
+    const startingPointHoldsOf = () =>
       db
         .select()
         .from(schema.startingPointHold)
         .where(eq(schema.startingPointHold.holder, `replay-set:${setId}`));
 
-    await eventually(async () => (await holdOf()).length === 1);
+    await eventually(async () => (await startingPointHoldsOf()).length === 1);
 
     const { id: replayId } = await startReplay(setId, 'live', 1);
     await dispatched();
@@ -1443,7 +1443,7 @@ describe('a replay set whose station leaves its line', () => {
         .body as { id: string; stationGone: boolean }[];
       return sets.find((each) => each.id === setId)?.stationGone === true;
     });
-    await eventually(async () => (await holdOf()).length === 0);
+    await eventually(async () => (await startingPointHoldsOf()).length === 0);
 
     expect((await runRow(replayRun as string))?.stationId).toBeNull();
 

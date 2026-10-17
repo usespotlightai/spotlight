@@ -67,7 +67,7 @@ describe('NoteRunMemories', () => {
     expect((await records.of(RUN))?.memories.recalled).toEqual([]);
   });
 
-  it('keeps nothing for a task that was forgotten, and lets go of what it held', async () => {
+  it('keeps nothing for a task that was forgotten, and lets go of what it kept', async () => {
     const { records, forgotten, heard } = noting();
 
     await heard('briefed', ['mem_1']);
@@ -75,7 +75,7 @@ describe('NoteRunMemories', () => {
     await heard('recalled', ['mem_2']);
 
     expect(await records.of(RUN)).toBeNull();
-    expect(forgotten.holds).toContain(`${WORKSPACE.value} ${TASK.value}`);
+    expect(forgotten.locks).toContain(`${WORKSPACE.value} ${TASK.value}`);
   });
 
   it('keeps nothing for a workspace that was closed', async () => {

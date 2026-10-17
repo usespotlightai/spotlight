@@ -18,9 +18,9 @@ import { WorkspaceTokenTrustDefined } from '@identity/domain/events/workspace-to
 import { WorkspaceTokenTrustRedefined } from '@identity/domain/events/workspace-token-trust-redefined.event';
 import { WorkspaceTokenTrustWithdrawn } from '@identity/domain/events/workspace-token-trust-withdrawn.event';
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { Grantor } from '@identity/domain/value-objects/grantor.vo';
-import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
 import { MintedTokenDetail } from '@identity/domain/value-objects/minted-token-detail.vo';
@@ -46,7 +46,7 @@ export const IDENTITY_PAYLOAD_TYPES = [
   InviteTerms,
   MintedTokenDetail,
   RunTokenDetail,
-  Holdings,
+  Dependents,
   TeamKey,
   TeamName,
   TokenDescription,

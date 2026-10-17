@@ -159,8 +159,8 @@ func (s *spotlight) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	answer, held := s.answers[route]
-	if !held {
+	answer, found := s.answers[route]
+	if !found {
 		w.Header().Set("Content-Type", "application/problem+json")
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"title":"No such thing","detail":"No such thing that you may see","status":404}`))
@@ -451,7 +451,7 @@ func TestStatusOwnsUpToSpendingPastTheCeiling(t *testing.T) {
 	}
 }
 
-func TestStatusOfACandidateThatHeldUpExitsCleanly(t *testing.T) {
+func TestStatusOfACandidateThatDidNotRegressExitsCleanly(t *testing.T) {
 	spotlight := serve(t)
 	spotlight.replays = []string{replayOf("finished", false)}
 

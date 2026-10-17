@@ -7,7 +7,7 @@ export const marksTakenFrom = (
   [...new Map(wearers.map((each) => [each.id.value, each])).values()].flatMap(
     (wearer) => {
       const given = taker.marks.reduce(
-        (held, mark) => held.markTakenBy(mark, taker.id),
+        (task, mark) => task.markTakenBy(mark, taker.id),
         wearer,
       );
 

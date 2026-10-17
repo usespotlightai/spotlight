@@ -17,7 +17,7 @@ beforeEach(() => {
 });
 
 describe('useAttachments', () => {
-  it('uploads a file the moment it is added, and holds its id once done', async () => {
+  it('uploads a file the moment it is added, and keeps its id once done', async () => {
     uploaded.mockResolvedValue({ id: 'att_1' });
     const { result } = renderHook(() => useAttachments('acme'));
 

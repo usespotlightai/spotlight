@@ -27,7 +27,7 @@ export interface RememberedRun {
   readonly cut: readonly string[];
 }
 
-export interface HeldRun extends RunSite {
+export interface LeasedRun extends RunSite {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
@@ -70,7 +70,7 @@ export interface TeamLine {
 export interface WorkPort {
   run(runId: RunId): Promise<RememberedRun | null>;
 
-  heldBy(runId: RunId, runner: RunnerId): Promise<HeldRun | null>;
+  leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRun | null>;
 
   siteOfRun(runId: RunId): Promise<RunSite | null>;
 

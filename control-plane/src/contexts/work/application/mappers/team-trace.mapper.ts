@@ -25,8 +25,8 @@ export const TeamTraceMapper = {
   ): TeamTraceDto {
     const spent = together(
       summary.runIds.flatMap((runId) => {
-        const held = digests.get(runId.value);
-        return held ? [held] : [];
+        const digest = digests.get(runId.value);
+        return digest ? [digest] : [];
       }),
     );
 

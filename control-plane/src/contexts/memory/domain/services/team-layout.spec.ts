@@ -21,14 +21,14 @@ const layout = TeamLayout.of({
 });
 
 describe('TeamLayout', () => {
-  it('holds a memory to the whole team when it names no line', () => {
+  it('keeps a memory to the whole team when it names no line', () => {
     const scope = layout.scopeOf({});
 
     expect(scope.reach).toBe('team');
     expect(scope.teamId.value).toBe('team_1');
   });
 
-  it('holds a memory to a line, or a station of it', () => {
+  it('keeps a memory to a line, or a station of it', () => {
     expect(layout.scopeOf({ lineId: 'line_delivery' }).reach).toBe('line');
     expect(
       layout.scopeOf({ lineId: 'line_delivery', stationId: 'station_build' })

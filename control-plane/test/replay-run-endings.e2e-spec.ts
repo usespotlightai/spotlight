@@ -255,11 +255,11 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
 
   it('stores a run no runner finished as unscored, and one that kept running past its time as failed', async () => {
     const lapsing = (lose: (run: Run, at: Date) => Run) => (run: Run) => {
-      let held = lose(run, NOW);
+      let lapsed = lose(run, NOW);
       for (let attempt = 1; attempt < 3; attempt += 1) {
-        held = lose(held.claim(RUNNER, NOW), NOW);
+        lapsed = lose(lapsed.claim(RUNNER, NOW), NOW);
       }
-      return held;
+      return lapsed;
     };
     const later = (at: Date) => new Date(at.getTime() + 3_600_000);
 

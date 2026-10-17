@@ -111,13 +111,13 @@ describe('HookFiring', () => {
       expect(waiting.claimed(later(2_000)).progress.kind).toBe('working');
     });
 
-    it('is not claimed from a worker still holding it, only once its lease lapses', () => {
-      const held = kept(working());
+    it('is not claimed from a worker that still has the lease, only once its lease lapses', () => {
+      const leased = kept(working());
 
-      expect(() => held.claimed(later(10 * 60_000))).toThrow(
+      expect(() => leased.claimed(later(10 * 60_000))).toThrow(
         InvalidHookFiringTransitionError,
       );
-      expect(held.claimed(later(10 * 60_000 + 1)).progress).toEqual({
+      expect(leased.claimed(later(10 * 60_000 + 1)).progress).toEqual({
         kind: 'working',
         claimedAt: later(10 * 60_000 + 1),
       });
@@ -132,7 +132,7 @@ describe('HookFiring', () => {
     });
   });
 
-  describe('while a worker holds it', () => {
+  describe('while a worker has the lease', () => {
     it('keeps the steps it has taken', () => {
       expect(working().recordStep([DONE_A]).steps).toEqual([DONE_A]);
     });
@@ -186,7 +186,7 @@ describe('HookFiring', () => {
       expect(done.finished).toBe(true);
     });
 
-    it('refuses every change unless a worker holds it', () => {
+    it('refuses every change unless a worker has the lease', () => {
       const pending = kept(fired());
 
       expect(() => pending.recordStep([DONE_A])).toThrow(

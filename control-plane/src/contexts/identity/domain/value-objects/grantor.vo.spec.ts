@@ -18,7 +18,7 @@ describe('Grantor', () => {
     ).toBe(true);
   });
 
-  it('grants through a token no more than the token holds', () => {
+  it('grants through a token no more than the token has', () => {
     const token = (scopes: string[]) =>
       Grantor.of(
         TokenPrincipal.of({

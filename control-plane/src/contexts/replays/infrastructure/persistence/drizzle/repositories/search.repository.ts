@@ -74,8 +74,8 @@ const ACTIVE_INDEX = 'replay_search_active_idx';
 
 const active = inArray(replaySearch.state, [...ACTIVE_SEARCH_STATES]);
 
-const isReplayEnd = (held: string): held is ReplayEnd =>
-  (REPLAY_ENDS as readonly string[]).includes(held);
+const isReplayEnd = (raw: string): raw is ReplayEnd =>
+  (REPLAY_ENDS as readonly string[]).includes(raw);
 
 const searchReplayOf = (
   stored: StoredSearchReplay,
@@ -84,7 +84,7 @@ const searchReplayOf = (
   if (stored.end !== null && !isReplayEnd(stored.end)) {
     throw new InconsistentStateError(
       'search',
-      `holds a replay that ended in a way no longer known, ${stored.end}`,
+      `has a replay that ended in a way no longer known, ${stored.end}`,
     );
   }
 
@@ -450,52 +450,52 @@ export class DrizzleSearchRepository implements SearchRepository {
     });
   }
 
-  private columnsOf(held: Search) {
+  private columnsOf(aggregate: Search) {
     return {
-      id: held.id.value,
-      workspaceId: held.workspaceId.value,
-      teamId: held.teamId.value,
-      lineId: held.station.lineId,
-      stationId: held.station.stationId,
-      setId: held.setId.value,
-      harness: held.agent.harness,
-      model: held.agent.model,
-      effort: held.agent.effort,
-      iterations: held.budget.iterations,
-      perIteration: held.budget.perIteration,
-      ceilingAmount: held.budget.ceiling.amount,
-      ceilingCurrency: held.budget.ceiling.currency,
-      concurrency: held.budget.concurrency,
-      repeats: held.budget.repeats,
-      objective: held.objective,
+      id: aggregate.id.value,
+      workspaceId: aggregate.workspaceId.value,
+      teamId: aggregate.teamId.value,
+      lineId: aggregate.station.lineId,
+      stationId: aggregate.station.stationId,
+      setId: aggregate.setId.value,
+      harness: aggregate.agent.harness,
+      model: aggregate.agent.model,
+      effort: aggregate.agent.effort,
+      iterations: aggregate.budget.iterations,
+      perIteration: aggregate.budget.perIteration,
+      ceilingAmount: aggregate.budget.ceiling.amount,
+      ceilingCurrency: aggregate.budget.ceiling.currency,
+      concurrency: aggregate.budget.concurrency,
+      repeats: aggregate.budget.repeats,
+      objective: aggregate.objective,
       split: {
-        searched: storedSplitEntries(held.split.searched),
-        heldOut: storedSplitEntries(held.split.heldOut),
+        searched: storedSplitEntries(aggregate.split.searched),
+        heldOut: storedSplitEntries(aggregate.split.heldOut),
       },
-      seedCandidateId: held.seed.candidateId.value,
-      seedFingerprint: held.seed.fingerprint.value,
-      seedReplay: storedReplay(held.seed.replay),
-      heldOut: held.heldOut.map((each) => ({
+      seedCandidateId: aggregate.seed.candidateId.value,
+      seedFingerprint: aggregate.seed.fingerprint.value,
+      seedReplay: storedReplay(aggregate.seed.replay),
+      heldOut: aggregate.heldOut.map((each) => ({
         candidateId: each.candidateId.value,
         replay: storedReplay(each.replay),
       })),
-      state: held.current,
-      ending: held.ending,
-      startedBy: held.startedBy?.value ?? null,
-      startedAt: held.startedAt,
-      endedAt: held.endedAt,
+      state: aggregate.current,
+      ending: aggregate.ending,
+      startedBy: aggregate.startedBy?.value ?? null,
+      startedAt: aggregate.startedAt,
+      endedAt: aggregate.endedAt,
     };
   }
 
-  private async writeIterations(held: Search): Promise<void> {
+  private async writeIterations(aggregate: Search): Promise<void> {
     await this.context.db
       .delete(replaySearchIteration)
-      .where(eq(replaySearchIteration.searchId, held.id.value));
+      .where(eq(replaySearchIteration.searchId, aggregate.id.value));
 
-    if (held.iterations.length > 0) {
+    if (aggregate.iterations.length > 0) {
       await this.context.db.insert(replaySearchIteration).values(
-        held.iterations.map((each) => ({
-          searchId: held.id.value,
+        aggregate.iterations.map((each) => ({
+          searchId: aggregate.id.value,
           number: each.number,
           runId: each.runId.value,
           kind: each.kind,

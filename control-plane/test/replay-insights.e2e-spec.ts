@@ -441,7 +441,7 @@ const replayEnded = (replayId: string) =>
     return state !== 'queued' && state !== 'running' ? state : null;
   }, WITHIN);
 
-const heldSearchRun = async (
+const leasedSearchRun = async (
   searchId: string,
   iteration: number,
 ): Promise<Claimed> => {
@@ -706,7 +706,7 @@ describe('replayed candidates beside live runs', () => {
     await drained(() => ({ score: 3, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    const agent = await heldSearchRun(id, 1);
+    const agent = await leasedSearchRun(id, 1);
     const block = await liveBlock();
     const proposed = (
       await proposing(agent, {

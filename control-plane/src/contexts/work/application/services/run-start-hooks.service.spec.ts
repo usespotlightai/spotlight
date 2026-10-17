@@ -52,7 +52,7 @@ const starting = (
     now?: Date;
   } = {},
 ) => {
-  let held = claimed();
+  let current = claimed();
   let clashes = over.clashes ?? 0;
   const asked: BeforeMoment[] = [];
   const untils: (Date | undefined)[] = [];
@@ -63,13 +63,13 @@ const starting = (
       : ({ taskId, runId } as unknown as HookedTaskDto),
   );
   const runs = {
-    findById: vi.fn(async () => held),
+    findById: vi.fn(async () => current),
     save: vi.fn(async (run: Run) => {
       if (clashes > 0) {
         clashes -= 1;
         throw new RunVersionConflictError(run.id.value);
       }
-      held = run;
+      current = run;
     }),
   };
 
@@ -77,7 +77,7 @@ const starting = (
     asked,
     of,
     runs,
-    held: () => held,
+    current: () => current,
     hooks: new RunStartHooks(
       runs as unknown as RunRepository,
       { of } as unknown as HookedTasksPort,
@@ -116,24 +116,24 @@ describe('RunStartHooks', () => {
   });
 
   it('ends a run a hook refuses, saying why', async () => {
-    const { hooks, held } = starting({
+    const { hooks, current } = starting({
       verdict: { kind: 'refused', reason: REASON },
     });
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('refused');
-    expect(held().state).toBe('failed');
-    expect(held().outcome?.message).toBe(REASON);
+    expect(current().state).toBe('failed');
+    expect(current().outcome?.message).toBe(REASON);
   });
 
   it('reads the run again when it changed while being refused', async () => {
-    const { hooks, held, runs } = starting({
+    const { hooks, current, runs } = starting({
       verdict: { kind: 'refused', reason: REASON },
       clashes: 1,
     });
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('refused');
     expect(runs.findById).toHaveBeenCalledTimes(2);
-    expect(held().state).toBe('failed');
+    expect(current().state).toBe('failed');
   });
 
   it('asks nothing about a chat’s run', async () => {
@@ -177,14 +177,14 @@ describe('RunStartHooks', () => {
   });
 
   it('hands a run back, attempt unspent, when its hooks could not be asked', async () => {
-    const { hooks, held, warned } = starting({ unreachable: true });
+    const { hooks, current, warned } = starting({ unreachable: true });
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe(
       'handed-back',
     );
-    expect(held().state).toBe('queued');
-    expect(held().attempt).toBe(1);
-    expect(held().claimedBy).toBeNull();
+    expect(current().state).toBe('queued');
+    expect(current().attempt).toBe(1);
+    expect(current().claimedBy).toBeNull();
     expect(warned).toHaveLength(1);
   });
 });

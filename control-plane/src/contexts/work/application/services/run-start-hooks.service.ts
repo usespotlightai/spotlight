@@ -43,14 +43,14 @@ export class RunStartHooks {
     }
 
     if (verdict.kind === 'refused') {
-      await this.revised(run, runner, (held) =>
-        held.refusedToStart(runner, verdict.reason),
+      await this.revised(run, runner, (current) =>
+        current.refusedToStart(runner, verdict.reason),
       );
       return 'refused';
     }
 
-    await this.revised(run, runner, (held) =>
-      held.handedBack(runner, this.clock.now(), verdict.because),
+    await this.revised(run, runner, (current) =>
+      current.handedBack(runner, this.clock.now(), verdict.because),
     );
     return 'handed-back';
   }
@@ -94,7 +94,7 @@ export class RunStartHooks {
   private async revised(
     run: Run,
     runner: RunnerId,
-    change: (held: Run) => Run,
+    change: (current: Run) => Run,
   ): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       const found = await this.runs.findById(run.id);

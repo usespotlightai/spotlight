@@ -161,7 +161,7 @@ const work: WorkPort = {
     })),
 };
 
-let held: TestDatabase;
+let database: TestDatabase;
 let records: DrizzleRunRecordRepository;
 let deliveries: DrizzleTaskDeliveryRepository;
 let subscribers: readonly DomainEventSubscriber[];
@@ -265,8 +265,8 @@ const configPullRequestOpened = (
   });
 
 beforeAll(async () => {
-  held = await openDatabase('station_outcomes');
-  context = new DrizzleContext(held.db);
+  database = await openDatabase('station_outcomes');
+  context = new DrizzleContext(database.db);
   const quiet = {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher;
@@ -336,7 +336,7 @@ beforeAll(async () => {
     judging: new AskForJudging(
       work,
       {
-        holds: async () => true,
+        hasTask: async () => true,
         of: async () => null,
         judgesOnTeam: async () => new Map(),
         judgeAt: async () => null,
@@ -412,7 +412,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('how a station’s runs turned out', () => {
@@ -651,7 +651,7 @@ describe('how a station’s runs turned out', () => {
     const outcomes = await list();
 
     expect(
-      await held.db
+      await database.db
         .select({ openedAt: stationConfigPullRequest.openedAt })
         .from(stationConfigPullRequest)
         .where(eq(stationConfigPullRequest.configPullRequestId, '41')),
@@ -786,7 +786,7 @@ describe('how a station’s runs turned out', () => {
   it('records nothing of a task heard of while its forgetting is under way, once the forgetting commits', async () => {
     let locked: () => void = () => {};
     let release: () => void = () => {};
-    const forgettingHolds = new Promise<void>((resolve) => {
+    const forgettingLocked = new Promise<void>((resolve) => {
       locked = resolve;
     });
     const released = new Promise<void>((resolve) => {
@@ -800,7 +800,7 @@ describe('how a station’s runs turned out', () => {
       locked();
       await released;
     });
-    await forgettingHolds;
+    await forgettingLocked;
 
     const noting = deliver('outcomes.record-next-person-act', {
       kind: TASK_ACTED_ON,

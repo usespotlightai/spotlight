@@ -455,7 +455,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     });
   });
 
-  it('holds a tool that may destroy data for a person, and runs it with what they changed', async () => {
+  it('stops a tool that may destroy data until a person approves it, and runs it with what they changed', async () => {
     const { taskId, runId, token } = await aClaimedRun();
 
     await runner(token)

@@ -32,7 +32,7 @@ export class GrantWorkspaceArchiveHandler
     try {
       const run = await this.runs.findById(RunId.of(command.runId));
 
-      if (!run?.isHeldBy(RunnerId.of(command.runnerId))) {
+      if (!run?.isLeasedBy(RunnerId.of(command.runnerId))) {
         return null;
       }
 

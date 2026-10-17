@@ -25,7 +25,7 @@ export type ParsedIntegration =
 
 export interface IntegrationCompilerPort {
   compile(
-    held: unknown,
+    raw: unknown,
     described?: DescribedOperations | null,
   ): ParsedIntegration;
 }

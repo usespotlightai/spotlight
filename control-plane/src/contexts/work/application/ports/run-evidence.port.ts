@@ -38,7 +38,7 @@ export interface EvidencedRun {
 }
 
 export interface RunEvidencePort {
-  holds(runId: string): Promise<boolean>;
+  hasTask(runId: string): Promise<boolean>;
 
   of(runId: string): Promise<EvidencedRun | null>;
 

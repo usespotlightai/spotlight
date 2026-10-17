@@ -545,7 +545,7 @@ describe('Line', () => {
     ]);
   });
 
-  it('refuses to change a station it does not hold', () => {
+  it('refuses to change a station it does not have', () => {
     expect(() =>
       lineOf([at(1)]).changeStationHarness(StationId.of('station_missing'), {
         harness: HarnessId.of('dev'),
@@ -562,7 +562,7 @@ describe('Line', () => {
     expect(line.worked[0]?.harness).toBeNull();
   });
 
-  it('holds its stations in board order however they arrive', () => {
+  it('keeps its stations in board order however they arrive', () => {
     expect(
       lineOf([at(3), at(1), at(2)]).stations.map((e) => e.position),
     ).toEqual([0, 1, 2, 3, 4]);
@@ -754,7 +754,7 @@ describe('Line, where work may be handed on to', () => {
     ).toEqual(['spec', 'implementation', 'review', 'done']);
   });
 
-  it('offers only a person from a station it does not hold', () => {
+  it('offers only a person from a station it does not have', () => {
     expect(
       running()
         .optionsFrom(StationId.of('station_missing'))

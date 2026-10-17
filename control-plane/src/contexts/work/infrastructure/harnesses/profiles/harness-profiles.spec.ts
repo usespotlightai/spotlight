@@ -101,7 +101,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
   });
 
   describe('Claude Code', () => {
-    it('writes what may be relaxed at user level, and what must hold as managed settings', () => {
+    it('writes what may be relaxed at user level, and what must apply as managed settings', () => {
       const { setup } = prepared('claude-code', CAREFUL);
 
       expect(json(fileAt(setup, 'claude/settings.json'))).toEqual({
@@ -291,7 +291,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
       );
     });
 
-    it('says a read rule is not held, since its sandbox reads anything', () => {
+    it('says a read rule does not apply, since its sandbox reads anything', () => {
       expect(
         warned(CAREFUL, 'Codex reads whatever its sandbox can see'),
       ).toEqual([
@@ -311,7 +311,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
       ]);
     });
 
-    it('says an edit rule is not held, since codex-acp sets the sandbox on every turn', () => {
+    it('says an edit rule does not apply, since codex-acp sets the sandbox on every turn', () => {
       expect(
         warned(
           profile({ rules: [rule('deny', 'edit', null)] }),

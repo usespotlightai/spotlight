@@ -272,14 +272,14 @@ describe('Chat', () => {
     expect(released.wantsFollowUp).toBe(true);
   });
 
-  it('keeps what it handed when a run it is not held by kept nothing', () => {
+  it('keeps what it handed when a run that is not its current run kept nothing', () => {
     const unchanged = working().runKeptNothing(RunId.of('run_2'));
 
     expect(unchanged.running).toBe(true);
     expect(unchanged.undelivered).toHaveLength(0);
   });
 
-  it('counts nothing as heard by a run it is not held by', () => {
+  it('counts nothing as heard by a run that is not its current run', () => {
     const said = working()
       .endRun(RunId.of('run_1'))
       .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER });
@@ -407,7 +407,7 @@ describe('Chat', () => {
       expect(ended.followsUp).toBe(false);
     });
 
-    it('stays as it is when a run it is not held by ends', () => {
+    it('stays as it is when a run that is not its current run ends', () => {
       const chat = working();
       const ended = chat.runEnded(RunId.of('run_2'), {
         session: SESSION,
@@ -464,7 +464,7 @@ describe('Chat', () => {
     ).toThrow(InvalidChatTransitionError);
   });
 
-  it('holds a proposal open, says it was proposed, and never delivers it back', () => {
+  it('keeps a proposal open, says it was proposed, and never delivers it back', () => {
     const chat = working().propose({
       runId: RunId.of('run_1'),
       placement: ProposalPlacement.of({

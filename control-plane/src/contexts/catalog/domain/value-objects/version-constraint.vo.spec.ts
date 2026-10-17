@@ -28,7 +28,7 @@ describe('a version constraint, written as Terraform writes one', () => {
     expect(admitted('~> 1.0.1', VERSIONS)).toEqual(['1.0.4']);
   });
 
-  it('holds every clause at once', () => {
+  it('satisfies every clause at once', () => {
     expect(admitted('>= 1.0.4, < 2.0, != 1.1.0', VERSIONS)).toEqual([
       '1.0.4',
       '1.10.2',

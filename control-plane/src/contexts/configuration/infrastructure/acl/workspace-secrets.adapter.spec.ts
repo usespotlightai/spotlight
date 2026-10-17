@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
 
-const holding = (team: boolean) => {
+const setUp = (team: boolean) => {
   const namesIn = vi.fn(async () => ['GRAFANA_TOKEN', 'LINEAR_API_KEY']);
 
   return {
@@ -33,8 +33,8 @@ const holding = (team: boolean) => {
 };
 
 describe('WorkspaceSecrets', () => {
-  it('holds for a team every secret its workspace defines', async () => {
-    const { secrets, namesIn } = holding(true);
+  it('names for a team every secret its workspace defines', async () => {
+    const { secrets, namesIn } = setUp(true);
 
     expect((await secrets.ofTeam(TEAM)).map((each) => each.value)).toEqual([
       'GRAFANA_TOKEN',
@@ -43,8 +43,8 @@ describe('WorkspaceSecrets', () => {
     expect(namesIn).toHaveBeenCalledWith('ws_1');
   });
 
-  it('holds nothing for a team no workspace holds', async () => {
-    const { secrets, namesIn } = holding(false);
+  it('names nothing for a team that no workspace has', async () => {
+    const { secrets, namesIn } = setUp(false);
 
     await expect(secrets.ofTeam(TEAM)).resolves.toEqual([]);
     expect(namesIn).not.toHaveBeenCalled();

@@ -95,12 +95,12 @@ const toMemory = (row: Row): Memory => {
   });
 };
 
-const changedColumnsOf = (held: Memory) => ({
-  standing: held.standing,
-  retiredAt: held.retirement?.at ?? null,
-  retiredBy: held.retirement?.by?.value ?? null,
-  retireReason: held.retirement?.reason ?? null,
-  supersededBy: held.retirement?.supersededBy?.value ?? null,
+const changedColumnsOf = (stored: Memory) => ({
+  standing: stored.standing,
+  retiredAt: stored.retirement?.at ?? null,
+  retiredBy: stored.retirement?.by?.value ?? null,
+  retireReason: stored.retirement?.reason ?? null,
+  supersededBy: stored.retirement?.supersededBy?.value ?? null,
 });
 
 export const standingWhen = (at: Date | null) =>
@@ -196,7 +196,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
             ? eq(memory.repository, criteria.repository)
             : undefined,
           criteria.path
-            ? sql`exists (select 1 from jsonb_array_elements_text(${memory.paths}) as held(path) where starts_with(held.path, ${criteria.path}))`
+            ? sql`exists (select 1 from jsonb_array_elements_text(${memory.paths}) as entry(path) where starts_with(entry.path, ${criteria.path}))`
             : undefined,
         ),
       )
@@ -328,8 +328,8 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     const found = new Map(rows.map((row) => [row.id, toMemory(row)]));
 
     return ids.flatMap((each) => {
-      const held = found.get(each.value);
-      return held ? [held] : [];
+      const match = found.get(each.value);
+      return match ? [match] : [];
     });
   }
 

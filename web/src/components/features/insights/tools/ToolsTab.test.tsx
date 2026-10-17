@@ -6,7 +6,7 @@ import { ToolsTab } from '@/components/features/insights/tools/ToolsTab';
 import { stationNamesOf } from '@/lib/insights';
 import type { InsightsTools } from '@/lib/insights-tools';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -14,7 +14,7 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (data: unknown, errorUpdateCount = 0): Held => ({
+const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
   data,
   isPending: data === undefined && errorUpdateCount === 0,
   isFetching: false,
@@ -22,7 +22,7 @@ const held = (data: unknown, errorUpdateCount = 0): Held => ({
   refetch: vi.fn(),
 });
 
-const answer: { tools: Held } = { tools: held(undefined) };
+const answer: { tools: Queried } = { tools: queried(undefined) };
 
 vi.mock('@/hooks/api/useInsightsTools', () => ({
   useInsightsTools: () => answer.tools,
@@ -135,13 +135,13 @@ const showing = (search = '?tab=tools') =>
 const RUNS = '/w/acme/team/team_1/insights?tab=runs';
 
 beforeEach(() => {
-  answer.tools = held(TOOLS);
+  answer.tools = queried(TOOLS);
   lines.data = LINES;
 });
 
 describe('the skills and tools of the Tools and skills tab', () => {
   it('shows a faithful skeleton while it loads', () => {
-    answer.tools = held(undefined);
+    answer.tools = queried(undefined);
 
     showing();
 
@@ -151,7 +151,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
   });
 
   it('offers to try again where it could not load', async () => {
-    answer.tools = held(undefined, 1);
+    answer.tools = queried(undefined, 1);
 
     showing();
 
@@ -161,7 +161,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
   });
 
   it('leads to creating a task where no run ran', () => {
-    answer.tools = held({ ...EMPTY, runs: 0 });
+    answer.tools = queried({ ...EMPTY, runs: 0 });
 
     showing();
 
@@ -173,7 +173,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
   });
 
   it('cannot create a task where the team has no line', () => {
-    answer.tools = held({ ...EMPTY, runs: 0 });
+    answer.tools = queried({ ...EMPTY, runs: 0 });
     lines.data = [];
 
     showing();
@@ -184,7 +184,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
   });
 
   it('leads to the team’s skills where runs used no skill or server', () => {
-    answer.tools = held(EMPTY);
+    answer.tools = queried(EMPTY);
 
     showing();
 
@@ -255,7 +255,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
   });
 
   it('leaves out skills, unused skills and refusals where there are none', () => {
-    answer.tools = held({ ...EMPTY, servers: TOOLS.servers });
+    answer.tools = queried({ ...EMPTY, servers: TOOLS.servers });
 
     showing();
 

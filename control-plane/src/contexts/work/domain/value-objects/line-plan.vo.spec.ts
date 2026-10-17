@@ -100,7 +100,7 @@ const refusal = (make: () => unknown): InvalidLinePlanError => {
 
 describe('LinePlan', () => {
   it('describes a line, its stations and what words do to a task', () => {
-    const held = plan({
+    const parsed = plan({
       reactions: [
         {
           happening: MERGED,
@@ -115,18 +115,18 @@ describe('LinePlan', () => {
       ],
     });
 
-    expect(held.key.value).toBe('default');
-    expect(held.stations.map((each) => each.key.value)).toEqual([
+    expect(parsed.key.value).toBe('default');
+    expect(parsed.stations.map((each) => each.key.value)).toEqual([
       'backlog',
       'code-review',
       'completed',
     ]);
-    expect(held.reactions).toHaveLength(1);
-    expect(held.role).toBeNull();
-    expect(held.repositories.all.map((each) => each.value)).toEqual([
+    expect(parsed.reactions).toHaveLength(1);
+    expect(parsed.role).toBeNull();
+    expect(parsed.repositories.all.map((each) => each.value)).toEqual([
       'acme/api',
     ]);
-    expect(held.repositories.image?.value).toBe('ghcr.io/acme/api:1');
+    expect(parsed.repositories.image?.value).toBe('ghcr.io/acme/api:1');
   });
 
   it('refuses one describing no stations at all', () => {
@@ -403,13 +403,13 @@ describe('LinePlan', () => {
     });
   });
 
-  it('holds a station checking its layers once every repository says how its checkout is made ready', () => {
-    const held = plan({
+  it('accepts a station checking its layers once every repository says how its checkout is made ready', () => {
+    const parsed = plan({
       stations: withStations(checking()),
       repositories: [worked('acme/api', 'npm ci'), worked('acme/web', 'make')],
     });
 
-    expect(held.repositories.setupOf(Repository.of('acme/web'))?.value).toBe(
+    expect(parsed.repositories.setupOf(Repository.of('acme/web'))?.value).toBe(
       'make',
     );
   });

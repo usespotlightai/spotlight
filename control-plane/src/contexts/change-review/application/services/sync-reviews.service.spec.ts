@@ -266,7 +266,7 @@ describe('SyncReviews', () => {
     );
   });
 
-  it('posts only the comments its own review holds', async () => {
+  it('posts only the comments its own review contains', async () => {
     const { review, comments } = submitted();
     const second = Review.rehydrate({
       id: ReviewId.of('review_2'),
@@ -619,7 +619,7 @@ describe('SyncReviews', () => {
     );
   });
 
-  it('holds a reply back while the comment it answers is still on its way', async () => {
+  it('does not send a reply while the comment it answers is still on its way', async () => {
     const parent = draft('comment_1', 3).submittedIn(ReviewId.of('review_1'));
     const reply = parent.postedAs(null).replied({
       id: ReviewCommentId.of('comment_2'),

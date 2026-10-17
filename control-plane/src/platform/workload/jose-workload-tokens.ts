@@ -83,10 +83,10 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
   }
 
   private async keysOf(issuer: string): Promise<JWTVerifyGetKey> {
-    const held = this.#discovered.get(issuer);
+    const cached = this.#discovered.get(issuer);
 
-    if (held && held.until > Date.now()) {
-      return held.keys;
+    if (cached && cached.until > Date.now()) {
+      return cached.keys;
     }
 
     const answer = await fetch(

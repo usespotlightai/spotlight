@@ -19,9 +19,9 @@ import {
   endedSearchRun,
   entryOf,
   fiveTasks,
-  heldSearchRun,
   http,
   type InboxEntry,
+  leasedSearchRun,
   liveBlock,
   openSearchFlow,
   openSet,
@@ -53,10 +53,10 @@ describe('a search for a better station config, when it stalls or loses its stat
     await drained(() => ({ score: 2, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    await endedSearchRun(await heldSearchRun(id, 1), true);
-    await endedSearchRun(await heldSearchRun(id, 2), true);
+    await endedSearchRun(await leasedSearchRun(id, 1), true);
+    await endedSearchRun(await leasedSearchRun(id, 2), true);
 
-    const reflecting = await heldSearchRun(id, 3);
+    const reflecting = await leasedSearchRun(id, 3);
     const looking = await searchOf(id);
     const reflection = looking.iterations[2]?.reflection;
     const searchedTasks = looking.split.searched.map((each) => each.taskId);
@@ -230,10 +230,10 @@ describe('a search for a better station config, when it stalls or loses its stat
     await drained(() => ({ score: 2, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    await endedSearchRun(await heldSearchRun(id, 1), true);
-    await endedSearchRun(await heldSearchRun(id, 2), true);
+    await endedSearchRun(await leasedSearchRun(id, 1), true);
+    await endedSearchRun(await leasedSearchRun(id, 2), true);
 
-    const reflecting = await heldSearchRun(id, 3);
+    const reflecting = await leasedSearchRun(id, 3);
     const [failing] =
       (await searchOf(id)).iterations[2]?.reflection?.tasks ?? [];
 
@@ -247,7 +247,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       .expect(201);
     await endedSearchRun(reflecting);
 
-    const next = await heldSearchRun(id, 4);
+    const next = await leasedSearchRun(id, 4);
     const goingOn = await searchOf(id);
 
     expect(goingOn.state).toBe('searching');
@@ -323,7 +323,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     expect(await replayEnded(seedReplayId)).not.toBe('running');
   }, 120_000);
 
-  it('is abandoned with its team, withdrawing the agent run it held', async () => {
+  it('is abandoned with its team, withdrawing its active agent run', async () => {
     const setId = await openSet('Disbanded', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 2,

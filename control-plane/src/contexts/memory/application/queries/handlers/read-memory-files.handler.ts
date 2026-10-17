@@ -23,15 +23,15 @@ export class ReadMemoryFilesHandler
 
   async execute(query: ReadMemoryFilesQuery): Promise<MemoryFileDto[]> {
     try {
-      const held = await this.loader.held(query.runId, query.runnerId);
+      const run = await this.loader.leased(query.runId, query.runnerId);
 
-      if (!reachesMemories(held)) {
+      if (!reachesMemories(run)) {
         return [];
       }
 
-      const applying = await this.inReach.at(held, held.replaysFrom);
+      const applying = await this.inReach.at(run, run.replaysFrom);
       const [lines, replaced] = await Promise.all([
-        this.work.linesOf(held.teamId),
+        this.work.linesOf(run.teamId),
         this.memories.findAll(
           applying.flatMap((each) =>
             each.supersedes ? [each.supersedes] : [],

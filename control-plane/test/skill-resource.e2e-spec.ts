@@ -38,18 +38,18 @@ const GRAFANA = {
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `skills-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `skills-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${held}/skills`,
+    collection: `/api/resources/teams/${workspaceId}/skills`,
     item: (id) => `/api/resources/skills/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/skills/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/skills/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/skills`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'team/grafana',
     valid: GRAFANA,
     changed: {

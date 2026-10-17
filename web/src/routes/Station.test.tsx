@@ -390,7 +390,7 @@ describe('Station', () => {
     ).toHaveAttribute('stroke', '#93a1b5');
   });
 
-  it('holds the shape of the station while the line loads', () => {
+  it('keeps the shape of the station while the line loads', () => {
     lines.mockReturnValue(undefined);
 
     renderAt('station_2');
@@ -401,7 +401,7 @@ describe('Station', () => {
     expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
   });
 
-  it('holds the shape of the tab its address opens while the line loads', () => {
+  it('keeps the shape of the tab its address opens while the line loads', () => {
     lines.mockReturnValue(undefined);
 
     const { unmount } = renderAt('station_2');
@@ -714,7 +714,7 @@ describe('Station', () => {
       );
     });
 
-    it('holds the place of its runs while they load', () => {
+    it('keeps the place of its runs while they load', () => {
       outcomes.mockReturnValue(undefined);
 
       renderAt('station_2');
@@ -914,7 +914,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('holds the place of the replay sets while they load', () => {
+    it('keeps the place of the replay sets while they load', () => {
       sets.mockReturnValue(undefined);
 
       renderAt('station_2', 'improve');

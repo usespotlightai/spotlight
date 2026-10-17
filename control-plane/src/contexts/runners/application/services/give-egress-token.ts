@@ -24,7 +24,7 @@ export const giveEgressToken = async (
   refuseEgressTokenGivenBefore(
     EgressTokenStanding.of({
       given: await given.wasGiven(token),
-      held: holder !== null && !holder.id.equals(egress.id),
+      inUse: holder !== null && !holder.id.equals(egress.id),
     }),
   );
   await given.give(token, egress.id);

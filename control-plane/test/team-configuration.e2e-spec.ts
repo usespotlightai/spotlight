@@ -63,15 +63,15 @@ const LINE = {
 
 const eventually = async <T>(
   read: () => Promise<T>,
-  done: (held: T) => boolean,
+  done: (value: T) => boolean,
 ): Promise<T> => {
   const until = Date.now() + 20_000;
 
   for (;;) {
-    const held = await read();
+    const value = await read();
 
-    if (done(held) || Date.now() > until) {
-      return held;
+    if (done(value) || Date.now() > until) {
+      return value;
     }
 
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -240,7 +240,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     }
   });
 
-  it('imports what a workspace held before Terraform, built-in lines included', async () => {
+  it('imports what a workspace had before Terraform, built-in lines included', async () => {
     const slug = `acme-${randomUUID().slice(0, 8)}`;
     slugs.push(slug);
 
@@ -258,7 +258,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
           .select({ key: schema.line.key })
           .from(schema.line)
           .where(eq(schema.line.teamId, teamId)),
-      (held) => held.length > 0,
+      (value) => value.length > 0,
     );
     const imported = (path: string, address: string) =>
       api().read(`${path}/import?address=${encodeURIComponent(address)}`);

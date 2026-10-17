@@ -68,7 +68,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
       };
     }
 
-    const held = await this.personRules.ruleFor(
+    const personRule = await this.personRules.ruleFor(
       teamId,
       reachable.integration.source,
       found.holder,
@@ -77,11 +77,11 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
 
     return {
       declared: reachable.declared,
-      personRule: held
+      personRule: personRule
         ? {
-            rule: held.rule.name,
-            personId: held.personId.value,
-            personName: held.personName,
+            rule: personRule.rule.name,
+            personId: personRule.personId.value,
+            personName: personRule.personName,
           }
         : null,
       actingAs: reachable.integration.connects

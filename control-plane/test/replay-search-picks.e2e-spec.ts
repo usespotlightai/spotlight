@@ -14,8 +14,8 @@ import {
   endedSearchRun,
   fiveTasks,
   github,
-  heldSearchRun,
   judged,
+  leasedSearchRun,
   liveBlock,
   openSearchFlow,
   openSet,
@@ -103,7 +103,7 @@ describe('a search for a better station config, ranking and picking its candidat
     await drained(() => ({ score: 5, cost: 0.2 }));
     expect(await replayEnded(started.seedReplayId)).toBe('finished');
 
-    const agent = await heldSearchRun(started.id, 1);
+    const agent = await leasedSearchRun(started.id, 1);
     const block = await liveBlock();
     const proposed = async (name: string, prompt: string) =>
       (
@@ -127,7 +127,7 @@ describe('a search for a better station config, ranking and picking its candidat
 
     await endedSearchRun(agent);
     await drained(plan);
-    await endedSearchRun(await heldSearchRun(started.id, 2));
+    await endedSearchRun(await leasedSearchRun(started.id, 2));
     await eventually(async () => {
       await app.get(AdvanceSearches).workDue();
       return (await searchRow(started.id))?.heldOut.length === 1;
@@ -175,7 +175,7 @@ describe('a search for a better station config, ranking and picking its candidat
     await drained(() => ({ score: 3, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    const agent = await heldSearchRun(id, 1);
+    const agent = await leasedSearchRun(id, 1);
     const block = await liveBlock();
     const proposed = (
       await proposing(agent, {

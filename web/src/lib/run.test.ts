@@ -72,7 +72,7 @@ describe('byAge', () => {
       { startedAt: on(8) },
     ]);
 
-    expect(grouped.map(([age, held]) => [age, held.length])).toEqual([
+    expect(grouped.map(([age, ofAge]) => [age, ofAge.length])).toEqual([
       ['Today', 2],
       ['8 days ago', 1],
     ]);
@@ -101,11 +101,11 @@ describe('working', () => {
   const run = (state: Run['state'], exitCode: number | null = null) =>
     ({ state, exitCode }) as Run;
 
-  it('holds while a runner has it', () => {
+  it('is true while a runner has it', () => {
     expect(working(run('claimed'))).toBe(true);
   });
 
-  it('holds while it waits for one', () => {
+  it('is true while it waits for one', () => {
     expect(working(run('queued'))).toBe(true);
   });
 
@@ -123,11 +123,11 @@ describe('working', () => {
 describe('waitsOnPerson', () => {
   const run = (state: Run['state']) => ({ state }) as Run;
 
-  it('holds while the run keeps its sandbox warm for an answer', () => {
+  it('is true while the run keeps its sandbox warm for an answer', () => {
     expect(waitsOnPerson(run('waiting'))).toBe(true);
   });
 
-  it('holds once nobody answered in time and the run was parked', () => {
+  it('is true once nobody answered in time and the run was parked', () => {
     expect(waitsOnPerson(run('parked'))).toBe(true);
   });
 

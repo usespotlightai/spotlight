@@ -10,7 +10,7 @@ import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
+import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -22,8 +22,8 @@ const TEAM = TeamId.of('team_1');
 
 const integration = (
   connects: boolean,
-  holding: ConnectionHolding = ConnectionHolding.team(),
-) => Integration.of({ source: SourceKey.of('slack'), connects, holding });
+  holder: ConnectionHolderRule = ConnectionHolderRule.team(),
+) => Integration.of({ source: SourceKey.of('slack'), connects, holder });
 
 const ALICE = UserId.of('user_alice');
 
@@ -31,7 +31,7 @@ const BOUND = {
   SLACK_BOT_TOKEN: { host: 'slack.com', prefix: 'Bearer ', value: 'xoxb-1' },
 };
 
-const held = (token: string, holder: ConnectionHolder) =>
+const connected = (token: string, holder: ConnectionHolder) =>
   HostConnection.rehydrate({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
@@ -54,7 +54,7 @@ const reaching = (
 ) => {
   const of = vi.fn(
     async (_teamId: TeamId, _source: SourceKey, holder: ConnectionHolder) =>
-      token ? held(token, holder) : null,
+      token ? connected(token, holder) : null,
   );
   const onTeam = vi.fn(async () =>
     over.member === false ? null : ({} as TeamMembership),
@@ -125,7 +125,7 @@ describe('HostReach', () => {
   it('uses the team’s connection for polls, schedules and posts even where tools act as each person', async () => {
     const { reach, of } = reaching('xoxp-2');
 
-    await reach.of(TEAM, integration(true, ConnectionHolding.requester()));
+    await reach.of(TEAM, integration(true, ConnectionHolderRule.requester()));
 
     expect(of).toHaveBeenCalledWith(
       TEAM,
@@ -155,12 +155,14 @@ describe('HostReach', () => {
 
       const found = await reach.connectionFor(
         TEAM,
-        integration(true, ConnectionHolding.requester()),
+        integration(true, ConnectionHolderRule.requester()),
         ALICE,
       );
 
-      expect(found.kind === 'held' && found.holder.personId).toEqual(ALICE);
-      expect(found.kind === 'held' && found.connection?.handle).toBe('@alice');
+      expect(found.kind === 'chosen' && found.holder.personId).toEqual(ALICE);
+      expect(found.kind === 'chosen' && found.connection?.handle).toBe(
+        '@alice',
+      );
       expect(onTeam).toHaveBeenCalledWith('team_1', ALICE);
       expect(of).toHaveBeenCalledWith(
         TEAM,
@@ -174,7 +176,7 @@ describe('HostReach', () => {
 
       const found = await reach.connectionFor(
         TEAM,
-        integration(true, ConnectionHolding.requester()),
+        integration(true, ConnectionHolderRule.requester()),
         ALICE,
       );
 
@@ -189,7 +191,7 @@ describe('HostReach', () => {
 
       const found = await reach.connectionFor(
         TEAM,
-        integration(true, ConnectionHolding.requester()),
+        integration(true, ConnectionHolderRule.requester()),
         ALICE,
       );
 
@@ -204,7 +206,7 @@ describe('HostReach', () => {
 
       const found = await reach.connectionFor(TEAM, integration(true), ALICE);
 
-      expect(found.kind === 'held' && found.holder).toEqual(
+      expect(found.kind === 'chosen' && found.holder).toEqual(
         ConnectionHolder.team(),
       );
       expect(onTeam).not.toHaveBeenCalled();
@@ -238,7 +240,7 @@ describe('HostReach', () => {
     expect(find).not.toHaveBeenCalled();
   });
 
-  it('refuses to wear secrets for a team no workspace holds', async () => {
+  it('refuses to wear secrets for a team that no workspace has', async () => {
     const { reach } = reaching(null, false);
 
     const reached = await reach.of(TEAM, integration(false));
@@ -247,7 +249,7 @@ describe('HostReach', () => {
       reached.credentials.wornToward('https://slack.com/api/x', [
         'SLACK_BOT_TOKEN',
       ]),
-    ).rejects.toThrow(/which no workspace holds/);
+    ).rejects.toThrow(/which no workspace has/);
   });
 
   it('grants the run’s current attempt the secrets it wears before it reaches the host', async () => {

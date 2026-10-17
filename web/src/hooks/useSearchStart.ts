@@ -7,12 +7,12 @@ import { ongoingIn, startRefusal } from '@/lib/search';
 export function useSearchStart(at: ReplayedStation) {
   const searches = useSearches(at.teamId, at.lineId, at.stationId);
   const sets = useReplaySets(at.teamId, at.lineId, at.stationId);
-  const held = sets.data ?? [];
+  const replaySets = sets.data ?? [];
   const refusal = sets.data
-    ? startRefusal(held, ongoingIn(searches.data ?? []))
+    ? startRefusal(replaySets, ongoingIn(searches.data ?? []))
     : failed(sets)
       ? 'Sorry, the replay sets couldn’t be loaded. Please try again later.'
       : 'Loading the replay sets…';
 
-  return { searches, sets, held, refusal };
+  return { searches, sets, replaySets, refusal };
 }

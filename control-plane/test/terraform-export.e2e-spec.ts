@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { HeldResourceDto } from '@configuration/application/dto/held-configuration.dto';
-import { HELD } from '@configuration/presentation/terraform/held-configuration.fake-spec';
+import type { ExportableResourceDto } from '@configuration/application/dto/exportable-configuration.dto';
+import { CONFIGURATION } from '@configuration/presentation/terraform/exportable-configuration.fake-spec';
 import { workspaceTerraform } from '@configuration/presentation/terraform/terraform-configuration';
 import type { INestApplication } from '@nestjs/common';
 import { blockOf } from '@platform/hcl/hcl-block.fake-spec';
@@ -142,7 +142,7 @@ interface Written {
 describe('a workspace exported as Terraform (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
   const made: Record<string, string> = {};
 
@@ -166,7 +166,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   const exported = async (): Promise<readonly Written[]> => {
     const answered = await as(seat.owner).get(
-      `/api/resources/workspaces/${held}/export`,
+      `/api/resources/workspaces/${workspaceId}/export`,
     );
 
     expect(answered.status).toBe(200);
@@ -187,13 +187,13 @@ describe('a workspace exported as Terraform (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `export-${randomUUID().slice(0, 8)}`;
-    seat = await seatTeam(db, held);
+    workspaceId = `export-${randomUUID().slice(0, 8)}`;
+    seat = await seatTeam(db, workspaceId);
 
     for (const [kind, collection, body] of [
       [
         'secret',
-        `workspaces/${held}/secrets`,
+        `workspaces/${workspaceId}/secrets`,
         {
           name: 'LINEAR_API_KEY',
           bindings: [{ host: 'api.linear.app', prefix: 'Bearer ' }],
@@ -203,7 +203,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ],
       [
         'runner-trust',
-        `workspaces/${held}/runner-trusts`,
+        `workspaces/${workspaceId}/runner-trusts`,
         {
           key: 'production',
           issuer: 'https://oidc.example.com/cluster',
@@ -212,7 +212,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ],
       [
         'runner-pool',
-        `workspaces/${held}/runner-pools`,
+        `workspaces/${workspaceId}/runner-pools`,
         {
           key: 'ephemeral',
           labels: ['linux'],
@@ -222,14 +222,14 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ],
       [
         'workspace-runners',
-        `workspaces/${held}/workspace-runners`,
+        `workspaces/${workspaceId}/workspace-runners`,
         { trusts: ['production'], pools: ['ephemeral'] },
       ],
-      ['skill', `teams/${held}/skills`, GRAFANA],
-      ['integration', `teams/${held}/integrations`, LINEAR],
-      ['hook', `teams/${held}/hooks`, AUDIT],
-      ['harness-profile', `teams/${held}/harness-profiles`, CAREFUL],
-      ['line', `teams/${held}/lines`, DELIVERY],
+      ['skill', `teams/${workspaceId}/skills`, GRAFANA],
+      ['integration', `teams/${workspaceId}/integrations`, LINEAR],
+      ['hook', `teams/${workspaceId}/hooks`, AUDIT],
+      ['harness-profile', `teams/${workspaceId}/harness-profiles`, CAREFUL],
+      ['line', `teams/${workspaceId}/lines`, DELIVERY],
     ] as const) {
       const created = await as(seat.owner).post(
         `/api/resources/${collection}`,
@@ -246,20 +246,22 @@ describe('a workspace exported as Terraform (e2e)', () => {
   afterEach(async () => {
     await db
       .delete(schema.hookDefinition)
-      .where(eq(schema.hookDefinition.teamId, held));
+      .where(eq(schema.hookDefinition.teamId, workspaceId));
     await db
       .delete(schema.integrationDefinition)
-      .where(eq(schema.integrationDefinition.teamId, held));
-    await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+      .where(eq(schema.integrationDefinition.teamId, workspaceId));
+    await db
+      .delete(schema.secret)
+      .where(eq(schema.secret.workspaceId, workspaceId));
     await db
       .delete(schema.secretDataKey)
-      .where(eq(schema.secretDataKey.workspaceId, held));
+      .where(eq(schema.secretDataKey.workspaceId, workspaceId));
     await db
       .delete(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.workspaceId, held));
+      .where(eq(schema.workspaceToken.workspaceId, workspaceId));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
     await db
       .delete(schema.idempotentCreate)
       .where(
@@ -268,11 +270,11 @@ describe('a workspace exported as Terraform (e2e)', () => {
           `person:${seat.member}`,
         ]),
       );
-    await forgetRunnersOf(db, held);
+    await forgetRunnersOf(db, workspaceId);
     await seat.unseat();
   });
 
-  it('writes main.tf, variables.tf and the files main.tf reads, importing everything the workspace holds', async () => {
+  it('writes main.tf, variables.tf and the files main.tf reads, importing everything the workspace has', async () => {
     const files = await exported();
     const main = fileOf(files, 'main.tf');
 
@@ -293,17 +295,25 @@ describe('a workspace exported as Terraform (e2e)', () => {
     );
 
     for (const [type, name, id] of [
-      ['spotlight_workspace', held, held],
-      ['spotlight_secret', 'linear_api_key', `${held}/LINEAR_API_KEY`],
-      ['spotlight_runner_trust', 'production', `${held}/production`],
-      ['spotlight_runner_pool', 'ephemeral', `${held}/ephemeral`],
-      ['spotlight_workspace_runners', held, `${held}/${held}`],
-      ['spotlight_team', 'team', `${held}/team`],
-      ['spotlight_line', 'team_delivery', `${held}/team/delivery`],
-      ['spotlight_skill', 'team_grafana', `${held}/team/grafana`],
-      ['spotlight_integration', 'team_linear', `${held}/team/linear`],
-      ['spotlight_hook', 'team_audit', `${held}/team/audit`],
-      ['spotlight_harness_profile', 'team_careful', `${held}/team/careful`],
+      ['spotlight_workspace', workspaceId, workspaceId],
+      ['spotlight_secret', 'linear_api_key', `${workspaceId}/LINEAR_API_KEY`],
+      ['spotlight_runner_trust', 'production', `${workspaceId}/production`],
+      ['spotlight_runner_pool', 'ephemeral', `${workspaceId}/ephemeral`],
+      [
+        'spotlight_workspace_runners',
+        workspaceId,
+        `${workspaceId}/${workspaceId}`,
+      ],
+      ['spotlight_team', 'team', `${workspaceId}/team`],
+      ['spotlight_line', 'team_delivery', `${workspaceId}/team/delivery`],
+      ['spotlight_skill', 'team_grafana', `${workspaceId}/team/grafana`],
+      ['spotlight_integration', 'team_linear', `${workspaceId}/team/linear`],
+      ['spotlight_hook', 'team_audit', `${workspaceId}/team/audit`],
+      [
+        'spotlight_harness_profile',
+        'team_careful',
+        `${workspaceId}/team/careful`,
+      ],
     ]) {
       expect(main).toContain(
         `import {\n  to = ${type}.${name}\n  id = "${id}"\n}\n\nresource "${type}" "${name}" {\n`,
@@ -315,7 +325,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
     const main = fileOf(await exported(), 'main.tf');
 
     for (const reference of [
-      `workspace_id = spotlight_workspace.${held}.id`,
+      `workspace_id = spotlight_workspace.${workspaceId}.id`,
       'team_id = spotlight_team.team.id',
       'skills    = [spotlight_skill.team_grafana.key]',
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
@@ -401,7 +411,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   it('writes each secret’s value version exactly as the API answers it, so adopting one plans no rotation', async () => {
     const unversioned = await as(seat.owner).post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       {
         name: 'SENTRY_TOKEN',
         bindings: [{ host: 'sentry.io', prefix: 'Bearer ' }],
@@ -480,11 +490,11 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   it('lets a token that may only read export the workspace', async () => {
     const issued = await as(seat.owner).post(
-      `/api/resources/workspaces/${held}/tokens`,
+      `/api/resources/workspaces/${workspaceId}/tokens`,
       { name: 'survey', scopes: ['read'] },
     );
     const answered = await http()
-      .get(`/api/resources/workspaces/${held}/export`)
+      .get(`/api/resources/workspaces/${workspaceId}/export`)
       .set(
         'Authorization',
         `Bearer ${issued.headers['spotlight-workspace-token']}`,
@@ -496,8 +506,8 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   it('answers each kind of resource as HCL, after the import block that adopts it', async () => {
     for (const [collection, id, type] of [
-      ['workspaces', held, 'spotlight_workspace'],
-      ['teams', held, 'spotlight_team'],
+      ['workspaces', workspaceId, 'spotlight_workspace'],
+      ['teams', workspaceId, 'spotlight_team'],
       ['lines', made.line, 'spotlight_line'],
       ['skills', made.skill, 'spotlight_skill'],
       ['integrations', made.integration, 'spotlight_integration'],
@@ -544,8 +554,11 @@ describe('a workspace exported as Terraform (e2e)', () => {
     const stranger = randomUUID();
 
     expect(
-      (await as(stranger).get(`/api/resources/workspaces/${held}/export`))
-        .status,
+      (
+        await as(stranger).get(
+          `/api/resources/workspaces/${workspaceId}/export`,
+        )
+      ).status,
     ).toBe(404);
     expect(
       (await as(stranger).get(`/api/resources/lines/${made.line}/hcl`)).status,
@@ -554,7 +567,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   it('knows no collection it does not render', async () => {
     const answered = await as(seat.owner).get(
-      `/api/resources/tokens/${held}/hcl`,
+      `/api/resources/tokens/${workspaceId}/hcl`,
     );
 
     expect(answered.status).toBe(404);
@@ -578,114 +591,119 @@ describe('a workspace exported as Terraform (e2e)', () => {
 });
 
 const bodyOf = (
-  held: HeldResourceDto,
+  resource: ExportableResourceDto,
   egresses: ReadonlyMap<string, string> = new Map(),
 ): object => {
-  switch (held.kind) {
+  switch (resource.kind) {
     case 'workspace':
-      return { slug: held.slug, name: held.name };
+      return { slug: resource.slug, name: resource.name };
     case 'team':
-      return { key: held.key, name: held.name };
+      return { key: resource.key, name: resource.name };
     case 'secret':
       return {
-        name: held.name,
+        name: resource.name,
         source: {
-          kind: held.source.kind,
-          ...(held.source.secretId ? { secretId: held.source.secretId } : {}),
-          ...(held.source.field ? { field: held.source.field } : {}),
+          kind: resource.source.kind,
+          ...(resource.source.secretId
+            ? { secretId: resource.source.secretId }
+            : {}),
+          ...(resource.source.field ? { field: resource.source.field } : {}),
         },
-        bindings: held.bindings,
-        ...(held.keepsValue ? { valueWo: VALUE } : {}),
-        ...(held.valueVersion === null
+        bindings: resource.bindings,
+        ...(resource.keepsValue ? { valueWo: VALUE } : {}),
+        ...(resource.valueVersion === null
           ? {}
-          : { valueWoVersion: held.valueVersion }),
+          : { valueWoVersion: resource.valueVersion }),
       };
     case 'workspace-token-trust':
       return {
-        key: held.key,
-        issuer: held.issuer,
-        audience: held.audience,
-        subject: held.subject,
-        claims: held.claims,
-        scopes: held.scopes,
-        lifetimeMinutes: held.lifetimeMinutes,
+        key: resource.key,
+        issuer: resource.issuer,
+        audience: resource.audience,
+        subject: resource.subject,
+        claims: resource.claims,
+        scopes: resource.scopes,
+        lifetimeMinutes: resource.lifetimeMinutes,
       };
     case 'runner-trust':
       return {
-        key: held.key,
-        issuer: held.issuer,
-        subject: held.subject,
-        audience: held.audience,
-        labels: held.labels,
+        key: resource.key,
+        issuer: resource.issuer,
+        subject: resource.subject,
+        audience: resource.audience,
+        labels: resource.labels,
       };
     case 'runner-pool':
       return {
-        key: held.key,
-        labels: held.labels,
-        ...(held.maxRuns === null ? {} : { maxRuns: held.maxRuns }),
-        ...(held.provision
+        key: resource.key,
+        labels: resource.labels,
+        ...(resource.maxRuns === null ? {} : { maxRuns: resource.maxRuns }),
+        ...(resource.provision
           ? {
               provision: {
-                url: held.provision.url,
+                url: resource.provision.url,
                 secret: PROVISION_SECRET,
-                secretVersion: held.provision.secretVersion,
-                ...(held.provision.egress
+                secretVersion: resource.provision.secretVersion,
+                ...(resource.provision.egress
                   ? {
                       egress:
-                        egresses.get(held.provision.egress) ??
-                        held.provision.egress,
+                        egresses.get(resource.provision.egress) ??
+                        resource.provision.egress,
                     }
                   : {}),
-                ...(held.provision.egressTraffic === 'bound'
+                ...(resource.provision.egressTraffic === 'bound'
                   ? { egressTraffic: 'bound' }
                   : {}),
               },
             }
-          : { token: POOL_TOKEN, tokenVersion: held.tokenVersion }),
+          : { token: POOL_TOKEN, tokenVersion: resource.tokenVersion }),
       };
     case 'egress':
       return {
-        key: held.key,
-        url: held.url,
+        key: resource.key,
+        url: resource.url,
         token: EGRESS_TOKEN,
-        tokenVersion: held.tokenVersion,
+        tokenVersion: resource.tokenVersion,
       };
     case 'workspace-runners':
-      return { trusts: held.trusts, pools: held.pools };
+      return { trusts: resource.trusts, pools: resource.pools };
     case 'line':
     case 'integration':
-      return held.definition;
+      return resource.definition;
     case 'skill':
-      return { key: held.key, files: held.files };
+      return { key: resource.key, files: resource.files };
     case 'hook':
       return {
-        key: held.key,
-        on: held.on,
-        match: held.match,
-        ...(held.when === null ? {} : { when: held.when }),
-        vars: held.vars,
-        steps: held.steps,
+        key: resource.key,
+        on: resource.on,
+        match: resource.match,
+        ...(resource.when === null ? {} : { when: resource.when }),
+        vars: resource.vars,
+        steps: resource.steps,
         signing:
-          held.signing && 'secretVersion' in held.signing
-            ? { secret: HOOK_SECRET, secretVersion: held.signing.secretVersion }
-            : held.signing,
-        ...(held.failure === null ? {} : { failure: held.failure }),
-        ...(held.timeoutSeconds === null
+          resource.signing && 'secretVersion' in resource.signing
+            ? {
+                secret: HOOK_SECRET,
+                secretVersion: resource.signing.secretVersion,
+              }
+            : resource.signing,
+        ...(resource.failure === null ? {} : { failure: resource.failure }),
+        ...(resource.timeoutSeconds === null
           ? {}
-          : { timeoutSeconds: held.timeoutSeconds }),
+          : { timeoutSeconds: resource.timeoutSeconds }),
       };
     case 'harness-profile':
       return {
-        key: held.key,
-        permissions: held.permissions,
-        mcpServers: held.mcpServers,
-        native: held.native,
+        key: resource.key,
+        permissions: resource.permissions,
+        mcpServers: resource.mcpServers,
+        native: resource.native,
       };
   }
 };
 
 const COLLECTIONS: Readonly<
-  Record<Exclude<HeldResourceDto['kind'], 'workspace'>, string>
+  Record<Exclude<ExportableResourceDto['kind'], 'workspace'>, string>
 > = {
   secret: 'secrets',
   'workspace-token-trust': 'token-trusts',
@@ -706,7 +724,7 @@ const CREATION_ORDER = Object.keys(COLLECTIONS);
 describe('the configuration the export spec renders (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
   const teams = new Map<string, string>();
 
@@ -720,16 +738,14 @@ describe('the configuration the export spec renders (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `fixture-${randomUUID().slice(0, 8)}`;
-    seat = await seatTeam(db, held);
+    workspaceId = `fixture-${randomUUID().slice(0, 8)}`;
+    seat = await seatTeam(db, workspaceId);
     teams.clear();
-    await db
-      .insert(schema.workspacePlan)
-      .values({ workspaceId: held, plan: 'team' });
+    await db.insert(schema.workspacePlan).values({ workspaceId, plan: 'team' });
   });
 
   afterEach(async () => {
-    const teamIds = [held, ...teams.values()];
+    const teamIds = [workspaceId, ...teams.values()];
 
     await db
       .delete(schema.hookDefinition)
@@ -744,30 +760,32 @@ describe('the configuration the export spec renders (e2e)', () => {
     await db
       .delete(schema.harnessProfile)
       .where(inArray(schema.harnessProfile.teamId, teamIds));
-    await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+    await db
+      .delete(schema.secret)
+      .where(eq(schema.secret.workspaceId, workspaceId));
     await db
       .delete(schema.secretDataKey)
-      .where(eq(schema.secretDataKey.workspaceId, held));
+      .where(eq(schema.secretDataKey.workspaceId, workspaceId));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
     await db
       .delete(schema.idempotentCreate)
       .where(eq(schema.idempotentCreate.scope, `person:${seat.owner}`));
     await db
       .delete(schema.workspacePlan)
-      .where(eq(schema.workspacePlan.workspaceId, held));
+      .where(eq(schema.workspacePlan.workspaceId, workspaceId));
     await db
       .delete(schema.workspaceTokenTrust)
-      .where(eq(schema.workspaceTokenTrust.workspaceId, held));
-    await forgetRunnersOf(db, held);
+      .where(eq(schema.workspaceTokenTrust.workspaceId, workspaceId));
+    await forgetRunnersOf(db, workspaceId);
     await seat.unseat();
   });
 
   it('is configuration the API accepts, and exports exactly as the spec renders it', async () => {
-    const creating = HELD.resources
+    const creating = CONFIGURATION.resources
       .filter(
-        (each): each is Exclude<HeldResourceDto, { kind: 'workspace' }> =>
+        (each): each is Exclude<ExportableResourceDto, { kind: 'workspace' }> =>
           each.kind !== 'workspace',
       )
       .sort(
@@ -779,9 +797,9 @@ describe('the configuration the export spec renders (e2e)', () => {
 
     for (const each of creating) {
       const owner =
-        each.heldBy === 'team'
+        each.scope === 'team'
           ? `teams/${teams.get(each.teamKey)}`
-          : `workspaces/${held}`;
+          : `workspaces/${workspaceId}`;
       const created = await served(app)
         .post(`/api/resources/${owner}/${COLLECTIONS[each.kind]}`)
         .set(TEST_USER_HEADER, seat.owner)
@@ -803,37 +821,37 @@ describe('the configuration the export spec renders (e2e)', () => {
     }
 
     const exported = await served(app)
-      .get(`/api/resources/workspaces/${held}/export`)
+      .get(`/api/resources/workspaces/${workspaceId}/export`)
       .set(TEST_USER_HEADER, seat.owner);
 
     expect(exported.body.files).toEqual(
       workspaceTerraform({
-        workspaceId: held,
-        workspaceSlug: held,
+        workspaceId,
+        workspaceSlug: workspaceId,
         resources: [
-          ...HELD.resources.map((each) => {
+          ...CONFIGURATION.resources.map((each) => {
             switch (each.kind) {
               case 'workspace':
                 return {
                   ...each,
-                  id: held,
-                  address: held,
-                  slug: held,
-                  name: held,
+                  id: workspaceId,
+                  address: workspaceId,
+                  slug: workspaceId,
+                  name: workspaceId,
                 };
               case 'workspace-runners':
-                return { ...each, address: held };
+                return { ...each, address: workspaceId };
               default:
                 return each;
             }
           }),
           {
             kind: 'team',
-            heldBy: 'workspace',
-            id: held,
+            scope: 'workspace',
+            id: workspaceId,
             address: 'team',
             key: 'team',
-            name: held,
+            name: workspaceId,
           },
         ],
       }),

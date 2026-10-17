@@ -74,7 +74,7 @@ export class DecisionResponseDto {
 
   @ApiProperty({
     type: [DisputeResponseDto],
-    description: 'Who holds it wrong or out of date, and why',
+    description: 'Who says it is wrong or out of date, and why',
   })
   readonly disputes: DisputeResponseDto[];
 

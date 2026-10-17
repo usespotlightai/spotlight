@@ -19,7 +19,7 @@ import {
 import {
   formatReplayable,
   formatRunState,
-  RUNS_HELD_BY_SEARCH,
+  RUNS_FROZEN_BY_SEARCH,
 } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
@@ -61,7 +61,7 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
         {entry.endedAt ? since(entry.endedAt) : '–'}
       </NestedCell>
       <span className="relative z-10 flex h-4 items-center justify-end">
-        <RefusalTooltip reason={frozen ? RUNS_HELD_BY_SEARCH : null}>
+        <RefusalTooltip reason={frozen ? RUNS_FROZEN_BY_SEARCH : null}>
           {(describedBy) => (
             <Button
               type="button"

@@ -112,12 +112,12 @@ export const credentialsFor = (
   new SpotlightCredentials(injecting(bound).injection, async () => 'ws_1');
 
 export const signingFor = (
-  held: Readonly<Record<string, string>> = {},
+  secrets: Readonly<Record<string, string>> = {},
 ): SigningSecrets =>
   new SpotlightSigningSecrets(
     injecting(
       Object.fromEntries(
-        Object.entries(held).map(([name, value]) => [
+        Object.entries(secrets).map(([name, value]) => [
           name,
           { host: 'spotlight.invalid', value },
         ]),

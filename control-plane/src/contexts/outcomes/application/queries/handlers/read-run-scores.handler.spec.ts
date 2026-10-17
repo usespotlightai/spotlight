@@ -102,7 +102,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
   }
 
   const evidence = {
-    holds: async () => true,
+    hasTask: async () => true,
     of: async () => {
       throw new Error('the run’s journal is never read again');
     },

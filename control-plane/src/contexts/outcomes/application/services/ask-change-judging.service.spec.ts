@@ -46,10 +46,10 @@ describe('AskChangeJudging', () => {
     expect(await service.ask(ASK)).toBe('asked');
     expect(await service.ask(ASK)).toBe('asked');
 
-    const held = await judgings.of(RunId.of('replay_1'), 1);
-    expect(judgings.held.size).toBe(1);
-    expect(held?.reference?.value).toBe('original_1');
-    expect(held?.scale.kind).toBe('yes-no');
+    const judging = await judgings.of(RunId.of('replay_1'), 1);
+    expect(judgings.stored.size).toBe(1);
+    expect(judging?.reference?.value).toBe('original_1');
+    expect(judging?.scale.kind).toBe('yes-no');
   });
 
   it('judges claim by claim when the judge lists claims, with or without a rubric', async () => {
@@ -64,10 +64,10 @@ describe('AskChangeJudging', () => {
       }),
     ).toBe('asked');
 
-    const held = await judgings.of(RunId.of('replay_1'), 1);
-    expect(held?.scale.kind).toBe('claims');
-    expect(held?.criteria.claims).toHaveLength(2);
-    expect(held?.criteria.passShare).toBe(0.5);
+    const judging = await judgings.of(RunId.of('replay_1'), 1);
+    expect(judging?.scale.kind).toBe('claims');
+    expect(judging?.criteria.claims).toHaveLength(2);
+    expect(judging?.criteria.passShare).toBe(0.5);
   });
 
   it('says it cannot read a judge with neither a rubric nor claims', async () => {
@@ -82,7 +82,7 @@ describe('AskChangeJudging', () => {
     const { judgings, service } = asking(false);
 
     expect(await service.ask(ASK)).toBe('unavailable');
-    expect(judgings.held.size).toBe(0);
+    expect(judgings.stored.size).toBe(0);
   });
 
   it('says it cannot read a rubric whose scale it does not know, or a blank one', async () => {
@@ -103,7 +103,7 @@ describe('AskChangeJudging', () => {
     await service.ask({ ...ASK, runId: 'replay_2', teamId: 'team_2' });
     await judgings.removeForTeam(WorkspaceId.of('ws_1'), TeamId.of('team_1'));
 
-    expect([...judgings.held.keys()]).toEqual(['replay_2#1']);
+    expect([...judgings.stored.keys()]).toEqual(['replay_2#1']);
   });
 });
 
@@ -172,7 +172,7 @@ describe('AskChangeJudging, asked again', () => {
     expect(await service.askAgain('replay_1')).toBe('asked');
 
     const second = await judgings.of(RunId.of('replay_1'), 2);
-    expect(judgings.held.size).toBe(2);
+    expect(judgings.stored.size).toBe(2);
     expect(second?.round).toBe(2);
     expect(second?.owesWork).toBe(true);
     expect(second?.criteria.rubric).toBe(ASK.rubric);
@@ -187,7 +187,7 @@ describe('AskChangeJudging, asked again', () => {
 
     expect(await service.askAgain('replay_1')).toBe('unjudged');
     expect(await service.askAgain('replay_9')).toBe('unjudged');
-    expect(judgings.held.size).toBe(1);
+    expect(judgings.stored.size).toBe(1);
   });
 
   it('says which round a verdict is from', async () => {
