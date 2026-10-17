@@ -141,4 +141,32 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
       .map(viewOf)
       .reduce(inPlace, told.reverse().map(viewOf));
   }
+
+  async lastOfType(
+    runId: RunId,
+    attempt: number,
+    type: string,
+  ): Promise<RunEventView | null> {
+    const [found] = await this.db
+      .select({
+        attempt: runJournalEntry.attempt,
+        seq: runJournalEntry.seq,
+        type: runJournalEntry.type,
+        at: runJournalEntry.at,
+        message: runJournalEntry.message,
+        data: runJournalEntry.data,
+      })
+      .from(runJournalEntry)
+      .where(
+        and(
+          eq(runJournalEntry.runId, runId.value),
+          eq(runJournalEntry.attempt, attempt),
+          eq(runJournalEntry.type, type),
+        ),
+      )
+      .orderBy(desc(runJournalEntry.at), desc(runJournalEntry.seq))
+      .limit(1);
+
+    return found ? viewOf(found) : null;
+  }
 }

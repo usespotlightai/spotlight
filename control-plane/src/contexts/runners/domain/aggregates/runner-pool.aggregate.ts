@@ -4,6 +4,8 @@ import { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.ev
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
+import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
   type PoolAccess,
@@ -42,9 +44,17 @@ export type GivenAccess =
       readonly url: ProvisionUrl;
       readonly secret: SealedProvisionSecret | null;
       readonly secretVersion: number | null;
+      readonly egress: EgressReference | null;
+      readonly egressTraffic?: EgressTraffic;
     };
 
 const SECRET_FIELD = 'provision.secret';
+
+const sameEgress = (
+  one: EgressReference | null,
+  other: EgressReference | null,
+): boolean =>
+  one === null || other === null ? one === other : one.equals(other);
 
 export class RunnerPool extends EventRecorder {
   private constructor(
@@ -142,7 +152,13 @@ export class RunnerPool extends EventRecorder {
       );
     }
 
-    return PushAccess.of(given.url, given.secret, given.secretVersion);
+    return PushAccess.of(
+      given.url,
+      given.secret,
+      given.secretVersion,
+      given.egress,
+      given.egressTraffic,
+    );
   }
 
   get mode(): PoolMode {
@@ -159,6 +175,18 @@ export class RunnerPool extends EventRecorder {
 
   belongsTo(workspaceId: WorkspaceId): boolean {
     return this.workspaceId.equals(workspaceId);
+  }
+
+  get egress(): EgressReference | null {
+    return this.provision?.egress ?? null;
+  }
+
+  get egressTraffic(): EgressTraffic {
+    return this.provision?.egressTraffic ?? EgressTraffic.all();
+  }
+
+  goesOutThrough(egress: EgressReference): boolean {
+    return !this.isRetired && (this.provision?.goesOutThrough(egress) ?? false);
   }
 
   hasRoomFor(running: number): boolean {
@@ -232,6 +260,9 @@ export class RunnerPool extends EventRecorder {
           RunnerPoolChangeDetail.redefined(this.mode, {
             rekeyed,
             secretRotated: given.mode === 'push' && given.secret !== null,
+            egressMoved:
+              !sameEgress(this.egress, redefined.egress) ||
+              !this.egressTraffic.equals(redefined.egressTraffic),
           }),
         ),
       ),
@@ -284,6 +315,8 @@ export class RunnerPool extends EventRecorder {
         given.url,
         given.secret ?? this.access.secret,
         given.secretVersion,
+        given.egress,
+        given.egressTraffic,
       );
     }
 

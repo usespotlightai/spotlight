@@ -4,16 +4,26 @@ import {
   refinedBy,
 } from '@platform/definitions/definition-schema';
 import type {
+  CompiledEgress,
   CompiledPool,
   CompiledTrust,
   CompiledWorkspaceRunners,
   RunnerDefinitionsPort,
 } from '@runners/application/ports/runner-definitions.port';
 import {
+  EGRESS,
   RUNNER_POOL,
   RUNNER_TRUST,
   WORKSPACE_RUNNERS,
 } from '@runners/application/rendering/runner-problems';
+import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import { EgressToken } from '@runners/domain/value-objects/egress-token.vo';
+import {
+  EGRESS_TRAFFIC,
+  EgressTraffic,
+} from '@runners/domain/value-objects/egress-traffic.vo';
+import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { PoolToken } from '@runners/domain/value-objects/pool-token.vo';
@@ -65,6 +75,12 @@ const poolSchema = z
         url: madeBy(ProvisionUrl.of),
         secret: madeBy(ProvisionSecret.of).nullish(),
         secretVersion: writeOnlyVersion,
+        egress: madeBy(EgressReference.of).nullish(),
+        egressTraffic: z
+          .enum(EGRESS_TRAFFIC, {
+            error: `is ${EGRESS_TRAFFIC.join(' or ')}`,
+          })
+          .nullish(),
       })
       .nullish(),
   })
@@ -73,12 +89,27 @@ const poolSchema = z
       return;
     }
 
+    if (pool.provision.egressTraffic && !pool.provision.egress) {
+      context.addIssue({
+        code: 'custom',
+        path: ['provision', 'egressTraffic'],
+        message: 'is only for a pool that names an egress in provision.egress',
+      });
+    }
+
     for (const field of ['token', 'tokenVersion'] as const) {
       if (pool[field] !== null && pool[field] !== undefined) {
         context.addIssue({ code: 'custom', path: [field], message: PULL_ONLY });
       }
     }
   });
+
+const egressSchema = z.object({
+  key: madeBy(EgressKey.of),
+  url: madeBy(EgressUrl.of),
+  token: madeBy(EgressToken.of).nullish(),
+  tokenVersion: writeOnlyVersion,
+});
 
 const trustSchema = z.object({
   key: madeBy(TrustKey.of),
@@ -132,6 +163,12 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
               ? ProvisionSecret.of(provision.secret)
               : null,
             secretVersion: provision.secretVersion ?? null,
+            egress: provision.egress
+              ? EgressReference.of(provision.egress)
+              : null,
+            egressTraffic: provision.egressTraffic
+              ? EgressTraffic.of(provision.egressTraffic)
+              : EgressTraffic.all(),
           }
         : {
             mode: 'pull',
@@ -139,6 +176,20 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
             tokenVersion: read.data.tokenVersion ?? null,
           },
     };
+  }
+
+  egress(held: unknown): CompiledEgress {
+    const read = egressSchema.safeParse(held);
+
+    return read.success
+      ? {
+          ok: true,
+          key: EgressKey.of(read.data.key),
+          url: EgressUrl.of(read.data.url),
+          token: read.data.token ? EgressToken.of(read.data.token) : null,
+          tokenVersion: read.data.tokenVersion ?? null,
+        }
+      : { ok: false, problems: problemsIn(EGRESS, read.error) };
   }
 
   workspaceRunners(held: unknown): CompiledWorkspaceRunners {

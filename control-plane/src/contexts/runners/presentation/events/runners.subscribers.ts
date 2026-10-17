@@ -34,7 +34,12 @@ export const runnersSubscribers = (reactions: {
   subscribing<WorkspaceClosedIntegrationEvent>(
     'runners.retire-pools-of-closed-workspace',
     [WORKSPACE_CLOSED],
-    (event) => reactions.abandoning.poolsOf(WorkspaceId.of(event.workspaceId)),
+    async (event) => {
+      const workspaceId = WorkspaceId.of(event.workspaceId);
+
+      await reactions.abandoning.poolsOf(workspaceId);
+      await reactions.abandoning.egressesOf(workspaceId);
+    },
   ),
   subscribing<WorkspaceClosedIntegrationEvent>(
     'runners.drop-runners-declared-by-closed-workspace',

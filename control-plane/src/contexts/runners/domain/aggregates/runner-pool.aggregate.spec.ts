@@ -1,3 +1,4 @@
+import { EGRESS_ID } from '@runners/domain/aggregates/egress.fake-spec';
 import {
   aPullPool,
   aPushPool,
@@ -10,6 +11,7 @@ import { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.ev
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
@@ -64,6 +66,7 @@ describe('RunnerPool', () => {
           url: ProvisionUrl.of('https://provision.example.com/runs'),
           secret: null,
           secretVersion: null,
+          egress: null,
         },
         BY,
       ),
@@ -134,14 +137,20 @@ describe('RunnerPool', () => {
     expect(() =>
       pool.redefinedAs(
         keeping('sandboxes'),
-        { mode: 'push', url, secret: null, secretVersion: 2 },
+        { mode: 'push', url, secret: null, secretVersion: 2, egress: null },
         BY,
       ),
     ).toThrow(InvalidRunnerPoolError);
 
     const rotated = pool.redefinedAs(
       keeping('sandboxes'),
-      { mode: 'push', url, secret: sealedOf('t'), secretVersion: 2 },
+      {
+        mode: 'push',
+        url,
+        secret: sealedOf('t'),
+        secretVersion: 2,
+        egress: null,
+      },
       BY,
     );
 
@@ -189,6 +198,7 @@ describe('RunnerPool', () => {
         url: ProvisionUrl.of('https://provision.example.com/v2'),
         secret: null,
         secretVersion: 1,
+        egress: null,
       },
       BY,
     );
@@ -217,5 +227,53 @@ describe('RunnerPool', () => {
     expect(() => MaxRuns.of(0)).toThrow(InvalidRunnerPoolError);
     expect(() => MaxRuns.of(1.5)).toThrow(InvalidRunnerPoolError);
     expect(MaxRuns.of(3).allows(2)).toBe(true);
+  });
+});
+
+describe('RunnerPool egress', () => {
+  it('names the egress its runners go out through, or none', () => {
+    const platform = aPushPool({ egress: EgressReference.platform() });
+    const shared = aPushPool({ egress: EgressReference.to(EGRESS_ID) });
+
+    expect(platform.egress?.isPlatform).toBe(true);
+    expect(platform.goesOutThrough(EgressReference.platform())).toBe(true);
+    expect(platform.goesOutThrough(EgressReference.to(EGRESS_ID))).toBe(false);
+    expect(shared.goesOutThrough(EgressReference.to(EGRESS_ID))).toBe(true);
+    expect(aPushPool().egress).toBeNull();
+    expect(aPullPool().egress).toBeNull();
+    expect(aPullPool().goesOutThrough(EgressReference.platform())).toBe(false);
+  });
+
+  it('names another egress, or none, when it is redefined', () => {
+    const pool = aPushPool({ egress: EgressReference.platform() });
+    const url = ProvisionUrl.of('https://provision.example.com/runs');
+    const given = {
+      mode: 'push' as const,
+      url,
+      secret: null,
+      secretVersion: 1,
+    };
+
+    expect(
+      pool
+        .redefinedAs(
+          keeping('sandboxes'),
+          { ...given, egress: EgressReference.to(EGRESS_ID) },
+          BY,
+        )
+        .egress?.equals(EgressReference.to(EGRESS_ID)),
+    ).toBe(true);
+    expect(
+      pool.redefinedAs(keeping('sandboxes'), { ...given, egress: null }, BY)
+        .egress,
+    ).toBeNull();
+  });
+
+  it('goes out through nothing once retired', () => {
+    expect(
+      aPushPool({ egress: EgressReference.platform() })
+        .retired(BY)
+        .goesOutThrough(EgressReference.platform()),
+    ).toBe(false);
   });
 });

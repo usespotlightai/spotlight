@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"time"
 
@@ -23,19 +24,23 @@ type keeper struct {
 	journal *journalWriter
 	control Journal
 	scratch string
+	through http.RoundTripper
 	log     *slog.Logger
 
 	restoredFrom string
 	baseline     string
 }
 
-func newKeeper(run protocol.Run, space *workspace.Workspace, journal *journalWriter, control Journal, log *slog.Logger) *keeper {
+func newKeeper(
+	run protocol.Run, space *workspace.Workspace, journal *journalWriter, control Journal, through http.RoundTripper, log *slog.Logger,
+) *keeper {
 	return &keeper{
 		run:     run,
 		space:   space,
 		journal: journal,
 		control: control,
 		scratch: os.TempDir(),
+		through: through,
 		log:     log,
 	}
 }
@@ -110,7 +115,7 @@ func (k *keeper) restoredExactly(ctx context.Context, wanted string) error {
 }
 
 func (k *keeper) unpacked(ctx context.Context, held protocol.HeldArchive) error {
-	fetched, err := archive.Fetch(ctx, held, k.scratch)
+	fetched, err := archive.Fetch(ctx, k.through, held, k.scratch)
 	if err != nil {
 		return err
 	}
@@ -189,7 +194,7 @@ func (k *keeper) kept(ctx context.Context) (string, bool) {
 		return "Skipped: " + err.Error(), false
 	}
 
-	if err := archive.Upload(ctx, grant, packed); err != nil {
+	if err := archive.Upload(ctx, k.through, grant, packed); err != nil {
 		return "Skipped: " + err.Error(), false
 	}
 

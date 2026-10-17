@@ -29,6 +29,8 @@ const LONGEST_HOLD_UNSEEN_MS = Math.max(...Object.values(HOLDS_UNSEEN_MS));
 
 const REMEMBERED_AFTER_ENDING_MS = 24 * 60 * 60_000;
 
+const RECORDS_AFTER_ENDING_MS = 2 * 60_000;
+
 interface State {
   readonly id: RunnerId;
   readonly workspaceId: WorkspaceId;
@@ -37,6 +39,7 @@ interface State {
   readonly labels: RunnerLabels;
   readonly tokenHash: TokenHash;
   readonly egressTokenHash: TokenHash | null;
+  readonly proxyCredentialHash: TokenHash | null;
   readonly installed: readonly InstalledHarness[];
   readonly running: RunningImage | null;
   readonly work: RunnerWork | null;
@@ -61,6 +64,7 @@ export class Runner extends EventRecorder {
     host: HostId | null;
     tokenHash: TokenHash;
     egressTokenHash: TokenHash | null;
+    proxyCredentialHash: TokenHash | null;
     installed: readonly InstalledHarness[];
     running: RunningImage | null;
     at: Date;
@@ -74,6 +78,16 @@ export class Runner extends EventRecorder {
       throw new InconsistentStateError(
         'runner',
         'was started through a pool or trust that is gone',
+      );
+    }
+
+    const goesOutThroughEgress =
+      through instanceof RunnerPool && through.egress !== null;
+
+    if (goesOutThroughEgress !== (input.proxyCredentialHash !== null)) {
+      throw new InconsistentStateError(
+        'runner',
+        'was given a proxy credential that does not match the egress of its pool',
       );
     }
 
@@ -93,6 +107,7 @@ export class Runner extends EventRecorder {
         labels: through.labels,
         tokenHash: input.tokenHash,
         egressTokenHash: input.egressTokenHash,
+        proxyCredentialHash: input.proxyCredentialHash,
         installed: [...input.installed],
         running: input.running,
         work: null,
@@ -147,6 +162,10 @@ export class Runner extends EventRecorder {
 
   get egressTokenHash(): TokenHash | null {
     return this.state.egressTokenHash;
+  }
+
+  get proxyCredentialHash(): TokenHash | null {
+    return this.state.proxyCredentialHash;
   }
 
   get installed(): readonly InstalledHarness[] {
@@ -219,6 +238,16 @@ export class Runner extends EventRecorder {
     return this.state.egressTokenHash !== null && this.standsAt(now)
       ? this.state.work
       : null;
+  }
+
+  workEgressRecordsFor(now: Date): RunnerWork | null {
+    const { endedAt, work } = this.state;
+    const recordsStill =
+      this.standsAt(now) ||
+      (endedAt !== null &&
+        now.getTime() <= endedAt.getTime() + RECORDS_AFTER_ENDING_MS);
+
+    return recordsStill ? work : null;
   }
 
   claimsAt(now: Date): RunnerClaims {

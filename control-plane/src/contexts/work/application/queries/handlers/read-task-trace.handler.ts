@@ -5,10 +5,12 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
+import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import {
+  connectionsOf,
   traceOf,
   type WorkedRun,
 } from '@work/application/read-models/trace-of';
@@ -21,6 +23,7 @@ export class ReadTaskTraceHandler
   constructor(
     private readonly runs: RunReaderPort,
     private readonly journals: RunJournalReaderPort,
+    private readonly connections: RunConnectionsPort,
   ) {}
 
   async execute(query: ReadTaskTraceQuery): Promise<TaskTraceDto | null> {
@@ -38,6 +41,9 @@ export class ReadTaskTraceHandler
       }
 
       const byRun = new Map(told.map((journal) => [journal.runId, journal]));
+      const wentWrong = await this.connections.wentWrongIn(
+        found.map((run) => run.id),
+      );
 
       const worked: WorkedRun[] = found.map((run) => ({
         id: RunId.of(run.id),
@@ -48,6 +54,7 @@ export class ReadTaskTraceHandler
         startedAt: run.startedAt,
         endedAt: run.updatedAt,
         journal: byRun.get(run.id) ?? null,
+        connections: connectionsOf(wentWrong, run.id, run.attempt),
       }));
 
       return TaskTraceMapper.toDto(traceOf(worked));

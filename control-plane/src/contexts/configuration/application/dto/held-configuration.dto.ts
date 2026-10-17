@@ -95,7 +95,15 @@ export type HeldResourceDto =
       readonly provision: {
         readonly url: string;
         readonly secretVersion: number | null;
+        readonly egress: string | null;
+        readonly egressTraffic: 'all' | 'bound';
       } | null;
+    })
+  | (HeldByWorkspace & {
+      readonly kind: 'egress';
+      readonly key: string;
+      readonly url: string;
+      readonly tokenVersion: number | null;
     })
   | (HeldByWorkspace & {
       readonly kind: 'workspace-runners';

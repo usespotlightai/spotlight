@@ -2,6 +2,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
+import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
@@ -125,6 +126,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
     const fields = {
       attempt: grants.hold.attempt,
       recipient: grants.recipient?.key ?? null,
+      redeemedThrough: grants.redeemer?.sharedEgress ?? null,
       holdLost: grants.isHoldLost,
       endedAt: grants.endedAt,
     };
@@ -215,8 +217,13 @@ const toGrants = (
         host: each.host,
       }),
     ),
-    recipient:
-      row.recipient === null ? null : RedemptionRecipient.of(row.recipient),
+    redeemer:
+      row.recipient === null
+        ? null
+        : Redeemer.of(
+            RedemptionRecipient.of(row.recipient),
+            row.redeemedThrough,
+          ),
     holdLost: row.holdLost,
     endedAt: row.endedAt,
     version: row.version,

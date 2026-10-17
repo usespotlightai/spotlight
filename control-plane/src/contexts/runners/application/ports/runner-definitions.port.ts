@@ -1,3 +1,8 @@
+import type { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
+import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import type { EgressToken } from '@runners/domain/value-objects/egress-token.vo';
+import type { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { PoolToken } from '@runners/domain/value-objects/pool-token.vo';
@@ -35,6 +40,8 @@ export type CompiledPoolAccess =
       readonly url: ProvisionUrl;
       readonly secret: ProvisionSecret | null;
       readonly secretVersion: number | null;
+      readonly egress: EgressReference | null;
+      readonly egressTraffic: EgressTraffic;
     };
 
 export type CompiledPool =
@@ -44,6 +51,16 @@ export type CompiledPool =
       readonly labels: RunnerLabels;
       readonly maxRuns: MaxRuns | null;
       readonly access: CompiledPoolAccess;
+    }
+  | Refused;
+
+export type CompiledEgress =
+  | {
+      readonly ok: true;
+      readonly key: EgressKey;
+      readonly url: EgressUrl;
+      readonly token: EgressToken | null;
+      readonly tokenVersion: number | null;
     }
   | Refused;
 
@@ -59,6 +76,8 @@ export interface RunnerDefinitionsPort {
   trust(held: unknown): CompiledTrust;
 
   pool(held: unknown): CompiledPool;
+
+  egress(held: unknown): CompiledEgress;
 
   workspaceRunners(held: unknown): CompiledWorkspaceRunners;
 }

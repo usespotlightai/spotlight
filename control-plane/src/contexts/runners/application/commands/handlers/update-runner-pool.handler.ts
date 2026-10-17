@@ -1,15 +1,18 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { UpdateRunnerPoolCommand } from '@runners/application/commands/runner-resource.commands';
+import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { givePoolToken } from '@runners/application/services/give-pool-token';
 import { givenAccess } from '@runners/application/services/pool-access-given';
+import { refuseUnknownEgress } from '@runners/application/services/refuse-unknown-egress';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
+import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { GivenPoolTokensRepository } from '@runners/domain/repositories/given-pool-tokens.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
@@ -32,6 +35,8 @@ export class UpdateRunnerPoolHandler
     private readonly pools: RunnerPoolRepository,
     private readonly given: GivenPoolTokensRepository,
     private readonly secrets: ProvisionSecretsPort,
+    private readonly egresses: EgressRepository,
+    private readonly platform: PlatformEgressSettings | null,
     private readonly tokens: TokenMintPort,
     private readonly transaction: TransactionPort,
   ) {}
@@ -73,6 +78,15 @@ export class UpdateRunnerPoolHandler
       );
 
       await this.transaction.run(async () => {
+        if (compiled.access.mode === 'push') {
+          await refuseUnknownEgress(
+            compiled.access.egress,
+            standing.workspaceId,
+            this.egresses,
+            this.platform,
+          );
+        }
+
         await this.pools.save(redefined);
         await givePoolToken(this.given, this.pools, redefined, standing);
       });

@@ -1,0 +1,145 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { CreateEgressCommand } from '@runners/application/commands/runner-resource.commands';
+import type { EgressCreatedDto } from '@runners/application/dto/runner-resource.dto';
+import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
+import { RunnerProblems } from '@runners/application/rendering/runner-problems';
+import { giveEgressToken } from '@runners/application/services/give-egress-token';
+import { Egress } from '@runners/domain/aggregates/egress.aggregate';
+import { EgressAlreadyDefinedError } from '@runners/domain/exceptions/egress-already-defined.error';
+import { EgressTokenSpentError } from '@runners/domain/exceptions/egress-token-spent.error';
+import { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
+import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
+import type { GivenEgressTokensRepository } from '@runners/domain/repositories/given-egress-tokens.repository';
+import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
+import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type {
+  IdempotentCreate,
+  IdempotentCreatesPort,
+} from '@shared-kernel/application/ports/idempotent-creates.port';
+import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { createdOnce } from '@shared-kernel/application/services/created-once';
+import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export class CreateEgressHandler
+  implements CommandHandlerPort<CreateEgressCommand, EgressCreatedDto | null>
+{
+  constructor(
+    private readonly access: WorkspaceAccessPort,
+    private readonly definitions: RunnerDefinitionsPort,
+    private readonly egresses: EgressRepository,
+    private readonly given: GivenEgressTokensRepository,
+    private readonly creates: IdempotentCreatesPort,
+    private readonly ids: IdGeneratorPort,
+    private readonly tokens: TokenMintPort,
+    private readonly transaction: TransactionPort,
+  ) {}
+
+  async execute(
+    command: CreateEgressCommand,
+  ): Promise<EgressCreatedDto | null> {
+    try {
+      const cleared = await this.access.clearanceIn(
+        WorkspaceId.of(command.workspaceId),
+        command.actor.principal,
+      );
+
+      if (!cleared) {
+        return null;
+      }
+
+      if (!cleared.managesRunners) {
+        return { created: forbiddenTo('manage-runners'), token: null };
+      }
+
+      const compiled = this.definitions.egress(command.definition);
+
+      if (!compiled.ok) {
+        return {
+          created: { outcome: 'invalid', problems: compiled.problems },
+          token: null,
+        };
+      }
+
+      const issued = compiled.token
+        ? { token: null, hash: this.tokens.hash(compiled.token.revealed()) }
+        : this.tokens.mint();
+
+      const create: IdempotentCreate = {
+        by: command.actor.principal.toString(),
+        key: IdempotencyKey.of(command.idempotencyKey),
+        request: {
+          egress: 'create',
+          workspaceId: command.workspaceId,
+          key: compiled.key.value,
+          url: compiled.url.value,
+          token: compiled.token ? issued.hash : null,
+          tokenVersion: compiled.tokenVersion,
+        },
+      };
+
+      try {
+        const created = await this.transaction.run(() =>
+          createdOnce(this.creates, create, async () => {
+            const defined = Egress.define({
+              id: EgressId.of(this.ids.generate()),
+              workspaceId: cleared.workspaceId,
+              by: Attribution.of(command.actor, cleared.workspaceId),
+              key: compiled.key,
+              url: compiled.url,
+              token: {
+                tokenHash: TokenHash.of(issued.hash),
+                tokenVersion: compiled.tokenVersion,
+              },
+            });
+
+            await this.egresses.add(defined);
+            await giveEgressToken(this.given, this.egresses, defined, null);
+
+            return defined.id.value;
+          }),
+        );
+
+        return {
+          created,
+          token:
+            issued.token && created.outcome === 'created' && !created.replayed
+              ? issued.token
+              : null,
+        };
+      } catch (error) {
+        if (error instanceof EgressAlreadyDefinedError) {
+          return {
+            created: { outcome: 'taken', address: compiled.key.value },
+            token: null,
+          };
+        }
+
+        if (
+          error instanceof EgressTokenTakenError ||
+          error instanceof EgressTokenSpentError ||
+          error instanceof InvalidEgressError
+        ) {
+          return {
+            created: {
+              outcome: 'invalid',
+              problems: [RunnerProblems.egressRefused(error)],
+            },
+            token: null,
+          };
+        }
+
+        throw error;
+      }
+    } catch (error) {
+      rethrowAsFault(error);
+    }
+  }
+}

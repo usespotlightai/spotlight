@@ -20,6 +20,7 @@ import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound
 import { SecretUnwearableError } from '@secrets/domain/exceptions/secret-unwearable.error';
 import { UnreadableSecretError } from '@secrets/domain/exceptions/unreadable-secret.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
+import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
@@ -87,7 +88,13 @@ export class RunRedemptions implements RunRedemptionsPort {
           hold,
           granting.flatMap((each) => each.grants),
         )
-        .redeemedFor(hold, RedemptionRecipient.of(recipient.key)),
+        .redeemedFor(
+          hold,
+          Redeemer.of(
+            RedemptionRecipient.of(recipient.key),
+            redemption.sharedEgress,
+          ),
+        ),
     );
 
     const secrets: RedeemedSecret[] = [];

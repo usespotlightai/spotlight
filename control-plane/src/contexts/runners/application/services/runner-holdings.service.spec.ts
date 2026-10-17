@@ -1,7 +1,9 @@
 import { RunnerHoldings } from '@runners/application/services/runner-holdings.service';
+import { anEgress } from '@runners/domain/aggregates/egress.fake-spec';
 import { aPullPool } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
+import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
@@ -38,10 +40,13 @@ const holdings = (declared: WorkspaceRunners | null) =>
     {
       inWorkspace: async () => [aPullPool()],
     } as unknown as RunnerPoolRepository,
+    {
+      inWorkspace: async () => [anEgress()],
+    } as unknown as EgressRepository,
   );
 
 describe('RunnerHoldings', () => {
-  it('holds a workspace by its trusts, its pools and its declaration', async () => {
+  it('holds a workspace by its trusts, its pools, its egresses and its declaration', async () => {
     const declared = WorkspaceRunners.rehydrate({
       id: WorkspaceRunnersId.of('declared_1'),
       workspaceId: WORKSPACE,
@@ -53,6 +58,7 @@ describe('RunnerHoldings', () => {
     await expect(holdings(declared).heldBy(WORKSPACE)).resolves.toEqual([
       'runner trust production',
       'runner pool ephemeral',
+      'egress shared',
       'workspace runners',
     ]);
   });
@@ -61,6 +67,7 @@ describe('RunnerHoldings', () => {
     await expect(holdings(null).heldBy(WORKSPACE)).resolves.toEqual([
       'runner trust production',
       'runner pool ephemeral',
+      'egress shared',
     ]);
   });
 });

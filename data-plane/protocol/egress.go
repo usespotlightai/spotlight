@@ -1,5 +1,7 @@
 package protocol
 
+import "time"
+
 const (
 	EgressHandedPath = "/run/spotlight/egress.json"
 	EgressAuthority  = "/run/spotlight/egress/authority.pem"
@@ -35,7 +37,8 @@ const (
 )
 
 type EgressRedeem struct {
-	Recipient string `json:"recipient"`
+	ProxyCredential string `json:"proxyCredential,omitempty"`
+	Recipient       string `json:"recipient"`
 }
 
 type EgressRedemption struct {
@@ -44,6 +47,7 @@ type EgressRedemption struct {
 	Secrets      []RedeemedSecret `json:"secrets"`
 	Withheld     []WithheldSecret `json:"withheld"`
 	SpotlightAPI *SpotlightAPI    `json:"spotlightApi,omitempty"`
+	Bound        []string         `json:"bound,omitempty"`
 }
 
 type SpotlightAPI struct {
@@ -75,4 +79,82 @@ const ReadFromAWSSecretsManager = "aws-secrets-manager"
 type WithheldSecret struct {
 	Secret string `json:"secret"`
 	Reason string `json:"reason"`
+}
+
+const (
+	EgressURLVar        = "SPOTLIGHT_EGRESS_URL"
+	EgressCredentialVar = "SPOTLIGHT_EGRESS_CREDENTIAL"
+	EgressTrafficVar    = "SPOTLIGHT_EGRESS_TRAFFIC"
+	EgressTrafficAll    = "all"
+	EgressTrafficBound  = "bound"
+	EgressTargetHeader  = "Spotlight-Egress-Target"
+	EgressBoundPath     = "/.well-known/spotlight/bound"
+	EgressProxyUser     = "sandbox"
+)
+
+type EgressAdmit struct {
+	ProxyCredential string `json:"proxyCredential"`
+}
+
+type EgressAdmitted struct {
+	RunnerID         string   `json:"runnerId"`
+	WorkspaceID      string   `json:"workspaceId"`
+	ControlPlaneHost string   `json:"controlPlaneHost"`
+	ControlPlanePort int      `json:"controlPlanePort"`
+	Reaches          []string `json:"reaches"`
+}
+
+const (
+	MostHoldsAtOnce   = 500
+	MostRecordsAtOnce = 2000
+)
+
+type EgressHolds struct {
+	ProxyCredentials []string `json:"proxyCredentials"`
+}
+
+type EgressHeld struct {
+	Held []string `json:"held"`
+}
+
+const (
+	ConnectionTunnelled = "tunnelled"
+	ConnectionForwarded = "forwarded"
+	ConnectionBlocked   = "blocked"
+	ConnectionFailed    = "failed"
+)
+
+const (
+	ReasonNotAllowed     = "not-allowed"
+	ReasonAddressRefused = "address-refused"
+	ReasonNotBound       = "not-bound"
+	ReasonNoSuchHost     = "no-such-host"
+	ReasonTimedOut       = "timed-out"
+	ReasonTLSFailed      = "tls-failed"
+	ReasonUnreachable    = "unreachable"
+)
+
+type EgressConnection struct {
+	ProxyCredential string    `json:"proxyCredential"`
+	Host            string    `json:"host"`
+	Port            int       `json:"port"`
+	BytesOut        int64     `json:"bytesOut"`
+	BytesIn         int64     `json:"bytesIn"`
+	Ms              int64     `json:"ms"`
+	Outcome         string    `json:"outcome"`
+	Status          int       `json:"status,omitempty"`
+	Reason          string    `json:"reason,omitempty"`
+	At              time.Time `json:"at"`
+}
+
+type EgressConnections struct {
+	Records []EgressConnection `json:"records"`
+}
+
+type EgressBound struct {
+	Hosts []string `json:"hosts"`
+}
+
+type EgressChecked struct {
+	Enforced bool `json:"enforced"`
 }

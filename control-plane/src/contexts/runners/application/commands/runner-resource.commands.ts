@@ -77,3 +77,29 @@ export class DeleteRunnerPoolCommand {
     readonly expectedVersion: number,
   ) {}
 }
+
+export class CreateEgressCommand {
+  constructor(
+    readonly workspaceId: string,
+    readonly actor: Actor,
+    readonly idempotencyKey: string,
+    readonly definition: unknown,
+  ) {}
+}
+
+export class UpdateEgressCommand {
+  constructor(
+    readonly egressId: string,
+    readonly actor: Actor,
+    readonly expectedVersion: number,
+    readonly definition: unknown,
+  ) {}
+}
+
+export class DeleteEgressCommand {
+  constructor(
+    readonly egressId: string,
+    readonly actor: Actor,
+    readonly expectedVersion: number,
+  ) {}
+}

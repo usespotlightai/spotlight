@@ -72,6 +72,8 @@ export const runnerPool = pgTable(
     provisionUrl: text('provision_url'),
     provisionSecret: text('provision_secret'),
     provisionSecretVersion: integer('provision_secret_version'),
+    provisionEgress: text('provision_egress'),
+    provisionEgressTraffic: text('provision_egress_traffic'),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
@@ -85,12 +87,40 @@ export const runnerPool = pgTable(
       'runner_pool_one_mode',
       sql`(${table.tokenHash} is null) <> (${table.provisionUrl} is null) and (${table.provisionUrl} is null) = (${table.provisionSecret} is null)`,
     ),
+    check(
+      'runner_pool_egress_pushes',
+      sql`${table.provisionEgress} is null or ${table.provisionUrl} is not null`,
+    ),
   ],
 );
 
 export const poolToken = pgTable('pool_token', {
   tokenHash: text('token_hash').primaryKey(),
   poolId: text('pool_id').notNull(),
+  givenAt: timestamp('given_at').defaultNow().notNull(),
+});
+
+export const egress = pgTable(
+  'egress',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    key: text('key').notNull(),
+    url: text('url').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    tokenVersion: integer('token_version'),
+    version: integer('version').notNull().default(0),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('egress_workspace_key_idx').on(table.workspaceId, table.key),
+    uniqueIndex('egress_token_hash_idx').on(table.tokenHash),
+  ],
+);
+
+export const egressToken = pgTable('egress_token', {
+  tokenHash: text('token_hash').primaryKey(),
+  egressId: text('egress_id').notNull(),
   givenAt: timestamp('given_at').defaultNow().notNull(),
 });
 
@@ -105,6 +135,7 @@ export const runner = pgTable(
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
     tokenHash: text('token_hash').notNull(),
     egressTokenHash: text('egress_token_hash'),
+    proxyCredentialHash: text('proxy_credential_hash'),
     harnesses: jsonb('harnesses').$type<string[]>().notNull().default([]),
     advertisedModels: jsonb('advertised_models')
       .$type<Record<string, string[]>>()
@@ -127,6 +158,9 @@ export const runner = pgTable(
   (table) => [
     uniqueIndex('runner_token_hash_idx').on(table.tokenHash),
     uniqueIndex('runner_egress_token_hash_idx').on(table.egressTokenHash),
+    uniqueIndex('runner_proxy_credential_hash_idx').on(
+      table.proxyCredentialHash,
+    ),
     index('runner_pool_standing_idx')
       .on(table.poolId)
       .where(sql`${table.endedAt} is null`),

@@ -39,4 +39,18 @@ export const forgetRunnersOf = async (
   await db
     .delete(schema.workspaceRunners)
     .where(eq(schema.workspaceRunners.workspaceId, workspaceId));
+  await db
+    .delete(schema.egressToken)
+    .where(
+      inArray(
+        schema.egressToken.egressId,
+        db
+          .select({ id: schema.egress.id })
+          .from(schema.egress)
+          .where(eq(schema.egress.workspaceId, workspaceId)),
+      ),
+    );
+  await db
+    .delete(schema.egress)
+    .where(eq(schema.egress.workspaceId, workspaceId));
 };

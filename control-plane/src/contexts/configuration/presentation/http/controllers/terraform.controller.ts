@@ -39,6 +39,7 @@ const COLLECTION_OF: Readonly<Record<HeldKind, string>> = {
   'workspace-token-trust': 'token-trusts',
   'runner-trust': 'runner-trusts',
   'runner-pool': 'runner-pools',
+  egress: 'egresses',
   'workspace-runners': 'workspace-runners',
 };
 

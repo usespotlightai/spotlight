@@ -158,6 +158,7 @@ describe('workspaceTerraform', () => {
       resources: HELD.resources.filter(
         (each) =>
           each.kind !== 'runner-pool' &&
+          each.kind !== 'egress' &&
           each.kind !== 'secret' &&
           each.kind !== 'hook',
       ),
@@ -191,6 +192,7 @@ describe('workspaceTerraform', () => {
       ['spotlight_secret', 'linear_api_key', 'LINEAR_API_KEY'],
       ['spotlight_workspace_token_trust', 'github-main', 'github-main'],
       ['spotlight_runner_trust', 'production-cluster', 'production-cluster'],
+      ['spotlight_egress', 'shared', 'shared'],
       ['spotlight_runner_pool', 'burst', 'burst'],
       ['spotlight_runner_pool', 'k8s-jobs', 'k8s-jobs'],
       ['spotlight_workspace_runners', 'acme', 'acme'],
@@ -461,6 +463,7 @@ describe('workspaceTerraform', () => {
         '    url            = "https://provisioner.acme.dev/runs"',
         '    secret         = var.runner_pool_k8s-jobs_provision_secret',
         '    secret_version = 1',
+        '    egress         = spotlight_egress.shared.id',
         '  }',
         '}',
       ].join('\n'),
@@ -473,6 +476,71 @@ describe('workspaceTerraform', () => {
     );
   });
 
+  it('writes an egress with its token read from an optional sensitive variable', () => {
+    expect(blockOf(mainOf(HELD), 'resource "spotlight_egress" "shared"')).toBe(
+      [
+        'resource "spotlight_egress" "shared" {',
+        '  workspace_id  = spotlight_workspace.acme.id',
+        '  key           = "shared"',
+        '  url           = "https://egress.acme.dev"',
+        '  token         = var.egress_shared_token',
+        '  token_version = 2',
+        '}',
+      ].join('\n'),
+    );
+    expect(fileOf(HELD, 'variables.tf')).toContain(
+      'variable "egress_shared_token" {\n  description = "The token the egress shared calls Spotlight with; left null, Spotlight issues one when it creates the egress"\n  type        = string\n  sensitive   = true\n  default     = null\n}\n',
+    );
+  });
+
+  it('writes the platform egress a pool names as spotlight, and an egress it does not hold as its id', () => {
+    const naming = (egress: string): HeldConfigurationDto => ({
+      ...HELD,
+      resources: HELD.resources.map((each) =>
+        each.kind === 'runner-pool' && each.provision
+          ? { ...each, provision: { ...each.provision, egress } }
+          : each,
+      ),
+    });
+
+    expect(
+      blockOf(
+        mainOf(naming('spotlight')),
+        'resource "spotlight_runner_pool" "k8s-jobs"',
+      ),
+    ).toContain('    egress         = "spotlight"\n');
+    expect(
+      blockOf(
+        mainOf(naming('egress_elsewhere')),
+        'resource "spotlight_runner_pool" "k8s-jobs"',
+      ),
+    ).toContain('    egress         = "egress_elsewhere"\n');
+  });
+
+  it('writes egress_traffic only when a pool sends only bound traffic through its egress', () => {
+    const sending = (egressTraffic: 'all' | 'bound'): HeldConfigurationDto => ({
+      ...HELD,
+      resources: HELD.resources.map((each) =>
+        each.kind === 'runner-pool' && each.provision
+          ? { ...each, provision: { ...each.provision, egressTraffic } }
+          : each,
+      ),
+    });
+
+    expect(
+      blockOf(
+        mainOf(sending('bound')),
+        'resource "spotlight_runner_pool" "k8s-jobs"',
+      ),
+    ).toContain('    egress_traffic = "bound"\n');
+    expect(
+      blockOf(
+        mainOf(sending('all')),
+        'resource "spotlight_runner_pool" "k8s-jobs"',
+      ),
+    ).not.toContain('egress_traffic');
+  });
+
   it('writes no limit, token version or secret version a pool does not hold', () => {
     const configuration: HeldConfigurationDto = {
       ...HELD,
@@ -483,7 +551,7 @@ describe('workspaceTerraform', () => {
               maxRuns: null,
               tokenVersion: null,
               provision: each.provision
-                ? { ...each.provision, secretVersion: null }
+                ? { ...each.provision, secretVersion: null, egress: null }
                 : null,
             }
           : each,
@@ -496,7 +564,7 @@ describe('workspaceTerraform', () => {
     ).not.toMatch(/max_runs|token_version/);
     expect(
       blockOf(main, 'resource "spotlight_runner_pool" "k8s-jobs"'),
-    ).not.toContain('secret_version');
+    ).not.toMatch(/secret_version|egress/);
   });
 
   it('refers to the pools the workspace declares, and leaves a pool it does not hold as written', () => {
@@ -739,6 +807,7 @@ describe('workspaceTerraform', () => {
       '"spotlight_workspace_token_trust" "github-main"',
       '"spotlight_workspace_token_trust" "github-pull-requests"',
       '"spotlight_runner_trust" "production-cluster"',
+      '"spotlight_egress" "shared"',
       '"spotlight_runner_pool" "burst"',
       '"spotlight_runner_pool" "k8s-jobs"',
       '"spotlight_workspace_runners" "acme"',

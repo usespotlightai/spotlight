@@ -1,4 +1,3 @@
-import { GraduationCap } from 'lucide-react';
 import { useRunScores } from '@/hooks/api/useRunScores';
 import { scoreShown } from '@/lib/judge';
 
@@ -17,10 +16,9 @@ export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
   return (
     <span
       data-slot="trace-run-verdict"
-      className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs"
+      className="ml-1 shrink-0 text-muted-foreground text-xs"
     >
-      <GraduationCap aria-hidden className="size-3" />
-      <span className="sr-only">Judged</span>
+      <span className="sr-only">Judged </span>
       {scoreShown(judge)}
     </span>
   );

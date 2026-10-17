@@ -2,6 +2,7 @@ import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { RedemptionRecipientPinnedError } from '@secrets/domain/exceptions/redemption-recipient-pinned.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
 import { RunHoldOverError } from '@secrets/domain/exceptions/run-hold-over.error';
+import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
@@ -15,8 +16,20 @@ const RUN = RunId.of('run_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const FIRST = RunHold.of(RUN, 1);
 const SECOND = RunHold.of(RUN, 2);
-const EGRESS = RedemptionRecipient.of('recipient-key');
-const RESTARTED = RedemptionRecipient.of('another-key');
+const EGRESS = Redeemer.beside(RedemptionRecipient.of('recipient-key'));
+const RESTARTED = Redeemer.beside(RedemptionRecipient.of('another-key'));
+const SHARED = Redeemer.shared(
+  RedemptionRecipient.of('recipient-key'),
+  'egress_1',
+);
+const ANOTHER_NODE = Redeemer.shared(
+  RedemptionRecipient.of('another-key'),
+  'egress_1',
+);
+const ANOTHER_EGRESS = Redeemer.shared(
+  RedemptionRecipient.of('another-key'),
+  'egress_2',
+);
 const ENDED_AT = new Date('2026-09-23T12:00:00.000Z');
 const WEEK = 7 * 24 * 60 * 60_000;
 
@@ -69,9 +82,27 @@ describe('RunGrants', () => {
   it('pins the recipient a hold first redeems for, answering it again and refusing any other', () => {
     const pinned = begun().redeemedFor(FIRST, EGRESS);
 
-    expect(pinned.recipient).toEqual(EGRESS);
+    expect(pinned.redeemer).toEqual(EGRESS);
     expect(pinned.redeemedFor(FIRST, EGRESS)).toBe(pinned);
     expect(() => pinned.redeemedFor(FIRST, RESTARTED)).toThrow(
+      RedemptionRecipientPinnedError,
+    );
+    expect(() => pinned.redeemedFor(FIRST, SHARED)).toThrow(
+      RedemptionRecipientPinnedError,
+    );
+  });
+
+  it('pins a shared egress, not its key, so another node of that egress can redeem again', () => {
+    const pinned = begun().redeemedFor(FIRST, SHARED);
+
+    expect(pinned.redeemedFor(FIRST, SHARED)).toBe(pinned);
+    expect(pinned.redeemedFor(FIRST, ANOTHER_NODE).recipient).toEqual(
+      RedemptionRecipient.of('another-key'),
+    );
+    expect(() => pinned.redeemedFor(FIRST, ANOTHER_EGRESS)).toThrow(
+      RedemptionRecipientPinnedError,
+    );
+    expect(() => pinned.redeemedFor(FIRST, EGRESS)).toThrow(
       RedemptionRecipientPinnedError,
     );
   });
@@ -82,7 +113,7 @@ describe('RunGrants', () => {
     const again = held.redeemedFor(SECOND, RESTARTED);
 
     expect(again.hold).toEqual(SECOND);
-    expect(again.recipient).toEqual(RESTARTED);
+    expect(again.redeemer).toEqual(RESTARTED);
     expect(again.grants).toEqual([]);
     expect(again.granted(SECOND, [grant()]).allows(SECOND, grant())).toBe(true);
   });
@@ -162,7 +193,7 @@ describe('RunGrants', () => {
     const kept = {
       hold: FIRST,
       workspaceId: WORKSPACE,
-      recipient: null,
+      redeemer: null,
       holdLost: false,
       endedAt: null,
     };

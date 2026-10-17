@@ -53,6 +53,7 @@ export class HeldConfigurations {
         ...secrets.map(HeldResourceMapper.secret),
         ...tokenTrusts.map(HeldResourceMapper.tokenTrust),
         ...runners.trusts.map(HeldResourceMapper.trust),
+        ...runners.egresses.map(HeldResourceMapper.egress),
         ...runners.pools.map(HeldResourceMapper.pool),
         ...(runners.declared
           ? [HeldResourceMapper.declared(runners.declared)]

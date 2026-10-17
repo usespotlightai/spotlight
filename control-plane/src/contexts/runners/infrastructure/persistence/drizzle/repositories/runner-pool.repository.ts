@@ -9,6 +9,8 @@ import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken
 import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
   type PoolAccess,
@@ -45,6 +47,12 @@ const written = (pool: RunnerPool) => {
     provisionSecret: access.mode === 'push' ? access.secret.value : null,
     provisionSecretVersion:
       access.mode === 'push' ? access.secretVersion : null,
+    provisionEgress:
+      access.mode === 'push' ? (access.egress?.value ?? null) : null,
+    provisionEgressTraffic:
+      access.mode === 'push' && access.egress
+        ? access.egressTraffic.value
+        : null,
   };
 };
 
@@ -58,6 +66,12 @@ const accessOf = (row: Row): PoolAccess => {
       ProvisionUrl.of(row.provisionUrl),
       SealedProvisionSecret.of(row.provisionSecret),
       row.provisionSecretVersion,
+      row.provisionEgress === null
+        ? null
+        : EgressReference.of(row.provisionEgress),
+      row.provisionEgressTraffic === 'bound'
+        ? EgressTraffic.of('bound')
+        : EgressTraffic.all(),
     );
   }
 

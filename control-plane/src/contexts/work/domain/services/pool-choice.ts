@@ -6,6 +6,7 @@ import { poolCouldTake } from '@work/domain/services/pool-fit';
 export interface PoolOnOffer {
   readonly pool: PoolId;
   readonly labels: RunnerTerms;
+  readonly egress: boolean;
 }
 
 export class PoolRoom {
@@ -46,8 +47,11 @@ export const poolChoiceFor = <Pool extends PoolOnOffer>(
   placement: RunnerPlacement,
   pools: readonly Pool[],
   room: PoolRoom,
+  needsEgress = false,
 ): readonly Pool[] =>
   pools.filter(
     (offered) =>
-      room.hasRoomIn(offered.pool) && poolCouldTake(placement, offered.labels),
+      (offered.egress || !needsEgress) &&
+      room.hasRoomIn(offered.pool) &&
+      poolCouldTake(placement, offered.labels),
   );

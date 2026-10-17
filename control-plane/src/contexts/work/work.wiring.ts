@@ -76,7 +76,10 @@ import {
   RUN_GRANTS,
   type RunGrantsPort,
 } from '@secrets/application/ports/run-grants.port';
-import { RUN_REDEMPTIONS } from '@secrets/application/ports/run-redemptions.port';
+import {
+  RUN_REDEMPTIONS,
+  type RunRedemptionsPort,
+} from '@secrets/application/ports/run-redemptions.port';
 import {
   CLOCK,
   type ClockPort,
@@ -115,10 +118,17 @@ import { CreateLineCommand } from '@work/application/commands/create-line.comman
 import { DeleteLineCommand } from '@work/application/commands/delete-line.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { DeliverSaidCommand } from '@work/application/commands/deliver-said.command';
-import { RedeemEgressCommand } from '@work/application/commands/egress.commands';
+import {
+  AdmitThroughEgressCommand,
+  KeepEgressHoldsCommand,
+  RecordEgressConnectionsCommand,
+  RedeemEgressCommand,
+  RedeemThroughEgressCommand,
+} from '@work/application/commands/egress.commands';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
+import { AdmitThroughEgressHandler } from '@work/application/commands/handlers/admit-through-egress.handler';
 import { AnswerHostCallHandler } from '@work/application/commands/handlers/answer-host-call.handler';
 import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answer-inbox-item.handler';
 import { AnswerRemarkHandler } from '@work/application/commands/handlers/answer-remark.handler';
@@ -137,13 +147,16 @@ import { DismissProposalHandler } from '@work/application/commands/handlers/dism
 import { EnqueueRunHandler } from '@work/application/commands/handlers/enqueue-run.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
+import { KeepEgressHoldsHandler } from '@work/application/commands/handlers/keep-egress-holds.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
 import { ParkRunHandler } from '@work/application/commands/handlers/park-run.handler';
 import { ReadInboxAsideHandler } from '@work/application/commands/handlers/read-inbox-aside.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
+import { RecordEgressConnectionsHandler } from '@work/application/commands/handlers/record-egress-connections.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
 import { RedeemEgressHandler } from '@work/application/commands/handlers/redeem-egress.handler';
+import { RedeemThroughEgressHandler } from '@work/application/commands/handlers/redeem-through-egress.handler';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
@@ -303,6 +316,10 @@ import {
 } from '@work/application/ports/replay-run-claims.port';
 import { REPLAYABLE_RUNS } from '@work/application/ports/replayable-runs.port';
 import {
+  RUN_CONNECTIONS,
+  type RunConnectionsPort,
+} from '@work/application/ports/run-connections.port';
+import {
   RUN_DIGESTS,
   type RunDigestReaderPort,
 } from '@work/application/ports/run-digest-reader.port';
@@ -335,7 +352,10 @@ import {
 } from '@work/application/ports/run-tools-reader.port';
 import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
-import { SANDBOX_REACH } from '@work/application/ports/sandbox-reach.port';
+import {
+  SANDBOX_REACH,
+  type SandboxReachPort,
+} from '@work/application/ports/sandbox-reach.port';
 import { SEARCH_AGENTS } from '@work/application/ports/search-agents.port';
 import { SEARCH_DISPATCH } from '@work/application/ports/search-dispatch.port';
 import { SEARCH_RUNS } from '@work/application/ports/search-runs.port';
@@ -429,6 +449,7 @@ import { ReadRunAttachmentHandler } from '@work/application/queries/handlers/rea
 import { ReadRunConfigHandler } from '@work/application/queries/handlers/read-run-config.handler';
 import { ReadRunConversationHandler } from '@work/application/queries/handlers/read-run-conversation.handler';
 import { ReadRunEventsHandler } from '@work/application/queries/handlers/read-run-events.handler';
+import { ReadRunNetworkHandler } from '@work/application/queries/handlers/read-run-network.handler';
 import { ReadRunnerHistoryHandler } from '@work/application/queries/handlers/read-runner-history.handler';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
 import { ReadSearchRunHandler } from '@work/application/queries/handlers/read-search-run.handler';
@@ -462,6 +483,7 @@ import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attac
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
 import { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
 import { ReadRunEventsQuery } from '@work/application/queries/read-run-events.query';
+import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
 import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { ReadSearchRunQuery } from '@work/application/queries/read-search-run.query';
@@ -488,8 +510,10 @@ import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { DispatchSearch } from '@work/application/services/dispatch-search.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
+import { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
+import { ForgetRunConnections } from '@work/application/services/forget-run-connections.service';
 import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
@@ -558,6 +582,7 @@ import { LineCompiler } from '@work/infrastructure/lines/line.compile';
 import { RowsLineRendering } from '@work/infrastructure/lines/rows-line-rendering';
 import { DrizzleHeardHappenings } from '@work/infrastructure/persistence/drizzle/ledgers/heard-happenings.ledger';
 import { DrizzleReplayRunClaims } from '@work/infrastructure/persistence/drizzle/ledgers/replay-run-claims.ledger';
+import { DrizzleRunConnections } from '@work/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleArchiveStandings } from '@work/infrastructure/persistence/drizzle/readers/archive-standings.reader';
@@ -622,9 +647,14 @@ import { WorkspaceArchiveController } from '@work/presentation/http/controllers/
 import { HeardHappeningsWorker } from '@work/presentation/workers/heard-happenings.worker';
 import { NetworkCallsWorker } from '@work/presentation/workers/network-calls.worker';
 import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.worker';
+import { RunConnectionsWorker } from '@work/presentation/workers/run-connections.worker';
 import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
 
 const WORK_EVENTS = Symbol('WORK_EVENTS');
+
+const CONTROL_PLANE_HOST = Symbol('CONTROL_PLANE_HOST');
+
+const CONTROL_PLANE_PORT = Symbol('CONTROL_PLANE_PORT');
 
 const WORK_HOLDINGS = Symbol('WORK_HOLDINGS');
 
@@ -1700,6 +1730,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUN_READER,
   ]),
 
+  ...bindQueryHandler(ReadRunNetworkQuery, ReadRunNetworkHandler, [
+    RUN_EVENT_READER,
+    RUN_CONNECTIONS,
+  ]),
+
   ...bindQueryHandler(ReadSearchRunQuery, ReadSearchRunHandler, [
     WORKSPACE_ACCESS,
     RUN_READER,
@@ -1919,6 +1954,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadTaskTraceQuery, ReadTaskTraceHandler, [
     RUN_READER,
     RUN_JOURNAL_READER,
+    RUN_CONNECTIONS,
   ]),
 
   ...bindQueryHandler(ReadRunnerHistoryQuery, ReadRunnerHistoryHandler, [
@@ -1927,11 +1963,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUN_OUTCOMES,
     RUN_DIGESTS,
     SEARCH_SIGHT,
+    RUN_CONNECTIONS,
   ]),
 
   ...bindQueryHandler(ReadRunnerTraceQuery, ReadRunnerTraceHandler, [
     RUNNER_TRACE_READER,
     SEARCH_SIGHT,
+    RUN_CONNECTIONS,
   ]),
 
   ...bindQueryHandler(ReadTaskJournalQuery, ReadTaskJournalHandler, [
@@ -2273,16 +2311,103 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
 
+  {
+    provide: EgressRedemptions,
+    inject: [
+      DrizzleRunRepository,
+      RUN_REDEMPTIONS,
+      RUN_GRANTS,
+      SANDBOX_REACH,
+      DrizzleChatRepository,
+      RUN_TOKENS,
+      CLOCK,
+      CONTROL_PLANE_HOST,
+    ],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      redemptions: RunRedemptionsPort,
+      grants: RunGrantsPort,
+      reach: SandboxReachPort,
+      chats: DrizzleChatRepository,
+      runTokens: RunTokensPort,
+      clock: ClockPort,
+      controlPlaneHost: string,
+    ) =>
+      new EgressRedemptions(
+        runs,
+        redemptions,
+        grants,
+        reach,
+        chats,
+        runTokens,
+        clock,
+        controlPlaneHost,
+      ),
+  },
+
+  {
+    provide: CONTROL_PLANE_HOST,
+    inject: [ENV],
+    useFactory: (env: Env) => new URL(publicUrlOf(env)).hostname,
+  },
+
+  {
+    provide: CONTROL_PLANE_PORT,
+    inject: [ENV],
+    useFactory: (env: Env) => {
+      const url = new URL(publicUrlOf(env));
+
+      return Number(url.port || (url.protocol === 'https:' ? 443 : 80));
+    },
+  },
+
+  { provide: RUN_CONNECTIONS, useClass: DrizzleRunConnections },
+
+  {
+    provide: ForgetRunConnections,
+    inject: [RUN_CONNECTIONS, CLOCK],
+    useFactory: (connections: RunConnectionsPort, clock: ClockPort) =>
+      new ForgetRunConnections(connections, clock),
+  },
+
+  {
+    provide: RunConnectionsWorker,
+    inject: [ForgetRunConnections, LOGGER],
+    useFactory: (forgetting: ForgetRunConnections, logger: LoggerPort) =>
+      new RunConnectionsWorker(forgetting, logger),
+  },
+
   ...bindCommandHandler(RedeemEgressCommand, RedeemEgressHandler, [
     RUNNER_EGRESS,
-    DrizzleRunRepository,
-    RUN_REDEMPTIONS,
-    RUN_GRANTS,
-    SANDBOX_REACH,
-    DrizzleChatRepository,
-    RUN_TOKENS,
+    EgressRedemptions,
     CLOCK,
   ]),
+
+  ...bindCommandHandler(
+    RedeemThroughEgressCommand,
+    RedeemThroughEgressHandler,
+    [RUNNER_EGRESS, EgressRedemptions, CLOCK],
+  ),
+
+  ...bindCommandHandler(AdmitThroughEgressCommand, AdmitThroughEgressHandler, [
+    RUNNER_EGRESS,
+    SANDBOX_REACH,
+    CLOCK,
+    CONTROL_PLANE_HOST,
+    CONTROL_PLANE_PORT,
+  ]),
+
+  ...bindCommandHandler(KeepEgressHoldsCommand, KeepEgressHoldsHandler, [
+    RUNNER_EGRESS,
+    EgressRedemptions,
+    CLOCK,
+  ]),
+
+  ...bindCommandHandler(
+    RecordEgressConnectionsCommand,
+    RecordEgressConnectionsHandler,
+    [RUNNER_EGRESS, EgressRedemptions, RUN_CONNECTIONS, CLOCK],
+  ),
 
   ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
     DrizzleRunRepository,

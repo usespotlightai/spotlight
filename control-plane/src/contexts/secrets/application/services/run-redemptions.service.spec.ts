@@ -47,6 +47,7 @@ const REDEEMING = {
   runId: 'run_1',
   attempt: 1,
   recipient: 'recipient-key',
+  sharedEgress: null,
 };
 
 const holding = async () => {

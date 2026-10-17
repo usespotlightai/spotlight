@@ -5,6 +5,8 @@ import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import type { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { HostSession } from '@runners/domain/value-objects/host-session.vo';
@@ -70,7 +72,13 @@ export const sealedOf = (character: string): SealedProvisionSecret =>
   SealedProvisionSecret.of(`sealed:${character}`);
 
 export const aPushPool = (
-  input: { maxRuns?: number; labels?: string[]; url?: string } = {},
+  input: {
+    maxRuns?: number;
+    labels?: string[];
+    url?: string;
+    egress?: EgressReference | null;
+    egressTraffic?: EgressTraffic;
+  } = {},
 ): RunnerPool =>
   RunnerPool.define({
     id: POOL_ID,
@@ -83,6 +91,8 @@ export const aPushPool = (
       url: ProvisionUrl.of(input.url ?? 'https://provision.example.com/runs'),
       secret: sealedOf('s'),
       secretVersion: 1,
+      egress: input.egress ?? null,
+      egressTraffic: input.egressTraffic,
     },
     by: attributedIn(),
   });
@@ -109,6 +119,7 @@ export const aRunner = (
     installed?: readonly InstalledHarness[];
     running?: RunningImage | null;
     claimWithinMs?: number;
+    proxyCredentialHash?: TokenHash | null;
   } = {},
 ): Runner =>
   Runner.started({
@@ -117,6 +128,7 @@ export const aRunner = (
     host: input.host === null ? null : HostId.of(input.host ?? HOST_ID.value),
     tokenHash: hashOf('b'),
     egressTokenHash: input.host === null ? null : hashOf('e'),
+    proxyCredentialHash: input.proxyCredentialHash ?? null,
     installed: input.installed ?? [],
     running: input.running ?? null,
     at: STARTED_AT,

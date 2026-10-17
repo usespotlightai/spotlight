@@ -53,7 +53,7 @@ export interface RunnerReaderPort {
 
   readyToRun(workspaceId: WorkspaceId): Promise<boolean>;
 
-  hostsSandboxes(workspaceId: WorkspaceId): Promise<boolean>;
+  hasAWayOut(workspaceId: WorkspaceId): Promise<boolean>;
 
   advertisedModels(
     workspaceId: WorkspaceId,

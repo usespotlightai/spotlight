@@ -1,8 +1,10 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
+import { anEgress } from '@runners/domain/aggregates/egress.fake-spec';
 import { aPullPool } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
+import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
@@ -41,6 +43,8 @@ const declared = WorkspaceRunners.rehydrate({
 
 const pool = aPullPool({ maxRuns: 4, tokenVersion: 2 });
 
+const egress = anEgress();
+
 const configuration = new RunnerConfiguration(
   {
     inWorkspace: async () => [trust],
@@ -55,10 +59,14 @@ const configuration = new RunnerConfiguration(
     inWorkspace: async () => [pool],
     find: async () => pool,
   } as unknown as RunnerPoolRepository,
+  {
+    inWorkspace: async () => [egress],
+    find: async () => egress,
+  } as unknown as EgressRepository,
 );
 
 describe('RunnerConfiguration', () => {
-  it('configures the trusts, the pools and the declaration', async () => {
+  it('configures the trusts, the pools, the egresses and the declaration', async () => {
     await expect(configuration.in(WORKSPACE)).resolves.toEqual({
       trusts: [
         {
@@ -84,6 +92,16 @@ describe('RunnerConfiguration', () => {
           provision: null,
         },
       ],
+      egresses: [
+        {
+          id: 'egress_1',
+          address: 'shared',
+          workspaceId: egress.workspaceId,
+          key: 'shared',
+          url: 'https://egress.example.com',
+          tokenVersion: 1,
+        },
+      ],
       declared: {
         id: 'declared_1',
         address: 'acme',
@@ -94,13 +112,16 @@ describe('RunnerConfiguration', () => {
     });
   });
 
-  it('configures each trust, pool and declaration by its id', async () => {
+  it('configures each trust, pool, egress and declaration by its id', async () => {
     await expect(configuration.trustWithId('trust_1')).resolves.toMatchObject({
       key: 'production',
     });
     await expect(configuration.poolWithId('pool_1')).resolves.toMatchObject({
       key: 'ephemeral',
     });
+    await expect(configuration.egressWithId('egress_1')).resolves.toMatchObject(
+      { key: 'shared' },
+    );
     await expect(
       configuration.declaredWithId('declared_1'),
     ).resolves.toMatchObject({ address: 'acme', trusts: ['production'] });

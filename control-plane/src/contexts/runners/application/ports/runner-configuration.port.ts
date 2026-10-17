@@ -24,7 +24,18 @@ export interface ConfiguredRunnerPool {
   readonly provision: {
     readonly url: string;
     readonly secretVersion: number | null;
+    readonly egress: string | null;
+    readonly egressTraffic: 'all' | 'bound';
   } | null;
+}
+
+export interface ConfiguredEgress {
+  readonly id: string;
+  readonly address: string;
+  readonly workspaceId: WorkspaceId;
+  readonly key: string;
+  readonly url: string;
+  readonly tokenVersion: number | null;
 }
 
 export interface ConfiguredWorkspaceRunners {
@@ -38,6 +49,7 @@ export interface ConfiguredWorkspaceRunners {
 export interface ConfiguredRunners {
   readonly trusts: readonly ConfiguredRunnerTrust[];
   readonly pools: readonly ConfiguredRunnerPool[];
+  readonly egresses: readonly ConfiguredEgress[];
   readonly declared: ConfiguredWorkspaceRunners | null;
 }
 
@@ -47,6 +59,8 @@ export interface RunnerConfigurationPort {
   trustWithId(id: string): Promise<ConfiguredRunnerTrust | null>;
 
   poolWithId(id: string): Promise<ConfiguredRunnerPool | null>;
+
+  egressWithId(id: string): Promise<ConfiguredEgress | null>;
 
   declaredWithId(id: string): Promise<ConfiguredWorkspaceRunners | null>;
 }

@@ -423,24 +423,29 @@ export class Run extends EventRecorder {
     );
   }
 
-  provisionableAt(now: Date): boolean {
+  provisionableAt(now: Date, withEgress = false): boolean {
     return (
       this.state === 'queued' &&
       this.reservation === null &&
-      !this.wearsSecrets &&
+      (withEgress || !this.wearsSecrets) &&
       this.provisioning.dueAt(now) &&
       this.handBacks.claimableAt(now)
     );
   }
 
-  reservedFor(runner: RunnerId, pool: PoolId, now: Date): Run {
-    if (this.wearsSecrets) {
+  reservedFor(
+    runner: RunnerId,
+    pool: PoolId,
+    now: Date,
+    withEgress = false,
+  ): Run {
+    if (this.wearsSecrets && !withEgress) {
       throw new InvalidRunTransitionError(
-        `Run ${this.id.value} carries secrets or a Spotlight token. Only a host sandbox, which has egress, can run it, not a pool runner.`,
+        `Run ${this.id.value} carries secrets or a Spotlight token. Only a sandbox with egress can run it: a host, or a push pool that names an egress.`,
       );
     }
 
-    if (!this.provisionableAt(now)) {
+    if (!this.provisionableAt(now, withEgress)) {
       throw new InvalidRunTransitionError(
         `Run ${this.id.value} is ${this.state}${this.reservation ? ' and reserved' : ''}. It cannot be reserved for a new runner.`,
       );
@@ -1194,6 +1199,10 @@ export class Run extends EventRecorder {
 
   isHeldBy(runner: RunnerId): boolean {
     return isHeld(this.state) && this.wasWorkedBy(runner);
+  }
+
+  attemptWorkedBy(runner: RunnerId): RunAttempt | null {
+    return this.wasWorkedBy(runner) ? this.currentAttempt : null;
   }
 
   secretsWornFor(runner: RunnerId): readonly SecretName[] {

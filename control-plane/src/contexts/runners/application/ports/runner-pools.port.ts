@@ -8,6 +8,7 @@ export interface PoolAtWork {
   readonly workspaceId: WorkspaceId;
   readonly key: string;
   readonly labels: RunnerTerms;
+  readonly egress: boolean;
 }
 
 export interface RunnerPoolsPort {

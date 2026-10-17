@@ -1,5 +1,6 @@
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import { connectionsInMemory } from '@work/application/ports/run-connections.fake-spec';
 import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
 import type {
   RunOutcomeShape,
@@ -94,6 +95,7 @@ const journal = (runId: string): RunJournal => ({
     endedAt: null,
   },
   spent: null,
+  egress: null,
 });
 
 const outcomeOf = (
@@ -198,6 +200,7 @@ const reading = ({
         told,
         digests,
         sights,
+        connectionsInMemory(),
       ).execute(
         new ReadRunnerHistoryQuery('run_0', 'runner_1', {
           station: 'implementation',

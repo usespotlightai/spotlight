@@ -1,16 +1,19 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
+  EgressEnforcement,
   JournalStep,
   RunJournal,
   RunSpan,
 } from '@work/application/contracts/run-journal.contract';
+import type { ConnectionOfRun } from '@work/application/ports/run-connections.port';
 import type { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import type { Money } from '@work/domain/value-objects/money.vo';
+import type { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 import type { RunState } from '@work/domain/value-objects/run-state';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import { faulted } from '@work/domain/value-objects/step-status';
 
-export type NodeKind = 'run' | 'phase' | 'step' | 'span';
+export type NodeKind = 'run' | 'phase' | 'step' | 'span' | 'connection';
 
 export type Tone = 'agent' | 'overhead' | 'failed';
 
@@ -23,6 +26,21 @@ export interface WorkedRun {
   readonly startedAt: Date;
   readonly endedAt: Date;
   readonly journal: RunJournal | null;
+  readonly connections: readonly RunConnection[];
+}
+
+export const connectionsOf = (
+  recorded: readonly ConnectionOfRun[],
+  runId: string,
+  attempt: number,
+): RunConnection[] =>
+  recorded
+    .filter((each) => each.runId === runId && each.attempt === attempt)
+    .map((each) => each.connection);
+
+interface TracedConnection {
+  readonly connection: RunConnection;
+  readonly times: number;
 }
 
 export interface TraceNode {
@@ -35,6 +53,8 @@ export interface TraceNode {
   readonly step: JournalStep | null;
   readonly span: RunSpan | null;
   readonly cost: Money | null;
+  readonly connection: TracedConnection | null;
+  readonly egress: EgressEnforcement | null;
   readonly children: readonly TraceNode[];
 }
 
@@ -79,6 +99,8 @@ const nodeOfStep = (step: JournalStep, id: string): TraceNode => ({
   step,
   span: null,
   cost: null,
+  connection: null,
+  egress: null,
   children: [],
 });
 
@@ -98,6 +120,8 @@ const nodeOfSpan = (
   step,
   span,
   cost: null,
+  connection: null,
+  egress: null,
   children,
 });
 
@@ -222,6 +246,102 @@ const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
   return phases;
 };
 
+const hostOf = (connection: RunConnection): string =>
+  connection.port === 443
+    ? connection.host
+    : `${connection.host}:${connection.port}`;
+
+interface Arriving {
+  readonly id: string;
+  readonly connection: RunConnection;
+}
+
+interface Group {
+  readonly first: Arriving;
+  readonly all: RunConnection[];
+}
+
+const nodeOfGroup = ({ first, all }: Group, until: Date): TraceNode => ({
+  id: first.id,
+  kind: 'connection',
+  name: hostOf(first.connection),
+  from: first.connection.at,
+  to: new Date(
+    Math.max(
+      at(first.connection.at),
+      Math.min(
+        at(until),
+        Math.max(...all.map((each) => at(ending(each.at, each.ms)))),
+      ),
+    ),
+  ),
+  tone: 'failed',
+  step: null,
+  span: null,
+  cost: null,
+  connection: { connection: first.connection, times: all.length },
+  egress: null,
+  children: [],
+});
+
+const keyOf = (connection: RunConnection): string =>
+  [
+    connection.host,
+    connection.port,
+    connection.outcome,
+    connection.status,
+    connection.reason,
+  ].join(' ');
+
+const grouped = (arriving: readonly Arriving[], until: Date): TraceNode[] => {
+  const groups = new Map<string, Group>();
+
+  for (const each of arriving) {
+    const key = keyOf(each.connection);
+    const group = groups.get(key);
+
+    if (group) {
+      group.all.push(each.connection);
+    } else {
+      groups.set(key, { first: each, all: [each.connection] });
+    }
+  }
+
+  return [...groups.values()].map((group) => nodeOfGroup(group, until));
+};
+
+const holds = (node: TraceNode, when: Date): boolean =>
+  node.kind !== 'connection' && node.from <= when && when <= node.to;
+
+const settled = (node: TraceNode, arriving: readonly Arriving[]): TraceNode => {
+  if (arriving.length === 0) {
+    return node;
+  }
+
+  const below = new Map<TraceNode, Arriving[]>();
+  const own: Arriving[] = [];
+
+  for (const each of arriving) {
+    const child = [...node.children]
+      .reverse()
+      .find((found) => holds(found, each.connection.at));
+
+    if (child) {
+      below.set(child, [...(below.get(child) ?? []), each]);
+    } else {
+      own.push(each);
+    }
+  }
+
+  return {
+    ...node,
+    children: [
+      ...node.children.map((child) => settled(child, below.get(child) ?? [])),
+      ...grouped(own, node.to),
+    ].sort((one, other) => at(one.from) - at(other.from)),
+  };
+};
+
 const runName = (run: WorkedRun): string =>
   `${run.station?.value ?? 'Run'}${run.attempt > 1 ? ` · attempt ${run.attempt}` : ''}`;
 
@@ -244,7 +364,7 @@ const runNode = (run: WorkedRun): TraceNode => {
   const inside = (node: TraceNode): Phase | undefined =>
     phases.find((phase) => node.from >= phase.from && node.from <= phase.to);
 
-  const grouped: TraceNode[] = phases.map((phase) => ({
+  const phased: TraceNode[] = phases.map((phase) => ({
     id: phase.id,
     kind: 'phase',
     name: phase.name,
@@ -254,25 +374,40 @@ const runNode = (run: WorkedRun): TraceNode => {
     step: null,
     span: null,
     cost: null,
+    connection: null,
+    egress: null,
     children: held.filter((node) => inside(node)?.id === phase.id),
   }));
 
   const loose = held.filter((node) => !inside(node));
 
-  return {
-    id: `run:${run.id.value}`,
-    kind: 'run',
-    name: runName(run),
-    from: run.startedAt,
-    to: run.endedAt > run.startedAt ? run.endedAt : run.startedAt,
-    tone: run.state === 'failed' ? 'failed' : 'agent',
-    step: null,
-    span: null,
-    cost: journal?.spent?.cost ?? null,
-    children: [...grouped, ...loose].sort(
-      (one, other) => at(one.from) - at(other.from),
-    ),
-  };
+  const arriving = run.connections
+    .filter((each) => each.wentWrong)
+    .sort((one, other) => at(one.at) - at(other.at))
+    .map((connection, index) => ({
+      id: `${run.id.value}:connection:${index}`,
+      connection,
+    }));
+
+  return settled(
+    {
+      id: `run:${run.id.value}`,
+      kind: 'run',
+      name: runName(run),
+      from: run.startedAt,
+      to: run.endedAt > run.startedAt ? run.endedAt : run.startedAt,
+      tone: run.state === 'failed' ? 'failed' : 'agent',
+      step: null,
+      span: null,
+      cost: journal?.spent?.cost ?? null,
+      connection: null,
+      egress: journal?.egress ?? null,
+      children: [...phased, ...loose].sort(
+        (one, other) => at(one.from) - at(other.from),
+      ),
+    },
+    arriving,
+  );
 };
 
 const counted = (
@@ -284,7 +419,10 @@ const counted = (
 
       return {
         rows: all.rows + 1 + below.rows,
-        faults: all.faults + (node.tone === 'failed' ? 1 : 0) + below.faults,
+        faults:
+          all.faults +
+          (node.tone === 'failed' && node.kind !== 'connection' ? 1 : 0) +
+          below.faults,
       };
     },
     { rows: 0, faults: 0 },

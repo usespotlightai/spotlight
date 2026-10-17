@@ -1,19 +1,23 @@
 import type {
+  EgressResourceDto,
   RunnerPoolResourceDto,
   RunnerTrustResourceDto,
   WorkspaceRunnersResourceDto,
 } from '@runners/application/dto/runner-resource.dto';
 import type {
+  ConfiguredEgress,
   ConfiguredRunnerPool,
   ConfiguredRunnerTrust,
   ConfiguredWorkspaceRunners,
 } from '@runners/application/ports/runner-configuration.port';
 import type {
+  KeptEgress,
   KeptPool,
   KeptTrust,
   KeptWorkspaceRunners,
 } from '@runners/application/ports/runner-resources.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
+import type { Egress } from '@runners/domain/aggregates/egress.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
@@ -21,6 +25,7 @@ import {
   driftBetween,
   type WaysIn,
 } from '@runners/domain/services/runner-drift';
+import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 
 export const RunnerResourceMapper = {
@@ -71,8 +76,39 @@ export const RunnerResourceMapper = {
       tokenVersion: access.mode === 'pull' ? access.tokenVersion : null,
       provision:
         access.mode === 'push'
-          ? { url: access.url.value, secretVersion: access.secretVersion }
+          ? {
+              url: access.url.value,
+              secretVersion: access.secretVersion,
+              egress: access.egress?.value ?? null,
+              egressTraffic: access.egressTraffic.value,
+            }
           : null,
+    };
+  },
+
+  egress(egress: KeptEgress): EgressResourceDto {
+    return {
+      id: egress.id,
+      version: egress.version,
+      address: egress.key,
+      workspaceId: egress.workspaceId.value,
+      key: egress.key,
+      url: egress.url,
+      tokenVersion: egress.tokenVersion,
+      warnings: EgressUrl.of(egress.url).isSecure
+        ? []
+        : [RunnerProblems.egressInTheClear()],
+    };
+  },
+
+  configuredEgress(egress: Egress): ConfiguredEgress {
+    return {
+      id: egress.id.value,
+      address: egress.key.value,
+      workspaceId: egress.workspaceId,
+      key: egress.key.value,
+      url: egress.url.value,
+      tokenVersion: egress.tokenVersion,
     };
   },
 

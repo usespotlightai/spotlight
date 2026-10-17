@@ -337,6 +337,22 @@ describe('Told', () => {
     expect(told.steps()).toEqual([]);
   });
 
+  it('keeps what the runner reported about egress, and nothing when it did not check', () => {
+    const checked = (data: string | null) => {
+      const told = new Told();
+      told.take({ type: 'egress.checked', at: clock(1), message: null, data });
+      return told.egress();
+    };
+    const said = (value: unknown) =>
+      Buffer.from(JSON.stringify(value)).toString('base64');
+
+    expect(checked(said({ enforced: true }))).toBe('enforced');
+    expect(checked(said({ enforced: false }))).toBe('not-enforced');
+    expect(checked(said({ enforced: 'yes' }))).toBeNull();
+    expect(checked(null)).toBeNull();
+    expect(new Told().egress()).toBeNull();
+  });
+
   it('knows no tokens where no turn reported any', () => {
     const told = new Told();
     told.take({

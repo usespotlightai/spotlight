@@ -26,6 +26,7 @@ export * from '@work/infrastructure/persistence/drizzle/schemas/network-call.sch
 export * from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/replay-run-claim.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/run-connection.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task-aside.schema';

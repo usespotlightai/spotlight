@@ -4,6 +4,7 @@ export interface RunRedemption {
   readonly attempt: number;
   readonly wears: readonly string[];
   readonly recipient: string;
+  readonly sharedEgress: string | null;
 }
 
 interface ReadInNetwork {

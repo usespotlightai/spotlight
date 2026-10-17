@@ -131,7 +131,7 @@ func TestAReplayHandsOverItsChangeBeforeItEndsFromABaseItsCheckCanFetch(t *testi
 		t.Errorf("called %s, want the stack drafted before the run completed", got)
 	}
 
-	fetching, err := gitproxy.Serve(served.url, "check-token", "run_1", true)
+	fetching, err := gitproxy.Serve(served.url, "check-token", "run_1", true, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}

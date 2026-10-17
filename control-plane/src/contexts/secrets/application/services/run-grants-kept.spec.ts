@@ -1,6 +1,7 @@
 import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
 import type { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
+import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import {
@@ -30,7 +31,10 @@ class Contended extends InMemoryGrants {
 }
 
 const pinning = (held: RunGrants) =>
-  held.redeemedFor(HOLD, RedemptionRecipient.of('recipient-key'));
+  held.redeemedFor(
+    HOLD,
+    Redeemer.beside(RedemptionRecipient.of('recipient-key')),
+  );
 
 describe('RunGrantsKept', () => {
   it('reads the grants again and retries when another change landed first', async () => {

@@ -329,7 +329,18 @@ export const HELD: HeldConfigurationDto = {
       provision: {
         url: 'https://provisioner.acme.dev/runs',
         secretVersion: 1,
+        egress: 'egress_shared',
+        egressTraffic: 'all',
       },
+    },
+    {
+      kind: 'egress',
+      heldBy: 'workspace',
+      id: 'egress_shared',
+      address: 'shared',
+      key: 'shared',
+      url: 'https://egress.acme.dev',
+      tokenVersion: 2,
     },
     {
       kind: 'workspace-runners',

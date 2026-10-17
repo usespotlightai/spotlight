@@ -1,6 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { CreateRunnerPoolCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerPoolCreatedDto } from '@runners/application/dto/runner-resource.dto';
+import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
@@ -9,11 +10,13 @@ import {
   givenAccess,
   issuedTo,
 } from '@runners/application/services/pool-access-given';
+import { refuseUnknownEgress } from '@runners/application/services/refuse-unknown-egress';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
+import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { GivenPoolTokensRepository } from '@runners/domain/repositories/given-pool-tokens.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
@@ -42,6 +45,8 @@ export class CreateRunnerPoolHandler
     private readonly pools: RunnerPoolRepository,
     private readonly given: GivenPoolTokensRepository,
     private readonly secrets: ProvisionSecretsPort,
+    private readonly egresses: EgressRepository,
+    private readonly platform: PlatformEgressSettings | null,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
     private readonly tokens: TokenMintPort,
@@ -100,6 +105,8 @@ export class CreateRunnerPoolHandler
                     ? this.tokens.hash(supplied.secret.revealed())
                     : null,
                   secretVersion: supplied.secretVersion,
+                  egress: supplied.egress?.value ?? null,
+                  egressTraffic: supplied.egressTraffic.value,
                 }
               : null,
         },
@@ -108,6 +115,15 @@ export class CreateRunnerPoolHandler
       try {
         const created = await this.transaction.run(() =>
           createdOnce(this.creates, create, async () => {
+            if (supplied.mode === 'push') {
+              await refuseUnknownEgress(
+                supplied.egress,
+                cleared.workspaceId,
+                this.egresses,
+                this.platform,
+              );
+            }
+
             const id = RunnerPoolId.of(this.ids.generate());
             const given = await givenAccess(
               supplied,

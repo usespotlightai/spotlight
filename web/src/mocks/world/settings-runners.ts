@@ -251,6 +251,8 @@ export const RUNNER_POOLS: RunnerPoolResourceResponseDto[] = [
     provision: {
       url: 'https://runners.acme.dev/spotlight/provision',
       secretVersion: 2,
+      egress: 'spotlight',
+      egressTraffic: 'all',
     },
   }),
 ];
