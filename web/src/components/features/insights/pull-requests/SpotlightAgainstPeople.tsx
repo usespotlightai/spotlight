@@ -119,6 +119,7 @@ export function SpotlightAgainstPeople({
   return (
     <InsightsCard
       tableOnly
+      scrolls
       title="Spotlight against people"
       description={
         comparison.repositories.length > 0

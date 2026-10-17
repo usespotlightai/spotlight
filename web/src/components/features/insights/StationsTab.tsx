@@ -71,7 +71,7 @@ export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
         )}
       </InsightsTiles>
 
-      <InsightsCard title="By station" description={BY_STATION_NOTE}>
+      <InsightsCard scrolls title="By station" description={BY_STATION_NOTE}>
         <StationsTable stations={reports} counted={teamCounted} names={names} />
       </InsightsCard>
     </div>

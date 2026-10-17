@@ -23,6 +23,7 @@ export function RefusedTools({
   return (
     <InsightsCard
       tableOnly
+      scrolls
       title="Refused approvals"
       description={REFUSALS_NOTE}
     >

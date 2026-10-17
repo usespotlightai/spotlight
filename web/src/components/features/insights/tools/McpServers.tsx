@@ -7,6 +7,7 @@ export function McpServers({ servers }: { servers: readonly ServerReport[] }) {
   return (
     <InsightsCard
       tableOnly={servers.length > 0}
+      scrolls
       title="MCP servers"
       description={SERVERS_NOTE}
     >

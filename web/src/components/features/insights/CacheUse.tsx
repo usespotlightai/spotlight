@@ -31,6 +31,7 @@ export function CacheUse({ slug, teamId, stations, names }: CacheUseProps) {
   return (
     <InsightsCard
       tableOnly={stations.length > 0}
+      scrolls
       title="Read from cache"
       description={CACHE_NOTE}
     >

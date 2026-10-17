@@ -53,6 +53,7 @@ export function ReviewDepth({ depth, repositories }: ReviewDepthProps) {
   return (
     <InsightsCard
       tableOnly
+      scrolls
       title="Review depth"
       description={REVIEW_DEPTH_NOTE}
     >

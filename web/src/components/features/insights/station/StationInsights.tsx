@@ -63,7 +63,7 @@ export function StationInsights({
           </InsightsTiles>
 
           {failedAny(report) && (
-            <InsightsCard title="Why runs failed">
+            <InsightsCard scrolls title="Why runs failed">
               <StationFailures slug={slug} teamId={teamId} report={report} />
             </InsightsCard>
           )}
@@ -75,7 +75,11 @@ export function StationInsights({
       )}
 
       {lineId && (
-        <InsightsCard title="Runs by config" description={RUNS_BY_CONFIG_NOTE}>
+        <InsightsCard
+          scrolls
+          title="Runs by config"
+          description={RUNS_BY_CONFIG_NOTE}
+        >
           <StationOutcomes
             slug={slug}
             teamId={teamId}

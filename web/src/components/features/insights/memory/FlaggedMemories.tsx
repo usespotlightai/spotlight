@@ -26,6 +26,7 @@ export function FlaggedMemories({
   return (
     <InsightsCard
       tableOnly={flagged.length > 0}
+      scrolls
       title="Flagged wrong"
       description={FLAGGED_NOTE}
     >

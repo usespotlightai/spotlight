@@ -86,6 +86,7 @@ export function RepositoryPenetration({
   return (
     <InsightsCard
       tableOnly
+      scrolls
       title="By repository"
       description={BY_REPOSITORY_NOTE}
     >

@@ -1,7 +1,10 @@
 import { type ReactNode, useId, useState } from 'react';
 import { CardTitle } from '@/components/features/insights/CardHeading';
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
+import { OverflowFade } from '@/components/shared/OverflowFade';
 import { cn } from '@/lib/utils';
+
+const TABLE_HEIGHT = 'max-h-96';
 
 type InsightsCardProps = {
   title: string;
@@ -11,6 +14,7 @@ type InsightsCardProps = {
   table?: ReactNode;
   tableOnly?: boolean;
   level?: 2 | 3;
+  scrolls?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -23,12 +27,17 @@ export function InsightsCard({
   table,
   tableOnly = false,
   level,
+  scrolls = false,
   className,
   children,
 }: InsightsCardProps) {
   const titleId = useId();
   const [tabled, setTabled] = useState(false);
   const tabling = Boolean(table && tabled);
+  const capped = (body: ReactNode) => (
+    <OverflowFade className={TABLE_HEIGHT}>{body}</OverflowFade>
+  );
+  const shown = scrolls ? capped(children) : children;
 
   return (
     <section
@@ -55,11 +64,11 @@ export function InsightsCard({
 
       {tabling || tableOnly ? (
         <div className="flex min-w-0 flex-1 flex-col px-3 pb-3">
-          {tabling ? table : children}
+          {tabling ? capped(table) : shown}
         </div>
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-2 px-3 pb-3">
-          {children}
+          {shown}
         </div>
       )}
     </section>

@@ -116,7 +116,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
       </InsightsSection>
 
       {adoption.people.length > 0 && (
-        <InsightsCard title="What each person did" tableOnly>
+        <InsightsCard scrolls title="What each person did" tableOnly>
           <PeopleTable people={adoption.people} />
         </InsightsCard>
       )}

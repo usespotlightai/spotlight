@@ -41,6 +41,7 @@ export function WorthImprovingList({
 
   return (
     <InsightsCard
+      scrolls
       title="Stations worth improving"
       description={STATIONS_WORTH_IMPROVING_NOTE}
     >

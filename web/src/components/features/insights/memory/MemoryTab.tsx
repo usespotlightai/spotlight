@@ -53,6 +53,7 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
 
       <InsightsCard
         tableOnly
+        scrolls
         title="Runs with memories and without"
         description={MEMORY_COMPARISON_NOTE}
       >

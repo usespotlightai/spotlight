@@ -37,6 +37,7 @@ export function ReviewBots({ bots }: { bots: readonly ReviewBot[] }) {
   return (
     <InsightsCard
       tableOnly
+      scrolls
       title="AI review agents"
       description={REVIEW_BOTS_NOTE}
     >

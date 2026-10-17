@@ -22,7 +22,7 @@ export function SkillUse({ slug, teamId, skills, rule, names }: SkillUseProps) {
   const folds = useFolds();
 
   return (
-    <InsightsCard title="Skills" description={SKILLS_NOTE}>
+    <InsightsCard scrolls title="Skills" description={SKILLS_NOTE}>
       <NestedTable label="Skill use" headings={skillHeadings(rule)}>
         {skills.map((skill) => (
           <SkillRows

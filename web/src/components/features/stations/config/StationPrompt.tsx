@@ -1,8 +1,6 @@
-import { useRef } from 'react';
 import { Instrument } from '@/components/features/stations/config/Instrument';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
-import { useOverflows } from '@/hooks/useOverflows';
-import { cn } from '@/lib/utils';
+import { OverflowFade } from '@/components/shared/OverflowFade';
 
 type StationPromptProps = {
   stationId: string;
@@ -10,37 +8,19 @@ type StationPromptProps = {
 };
 
 export function StationPrompt({ stationId, prompt }: StationPromptProps) {
-  const scroller = useRef<HTMLDivElement>(null);
-  const scrolls = useOverflows(scroller, Boolean(prompt));
-
   return (
     <Instrument title="Prompt">
       {prompt ? (
-        <div className="relative">
-          <div
-            ref={scroller}
-            data-slot="prompt-text"
-            className={cn(
-              '-mr-3 max-h-60 overflow-y-auto overscroll-contain pr-3',
-              scrolls && 'pb-12',
-            )}
-          >
-            <MarkdownEditor
-              key={stationId}
-              initialValue={prompt}
-              readOnly
-              ariaLabel="Agent prompt"
-              placeholder=""
-              className="border-0 bg-transparent p-0"
-            />
-          </div>
-          {scrolls && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent to-card"
-            />
-          )}
-        </div>
+        <OverflowFade slot="prompt-text" className="max-h-60">
+          <MarkdownEditor
+            key={stationId}
+            initialValue={prompt}
+            readOnly
+            ariaLabel="Agent prompt"
+            placeholder=""
+            className="border-0 bg-transparent p-0"
+          />
+        </OverflowFade>
       ) : (
         <p className="text-muted-foreground text-xs leading-5">No prompt.</p>
       )}

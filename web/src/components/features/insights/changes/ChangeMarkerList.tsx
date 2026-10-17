@@ -23,7 +23,7 @@ export function ChangeMarkerList({
   names,
 }: ChangeMarkerListProps) {
   return (
-    <InsightsCard title="Config changes" description={CHANGES_NOTE}>
+    <InsightsCard scrolls title="Config changes" description={CHANGES_NOTE}>
       {markers.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           No station changed its config in this period.

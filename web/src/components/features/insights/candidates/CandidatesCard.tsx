@@ -24,6 +24,7 @@ export function CandidatesCard({
 
   return (
     <InsightsCard
+      scrolls
       title="Replayed candidates"
       description={CANDIDATES_NOTE}
       actions={
