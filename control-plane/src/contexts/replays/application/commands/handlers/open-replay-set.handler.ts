@@ -6,7 +6,7 @@ import type { ReplaySetRepository } from '@replays/domain/repositories/replay-se
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -23,21 +23,21 @@ export class OpenReplaySetHandler
 
   async execute(command: OpenReplaySetCommand): Promise<SetOpened> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.principal,
       );
       const station = await this.access.stationOn(
-        clearance,
+        access,
         command.lineId,
         command.stationId,
       );
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
-      const opened = ReplaySet.opened({
+      const opened = ReplaySet.open({
         id: ReplaySetId.of(this.ids.generate()),
         station: {
           workspaceId: station.workspaceId,
@@ -53,7 +53,7 @@ export class OpenReplaySetHandler
 
       return { outcome: 'opened', id: opened.id.value };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

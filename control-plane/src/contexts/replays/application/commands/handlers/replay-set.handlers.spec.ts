@@ -26,7 +26,7 @@ import {
   SEARCH_ID,
   STATION,
 } from '@replays/domain/replays.fake-spec';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -34,13 +34,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 let memory: InMemoryReplays;
 let work: FakeWork;
 
-const faultOf = async (asked: Promise<unknown>) =>
+const errorOf = async (asked: Promise<unknown>) =>
   asked.then(
     () => {
       throw new Error('it was allowed');
     },
     (error: unknown) => {
-      if (error instanceof UseCaseFault) {
+      if (error instanceof ApplicationError) {
         return error.kind;
       }
       throw error;
@@ -92,7 +92,7 @@ describe('OpenReplaySetHandler', () => {
 
   it('knows no team the caller may not read, nor a station elsewhere', async () => {
     expect(
-      await faultOf(
+      await errorOf(
         opening(null).execute(
           new OpenReplaySetCommand(
             'team_1',
@@ -105,7 +105,7 @@ describe('OpenReplaySetHandler', () => {
       ),
     ).toBe('not-found');
     expect(
-      await faultOf(
+      await errorOf(
         opening(true).execute(
           new OpenReplaySetCommand(
             'team_1',
@@ -140,7 +140,7 @@ describe('AddReplaySetEntryHandler', () => {
     work.station = async () => null;
 
     expect(
-      await faultOf(
+      await errorOf(
         adding().execute(
           new AddReplaySetEntryCommand('team_1', 'set_1', 'run_1', PERSON),
         ),
@@ -183,14 +183,14 @@ describe('AddReplaySetEntryHandler', () => {
     });
 
     expect(
-      await faultOf(
+      await errorOf(
         adding().execute(
           new AddReplaySetEntryCommand('team_1', 'set_1', 'run_1', PERSON),
         ),
       ),
     ).toBe('conflict');
     expect(
-      await faultOf(
+      await errorOf(
         adding().execute(
           new AddReplaySetEntryCommand('team_1', 'set_1', 'run_9', PERSON),
         ),
@@ -233,7 +233,7 @@ describe('DeleteReplaySetHandler', () => {
     await memory.replayRepository.add(aReplay({ count: 1 }));
 
     expect(
-      await faultOf(
+      await errorOf(
         deleting().execute(
           new DeleteReplaySetCommand('team_1', 'set_1', PERSON),
         ),
@@ -262,7 +262,7 @@ describe('a set under search', () => {
 
   it('takes no run, lets none go and is not deleted while the search is active', async () => {
     expect(
-      await faultOf(
+      await errorOf(
         new AddReplaySetEntryHandler(
           accessFor(memory, work),
           memory.setRepository,
@@ -277,7 +277,7 @@ describe('a set under search', () => {
       ),
     ).toBe('conflict');
     expect(
-      await faultOf(
+      await errorOf(
         new RemoveReplaySetEntryHandler(
           accessFor(memory, work),
           memory.setRepository,
@@ -294,7 +294,7 @@ describe('a set under search', () => {
       ),
     ).toBe('conflict');
     expect(
-      await faultOf(
+      await errorOf(
         new DeleteReplaySetHandler(
           accessFor(memory, work),
           memory.setRepository,
@@ -310,7 +310,7 @@ describe('a set under search', () => {
     const search = await memory.searchRepository.find(SEARCH_ID);
 
     await memory.searchRepository.save(
-      search?.stopped(NOW, BY) ?? expect.unreachable(),
+      search?.stop(NOW, BY) ?? expect.unreachable(),
     );
     await new RemoveReplaySetEntryHandler(
       accessFor(memory, work),

@@ -1,12 +1,12 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import {
+  formatRunsScored,
   minGainSentence,
   NOT_SCORED_YET,
-  runsScoredShown,
 } from '@/lib/replay-words';
 import type { SearchDetail } from '@/lib/search';
-import { likelyShown, NO_VALUE, sentencesShown } from '@/lib/search-words';
+import { formatLikely, formatSentences, NO_VALUE } from '@/lib/search-words';
 
 export function LiveConfigTile({ search }: { search: SearchDetail }) {
   const { seed } = search;
@@ -17,12 +17,12 @@ export function LiveConfigTile({ search }: { search: SearchDetail }) {
       label="Live config"
       value={
         scored && seed.searchScore !== null
-          ? percentShown(seed.searchScore)
+          ? formatPercent(seed.searchScore)
           : NO_VALUE
       }
-      detail={scored ? runsScoredShown(seed.searchScored) : NOT_SCORED_YET}
-      note={sentencesShown(
-        likelyShown(seed.searchInterval),
+      detail={scored ? formatRunsScored(seed.searchScored) : NOT_SCORED_YET}
+      note={formatSentences(
+        formatLikely(seed.searchInterval),
         `${minGainSentence(search.minGain)}.`,
       )}
     />

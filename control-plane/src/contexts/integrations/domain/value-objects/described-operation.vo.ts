@@ -1,7 +1,7 @@
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import {
-  areWords,
   INPUT_NAME,
+  isSlug,
   WHOLE_CALL_INPUT,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
@@ -86,7 +86,7 @@ export class DescribedOperation {
       );
     const description = input.description.trim();
 
-    if (!areWords(input.name)) {
+    if (!isSlug(input.name)) {
       throw refuse(
         'is not named in lowercase words joined by dashes, as in create-issue',
       );

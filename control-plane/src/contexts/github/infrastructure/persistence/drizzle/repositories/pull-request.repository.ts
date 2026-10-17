@@ -178,7 +178,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
   async lastHeardBefore(
     before: Date,
     after: PullRequest | null,
-    most: number,
+    max: number,
   ): Promise<readonly PullRequest[]> {
     const rows = await this.context.db
       .select()
@@ -203,7 +203,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
         asc(githubPullRequest.workspaceId),
         asc(githubPullRequest.url),
       )
-      .limit(most);
+      .limit(max);
 
     return rows.map(toPullRequest);
   }
@@ -211,7 +211,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
   async ofWorkspace(
     workspaceId: WorkspaceId,
     after: PullRequestUrl | null,
-    most: number,
+    max: number,
   ): Promise<readonly PullRequest[]> {
     const rows = await this.context.db
       .select()
@@ -223,7 +223,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
         ),
       )
       .orderBy(asc(githubPullRequest.url))
-      .limit(most);
+      .limit(max);
 
     return rows.map(toPullRequest);
   }
@@ -257,7 +257,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
   }
 
   async add(added: PullRequest): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(githubPullRequest)
         .values({
@@ -278,7 +278,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
   }
 
   async save(saved: PullRequest): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(githubPullRequest)
         .set({ version: saved.version + 1, ...columnsOf(saved) })
@@ -299,7 +299,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
   }
 
   async remove(removed: PullRequest): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const gone = await this.context.db
         .delete(githubPullRequest)
         .where(

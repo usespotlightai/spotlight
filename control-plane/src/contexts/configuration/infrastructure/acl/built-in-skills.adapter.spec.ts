@@ -7,7 +7,7 @@ import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills
 import { describe, expect, it } from 'vitest';
 
 const HANDOVER: SkillFolder = {
-  skill: Skill.shipped({
+  skill: Skill.ship({
     key: SkillKey.of('spotlight-handover'),
     description: 'Handing a task on.',
     instructions: 'Write the note.',

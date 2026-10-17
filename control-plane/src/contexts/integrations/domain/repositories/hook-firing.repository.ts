@@ -12,5 +12,5 @@ export interface HookFiringRepository {
 
   save(firing: HookFiring): Promise<void>;
 
-  finishedBefore(at: Date, most: number): Promise<readonly HookFiring[]>;
+  finishedBefore(at: Date, max: number): Promise<readonly HookFiring[]>;
 }

@@ -45,7 +45,7 @@ const standing = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
   });
 
   const invite = over.revoked
-    ? offered.revoked(UserId.of('user_leon'), NOW)
+    ? offered.revoke(UserId.of('user_leon'), NOW)
     : offered;
 
   invite.pullEvents();

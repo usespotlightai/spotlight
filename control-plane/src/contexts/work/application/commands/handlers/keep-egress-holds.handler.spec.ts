@@ -9,7 +9,7 @@ import {
 } from '@work/application/commands/handlers/egress-handlers.fake-spec';
 import {
   KeepEgressHoldsHandler,
-  MOST_HOLDS_AT_ONCE,
+  MAX_HOLDS_AT_ONCE,
 } from '@work/application/commands/handlers/keep-egress-holds.handler';
 import type { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
 import { describe, expect, it } from 'vitest';
@@ -61,12 +61,12 @@ describe('KeepEgressHoldsHandler', () => {
 
   it('refuses more credentials than it allows at once, so egress sends them in batches', async () => {
     const many = Array.from(
-      { length: MOST_HOLDS_AT_ONCE + 1 },
+      { length: MAX_HOLDS_AT_ONCE + 1 },
       (_, at) => `credential_${at}`,
     );
 
     await expect(
       keeping({}, []).execute(new KeepEgressHoldsCommand(SHARED_TOKEN, many)),
-    ).resolves.toEqual({ outcome: 'too-many', most: MOST_HOLDS_AT_ONCE });
+    ).resolves.toEqual({ outcome: 'too-many', max: MAX_HOLDS_AT_ONCE });
   });
 });

@@ -3,8 +3,8 @@ import type {
   HeldResourceConfigurationDto,
 } from '@configuration/application/dto/held-configuration.dto';
 import type { HarnessProfileResourcesPort } from '@configuration/application/ports/harness-profile-resources.port';
-import type { HeldHooksPort } from '@configuration/application/ports/held-hooks.port';
-import type { HeldIntegrationsPort } from '@configuration/application/ports/held-integrations.port';
+import type { HookConfigsPort } from '@configuration/application/ports/hook-configs.port';
+import type { IntegrationConfigsPort } from '@configuration/application/ports/integration-configs.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import type { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
 import type { HeldConfigurations } from '@configuration/application/services/held-configurations.service';
@@ -14,7 +14,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -41,8 +41,8 @@ export class ResourceConfigurationHandler
     private readonly teams: TeamDirectoryPort,
     private readonly lines: LineResourcesPort,
     private readonly skills: SkillResourcesPort,
-    private readonly integrations: HeldIntegrationsPort,
-    private readonly hooks: HeldHooksPort,
+    private readonly integrations: IntegrationConfigsPort,
+    private readonly hooks: HookConfigsPort,
     private readonly profiles: HarnessProfileResourcesPort,
     private readonly secrets: SecretConfigurationPort,
     private readonly runners: RunnerConfigurationPort,
@@ -55,11 +55,12 @@ export class ResourceConfigurationHandler
   ): Promise<HeldResourceConfigurationDto | null> {
     try {
       const workspaceId = await this.workspaceOf(query.kind, query.id);
-      const cleared =
+      const permissions =
         workspaceId &&
-        (await this.access.clearanceIn(workspaceId, query.principal));
+        (await this.access.permissionsIn(workspaceId, query.principal));
       const workspace =
-        cleared && (await this.workspaces.profileOf(cleared.workspaceId.value));
+        permissions &&
+        (await this.workspaces.profileOf(permissions.workspaceId.value));
 
       if (!workspace) {
         return null;
@@ -72,7 +73,7 @@ export class ResourceConfigurationHandler
 
       return resource ? { configuration, resource } : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

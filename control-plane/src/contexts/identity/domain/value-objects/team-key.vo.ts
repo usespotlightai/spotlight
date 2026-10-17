@@ -1,8 +1,8 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  areWords,
-  LONGEST_WORDS,
-  wordsFrom,
+  isSlug,
+  MAX_SLUG_LENGTH,
+  slugify,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class TeamKey {
@@ -13,10 +13,10 @@ export class TeamKey {
   static of(raw: string): TeamKey {
     const named = raw.trim();
 
-    if (!areWords(named)) {
+    if (!isSlug(named)) {
       throw new InvalidIdentifierError(
         'team key',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in platform`,
+        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in platform`,
       );
     }
 
@@ -24,7 +24,7 @@ export class TeamKey {
   }
 
   static from(name: string): TeamKey {
-    return TeamKey.of(wordsFrom(name));
+    return TeamKey.of(slugify(name));
   }
 
   equals(other: TeamKey): boolean {

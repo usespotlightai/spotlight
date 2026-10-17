@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	waitDelay  = 5 * time.Second
-	MostOutput = 16 * 1024
+	waitDelay = 5 * time.Second
+	MaxOutput = 16 * 1024
 )
 
 type Command struct {
@@ -68,8 +68,8 @@ func Git(ctx context.Context, dir string, as *account.User, args ...string) (str
 }
 
 func Tail(output string) string {
-	if len(output) <= MostOutput {
+	if len(output) <= MaxOutput {
 		return output
 	}
-	return output[len(output)-MostOutput:]
+	return output[len(output)-MaxOutput:]
 }

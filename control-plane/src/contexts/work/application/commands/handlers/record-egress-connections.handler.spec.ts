@@ -8,7 +8,7 @@ import {
   sharedEgress,
 } from '@work/application/commands/handlers/egress-handlers.fake-spec';
 import {
-  MOST_CONNECTIONS_AT_ONCE,
+  MAX_CONNECTIONS_AT_ONCE,
   RecordEgressConnectionsHandler,
 } from '@work/application/commands/handlers/record-egress-connections.handler';
 import type { EgressConnectionRecord } from '@work/application/dto/egress-connections.dto';
@@ -131,12 +131,12 @@ describe('RecordEgressConnectionsHandler', () => {
       handler.execute(
         new RecordEgressConnectionsCommand(
           SHARED_TOKEN,
-          Array.from({ length: MOST_CONNECTIONS_AT_ONCE + 1 }, () =>
+          Array.from({ length: MAX_CONNECTIONS_AT_ONCE + 1 }, () =>
             record('held'),
           ),
         ),
       ),
-    ).resolves.toEqual({ outcome: 'too-many', most: MOST_CONNECTIONS_AT_ONCE });
+    ).resolves.toEqual({ outcome: 'too-many', max: MAX_CONNECTIONS_AT_ONCE });
     expect(kept).toEqual([]);
   });
 });

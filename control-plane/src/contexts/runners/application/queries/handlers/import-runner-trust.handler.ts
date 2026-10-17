@@ -4,7 +4,7 @@ import { RunnerResourceMapper } from '@runners/application/mappers/runner-resour
 import type { RunnerResourcesPort } from '@runners/application/ports/runner-resources.port';
 import type { ImportRunnerTrustQuery } from '@runners/application/queries/runner-resource.queries';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -21,20 +21,20 @@ export class ImportRunnerTrustHandler
     query: ImportRunnerTrustQuery,
   ): Promise<RunnerTrustResourceDto | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = cleared
+      const kept = permissions
         ? await this.resources.trustAt(
-            cleared.workspaceId,
+            permissions.workspaceId,
             TrustKey.of(query.address).value,
           )
         : null;
 
       return kept ? RunnerResourceMapper.trust(kept) : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -1,11 +1,11 @@
 import type { RunOutcomeShape } from '@work/application/ports/run-outcomes.port';
 
-export const HISTORY_RUNS = { usual: 30, most: 50, matched: 500 } as const;
+export const HISTORY_RUNS = { usual: 30, max: 50, matched: 500 } as const;
 
 export const historyLength = (asked: number | null): number =>
   asked === null || !Number.isFinite(asked) || asked < 1
     ? HISTORY_RUNS.usual
-    : Math.min(Math.floor(asked), HISTORY_RUNS.most);
+    : Math.min(Math.floor(asked), HISTORY_RUNS.max);
 
 export const turnedOut = (
   outcome: RunOutcomeShape | null,

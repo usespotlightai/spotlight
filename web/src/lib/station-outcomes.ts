@@ -7,7 +7,7 @@ import type {
   TallyCountedResponseDto,
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
-import { dayShown, percentShown } from '@/lib/judge';
+import { formatDay, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { changePhrase } from '@/lib/station-config';
 
@@ -30,7 +30,7 @@ const ENDINGS: Record<Ending, string> = {
   superseded: 'Superseded',
 };
 
-export const endingShown = (ending: Ending): string => ENDINGS[ending];
+export const formatEnding = (ending: Ending): string => ENDINGS[ending];
 
 export const endedBadly = (ending: Ending): boolean =>
   ending === 'failed' || ending === 'abandoned';
@@ -41,7 +41,7 @@ const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
   skipped: 'Checks skipped',
 };
 
-export const checksShown = (checks: StationRunOutcome['checks']): string =>
+export const formatChecks = (checks: StationRunOutcome['checks']): string =>
   checks ? CHECKS[checks] : '–';
 
 type Act = NonNullable<StationRunOutcome['next']>['act'];
@@ -54,7 +54,7 @@ const ACTS: Record<Act, string> = {
   'sent-back': 'Sent back',
 };
 
-export const nextShown = (next: StationRunOutcome['next']): string =>
+export const formatNext = (next: StationRunOutcome['next']): string =>
   next ? ACTS[next.act] : '–';
 
 const DELIVERIES: Record<NonNullable<StationRunOutcome['delivery']>, string> = {
@@ -63,7 +63,7 @@ const DELIVERIES: Record<NonNullable<StationRunOutcome['delivery']>, string> = {
   closed: 'PR closed',
 };
 
-export const deliveryShown = (
+export const formatDelivery = (
   delivery: StationRunOutcome['delivery'],
 ): string => (delivery ? DELIVERIES[delivery] : '–');
 
@@ -73,17 +73,18 @@ export const runSpent = (cost: StationRunOutcome['cost']): string =>
 export const runTook = (cost: StationRunOutcome['cost']): string =>
   cost?.ms != null ? took(cost.ms) : '–';
 
-const costShown = (cost: SpendResponseDto | null): string =>
+const formatCost = (cost: SpendResponseDto | null): string =>
   cost ? spentIn(cost.amount, cost.currency) : '–';
 
-const tookShown = (ms: number | null): string => (ms === null ? '–' : took(ms));
+const formatTook = (ms: number | null): string =>
+  ms === null ? '–' : took(ms);
 
 type TallyCounted = TallyCountedResponseDto;
 
 export type TallyColumn = {
   readonly label: string;
   readonly counted?: keyof TallyCounted;
-  readonly shown: (tally: StationTally) => string;
+  readonly render: (tally: StationTally) => string;
 };
 
 const countColumn = (
@@ -92,11 +93,11 @@ const countColumn = (
 ): TallyColumn => ({
   label,
   counted,
-  shown: (tally) => `${tally[counted]}`,
+  render: (tally) => `${tally[counted]}`,
 });
 
 const TALLY_COLUMNS: readonly TallyColumn[] = [
-  { label: 'Runs', shown: (tally) => `${tally.runs}` },
+  { label: 'Runs', render: (tally) => `${tally.runs}` },
   countColumn('Failed', 'failed'),
   countColumn('Stopped', 'stopped'),
   countColumn('Checks passed', 'checksPassed'),
@@ -106,9 +107,9 @@ const TALLY_COLUMNS: readonly TallyColumn[] = [
   countColumn('Handed on', 'handedOn'),
   countColumn('Merged', 'merged'),
   countColumn('Withdrawn', 'withdrawn'),
-  { label: 'Cost', shown: (tally) => costShown(tally.cost) },
-  { label: 'Median', shown: (tally) => tookShown(tally.medianMs) },
-  { label: 'p90', shown: (tally) => tookShown(tally.p90Ms) },
+  { label: 'Cost', render: (tally) => formatCost(tally.cost) },
+  { label: 'Median', render: (tally) => formatTook(tally.medianMs) },
+  { label: 'p90', render: (tally) => formatTook(tally.p90Ms) },
 ];
 
 const columnNamed = (label: string): TallyColumn => {
@@ -188,7 +189,7 @@ export type GroupSummary = {
 };
 
 const shareOf = (share: number | null, said: string): string =>
-  share === null ? '–' : `${percentShown(share)} ${said}`;
+  share === null ? '–' : `${formatPercent(share)} ${said}`;
 
 const daysOf = (group: FingerprintGroup): string | null => {
   const { firstDay, lastDay } = group;
@@ -198,8 +199,8 @@ const daysOf = (group: FingerprintGroup): string | null => {
   }
 
   return firstDay === lastDay
-    ? dayShown(firstDay)
-    : `${dayShown(firstDay)}–${dayShown(lastDay)}`;
+    ? formatDay(firstDay)
+    : `${formatDay(firstDay)}–${formatDay(lastDay)}`;
 };
 
 export const groupSummary = (group: FingerprintGroup): GroupSummary => {
@@ -220,8 +221,8 @@ export const groupSummary = (group: FingerprintGroup): GroupSummary => {
     checks: shareOf(shares.checksPassed, 'passed'),
     next: shareOf(shares.accepted, 'accepted'),
     delivery: shareOf(shares.merged, 'merged'),
-    took: tookShown(tally.medianMs),
-    cost: costShown(tally.cost),
+    took: formatTook(tally.medianMs),
+    cost: formatCost(tally.cost),
   };
 };
 
@@ -243,7 +244,7 @@ export const configVersion = (
   return current
     ? {
         fingerprint: current.fingerprint.slice(0, 8),
-        since: current.firstDay ? dayShown(current.firstDay) : null,
+        since: current.firstDay ? formatDay(current.firstDay) : null,
         pullRequest: current.pullRequest?.url ?? null,
       }
     : null;

@@ -7,9 +7,9 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const HELD_OUT_SHARE = 0.3;
 
-const FEWEST_HELD_OUT = 2;
+const MIN_HELD_OUT = 2;
 
-const FEWEST_SEARCHED = 3;
+const MIN_SEARCHED = 3;
 
 interface SplitEntry {
   readonly runId: RunId;
@@ -56,10 +56,7 @@ export class HeldOutSplit {
   ): HeldOutSplit {
     const holding = Math.ceil(HELD_OUT_SHARE * ranked.length);
 
-    if (
-      holding < FEWEST_HELD_OUT ||
-      ranked.length - holding < FEWEST_SEARCHED
-    ) {
+    if (holding < MIN_HELD_OUT || ranked.length - holding < MIN_SEARCHED) {
       throw new SearchSetTooSmallError(ranked.length, holding);
     }
 

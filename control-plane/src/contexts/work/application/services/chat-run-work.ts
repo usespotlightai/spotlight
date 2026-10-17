@@ -29,7 +29,11 @@ export class ChatRunWork implements RunWork {
 
   async deliverUpTo(position: number, at: Date): Promise<void> {
     await this.chats.save(
-      this.chat.deliveredUpTo(this.run.id, MessagePosition.of(position), at),
+      this.chat.markDeliveredUpTo(
+        this.run.id,
+        MessagePosition.of(position),
+        at,
+      ),
     );
   }
 

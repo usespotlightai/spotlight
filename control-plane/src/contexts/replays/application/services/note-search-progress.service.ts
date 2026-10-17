@@ -48,7 +48,7 @@ export class NoteSearchProgress {
       const replay = replays.find((each) => each.id.equals(event.replayId));
       const { minGain } = await this.healths.standardAt(search.station);
 
-      return search.replayEnded(
+      return search.recordReplayEnd(
         event.replayId,
         event.state,
         replay
@@ -67,7 +67,7 @@ export class NoteSearchProgress {
 
     if (search) {
       await this.changing(search.id, async (fresh) =>
-        fresh.runEnded(
+        fresh.recordRunEnd(
           run,
           {
             failed: event.outcome !== COMPLETED || event.asked,
@@ -86,7 +86,7 @@ export class NoteSearchProgress {
 
     if (search) {
       await this.changing(search.id, async (fresh) =>
-        fresh.spentByAgent(run, spent, this.clock.now(), this.runIds),
+        fresh.recordAgentSpend(run, spent, this.clock.now(), this.runIds),
       );
     }
   }
@@ -111,7 +111,7 @@ export class NoteSearchProgress {
     searchId: SearchId,
     change: (search: Search) => Promise<Search>,
   ): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(searchId);
 
       if (!search) {

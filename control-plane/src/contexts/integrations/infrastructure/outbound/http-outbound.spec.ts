@@ -5,8 +5,8 @@ import {
   type RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import {
-  ANSWER_AT_MOST_BYTES,
   HttpOutbound,
+  MAX_ANSWER_BYTES,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import {
   credentialsFor,
@@ -254,7 +254,7 @@ actions:
     const fetch = vi.fn(
       async () =>
         new Response('{}', {
-          headers: { 'content-length': String(ANSWER_AT_MOST_BYTES + 1) },
+          headers: { 'content-length': String(MAX_ANSWER_BYTES + 1) },
         }),
     );
 

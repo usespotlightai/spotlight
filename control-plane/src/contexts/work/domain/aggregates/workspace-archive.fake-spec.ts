@@ -25,7 +25,7 @@ export const storedAs = (bytes: number, sha256 = SHA256): StoredArchive => ({
 export const anArchive = (
   overrides: { id?: string; run?: string; bytes?: number } = {},
 ): WorkspaceArchive =>
-  WorkspaceArchive.granted({
+  WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of(overrides.id ?? 'archive_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     continuity: ContinuityKey.forTask('task_1'),
@@ -38,10 +38,10 @@ export const anArchive = (
 
 export const aSealedArchive = (
   overrides: { id?: string; run?: string } = {},
-): WorkspaceArchive => anArchive(overrides).sealed(storedAs(1_024), later(0));
+): WorkspaceArchive => anArchive(overrides).seal(storedAs(1_024), later(0));
 
 export const aSealedChatArchive = (): WorkspaceArchive =>
-  WorkspaceArchive.granted({
+  WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of('archive_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     continuity: ContinuityKey.forChat('chat_1'),
@@ -50,4 +50,4 @@ export const aSealedChatArchive = (): WorkspaceArchive =>
     size: ArchiveSize.of(1_024),
     digest: ArchiveDigest.of(SHA256),
     at: GRANTED_AT,
-  }).sealed(storedAs(1_024), later(0));
+  }).seal(storedAs(1_024), later(0));

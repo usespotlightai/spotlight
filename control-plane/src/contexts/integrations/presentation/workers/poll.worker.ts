@@ -1,4 +1,4 @@
-import type { WorkOffPolls } from '@integrations/application/services/work-off-polls.service';
+import type { ProcessDuePolls } from '@integrations/application/services/process-due-polls.service';
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -7,11 +7,11 @@ const EVERY_MS = 15_000;
 
 @Injectable()
 export class PollWorker implements OnModuleDestroy {
-  #turning = false;
+  #ticking = false;
   #stopped = false;
 
   constructor(
-    private readonly polls: WorkOffPolls,
+    private readonly polls: ProcessDuePolls,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -20,19 +20,19 @@ export class PollWorker implements OnModuleDestroy {
   }
 
   @Interval(EVERY_MS)
-  async turn(): Promise<void> {
-    if (this.#turning || this.#stopped) {
+  async tick(): Promise<void> {
+    if (this.#ticking || this.#stopped) {
       return;
     }
 
-    this.#turning = true;
+    this.#ticking = true;
 
     try {
-      await this.polls.workOff();
+      await this.polls.processDue();
     } catch (error) {
       this.logger.error({ err: error }, 'Working off polls');
     } finally {
-      this.#turning = false;
+      this.#ticking = false;
     }
   }
 }

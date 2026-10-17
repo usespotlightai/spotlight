@@ -139,7 +139,7 @@ export class Egress extends EventRecorder {
     }
 
     const tokenHash = given.tokenHash ?? this.tokenHash;
-    const redefined = this.reshaped({
+    const redefined = this.with({
       url: definition.url,
       tokenHash,
       tokenVersion: given.tokenVersion,
@@ -163,7 +163,7 @@ export class Egress extends EventRecorder {
     return redefined;
   }
 
-  retired(namedBy: readonly PoolKey[], by: Attribution): Egress {
+  retire(namedBy: readonly PoolKey[], by: Attribution): Egress {
     this.guardStanding();
 
     if (namedBy.length > 0) {
@@ -173,7 +173,7 @@ export class Egress extends EventRecorder {
       );
     }
 
-    const retired = this.reshaped({ retired: true });
+    const retired = this.with({ retired: true });
 
     retired.record(
       new EgressRetired(
@@ -204,7 +204,7 @@ export class Egress extends EventRecorder {
     }
   }
 
-  private reshaped(part: {
+  private with(part: {
     url?: EgressUrl;
     tokenHash?: TokenHash;
     tokenVersion?: number | null;

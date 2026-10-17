@@ -8,9 +8,9 @@ import { StationSection } from '@/components/features/stations/StationSection';
 import { useStation } from '@/hooks/api/useStation';
 import {
   failedAny,
+  formatStation,
   type StationNames,
   type StationReport,
-  stationShown,
   tallyTiles,
   trendOf,
 } from '@/lib/insights';
@@ -39,7 +39,7 @@ export function StationInsights({
     <div data-slot="station-insights" className="flex flex-col gap-6">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="font-semibold text-foreground text-lg tracking-tight">
-          {stationShown(names, stationId)}
+          {formatStation(names, stationId)}
         </h2>
         {named && (
           <span className="text-muted-foreground text-sm">

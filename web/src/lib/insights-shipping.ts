@@ -8,7 +8,7 @@ import type {
   RoundsCountResponseDto,
   StageTimesResponseDto,
 } from '@/lib/api';
-import { type StationNames, stationShown } from '@/lib/insights';
+import { formatStation, type StationNames } from '@/lib/insights';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
 
 export const PERCENTILES = ['p50', 'p75', 'p90', 'p95'] as const;
@@ -120,7 +120,7 @@ const ROUNDS_SAID: Record<Rounds, string> = {
   '3+': 'Three or more',
 };
 
-export const roundsShown = (rounds: Rounds): string => ROUNDS_SAID[rounds];
+export const formatRounds = (rounds: Rounds): string => ROUNDS_SAID[rounds];
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -139,13 +139,13 @@ const STEPS = [
   7 * DAY_MS,
 ];
 
-const MOST_TICKS = 5;
+const MAX_TICKS = 5;
 
-export const durationTicks = (most: number): number[] => {
+export const durationTicks = (max: number): number[] => {
   const step =
-    STEPS.find((each) => most / each <= MOST_TICKS - 1) ??
+    STEPS.find((each) => max / each <= MAX_TICKS - 1) ??
     STEPS[STEPS.length - 1];
-  const top = Math.max(step, Math.ceil(most / step) * step);
+  const top = Math.max(step, Math.ceil(max / step) * step);
 
   return Array.from({ length: top / step + 1 }, (_, at) => at * step);
 };
@@ -174,7 +174,7 @@ const PARTS_SAID: Record<StationPart, string> = {
   inbox: 'in the inbox',
 };
 
-export const partShown = (part: StationPart): string => PARTS_SAID[part];
+export const formatPart = (part: StationPart): string => PARTS_SAID[part];
 
 type StageTimes = {
   readonly total: Spreads;
@@ -307,7 +307,7 @@ const pipelineStageOf =
   (stage: FlowStageResponseDto): PipelineStage => ({
     id: stage.stationId ?? stage.kind,
     label: stage.stationId
-      ? stationShown(names, stage.stationId)
+      ? formatStation(names, stage.stationId)
       : STAGES_SAID[stage.kind],
     station: stage.kind === 'station',
     times: byTypeOf(stage.times),

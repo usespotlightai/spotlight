@@ -131,7 +131,7 @@ export class DrizzleHookFirings implements HookFiringRepository {
   ) {}
 
   async add(firing: HookFiring): Promise<boolean> {
-    return this.context.run(async () => {
+    return this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(hookFiring)
         .values({
@@ -171,7 +171,7 @@ export class DrizzleHookFirings implements HookFiringRepository {
   }
 
   async claimNext(now: Date): Promise<HookFiring | null> {
-    return this.context.run(async () => {
+    return this.context.inTransaction(async () => {
       const [row] = await this.context.db
         .select()
         .from(hookFiring)
@@ -199,7 +199,7 @@ export class DrizzleHookFirings implements HookFiringRepository {
   }
 
   async save(firing: HookFiring): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const matching = and(
         eq(hookFiring.id, firing.id),
         eq(hookFiring.version, firing.version),
@@ -223,7 +223,7 @@ export class DrizzleHookFirings implements HookFiringRepository {
     });
   }
 
-  async finishedBefore(at: Date, most: number): Promise<readonly HookFiring[]> {
+  async finishedBefore(at: Date, max: number): Promise<readonly HookFiring[]> {
     const rows = await this.context.db
       .select()
       .from(hookFiring)
@@ -233,7 +233,7 @@ export class DrizzleHookFirings implements HookFiringRepository {
           lt(hookFiring.handledAt, at),
         ),
       )
-      .limit(most);
+      .limit(max);
 
     return rows.map(toFiring);
   }

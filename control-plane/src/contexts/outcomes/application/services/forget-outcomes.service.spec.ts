@@ -18,12 +18,12 @@ const TASK = TaskId.of('task_1');
 const FAILING = AlertRule.of({ measure: 'failed_rate', above: 0.5, over: 1 });
 
 const raisedAt = (stationId: string): StationWatch =>
-  StationWatch.begun({
+  StationWatch.start({
     workspaceId: WORKSPACE,
     teamId: TEAM,
     lineId: 'line_1',
     stationId,
-  }).checked(
+  }).check(
     [
       {
         rule: FAILING,
@@ -62,7 +62,7 @@ const forgetting = async (watches: StationWatchesInMemory) => {
   const forget = new ForgetOutcomes(
     { watches, forgotten } as unknown as OutcomesHeld,
     {
-      run: <T>(work: () => Promise<T>) => {
+      inTransaction: <T>(work: () => Promise<T>) => {
         transactions += 1;
         return work();
       },

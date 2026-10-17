@@ -9,7 +9,7 @@ const FORGET_EVERY_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class HookFiringWorker implements OnModuleDestroy {
-  #turning: Promise<void> | null = null;
+  #ticking: Promise<void> | null = null;
   #forgetting: Promise<void> | null = null;
   #stopped = false;
 
@@ -20,21 +20,21 @@ export class HookFiringWorker implements OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
-    await Promise.all([this.#turning, this.#forgetting]);
+    await Promise.all([this.#ticking, this.#forgetting]);
   }
 
   @Interval(EVERY_MS)
-  async turn(): Promise<void> {
-    if (this.#turning || this.#stopped) {
+  async tick(): Promise<void> {
+    if (this.#ticking || this.#stopped) {
       return;
     }
 
-    this.#turning = this.logged(
-      () => this.firings.workOff(),
+    this.#ticking = this.logged(
+      () => this.firings.processDue(),
       'Working off hook firings',
     );
-    await this.#turning;
-    this.#turning = null;
+    await this.#ticking;
+    this.#ticking = null;
   }
 
   @Interval(FORGET_EVERY_MS)

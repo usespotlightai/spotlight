@@ -20,7 +20,7 @@ import {
   forbiddenTo,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -48,18 +48,18 @@ export class UpdateRunnerPoolHandler
 
     try {
       const standing = await this.pools.find(id);
-      const cleared = standing
-        ? await this.access.clearanceIn(
+      const permissions = standing
+        ? await this.access.permissionsIn(
             standing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !cleared) {
+      if (!standing || !permissions) {
         return null;
       }
 
-      if (!cleared.managesRunners) {
+      if (!permissions.managesRunners) {
         return forbiddenTo('manage-runners');
       }
 
@@ -74,10 +74,10 @@ export class UpdateRunnerPoolHandler
       const redefined = standing.redefinedAs(
         compiled,
         await givenAccess(compiled.access, standing, this.tokens, this.secrets),
-        Attribution.of(command.actor, cleared.workspaceId),
+        Attribution.of(command.actor, permissions.workspaceId),
       );
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         if (compiled.access.mode === 'push') {
           await refuseUnknownEgress(
             compiled.access.egress,
@@ -113,7 +113,7 @@ export class UpdateRunnerPoolHandler
         };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

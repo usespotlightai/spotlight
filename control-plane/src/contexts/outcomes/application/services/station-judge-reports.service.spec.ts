@@ -55,7 +55,7 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
   for (let at = 0; at < 12; at += 1) {
     const runId = `run_${at}`;
     await records.add(
-      endedRecord(runId, { taskId: `task_${runId}` }).actedOn(
+      endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
         NextAct.of(at % 2 === 0 ? 'closed' : 'sent-back', AT),
       ),
     );
@@ -118,7 +118,7 @@ const judgedAcross = async () => {
   for (let at = 0; at < 12; at += 1) {
     const runId = `run_${at}`;
     await records.add(
-      endedRecord(runId, { taskId: `task_${runId}` }).actedOn(
+      endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
         NextAct.of(at % 2 === 0 ? 'closed' : 'sent-back', AT),
       ),
     );

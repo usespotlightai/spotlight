@@ -7,7 +7,7 @@ import { pageOf, sizeOf } from '@outcomes/application/queries/handlers/paging';
 import type { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/list-insights-pull-requests.query';
 import type { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
 import { pullRequestFilterOf } from '@outcomes/domain/services/pull-request-filter';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ListInsightsPullRequestsHandler
@@ -38,7 +38,7 @@ export class ListInsightsPullRequestsHandler
         pullRequests: pullRequests.map(insightsPullRequestOf),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

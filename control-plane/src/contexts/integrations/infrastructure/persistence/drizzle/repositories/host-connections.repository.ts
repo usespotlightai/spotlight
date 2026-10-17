@@ -66,14 +66,14 @@ export class DrizzleHostConnections implements HostConnectionRepository {
   }
 
   async save(connection: HostConnection): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(connection);
       await this.events.dispatch(connection.pullEvents());
     });
   }
 
   async remove(connection: HostConnection): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db.delete(hostConnection).where(keyOf(connection));
       await this.events.dispatch(connection.pullEvents());
     });

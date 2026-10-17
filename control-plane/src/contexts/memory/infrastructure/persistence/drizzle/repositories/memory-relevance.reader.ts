@@ -44,7 +44,7 @@ export class DrizzleMemoryRelevance implements MemoryRelevancePort {
   async recall(
     teamId: TeamId,
     words: RecallWords,
-    most: number,
+    max: number,
     standingAt: Date | null = null,
   ): Promise<readonly MemoryId[]> {
     const document = sql`to_tsvector('english', ${memory.body})`;
@@ -63,7 +63,7 @@ export class DrizzleMemoryRelevance implements MemoryRelevancePort {
         desc(sql`ts_rank(${document}, ${asked})`),
         desc(memory.approvedAt),
       )
-      .limit(most);
+      .limit(max);
 
     return rows.map((row) => MemoryId.of(row.id));
   }

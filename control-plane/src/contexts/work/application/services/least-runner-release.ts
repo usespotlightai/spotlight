@@ -1,1 +1,1 @@
-export const LEAST_RUNNER_RELEASE = '20261002-02';
+export const MIN_RUNNER_RELEASE = '20261002-02';

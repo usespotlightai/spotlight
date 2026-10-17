@@ -1,6 +1,6 @@
 import type { EvidencedHunk } from '@work/application/ports/run-evidence.port';
 
-const MOST_ANSWER = 60_000;
+const MAX_ANSWER = 60_000;
 
 const ANSWER = '## The answer';
 
@@ -14,7 +14,7 @@ const hunkOf = (hunk: EvidencedHunk): string =>
   [`--- ${hunk.path}`, hunk.header, ...hunk.lines].join('\n');
 
 const clipped = (text: string): string =>
-  text.length > MOST_ANSWER ? `${text.slice(0, MOST_ANSWER)}\n…` : text;
+  text.length > MAX_ANSWER ? `${text.slice(0, MAX_ANSWER)}\n…` : text;
 
 const wholeHunks = (hunks: readonly EvidencedHunk[]): string => {
   const told: string[] = [];
@@ -23,7 +23,7 @@ const wholeHunks = (hunks: readonly EvidencedHunk[]): string => {
   for (const hunk of hunks) {
     const shown = hunkOf(hunk);
 
-    if (size + shown.length > MOST_ANSWER && told.length > 0) {
+    if (size + shown.length > MAX_ANSWER && told.length > 0) {
       return [...told, `… ${hunks.length - told.length} more hunks`].join('\n');
     }
     told.push(shown);

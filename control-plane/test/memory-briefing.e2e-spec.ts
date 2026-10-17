@@ -251,13 +251,13 @@ describe('briefing runs with what the team remembers', () => {
   it('never briefs a memory still waiting on a person', async () => {
     const runId = RunId.of(randomUUID());
     await app.get(DrizzleMemoryDraftRepository).add(
-      MemoryDraft.opened({
+      MemoryDraft.open({
         id: MemoryDraftId.of(randomUUID()),
         taskId: team.list.id,
         workspaceId: team.workspaceId,
       })
         .asked(runId, new Date())
-        .drafted({
+        .recordDraft({
           runId,
           proposed: [
             {

@@ -23,7 +23,7 @@ import { z } from 'zod';
 
 export const DEFAULT_MODEL = 'google/gemini-3.8-flash';
 
-const MOST_OUTPUT = 32_000;
+const MAX_OUTPUT = 32_000;
 
 const STACK = new JsonShape(
   'change_stack',
@@ -130,17 +130,17 @@ const described = (diff: Diff, facts: DiffFacts): string => {
     .join('\n\n');
 };
 
-const MOST_OUTPUT_LINES = 25;
+const MAX_OUTPUT_LINES = 25;
 
-const MOST_OUTPUT_LENGTH = 2_000;
+const MAX_OUTPUT_LENGTH = 2_000;
 
 const tail = (output: string): string =>
   output
     .trim()
     .split('\n')
-    .slice(-MOST_OUTPUT_LINES)
+    .slice(-MAX_OUTPUT_LINES)
     .join('\n')
-    .slice(-MOST_OUTPUT_LENGTH);
+    .slice(-MAX_OUTPUT_LENGTH);
 
 export const revised = (revision: StackRevision): string =>
   [
@@ -234,7 +234,7 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
       shape: STACK,
       system: SYSTEM,
       asked,
-      most: MOST_OUTPUT,
+      max: MAX_OUTPUT,
     }).catch((error: unknown) => {
       throw error instanceof OpenRouterUnansweredError
         ? new DraftingError(error.message, error.usage)

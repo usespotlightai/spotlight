@@ -81,14 +81,14 @@ describe('BearerAdmission', () => {
     expect(BearerAdmission.admits(FOR_RUN, null, NOW)).toBe(true);
     expect(BearerAdmission.admits(FOR_RUN, null, LATER)).toBe(false);
     expect(
-      BearerAdmission.admits(FOR_RUN.revoked(attributedIn('ws_1')), null, NOW),
+      BearerAdmission.admits(FOR_RUN.revoke(attributedIn('ws_1')), null, NOW),
     ).toBe(false);
   });
 
   it('admits a token issued by hand while it stands, needing no trust', () => {
     expect(BearerAdmission.admits(ISSUED, null, LATER)).toBe(true);
     expect(
-      BearerAdmission.admits(ISSUED.revoked(attributedIn('ws_1')), null, NOW),
+      BearerAdmission.admits(ISSUED.revoke(attributedIn('ws_1')), null, NOW),
     ).toBe(false);
   });
 
@@ -99,7 +99,7 @@ describe('BearerAdmission', () => {
     expect(
       BearerAdmission.admits(
         MINTED,
-        trustAt(1).withdrawn(Grantor.unlimited, attributedIn('ws_1')),
+        trustAt(1).withdraw(Grantor.unlimited, attributedIn('ws_1')),
         NOW,
       ),
     ).toBe(false);

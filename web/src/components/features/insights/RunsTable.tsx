@@ -8,20 +8,20 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { HarnessResponseDto } from '@/lib/api';
 import {
-  harnessShown,
+  formatHarness,
+  formatModel,
+  formatPerson,
+  formatSpend,
+  formatStation,
   type InsightsRun,
   lastedOrNone,
-  modelShown,
   type PersonName,
-  personShown,
   type StationNames,
-  spendShown,
-  stationShown,
 } from '@/lib/insights';
 import { SPREAD } from '@/lib/nested-table';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
-import { endedBadly, endingShown } from '@/lib/station-outcomes';
+import { endedBadly, formatEnding } from '@/lib/station-outcomes';
 import { cn } from '@/lib/utils';
 
 const HEADINGS = [
@@ -73,7 +73,7 @@ export function RunsTable({
                 endedBadly(run.ending) ? 'text-destructive' : 'text-foreground',
               )}
             >
-              {endingShown(run.ending)}
+              {formatEnding(run.ending)}
             </TrailLink>
           </span>
           <NestedCell heading="Failure" numeric={false}>
@@ -86,17 +86,17 @@ export function RunsTable({
             )}
           </NestedCell>
           <NestedCell heading="Station" numeric={false}>
-            {stationShown(names, run.stationId)}
+            {formatStation(names, run.stationId)}
           </NestedCell>
           <NestedCell heading="Person" numeric={false}>
-            {personShown(people, run.openedBy)}
+            {formatPerson(people, run.openedBy)}
           </NestedCell>
           <NestedCell heading="Setup" numeric={false}>
-            {harnessShown(harnesses, run.harness)} · {modelShown(run.model)}
+            {formatHarness(harnesses, run.harness)} · {formatModel(run.model)}
           </NestedCell>
           <NestedCell heading="Took">{lastedOrNone(run.ms)}</NestedCell>
           <NestedCell heading="Cost" strong>
-            {spendShown(run.cost)}
+            {formatSpend(run.cost)}
           </NestedCell>
           <NestedCell heading="Ended">{since(run.endedAt)}</NestedCell>
         </li>

@@ -15,7 +15,7 @@ import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type {
@@ -43,19 +43,19 @@ export class CreateHookHandler
 
   async execute(command: CreateHookCommand): Promise<ResourceCreated | null> {
     try {
-      const cleared = await this.access.clearanceOnTeam(
+      const permissions = await this.access.permissionsOnTeam(
         command.teamId,
         command.actor.principal,
       );
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.configures) {
+      if (!permissions.configures) {
         return forbiddenTo('configure');
       }
 
-      const team = await this.teams.find(cleared.teamId);
+      const team = await this.teams.find(permissions.teamId);
 
       if (!team) {
         return null;
@@ -80,16 +80,16 @@ export class CreateHookHandler
       };
 
       try {
-        return await this.transaction.run(() =>
+        return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             const defined = HookDefinition.define({
               ...compiled,
               id: HookDefinitionId.of(this.ids.generate()),
-              workspaceId: cleared.workspaceId,
-              teamId: cleared.teamId,
+              workspaceId: permissions.workspaceId,
+              teamId: permissions.teamId,
               secret: secretGiven(compiled.secret),
-              allowances: await this.allowances.onTeam(cleared.teamId),
-              by: Attribution.of(command.actor, cleared.workspaceId),
+              allowances: await this.allowances.onTeam(permissions.teamId),
+              by: Attribution.of(command.actor, permissions.workspaceId),
             });
 
             await this.definitions.save(defined);
@@ -112,7 +112,7 @@ export class CreateHookHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

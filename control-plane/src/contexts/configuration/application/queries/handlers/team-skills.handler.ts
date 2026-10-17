@@ -3,7 +3,7 @@ import type { AppliedConfigurationPort } from '@configuration/application/ports/
 import type { SkillReaderPort } from '@configuration/application/ports/skill-reader.port';
 import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import type { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -37,7 +37,7 @@ export class TeamSkillsHandler
         })),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

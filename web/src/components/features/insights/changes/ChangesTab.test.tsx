@@ -153,11 +153,11 @@ const SETUPS = {
   stationId: 'station_impl',
   size: null,
   sizes: [
-    { size: 'small', mostLines: 50, mostSteps: 20 },
-    { size: 'medium', mostLines: 400, mostSteps: 80 },
-    { size: 'large', mostLines: null, mostSteps: null },
+    { size: 'small', maxLines: 50, maxSteps: 20 },
+    { size: 'medium', maxLines: 400, maxSteps: 80 },
+    { size: 'large', maxLines: null, maxSteps: null },
   ],
-  fewestRuns: 3,
+  minRuns: 3,
   currency: 'USD',
   setups: [
     {

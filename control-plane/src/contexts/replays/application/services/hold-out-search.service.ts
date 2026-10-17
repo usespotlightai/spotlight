@@ -33,7 +33,7 @@ export class HoldOutSearch {
 
     const { minGain } = await this.healths.standardAt(seen.station);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(searchId);
 
       if (!search?.wantsHoldingOut) {
@@ -44,7 +44,7 @@ export class HoldOutSearch {
       const set = await this.sets.find(search.setId);
 
       if (!set) {
-        await this.searches.save(search.setGone(at));
+        await this.searches.save(search.recordSetGone(at));
         return;
       }
 
@@ -74,7 +74,7 @@ export class HoldOutSearch {
 
       for (const { replay, candidate } of starting) {
         await this.replays.add(
-          Replay.started({
+          Replay.start({
             id: replay.replayId,
             set,
             candidate,

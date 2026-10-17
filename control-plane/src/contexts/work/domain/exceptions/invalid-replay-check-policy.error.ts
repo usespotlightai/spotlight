@@ -1,5 +1,5 @@
 export type ReplayCheckField =
-  | 'mostRegressions'
+  | 'maxRegressions'
   | 'ceiling'
   | 'currency'
   | 'minGain';

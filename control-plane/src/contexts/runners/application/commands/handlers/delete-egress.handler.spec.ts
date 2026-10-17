@@ -20,7 +20,7 @@ const deleting = (pools: readonly RunnerPool[]) => {
   const saved: Egress[] = [];
   const handler = new DeleteEgressHandler(
     {
-      clearanceIn: vi.fn(async () => ({
+      permissionsIn: vi.fn(async () => ({
         workspaceId: egress.workspaceId,
         managesRunners: true,
       })),
@@ -35,7 +35,9 @@ const deleting = (pools: readonly RunnerPool[]) => {
     {
       inWorkspace: vi.fn(async () => pools),
     } as unknown as RunnerPoolRepository,
-    { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+    {
+      inTransaction: (work: () => Promise<unknown>) => work(),
+    } as TransactionPort,
   );
 
   return { handler, saved };

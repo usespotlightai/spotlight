@@ -17,7 +17,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it } from 'vitest';
 
 const kept = (scope: Parameters<typeof MemoryScope.of>[0]) =>
-  Memory.written({
+  Memory.write({
     id: MemoryId.of('memory_1'),
     handle: MemoryHandle.of(18),
     workspaceId: WorkspaceId.of('ws_1'),

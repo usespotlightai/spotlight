@@ -4,7 +4,7 @@ import { RunnerFleetMapper } from '@runners/application/mappers/runner-fleet.map
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { ListRunnersQuery } from '@runners/application/queries/list-runners.query';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -48,7 +48,7 @@ export class ListRunnersHandler
         runners: runners.map(RunnerFleetMapper.runner),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

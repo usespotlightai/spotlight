@@ -25,12 +25,12 @@ const TRENDS: Record<SkillTrend, string> = {
   steady: 'Steady',
 };
 
-export const trendShown = (trend: SkillTrend): string => TRENDS[trend];
+export const formatTrend = (trend: SkillTrend): string => TRENDS[trend];
 
-export const trendRuleShown = (rule: TrendRule): string =>
-  `Spreading or fading: the share of runs that read the skill moved by ${rule.shiftPoints}+ points. Compares the last ${rule.recentWeeks} weeks with the weeks before. Minimum runs on each side: ${rule.fewestRuns}`;
+export const formatTrendRule = (rule: TrendRule): string =>
+  `Spreading or fading: the share of runs that read the skill moved by ${rule.shiftPoints}+ points. Compares the last ${rule.recentWeeks} weeks with the weeks before. Minimum runs on each side: ${rule.minRuns}`;
 
-export const latencyShown = (ms: number | null): string =>
+export const formatLatency = (ms: number | null): string =>
   ms === null ? '–' : took(ms);
 
 export const skillUsedFilter = (
@@ -73,7 +73,7 @@ export const skillHeadings = (rule: TrendRule): readonly NestedHeading[] => [
   { label: 'Runs', numeric: true, size: SPREAD },
   { label: 'Given', numeric: true, size: SPREAD },
   { label: 'Read', numeric: true, size: SPREAD },
-  { label: 'Trend', note: trendRuleShown(rule), size: SPREAD },
+  { label: 'Trend', note: formatTrendRule(rule), size: SPREAD },
 ];
 
 export const SERVER_HEADINGS: readonly NestedHeading[] = [

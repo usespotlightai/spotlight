@@ -40,7 +40,7 @@ const ADDRESS = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
 const LONGEST_ADDRESS = 254;
 
-export const MOST_INVITED_AT_ONCE = 50;
+export const MAX_INVITED_AT_ONCE = 50;
 
 export const isEmailAddress = (text: string): boolean =>
   text.length <= LONGEST_ADDRESS && ADDRESS.test(text);
@@ -119,7 +119,7 @@ export const showOf = (params: URLSearchParams): MemberShow | null => {
   return MEMBER_SHOWS.find((each) => each.value === shown)?.value ?? null;
 };
 
-export const membersShown = (
+export const visibleMembers = (
   members: readonly WorkspaceMember[],
   show: MemberShow | null,
 ): WorkspaceMember[] | null => {

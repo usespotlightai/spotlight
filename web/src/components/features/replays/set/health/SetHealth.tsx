@@ -11,10 +11,10 @@ import {
   SET_HEALTH_HEADINGS,
 } from '@/lib/replay';
 import {
+  formatHealthListLabel,
   HEALTH_LABEL,
   HEALTH_NOTE,
   type HealthKey,
-  healthListLabelShown,
   healthReadingsOf,
   healthReplayOf,
 } from '@/lib/replay-words';
@@ -41,7 +41,7 @@ export function SetHealth({ at, set }: SetHealthProps) {
   return (
     <InsightsCard tableOnly title={HEALTH_LABEL} description={HEALTH_NOTE}>
       <NestedTable
-        label={healthListLabelShown(set.name)}
+        label={formatHealthListLabel(set.name)}
         headings={SET_HEALTH_HEADINGS}
         compact
       >

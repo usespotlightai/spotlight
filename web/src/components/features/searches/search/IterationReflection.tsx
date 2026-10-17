@@ -2,8 +2,8 @@ import { IterationNote } from '@/components/features/searches/search/IterationNo
 import type { SearchIterationResponseDto } from '@/lib/api';
 import { reflecting, whyItStalledAnchor } from '@/lib/search';
 import {
+  formatReflectionIteration,
   REFLECTION_ITERATION_PENDING,
-  reflectionIterationShown,
   SEE_WHY_IT_STALLED,
 } from '@/lib/search-words';
 
@@ -16,7 +16,7 @@ export function IterationReflection({ iteration }: IterationReflectionProps) {
     <IterationNote>
       {reflecting(iteration) || !iteration.reflection
         ? REFLECTION_ITERATION_PENDING
-        : reflectionIterationShown(
+        : formatReflectionIteration(
             iteration.reflection.tasks.length,
             iteration.reflection.causes.length,
           )}

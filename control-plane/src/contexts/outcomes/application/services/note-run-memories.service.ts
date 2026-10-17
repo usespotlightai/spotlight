@@ -35,7 +35,7 @@ export class NoteRunMemories {
     const run = await this.work.endedRun(heard.runId);
     const teamId = run ? TeamId.of(run.teamId) : null;
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId, teamId);
       const runId = RunId.of(heard.runId);
       const held = await this.records.of(runId);
@@ -49,7 +49,7 @@ export class NoteRunMemories {
 
       if (!held) {
         await this.records.add(
-          RunRecord.heardOf(runId, workspaceId, taskId).usedMemories(
+          RunRecord.heardOf(runId, workspaceId, taskId).recordMemories(
             heard.way,
             heard.memories,
           ),
@@ -57,7 +57,7 @@ export class NoteRunMemories {
         return;
       }
 
-      const used = held.usedMemories(heard.way, heard.memories);
+      const used = held.recordMemories(heard.way, heard.memories);
 
       if (used !== held) {
         await this.records.save(used);

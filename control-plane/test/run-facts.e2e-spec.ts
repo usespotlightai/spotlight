@@ -54,7 +54,10 @@ const ended = (
     endedHoursAgo?: number;
   } = {},
 ): RunRecord =>
-  RunRecord.heardOf(RunId.of(runId), options.workspaceId ?? WORKSPACE).ended(
+  RunRecord.heardOf(
+    RunId.of(runId),
+    options.workspaceId ?? WORKSPACE,
+  ).recordEnd(
     RunEnd.of({
       place: RunPlace.of({
         teamId: options.teamId ?? TEAM,
@@ -82,7 +85,7 @@ const ended = (
   );
 
 const digested = (record: RunRecord): RunRecord =>
-  record.digested(
+  record.recordDigest(
     RunCost.of({
       ms: 900_000,
       steps: 12,
@@ -103,7 +106,7 @@ const digested = (record: RunRecord): RunRecord =>
   );
 
 const opening = (taskId: string, teamId: TeamId): TaskTouches =>
-  TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).opened(
+  TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).recordOpen(
     TaskOpening.of({
       teamId,
       lineId: 'line_1',
@@ -114,13 +117,13 @@ const opening = (taskId: string, teamId: TeamId): TaskTouches =>
   );
 
 const merged = (taskId: string, teamId: TeamId): TaskDelivery =>
-  TaskDelivery.opened({
+  TaskDelivery.open({
     taskId: TaskId.of(taskId),
     workspaceId: WORKSPACE,
     teamId,
     pullRequest: PULL,
     at: at(2),
-  }).closed({ pullRequest: PULL, merged: true, at: at(0.1) });
+  }).close({ pullRequest: PULL, merged: true, at: at(0.1) });
 
 const elsewhere = () => {
   const context = new DrizzleContext(held.db);
@@ -145,7 +148,7 @@ const whileHeld = async (
   let settled = false;
   let waiting: Promise<void> = Promise.resolve();
 
-  await first.context.run(async () => {
+  await first.context.inTransaction(async () => {
     await held(first);
     waiting = meanwhile().finally(() => {
       settled = true;
@@ -216,7 +219,7 @@ describe('run facts', () => {
 
     const held1 = await records.of(RunId.of('run_1'));
     await records.save(
-      digested(held1 as RunRecord).actedOn(NextAct.of('closed', at(0.5))),
+      digested(held1 as RunRecord).recordAction(NextAct.of('closed', at(0.5))),
     );
 
     expect(await factOf('run_1')).toMatchObject({
@@ -232,7 +235,7 @@ describe('run facts', () => {
   it('keeps the memories a run was briefed with before it ended in its fact, and those it recalled after', async () => {
     const runId = RunId.of('run_briefed');
     await records.add(
-      RunRecord.heardOf(runId, WORKSPACE, TaskId.of('task_b')).usedMemories(
+      RunRecord.heardOf(runId, WORKSPACE, TaskId.of('task_b')).recordMemories(
         'briefed',
         ['mem_1'],
       ),
@@ -242,7 +245,7 @@ describe('run facts', () => {
 
     const briefed = (await records.of(runId)) as RunRecord;
     await records.save(
-      briefed.ended(ended('run_briefed', 'task_b').end as RunEnd),
+      briefed.recordEnd(ended('run_briefed', 'task_b').end as RunEnd),
     );
 
     expect(await factOf('run_briefed')).toMatchObject({
@@ -250,7 +253,7 @@ describe('run facts', () => {
     });
 
     const finished = (await records.of(runId)) as RunRecord;
-    await records.save(finished.usedMemories('recalled', ['mem_2']));
+    await records.save(finished.recordMemories('recalled', ['mem_2']));
 
     expect(await factOf('run_briefed')).toMatchObject({
       memories: { briefed: ['mem_1'], recalled: ['mem_2'] },
@@ -262,7 +265,7 @@ describe('run facts', () => {
     await records.add(ended('run_2', 'task_1'));
 
     await touches.add(
-      TaskTouches.heardOf(TaskId.of('task_1'), WORKSPACE).opened(
+      TaskTouches.heardOf(TaskId.of('task_1'), WORKSPACE).recordOpen(
         TaskOpening.of({
           teamId: TEAM,
           lineId: 'line_1',
@@ -272,7 +275,7 @@ describe('run facts', () => {
         }),
       ),
     );
-    const opened = TaskDelivery.opened({
+    const opened = TaskDelivery.open({
       taskId: TaskId.of('task_1'),
       workspaceId: WORKSPACE,
       teamId: TEAM,
@@ -290,7 +293,7 @@ describe('run facts', () => {
 
     const delivery = await deliveries.forTask(TaskId.of('task_1'));
     await deliveries.save(
-      (delivery as TaskDelivery).closed({
+      (delivery as TaskDelivery).close({
         pullRequest: PULL,
         merged: true,
         at: at(0.1),
@@ -307,7 +310,7 @@ describe('run facts', () => {
 
   it('takes no opener or delivery from another workspace’s records of the same task', async () => {
     await touches.add(
-      TaskTouches.heardOf(TaskId.of('task_x'), ELSEWHERE).opened(
+      TaskTouches.heardOf(TaskId.of('task_x'), ELSEWHERE).recordOpen(
         TaskOpening.of({
           teamId: TEAM,
           lineId: 'line_1',
@@ -318,7 +321,7 @@ describe('run facts', () => {
       ),
     );
     await deliveries.add(
-      TaskDelivery.opened({
+      TaskDelivery.open({
         taskId: TaskId.of('task_x'),
         workspaceId: ELSEWHERE,
         teamId: TEAM,
@@ -339,7 +342,7 @@ describe('run facts', () => {
   it('keeps both changes when a run and its task’s delivery change at once', async () => {
     await records.add(ended('run_1', 'task_1'));
     await deliveries.add(
-      TaskDelivery.opened({
+      TaskDelivery.open({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -359,7 +362,7 @@ describe('run facts', () => {
         ),
       () =>
         second.deliveries.save(
-          delivery.closed({ pullRequest: PULL, merged: true, at: at(0.1) }),
+          delivery.close({ pullRequest: PULL, merged: true, at: at(0.1) }),
         ),
     );
 
@@ -371,7 +374,7 @@ describe('run facts', () => {
 
   it('sees a task’s first run that ends while its delivery is merged', async () => {
     await deliveries.add(
-      TaskDelivery.opened({
+      TaskDelivery.open({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -388,7 +391,7 @@ describe('run facts', () => {
       (first) => first.records.add(ended('run_1', 'task_1')),
       () =>
         second.deliveries.save(
-          delivery.closed({ pullRequest: PULL, merged: true, at: at(0.1) }),
+          delivery.close({ pullRequest: PULL, merged: true, at: at(0.1) }),
         ),
     );
 
@@ -432,7 +435,7 @@ describe('run facts', () => {
   it('keeps no fact for a disbanded team’s run when its delivery changes meanwhile', async () => {
     await records.add(ended('run_1', 'task_1'));
     await deliveries.add(
-      TaskDelivery.opened({
+      TaskDelivery.open({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -449,7 +452,7 @@ describe('run facts', () => {
       (first) => first.records.removeForTeam(WORKSPACE, TEAM),
       () =>
         second.deliveries.save(
-          delivery.closed({ pullRequest: PULL, merged: true, at: at(0.1) }),
+          delivery.close({ pullRequest: PULL, merged: true, at: at(0.1) }),
         ),
     );
 

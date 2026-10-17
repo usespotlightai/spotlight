@@ -35,9 +35,9 @@ import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-ter
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const MOST_CHECK_OUTPUT = 16_000;
+const MAX_CHECK_OUTPUT = 16_000;
 
-const MOST_REORDERINGS = 1;
+const MAX_REORDERINGS = 1;
 
 const OUTCOME_OF: Readonly<Record<CheckPhase, CheckOutcome['state'] | null>> = {
   waiting: null,
@@ -391,7 +391,7 @@ export class StackCheck extends EventRecorder {
     return released;
   }
 
-  recorded(
+  recordResult(
     by: RunnerId,
     planned: PlannedCheck,
     steps: readonly CheckedStep[],
@@ -415,7 +415,7 @@ export class StackCheck extends EventRecorder {
 
     const trimmed = (step: CheckedStep): CheckedStep => ({
       ...step,
-      output: step.output.slice(-MOST_CHECK_OUTPUT),
+      output: step.output.slice(-MAX_CHECK_OUTPUT),
       tookMs: Math.max(0, Math.round(step.tookMs)),
     });
     const given = new Map(steps.map((step) => [step.step, trimmed(step)]));
@@ -440,12 +440,18 @@ export class StackCheck extends EventRecorder {
     );
   }
 
-  skipped(by: RunnerId, skip: StackSkip, now: Date): StackCheck {
+  skip(by: RunnerId, reason: StackSkip, now: Date): StackCheck {
     this.assertCheckable(now, 'take what a check found');
     this.assertCheckedBy(by, now);
 
     return this.found(
-      { state: 'skipped', skip, whole: null, layers: [], checkedAt: now },
+      {
+        state: 'skipped',
+        skip: reason,
+        whole: null,
+        layers: [],
+        checkedAt: now,
+      },
       now,
     );
   }
@@ -502,7 +508,7 @@ export class StackCheck extends EventRecorder {
       outcome.whole?.passed === true &&
       outcome.layers.some((layer) => !layer.passed) &&
       !this.recheck &&
-      this.rounds < MOST_REORDERINGS;
+      this.rounds < MAX_REORDERINGS;
 
     const found = this.with({
       phase: reorder ? 'reordering' : outcome.state,

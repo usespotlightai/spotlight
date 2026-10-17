@@ -36,7 +36,7 @@ export class AskForDecisions {
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const now = this.clock.now();
       const held = await this.sets.forTask(taskId);
 
@@ -46,7 +46,7 @@ export class AskForDecisions {
       }
 
       await this.sets.add(
-        DecisionSet.opened({
+        DecisionSet.open({
           id: DecisionSetId.of(this.ids.generate()),
           taskId,
           workspaceId: task.workspaceId,

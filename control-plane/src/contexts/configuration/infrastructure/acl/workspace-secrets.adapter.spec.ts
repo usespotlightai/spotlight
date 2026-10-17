@@ -36,7 +36,7 @@ describe('WorkspaceSecrets', () => {
   it('holds for a team every secret its workspace defines', async () => {
     const { secrets, namesIn } = holding(true);
 
-    expect((await secrets.held(TEAM)).map((each) => each.value)).toEqual([
+    expect((await secrets.ofTeam(TEAM)).map((each) => each.value)).toEqual([
       'GRAFANA_TOKEN',
       'LINEAR_API_KEY',
     ]);
@@ -46,7 +46,7 @@ describe('WorkspaceSecrets', () => {
   it('holds nothing for a team no workspace holds', async () => {
     const { secrets, namesIn } = holding(false);
 
-    await expect(secrets.held(TEAM)).resolves.toEqual([]);
+    await expect(secrets.ofTeam(TEAM)).resolves.toEqual([]);
     expect(namesIn).not.toHaveBeenCalled();
   });
 });

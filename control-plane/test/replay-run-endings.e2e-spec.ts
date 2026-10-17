@@ -18,7 +18,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WORK_PUBLICATIONS } from '@work/application/integration-events/work.publications';
+import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
@@ -87,8 +87,8 @@ const heardBy = async (
     ending: { ended: async (ended: ReplayRunEnded) => heard.push(ended) },
   } as unknown as ReplaysReactions);
   const published = events.flatMap((event) =>
-    WORK_PUBLICATIONS.filter((each) => each.from === event.kind).map((each) =>
-      each.publish(event, new Date()),
+    WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).map((each) =>
+      each.map(event, new Date()),
     ),
   );
 
@@ -188,7 +188,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     await replays.add(
       aReplay({ id: replayId, count: 1 })
         .reserving(1, () => RunId.of(runId))
-        .confirmed(RunId.of(runId), FINGERPRINT, NOW),
+        .confirm(RunId.of(runId), FINGERPRINT, NOW),
     );
 
     const ended = end(replayRun(runId).claim(RUNNER, NOW));
@@ -198,8 +198,8 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     const published = ended
       .pullEvents()
       .flatMap((event) =>
-        WORK_PUBLICATIONS.filter((each) => each.from === event.kind).map(
-          (each) => each.publish(event, new Date()),
+        WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).map(
+          (each) => each.map(event, new Date()),
         ),
       );
 

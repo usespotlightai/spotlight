@@ -3,7 +3,7 @@ import type { IntegrationResourceDto } from '@integrations/application/dto/integ
 import type { IntegrationResourcesPort } from '@integrations/application/ports/integration-resources.port';
 import type { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
 import type { IntegrationViews } from '@integrations/application/services/integration-views.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadIntegrationHandler
@@ -24,14 +24,17 @@ export class ReadIntegrationHandler
 
       if (
         !kept ||
-        !(await this.access.clearanceOnTeam(kept.teamId.value, query.principal))
+        !(await this.access.permissionsOnTeam(
+          kept.teamId.value,
+          query.principal,
+        ))
       ) {
         return null;
       }
 
       return this.views.of(kept);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

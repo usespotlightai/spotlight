@@ -1,5 +1,5 @@
 import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -17,7 +17,7 @@ import type { WorkspaceArchiveRepository } from '@work/domain/repositories/works
 import type { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
-import { MOST_STARTED_CHECKOUTS } from '@work/domain/value-objects/starting-point.vo';
+import { MAX_STARTED_CHECKOUTS } from '@work/domain/value-objects/starting-point.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 const listed = (
@@ -27,9 +27,9 @@ const listed = (
     throw new InvalidStartingPointError('checkouts must be a list');
   }
 
-  if (checkouts.length > MOST_STARTED_CHECKOUTS) {
+  if (checkouts.length > MAX_STARTED_CHECKOUTS) {
     throw new InvalidStartingPointError(
-      `can name at most ${MOST_STARTED_CHECKOUTS} checkouts`,
+      `can name at most ${MAX_STARTED_CHECKOUTS} checkouts`,
     );
   }
 
@@ -87,7 +87,7 @@ export class RecordStartingPointHandler
         ),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
@@ -103,6 +103,6 @@ export class RecordStartingPointHandler
       );
     }
 
-    return archive.restoredInto(run.workspaceId, run.restoresFrom);
+    return archive.restoreInto(run.workspaceId, run.restoresFrom);
   }
 }

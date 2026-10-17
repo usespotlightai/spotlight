@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { insightsPath } from '@/lib/insights';
 import {
-  authorShown,
+  formatAuthor,
+  formatState,
   PULL_REQUEST_AUTHORS,
   PULL_REQUEST_STATES,
   type PullRequestAuthor,
   type PullRequestState,
-  stateShown,
 } from '@/lib/insights-pull-requests';
 import { PLATFORM_ID, SLUG } from '@/mocks/world';
 import { choice, type PageArgs, pageStory } from '@/stories/application';
@@ -34,13 +34,13 @@ const meta = {
       author: choice('Written by', {
         anyone: 'Anyone',
         ...Object.fromEntries(
-          PULL_REQUEST_AUTHORS.map((author) => [author, authorShown(author)]),
+          PULL_REQUEST_AUTHORS.map((author) => [author, formatAuthor(author)]),
         ),
       }),
       status: choice('Pull request state', {
         any: 'Any state',
         ...Object.fromEntries(
-          PULL_REQUEST_STATES.map((state) => [state, stateShown(state)]),
+          PULL_REQUEST_STATES.map((state) => [state, formatState(state)]),
         ),
       }),
     },

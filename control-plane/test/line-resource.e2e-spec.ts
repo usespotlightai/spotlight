@@ -371,13 +371,13 @@ describe('a line, created through the resource API (e2e)', () => {
   it('keeps the threshold a planned change is checked against, filling in what it leaves out, and forgets it once left out', async () => {
     const made = await create({
       ...DELIVERY,
-      replayCheck: { mostRegressions: 1, currency: 'eur' },
+      replayCheck: { maxRegressions: 1, currency: 'eur' },
     });
     const dropped = await change(made.body.id, made.body.version, DELIVERY);
 
     expect(made.status).toBe(201);
     expect(made.body.definition.replayCheck).toEqual({
-      mostRegressions: 1,
+      maxRegressions: 1,
       ceiling: 10,
       currency: 'EUR',
       minGain: 0.05,
@@ -388,7 +388,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
   it('refuses a threshold setting at its field', async () => {
     for (const [replayCheck, path] of [
-      [{ mostRegressions: -1 }, 'replayCheck.mostRegressions'],
+      [{ maxRegressions: -1 }, 'replayCheck.maxRegressions'],
       [{ ceiling: 0 }, 'replayCheck.ceiling'],
       [{ currency: 'dollars' }, 'replayCheck.currency'],
       [{ minGain: 0 }, 'replayCheck.minGain'],

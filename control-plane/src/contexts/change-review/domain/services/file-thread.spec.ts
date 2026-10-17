@@ -14,7 +14,7 @@ const NOW = new Date('2026-09-16T10:00:00Z');
 const ON_FILE = ReviewAnchor.onFile('src/invite.ts');
 
 const comment = (id: string, anchor = ON_FILE) =>
-  ReviewComment.drafted({
+  ReviewComment.draft({
     id: ReviewCommentId.of(id),
     workspaceId: WorkspaceId.of('workspace_1'),
     taskId: TaskId.of('task_1'),

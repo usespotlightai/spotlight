@@ -167,7 +167,7 @@ describe('RunnerPool', () => {
     expect(bounded.hasRoomFor(1)).toBe(true);
     expect(bounded.hasRoomFor(2)).toBe(false);
     expect(aPullPool().hasRoomFor(10_000)).toBe(true);
-    expect(bounded.retired(BY).hasRoomFor(0)).toBe(false);
+    expect(bounded.retire(BY).hasRoomFor(0)).toBe(false);
   });
 
   it('says how many more runs it has room for, none past maxRuns, and no bound without one', () => {
@@ -176,7 +176,7 @@ describe('RunnerPool', () => {
     expect(bounded.roomFor(1)).toBe(2);
     expect(bounded.roomFor(5)).toBe(0);
     expect(aPullPool().roomFor(10_000)).toBeNull();
-    expect(aPullPool().retired(BY).roomFor(0)).toBe(0);
+    expect(aPullPool().retire(BY).roomFor(0)).toBe(0);
   });
 
   it('lets a runner start only in its own mode, while it stands and has room', () => {
@@ -187,7 +187,7 @@ describe('RunnerPool', () => {
     expect(pulled.startVerdict('push', 0)).toBe('gone');
     expect(aPushPool().startVerdict('push', 0)).toBe('open');
     expect(aPushPool().startVerdict('pull', 0)).toBe('gone');
-    expect(pulled.retired(BY).startVerdict('pull', 0)).toBe('gone');
+    expect(pulled.retire(BY).startVerdict('pull', 0)).toBe('gone');
   });
 
   it('always holds its provision secret sealed, even when kept from a redefinition that gave none', () => {
@@ -211,7 +211,7 @@ describe('RunnerPool', () => {
     const pool = aPullPool();
     pool.pullEvents();
 
-    const [retired] = pool.retired(BY).pullEvents();
+    const [retired] = pool.retire(BY).pullEvents();
 
     expect(retired).toBeInstanceOf(RunnerPoolRetired);
     expect((retired as RunnerPoolRetired).change.action).toBe('deleted');
@@ -272,7 +272,7 @@ describe('RunnerPool egress', () => {
   it('goes out through nothing once retired', () => {
     expect(
       aPushPool({ egress: EgressReference.platform() })
-        .retired(BY)
+        .retire(BY)
         .goesOutThrough(EgressReference.platform()),
     ).toBe(false);
   });

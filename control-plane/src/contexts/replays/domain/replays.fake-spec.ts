@@ -143,7 +143,7 @@ export const candidateOf = (
 
   return kind === 'live'
     ? Candidate.live(made)
-    : Candidate.proposed({
+    : Candidate.propose({
         ...made,
         name: CandidateName.of('Shorter prompt'),
         changedFrom: StationChanges.of(LIVE_FINGERPRINT, [
@@ -182,7 +182,7 @@ export const aSet = (count = 0, id = 'set_1'): ReplaySet =>
         NOW,
         false,
       ),
-    ReplaySet.opened({
+    ReplaySet.open({
       id: ReplaySetId.of(id),
       station: STATION,
       name: ReplaySetName.of('Queue fixes'),
@@ -212,7 +212,7 @@ export const aReplay = (
     pairsWith?: string;
   } = {},
 ): Replay => {
-  const started = Replay.started({
+  const started = Replay.start({
     id: ReplayId.of(input.id ?? 'replay_1'),
     set: aSet(input.count ?? 3),
     candidate: input.candidate ?? candidateOf('proposed'),
@@ -276,10 +276,10 @@ export const settledAs = (
   cost: number | null,
 ): Replay =>
   replay
-    .confirmed(run, FINGERPRINT, NOW)
-    .ended(run, endOf(outcome))
-    .reviewed(run, ChangeChecks.of([]), null, later(60_000))
-    .measured(run, measuresOf(cost), later(61_000));
+    .confirm(run, FINGERPRINT, NOW)
+    .recordRunEnd(run, endOf(outcome))
+    .recordReview(run, ChangeChecks.of([]), null, later(60_000))
+    .measure(run, measuresOf(cost), later(61_000));
 
 export const sha256 = (text: string): string =>
   createHash('sha256').update(text, 'utf8').digest('hex');
@@ -320,7 +320,7 @@ export const aSearch = (
 ): Search => {
   const set = input.set ?? aSet(input.count ?? 10);
   const id = input.id ? SearchId.of(input.id) : SEARCH_ID;
-  const started = Search.started({
+  const started = Search.start({
     id,
     set,
     agent: AGENT,
@@ -371,7 +371,7 @@ export const replayFor = (
   searchId: SearchId | null = SEARCH_ID,
   pairsWith: string | null = null,
 ): Replay => {
-  const started = Replay.started({
+  const started = Replay.start({
     id: ReplayId.of(id),
     set,
     candidate: candidateOf(live ? 'live' : 'proposed', candidateId),
@@ -402,10 +402,10 @@ export const replayedAs = (
     const run = entry.run as RunId;
 
     return held
-      .confirmed(run, FINGERPRINT, NOW)
-      .ended(run, endOf(outcomeOf(entry.original.value, entry.repeat)))
-      .reviewed(run, PASSED, null, later(60_000))
-      .measured(run, measuresOf(cost, 60_000, 10, currency), later(61_000));
+      .confirm(run, FINGERPRINT, NOW)
+      .recordRunEnd(run, endOf(outcomeOf(entry.original.value, entry.repeat)))
+      .recordReview(run, PASSED, null, later(60_000))
+      .measure(run, measuresOf(cost, 60_000, 10, currency), later(61_000));
   }, reserved);
 };
 
@@ -456,17 +456,17 @@ export const concludedAll = (
   for (const entry of held.entries) {
     const run = entry.run as RunId;
     held = held
-      .confirmed(run, FINGERPRINT, NOW)
-      .ended(run, endOf('completed'))
-      .measured(
+      .confirm(run, FINGERPRINT, NOW)
+      .recordRunEnd(run, endOf('completed'))
+      .measure(
         run,
         measuresOf(1, 60_000, 10, 'USD', options.changedLines ?? 4),
         later(61_000),
       )
-      .reviewed(run, CONCLUDING_CHECKS, null, later(62_000));
+      .recordReview(run, CONCLUDING_CHECKS, null, later(62_000));
 
     if (options.judged ?? true) {
-      held = held.judged(
+      held = held.recordVerdict(
         run,
         CONCLUDING_VERDICT,
         options.judgingCost === undefined

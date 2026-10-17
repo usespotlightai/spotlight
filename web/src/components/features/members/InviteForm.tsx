@@ -14,7 +14,7 @@ import type { InviteToWorkspaceRequestDto } from '@/lib/api';
 import {
   INVITE_ROLES,
   type InviteRole,
-  MOST_INVITED_AT_ONCE,
+  MAX_INVITED_AT_ONCE,
   parseEmails,
   USUAL_INVITE_ROLE,
 } from '@/lib/members';
@@ -47,7 +47,7 @@ export function InviteForm({
   const [chosen, setChosen] = useState<string[]>([...teamIds]);
 
   const parsed = parseEmails(emails);
-  const tooMany = parsed.valid.length > MOST_INVITED_AT_ONCE;
+  const tooMany = parsed.valid.length > MAX_INVITED_AT_ONCE;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -110,7 +110,7 @@ export function InviteForm({
         {tooMany && (
           <p role="alert" className="text-destructive text-xs">
             Sorry, the list has {parsed.valid.length} addresses. Please invite
-            at most {MOST_INVITED_AT_ONCE} at once.
+            at most {MAX_INVITED_AT_ONCE} at once.
           </p>
         )}
 

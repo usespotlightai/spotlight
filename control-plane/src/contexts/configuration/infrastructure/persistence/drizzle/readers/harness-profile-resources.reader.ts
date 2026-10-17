@@ -1,6 +1,6 @@
 import type {
+  HarnessProfileRecord,
   HarnessProfileResourcesPort,
-  KeptProfile,
 } from '@configuration/application/ports/harness-profile-resources.port';
 import { harnessProfile } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Injectable } from '@nestjs/common';
@@ -10,7 +10,7 @@ import { and, eq, type SQL } from 'drizzle-orm';
 
 type ProfileRow = typeof harnessProfile.$inferSelect;
 
-const keptFrom = (found: ProfileRow): KeptProfile => ({
+const keptFrom = (found: ProfileRow): HarnessProfileRecord => ({
   id: found.id,
   version: found.version,
   teamId: TeamId.of(found.teamId),
@@ -28,17 +28,17 @@ export class DrizzleHarnessProfileResources
 {
   constructor(private readonly context: DrizzleContext) {}
 
-  withId(id: string): Promise<KeptProfile | null> {
+  withId(id: string): Promise<HarnessProfileRecord | null> {
     return this.kept(eq(harnessProfile.id, id));
   }
 
-  at(teamId: TeamId, key: string): Promise<KeptProfile | null> {
+  at(teamId: TeamId, key: string): Promise<HarnessProfileRecord | null> {
     return this.kept(
       and(eq(harnessProfile.teamId, teamId.value), eq(harnessProfile.key, key)),
     );
   }
 
-  async ofTeam(teamId: TeamId): Promise<readonly KeptProfile[]> {
+  async ofTeam(teamId: TeamId): Promise<readonly HarnessProfileRecord[]> {
     return (
       await this.context.db
         .select()
@@ -47,7 +47,9 @@ export class DrizzleHarnessProfileResources
     ).map(keptFrom);
   }
 
-  private async kept(where: SQL | undefined): Promise<KeptProfile | null> {
+  private async kept(
+    where: SQL | undefined,
+  ): Promise<HarnessProfileRecord | null> {
     const [found] = await this.context.db
       .select()
       .from(harnessProfile)

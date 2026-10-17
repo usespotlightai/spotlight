@@ -22,7 +22,7 @@ import {
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -79,7 +79,7 @@ const grading = async (
   const handler = new GradeRunHandler(
     new OutcomesAccess({
       ...NOBODY_ELSE,
-      clearedOnTeam: async (_teamId, principal) =>
+      membershipOnTeam: async (_teamId, principal) =>
         principal.userId.equals(UserId.of('user_stranger'))
           ? null
           : { workspaceId: WORKSPACE, by: principal.userId },
@@ -151,8 +151,10 @@ describe('GradeRunHandler', () => {
       marks: [true, false],
       label: '50% of claims met',
     });
-    await expect(run.grade(true)).rejects.toBeInstanceOf(UseCaseFault);
-    await expect(run.gradeClaims([true])).rejects.toBeInstanceOf(UseCaseFault);
+    await expect(run.grade(true)).rejects.toBeInstanceOf(ApplicationError);
+    await expect(run.gradeClaims([true])).rejects.toBeInstanceOf(
+      ApplicationError,
+    );
   });
 
   it('names the claims the judge marked, even once the station’s claims changed', async () => {
@@ -185,7 +187,7 @@ describe('GradeRunHandler', () => {
     const run = await grading(ScoreScale.oneToFive());
 
     expect((await run.grade(4)).grades[0]?.value).toBe(4);
-    await expect(run.grade(true)).rejects.toBeInstanceOf(UseCaseFault);
+    await expect(run.grade(true)).rejects.toBeInstanceOf(ApplicationError);
   });
 
   it('grades a run the judge has yet to score on the station’s rubric, and pairs the grade once the judge scores it', async () => {
@@ -217,7 +219,7 @@ describe('GradeRunHandler', () => {
     const run = await grading();
 
     await expect(run.grade(null)).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
   });
 

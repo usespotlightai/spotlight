@@ -43,12 +43,12 @@ export class ReorderChangeStack {
           'Reordering a change stack failed; trying again later',
         );
         return reordering
-          .usedModel(attempt.usage)
+          .recordModel(attempt.usage)
           .triedAgainLater(this.clock.now());
       }
 
       const { cohorts, usage } = attempt.answer;
-      reordering = reordering.usedModel(usage);
+      reordering = reordering.recordModel(usage);
 
       try {
         return reordering.reordered(cohorts, this.clock.now());

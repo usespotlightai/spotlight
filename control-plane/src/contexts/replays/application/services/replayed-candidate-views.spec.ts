@@ -285,7 +285,7 @@ describe('replayedCandidatesView', () => {
 
   it('gives the baseline’s cost in its own currency, apart from the candidate’s', () => {
     const euros = replayedAs(
-      Replay.started({
+      Replay.start({
         id: ReplayId.of('replay_euros'),
         set: world.set,
         candidate: candidateOf('live'),
@@ -351,7 +351,7 @@ describe('replayedCandidatesView', () => {
   });
 
   it('links a searched candidate to the pull request picking it opened', () => {
-    const picked = ConfigPullRequest.picked({
+    const picked = ConfigPullRequest.pick({
       id: ConfigPullRequestId.of('pr_1'),
       searchId: SEARCH_ID,
       candidateId: CandidateId.of('candidate_terse'),
@@ -454,7 +454,7 @@ describe('replayedCandidatesView', () => {
           NOW,
           false,
         ),
-      ReplaySet.opened({
+      ReplaySet.open({
         id: ReplaySetId.of('set_twice'),
         station: STATION,
         name: ReplaySetName.of('Twice'),

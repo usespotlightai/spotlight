@@ -1,4 +1,4 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -134,7 +134,7 @@ export class ReadRunnerHistoryHandler
           fingerprint: wanted.fingerprint,
           since: sinceOf(wanted.since),
           until: held.replaysFrom,
-          most: wanted.outcome ? HISTORY_RUNS.matched : last,
+          max: wanted.outcome ? HISTORY_RUNS.matched : last,
           excluding: sighted.hiddenTasks,
         })
       ).filter((each) => !sighted.hides(each));
@@ -187,7 +187,7 @@ export class ReadRunnerHistoryHandler
         },
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

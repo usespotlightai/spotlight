@@ -10,7 +10,7 @@ export type Review = NonNullable<Run['review']>;
 export const RUNS_AUTONOMOUSLY =
   'The agent runs autonomously. It can’t receive messages.';
 
-export const tokensShown = (count: number | null): string =>
+export const formatTokens = (count: number | null): string =>
   count === null ? 'not reported' : counted(count);
 
 export const working = (run: Pick<Run, 'state'>): boolean =>
@@ -41,7 +41,7 @@ export const standing = (run: Run): string | null => {
   return null;
 };
 
-export const imageShown = (image: string): string =>
+export const formatImage = (image: string): string =>
   image.replace(/@sha256:([0-9a-f]{12})[0-9a-f]{52}$/, '@sha256:$1');
 
 export const runPath = (slug: string, teamId: string, runId: string): string =>

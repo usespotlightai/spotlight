@@ -13,7 +13,7 @@ import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import {
   connectionGroups,
-  ENFORCEMENT_SHOWN,
+  ENFORCEMENT_LABELS,
   ENFORCEMENT_TOLD,
 } from '@/lib/run-network';
 import { cn } from '@/lib/utils';
@@ -91,7 +91,7 @@ export function RunNetwork({
                         'text-amber-600 dark:text-amber-400',
                     )}
                   >
-                    {ENFORCEMENT_SHOWN[network.egress]}
+                    {ENFORCEMENT_LABELS[network.egress]}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-80">

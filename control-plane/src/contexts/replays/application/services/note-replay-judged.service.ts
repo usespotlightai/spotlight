@@ -34,13 +34,13 @@ export class NoteReplayJudged {
     const verdict = JudgeVerdict.of(event);
 
     return this.changing(event.runId, (replay, run, now) =>
-      replay.judged(run, verdict, event.spent, now),
+      replay.recordVerdict(run, verdict, event.spent, now),
     );
   }
 
   failed(runId: string, failure: string, spent: ModelSpent): Promise<void> {
     return this.changing(runId, (replay, run, now) =>
-      replay.judgingFailed(run, failure, spent, now),
+      replay.recordJudgingFailure(run, failure, spent, now),
     );
   }
 
@@ -48,7 +48,7 @@ export class NoteReplayJudged {
     const verdict = JudgeVerdict.of(event);
 
     return this.changing(event.runId, (replay, run) =>
-      replay.rejudged(run, verdict, event.spent),
+      replay.recordRejudgment(run, verdict, event.spent),
     );
   }
 
@@ -58,13 +58,13 @@ export class NoteReplayJudged {
     spent: ModelSpent,
   ): Promise<void> {
     return this.changing(runId, (replay, run) =>
-      replay.rejudgingFailed(run, failure, spent),
+      replay.recordRejudgingFailure(run, failure, spent),
     );
   }
 
   rejudgingRefused(event: ReplayRejudgingRefused): Promise<void> {
     return this.changing(event.run.value, (replay, run) =>
-      replay.rejudgingFailed(run, event.why, null),
+      replay.recordRejudgingFailure(run, event.why, null),
     );
   }
 
@@ -74,7 +74,7 @@ export class NoteReplayJudged {
   ): Promise<void> {
     const run = RunId.of(runId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const replay = await this.replays.ranAs(run);
 
       if (!replay) {

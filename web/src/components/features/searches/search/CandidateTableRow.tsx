@@ -8,19 +8,19 @@ import {
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import type { RateInterval } from '@/lib/replay';
 import {
-  gainShown,
-  intervalShown,
+  formatGain,
+  formatInterval,
+  formatRunsScored,
+  formatState,
   NOT_SCORED_YET,
-  runsScoredShown,
-  stateShown,
 } from '@/lib/replay-words';
 import {
   candidateName,
-  costPerRunShown,
-  heldOutShown,
+  formatCostPerRun,
+  formatHeldOut,
   type SearchCandidate,
   searchCandidateAnchor,
 } from '@/lib/search';
@@ -46,16 +46,16 @@ function Rate({
   interval: RateInterval | null;
   more?: string;
 }) {
-  const note = [interval && `Likely range: ${intervalShown(interval)}`, more]
+  const note = [interval && `Likely range: ${formatInterval(interval)}`, more]
     .filter(Boolean)
     .join(' · ');
 
   return note ? (
     <Noted note={note}>
-      <span className="relative z-10">{percentShown(rate)}</span>
+      <span className="relative z-10">{formatPercent(rate)}</span>
     </Noted>
   ) : (
-    percentShown(rate)
+    formatPercent(rate)
   );
 }
 
@@ -76,7 +76,7 @@ export function CandidateTableRow({
   const gain = candidate.searchedGain;
   const unfinished =
     candidate.replayState && candidate.replayState !== 'finished'
-      ? stateShown(candidate.replayState)
+      ? formatState(candidate.replayState)
       : null;
 
   return (
@@ -123,13 +123,13 @@ export function CandidateTableRow({
           <Rate
             rate={candidate.searchScore}
             interval={candidate.searchInterval}
-            more={runsScoredShown(candidate.searchScored)}
+            more={formatRunsScored(candidate.searchScored)}
           />
         )}
       </NestedCell>
       <NestedCell heading="Held out">
         {candidate.heldOutScore === null ? (
-          heldOutShown(candidate)
+          formatHeldOut(candidate)
         ) : (
           <Rate
             rate={candidate.heldOutScore}
@@ -141,7 +141,7 @@ export function CandidateTableRow({
         {gain ? (
           <Noted note={candidateGainNote(gain, candidate.heldOutGain)}>
             <span className={cn('relative z-10', GAIN_TONES[gain.verdict])}>
-              {gainShown(gain)}
+              {formatGain(gain)}
             </span>
           </Noted>
         ) : (
@@ -149,7 +149,7 @@ export function CandidateTableRow({
         )}
       </NestedCell>
       <NestedCell heading="Cost per run">
-        {costPerRunShown(candidate.costPerRun, currency)}
+        {formatCostPerRun(candidate.costPerRun, currency)}
       </NestedCell>
       <NestedCell heading="Pull request" numeric={false}>
         <CandidatePullRequest candidate={candidate} />

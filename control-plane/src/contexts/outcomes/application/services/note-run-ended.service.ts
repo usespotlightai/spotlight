@@ -98,7 +98,7 @@ export class NoteRunEnded {
     const { taskId, teamId } = end.place;
     const workspaceId = WorkspaceId.of(run.workspaceId);
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId, teamId);
       const runId = RunId.of(run.runId);
       const held = await this.records.of(runId);
@@ -115,11 +115,13 @@ export class NoteRunEnded {
       }
 
       if (held) {
-        await this.records.save(held.ended(end));
+        await this.records.save(held.recordEnd(end));
         return;
       }
 
-      await this.records.add(RunRecord.heardOf(runId, workspaceId).ended(end));
+      await this.records.add(
+        RunRecord.heardOf(runId, workspaceId).recordEnd(end),
+      );
     });
   }
 }

@@ -81,7 +81,7 @@ const teams = {
   inWorkspace: vi.fn(async () => []),
 } satisfies TeamDirectoryPort;
 
-const transaction: TransactionPort = { run: (work) => work() };
+const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 const NEEDS_TEAM = (id: string) =>
   `${id} needs the Team plan, and this workspace is on the Free plan`;

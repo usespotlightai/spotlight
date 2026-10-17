@@ -4,7 +4,7 @@ import type {
   RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
 import type {
-  KeptPool,
+  RunnerPoolRecord,
   RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
@@ -74,7 +74,7 @@ export class RunnerPools implements RunnerPoolsPort {
       : 0;
   }
 
-  private atWork(pool: KeptPool): PoolAtWork {
+  private atWork(pool: RunnerPoolRecord): PoolAtWork {
     return {
       poolId: pool.id,
       workspaceId: pool.workspaceId,

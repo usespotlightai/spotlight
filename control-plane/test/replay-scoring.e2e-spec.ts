@@ -309,7 +309,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
           RunId.of(runId),
           team.workspaceId,
           TaskId.of(taskId),
-        ).actedOn(NextAct.of('closed', at)),
+        ).recordAction(NextAct.of('closed', at)),
       );
   }
 

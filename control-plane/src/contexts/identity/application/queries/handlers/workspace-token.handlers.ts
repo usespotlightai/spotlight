@@ -8,7 +8,7 @@ import type {
   ReadWorkspaceTokenQuery,
 } from '@identity/application/queries/workspace-token.queries';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
@@ -31,11 +31,11 @@ export class ReadWorkspaceTokenHandler
       );
 
       return kept &&
-        (await this.access.clearanceIn(kept.workspaceId, query.principal))
+        (await this.access.permissionsIn(kept.workspaceId, query.principal))
         ? ResourceMapper.workspaceToken(kept)
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }
@@ -56,20 +56,20 @@ export class ImportWorkspaceTokenHandler
     query: ImportWorkspaceTokenQuery,
   ): Promise<WorkspaceTokenResourceDto | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = cleared
+      const kept = permissions
         ? await this.resources.tokenAt(
-            cleared.workspaceId,
+            permissions.workspaceId,
             TokenName.of(query.address).value,
           )
         : null;
 
       return kept ? ResourceMapper.workspaceToken(kept) : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }
@@ -90,18 +90,18 @@ export class ListWorkspaceTokenResourcesHandler
     query: ListWorkspaceTokenResourcesQuery,
   ): Promise<readonly WorkspaceTokenResourceDto[] | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
 
-      return cleared
-        ? (await this.resources.tokensIn(cleared.workspaceId)).map(
+      return permissions
+        ? (await this.resources.tokensIn(permissions.workspaceId)).map(
             ResourceMapper.workspaceToken,
           )
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

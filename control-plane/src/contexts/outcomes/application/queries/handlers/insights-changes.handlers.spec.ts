@@ -50,7 +50,7 @@ const ADA = PersonPrincipal.of(UserId.of('user_ada'));
 const STRANGER = PersonPrincipal.of(UserId.of('user_eve'));
 
 const people: PeoplePort = {
-  clearedOnTeam: async (_teamId, principal) =>
+  membershipOnTeam: async (_teamId, principal) =>
     principal.kind === 'person' &&
     principal.userId.equals(UserId.of('user_ada'))
       ? { workspaceId: WorkspaceId.of('ws_1'), by: principal.userId }
@@ -154,7 +154,7 @@ const held = async (
         startedAt: day('2026-09-29', hour),
         endedAt: day('2026-09-29', hour),
         changedLines: model === 'opus' ? 500 : 10,
-      }).actedOn(NextAct.of(act, day('2026-09-29', hour))),
+      }).recordAction(NextAct.of(act, day('2026-09-29', hour))),
     );
   }
   await scores.add(judgeScore('run_1', ScoreScale.yesNo(), 0));
@@ -334,7 +334,7 @@ describe('ReadInsightsSetupsHandler', () => {
       handler.execute(
         new ReadInsightsSetupsQuery('team_1', ADA, '30d', null, 'huge'),
       ),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
   });
 });
 
@@ -368,7 +368,7 @@ describe('ReadInsightsMemoryHandler', () => {
       const record = await records.of(RunId.of(runId));
 
       if (record) {
-        await records.save(record.usedMemories(way, memories));
+        await records.save(record.recordMemories(way, memories));
       }
     }
     const handler = new ReadInsightsMemoryHandler(
@@ -407,12 +407,12 @@ describe('ReadStationAlertHandler', () => {
       above: 0.4,
       over: 2,
     });
-    const watch = StationWatch.begun({
+    const watch = StationWatch.start({
       workspaceId: WORKSPACE,
       teamId: TEAM,
       lineId: 'line_1',
       stationId: 'station_1',
-    }).checked(
+    }).check(
       [
         {
           rule,

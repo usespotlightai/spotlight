@@ -3,7 +3,7 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 
 export const SECRET_DEFINITIONS = Symbol('SECRET_DEFINITIONS');
 
-export type CompiledSecret =
+export type ParsedSecret =
   | ({ readonly ok: true } & SecretDefinition)
   | {
       readonly ok: false;
@@ -11,5 +11,5 @@ export type CompiledSecret =
     };
 
 export interface SecretDefinitionsPort {
-  secret(held: unknown): CompiledSecret;
+  secret(held: unknown): ParsedSecret;
 }

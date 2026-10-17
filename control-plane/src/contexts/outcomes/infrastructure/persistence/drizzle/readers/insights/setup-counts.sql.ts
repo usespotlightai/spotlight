@@ -47,23 +47,23 @@ interface RubricRow extends Record<string, unknown> {
   readonly judged: number;
 }
 
-const sizedBy = (count: SQL, most: 'mostLines' | 'mostSteps'): SQL => {
+const sizedBy = (count: SQL, field: 'maxLines' | 'maxSteps'): SQL => {
   const bounded = SIZE_BOUNDS.flatMap((bound) => {
-    const limit = bound[most];
+    const limit = bound[field];
 
     return limit === null
       ? []
       : [sql`when ${count} <= ${limit} then ${bound.size}`];
   });
-  const open = SIZE_BOUNDS.find((bound) => bound[most] === null);
+  const open = SIZE_BOUNDS.find((bound) => bound[field] === null);
 
   return sql`case ${sql.join(bounded, sql` `)} else ${open?.size ?? 'large'} end`;
 };
 
 const sizeOfRun = sql`case
   when not ${runFact.digested} then null
-  when ${runFact.changedLines} > 0 then ${sizedBy(sql`${runFact.changedLines}`, 'mostLines')}
-  else ${sizedBy(sql`${runFact.steps}`, 'mostSteps')}
+  when ${runFact.changedLines} > 0 then ${sizedBy(sql`${runFact.changedLines}`, 'maxLines')}
+  else ${sizedBy(sql`${runFact.steps}`, 'maxSteps')}
 end`;
 
 const endedFor = (team: TeamInPeriod, filter: SetupFilter): SQL => {

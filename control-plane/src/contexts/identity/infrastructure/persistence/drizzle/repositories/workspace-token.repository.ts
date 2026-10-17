@@ -60,7 +60,7 @@ export class DrizzleWorkspaceTokenRepository
   ) {}
 
   async add(added: WorkspaceToken): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       try {
         await this.context.db.insert(workspaceToken).values({
           id: added.id.value,
@@ -94,7 +94,7 @@ export class DrizzleWorkspaceTokenRepository
   }
 
   async save(saved: WorkspaceToken): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const standing = and(
         eq(workspaceToken.id, saved.id.value),
         eq(workspaceToken.version, saved.version),

@@ -2,7 +2,7 @@ import type {
   ConfigChangeResponseDto,
   StationChangeResponseDto,
 } from '@/lib/api';
-import { imageShown } from '@/lib/run';
+import { formatImage } from '@/lib/run';
 import { sharePercent } from '@/lib/station-watch';
 
 export type ConfigChange = ConfigChangeResponseDto;
@@ -47,7 +47,7 @@ export const CHANGED_WITHIN: Partial<Record<ConfigChange['part'], string>> = {
 export const shownValue = (
   part: ConfigChange['part'],
   value: string | null,
-): string | null => (value && part === 'image' ? imageShown(value) : value);
+): string | null => (value && part === 'image' ? formatImage(value) : value);
 
 const shareOf = (value: string | null): string | null =>
   value === null || Number.isNaN(Number(value))

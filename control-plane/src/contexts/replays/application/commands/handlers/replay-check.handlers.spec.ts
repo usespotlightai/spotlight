@@ -51,7 +51,7 @@ import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -86,9 +86,9 @@ const PLAN = {
   runners: ['gpu'],
 };
 
-const threshold = (mostRegressions: number) =>
+const threshold = (maxRegressions: number) =>
   ReplayThreshold.of({
-    mostRegressions,
+    maxRegressions,
     ceiling: 7.5,
     currency: 'USD',
     minGain: 0.05,
@@ -151,13 +151,13 @@ let work: FakeWork;
 let checks: InMemoryChecks;
 let examined: { block: unknown; line: unknown }[];
 
-const faultOf = async (asked: Promise<unknown>) =>
+const errorOf = async (asked: Promise<unknown>) =>
   asked.then(
     () => {
       throw new Error('it was allowed');
     },
     (error: unknown) => {
-      if (error instanceof UseCaseFault) {
+      if (error instanceof ApplicationError) {
         return error.kind;
       }
       throw error;
@@ -347,7 +347,7 @@ describe('StartReplayCheckHandler', () => {
           .join('\n'),
       ),
     );
-    expect(check.threshold.mostRegressions).toBe(1);
+    expect(check.threshold.maxRegressions).toBe(1);
     expect(replay?.ceiling.amount).toBe(7.5);
     expect(replay?.unpricedRate?.amount).toBe(2.5);
     expect(wantedBaselines()[0]?.unpricedRate?.amount).toBe(2.5);
@@ -379,7 +379,7 @@ describe('StartReplayCheckHandler', () => {
 
     memory.replays.set(
       checkOf(first).replayId.value,
-      (memory.replays.get(checkOf(first).replayId.value) as Replay).stopped(
+      (memory.replays.get(checkOf(first).replayId.value) as Replay).stop(
         NOW,
         BY,
       ),
@@ -450,7 +450,7 @@ describe('StartReplayCheckHandler', () => {
     const set = guarding();
     const stale = memory.candidates.size;
     const old = await snapshotsFor(memory, work).taken(set);
-    const staleLive = Replay.started({
+    const staleLive = Replay.start({
       id: ReplayId.of('replay_stale'),
       set,
       candidate: {
@@ -485,20 +485,20 @@ describe('StartReplayCheckHandler', () => {
   it('refuses a line with no replay_check, and a station no set guards', async () => {
     guarding();
     work.threshold = null;
-    expect(await faultOf(start())).toBe('conflict');
+    expect(await errorOf(start())).toBe('conflict');
 
     work.threshold = threshold(0);
     memory.sets.clear();
     memory.sets.set(
       'set_2',
-      ReplaySet.opened({
+      ReplaySet.open({
         id: ReplaySetId.of('set_2'),
         station: STATION,
         name: ReplaySetName.of('Unguarded'),
         at: new Date(),
       }),
     );
-    expect(await faultOf(start())).toBe('conflict');
+    expect(await errorOf(start())).toBe('conflict');
     expect(checks.held.size).toBe(0);
   });
 
@@ -628,7 +628,7 @@ describe('ReadReplayCheckHandler', () => {
       attempt: 1,
       baselineReplayId: null,
       threshold: {
-        mostRegressions: 1,
+        maxRegressions: 1,
         ceiling: { amount: 7.5, currency: 'USD' },
       },
       reference: { commit: null, pullRequest: 42 },
@@ -642,7 +642,7 @@ describe('ReadReplayCheckHandler', () => {
     guarding();
     const id = idOf(await start());
 
-    expect(await faultOf(read(id, null))).toBe('not-found');
+    expect(await errorOf(read(id, null))).toBe('not-found');
   });
 });
 
@@ -695,7 +695,7 @@ describe('ListSetReplayChecksHandler', () => {
       }),
     ]);
     expect((await list(second, 5)).map((each) => each.id)).toEqual([first]);
-    expect(await faultOf(list(null, 5, null))).toBe('not-found');
+    expect(await errorOf(list(null, 5, null))).toBe('not-found');
   });
 });
 
@@ -729,7 +729,7 @@ describe('GuardChangesHandler', () => {
 
   it('refuses a second set guarding the same station', async () => {
     guarding();
-    const other = ReplaySet.opened({
+    const other = ReplaySet.open({
       id: ReplaySetId.of('set_2'),
       station: STATION,
       name: ReplaySetName.of('Other'),
@@ -737,7 +737,7 @@ describe('GuardChangesHandler', () => {
     });
     memory.sets.set('set_2', other);
 
-    expect(await faultOf(guard('set_2', true))).toBe('conflict');
+    expect(await errorOf(guard('set_2', true))).toBe('conflict');
     expect(await guard('set_2', true, false)).toEqual({
       outcome: 'forbidden',
       act: 'plan',

@@ -31,7 +31,7 @@ import {
   TaskChangeShapesInMemory,
 } from '@outcomes/domain/pull-requests.fake-spec';
 import type { PullRequestFilterAsked } from '@outcomes/domain/services/pull-request-filter';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import {
   PersonPrincipal,
   TokenPrincipal,
@@ -82,7 +82,7 @@ const team = async () => {
   const shapes = new TaskChangeShapesInMemory();
   const touches = new TaskTouchesInMemory(records);
   const people: PeoplePort = {
-    clearedOnTeam: async (_teamId, principal) =>
+    membershipOnTeam: async (_teamId, principal) =>
       principal.kind === 'token' ||
       principal.userId.equals(UserId.of('user_ada'))
         ? { workspaceId: WORKSPACE, by: principal.userId }
@@ -121,7 +121,7 @@ const team = async () => {
       .seenAs(
         seenOf({ number: 1, title: 'Uploads', ...mergedOn('2026-09-29') }),
       )
-      .ownedBy({ taskId: TaskId.of('task_1'), teamId: TEAM }),
+      .assignOwner({ taskId: TaskId.of('task_1'), teamId: TEAM }),
   );
   await pullRequests.add(
     PullRequestRecord.noted(WORKSPACE, pull('acme/api', 2)).seenAs(
@@ -146,7 +146,10 @@ const team = async () => {
           ...mergedOn('2026-09-30'),
         }),
       )
-      .ownedBy({ taskId: TaskId.of('task_4'), teamId: TeamId.of('team_2') }),
+      .assignOwner({
+        taskId: TaskId.of('task_4'),
+        teamId: TeamId.of('team_2'),
+      }),
   );
   await records.add(costedRecord('run_1', { taskId: 'task_1', amount: 1.25 }));
   await records.add(costedRecord('run_2', { taskId: 'task_1', amount: 0.75 }));
@@ -155,10 +158,10 @@ const team = async () => {
       RunId.of('run_still_working'),
       WORKSPACE,
       TaskId.of('task_1'),
-    ).usedMemories('briefed', ['mem_1']),
+    ).recordMemories('briefed', ['mem_1']),
   );
   await shapes.add(
-    TaskChangeShape.shaped({
+    TaskChangeShape.create({
       taskId: TaskId.of('task_1'),
       workspaceId: WORKSPACE,
       teamId: TEAM,
@@ -277,7 +280,7 @@ describe('the team’s pull requests', () => {
             openedAt: new Date('2026-09-30T08:00:00.000Z'),
           }),
         )
-        .ownedBy({ taskId: TaskId.of('task_6'), teamId: TEAM }),
+        .assignOwner({ taskId: TaskId.of('task_6'), teamId: TEAM }),
     );
     const listed = (compared: string | null) =>
       new ListInsightsPullRequestsHandler(service).execute(
@@ -332,7 +335,7 @@ describe('the team’s pull requests', () => {
           null,
         ),
       ),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
     await expect(
       handler.execute(
         new ListInsightsPullRequestsQuery(
@@ -344,7 +347,7 @@ describe('the team’s pull requests', () => {
           null,
         ),
       ),
-    ).rejects.toBeInstanceOf(UseCaseFault);
+    ).rejects.toBeInstanceOf(ApplicationError);
   });
 });
 
@@ -357,7 +360,7 @@ describe('what the agents ship', () => {
     await pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, pull('acme/api', 7))
         .seenAs(seenOf({ number: 7, ...mergedOn('2026-09-20') }))
-        .ownedBy({ taskId: TaskId.of('task_7'), teamId: TEAM }),
+        .assignOwner({ taskId: TaskId.of('task_7'), teamId: TEAM }),
     );
 
     const shipping = await new ReadInsightsShippingHandler(service).execute(
@@ -404,6 +407,6 @@ describe('what the agents ship', () => {
       new ReadInsightsShippingHandler(service).execute(
         new ReadInsightsShippingQuery(TEAM.value, STRANGER, '7d'),
       ),
-    ).rejects.toBeInstanceOf(UseCaseFault);
+    ).rejects.toBeInstanceOf(ApplicationError);
   });
 });

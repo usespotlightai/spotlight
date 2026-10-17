@@ -38,7 +38,7 @@ export interface StationRunsWanted {
   readonly fingerprint: string | null;
   readonly since: Date | null;
   readonly until: Date | null;
-  readonly most: number;
+  readonly max: number;
   readonly excluding: readonly string[];
 }
 

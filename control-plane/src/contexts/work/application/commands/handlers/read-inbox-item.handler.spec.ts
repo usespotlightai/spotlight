@@ -1,4 +1,4 @@
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -6,7 +6,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
+import { ConversationLoader } from '@work/application/services/conversation-loader.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
@@ -107,7 +107,7 @@ const lines = () =>
 const read = (found: Task | null, by = 'user_1') => {
   const repository = tasks(found);
   const handler = new ReadInboxItemHandler(
-    new ConversationAtHand(repository, lines()),
+    new ConversationLoader(repository, lines()),
     repository,
     clock,
   );
@@ -137,10 +137,12 @@ describe('ReadInboxItem', () => {
   });
 
   it('will not let anyone but the person it belongs to read it', async () => {
-    await expect(read(waiting(), 'user_2').done).rejects.toThrow(UseCaseFault);
+    await expect(read(waiting(), 'user_2').done).rejects.toThrow(
+      ApplicationError,
+    );
   });
 
   it('refuses a task that is not there', async () => {
-    await expect(read(null).done).rejects.toThrow(UseCaseFault);
+    await expect(read(null).done).rejects.toThrow(ApplicationError);
   });
 });

@@ -86,7 +86,7 @@ const working = () =>
     newId: () => 'task_1',
   })
     .handedTo(RUN, DELIVERY)
-    .openedAt(RUN, PullRequestUrl.of(PULL), NOW, DELIVERY);
+    .recordPullRequest(RUN, PullRequestUrl.of(PULL), NOW, DELIVERY);
 
 const dispatched: Task[] = [];
 
@@ -131,7 +131,7 @@ const hooking = (
       heardInMemory(),
       { placementsAt: async () => [] },
       dispatch,
-      { run: (work) => work() },
+      { inTransaction: (work) => work() },
       { now: () => NOW, sleep: async () => {} },
       'https://spotlight.acme.dev/',
     ),
@@ -358,7 +358,7 @@ describe('HookedTasks', () => {
       await hooked.failed(LOOPED);
       const told = standing() as Task;
       tasks.find.mockResolvedValue(
-        told.reactedTo(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
+        told.react(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
           station: StationName.of('Implementation'),
           body: TaskNoteBody.of('Back to the backlog.'),
           at: NOW,

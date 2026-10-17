@@ -7,7 +7,7 @@ import { useSession } from '@/hooks/api/useSession';
 import { useWriteMemory } from '@/hooks/api/useWriteMemory';
 import { useMemoryDraft } from '@/hooks/useMemoryDraft';
 import type { LineResponseDto } from '@/lib/api';
-import { SOURCE_SHOWN } from '@/lib/memory';
+import { SOURCE_LABELS } from '@/lib/memory';
 import { cn } from '@/lib/utils';
 
 type NewMemoryRowProps = {
@@ -49,7 +49,7 @@ export function NewMemoryRow({ teamId, lines, onDone }: NewMemoryRowProps) {
         <MemoryKindSelect value={draft.kind} onChange={draft.setKind} />
         <MemoryPlaceEditor draft={draft} lines={lines} />
         <span className="truncate text-muted-foreground text-xs leading-5">
-          {SOURCE_SHOWN.person}
+          {SOURCE_LABELS.person}
         </span>
         <span className="truncate text-muted-foreground text-xs leading-5">
           {session?.user.name ?? 'You'}

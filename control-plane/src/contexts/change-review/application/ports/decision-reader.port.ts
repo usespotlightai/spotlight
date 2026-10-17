@@ -14,7 +14,7 @@ export interface StandingSought {
   readonly within: readonly string[];
   readonly since: Date | null;
   readonly until: Date | null;
-  readonly most: number;
+  readonly max: number;
 }
 
 export interface DecisionReaderPort {

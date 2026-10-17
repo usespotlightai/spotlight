@@ -98,7 +98,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
   ) {}
 
   async add(added: ChangeJudging): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(changeJudging)
         .values({
@@ -128,7 +128,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
   }
 
   async save(saved: ChangeJudging): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(changeJudging)
         .set({ version: saved.version + 1, ...columnsOf(saved) })

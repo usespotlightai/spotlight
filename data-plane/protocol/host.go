@@ -11,7 +11,7 @@ type HostRequirements struct {
 }
 
 type RunnerRequirement struct {
-	AtLeast string `json:"atLeast"`
+	Minimum string `json:"minimum"`
 }
 
 type HostClaim struct {

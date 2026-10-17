@@ -2,7 +2,7 @@ import type { CallbackTaskDto } from '@integrations/application/dto/callback-tas
 import type { TasksForHooksPort } from '@integrations/application/ports/tasks-for-hooks.port';
 import type { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -40,7 +40,7 @@ export class CallbackTaskHandler
         hook: grant.hook,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

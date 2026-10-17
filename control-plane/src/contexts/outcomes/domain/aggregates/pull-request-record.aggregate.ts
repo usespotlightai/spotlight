@@ -122,7 +122,7 @@ export class PullRequestRecord {
     return this.with({ seen });
   }
 
-  ownedBy(owner: PullRequestOwner): PullRequestRecord {
+  assignOwner(owner: PullRequestOwner): PullRequestRecord {
     if (
       this.owner?.taskId.equals(owner.taskId) &&
       this.owner.teamId.equals(owner.teamId)
@@ -133,7 +133,7 @@ export class PullRequestRecord {
     return this.with({ owner });
   }
 
-  reviewedBy(taskId: TaskId): PullRequestRecord {
+  recordReview(taskId: TaskId): PullRequestRecord {
     if (this.reviewTasks.some((each) => each.equals(taskId))) {
       return this;
     }

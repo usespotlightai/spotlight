@@ -90,13 +90,13 @@ export class ReplayableRuns implements ReplayableRunsPort {
   async recentAt(
     workspaceId: string,
     stationId: string,
-    most: number,
+    max: number,
   ): Promise<readonly RecentRun[]> {
     const ended = await this.stationRuns.endedAt(stationId, {
       fingerprint: null,
       since: null,
       until: null,
-      most,
+      max,
       excluding: [],
     });
     const checked = new Map(

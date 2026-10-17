@@ -2,15 +2,15 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type EntryPair, readingsDisagree } from '@/lib/replay';
 import {
   CLOSER_TO_ACCEPTED,
-  citedHunksShown,
+  formatCitedHunks,
+  formatPair,
+  formatReading,
+  formatUnpaired,
   OTHER_CHANGE,
   OTHER_RUN,
   PAIR_ASKED,
-  pairShown,
   READINGS_DISAGREED,
   READINGS_LABEL,
-  readingShown,
-  unpairedShown,
 } from '@/lib/replay-words';
 
 type EntryPairReadingsProps = {
@@ -32,7 +32,7 @@ export function EntryPairReadings({ pair, againstTo }: EntryPairReadingsProps) {
             data-slot="pair-outcome"
             className="font-medium text-foreground"
           >
-            {pairShown(pair.outcome, OTHER_CHANGE)}
+            {formatPair(pair.outcome, OTHER_CHANGE)}
           </span>
         )}
         <TrailLink
@@ -47,7 +47,7 @@ export function EntryPairReadings({ pair, againstTo }: EntryPairReadingsProps) {
         <p className="text-muted-foreground">{PAIR_ASKED}</p>
       )}
       {pair.state === 'unpaired' && (
-        <p className="text-muted-foreground">{unpairedShown(pair.unpaired)}</p>
+        <p className="text-muted-foreground">{formatUnpaired(pair.unpaired)}</p>
       )}
       {readingsDisagree(pair) && (
         <p data-slot="readings-disagreed" className="text-muted-foreground">
@@ -65,15 +65,15 @@ export function EntryPairReadings({ pair, againstTo }: EntryPairReadingsProps) {
             >
               <p>
                 <span className="text-muted-foreground">
-                  {readingShown(reading.ownShownFirst)}:
+                  {formatReading(reading.ownShownFirst)}:
                 </span>{' '}
                 <span className="text-foreground">
-                  {pairShown(reading.outcome, OTHER_CHANGE)}
+                  {formatPair(reading.outcome, OTHER_CHANGE)}
                 </span>
               </p>
               <ul className="flex flex-col gap-0.5 pl-3">
                 {reading.reasons.map((reason, at) => {
-                  const cites = citedHunksShown(
+                  const cites = formatCitedHunks(
                     reason.ownHunks.length,
                     reason.theirHunks.length,
                   );

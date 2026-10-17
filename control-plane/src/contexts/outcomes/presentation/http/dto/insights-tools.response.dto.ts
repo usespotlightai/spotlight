@@ -251,9 +251,9 @@ export class TrendRuleResponseDto {
 
   @ApiProperty({
     example: 5,
-    description: 'The fewest runs each side needs for a trend',
+    description: 'The minimum number of runs each side needs for a trend',
   })
-  readonly fewestRuns: number;
+  readonly minRuns: number;
 
   @ApiProperty({
     example: 20,
@@ -264,7 +264,7 @@ export class TrendRuleResponseDto {
 
   constructor(rule: TrendRuleDto) {
     this.recentWeeks = rule.recentWeeks;
-    this.fewestRuns = rule.fewestRuns;
+    this.minRuns = rule.minRuns;
     this.shiftPoints = rule.shiftPoints;
   }
 }

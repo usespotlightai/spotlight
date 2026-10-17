@@ -40,6 +40,6 @@ export interface ReplayableRunsPort {
   recentAt(
     workspaceId: string,
     stationId: string,
-    most: number,
+    max: number,
   ): Promise<readonly RecentRun[]>;
 }

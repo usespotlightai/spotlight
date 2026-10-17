@@ -1,5 +1,5 @@
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { type StationNames, stationShown } from '@/lib/insights';
+import { formatStation, type StationNames } from '@/lib/insights';
 import type { StationStanding } from '@/lib/insights-changes';
 import { judgeAgreementPath } from '@/lib/station';
 
@@ -32,7 +32,7 @@ export function JudgeStandings({
               to={judgeAgreementPath(slug, teamId, judge)}
               className="text-foreground underline-offset-2 hover:underline"
             >
-              {stationShown(names, judge.stationId)}
+              {formatStation(names, judge.stationId)}
             </TrailLink>
             <span className="text-muted-foreground">
               {judge.trusted ? 'trusted' : 'hidden'}

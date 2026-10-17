@@ -8,13 +8,13 @@ import type {
   SearchReflectionResponseDto,
   SearchResponseDto,
 } from '@/lib/api';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import {
-  gainRangeShown,
-  gainShown,
-  intervalShown,
-  minGainShown,
-  pointsShown,
+  formatGain,
+  formatGainRange,
+  formatInterval,
+  formatMinGain,
+  formatPoints,
 } from '@/lib/replay-words';
 
 export type SearchState = SearchResponseDto['state'];
@@ -102,20 +102,20 @@ const UNDECIDED: Record<Undecided, string> = {
   'too-few-scored': 'under half the tasks scored on both sides',
 };
 
-export const searchStateShown = (state: SearchState): string => STATES[state];
+export const formatSearchState = (state: SearchState): string => STATES[state];
 
-export const endingShown = (ending: SearchEnding): string => ENDINGS[ending];
+export const formatEnding = (ending: SearchEnding): string => ENDINGS[ending];
 
-export const iterationStateShown = (state: IterationState): string =>
+export const formatIterationState = (state: IterationState): string =>
   ITERATION_STATES[state];
 
-export const pullRequestStateShown = (state: PullRequestState): string =>
+export const formatPullRequestState = (state: PullRequestState): string =>
   PULL_REQUEST_STATES[state];
 
-export const pullRequestReasonShown = (reason: PullRequestReason): string =>
+export const formatPullRequestReason = (reason: PullRequestReason): string =>
   REASONS[reason.code];
 
-export const verdictShown = (
+export const formatVerdict = (
   verdict: CheckVerdict,
   undecidedBecause: Undecided | null = null,
 ): string =>
@@ -123,7 +123,7 @@ export const verdictShown = (
     ? `${CHECK_VERDICTS[verdict]}: ${UNDECIDED[undecidedBecause]}`
     : CHECK_VERDICTS[verdict];
 
-export const warningShown = (warning: SearchWarning): string => {
+export const formatWarning = (warning: SearchWarning): string => {
   switch (warning.kind) {
     case 'noise-unmeasured':
       return 'The set’s noise isn’t measured. A small gain can be chance. Please replay each run more than once, or replay a set of 5 or more runs to measure it.';
@@ -133,20 +133,20 @@ export const warningShown = (warning: SearchWarning): string => {
           ? `Even the maximum of ${warning.suggestedRepeats} repeats won’t bring the noise below it. Read small gains with care, or raise the line’s min_gain.`
           : `If you replay each run ${warning.suggestedRepeats} times, the noise falls below it.`;
 
-      return `Success moved ${pointsShown(warning.spread)} between copies of the same runs. This is more than the line’s minimum real gain. ${fix} Minimum real gain: ${minGainShown(warning.minGain)}`;
+      return `Success moved ${formatPoints(warning.spread)} between copies of the same runs. This is more than the line’s minimum real gain. ${fix} Minimum real gain: ${formatMinGain(warning.minGain)}`;
     }
     case 'saturated':
-      return `The live config already succeeds on ${percentShown(warning.rate)} of this set. Aim for the same success for less, or add tasks that the live config fails.`;
+      return `The live config already succeeds on ${formatPercent(warning.rate)} of this set. Aim for the same success for less, or add tasks that the live config fails.`;
     case 'judge-unstable':
-      return `The judge gave the same verdict twice on only ${percentShown(warning.agreement)} of ${warning.compared} ${warning.compared === 1 ? 'change' : 'changes'}. Make the rubric more specific before you search.`;
+      return `The judge gave the same verdict twice on only ${formatPercent(warning.agreement)} of ${warning.compared} ${warning.compared === 1 ? 'change' : 'changes'}. Make the rubric more specific before you search.`;
     case 'flaky-checks':
       return `The check flipped on ${warning.flaky} of ${warning.rechecked} changes that it ran twice. It can flip a candidate’s result by chance. The set page lists these changes.`;
     case 'no-headroom':
-      return `With each run’s answer, the live config gained only ${gainShown(warning)} on ${warning.answered} ${warning.answered === 1 ? 'run' : 'runs'}. The likely range is ${gainRangeShown(warning)}. A better config has little room to show a gain here. Please add tasks that the live config fails.`;
+      return `With each run’s answer, the live config gained only ${formatGain(warning)} on ${warning.answered} ${warning.answered === 1 ? 'run' : 'runs'}. The likely range is ${formatGainRange(warning)}. A better config has little room to show a gain here. Please add tasks that the live config fails.`;
   }
 };
 
-export const repeatsSuggestionShown = (repeats: number): string =>
+export const formatRepeatsSuggestion = (repeats: number): string =>
   `Replay each run ${repeats} times`;
 
 export const GAIN_ON_SEARCHED = 'Gain over the live config, searched';
@@ -181,19 +181,19 @@ const FRONTIER_NOTES: Record<SearchObjective, string> = {
 
 export const OBJECTIVE_LABEL = 'Aim for';
 
-export const objectiveShown = (objective: SearchObjective): string =>
+export const formatObjective = (objective: SearchObjective): string =>
   OBJECTIVES[objective];
 
 export const objectiveNote = (objective: SearchObjective): string =>
   OBJECTIVE_NOTES[objective];
 
-export const objectiveSuggestedShown = (rate: number): string =>
-  `Suggested: the live config already succeeds on ${percentShown(rate)} of this set. The set has little room for more success.`;
+export const formatObjectiveSuggested = (rate: number): string =>
+  `Suggested: the live config already succeeds on ${formatPercent(rate)} of this set. The set has little room for more success.`;
 
-export const bestTermShown = (objective: SearchObjective): string =>
+export const formatBestTerm = (objective: SearchObjective): string =>
   BEST_TERMS[objective];
 
-export const noBestShown = (objective: SearchObjective): string =>
+export const formatNoBest = (objective: SearchObjective): string =>
   NO_BEST[objective];
 
 export const frontierNote = (objective: SearchObjective): string =>
@@ -205,12 +205,12 @@ export const bestScoreNote = (
 ): string =>
   [
     `This score is from the ${heldOut ? 'held-out' : 'searched'} tasks.`,
-    interval && `Likely range: ${intervalShown(interval)}`,
+    interval && `Likely range: ${formatInterval(interval)}`,
   ]
     .filter(Boolean)
     .join(' ');
 
-export const bestOnShown = (heldOut: boolean): string =>
+export const formatBestOn = (heldOut: boolean): string =>
   heldOut ? 'held out' : 'searched';
 
 const ONLY_ON_SEEN_TASKS: Record<OnlyOnSeenTasks, string> = {
@@ -225,7 +225,7 @@ const ONLY_ON_SEEN_TASKS_NOTES: Record<OnlyOnSeenTasks, string> = {
     'This candidate beat the live config on searched tasks. Too few held-out tasks have a score to tell if the gain carries over.',
 };
 
-export const onlyOnSeenTasksShown = (mark: OnlyOnSeenTasks): string =>
+export const formatOnlyOnSeenTasks = (mark: OnlyOnSeenTasks): string =>
   ONLY_ON_SEEN_TASKS[mark];
 
 export const onlyOnSeenTasksNote = (mark: OnlyOnSeenTasks): string =>
@@ -234,13 +234,13 @@ export const onlyOnSeenTasksNote = (mark: OnlyOnSeenTasks): string =>
 export const ONLY_ON_SEEN_TASKS_PICK =
   'The gain showed only on searched tasks. You can still pick this candidate, but the gain may not carry over to new work.';
 
-export const onlyOnSeenTasksCountShown = (count: number): string =>
+export const formatOnlyOnSeenTasksCount = (count: number): string =>
   `${count} frontier ${count === 1 ? 'candidate' : 'candidates'} gained only on searched tasks, not on held-out tasks.`;
 
 export const SEARCH_CEILING_NOTE =
   'The most that the whole search can spend. Its replays and its agent’s runs count.';
 
-export const whyItStalledShown = (iteration: number): string =>
+export const formatWhyItStalled = (iteration: number): string =>
   `Why it stalled (iteration ${iteration})`;
 
 export const REFLECTION_KIND = 'Looked for why it stalled';
@@ -274,13 +274,13 @@ const CAUSE_ACTIONS: Record<CauseKind, string> = {
     'You don’t need to do anything. The search keeps trying configs for these tasks.',
 };
 
-export const causeTitleShown = (cause: CauseKind): string =>
+export const formatCauseTitle = (cause: CauseKind): string =>
   CAUSE_TITLES[cause];
 
-export const causeMeaningShown = (cause: CauseKind): string =>
+export const formatCauseMeaning = (cause: CauseKind): string =>
   CAUSE_MEANINGS[cause];
 
-export const causeActionShown = (cause: CauseKind): string =>
+export const formatCauseAction = (cause: CauseKind): string =>
   CAUSE_ACTIONS[cause];
 
 export const UNCAUSED_TITLE = 'No cause recorded';
@@ -295,13 +295,13 @@ export const OPEN_FAILED_REPLAY = 'Open the failed replay run';
 const tasksCounted = (count: number): string =>
   `${count} ${count === 1 ? 'task' : 'tasks'}`;
 
-export const standingShown = (candidate: {
+export const formatStanding = (candidate: {
   readonly seed: boolean;
   readonly name: string;
 }): string =>
   `Looked at why ${candidate.seed ? 'the live config' : candidate.name} failed`;
 
-export const reflectionLookedShown = (tasks: number): string =>
+export const formatReflectionLooked = (tasks: number): string =>
   `Two iterations in a row found nothing better. The search agent sorted the ${tasksCounted(tasks)} that the best config still failed by cause.`;
 
 export const REFLECTION_LOOKING =
@@ -319,10 +319,10 @@ const REFLECTION_OUTCOMES: Record<ReflectionOutcome, string> = {
     'The search ended with no budget left. A config change can still fix some of these tasks.',
 };
 
-export const reflectionOutcomeShown = (outcome: ReflectionOutcome): string =>
+export const formatReflectionOutcome = (outcome: ReflectionOutcome): string =>
   REFLECTION_OUTCOMES[outcome];
 
-export const reflectionIterationShown = (
+export const formatReflectionIteration = (
   tasks: number,
   causes: number,
 ): string =>
@@ -336,7 +336,7 @@ export const SEE_WHY_IT_STALLED = 'See why it stalled';
 export const SPLIT_NOTE =
   'The search agent sees only the searched tasks and their scores. It doesn’t see the held-out tasks. After the search, the best candidates replay on the held-out tasks to check that they don’t only fit what the agent saw.';
 
-export const heldOutTasksShown = (titles: readonly string[]): string =>
+export const formatHeldOutTasks = (titles: readonly string[]): string =>
   titles.length > 0 ? `Held out: ${titles.join(', ')}.` : '';
 
 export const ON_THE_FRONTIER = 'On the frontier';
@@ -347,7 +347,7 @@ export const ON_THE_FRONTIER_NOTE =
 export const CANDIDATES_NOTE =
   'Configs that the search agent proposed, by iteration. Pick a candidate to see its reasoning, replays and pull request.';
 
-export const budgetNoteShown = (
+export const formatBudgetNote = (
   budget: Pick<SearchResponseDto['budget'], 'perIteration' | 'concurrency'>,
   repeats: string,
   agent: string,
@@ -360,9 +360,9 @@ export const candidateGainNote = (
 ): string =>
   [
     searched &&
-      `${GAIN_ON_SEARCHED}: ${gainShown(searched)}, likely ${gainRangeShown(searched)} pts.`,
+      `${GAIN_ON_SEARCHED}: ${formatGain(searched)}, likely ${formatGainRange(searched)} pts.`,
     heldOut &&
-      `${GAIN_ON_HELD_OUT}: ${gainShown(heldOut)}, likely ${gainRangeShown(heldOut)} pts.`,
+      `${GAIN_ON_HELD_OUT}: ${formatGain(heldOut)}, likely ${formatGainRange(heldOut)} pts.`,
   ]
     .filter(Boolean)
     .join(' ');
@@ -373,10 +373,10 @@ const PULL_REQUEST_CELLS: Record<PullRequestState, string> = {
   refused: 'Not opened',
 };
 
-export const pullRequestCellShown = (state: PullRequestState): string =>
+export const formatPullRequestCell = (state: PullRequestState): string =>
   PULL_REQUEST_CELLS[state];
 
-export const iterationNoteShown = (
+export const formatIterationNote = (
   iteration: Pick<
     SearchIterationResponseDto,
     'kind' | 'state' | 'proposed' | 'attempts'
@@ -403,15 +403,15 @@ const ENDING_MARKS: Record<SearchEnding, string | null> = {
   'seed-failed': 'Couldn’t start',
 };
 
-export const endingMarkShown = (ending: SearchEnding | null): string | null =>
+export const formatEndingMark = (ending: SearchEnding | null): string | null =>
   ending ? ENDING_MARKS[ending] : null;
 
 export const NO_VALUE = '–';
 
-export const likelyShown = (
+export const formatLikely = (
   interval: { readonly low: number; readonly high: number } | null,
 ): string | null =>
-  interval ? `Likely range: ${intervalShown(interval)}.` : null;
+  interval ? `Likely range: ${formatInterval(interval)}.` : null;
 
-export const sentencesShown = (...parts: readonly (string | null)[]): string =>
+export const formatSentences = (...parts: readonly (string | null)[]): string =>
   parts.filter(Boolean).join(' ');

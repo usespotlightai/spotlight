@@ -47,7 +47,7 @@ export class MemoryDraft
     super();
   }
 
-  static opened(input: {
+  static open(input: {
     id: MemoryDraftId;
     taskId: TaskId;
     workspaceId: WorkspaceId;
@@ -177,7 +177,7 @@ export class MemoryDraft
       : this.ended(failure);
   }
 
-  drafted(input: {
+  recordDraft(input: {
     runId: RunId;
     proposed: readonly ProposedMemory[];
     evidence: DraftEvidence;
@@ -249,7 +249,7 @@ export class MemoryDraft
     return drafted;
   }
 
-  remembered(proposal: MemoryProposal): MemoryDraft {
+  remember(proposal: MemoryProposal): MemoryDraft {
     if (!proposal.remembered || !proposal.proposed) {
       throw InvalidMemoryError.ofDraft(
         'takes in only a memory a run proposed itself',
@@ -310,7 +310,7 @@ export class MemoryDraft
     );
   }
 
-  approved(input: {
+  approve(input: {
     runId: RunId;
     approving: readonly { id: MemoryId; body?: string }[];
     decision: MemoryDecision;
@@ -336,7 +336,7 @@ export class MemoryDraft
     }
 
     const decided = approving.map(({ proposal, body }) =>
-      proposal.approved(input.decision, body),
+      proposal.approve(input.decision, body),
     );
     const next = this.decided(decided);
 
@@ -361,13 +361,13 @@ export class MemoryDraft
     return next.settledWhereDone(decided);
   }
 
-  rejected(input: {
+  reject(input: {
     runId: RunId;
     id: MemoryId;
     decision: MemoryDecision;
   }): MemoryDraft {
     const decided = [
-      this.proposalNamed(input.id, input.runId).rejected(input.decision),
+      this.proposalNamed(input.id, input.runId).reject(input.decision),
     ];
 
     return this.decided(decided).settledWhereDone(decided);

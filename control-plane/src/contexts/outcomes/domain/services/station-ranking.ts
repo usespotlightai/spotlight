@@ -32,7 +32,7 @@ export interface StationWorthImproving extends StationPlace {
   readonly mixedCurrencies: boolean;
 }
 
-const FEWEST_RUNS = 3;
+const MIN_RUNS = 3;
 const WORSE_BY = 1.25;
 const RATE_MARGIN = 0.05;
 
@@ -67,7 +67,7 @@ const worse = (
 ): boolean =>
   than !== null && now > than * WORSE_BY && now >= worseLineOf(signal, than);
 
-const MOST_WORSE = 10;
+const MAX_WORSE = 10;
 
 const worseByOf = (reading: SignalReading): number => {
   const than = Math.max(
@@ -75,7 +75,7 @@ const worseByOf = (reading: SignalReading): number => {
     reading.trails ? (reading.team ?? 0) : 0,
   );
 
-  return than > 0 ? Math.min(reading.now / than, MOST_WORSE) : MOST_WORSE;
+  return than > 0 ? Math.min(reading.now / than, MAX_WORSE) : MAX_WORSE;
 };
 
 const comparable = (
@@ -111,7 +111,7 @@ export const stationsWorthImprovingFrom = (
       const place = { lineId: station.lineId, stationId: station.stationId };
       const runs = station.current.runs;
 
-      if (runs < FEWEST_RUNS) {
+      if (runs < MIN_RUNS) {
         return [];
       }
 

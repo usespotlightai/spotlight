@@ -139,7 +139,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
   ) {}
 
   async add(added: NetworkCall): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db.insert(networkCall).values({
         id: added.id.value,
         workspaceId: added.workspaceId.value,
@@ -159,7 +159,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
   }
 
   async save(saved: NetworkCall): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const matching = and(
         eq(networkCall.id, saved.id.value),
         eq(networkCall.version, saved.version),
@@ -198,7 +198,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
     return row ? toCall(row) : null;
   }
 
-  async lapsingBy(now: Date, most: number): Promise<readonly NetworkCall[]> {
+  async lapsingBy(now: Date, max: number): Promise<readonly NetworkCall[]> {
     const rows = await this.context.db
       .select()
       .from(networkCall)
@@ -209,12 +209,12 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
         ),
       )
       .orderBy(asc(networkCall.lapsesAt))
-      .limit(most);
+      .limit(max);
 
     return rows.map(toCall);
   }
 
-  async settledBy(at: Date, most: number): Promise<readonly NetworkCall[]> {
+  async settledBy(at: Date, max: number): Promise<readonly NetworkCall[]> {
     const rows = await this.context.db
       .select()
       .from(networkCall)
@@ -230,7 +230,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
           ),
         ),
       )
-      .limit(most);
+      .limit(max);
 
     return rows.map(toCall);
   }
@@ -240,7 +240,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
     by: CallingHost,
     now: Date,
   ): Promise<NetworkCall | null> {
-    return this.context.run(async () => {
+    return this.context.inTransaction(async () => {
       const [row] = await this.context.db
         .select()
         .from(networkCall)

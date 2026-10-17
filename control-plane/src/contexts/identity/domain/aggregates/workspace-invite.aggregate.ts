@@ -98,7 +98,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     return offered;
   }
 
-  static offeredTo(
+  static offerTo(
     open: WorkspaceInvite | null,
     input: {
       id: InviteId;
@@ -112,7 +112,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
   ): { invite: WorkspaceInvite; again: boolean } {
     if (open && !open.isClosedAt(input.now)) {
       return {
-        invite: open.sentAgain({
+        invite: open.resend({
           terms: input.terms,
           tokenHash: input.tokenHash,
           by: input.invitedBy,
@@ -176,7 +176,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     return status === 'accepted' || status === 'revoked';
   }
 
-  sentAgain(input: {
+  resend(input: {
     terms: InviteTerms;
     tokenHash: TokenHash;
     by: UserId;
@@ -201,7 +201,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     return again;
   }
 
-  acceptedBySomeone(
+  acceptBySomeone(
     who: UserId,
     signedInAs: EmailAddress,
     now: Date,
@@ -224,7 +224,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     return accepted;
   }
 
-  revoked(by: UserId, now: Date): WorkspaceInvite {
+  revoke(by: UserId, now: Date): WorkspaceInvite {
     if (this.acceptedAt) {
       throw new InviteClosedError(CLOSED_BECAUSE.accepted);
     }

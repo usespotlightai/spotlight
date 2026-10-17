@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MOST_STARTED_CHECKOUTS } from '@work/domain/value-objects/starting-point.vo';
+import { MAX_STARTED_CHECKOUTS } from '@work/domain/value-objects/starting-point.vo';
 
 export class RunEventRequestDto {
   @ApiProperty({ example: 1, description: 'Assigned by the runner, gapless' })
@@ -173,7 +173,7 @@ export class RecordStartingPointRequestDto {
   @ApiProperty({
     type: StartedCheckoutRequestDto,
     isArray: true,
-    maxItems: MOST_STARTED_CHECKOUTS,
+    maxItems: MAX_STARTED_CHECKOUTS,
   })
   readonly checkouts!: StartedCheckoutRequestDto[];
 }

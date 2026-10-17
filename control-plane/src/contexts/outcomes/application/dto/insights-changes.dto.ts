@@ -42,7 +42,7 @@ export interface InsightsSetupsDto {
   readonly stationId: string | null;
   readonly size: string | null;
   readonly sizes: readonly SizeBound[];
-  readonly fewestRuns: number;
+  readonly minRuns: number;
   readonly currency: string | null;
   readonly setups: readonly SetupOutcomeDto[];
   readonly judgeWithheld: JudgeWithheld | null;

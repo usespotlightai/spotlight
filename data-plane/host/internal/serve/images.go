@@ -128,7 +128,7 @@ func (h *Host) serve(claiming, serving context.Context, each *served, stop func(
 
 func judgedUnder(required protocol.HostRequirements) string {
 	asked, _ := json.Marshal(required.Harnesses)
-	return required.Runner.AtLeast + "\x00" + string(asked)
+	return required.Runner.Minimum + "\x00" + string(asked)
 }
 
 func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
@@ -148,7 +148,7 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 	judging := judgedUnder(h.required)
 	unchanged := each.id == pulled.ID && each.refused == "" && each.judged == judging
 	candidates := h.required.Harnesses
-	atLeast := h.required.Runner.AtLeast
+	minimum := h.required.Runner.Minimum
 	h.mu.Unlock()
 
 	if unchanged {
@@ -172,7 +172,7 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 
 	each.release = report.Release
 	each.harnesses = report.Harnesses
-	each.refused = images.RunnerRefusal(report.Release, atLeast)
+	each.refused = images.RunnerRefusal(report.Release, minimum)
 	if each.refused != "" {
 		h.log.Warn("refused the runner image", "image", each.image, "reason", each.refused)
 	} else {

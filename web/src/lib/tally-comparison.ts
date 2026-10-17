@@ -1,10 +1,10 @@
 import type { MeasureVerdictResponseDto } from '@/lib/api';
 import { amountIn } from '@/lib/inbox';
 import {
-  changeShown,
-  countShown,
+  changeDelta,
   type Delta,
-  shareShown,
+  formatCount,
+  formatShare,
 } from '@/lib/insights';
 import { alertMeasureLabel } from '@/lib/station-watch';
 
@@ -27,22 +27,22 @@ const TONES: Record<MeasureVerdict['verdict'], Delta['tone']> = {
   insufficient: 'flat',
 };
 
-const valueShown = (verdict: MeasureVerdict, value: number | null): string => {
+const formatValue = (verdict: MeasureVerdict, value: number | null): string => {
   if (value === null) {
     return '–';
   }
 
   return verdict.measure === 'cost_per_run'
     ? amountIn(value, verdict.currency)
-    : shareShown(value);
+    : formatShare(value);
 };
 
-const verdictShown = (verdict: MeasureVerdict): Delta => {
+const verdictDelta = (verdict: MeasureVerdict): Delta => {
   if (verdict.verdict === 'insufficient') {
     return { shown: 'Too few runs', tone: 'flat' };
   }
 
-  const moved = changeShown(verdict.change);
+  const moved = changeDelta(verdict.change);
 
   return {
     shown:
@@ -58,15 +58,15 @@ export const comparedRows = (
   {
     id: 'runs',
     label: 'Runs',
-    one: countShown(runs.one),
-    other: countShown(runs.other),
+    one: formatCount(runs.one),
+    other: formatCount(runs.other),
     delta: null,
   },
   ...verdicts.map((verdict) => ({
     id: verdict.measure,
     label: alertMeasureLabel(verdict.measure),
-    one: valueShown(verdict, verdict.before),
-    other: valueShown(verdict, verdict.after),
-    delta: verdictShown(verdict),
+    one: formatValue(verdict, verdict.before),
+    other: formatValue(verdict, verdict.after),
+    delta: verdictDelta(verdict),
   })),
 ];

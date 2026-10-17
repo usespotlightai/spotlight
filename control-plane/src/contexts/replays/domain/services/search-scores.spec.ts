@@ -26,7 +26,7 @@ const searchWith = (): Search => {
   const ids = searchRunIds();
 
   return aSearch({ set: SET })
-    .replayEnded(
+    .recordReplayEnd(
       ReplayId.of('replay_seed'),
       'finished',
       { spent: Spend.of(10, 'USD'), unpriced: 0 },
@@ -139,9 +139,9 @@ describe('scoresOf', () => {
   it('gives a held-out score once the candidate’s held-out replay finished, and feeds the frontier', () => {
     const ids = searchRunIds();
     let search = searchWith()
-      .runEnded(RUN_ONE, { failed: false, started: true }, later(1), ids)
-      .spentByAgent(RUN_ONE, ModelSpent.of([], 0), later(1), ids)
-      .replayEnded(
+      .recordRunEnd(RUN_ONE, { failed: false, started: true }, later(1), ids)
+      .recordAgentSpend(RUN_ONE, ModelSpent.of([], 0), later(1), ids)
+      .recordReplayEnd(
         ReplayId.of('replay_terse'),
         'finished',
         { spent: Spend.of(1, 'USD'), unpriced: 0 },
@@ -149,7 +149,7 @@ describe('scoresOf', () => {
         ids,
         true,
       )
-      .replayEnded(
+      .recordReplayEnd(
         ReplayId.of('replay_wordy'),
         'finished',
         { spent: Spend.of(1, 'USD'), unpriced: 0 },
@@ -162,8 +162,8 @@ describe('scoresOf', () => {
       const held = search.heldRun as RunId;
 
       search = search
-        .runEnded(held, { failed: false, started: true }, later(3), ids)
-        .spentByAgent(held, ModelSpent.of([], 0), later(3), ids);
+        .recordRunEnd(held, { failed: false, started: true }, later(3), ids)
+        .recordAgentSpend(held, ModelSpent.of([], 0), later(3), ids);
     }
 
     expect(search.current).toBe('holding-out');

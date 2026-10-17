@@ -77,7 +77,7 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
   }
 
   async save(connection: GitHubConnection): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(connection);
       await this.events.dispatch(connection.pullEvents());
     });

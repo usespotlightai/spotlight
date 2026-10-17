@@ -15,7 +15,6 @@ import { OpenConfigPullRequests } from '@replays/application/services/open-confi
 import { replayedWorld } from '@replays/application/services/replayed-candidates.fake-spec';
 import {
   ACTOR,
-  AT_HAND,
   accessFor,
   CLOCK,
   FakeWork,
@@ -24,12 +23,13 @@ import {
   InMemoryReplays,
   peopleWho,
   QUIET,
+  STATION_VIEW,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import {
   ConfigPullRequest,
-  MOST_TRIES,
+  MAX_TRIES,
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
@@ -120,7 +120,7 @@ const searchWithTerse = (): Search => {
   const runIds = searchRunIds();
 
   return aSearch()
-    .replayEnded(
+    .recordReplayEnd(
       ReplayId.of('replay_seed'),
       'finished',
       charged,
@@ -133,7 +133,7 @@ const searchWithTerse = (): Search => {
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .replayEnded(
+    .recordReplayEnd(
       ReplayId.of('replay_terse'),
       'finished',
       charged,
@@ -166,7 +166,7 @@ const picking = (mayPlan = true) =>
 const pick = (candidateId = TERSE.value, mayPlan = true) =>
   picking(mayPlan).execute(
     new PickSearchCandidateCommand(
-      AT_HAND.teamId.value,
+      STATION_VIEW.teamId.value,
       search.id.value,
       candidateId,
       ACTOR,
@@ -249,7 +249,7 @@ describe('picking a search candidate', () => {
     ).toEqual([
       expect.objectContaining({
         pullRequestId: only().id,
-        stationId: AT_HAND.stationId,
+        stationId: STATION_VIEW.stationId,
         proposing: PROPOSED,
         url: PullRequestUrl.of('https://github.com/acme/platform/pull/1'),
       }),
@@ -265,7 +265,7 @@ describe('picking a search candidate', () => {
     ]);
     expect(configs.openings[0]).toMatchObject({ title: 'build: terse' });
     expect(configs.openings[0]?.body).toContain(
-      `https://app.example.com/w/acme/team/${AT_HAND.teamId.value}/lines/${AT_HAND.lineId}/stations/${AT_HAND.stationId}/searches/${search.id.value}`,
+      `https://app.example.com/w/acme/team/${STATION_VIEW.teamId.value}/lines/${STATION_VIEW.lineId}/stations/${STATION_VIEW.stationId}/searches/${search.id.value}`,
     );
     expect(editor.asked[0]).toMatchObject({
       lineKey: 'delivery',
@@ -402,7 +402,7 @@ describe('picking a search candidate', () => {
     await opening().workDue();
     expect(only().tries).toBe(1);
 
-    for (let tries = 1; tries < MOST_TRIES; tries += 1) {
+    for (let tries = 1; tries < MAX_TRIES; tries += 1) {
       now = new Date(now.getTime() + 24 * 60 * 60_000);
       await opening().workDue();
     }
@@ -415,7 +415,7 @@ describe('picking a search candidate', () => {
   });
 
   it('is refused at once when the line names no source', async () => {
-    work.station = async () => ({ ...AT_HAND, source: null });
+    work.station = async () => ({ ...STATION_VIEW, source: null });
     await pick();
     await opening().workDue();
 

@@ -6,7 +6,7 @@ import {
 import type { ReadInsightsShippingQuery } from '@outcomes/application/queries/read-insights-shipping.query';
 import type { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
 import { shippingFrom } from '@outcomes/domain/services/shipping';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadInsightsShippingHandler
@@ -29,7 +29,7 @@ export class ReadInsightsShippingHandler
         ...shippingDtoOf(shippingFrom(counts)),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

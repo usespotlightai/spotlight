@@ -1,12 +1,12 @@
 import {
   CONFIGURED_INTEGRATION_HOLDINGS,
   CONFIGURED_INTEGRATION_STANDINGS,
-  type ConfiguredDescriptionDto,
-  type ConfiguredIntegrationDto,
+  type DescriptionView,
+  type IntegrationView,
 } from '@configuration/application/dto/configuration.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class ConfiguredDescriptionResponseDto {
+export class DescriptionViewResponseDto {
   @ApiProperty({
     enum: ['openapi', 'graphql', 'mcp'],
     example: 'openapi',
@@ -38,7 +38,7 @@ export class ConfiguredDescriptionResponseDto {
   })
   readonly problem: string | null;
 
-  constructor(described: ConfiguredDescriptionDto) {
+  constructor(described: DescriptionView) {
     this.kind = described.kind;
     this.tools = described.tools;
     this.readAt = described.readAt;
@@ -46,7 +46,7 @@ export class ConfiguredDescriptionResponseDto {
   }
 }
 
-export class ConfiguredIntegrationResponseDto {
+export class IntegrationViewResponseDto {
   @ApiProperty({ example: 'linear' })
   readonly source: string;
 
@@ -65,7 +65,7 @@ export class ConfiguredIntegrationResponseDto {
     enum: CONFIGURED_INTEGRATION_STANDINGS,
     example: 'linked',
   })
-  readonly standing: ConfiguredIntegrationDto['standing'];
+  readonly standing: IntegrationView['standing'];
 
   @ApiProperty({
     description:
@@ -73,7 +73,7 @@ export class ConfiguredIntegrationResponseDto {
     enum: CONFIGURED_INTEGRATION_HOLDINGS,
     example: 'team',
   })
-  readonly holding: ConfiguredIntegrationDto['holding'];
+  readonly holding: IntegrationView['holding'];
 
   @ApiProperty({
     description: 'What the host calls the team once linked, where it says',
@@ -86,12 +86,12 @@ export class ConfiguredIntegrationResponseDto {
   @ApiProperty({
     description:
       'The API description its tools are generated from, as last read; null where it names none',
-    type: ConfiguredDescriptionResponseDto,
+    type: DescriptionViewResponseDto,
     nullable: true,
   })
-  readonly described: ConfiguredDescriptionResponseDto | null;
+  readonly described: DescriptionViewResponseDto | null;
 
-  constructor(integration: ConfiguredIntegrationDto) {
+  constructor(integration: IntegrationView) {
     this.source = integration.source;
     this.name = integration.name;
     this.path = integration.path;
@@ -99,16 +99,16 @@ export class ConfiguredIntegrationResponseDto {
     this.holding = integration.holding;
     this.handle = integration.handle;
     this.described = integration.described
-      ? new ConfiguredDescriptionResponseDto(integration.described)
+      ? new DescriptionViewResponseDto(integration.described)
       : null;
   }
 }
 
 export class ConfigurationResponseDto {
-  @ApiProperty({ type: ConfiguredIntegrationResponseDto, isArray: true })
-  readonly integrations: readonly ConfiguredIntegrationResponseDto[];
+  @ApiProperty({ type: IntegrationViewResponseDto, isArray: true })
+  readonly integrations: readonly IntegrationViewResponseDto[];
 
-  constructor(integrations: readonly ConfiguredIntegrationResponseDto[]) {
+  constructor(integrations: readonly IntegrationViewResponseDto[]) {
     this.integrations = integrations;
   }
 }

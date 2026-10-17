@@ -1,20 +1,20 @@
 import type { HarnessProfileResourceDto } from '@configuration/application/dto/harness-profile-resource.dto';
 import type { HeldResourceDto } from '@configuration/application/dto/held-configuration.dto';
-import type { HeldHook } from '@configuration/application/ports/held-hooks.port';
-import type { HeldIntegration } from '@configuration/application/ports/held-integrations.port';
-import type { KeptSkill } from '@configuration/application/ports/skill-resources.port';
+import type { HookConfig } from '@configuration/application/ports/hook-configs.port';
+import type { IntegrationConfig } from '@configuration/application/ports/integration-configs.port';
+import type { SkillRecord } from '@configuration/application/ports/skill-resources.port';
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
-import type { ConfiguredTokenTrust } from '@identity/application/ports/token-trust-configuration.port';
+import type { TokenTrustView } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
 import type {
-  ConfiguredEgress,
-  ConfiguredRunnerPool,
-  ConfiguredRunnerTrust,
-  ConfiguredWorkspaceRunners,
+  EgressView,
+  RunnerPoolView,
+  RunnerTrustView,
+  WorkspaceRunnersView,
 } from '@runners/application/ports/runner-configuration.port';
-import type { ConfiguredSecret } from '@secrets/application/ports/secret-configuration.port';
+import type { SecretView } from '@secrets/application/ports/secret-configuration.port';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
-import type { KeptLine } from '@work/application/ports/line-resources.port';
+import type { LineRecord } from '@work/application/ports/line-resources.port';
 
 export const HeldResourceMapper = {
   workspace(workspace: WorkspaceProfile): HeldResourceDto {
@@ -38,7 +38,7 @@ export const HeldResourceMapper = {
     };
   },
 
-  secret(secret: ConfiguredSecret): HeldResourceDto {
+  secret(secret: SecretView): HeldResourceDto {
     return {
       kind: 'secret',
       heldBy: 'workspace',
@@ -52,7 +52,7 @@ export const HeldResourceMapper = {
     };
   },
 
-  tokenTrust(trust: ConfiguredTokenTrust): HeldResourceDto {
+  tokenTrust(trust: TokenTrustView): HeldResourceDto {
     return {
       kind: 'workspace-token-trust',
       heldBy: 'workspace',
@@ -68,7 +68,7 @@ export const HeldResourceMapper = {
     };
   },
 
-  trust(trust: ConfiguredRunnerTrust): HeldResourceDto {
+  trust(trust: RunnerTrustView): HeldResourceDto {
     return {
       kind: 'runner-trust',
       heldBy: 'workspace',
@@ -82,7 +82,7 @@ export const HeldResourceMapper = {
     };
   },
 
-  pool(pool: ConfiguredRunnerPool): HeldResourceDto {
+  pool(pool: RunnerPoolView): HeldResourceDto {
     return {
       kind: 'runner-pool',
       heldBy: 'workspace',
@@ -96,7 +96,7 @@ export const HeldResourceMapper = {
     };
   },
 
-  egress(egress: ConfiguredEgress): HeldResourceDto {
+  egress(egress: EgressView): HeldResourceDto {
     return {
       kind: 'egress',
       heldBy: 'workspace',
@@ -108,7 +108,7 @@ export const HeldResourceMapper = {
     };
   },
 
-  declared(declared: ConfiguredWorkspaceRunners): HeldResourceDto {
+  declared(declared: WorkspaceRunnersView): HeldResourceDto {
     return {
       kind: 'workspace-runners',
       heldBy: 'workspace',
@@ -119,7 +119,7 @@ export const HeldResourceMapper = {
     };
   },
 
-  line(teamKey: string, line: KeptLine): HeldResourceDto {
+  line(teamKey: string, line: LineRecord): HeldResourceDto {
     return {
       kind: 'line',
       heldBy: 'team',
@@ -131,7 +131,7 @@ export const HeldResourceMapper = {
     };
   },
 
-  skill(teamKey: string, skill: KeptSkill): HeldResourceDto {
+  skill(teamKey: string, skill: SkillRecord): HeldResourceDto {
     return {
       kind: 'skill',
       heldBy: 'team',
@@ -173,7 +173,10 @@ export const HeldResourceMapper = {
     };
   },
 
-  integration(teamKey: string, integration: HeldIntegration): HeldResourceDto {
+  integration(
+    teamKey: string,
+    integration: IntegrationConfig,
+  ): HeldResourceDto {
     return {
       kind: 'integration',
       heldBy: 'team',
@@ -189,7 +192,7 @@ export const HeldResourceMapper = {
     };
   },
 
-  hook(teamKey: string, hook: HeldHook): HeldResourceDto {
+  hook(teamKey: string, hook: HookConfig): HeldResourceDto {
     return {
       kind: 'hook',
       heldBy: 'team',

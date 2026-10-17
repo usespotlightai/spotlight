@@ -180,7 +180,7 @@ describe('ClaimHostCallHandler', () => {
 
     await expect(
       claim.execute(new ClaimHostCallCommand(POOL, '')),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
   });
 });
 
@@ -275,7 +275,7 @@ describe('AnswerHostCallHandler', () => {
 
   it('says a call already answered is settled', async () => {
     const { answer } = hosting({
-      found: claimedCall().answeredWith(
+      found: claimedCall().answerWith(
         CallingHost.of(HOST),
         NetworkAnswer.of({ status: 204, ms: 3 }),
         NOW,
@@ -308,7 +308,7 @@ describe('AnswerHostCallHandler', () => {
           status: 'teapot',
         }),
       ),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
   it('says a call settled meanwhile is settled, not a fault', async () => {

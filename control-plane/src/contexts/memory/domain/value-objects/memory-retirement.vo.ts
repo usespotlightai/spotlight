@@ -3,7 +3,7 @@ import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-const MOST_REASON = 500;
+const MAX_REASON = 500;
 
 export class MemoryRetirement {
   private constructor(
@@ -24,9 +24,9 @@ export class MemoryRetirement {
   }): MemoryRetirement {
     const reason = input.reason.trim();
 
-    if (!reason || reason.length > MOST_REASON) {
+    if (!reason || reason.length > MAX_REASON) {
       throw new InvalidMemoryError(
-        `retirement reason must be at most ${MOST_REASON} characters`,
+        `retirement reason must be at most ${MAX_REASON} characters`,
       );
     }
 

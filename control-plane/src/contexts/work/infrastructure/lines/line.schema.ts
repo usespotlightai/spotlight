@@ -105,7 +105,7 @@ const reviewsSchema = z.object({
 });
 
 const replayCheckSchema = z.object({
-  mostRegressions: z.number().default(0),
+  maxRegressions: z.number().default(0),
   ceiling: z.number().default(10),
   currency: z.string().default('USD'),
   minGain: z.number().default(0.05),

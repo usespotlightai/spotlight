@@ -103,12 +103,12 @@ export class ForgetOutcomes {
   }
 
   async alertsOfTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
-    await this.transaction.run(() =>
+    await this.transaction.inTransaction(() =>
       this.held.forgotten.forgetTask(workspaceId, taskId),
     );
 
     for (const stationId of await this.held.watches.stationsHolding(taskId)) {
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const watch = await this.held.watches.of(stationId, taskId);
         const kept = watch?.withoutTask(taskId);
 
@@ -264,7 +264,7 @@ export class ForgetOutcomes {
   ): Promise<void> {
     for (let left = ATTEMPTS; ; left -= 1) {
       try {
-        await this.transaction.run(async () => {
+        await this.transaction.inTransaction(async () => {
           await this.held.forgotten.holdingPullRequest(
             record.workspaceId,
             record.pullRequest,
@@ -303,7 +303,7 @@ export class ForgetOutcomes {
     taskId: TaskId,
     remove: () => Promise<void>,
   ): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.held.forgotten.forgetTask(workspaceId, taskId);
       await remove();
     });
@@ -314,7 +314,7 @@ export class ForgetOutcomes {
     teamId: TeamId,
     remove: () => Promise<void>,
   ): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.held.forgotten.forgetTeam(workspaceId, teamId);
       await remove();
     });
@@ -324,7 +324,7 @@ export class ForgetOutcomes {
     workspaceId: WorkspaceId,
     remove: () => Promise<void>,
   ): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.held.forgotten.forgetWorkspace(workspaceId);
       await remove();
     });

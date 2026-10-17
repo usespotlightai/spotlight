@@ -9,7 +9,7 @@ import type { ProposedDecision } from '@change-review/domain/entities/decision.e
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import { MOST_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { MAX_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -51,7 +51,7 @@ const working = (
   reasoning: RunReasoning | null,
   answer: () => Promise<readonly ProposedDecision[]>,
 ) => {
-  let stored = DecisionSet.opened({
+  let stored = DecisionSet.open({
     id: DecisionSetId.of('set_1'),
     taskId: TaskId.of('task_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -79,19 +79,19 @@ const working = (
         return `decision_${ids}`;
       },
     },
-    { run: <T>(work: () => Promise<T>) => work() },
+    { inTransaction: <T>(work: () => Promise<T>) => work() },
     { now: () => now, sleep: async () => undefined },
     QUIET,
     { report: () => undefined },
   );
 
-  const turn = async (at: Date = now) => {
+  const tick = async (at: Date = now) => {
     now = at;
     await service.workDue();
     await service.idle();
   };
 
-  return { turn, draft, stored: () => stored };
+  return { tick, draft, stored: () => stored };
 };
 
 describe('drafting the decisions a run made', () => {
@@ -101,7 +101,7 @@ describe('drafting the decisions a run made', () => {
       { ...DECIDED, title: 'Cites a step it never took', steps: [4] },
     ]);
 
-    await worked.turn();
+    await worked.tick();
 
     expect(worked.draft).toHaveBeenCalledWith(REASONED);
     expect(worked.stored().decisions.map((each) => each.title)).toEqual([
@@ -113,7 +113,7 @@ describe('drafting the decisions a run made', () => {
   it('records none, asking no model, where the run changed nothing', async () => {
     const worked = working({ ...REASONED, changed: [] }, async () => [DECIDED]);
 
-    await worked.turn();
+    await worked.tick();
 
     expect(worked.draft).not.toHaveBeenCalled();
     expect(worked.stored().decisions).toEqual([]);
@@ -123,7 +123,7 @@ describe('drafting the decisions a run made', () => {
   it('gives up on a run whose journal cannot be read', async () => {
     const worked = working(null, async () => [DECIDED]);
 
-    await worked.turn();
+    await worked.tick();
 
     expect(worked.stored().owesWork).toBe(false);
     expect(worked.stored().decidedIn).toBeNull();
@@ -134,17 +134,17 @@ describe('drafting the decisions a run made', () => {
       throw new Error('OpenRouter refused to draft: 503');
     });
 
-    for (let day = 0; day <= MOST_WORK_ATTEMPTS; day += 1) {
-      await worked.turn(new Date(NOW.getTime() + day * DAY));
+    for (let day = 0; day <= MAX_WORK_ATTEMPTS; day += 1) {
+      await worked.tick(new Date(NOW.getTime() + day * DAY));
     }
 
-    expect(worked.draft).toHaveBeenCalledTimes(MOST_WORK_ATTEMPTS);
+    expect(worked.draft).toHaveBeenCalledTimes(MAX_WORK_ATTEMPTS);
     expect(worked.stored().owesWork).toBe(false);
   });
 
   it('says so when it cannot read a set it claimed', async () => {
     const error = vi.fn();
-    const claimed = DecisionSet.opened({
+    const claimed = DecisionSet.open({
       id: DecisionSetId.of('set_1'),
       taskId: TaskId.of('task_1'),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -166,7 +166,7 @@ describe('drafting the decisions a run made', () => {
       {} as WorkPort,
       { available: true, draft: vi.fn() } as DecisionDrafterPort,
       { generate: () => 'decision_1' },
-      { run: <T>(work: () => Promise<T>) => work() },
+      { inTransaction: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },
       { ...QUIET, error },
       { report: () => undefined },

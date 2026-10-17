@@ -3,7 +3,7 @@ import type { ConfigurationReaderPort } from '@configuration/application/ports/c
 import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import type { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
 import { standingOf } from '@configuration/domain/services/integration-standing';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -47,7 +47,7 @@ export class ConfigurationHandler
         })),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

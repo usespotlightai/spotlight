@@ -16,7 +16,7 @@ const TEAM = TeamId.of('team_1');
 const LINEAR = SourceKey.of('linear');
 
 const linked = (holder: ConnectionHolder) => {
-  const connection = HostConnection.linkedFrom({
+  const connection = HostConnection.linkFrom({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     source: LINEAR,
@@ -40,7 +40,9 @@ const disconnecting = (member = true) => {
         onTeam: async () => (member ? {} : null),
       } as unknown as WorkspaceAccessPort,
       connections,
-      { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+      {
+        inTransaction: (work: () => Promise<unknown>) => work(),
+      } as TransactionPort,
     ),
   };
 };

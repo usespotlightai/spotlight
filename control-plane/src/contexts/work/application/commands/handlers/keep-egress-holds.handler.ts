@@ -2,7 +2,7 @@ import type {
   RunnerEgressPort,
   SharedEgressFor,
 } from '@runners/application/ports/runner-egress.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -11,7 +11,7 @@ import type { KeepEgressHoldsCommand } from '@work/application/commands/egress.c
 import type { EgressHoldsDto } from '@work/application/dto/egress-admission.dto';
 import type { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
 
-export const MOST_HOLDS_AT_ONCE = 500;
+export const MAX_HOLDS_AT_ONCE = 500;
 
 export class KeepEgressHoldsHandler
   implements CommandHandlerPort<KeepEgressHoldsCommand, EgressHoldsDto>
@@ -30,8 +30,8 @@ export class KeepEgressHoldsHandler
         return { outcome: 'refused' };
       }
 
-      if (command.proxyCredentials.length > MOST_HOLDS_AT_ONCE) {
-        return { outcome: 'too-many', most: MOST_HOLDS_AT_ONCE };
+      if (command.proxyCredentials.length > MAX_HOLDS_AT_ONCE) {
+        return { outcome: 'too-many', max: MAX_HOLDS_AT_ONCE };
       }
 
       const held: string[] = [];
@@ -50,7 +50,7 @@ export class KeepEgressHoldsHandler
 
       return { outcome: 'kept', held };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

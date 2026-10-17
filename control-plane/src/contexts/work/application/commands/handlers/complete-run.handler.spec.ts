@@ -141,7 +141,9 @@ const completing = (
       save: async (each: Task) => void stored.tasks.push(each),
     } as unknown as TaskRepository,
     { holding: async () => line() } as unknown as LineRepository,
-    { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+    {
+      inTransaction: (work: () => Promise<unknown>) => work(),
+    } as TransactionPort,
     { of: async () => HOOKED } as unknown as HookedTasksPort,
     {
       listens: async () => true,
@@ -257,13 +259,13 @@ describe('CompleteRunHandler', () => {
       const saved: Run[] = [];
       const stored = { tasks: [] as Task[] };
       const answeredAlready = workedByTheRun()
-        .putToAPersonBy(RunId.of('run_1'), {
+        .putToAPerson(RunId.of('run_1'), {
           station: StationName.of('Build'),
           body: TaskNoteBody.of('Approve?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
         })
-        .answered(NotePosition.of(0), {
+        .answer(NotePosition.of(0), {
           station: StationName.of('Build'),
           body: TaskNoteBody.of('Yes.'),
           at: NOW,
@@ -334,13 +336,13 @@ describe('CompleteRunHandler', () => {
     it('reads the task again when a person answered it while the turn was being reported', async () => {
       const saved: Run[] = [];
       let reads = 0;
-      const asked = workedByTheRun().putToAPersonBy(RunId.of('run_1'), {
+      const asked = workedByTheRun().putToAPerson(RunId.of('run_1'), {
         station: StationName.of('Build'),
         body: TaskNoteBody.of('Approve?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
       });
-      const answeredMeanwhile = asked.answered(NotePosition.of(0), {
+      const answeredMeanwhile = asked.answer(NotePosition.of(0), {
         station: StationName.of('Build'),
         body: TaskNoteBody.of('Yes.'),
         at: NOW,

@@ -1,4 +1,4 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -6,7 +6,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { SayToRunCommand } from '@work/application/commands/say-to-run.command';
-import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -36,7 +36,7 @@ export class SayToRunHandler
     private readonly transaction: TransactionPort,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
-    private readonly files: FilesAtHand,
+    private readonly files: FilesLoader,
   ) {}
 
   async execute(command: SayToRunCommand): Promise<void> {
@@ -54,11 +54,11 @@ export class SayToRunHandler
         command.attachments,
       );
 
-      await this.transaction.run(() =>
+      await this.transaction.inTransaction(() =>
         this.say(command, { runId: run.id, taskId, stationId }, attachments),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

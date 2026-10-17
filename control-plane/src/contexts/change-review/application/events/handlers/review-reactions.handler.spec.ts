@@ -27,7 +27,7 @@ const ADA = UserId.of('user_ada');
 const COMMENT = ReviewCommentId.of('comment_1');
 
 const draft = (id: string) =>
-  ReviewComment.drafted({
+  ReviewComment.draft({
     id: ReviewCommentId.of(id),
     workspaceId: WORKSPACE,
     taskId: TASK,

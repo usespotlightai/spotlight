@@ -22,8 +22,8 @@ import { describe, expect, it } from 'vitest';
 
 const SET = aSet(4);
 
-const checkOf = (mostRegressions = 0): ReplayCheck =>
-  ReplayCheck.started({
+const checkOf = (maxRegressions = 0): ReplayCheck =>
+  ReplayCheck.start({
     id: ReplayCheckId.of('check_1'),
     station: SET.station,
     stationKey: 'build',
@@ -38,7 +38,7 @@ const checkOf = (mostRegressions = 0): ReplayCheck =>
     liveDigests: LIVE_DIGESTS,
     candidateDigests: DIGESTS,
     threshold: ReplayThreshold.of({
-      mostRegressions,
+      maxRegressions,
       ceiling: 10,
       currency: 'USD',
       minGain: 0.05,
@@ -105,7 +105,7 @@ describe('readingOf', () => {
   });
 
   it('is undecided when its replay stopped, its baseline did not finish, or it is gone', () => {
-    const stopped = candidate().stopped(NOW, BY);
+    const stopped = candidate().stop(NOW, BY);
     const finished = replayedAs(candidate(), () => 'completed');
     const unfinished = replayFor(
       SET,
@@ -113,7 +113,7 @@ describe('readingOf', () => {
       'candidate_live',
       null,
       true,
-    ).stopped(NOW, BY);
+    ).stop(NOW, BY);
 
     expect(readingOf(checkOf(), stopped, baseline(), false)).toMatchObject({
       verdict: 'undecided',

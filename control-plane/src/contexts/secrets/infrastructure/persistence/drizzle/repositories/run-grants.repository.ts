@@ -43,7 +43,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   async endedBy(
     at: Date,
     after: RunId | null,
-    most: number,
+    max: number,
   ): Promise<readonly RunId[]> {
     const ended = await this.context.db
       .select({ runId: runGrants.runId })
@@ -55,13 +55,13 @@ export class DrizzleRunGrants implements RunGrantsRepository {
         ),
       )
       .orderBy(asc(runGrants.runId))
-      .limit(most);
+      .limit(max);
 
     return ended.map((each) => RunId.of(each.runId));
   }
 
   async save(grants: RunGrants): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       if (grants.isDiscarded) {
         await this.forgotten(grants);
       } else {
@@ -75,14 +75,14 @@ export class DrizzleRunGrants implements RunGrantsRepository {
 
   private async kept(
     where: SQL | undefined,
-    most?: number,
+    max?: number,
   ): Promise<RunGrants[]> {
     const selected = this.context.db
       .select()
       .from(runGrants)
       .where(where)
       .orderBy(asc(runGrants.runId));
-    const rows = await (most === undefined ? selected : selected.limit(most));
+    const rows = await (max === undefined ? selected : selected.limit(max));
 
     if (rows.length === 0) {
       return [];

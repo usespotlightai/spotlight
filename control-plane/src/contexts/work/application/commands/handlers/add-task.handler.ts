@@ -1,5 +1,5 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -8,8 +8,8 @@ import type { AddTaskCommand } from '@work/application/commands/add-task.command
 import type { TaskDto } from '@work/application/dto/task.dto';
 import { TaskMapper } from '@work/application/mappers/task.mapper';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
-import type { LineAtHand } from '@work/application/services/line-at-hand.service';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
+import type { LineLoader } from '@work/application/services/line-loader.service';
 import type { RaiseTask } from '@work/application/services/raise-task';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
@@ -22,19 +22,19 @@ export class AddTaskHandler
 {
   constructor(
     private readonly placements: TaskPlacementsPort,
-    private readonly lines: LineAtHand,
+    private readonly lines: LineLoader,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly raise: RaiseTask,
     private readonly people: PersonReaderPort,
-    private readonly files: FilesAtHand,
+    private readonly files: FilesLoader,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<TaskDto> {
     try {
       return await this.addTask(command);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

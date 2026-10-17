@@ -80,7 +80,7 @@ describe('stationReportsOf', () => {
         source: 'hook:notify',
         code: 'loop',
         occurrences: 3,
-        mostInARow: 3,
+        maxInARow: 3,
         taskIds: ['task_1'],
       },
     ]);

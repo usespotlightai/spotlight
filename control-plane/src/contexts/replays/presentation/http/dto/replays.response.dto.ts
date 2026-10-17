@@ -53,7 +53,7 @@ import {
 } from '@replays/domain/value-objects/judge-verdict.vo';
 import { REPLAY_ENDINGS } from '@replays/domain/value-objects/replay-ending';
 import { REPLAY_REFUSALS } from '@replays/domain/value-objects/replay-refusal';
-import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
+import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { RUN_FAILURE_CODES } from '@shared-kernel/domain/value-objects/run-failure-code';
 
@@ -1589,7 +1589,7 @@ export class StartReplayRequestDto {
     required: false,
     example: 1,
     minimum: 1,
-    maximum: MOST_REPEATS,
+    maximum: MAX_REPEATS,
     description:
       'How many times to replay each run, 1 when left out; more copies measure the set’s noise and narrow the intervals',
   })

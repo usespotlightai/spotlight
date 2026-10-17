@@ -1,6 +1,6 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 
-const MOST_LENGTH = 4_000;
+const MAX_LENGTH = 4_000;
 
 export class Hypothesis {
   private constructor(readonly value: string) {}
@@ -8,9 +8,9 @@ export class Hypothesis {
   static of(raw: string): Hypothesis {
     const said = raw.trim();
 
-    if (said.length === 0 || said.length > MOST_LENGTH) {
+    if (said.length === 0 || said.length > MAX_LENGTH) {
       throw new InvalidCandidateError(
-        `hypothesis must be 1 to ${MOST_LENGTH.toLocaleString('en-US')} characters`,
+        `hypothesis must be 1 to ${MAX_LENGTH.toLocaleString('en-US')} characters`,
       );
     }
 

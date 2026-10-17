@@ -17,7 +17,7 @@ import {
   latestJudgeOf,
   visibleJudgeOf,
 } from '@outcomes/domain/services/grading-terms';
-import type { OutcomesClearance } from '@outcomes/domain/services/outcomes-clearance';
+import type { TeamAccess } from '@outcomes/domain/services/team-access';
 import type { Citation } from '@outcomes/domain/value-objects/citation.vo';
 import type { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
@@ -93,18 +93,15 @@ export class RunScoresViews {
     private readonly judgings: JudgingRepository,
   ) {}
 
-  async onTeam(
-    clearance: OutcomesClearance,
-    runId: string,
-  ): Promise<ScoredRun> {
+  async onTeam(access: TeamAccess, runId: string): Promise<ScoredRun> {
     const record = await this.records.of(RunId.of(runId));
     const end = record?.end;
 
     if (
       !record ||
       !end ||
-      !record.workspaceId.equals(clearance.workspaceId) ||
-      !end.place.teamId.equals(clearance.teamId)
+      !record.workspaceId.equals(access.workspaceId) ||
+      !end.place.teamId.equals(access.teamId)
     ) {
       throw new UnknownRunError(runId);
     }
@@ -127,14 +124,11 @@ export class RunScoresViews {
     );
   }
 
-  async of(
-    clearance: OutcomesClearance,
-    run: ScoredRun,
-  ): Promise<RunScoresDto> {
+  async of(access: TeamAccess, run: ScoredRun): Promise<RunScoresDto> {
     const scores = await this.scores.ofRuns([run.record.runId]);
     const { rubricVersion, standing } = await this.reports.standingAt({
-      workspaceId: clearance.workspaceId,
-      teamId: clearance.teamId,
+      workspaceId: access.workspaceId,
+      teamId: access.teamId,
       lineId: run.end.place.lineId,
       stationId: run.end.place.stationId,
     });
@@ -154,7 +148,7 @@ export class RunScoresViews {
       grades: scores
         .filter((each) => !each.fromJudge)
         .sort((one, other) => other.at.getTime() - one.at.getTime())
-        .map((each) => gradeOf(each, clearance.by.value)),
+        .map((each) => gradeOf(each, access.by.value)),
     };
   }
 }

@@ -135,7 +135,7 @@ export class RunnerHost extends EventRecorder {
     return this.state.version;
   }
 
-  reportedThrough(input: {
+  reportThrough(input: {
     admission: Admission;
     workspaceId: WorkspaceId;
     session: HostSession;

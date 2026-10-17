@@ -4,8 +4,8 @@ import type {
   TeamDefinedIntegrations,
 } from '@integrations/application/ports/defined-integrations.port';
 import type {
+  IntegrationRecord,
   IntegrationResourcesPort,
-  KeptIntegration,
 } from '@integrations/application/ports/integration-resources.port';
 import { integrationDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Injectable } from '@nestjs/common';
@@ -54,7 +54,7 @@ const definedOf = (row: DefinedRow): DefinedIntegration => ({
     : null,
 });
 
-const keptOf = (row: DefinedRow, teamId: TeamId): KeptIntegration => ({
+const keptOf = (row: DefinedRow, teamId: TeamId): IntegrationRecord => ({
   ...definedOf(row),
   teamId,
 });
@@ -65,7 +65,7 @@ export class DrizzleDefinedIntegrations
 {
   constructor(private readonly context: DrizzleContext) {}
 
-  async ofTeam(teamId: TeamId): Promise<readonly KeptIntegration[]> {
+  async ofTeam(teamId: TeamId): Promise<readonly IntegrationRecord[]> {
     const found = await this.context.db
       .select(DEFINED)
       .from(integrationDefinition)
@@ -95,11 +95,11 @@ export class DrizzleDefinedIntegrations
     }));
   }
 
-  withId(id: string): Promise<KeptIntegration | null> {
+  withId(id: string): Promise<IntegrationRecord | null> {
     return this.kept(eq(integrationDefinition.id, id));
   }
 
-  at(teamId: TeamId, source: string): Promise<KeptIntegration | null> {
+  at(teamId: TeamId, source: string): Promise<IntegrationRecord | null> {
     return this.kept(
       and(
         eq(integrationDefinition.teamId, teamId.value),
@@ -108,7 +108,9 @@ export class DrizzleDefinedIntegrations
     );
   }
 
-  private async kept(where: SQL | undefined): Promise<KeptIntegration | null> {
+  private async kept(
+    where: SQL | undefined,
+  ): Promise<IntegrationRecord | null> {
     const [found] = await this.context.db
       .select(DEFINED)
       .from(integrationDefinition)

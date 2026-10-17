@@ -12,18 +12,18 @@ const shapeAt = (title: string, at: string) => ({
 
 describe('TaskChangeShape', () => {
   it('keeps the latest stack’s cohorts, however late an earlier one arrives', () => {
-    const shaped = TaskChangeShape.shaped({
+    const shaped = TaskChangeShape.create({
       taskId: TaskId.of('task_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       shape: shapeAt('Second', '2026-09-30T10:00:00Z'),
     });
 
-    expect(shaped.reshaped(shapeAt('First', '2026-09-30T09:00:00Z'))).toBe(
+    expect(shaped.withShape(shapeAt('First', '2026-09-30T09:00:00Z'))).toBe(
       shaped,
     );
     expect(
-      shaped.reshaped(shapeAt('Third', '2026-09-30T11:00:00Z')).shape
+      shaped.withShape(shapeAt('Third', '2026-09-30T11:00:00Z')).shape
         .changeTitles,
     ).toEqual(['Third']);
   });

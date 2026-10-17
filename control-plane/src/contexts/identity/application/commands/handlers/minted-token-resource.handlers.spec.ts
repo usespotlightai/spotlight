@@ -128,7 +128,7 @@ describe('DeleteWorkspaceTokenTrustHandler', () => {
     const save = vi.fn(async (_: WorkspaceTokenTrust) => {});
     const handler = new DeleteWorkspaceTokenTrustHandler(
       {
-        clearanceIn: vi.fn(async () => ({
+        permissionsIn: vi.fn(async () => ({
           workspaceId: WorkspaceId.of('ws_1'),
           managesTokenTrusts: true,
         })),

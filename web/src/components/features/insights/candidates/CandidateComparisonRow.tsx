@@ -19,19 +19,19 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { countShown } from '@/lib/insights';
+import { formatCount } from '@/lib/insights';
 import {
   changeLinkOf,
   costBasisNote,
+  formatOrigin,
   heldOutBrief,
-  originShown,
   type SetCandidate,
 } from '@/lib/insights-candidates';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import { COMPACT_PILL, pillClass } from '@/lib/pill';
 import type { ReplayedStation } from '@/lib/replay';
 import type { GainVerdictCode } from '@/lib/replay-words';
-import { costPerRunShown } from '@/lib/search';
+import { formatCostPerRun } from '@/lib/search';
 import { configChangesOf } from '@/lib/station-config';
 import { cn } from '@/lib/utils';
 
@@ -55,7 +55,7 @@ export function CandidateComparisonRow({
   const { shown } = candidate;
   const changes = configChangesOf(candidate.changes);
   const link = changeLinkOf(at, candidate);
-  const cost = costPerRunShown(shown.costPerRun, candidate.currency);
+  const cost = formatCostPerRun(shown.costPerRun, candidate.currency);
   const costNote = costBasisNote(candidate);
   return (
     <ExpandingRow
@@ -90,7 +90,7 @@ export function CandidateComparisonRow({
           </ClampedCell>
 
           <NestedCell heading="Source" numeric={false}>
-            <span className="whitespace-nowrap">{originShown(candidate)}</span>
+            <span className="whitespace-nowrap">{formatOrigin(candidate)}</span>
           </NestedCell>
 
           <div className="col-span-full min-w-0 @4xl:col-span-1">
@@ -107,10 +107,10 @@ export function CandidateComparisonRow({
           </div>
 
           <NestedCell heading="Candidate" strong>
-            {percentShown(shown.successRate)}
+            {formatPercent(shown.successRate)}
           </NestedCell>
           <NestedCell heading="Live">
-            {percentShown(shown.liveSuccessRate)}
+            {formatPercent(shown.liveSuccessRate)}
           </NestedCell>
           <NestedCell heading="Against live" numeric={false}>
             <GainSaid gain={candidate.againstLive} />
@@ -132,14 +132,14 @@ export function CandidateComparisonRow({
           <NestedCell heading="Live cost">
             {shown.liveCostPerRun === null
               ? '–'
-              : costPerRunShown(shown.liveCostPerRun, candidate.currency)}
+              : formatCostPerRun(shown.liveCostPerRun, candidate.currency)}
           </NestedCell>
           {heldOut && (
             <NestedCell heading="Held out">
               {heldOutBrief(candidate)}
             </NestedCell>
           )}
-          <NestedCell heading="Runs">{countShown(shown.runs)}</NestedCell>
+          <NestedCell heading="Runs">{formatCount(shown.runs)}</NestedCell>
 
           {link.external ? (
             <a

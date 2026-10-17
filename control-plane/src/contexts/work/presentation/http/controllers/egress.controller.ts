@@ -54,8 +54,8 @@ import {
 const REFUSED =
   'Missing or unknown egress token, or its runner no longer holds work';
 
-const tooMany = (most: number, what: string): string =>
-  `The call holds more than ${most} ${what}. Please send at most ${most} in one call.`;
+const tooMany = (max: number, what: string): string =>
+  `The call holds more than ${max} ${what}. Please send at most ${max} in one call.`;
 
 const WAITING =
   'The runner of this proxy credential holds no run yet. Please redeem again after it claims one';
@@ -232,7 +232,7 @@ export class EgressController {
 
     if (kept.outcome === 'too-many') {
       throw new UnprocessableEntityException(
-        tooMany(kept.most, 'proxy credentials'),
+        tooMany(kept.max, 'proxy credentials'),
       );
     }
 
@@ -270,7 +270,7 @@ export class EgressController {
     }
 
     if (recorded.outcome === 'too-many') {
-      throw new UnprocessableEntityException(tooMany(recorded.most, 'records'));
+      throw new UnprocessableEntityException(tooMany(recorded.max, 'records'));
     }
   }
 }

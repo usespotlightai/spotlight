@@ -140,7 +140,7 @@ export class Search extends EventRecorder {
     super();
   }
 
-  static started(input: {
+  static start(input: {
     id: SearchId;
     set: ReplaySet;
     agent: SearchAgent;
@@ -390,11 +390,11 @@ export class Search extends EventRecorder {
     return this.state.iterations.find((each) => each.ran(run)) ?? null;
   }
 
-  runQueued(run: RunId): Search {
+  queueRun(run: RunId): Search {
     return this.changingIteration(run, (each) => each.queued());
   }
 
-  runEnded(
+  recordRunEnd(
     run: RunId,
     ending: RunEnding,
     at: Date,
@@ -405,7 +405,7 @@ export class Search extends EventRecorder {
     ).advancedAt(at, runIds);
   }
 
-  spentByAgent(
+  recordAgentSpend(
     run: RunId,
     spent: ModelSpent,
     at: Date,
@@ -503,7 +503,7 @@ export class Search extends EventRecorder {
     ).advancedAt(at, runIds);
   }
 
-  causeRecorded(run: RunId, given: CauseGiven, at: Date): Search {
+  recordCause(run: RunId, given: CauseGiven, at: Date): Search {
     const iteration = this.iterationOf(run);
 
     if (this.state.state !== 'searching' || !iteration?.holdsItsRun) {
@@ -530,7 +530,7 @@ export class Search extends EventRecorder {
     return this.changingIteration(run, () => iteration.refused());
   }
 
-  replayEnded(
+  recordReplayEnd(
     replayId: ReplayId,
     end: ReplayEnd,
     charge: ReplayCharge,
@@ -648,7 +648,7 @@ export class Search extends EventRecorder {
     }).heldOutAt(at);
   }
 
-  stopped(at: Date, by: Attribution): Search {
+  stop(at: Date, by: Attribution): Search {
     if (!this.isActive) {
       throw new SearchEndedError(this.id.value);
     }
@@ -670,11 +670,11 @@ export class Search extends EventRecorder {
     return this.isActive ? this.cutShort('station-gone', at) : this;
   }
 
-  setGone(at: Date): Search {
+  recordSetGone(at: Date): Search {
     return this.isActive ? this.cutShort('set-gone', at) : this;
   }
 
-  abandoned(): Search {
+  abandon(): Search {
     const abandoned = new Search(this.state, true);
 
     abandoned.inheritEvents(this);

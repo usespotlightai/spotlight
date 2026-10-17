@@ -1,8 +1,8 @@
 export class ReplaySetFullError extends Error {
   readonly violation = 'conflict' as const;
 
-  constructor(most: number) {
-    super(`Replay set is full. Maximum runs: ${most}`);
+  constructor(max: number) {
+    super(`Replay set is full. Maximum runs: ${max}`);
     this.name = 'ReplaySetFullError';
   }
 }

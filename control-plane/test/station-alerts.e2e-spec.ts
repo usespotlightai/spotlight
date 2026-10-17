@@ -362,7 +362,7 @@ describe('a station alert (e2e)', () => {
     expect(after?.version).toBeGreaterThan(before?.version ?? 0);
     await expect(
       watches.save(
-        stale?.checked([], new Date(), () => AlertId.of(randomUUID())) as never,
+        stale?.check([], new Date(), () => AlertId.of(randomUUID())) as never,
       ),
     ).rejects.toBeInstanceOf(StationWatchVersionConflictError);
     expect(await alertsAtStation()).toEqual([]);

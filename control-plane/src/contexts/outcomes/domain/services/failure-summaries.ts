@@ -10,7 +10,7 @@ export interface TaskFailureSummary {
   readonly source: string;
   readonly code: string;
   readonly occurrences: number;
-  readonly mostInARow: number;
+  readonly maxInARow: number;
   readonly taskIds: readonly string[];
 }
 
@@ -58,7 +58,7 @@ export const taskFailureSummaries = (
         source: first?.occurrence.source ?? '',
         code: first?.occurrence.code ?? '',
         occurrences: group.length,
-        mostInARow: Math.max(
+        maxInARow: Math.max(
           ...group.map((each) => each.occurrence.occurrences),
         ),
         taskIds: [...new Set(group.map((each) => each.taskId))],

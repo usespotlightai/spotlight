@@ -43,7 +43,7 @@ const board: LineDetail = {
   ],
   repositories: ['acme/api'],
   replayCheck: {
-    mostRegressions: 0,
+    maxRegressions: 0,
     ceiling: 10,
     currency: 'USD',
     minGain: 0.05,
@@ -91,7 +91,7 @@ describe('ListLinesHandler', () => {
         ],
         repositories: ['acme/api'],
         replayCheck: {
-          mostRegressions: 0,
+          maxRegressions: 0,
           ceiling: 10,
           currency: 'USD',
           minGain: 0.05,
@@ -118,7 +118,7 @@ describe('ListLinesHandler', () => {
 
   it('reports an unusable team id as invalid input', async () => {
     await expect(handle(reader([board]), '  ')).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
   });
 });

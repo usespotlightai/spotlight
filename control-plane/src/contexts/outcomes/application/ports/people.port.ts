@@ -10,7 +10,7 @@ export interface Membership {
 }
 
 export interface PeoplePort {
-  clearedOnTeam(
+  membershipOnTeam(
     teamId: string,
     principal: Principal,
   ): Promise<Membership | null>;

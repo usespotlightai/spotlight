@@ -6,7 +6,7 @@ import {
 import type { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
 import type { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
 import { pullRequestInsightsFrom } from '@outcomes/domain/services/pull-request-insights';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadInsightsPullRequestsHandler
@@ -34,7 +34,7 @@ export class ReadInsightsPullRequestsHandler
         ),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -1,4 +1,4 @@
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -146,6 +146,6 @@ describe('ListTeamTracesHandler', () => {
   it('refuses a range it does not know', async () => {
     await expect(
       handler([]).execute(new ListTeamTracesQuery('team_1', 'user_1', '2y')),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
   });
 });

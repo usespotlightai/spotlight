@@ -110,7 +110,7 @@ export class WatchStations {
     const { workspaceId, teamId } = station;
     const rules = (await this.work.alertsAt(station.stationId)) ?? [];
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       await this.held.forgotten.holding(workspaceId, null, teamId);
 
       if (await this.held.forgotten.forgot(workspaceId, null, teamId)) {
@@ -123,16 +123,16 @@ export class WatchStations {
         return;
       }
 
-      const most = Math.max(0, ...rules.map((each) => each.runsNeeded));
+      const max = Math.max(0, ...rules.map((each) => each.runsNeeded));
       const records =
-        most === 0
+        max === 0
           ? []
           : await this.held.records.lastAtStation({
               workspaceId,
               teamId,
               lineId: station.lineId,
               stationId: station.stationId,
-              last: most * UNSETTLED_SLACK,
+              last: max * UNSETTLED_SLACK,
             });
       const deliveries = await this.held.deliveries.forTasks(
         records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
@@ -144,8 +144,8 @@ export class WatchStations {
           reading: readingOf(rule, records, deliveries),
         })),
       );
-      const watch = held ?? StationWatch.begun(station);
-      const checked = watch.checked(readings, this.clock.now(), () =>
+      const watch = held ?? StationWatch.start(station);
+      const checked = watch.check(readings, this.clock.now(), () =>
         AlertId.of(this.ids.generate()),
       );
 

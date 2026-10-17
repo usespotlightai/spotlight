@@ -11,7 +11,7 @@ import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -51,16 +51,16 @@ export class CreateSecretHandler
   async execute(command: CreateSecretCommand): Promise<ResourceCreated | null> {
     try {
       const { principal } = command.actor;
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(command.workspaceId),
         principal,
       );
 
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.managesSecrets) {
+      if (!permissions.managesSecrets) {
         return forbiddenTo('manage-secrets');
       }
 
@@ -72,8 +72,8 @@ export class CreateSecretHandler
 
       const secret = Secret.set(compiled, {
         id: SecretId.of(this.ids.generate()),
-        workspaceId: cleared.workspaceId,
-        by: Attribution.of(command.actor, cleared.workspaceId),
+        workspaceId: permissions.workspaceId,
+        by: Attribution.of(command.actor, permissions.workspaceId),
         at: this.clock.now(),
       });
       const create: IdempotentCreate = {
@@ -87,7 +87,7 @@ export class CreateSecretHandler
       };
 
       try {
-        return await this.transaction.run(() =>
+        return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             await this.secrets.save(secret);
 
@@ -109,7 +109,7 @@ export class CreateSecretHandler
         };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

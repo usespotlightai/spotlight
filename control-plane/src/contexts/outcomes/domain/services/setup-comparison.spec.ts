@@ -53,11 +53,11 @@ const runs = (
     });
 
     if (at < setup.accepted) {
-      return record.actedOn(NextAct.of('closed', day('2026-09-30', at)));
+      return record.recordAction(NextAct.of('closed', day('2026-09-30', at)));
     }
 
     return at < count - (setup.unanswered ?? 0)
-      ? record.actedOn(NextAct.of('sent-back', day('2026-09-30', at)))
+      ? record.recordAction(NextAct.of('sent-back', day('2026-09-30', at)))
       : record;
   });
 

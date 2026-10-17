@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
-const MOST_WAIT_MS = 10 * 60 * 1000;
+const MAX_WAIT_MS = 10 * 60 * 1000;
 
 const UNSUPPORTED = new Set(['$schema', 'minimum', 'maximum']);
 
@@ -103,12 +103,12 @@ export const askForJson = async <T>(ask: {
   shape: JsonShape<T>;
   system: string;
   asked: string;
-  most: number;
+  max: number;
 }): Promise<Answered<T>> => {
   const response = await ask
     .fetch(ENDPOINT, {
       method: 'POST',
-      signal: AbortSignal.timeout(MOST_WAIT_MS),
+      signal: AbortSignal.timeout(MAX_WAIT_MS),
       headers: {
         Authorization: `Bearer ${ask.apiKey}`,
         'Content-Type': 'application/json',
@@ -116,7 +116,7 @@ export const askForJson = async <T>(ask: {
       },
       body: JSON.stringify({
         model: ask.model,
-        max_tokens: ask.most,
+        max_tokens: ask.max,
         messages: [
           { role: 'system', content: ask.system },
           { role: 'user', content: ask.asked },

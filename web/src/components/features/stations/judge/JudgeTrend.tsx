@@ -9,17 +9,17 @@ import {
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import {
-  dayShown,
-  percentShown,
+  formatDay,
+  formatPercent,
+  formatStat,
+  formatTrendCaption,
   type ScoreKind,
   sharesOn,
-  statShown,
   type TrendPoint,
-  trendCaptionShown,
 } from '@/lib/judge';
 
 const scoreOf = (kind: ScoreKind, value: number | null): string =>
-  sharesOn(kind) ? percentShown(value) : statShown(value);
+  sharesOn(kind) ? formatPercent(value) : formatStat(value);
 
 const Said = ({
   placement,
@@ -40,7 +40,7 @@ const Said = ({
 
   return (
     <ChartTip placement={placement}>
-      <p className="text-muted-foreground">{dayShown(point.day)}</p>
+      <p className="text-muted-foreground">{formatDay(point.day)}</p>
       <p className="pt-0.5 text-foreground">
         {point.judge === null
           ? `Judge hidden over ${point.judged}`
@@ -81,7 +81,7 @@ export function JudgeTrend({
           />
           People
         </span>
-        <span>{trendCaptionShown(kind)}</span>
+        <span>{formatTrendCaption(kind)}</span>
       </figcaption>
 
       <div className="flex min-h-35 flex-1 flex-col [&_*:focus:not(:focus-visible)]:outline-none">
@@ -96,7 +96,7 @@ export function JudgeTrend({
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
                 tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                tickFormatter={dayShown}
+                tickFormatter={formatDay}
                 minTickGap={24}
               />
               <YAxis hide domain={sharesOn(kind) ? [0, 1] : [1, 5]} />

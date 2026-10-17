@@ -32,13 +32,13 @@ const MERGED: ClosedPullRequest = {
 };
 
 const decided = () =>
-  DecisionSet.opened({
+  DecisionSet.open({
     id: DecisionSetId.of('set_1'),
     taskId: TASK,
     workspaceId: WORKSPACE,
   })
     .asked(RUN, NOW)
-    .drafted({
+    .recordDraft({
       runId: RUN,
       newId: () => 'decision_1',
       proposed: [
@@ -88,7 +88,7 @@ const settling = (
   const service = new SettleDecisions(
     work,
     sets,
-    { run: <T>(work: () => Promise<T>) => work() },
+    { inTransaction: <T>(work: () => Promise<T>) => work() },
     { now: () => NOW, sleep: async () => undefined },
   );
 

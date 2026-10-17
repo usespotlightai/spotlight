@@ -3,7 +3,7 @@ import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbo
 
 type Fetch = typeof globalThis.fetch;
 
-const REDIRECTS_AT_MOST = 5;
+const MAX_REDIRECTS = 5;
 
 const REDIRECTS = [301, 302, 303, 307, 308];
 
@@ -29,7 +29,7 @@ export const followed = async (
 ): Promise<{ readonly reply: Response; readonly url: string }> => {
   let hop = first;
 
-  for (let followed = 0; followed <= REDIRECTS_AT_MOST; followed += 1) {
+  for (let followed = 0; followed <= MAX_REDIRECTS; followed += 1) {
     policy.allow(hop.url);
 
     const sending = await dressed(hop);
@@ -64,7 +64,7 @@ export const followed = async (
 
   throw new OutboundRefusedError(
     new URL(hop.url).host.toLowerCase(),
-    `redirected more than ${REDIRECTS_AT_MOST} times`,
+    `redirected more than ${MAX_REDIRECTS} times`,
   );
 };
 

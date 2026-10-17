@@ -4,7 +4,7 @@ import { RateWithInterval } from '@/components/features/replays/RateWithInterval
 import {
   counterpartNoun,
   counterpartRateOf,
-  counterpartShown,
+  formatCounterpart,
   type Replay,
   type ReplayedStation,
   replayPath,
@@ -91,7 +91,7 @@ export function SuccessAgainstBaseline({
           </span>
           <PairTally
             tally={replay.pairsAgainstBaseline}
-            against={counterpartShown(
+            against={formatCounterpart(
               replay.pairedWith,
               replay.candidate,
               baselineId,

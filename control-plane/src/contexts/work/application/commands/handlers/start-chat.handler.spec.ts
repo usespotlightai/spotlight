@@ -8,8 +8,8 @@ import { StartChatHandler } from '@work/application/commands/handlers/start-chat
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { ReachableRepositoriesPort } from '@work/application/ports/reachable-repositories.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
-import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
-import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
+import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -42,8 +42,8 @@ const starting = ({
     {
       handedOver: vi.fn(async () => []),
       takenIn: vi.fn(async () => undefined),
-    } as unknown as FilesAtHand,
-    { shared: vi.fn(async () => []) } as unknown as TracesAtHand,
+    } as unknown as FilesLoader,
+    { shared: vi.fn(async () => []) } as unknown as TracesLoader,
     {} as LineRepository,
     {
       takenUp: vi.fn(async (chat: Chat) => chat),
@@ -61,7 +61,9 @@ const starting = ({
     } as unknown as RunnerReaderPort,
     { generate: () => 'chat_1' } as IdGeneratorPort,
     { now: () => NOW } as ClockPort,
-    { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+    {
+      inTransaction: (work: () => Promise<unknown>) => work(),
+    } as TransactionPort,
   );
 
   return { handler, added };

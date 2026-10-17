@@ -13,7 +13,7 @@ import type {
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { parseMemoryStanding } from '@memory/domain/value-objects/memory-standing';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 const pathOf = (raw: string | null): string | null => {
@@ -51,16 +51,13 @@ export class ListTeamMemoriesHandler
 
   async execute(query: ListTeamMemoriesQuery): Promise<TeamMemoryDto[]> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.viewerId,
-      );
+      const access = await this.access.forTeam(query.teamId, query.viewerId);
 
       return await this.views.summaries(
-        await this.memories.ofTeam(clearance.teamId, criteriaOf(query.listing)),
+        await this.memories.ofTeam(access.teamId, criteriaOf(query.listing)),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

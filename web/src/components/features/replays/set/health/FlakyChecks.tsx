@@ -2,7 +2,7 @@ import { HealthTasks } from '@/components/features/replays/set/health/HealthTask
 import { type ReplaySet, taskTitleIn } from '@/lib/replay';
 import {
   FLAKY_TASKS_LABEL,
-  flakyCheckShown,
+  formatFlakyCheck,
   type SetHealth,
 } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
@@ -22,7 +22,7 @@ export function FlakyChecks({ slug, teamId, set, checks }: FlakyChecksProps) {
         key: flaky.runId,
         title: taskTitleIn(set, flaky.taskId),
         to: runPath(slug, teamId, flaky.runId),
-        said: flakyCheckShown(flaky),
+        said: formatFlakyCheck(flaky),
       }))}
     />
   );

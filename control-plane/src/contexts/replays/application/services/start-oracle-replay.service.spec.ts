@@ -151,7 +151,7 @@ describe('StartOracleReplay', () => {
     await oracles().baselineEnded(ended);
     const [first] = oracleReplays();
     await memory.replayRepository.save(
-      (first as NonNullable<typeof first>).stopped(new Date(), BY),
+      (first as NonNullable<typeof first>).stop(new Date(), BY),
     );
     await oracles().baselineEnded(ended);
 

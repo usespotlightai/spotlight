@@ -3,7 +3,7 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
-import { countShown, shareShown } from '@/lib/insights';
+import { formatCount, formatShare } from '@/lib/insights';
 import type { ReviewBot } from '@/lib/insights-shipping';
 
 const COLUMNS: readonly InsightsColumn<ReviewBot>[] = [
@@ -15,19 +15,19 @@ const COLUMNS: readonly InsightsColumn<ReviewBot>[] = [
   {
     id: 'comments',
     header: 'Comments',
-    cell: (bot) => countShown(bot.comments),
+    cell: (bot) => formatCount(bot.comments),
     numeric: true,
   },
   {
     id: 'reviews',
     header: 'Reviews',
-    cell: (bot) => countShown(bot.reviews),
+    cell: (bot) => formatCount(bot.reviews),
     numeric: true,
   },
   {
     id: 'resolved',
     header: 'Resolved',
-    cell: (bot) => shareShown(bot.resolvedShare),
+    cell: (bot) => formatShare(bot.resolvedShare),
     numeric: true,
   },
 ];

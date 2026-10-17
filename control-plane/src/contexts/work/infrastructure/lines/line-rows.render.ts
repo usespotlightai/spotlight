@@ -1,5 +1,5 @@
 import { inCodePointOrder } from '@platform/ordering/code-point-order';
-import type { HeldLine } from '@work/application/contracts/held-line.contract';
+import type { LineDefinition } from '@work/application/contracts/line-definition.contract';
 import type { LineFields } from '@work/infrastructure/lines/line.schema';
 import type {
   line,
@@ -36,8 +36,8 @@ type DeeplySameKeys<A, B> = [A] extends [readonly (infer OfA)[]]
       : false
     : true;
 
-type ExactlyHeld<T extends HeldLine> =
-  DeeplySameKeys<T, HeldLine> extends true ? T : never;
+type ExactlyHeld<T extends LineDefinition> =
+  DeeplySameKeys<T, LineDefinition> extends true ? T : never;
 
 type StationFields = LineFields['stations'][number];
 
@@ -209,7 +209,7 @@ export const renderLineRows = (
     ...(rows.line.replayCheck
       ? {
           replayCheck: {
-            mostRegressions: rows.line.replayCheck.mostRegressions,
+            maxRegressions: rows.line.replayCheck.maxRegressions,
             ceiling: rows.line.replayCheck.ceiling,
             currency: rows.line.replayCheck.currency,
             minGain: rows.line.replayCheck.minGain,

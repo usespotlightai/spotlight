@@ -45,7 +45,7 @@ const drafting = (
   grounds: DecisionGrounds = GROUNDS,
 ): DecisionSet => {
   let made = 0;
-  return set.drafted({
+  return set.recordDraft({
     runId,
     proposed: decisions,
     grounds,
@@ -69,7 +69,7 @@ let next = 0;
 
 const opened = () => {
   next += 1;
-  return DecisionSet.opened({
+  return DecisionSet.open({
     id: DecisionSetId.of(`set_${next}`),
     taskId: TaskId.of(`task_${next}`),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -207,7 +207,7 @@ describe('storing a task’s decisions', () => {
 
     const read = await sets.forTask(set.taskId);
     if (!read) throw new Error('not stored');
-    await sets.save(read.closedUnmerged());
+    await sets.save(read.closeUnmerged());
 
     expect(await sets.forTask(set.taskId)).toBeNull();
   });
@@ -217,7 +217,7 @@ describe('storing a task’s decisions', () => {
     await sets.add(set);
     await sets.save(set.asked(FIRST, NOW));
 
-    await expect(sets.save(set.closedUnmerged())).rejects.toThrow(
+    await expect(sets.save(set.closeUnmerged())).rejects.toThrow(
       DecisionSetVersionConflictError,
     );
   });
@@ -233,7 +233,7 @@ describe('storing a task’s decisions', () => {
     const second = read?.decisions[1];
     if (!read || !second) throw new Error('not stored');
     await sets.save(
-      read.disputed({
+      read.dispute({
         id: DecisionDisputeId.of('dispute_9'),
         decisionId: second.id,
         path: FilePath.of('api/src/uploads.ts'),
@@ -313,7 +313,7 @@ describe('reading the decisions that shipped', () => {
     changed: string[],
   ) => {
     next += 1;
-    const set = DecisionSet.opened({
+    const set = DecisionSet.open({
       id: DecisionSetId.of(`shipped_${next}`),
       taskId: TaskId.of(`shipped_task_${next}`),
       workspaceId: WORKSPACE,
@@ -379,7 +379,7 @@ describe('reading the decisions that shipped', () => {
       within: [],
       since: null,
       until: null,
-      most: 50,
+      max: 50,
     });
 
     expect(titles(found)).toEqual([
@@ -395,7 +395,7 @@ describe('reading the decisions that shipped', () => {
       within: ['api/src/uploads'],
       since: null,
       until: null,
-      most: 50,
+      max: 50,
     });
 
     expect(titles(found)).toEqual([['Retries only once']]);
@@ -408,7 +408,7 @@ describe('reading the decisions that shipped', () => {
       within: [],
       since: new Date('2026-09-12T00:00:00Z'),
       until: new Date('2026-09-16T00:00:00Z'),
-      most: 50,
+      max: 50,
     });
 
     expect(titles(found)).toEqual([['Polls every second']]);

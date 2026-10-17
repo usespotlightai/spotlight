@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  FEWEST_SETTLED_RUNS,
   type MeasureVerdict,
+  MIN_SETTLED_RUNS,
   VERDICTS,
 } from '@outcomes/domain/services/change-verdict';
 import { ALERT_MEASURES } from '@outcomes/domain/value-objects/alert-rule.vo';
@@ -54,7 +54,7 @@ export class MeasureVerdictResponseDto {
 
   @ApiProperty({
     enum: VERDICTS,
-    description: `Whether the runs compared did better, worse or the same; insufficient below ${FEWEST_SETTLED_RUNS} settled runs on either side, or where the costs are in different currencies`,
+    description: `Whether the runs compared did better, worse or the same; insufficient below ${MIN_SETTLED_RUNS} settled runs on either side, or where the costs are in different currencies`,
   })
   readonly verdict: string;
 

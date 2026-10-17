@@ -36,7 +36,7 @@ type OutcomeMeasure = (typeof OUTCOME_MEASURES)[number];
 
 const LOWER_IS_BETTER: ReadonlySet<OutcomeMeasure> = new Set(['sent_back']);
 
-export const FEWEST_SETUP_RUNS = 3;
+export const MIN_SETUP_RUNS = 3;
 
 export const JUDGE_WITHHELD_REASONS = ['no_station'] as const;
 
@@ -228,7 +228,7 @@ export const setupsFrom = (
         measured.flatMap((each) => {
           const value = each.outcomes[measure];
 
-          return each.tally.runs >= FEWEST_SETUP_RUNS &&
+          return each.tally.runs >= MIN_SETUP_RUNS &&
             each.costPerRun !== null &&
             each.currency === currency &&
             value !== null

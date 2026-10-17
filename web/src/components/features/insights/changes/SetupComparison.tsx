@@ -14,12 +14,12 @@ import {
   stationReplayedPoints,
 } from '@/lib/insights-candidates';
 import {
+  formatSizeRule,
   type InsightsSetups,
   lowerIsBetter,
   type OutcomeMeasure,
   outcomeLabel,
   setupPoints,
-  sizeRuleShown,
 } from '@/lib/insights-changes';
 
 type SetupComparisonProps = {
@@ -99,7 +99,7 @@ export function SetupComparison({
   return (
     <InsightsCard
       title="Harness, model, effort and profile"
-      description={`${outcomeLabel(measure)} against cost per run.${drawn ? ' Replayed points show replay success on past tasks.' : ''} The frontier joins setups no other matches for less. Minimum runs per setup: ${setups.fewestRuns}. Task size, by a run’s changes: ${setups.sizes.map(sizeRuleShown).join('; ')}.`}
+      description={`${outcomeLabel(measure)} against cost per run.${drawn ? ' Replayed points show replay success on past tasks.' : ''} The frontier joins setups no other matches for less. Minimum runs per setup: ${setups.minRuns}. Task size, by a run’s changes: ${setups.sizes.map(formatSizeRule).join('; ')}.`}
       actions={filters}
       table={
         <>

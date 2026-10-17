@@ -95,7 +95,7 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
   }
 
   async add(added: ReplaySet): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db.insert(replaySet).values({
         id: added.id.value,
         workspaceId: added.workspaceId.value,
@@ -113,7 +113,7 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
   }
 
   async save(saved: ReplaySet): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const at = and(
         eq(replaySet.id, saved.id.value),
         eq(replaySet.version, saved.version),

@@ -3,18 +3,18 @@ import { Spend } from '@replays/domain/value-objects/spend.vo';
 
 export class ReplayThreshold {
   private constructor(
-    readonly mostRegressions: number,
+    readonly maxRegressions: number,
     readonly ceiling: Spend,
     readonly minGain: number,
   ) {}
 
   static of(input: {
-    mostRegressions: number;
+    maxRegressions: number;
     ceiling: number;
     currency: string;
     minGain: number;
   }): ReplayThreshold {
-    if (!Number.isInteger(input.mostRegressions) || input.mostRegressions < 0) {
+    if (!Number.isInteger(input.maxRegressions) || input.maxRegressions < 0) {
       throw new InvalidReplayCheckError(
         'allowed regressions must be a whole number from 0',
       );
@@ -30,7 +30,7 @@ export class ReplayThreshold {
     }
 
     return new ReplayThreshold(
-      input.mostRegressions,
+      input.maxRegressions,
       Spend.ceiling(input.ceiling, input.currency),
       input.minGain,
     );
@@ -38,7 +38,7 @@ export class ReplayThreshold {
 
   equals(other: ReplayThreshold): boolean {
     return (
-      this.mostRegressions === other.mostRegressions &&
+      this.maxRegressions === other.maxRegressions &&
       this.ceiling.equals(other.ceiling)
     );
   }
@@ -48,6 +48,6 @@ export class ReplayThreshold {
   }
 
   allows(regressions: number): boolean {
-    return regressions <= this.mostRegressions;
+    return regressions <= this.maxRegressions;
   }
 }

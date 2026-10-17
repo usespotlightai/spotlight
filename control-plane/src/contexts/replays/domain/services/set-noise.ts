@@ -2,7 +2,7 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { copiesByOriginal } from '@replays/domain/services/replay-results';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
+import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 
 const ROUNDING = 1e-9;
@@ -27,7 +27,7 @@ export const neededRepeatsFor = (spread: number, minGain: number): number =>
   Math.max(1, Math.ceil((spread / minGain) ** 2 - ROUNDING));
 
 export const suggestedRepeatsFor = (spread: number, minGain: number): number =>
-  Math.min(MOST_REPEATS, neededRepeatsFor(spread, minGain));
+  Math.min(MAX_REPEATS, neededRepeatsFor(spread, minGain));
 
 export const isNoisyAt = (
   spread: number,

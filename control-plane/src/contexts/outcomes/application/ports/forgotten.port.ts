@@ -39,5 +39,5 @@ export interface ForgottenPort {
     pullRequest: PullRequestUrl,
   ): Promise<PullRequestTombstone | null>;
 
-  dropTombstonesBefore(before: Date, most: number): Promise<number>;
+  dropTombstonesBefore(before: Date, max: number): Promise<number>;
 }

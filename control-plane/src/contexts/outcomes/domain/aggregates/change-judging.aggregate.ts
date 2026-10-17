@@ -204,13 +204,13 @@ export class ChangeJudging
       : this.ended(failure);
   }
 
-  usedModel(usage: ModelCall | null): ChangeJudging {
+  recordModel(usage: ModelCall | null): ChangeJudging {
     return usage && this.state.work
       ? this.with({ spent: this.state.spent.with(usage) })
       : this;
   }
 
-  judged(input: {
+  recordVerdict(input: {
     verdict: Verdict;
     usage: ModelCall | null;
     evidence: JudgeEvidence;
@@ -225,7 +225,7 @@ export class ChangeJudging
       throw InvalidScoreError.ofJudging('must use only its own run’s evidence');
     }
 
-    const spending = this.usedModel(input.usage);
+    const spending = this.recordModel(input.usage);
     const grounded = groundedVerdict(
       this.state.criteria,
       input.verdict,

@@ -587,7 +587,7 @@ describe('ReorderChangeStack', () => {
         RunnerTerms.none(),
         new Date('2026-09-16T10:00:00Z'),
       )
-      .recorded(
+      .recordResult(
         RunnerId.of('checker_1'),
         { steps: ready.checkSteps(ready.entries()), layers: ready.layers() },
         [

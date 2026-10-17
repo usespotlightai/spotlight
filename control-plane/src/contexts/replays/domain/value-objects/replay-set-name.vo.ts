@@ -1,6 +1,6 @@
 import { InvalidReplaySetError } from '@replays/domain/exceptions/invalid-replay-set.error';
 
-const MOST_LENGTH = 100;
+const MAX_LENGTH = 100;
 
 export class ReplaySetName {
   private constructor(readonly value: string) {}
@@ -8,9 +8,9 @@ export class ReplaySetName {
   static of(raw: string): ReplaySetName {
     const named = raw.trim();
 
-    if (named.length === 0 || named.length > MOST_LENGTH) {
+    if (named.length === 0 || named.length > MAX_LENGTH) {
       throw new InvalidReplaySetError(
-        `name must be 1 to ${MOST_LENGTH} characters`,
+        `name must be 1 to ${MAX_LENGTH} characters`,
       );
     }
 

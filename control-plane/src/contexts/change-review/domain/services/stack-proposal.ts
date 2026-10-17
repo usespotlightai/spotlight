@@ -21,9 +21,9 @@ import {
   LayerId,
 } from '@change-review/domain/value-objects/stack-ids';
 
-const MOST_TITLE = 120;
+const MAX_TITLE = 120;
 
-const MOST_PROSE = 2_000;
+const MAX_PROSE = 2_000;
 
 const noteProblems = (
   diff: Diff,
@@ -45,9 +45,9 @@ const noteProblems = (
 
     if (!touched.has(path)) {
       problems.push(`${at} notes ${path}, which none of its changes touch`);
-    } else if (!note.trim() || note.length > MOST_PROSE) {
+    } else if (!note.trim() || note.length > MAX_PROSE) {
       problems.push(
-        `${at} needs a note on ${path} of at most ${MOST_PROSE} characters`,
+        `${at} needs a note on ${path} of at most ${MAX_PROSE} characters`,
       );
     }
   }
@@ -84,14 +84,14 @@ const shapeProblems = (
   cohorts.forEach((cohort, c) => {
     const where = `cohort ${c + 1}`;
 
-    if (!cohort.title.trim() || cohort.title.length > MOST_TITLE) {
+    if (!cohort.title.trim() || cohort.title.length > MAX_TITLE) {
       problems.push(
-        `${where} needs a title of at most ${MOST_TITLE} characters`,
+        `${where} needs a title of at most ${MAX_TITLE} characters`,
       );
     }
-    if (!cohort.intent.trim() || cohort.intent.length > MOST_PROSE) {
+    if (!cohort.intent.trim() || cohort.intent.length > MAX_PROSE) {
       problems.push(
-        `${where} needs an intent of at most ${MOST_PROSE} characters`,
+        `${where} needs an intent of at most ${MAX_PROSE} characters`,
       );
     }
     if (cohort.layers.length === 0) {
@@ -101,14 +101,12 @@ const shapeProblems = (
     cohort.layers.forEach((layer, l) => {
       const at = `${where}, layer ${l + 1}`;
 
-      if (!layer.title.trim() || layer.title.length > MOST_TITLE) {
-        problems.push(
-          `${at} needs a title of at most ${MOST_TITLE} characters`,
-        );
+      if (!layer.title.trim() || layer.title.length > MAX_TITLE) {
+        problems.push(`${at} needs a title of at most ${MAX_TITLE} characters`);
       }
-      if (!layer.summary.trim() || layer.summary.length > MOST_PROSE) {
+      if (!layer.summary.trim() || layer.summary.length > MAX_PROSE) {
         problems.push(
-          `${at} needs a summary of at most ${MOST_PROSE} characters`,
+          `${at} needs a summary of at most ${MAX_PROSE} characters`,
         );
       }
       if (layer.ranges.length === 0) {

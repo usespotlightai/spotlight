@@ -210,7 +210,7 @@ const toolRandom = seeded(SEED * 7 + 1);
 const toolPick = <T>(from: readonly T[]): T =>
   from[Math.floor(toolRandom() * from.length)] as T;
 const toolChance = (share: number): boolean => toolRandom() < share;
-const upTo = (most: number): number => Math.floor(toolRandom() * (most + 1));
+const upTo = (max: number): number => Math.floor(toolRandom() * (max + 1));
 
 const setupRandom = seeded(SEED * 17 + 3);
 const setupPick = <T>(from: readonly T[]): T =>
@@ -268,7 +268,7 @@ const rememberedIn = (record: RunRecord): RunRecord =>
   MEMORY_WAYS.reduce(
     (held, way) =>
       memoryRandom() < 0.35
-        ? held.usedMemories(
+        ? held.recordMemories(
             way,
             MEMORIES.filter(() => memoryRandom() < 0.4),
           )
@@ -360,15 +360,15 @@ const historyOver = async (
   principal: Principal,
   name: string,
 ) => {
-  const { clearance, period } = await scopes.scope(teamId, principal, name);
+  const { access, period } = await scopes.scope(teamId, principal, name);
   const team = {
-    workspaceId: clearance.workspaceId,
-    teamId: clearance.teamId,
+    workspaceId: access.workspaceId,
+    teamId: access.teamId,
     period,
   };
 
   return {
-    clearance,
+    access,
     period,
     team,
     history: await heldHistoryOf(historyHeldIn(heldRepositories()), team),
@@ -400,7 +400,7 @@ beforeAll(async () => {
   scopes = new TeamScopes(
     new OutcomesAccess({
       namesOf: async () => new Map(),
-      clearedOnTeam: async () => ({ workspaceId: WORKSPACE, by: VIEWER }),
+      membershipOnTeam: async () => ({ workspaceId: WORKSPACE, by: VIEWER }),
     }),
     { now: () => NOW, sleep: async () => {} },
   );
@@ -408,7 +408,7 @@ beforeAll(async () => {
     new DrizzleReading(held.db, { DATABASE_READ_TIMEOUT_MS: 15_000 } as Env),
   );
 
-  await context.run(async () => {
+  await context.inTransaction(async () => {
     let home = HOMES[0];
 
     for (let index = 0; index < RUNS; index += 1) {
@@ -428,7 +428,7 @@ beforeAll(async () => {
       let record = RunRecord.heardOf(
         RunId.of(`run_${String(index).padStart(4, '0')}`),
         home.workspaceId,
-      ).ended(
+      ).recordEnd(
         RunEnd.of({
           place: RunPlace.of({ teamId: home.teamId, ...station, taskId }),
           fingerprint: pick(['a'.repeat(64), 'b'.repeat(64)]),
@@ -451,7 +451,7 @@ beforeAll(async () => {
       );
 
       if (chance(0.75)) {
-        record = record.digested(
+        record = record.recordDigest(
           RunCost.of({
             ms: chance(0.9) ? Math.floor(random() * 3_600_000) : null,
             steps: setupPick([3, 20, 21, 80, 81]),
@@ -480,13 +480,13 @@ beforeAll(async () => {
         );
       }
       if (chance(0.5)) {
-        record = record.checked(
+        record = record.recordCheck(
           pick(['passed', 'failed', 'skipped'] as const),
           endedAt,
         );
       }
       if (chance(0.5)) {
-        record = record.actedOn(
+        record = record.recordAction(
           NextAct.of(
             pick(['started', 'parked', 'closed', 'answered', 'sent-back']),
             new Date(endedAt.getTime() + HOUR),
@@ -520,7 +520,7 @@ beforeAll(async () => {
               : null;
 
           await scores.add(
-            Score.judged({
+            Score.judge({
               id: ScoreId.of(`score_${index}_${rubricVersion.slice(0, 1)}`),
               runId: record.runId,
               workspaceId: home.workspaceId,
@@ -556,7 +556,7 @@ beforeAll(async () => {
       if (index % 2 === 0) {
         const far = chance(0.15);
         const person = () => UserId.of(far ? FAR : pick(PEOPLE));
-        let touched = TaskTouches.heardOf(taskId, home.workspaceId).opened(
+        let touched = TaskTouches.heardOf(taskId, home.workspaceId).recordOpen(
           TaskOpening.of({
             teamId: far ? NEXT_DOOR : home.teamId,
             lineId: station.lineId,
@@ -567,7 +567,7 @@ beforeAll(async () => {
         );
 
         for (let acted = Math.floor(random() * 4); acted > 0; acted -= 1) {
-          touched = touched.actedOn(
+          touched = touched.recordAction(
             PersonTouch.of({
               act: pick([...NEXT_ACTS, 'approved', 'refused'] as const),
               by: person(),
@@ -592,7 +592,7 @@ beforeAll(async () => {
           const pullRequest = PullRequestUrl.of(
             `https://github.com/acme/api/pull/${index}`,
           );
-          const fresh = TaskDelivery.opened({
+          const fresh = TaskDelivery.open({
             taskId,
             workspaceId: home.workspaceId,
             teamId: far ? NEXT_DOOR : home.teamId,
@@ -600,7 +600,7 @@ beforeAll(async () => {
             at: new Date(endedAt.getTime() - HOUR),
           });
           const opened = chance(0.6)
-            ? fresh.reviewed({
+            ? fresh.recordReview({
                 pullRequest,
                 byBot: false,
                 at: new Date(
@@ -611,7 +611,7 @@ beforeAll(async () => {
 
           await deliveries.add(
             chance(0.6)
-              ? opened.closed({
+              ? opened.close({
                   pullRequest,
                   merged: chance(0.7),
                   at: new Date(endedAt.getTime() + DAY),
@@ -632,7 +632,7 @@ beforeAll(async () => {
             raised < 1 + Math.floor(random() * 3);
             raised++
           ) {
-            failed = failed.raised(
+            failed = failed.raise(
               FailureOccurrence.of({
                 stationId: chance(0.1) ? 'retired' : station.stationId,
                 runId: null,
@@ -653,7 +653,7 @@ beforeAll(async () => {
       const where = pick(HOMES);
 
       await chats.add(
-        ChatRecord.started({
+        ChatRecord.start({
           chatId: `chat_${index}`,
           workspaceId: where.workspaceId,
           teamId: where.teamId,
@@ -672,7 +672,7 @@ beforeAll(async () => {
     ] as const) {
       await records.add(
         RunRecord.heardOf(RunId.of(runId), WORKSPACE)
-          .ended(
+          .recordEnd(
             RunEnd.of({
               place: RunPlace.of({
                 teamId: TEAM,
@@ -697,7 +697,7 @@ beforeAll(async () => {
               asked: false,
             }),
           )
-          .digested(
+          .recordDigest(
             RunCost.of({
               ms: 1_000,
               steps: 1,
@@ -721,7 +721,7 @@ beforeAll(async () => {
 
     await touches.add(
       TaskTouches.heardOf(TaskId.of('task_both_windows'), WORKSPACE)
-        .opened(
+        .recordOpen(
           TaskOpening.of({
             teamId: TEAM,
             ...STATIONS[2],
@@ -732,7 +732,7 @@ beforeAll(async () => {
         .asked(InboxAsk.of(STATIONS[2].stationId, ago(9 * DAY)))
         .asked(InboxAsk.of(STATIONS[2].stationId, ago(2 * DAY)))
         .asked(InboxAsk.of(STATIONS[2].stationId, ago(12 * HOUR)))
-        .actedOn(
+        .recordAction(
           PersonTouch.of({
             act: 'started',
             by: UserId.of('user_bob'),
@@ -740,7 +740,7 @@ beforeAll(async () => {
             at: ago(20 * DAY),
           }),
         )
-        .actedOn(
+        .recordAction(
           PersonTouch.of({
             act: 'refused',
             by: UserId.of('user_bob'),
@@ -751,7 +751,7 @@ beforeAll(async () => {
     );
 
     await chats.add(
-      ChatRecord.started({
+      ChatRecord.start({
         chatId: 'chat_gus',
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -814,13 +814,13 @@ beforeAll(async () => {
       });
 
       if (owner) {
-        record = record.ownedBy({
+        record = record.assignOwner({
           taskId: TaskId.of(owner),
           teamId: prRandom() < 0.8 ? home.teamId : NEXT_DOOR,
         });
       }
       if (prRandom() < 0.2) {
-        record = record.reviewedBy(TaskId.of(`task_review_${index}`));
+        record = record.recordReview(TaskId.of(`task_review_${index}`));
       }
 
       await pullRequests.add(record);
@@ -828,7 +828,7 @@ beforeAll(async () => {
       if (owner && prRandom() < 0.5 && !shaped.has(owner)) {
         shaped.add(owner);
         await shapes.add(
-          TaskChangeShape.shaped({
+          TaskChangeShape.create({
             taskId: TaskId.of(owner),
             workspaceId: home.workspaceId,
             teamId: home.teamId,
@@ -847,7 +847,7 @@ beforeAll(async () => {
     );
 
     await records.add(
-      RunRecord.heardOf(RunId.of('run_stale'), WORKSPACE).ended(
+      RunRecord.heardOf(RunId.of('run_stale'), WORKSPACE).recordEnd(
         RunEnd.of({
           place: RunPlace.of({
             teamId: TEAM,
@@ -874,16 +874,16 @@ beforeAll(async () => {
       ),
     );
     await deliveries.add(
-      TaskDelivery.opened({
+      TaskDelivery.open({
         taskId: TaskId.of('task_stale'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
         pullRequest: stalePull,
         at: ago(300 * DAY),
-      }).reviewed({ pullRequest: stalePull, byBot: false, at: ago(DAY) }),
+      }).recordReview({ pullRequest: stalePull, byBot: false, at: ago(DAY) }),
     );
     await deliveries.add(
-      TaskDelivery.opened({
+      TaskDelivery.open({
         taskId: TaskId.of('task_abandoned'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -1236,7 +1236,7 @@ describe('the Shipping numbers of a team', () => {
       runs,
       pullRequestsHeld(heldRepositories()),
       team,
-      { repositories: REPOSITORIES, from: period.previous.from, most: 10_000 },
+      { repositories: REPOSITORIES, from: period.previous.from, max: 10_000 },
     );
 
     return {
@@ -1358,13 +1358,13 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
       teamId: SHIP,
     });
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await added.add(
         seenAt('acme/edges', 1, {
           openedAt: dayAt(2, -5),
           state: 'merged',
           closedAt: dayAt(2),
-        }).ownedBy(owned(1)),
+        }).assignOwner(owned(1)),
       );
       await added.add(
         seenAt('acme/edges', 2, {
@@ -1397,7 +1397,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
         seenAt('acme/before', 6, {
           state: 'merged',
           closedAt: dayAt(-3),
-        }).ownedBy(owned(6)),
+        }).assignOwner(owned(6)),
       );
       await added.add(
         seenAt('acme/before', 7, { state: 'merged', closedAt: dayAt(-2) }),
@@ -1416,7 +1416,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
       runs,
       pullRequestsHeld(heldRepositories()),
       team,
-      { repositories: REPOSITORIES, from: period.previous.from, most: 100 },
+      { repositories: REPOSITORIES, from: period.previous.from, max: 100 },
     );
     const mergeDay = (at: number) =>
       counts.mergeDays.find((each) => each.day === dayOf(dayAt(at)));
@@ -1472,7 +1472,7 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
       runs,
       pullRequestsHeld(heldRepositories()),
       team,
-      { repositories, from: period.previous.from, most: 100 },
+      { repositories, from: period.previous.from, max: 100 },
     );
 
     return {
@@ -1528,7 +1528,7 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
         ...over,
       });
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       for (const [number, over] of [
         [1, { draftSpells: [{ from: dayAt(1, 2), to: dayAt(3) }] }],
         [2, { draftSpells: [{ from: dayAt(3), to: dayAt(4) }] }],
@@ -1579,7 +1579,7 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
 
       const opening = (taskId: string, at: Date) =>
         touching.add(
-          TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).opened(
+          TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).recordOpen(
             TaskOpening.of({
               teamId: CLIPS,
               lineId: 'line_clips',
@@ -1625,7 +1625,7 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
             ...over,
             state: 'merged',
             readyForReviewAt: null,
-          }).ownedBy({ taskId: TaskId.of(taskId), teamId: CLIPS }),
+          }).assignOwner({ taskId: TaskId.of(taskId), teamId: CLIPS }),
         );
       }
     });
@@ -1706,7 +1706,7 @@ describe('the runs a team ran, a page at a time', () => {
   ] as const)(
     'lists the same runs as the records when it asks for %s',
     async (_, over) => {
-      const { clearance, period } = await scopes.scope(
+      const { access, period } = await scopes.scope(
         TEAM.value,
         PersonPrincipal.of(VIEWER),
         '30d',
@@ -1714,7 +1714,7 @@ describe('the runs a team ran, a page at a time', () => {
       const filter = runFilterOf({ ...NO_RUN_FILTER, ...over }, period.current);
       const size = 25;
       const listingOf = (page: number) => ({
-        window: windowOf(clearance, period.current),
+        window: windowOf(access, period.current),
         filter,
         offset: (page - 1) * size,
         limit: size,
@@ -1733,13 +1733,13 @@ describe('the runs a team ran, a page at a time', () => {
   );
 
   it('covers what makes listing runs hard to get right', async () => {
-    const { clearance, period } = await scopes.scope(
+    const { access, period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
     );
     const { runs: listed } = await reader.runPage({
-      window: windowOf(clearance, period.current),
+      window: windowOf(access, period.current),
       filter: runFilterOf(NO_RUN_FILTER, period.current),
       offset: 0,
       limit: 10_000,
@@ -1795,7 +1795,7 @@ describe('how the run list treats the window’s edges and runs that ended toget
     const records = new DrizzleRunRecordRepository(context, facts, quiet);
     const touching = new DrizzleTaskTouchesRepository(context, facts);
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       for (const [runId, endedAt, started] of [
         ['run_edge_from', from, true],
         ['run_edge_to', to, true],
@@ -1809,7 +1809,7 @@ describe('how the run list treats the window’s edges and runs that ended toget
         ['run_ask_elsewhere', dayAt(6), true],
       ] as const) {
         await records.add(
-          RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+          RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
             RunEnd.of({
               place: RunPlace.of({
                 teamId: EDGES,
@@ -1962,7 +1962,7 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
       tools: RunTools,
     ) =>
       RunRecord.heardOf(RunId.of(runId), WORKSPACE)
-        .ended(
+        .recordEnd(
           RunEnd.of({
             place: RunPlace.of({
               teamId: TOOLS,
@@ -1988,7 +1988,7 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
             asked: false,
           }),
         )
-        .digested(
+        .recordDigest(
           RunCost.of({
             ms: 1_000,
             steps: 1,
@@ -2003,7 +2003,7 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
           tools,
         );
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await records.add(
         ended(
           'tools_monday',
@@ -2207,7 +2207,7 @@ describe('how the memory counts leave out what did not run', () => {
     const records = new DrizzleRunRecordRepository(context, facts, quiet);
     const deliveries = new DrizzleTaskDeliveryRepository(context, facts, quiet);
     const ended = (runId: string, ending: RunEnding, hoursAgo: number) =>
-      RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+      RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
         RunEnd.of({
           place: RunPlace.of({
             teamId: REMEMBERING,
@@ -2237,7 +2237,7 @@ describe('how the memory counts leave out what did not run', () => {
       const pullRequest = PullRequestUrl.of(
         `https://github.com/acme/remember/pull/${runId.length}${state.length}`,
       );
-      const opened = TaskDelivery.opened({
+      const opened = TaskDelivery.open({
         taskId: TaskId.of(`task_${runId}`),
         workspaceId: WORKSPACE,
         teamId: REMEMBERING,
@@ -2247,26 +2247,27 @@ describe('how the memory counts leave out what did not run', () => {
 
       return state === 'open'
         ? opened
-        : opened.closed({ pullRequest, merged: true, at: ago(HOUR) });
+        : opened.close({ pullRequest, merged: true, at: ago(HOUR) });
     };
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await records.add(
         ended('remembered', 'completed', 2)
-          .actedOn(NextAct.of('closed', ago(HOUR)))
-          .usedMemories('briefed', ['mem_one']),
+          .recordAction(NextAct.of('closed', ago(HOUR)))
+          .recordMemories('briefed', ['mem_one']),
       );
       await records.add(
-        ended('withdrawn_remembering', 'withdrawn', 2).usedMemories('briefed', [
-          'mem_withdrawn',
-        ]),
+        ended('withdrawn_remembering', 'withdrawn', 2).recordMemories(
+          'briefed',
+          ['mem_withdrawn'],
+        ),
       );
       await records.add(
-        ended('recalling', 'failed', 3).usedMemories('recalled', ['mem_one']),
+        ended('recalling', 'failed', 3).recordMemories('recalled', ['mem_one']),
       );
       await records.add(ended('forgetful', 'completed', 4));
       await records.add(
-        ended('long_ago', 'completed', 24 * 30).usedMemories('briefed', [
+        ended('long_ago', 'completed', 24 * 30).recordMemories('briefed', [
           'mem_old',
         ]),
       );
@@ -2464,7 +2465,7 @@ describe('how a config change splits a station’s runs', () => {
       endedHoursAgo = beganHoursAgo - 0.5,
     ) =>
       records.add(
-        RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+        RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
           RunEnd.of({
             place: RunPlace.of({
               teamId: CHANGING,
@@ -2496,7 +2497,7 @@ describe('how a config change splits a station’s runs', () => {
       const marks = Array.from({ length: 10 }, (_, at) => at < met);
 
       return judged.add(
-        Score.judged({
+        Score.judge({
           id: ScoreId.of(`score_${runId}`),
           runId: RunId.of(runId),
           workspaceId: WORKSPACE,
@@ -2525,7 +2526,7 @@ describe('how a config change splits a station’s runs', () => {
       );
     };
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await ran('flip_a1', 'flip', A, 100);
       await ran('flip_b_early', 'flip', B, 90, 'withdrawn');
       await ran('flip_b1', 'flip', B, 80);
@@ -2669,11 +2670,11 @@ describe('how setups fall into sizes and judges', () => {
         taskId: TaskId.of(`task_${runId}`),
       });
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       for (const [runId, changedLines, steps, digested] of [
         ...SIZES,
       ].reverse()) {
-        const ended = RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+        const ended = RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
           RunEnd.of({
             place: placeOf(runId),
             fingerprint: 'a'.repeat(64),
@@ -2697,7 +2698,7 @@ describe('how setups fall into sizes and judges', () => {
 
         await records.add(
           digested
-            ? ended.digested(
+            ? ended.recordDigest(
                 RunCost.of({
                   ms: 1_000,
                   steps,
@@ -2729,7 +2730,7 @@ describe('how setups fall into sizes and judges', () => {
         ['lines_50', oneIn(1, 10)],
       ] as const) {
         await judged.add(
-          Score.judged({
+          Score.judge({
             id: ScoreId.of(`score_${runId}`),
             runId: RunId.of(runId),
             workspaceId: WORKSPACE,
@@ -2835,7 +2836,7 @@ describe('the pull request numbers and list of a team', () => {
     pullRequestsHeldIn(runs, pullRequestsHeld(heldRepositories()), team, {
       repositories: REPOSITORIES,
       from: team.period.current.from,
-      most: 10_000,
+      max: 10_000,
     });
   const teamOver = async (name: string): Promise<TeamInPeriod> => {
     const { period } = await scopes.scope(
@@ -3015,9 +3016,9 @@ describe('how pull requests fall into the window and what their task spent', () 
         version: 1,
       });
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await added.add(
-        seenAt(1, new Date(from.getTime() - 5 * DAY), from).ownedBy({
+        seenAt(1, new Date(from.getTime() - 5 * DAY), from).assignOwner({
           taskId: TaskId.of('task_pulls_spent'),
           teamId: PULLS,
         }),
@@ -3027,13 +3028,13 @@ describe('how pull requests fall into the window and what their task spent', () 
           2,
           new Date(from.getTime() - 5 * DAY),
           new Date(from.getTime() - 1),
-        ).ownedBy({
+        ).assignOwner({
           taskId: TaskId.of('task_pulls_before'),
           teamId: PULLS,
         }),
       );
       await added.add(
-        seenAt(3, period.current.to, null).ownedBy({
+        seenAt(3, period.current.to, null).assignOwner({
           taskId: TaskId.of('task_pulls_after'),
           teamId: PULLS,
         }),
@@ -3044,7 +3045,7 @@ describe('how pull requests fall into the window and what their task spent', () 
         [5, new Date(from.getTime() + HOUR)],
       ] as const) {
         await added.add(
-          seenAt(number, openedAt, null).ownedBy({
+          seenAt(number, openedAt, null).assignOwner({
             taskId: TaskId.of(`task_pulls_${number}`),
             teamId: PULLS,
           }),
@@ -3058,7 +3059,7 @@ describe('how pull requests fall into the window and what their task spent', () 
       ] as const) {
         await records.add(
           RunRecord.heardOf(RunId.of(runId), WORKSPACE)
-            .ended(
+            .recordEnd(
               RunEnd.of({
                 place: RunPlace.of({
                   teamId: PULLS,
@@ -3084,7 +3085,7 @@ describe('how pull requests fall into the window and what their task spent', () 
                 asked: false,
               }),
             )
-            .digested(
+            .recordDigest(
               RunCost.of({
                 ms: 1_000,
                 steps: 1,
@@ -3145,7 +3146,7 @@ describe('how pull requests fall into the window and what their task spent', () 
           runs,
           pullRequestsHeld(heldRepositories()),
           team,
-          { repositories: [], from, most: 100 },
+          { repositories: [], from, max: 100 },
         ),
         filter,
         period.current,
@@ -3251,7 +3252,7 @@ describe('how the pull request numbers round, sum and sort', () => {
     ) =>
       records.add(
         RunRecord.heardOf(RunId.of(runId), WORKSPACE)
-          .ended(
+          .recordEnd(
             RunEnd.of({
               place: RunPlace.of({
                 teamId: MATHS,
@@ -3277,7 +3278,7 @@ describe('how the pull request numbers round, sum and sort', () => {
               asked: false,
             }),
           )
-          .digested(
+          .recordDigest(
             RunCost.of({
               ms: 1_000,
               steps: 1,
@@ -3298,7 +3299,7 @@ describe('how the pull request numbers round, sum and sort', () => {
           ),
       );
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       for (const [number, hoursAfter, reviewedAfterMs, amount] of [
         [1, 1, 3, 0.1],
         [2, 2, 2, 0.2],
@@ -3312,15 +3313,15 @@ describe('how the pull request numbers round, sum and sort', () => {
               reviewedAfterMs === null
                 ? null
                 : new Date(closed.getTime() + reviewedAfterMs),
-          }).ownedBy(owned(number)),
+          }).assignOwner(owned(number)),
         );
         await spent(`maths_${number}`, owned(number).taskId, amount, 'USD');
       }
 
       await added.add(
-        seenAt('acme/maths', 7, { title: 'Write tests for retries' }).ownedBy(
-          owned(7),
-        ),
+        seenAt('acme/maths', 7, {
+          title: 'Write tests for retries',
+        }).assignOwner(owned(7)),
       );
       await spent('maths_mixed_usd', owned(7).taskId, 1, 'USD');
       await spent('maths_mixed_eur', owned(7).taskId, 1, 'EUR');
@@ -3340,7 +3341,7 @@ describe('how the pull request numbers round, sum and sort', () => {
           seenAt(repository, number, {
             ...over,
             title: 'Implement uploads',
-          }).ownedBy(owned(number)),
+          }).assignOwner(owned(number)),
         );
       }
 
@@ -3356,7 +3357,7 @@ describe('how the pull request numbers round, sum and sort', () => {
       await added.add(seenAt('acme/maths', 4, { spelled: 'Acme/maths' }));
 
       await added.add(
-        seenAt('acme/touched', 14).reviewedBy(TaskId.of('task_maths_review')),
+        seenAt('acme/touched', 14).recordReview(TaskId.of('task_maths_review')),
       );
       await added.add(
         seenAt('acme/maths', 16, {
@@ -3399,7 +3400,7 @@ describe('how the pull request numbers round, sum and sort', () => {
           runs,
           pullRequestsHeld(heldRepositories()),
           team,
-          { repositories: REPOSITORIES, from, most: 100 },
+          { repositories: REPOSITORIES, from, max: 100 },
         ),
         period.current,
       ),
@@ -3453,7 +3454,7 @@ describe('how the inbox pairs answers with asks', () => {
       endedAt: Date,
       ending: RunEnding,
     ) =>
-      RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+      RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
         RunEnd.of({
           place: RunPlace.of({
             teamId: WAITS,
@@ -3497,7 +3498,7 @@ describe('how the inbox pairs answers with asks', () => {
     );
     await new DrizzleTaskTouchesRepository(context, facts).add(
       TaskTouches.heardOf(TaskId.of('task_waits'), WORKSPACE)
-        .opened(
+        .recordOpen(
           TaskOpening.of({
             teamId: WAITS,
             ...STATIONS[0],
@@ -3509,7 +3510,7 @@ describe('how the inbox pairs answers with asks', () => {
         .asked(InboxAsk.of('build', asked))
         .asked(InboxAsk.of('plan', askedAgain))
         .asked(InboxAsk.of('ship', period.current.from))
-        .actedOn(
+        .recordAction(
           PersonTouch.of({
             act: 'answered',
             by: VIEWER,
@@ -3517,7 +3518,7 @@ describe('how the inbox pairs answers with asks', () => {
             at: asked,
           }),
         )
-        .actedOn(
+        .recordAction(
           PersonTouch.of({
             act: 'answered',
             by: VIEWER,
@@ -3669,7 +3670,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
       ending: RunEnding = 'completed',
     ) =>
       records.add(
-        RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+        RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
           RunEnd.of({
             place: RunPlace.of({
               teamId,
@@ -3695,7 +3696,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
         ),
       );
     const openedOn = (taskId: string, teamId: TeamId, openedAt: Date) =>
-      TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).opened(
+      TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).recordOpen(
         TaskOpening.of({
           teamId,
           lineId: 'line_piped',
@@ -3705,7 +3706,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
         }),
       );
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await ran('run_piped_b', 'task_piped', PIPED, 'draft', 'line_piped', {
         queuedAt: null,
         startedAt: at(4),
@@ -3758,7 +3759,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
           .asked(InboxAsk.of('check', at(5)))
           .asked(InboxAsk.of('draft', at(6)))
           .asked(InboxAsk.of('review', at(8)))
-          .actedOn(
+          .recordAction(
             PersonTouch.of({
               act: 'answered',
               by: VIEWER,
@@ -3766,7 +3767,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
               at: at(3.5),
             }),
           )
-          .actedOn(
+          .recordAction(
             PersonTouch.of({
               act: 'answered',
               by: VIEWER,
@@ -3774,7 +3775,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
               at: at(5.25),
             }),
           )
-          .actedOn(
+          .recordAction(
             PersonTouch.of({
               act: 'answered',
               by: VIEWER,
@@ -3826,7 +3827,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
               revertedBy: null,
               version: 1,
             })
-            .ownedBy({ taskId: TaskId.of(taskId), teamId: PIPED }),
+            .assignOwner({ taskId: TaskId.of(taskId), teamId: PIPED }),
         );
       }
     });
@@ -3844,7 +3845,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
       runs,
       pullRequestsHeld(heldRepositories()),
       team,
-      { repositories: [], from: period.previous.from, most: 100 },
+      { repositories: [], from: period.previous.from, max: 100 },
     );
     const median = (stage: Stage<Timed> | undefined) => ({
       total: stage?.times.all.total.p50,

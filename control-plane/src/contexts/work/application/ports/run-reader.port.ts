@@ -60,13 +60,13 @@ export interface RanConfig {
   readonly parts: StationConfigParts;
 }
 
-export interface ConfiguredRun extends RanConfig {
+export interface RunConfigView extends RanConfig {
   readonly taskId: string;
 }
 
 export interface RunConfigSummary {
   readonly ran: RanConfig | null;
-  readonly before: ConfiguredRun | null;
+  readonly before: RunConfigView | null;
   readonly ranForTeam: RanForTeam | null;
 }
 

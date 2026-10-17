@@ -31,7 +31,7 @@ const SHIP = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 const TOKEN_HEADER = 'spotlight-workspace-token';
 const LIVE_CHECK = {
-  mostRegressions: 0,
+  maxRegressions: 0,
   ceiling: 4,
   currency: 'USD',
   minGain: 0.05,
@@ -127,7 +127,7 @@ interface CheckRead {
   candidateId: string;
   keptLive: string[];
   threshold: {
-    mostRegressions: number;
+    maxRegressions: number;
     ceiling: { amount: number; currency: string };
   };
   tasks: number;
@@ -575,7 +575,7 @@ describe('a replay check', () => {
       verdict: 'running',
       keptLive: ['check', 'judge', 'diffs'],
       threshold: {
-        mostRegressions: 0,
+        maxRegressions: 0,
         ceiling: { amount: 4, currency: 'USD' },
       },
       tasks: 3,
@@ -618,7 +618,7 @@ describe('a replay check', () => {
       .update(schema.line)
       .set({
         replayCheck: {
-          mostRegressions: 9,
+          maxRegressions: 9,
           ceiling: 900,
           currency: 'USD',
           minGain: 0.05,
@@ -627,7 +627,7 @@ describe('a replay check', () => {
       .where(eq(schema.line.id, DELIVERY));
     try {
       expect((await readCheck(check.id)).threshold).toMatchObject({
-        mostRegressions: 0,
+        maxRegressions: 0,
         ceiling: { amount: 4, currency: 'USD' },
       });
     } finally {
@@ -736,7 +736,7 @@ describe('a replay check', () => {
 
     await db
       .update(schema.line)
-      .set({ replayCheck: { ...LIVE_CHECK, mostRegressions: 1 } })
+      .set({ replayCheck: { ...LIVE_CHECK, maxRegressions: 1 } })
       .where(eq(schema.line.id, DELIVERY));
     try {
       expect((await startCheck(change)).attempt).toBe(3);

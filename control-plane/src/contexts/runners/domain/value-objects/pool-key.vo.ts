@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  areWords,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class PoolKey {
@@ -12,10 +12,10 @@ export class PoolKey {
   static of(raw: string): PoolKey {
     const named = raw.trim();
 
-    if (!areWords(named)) {
+    if (!isSlug(named)) {
       throw new InvalidIdentifierError(
         'runner pool key',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in ephemeral`,
+        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in ephemeral`,
       );
     }
 

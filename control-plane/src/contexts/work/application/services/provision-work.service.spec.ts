@@ -105,7 +105,7 @@ const provisioning = (
       at: Date,
       page: {
         readonly skip: number;
-        readonly most: number;
+        readonly max: number;
         readonly withSecrets: boolean;
       },
     ) =>
@@ -115,7 +115,7 @@ const provisioning = (
             each.workspaceId.equals(workspaceId) &&
             each.provisionableAt(at, page.withSecrets),
         )
-        .slice(page.skip, page.skip + page.most),
+        .slice(page.skip, page.skip + page.max),
   );
   const recorded: DomainEvent[] = [];
   const runs = {
@@ -701,7 +701,7 @@ describe('ProvisionWork', () => {
         NOON,
         {
           skip: 0,
-          most: 200,
+          max: 200,
         },
       );
     });

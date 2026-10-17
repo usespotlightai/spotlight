@@ -57,7 +57,7 @@ const asked = (change: Partial<Remembered> = {}): Remembered => ({
 });
 
 const standing = (teamId = TEAM) =>
-  Memory.written({
+  Memory.write({
     id: MemoryId.of('memory_old'),
     handle: MemoryHandle.of(7),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -220,7 +220,7 @@ describe('Remembering, what an agent asks its team to keep', () => {
     ).toThrow(/M-7 is not one/);
     expect(() =>
       proposed({
-        supersedes: held.retired({
+        supersedes: held.retire({
           by: UserId.of('user_1'),
           reason: 'No longer true.',
           at: NOW,

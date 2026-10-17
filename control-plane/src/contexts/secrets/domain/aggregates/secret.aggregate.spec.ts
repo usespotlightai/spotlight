@@ -231,7 +231,7 @@ describe('Secret', () => {
 
     it('is abandoned with its workspace, whatever still names it', () => {
       const spotlight = Attribution.spotlight(WORKSPACE);
-      const abandoned = kept().abandoned(spotlight);
+      const abandoned = kept().abandon(spotlight);
 
       expect(abandoned.isDeleted).toBe(true);
       expect(abandoned.forgetsValue).toBe(true);
@@ -302,7 +302,7 @@ describe('Secret', () => {
     it('is granted toward each host it is bound to, for that run alone', () => {
       const grants = kept({
         bindings: [{ host: 'api.linear.app' }, { host: 'uploads.linear.app' }],
-      }).grantedTo(RunId.of('run_1'));
+      }).grantTo(RunId.of('run_1'));
 
       expect(grants.map((each) => [each.runId.value, each.host])).toEqual([
         ['run_1', 'api.linear.app'],
@@ -326,7 +326,7 @@ describe('Secret', () => {
     });
 
     it('is granted toward nowhere when bound to no host', () => {
-      expect(() => kept({ bindings: [] }).grantedTo(RunId.of('run_1'))).toThrow(
+      expect(() => kept({ bindings: [] }).grantTo(RunId.of('run_1'))).toThrow(
         SecretNotBoundError,
       );
     });
@@ -338,7 +338,7 @@ describe('Secret', () => {
           { host: 'uploads.linear.app', name: 'x-api-key' },
         ],
       });
-      const [, uploads] = secret.grantedTo(RunId.of('run_1'));
+      const [, uploads] = secret.grantTo(RunId.of('run_1'));
 
       expect(uploads && secret.bindingFor(uploads)).toMatchObject({
         host: 'uploads.linear.app',
@@ -350,7 +350,7 @@ describe('Secret', () => {
     it('honours no grant toward a host it is no longer bound to', () => {
       const [grant] = kept({
         bindings: [{ host: 'api.linear.app' }, { host: 'old.linear.app' }],
-      }).grantedTo(RunId.of('run_1'));
+      }).grantTo(RunId.of('run_1'));
       const rebound = kept({ bindings: [{ host: 'new.linear.app' }] });
 
       expect(() => grant && rebound.bindingFor(grant)).toThrow(

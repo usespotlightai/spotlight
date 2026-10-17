@@ -108,7 +108,7 @@ const dispatching = (over: { launches?: boolean; line?: Line | null } = {}) => {
     {
       forSearch: (searchId, runId) => `trace:${searchId.value}:${runId.value}`,
     } as TraceParentPort,
-    { run: (work) => work() },
+    { inTransaction: (work) => work() },
     { now: () => NOW, sleep: async () => {} },
   );
 

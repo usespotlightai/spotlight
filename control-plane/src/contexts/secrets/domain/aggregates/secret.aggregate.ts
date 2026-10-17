@@ -35,7 +35,7 @@ export interface SecretDefinition {
   readonly valueVersion: number | null;
 }
 
-interface Kept {
+interface Props {
   readonly id: SecretId;
   readonly workspaceId: WorkspaceId;
   readonly name: SecretName;
@@ -46,7 +46,7 @@ interface Kept {
   readonly version: number;
 }
 
-interface State extends Kept {
+interface State extends Props {
   readonly deleted: boolean;
   readonly keeping: SecretValue | null;
   readonly forgetting: boolean;
@@ -123,7 +123,7 @@ export class Secret extends EventRecorder {
     return set;
   }
 
-  static rehydrate(input: Kept): Secret {
+  static rehydrate(input: Props): Secret {
     if (input.version < 1) {
       throw new InconsistentStateError('secret', 'was kept without a version');
     }
@@ -223,7 +223,7 @@ export class Secret extends EventRecorder {
     return deleted;
   }
 
-  abandoned(by: Attribution): Secret {
+  abandon(by: Attribution): Secret {
     this.guardStanding();
 
     const abandoned = this.removed();
@@ -292,7 +292,7 @@ export class Secret extends EventRecorder {
     return binding;
   }
 
-  grantedTo(runId: RunId): readonly SecretGrant[] {
+  grantTo(runId: RunId): readonly SecretGrant[] {
     this.guardStanding();
 
     if (this.bindings.isEmpty) {

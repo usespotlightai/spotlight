@@ -474,7 +474,7 @@ export const replayCheck = pgTable(
     liveScoring: text('live_scoring').notNull(),
     candidateBehaviour: text('candidate_behaviour').notNull(),
     candidateScoring: text('candidate_scoring').notNull(),
-    mostRegressions: integer('most_regressions').notNull(),
+    maxRegressions: integer('most_regressions').notNull(),
     minGain: doublePrecision('min_gain').notNull(),
     ceilingAmount: doublePrecision('ceiling_amount').notNull(),
     ceilingCurrency: text('ceiling_currency').notNull(),

@@ -1,6 +1,6 @@
 import type { CreateHarnessProfileCommand } from '@configuration/application/commands/create-harness-profile.command';
 import type { HarnessProfileCompilerPort } from '@configuration/application/ports/harness-profile-compiler.port';
-import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
+import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileAlreadyDefinedError } from '@configuration/domain/exceptions/harness-profile-already-defined.error';
@@ -13,7 +13,7 @@ import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type {
@@ -34,7 +34,7 @@ export class CreateHarnessProfileHandler
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,
     private readonly compiler: HarnessProfileCompilerPort,
-    private readonly secrets: HeldSecretsPort,
+    private readonly secrets: SecretNamesPort,
     private readonly profiles: HarnessProfileRepository,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
@@ -45,19 +45,19 @@ export class CreateHarnessProfileHandler
     command: CreateHarnessProfileCommand,
   ): Promise<ResourceCreated | null> {
     try {
-      const cleared = await this.access.clearanceOnTeam(
+      const permissions = await this.access.permissionsOnTeam(
         command.teamId,
         command.actor.principal,
       );
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.configures) {
+      if (!permissions.configures) {
         return forbiddenTo('configure');
       }
 
-      const team = await this.teams.find(cleared.teamId);
+      const team = await this.teams.find(permissions.teamId);
 
       if (!team) {
         return null;
@@ -80,7 +80,7 @@ export class CreateHarnessProfileHandler
       };
 
       try {
-        return await this.transaction.run(() =>
+        return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             const defined = HarnessProfile.define({
               key: compiled.key,
@@ -88,7 +88,7 @@ export class CreateHarnessProfileHandler
               id: HarnessProfileId.of(this.ids.generate()),
               teamId: team.id,
               by: Attribution.of(command.actor, team.workspaceId),
-              held: await this.secrets.held(team.id),
+              held: await this.secrets.ofTeam(team.id),
             });
 
             await this.profiles.save(defined);
@@ -114,7 +114,7 @@ export class CreateHarnessProfileHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

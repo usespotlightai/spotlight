@@ -3,7 +3,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const SECRET_RESOURCES = Symbol('SECRET_RESOURCES');
 
-export interface KeptSecret {
+export interface SecretRecord {
   readonly id: string;
   readonly version: number;
   readonly workspaceId: WorkspaceId;
@@ -24,9 +24,9 @@ export interface KeptSecret {
 }
 
 export interface SecretResourcesPort {
-  withId(id: string): Promise<KeptSecret | null>;
+  withId(id: string): Promise<SecretRecord | null>;
 
-  named(workspaceId: WorkspaceId, name: string): Promise<KeptSecret | null>;
+  named(workspaceId: WorkspaceId, name: string): Promise<SecretRecord | null>;
 
-  secretsIn(workspaceId: WorkspaceId): Promise<readonly KeptSecret[]>;
+  secretsIn(workspaceId: WorkspaceId): Promise<readonly SecretRecord[]>;
 }

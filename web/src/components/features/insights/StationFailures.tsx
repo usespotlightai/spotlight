@@ -2,9 +2,9 @@ import { BarRow } from '@/components/features/insights/BarRow';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
-  runFailureShown,
+  formatRunFailure,
+  formatTaskFailure,
   type StationReport,
-  taskFailureShown,
 } from '@/lib/insights';
 import { runPath } from '@/lib/run';
 import { cn } from '@/lib/utils';
@@ -28,7 +28,7 @@ export function StationFailures({
     ...report.runFailures.map((failure) => failure.runs),
     1,
   );
-  const mostOccurrences = Math.max(
+  const maxOccurrences = Math.max(
     ...report.taskFailures.map((failure) => failure.occurrences),
     1,
   );
@@ -43,7 +43,7 @@ export function StationFailures({
           <ul aria-label="Run failures" className="flex flex-col gap-1.5 pb-2">
             {report.runFailures.map((failure) => {
               const [only] = failure.runIds;
-              const shown = runFailureShown(failure);
+              const shown = formatRunFailure(failure);
 
               return (
                 <BarRow
@@ -88,12 +88,12 @@ export function StationFailures({
           <ul aria-label="Task failures" className="flex flex-col gap-1.5 pb-2">
             {report.taskFailures.map((failure) => {
               const [only] = failure.taskIds;
-              const shown = taskFailureShown(failure);
+              const shown = formatTaskFailure(failure);
 
               return (
                 <BarRow
                   key={`${failure.source}:${failure.code}`}
-                  share={failure.occurrences / mostOccurrences}
+                  share={failure.occurrences / maxOccurrences}
                   values={
                     <span className="w-10 text-right text-foreground tabular-nums">
                       {failure.occurrences}
@@ -107,10 +107,10 @@ export function StationFailures({
                   ) : (
                     shown
                   )}
-                  {failure.mostInARow > 1 && (
+                  {failure.maxInARow > 1 && (
                     <span className="text-muted-foreground">
                       {' '}
-                      · {failure.mostInARow} in a row
+                      · {failure.maxInARow} in a row
                     </span>
                   )}
                 </BarRow>

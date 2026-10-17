@@ -5,7 +5,7 @@ import {
 } from '@integrations/application/ports/hook-firing-history.port';
 import type { WebhookHeaders } from '@integrations/application/ports/webhook-source.port';
 import type { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
@@ -77,7 +77,7 @@ export class ReadDeliveryHandler
         ),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

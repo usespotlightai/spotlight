@@ -57,7 +57,7 @@ export const connectionGroups = (
   );
 };
 
-export const OUTCOME_SHOWN: Record<ConnectionOutcome, string> = {
+export const CONNECTION_OUTCOME_LABELS: Record<ConnectionOutcome, string> = {
   tunnelled: 'Passed through',
   forwarded: 'Secret added',
   blocked: 'Blocked',
@@ -74,7 +74,7 @@ export const OUTCOME_TOLD: Record<ConnectionOutcome, string> = {
     'Egress could not connect to the host. For example, the host name is unknown, the host did not answer, or TLS failed.',
 };
 
-export const TROUBLE_SHOWN: Record<ConnectionTrouble, string> = {
+export const TROUBLE_LABELS: Record<ConnectionTrouble, string> = {
   blocked: 'Blocked',
   failed: 'Failed',
   refused: 'Refused',
@@ -114,7 +114,7 @@ export const connectionTold = (node: TraceNode): Told | null =>
     ? { title: 'Cause', body: wentWrongTold(node.connection), prose: true }
     : null;
 
-export const REASON_SHOWN: Record<ConnectionReason, string> = {
+export const REASON_LABELS: Record<ConnectionReason, string> = {
   'not-allowed': 'Not on the allow-list',
   'address-refused': 'Private address',
   'not-bound': 'No bound secret',
@@ -124,7 +124,7 @@ export const REASON_SHOWN: Record<ConnectionReason, string> = {
   unreachable: 'No connection',
 };
 
-export const ENFORCEMENT_SHOWN: Record<
+export const ENFORCEMENT_LABELS: Record<
   NonNullable<RunNetworkResponseDto['egress']>,
   string
 > = {
@@ -142,5 +142,5 @@ export const ENFORCEMENT_TOLD: Record<
     'The runner reported that the sandbox could connect directly. Only tools that use the proxy went through egress. To enforce egress, set the firewall of the sandbox provider to let the sandbox connect only to egress.',
 };
 
-export const trafficShown = (group: ConnectionGroup): string =>
+export const formatTraffic = (group: ConnectionGroup): string =>
   `${sized(group.bytesOut)} out · ${sized(group.bytesIn)} in`;

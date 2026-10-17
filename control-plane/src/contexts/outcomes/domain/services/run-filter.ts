@@ -25,7 +25,7 @@ export const NO_SERVER = 'none';
 
 const LONGEST_FILTER = 200;
 
-export const MOST_FILTERED_TASKS = 200;
+export const MAX_FILTERED_TASKS = 200;
 
 type AskedValue = string | readonly string[] | null;
 
@@ -192,9 +192,9 @@ const weekOf = (value: AskedValue): Window | null => {
 };
 
 const taskIdsOf = (asked: RunFilterAsked): readonly string[] | null => {
-  if (asked.taskIds !== null && asked.taskIds.length > MOST_FILTERED_TASKS) {
+  if (asked.taskIds !== null && asked.taskIds.length > MAX_FILTERED_TASKS) {
     throw new InvalidRunFilterError(
-      `takes at most ${MOST_FILTERED_TASKS} tasks`,
+      `takes at most ${MAX_FILTERED_TASKS} tasks`,
     );
   }
 

@@ -3,7 +3,7 @@ import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool
 import type { OwesWork } from '@shared-kernel/domain/owes-work';
 import { describe, expect, it, vi } from 'vitest';
 
-const MOST_TRIES = 3;
+const MAX_TRIES = 3;
 
 class Item implements OwesWork<Item> {
   constructor(
@@ -17,7 +17,7 @@ class Item implements OwesWork<Item> {
   }
 
   get workExhausted(): boolean {
-    return this.attempts >= MOST_TRIES;
+    return this.attempts >= MAX_TRIES;
   }
 
   leased(): Item {
@@ -46,7 +46,7 @@ const working = (start: Item, worked: (item: Item) => Promise<Item>) => {
   const pool = new OwedWorkPool<Item, string>(
     {
       name: 'Judging runs',
-      mostAtOnce: 1,
+      maxAtOnce: 1,
       due: async () => (stored.state === 'owed' ? stored : null),
       find: async () => stored,
       save: async (item) => {
@@ -58,7 +58,7 @@ const working = (start: Item, worked: (item: Item) => Promise<Item>) => {
       worked,
       stale: () => false,
     },
-    { run: <T>(work: () => Promise<T>) => work() },
+    { inTransaction: <T>(work: () => Promise<T>) => work() },
     { now: () => new Date(0), sleep: async () => undefined },
     logger,
     { report },
@@ -78,7 +78,7 @@ const working = (start: Item, worked: (item: Item) => Promise<Item>) => {
 describe('OwedWorkPool', () => {
   it('reports work it gives up because it kept being interrupted, with its ids', async () => {
     const pool = working(
-      new Item(MOST_TRIES, 'owed', false),
+      new Item(MAX_TRIES, 'owed', false),
       async (item) => item,
     );
 

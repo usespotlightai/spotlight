@@ -210,12 +210,12 @@ export class SearchIteration {
     return this.state.runId.equals(run);
   }
 
-  mayPropose(most: number): boolean {
+  mayPropose(max: number): boolean {
     return (
       !this.reflects &&
       this.holdsItsRun &&
-      this.state.proposals.length < most &&
-      this.state.attempts < most * ATTEMPTS_PER_PROPOSAL
+      this.state.proposals.length < max &&
+      this.state.attempts < max * ATTEMPTS_PER_PROPOSAL
     );
   }
 

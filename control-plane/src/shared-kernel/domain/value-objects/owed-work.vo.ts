@@ -1,6 +1,6 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
-export const MOST_WORK_ATTEMPTS = 4;
+export const MAX_WORK_ATTEMPTS = 4;
 
 export const WORK_LEASE_MS = 30 * 60 * 1000;
 
@@ -28,7 +28,7 @@ export class OwedWork {
   }
 
   get exhausted(): boolean {
-    return this.attempts >= MOST_WORK_ATTEMPTS;
+    return this.attempts >= MAX_WORK_ATTEMPTS;
   }
 
   dueBy(now: Date): boolean {

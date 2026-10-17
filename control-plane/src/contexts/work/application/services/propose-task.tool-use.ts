@@ -41,7 +41,7 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
     const description = inputs.text('description')?.trim();
 
     await this.chats.save(
-      chat.proposed({
+      chat.propose({
         runId,
         placement,
         title,

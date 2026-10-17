@@ -18,7 +18,8 @@ const holds: StartingPointHoldRepository = {
   },
 };
 
-const holding = () => new HoldStartingPoints(holds, { run: (work) => work() });
+const holding = () =>
+  new HoldStartingPoints(holds, { inTransaction: (work) => work() });
 
 describe('HoldStartingPoints', () => {
   beforeEach(() => {
@@ -42,7 +43,7 @@ describe('HoldStartingPoints', () => {
   });
 
   it('moves a hold to the runs the holder now names', async () => {
-    kept = StartingPointHold.taken('replay-set:set_1', WorkspaceId.of('ws_1'));
+    kept = StartingPointHold.take('replay-set:set_1', WorkspaceId.of('ws_1'));
 
     await holding().hold('replay-set:set_1', 'ws_1', ['run_2']);
 
@@ -53,7 +54,7 @@ describe('HoldStartingPoints', () => {
     await holding().release('replay-set:set_1');
     expect(saved).toEqual([]);
 
-    kept = StartingPointHold.taken('replay-set:set_1', WorkspaceId.of('ws_1'));
+    kept = StartingPointHold.take('replay-set:set_1', WorkspaceId.of('ws_1'));
     await holding().release('replay-set:set_1');
     expect(saved[0]?.isReleased).toBe(true);
   });

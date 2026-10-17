@@ -1,4 +1,4 @@
-export const MOST_INVITED_AT_ONCE = 50;
+export const MAX_INVITED_AT_ONCE = 50;
 
 export class InviteToWorkspaceCommand {
   constructor(

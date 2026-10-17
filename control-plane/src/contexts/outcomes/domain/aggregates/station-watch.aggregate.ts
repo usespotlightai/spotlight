@@ -48,7 +48,7 @@ export class StationWatch extends EventRecorder {
     super();
   }
 
-  static begun(station: WatchedStation): StationWatch {
+  static start(station: WatchedStation): StationWatch {
     return new StationWatch(station, [], 0, new Set(), []);
   }
 
@@ -97,7 +97,7 @@ export class StationWatch extends EventRecorder {
     return last?.cooling ? last : undefined;
   }
 
-  checked(
+  check(
     readings: readonly RuleReading[],
     at: Date,
     nextId: () => AlertId,

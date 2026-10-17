@@ -188,7 +188,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
       return;
     }
 
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .delete(replayCandidate)
         .where(
@@ -208,7 +208,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
   }
 
   async add(added: Candidate): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(replayCandidate)
         .values({

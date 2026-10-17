@@ -31,12 +31,12 @@ export interface StackCheckRepository {
 
   reservedTo(runner: RunnerId, now: Date): Promise<StackCheck | null>;
 
-  overdue(now: Date, most: number): Promise<readonly StackCheck[]>;
+  overdue(now: Date, max: number): Promise<readonly StackCheck[]>;
 
   awaitingProvision(
     workspaceId: WorkspaceId,
     now: Date,
-    page: { readonly skip: number; readonly most: number },
+    page: { readonly skip: number; readonly max: number },
   ): Promise<readonly StackCheck[]>;
 
   withLapsedReservations(now: Date): Promise<readonly StackCheck[]>;

@@ -26,7 +26,7 @@ type Fetch = typeof globalThis.fetch;
 
 const NETWORK_PATIENCE_MS = 2 * 60 * 1000;
 
-const MOST_KEPT = 16 * 1024;
+const MAX_KEPT = 16 * 1024;
 
 export interface HookRequest {
   readonly hook: ListeningHook;
@@ -83,7 +83,7 @@ const described = (error: unknown): string => {
 };
 
 const kept = (text: string): unknown => {
-  const trimmed = text.slice(0, MOST_KEPT);
+  const trimmed = text.slice(0, MAX_KEPT);
 
   try {
     return JSON.parse(trimmed);
@@ -103,7 +103,7 @@ const firstOf = async (reply: Response): Promise<string> => {
   let held = 0;
 
   try {
-    while (held < MOST_KEPT) {
+    while (held < MAX_KEPT) {
       const { done, value } = await reader.read();
 
       if (done) {
@@ -119,7 +119,7 @@ const firstOf = async (reply: Response): Promise<string> => {
     await reader.cancel().catch(() => {});
   }
 
-  return Buffer.concat(chunks).subarray(0, MOST_KEPT).toString('utf8');
+  return Buffer.concat(chunks).subarray(0, MAX_KEPT).toString('utf8');
 };
 
 const UNANSWERED = (error: string): Answered => ({

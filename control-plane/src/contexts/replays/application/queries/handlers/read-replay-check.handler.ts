@@ -20,7 +20,7 @@ import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-
 import type { ReplayTotals } from '@replays/domain/services/replay-results';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 const sideOf = (
@@ -62,13 +62,10 @@ export class ReadReplayCheckHandler
 
   async execute(query: ReadReplayCheckQuery): Promise<ReplayCheckDto> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
+      const access = await this.access.forTeam(query.teamId, query.principal);
       const check = await this.checks.find(ReplayCheckId.of(query.checkId));
 
-      if (!check || !clearance.sees(check.station)) {
+      if (!check || !access.sees(check.station)) {
         throw new UnknownReplayCheckError(query.checkId);
       }
 
@@ -107,7 +104,7 @@ export class ReadReplayCheckHandler
         candidateFingerprint: check.candidateFingerprint.value,
         keptLive: [...check.keptLive],
         threshold: {
-          mostRegressions: check.threshold.mostRegressions,
+          maxRegressions: check.threshold.maxRegressions,
           minGain: check.threshold.minGain,
           ceiling: spendView(check.threshold.ceiling),
           unpricedRun: replay
@@ -141,7 +138,7 @@ export class ReadReplayCheckHandler
         createdAt: check.createdAt.toISOString(),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

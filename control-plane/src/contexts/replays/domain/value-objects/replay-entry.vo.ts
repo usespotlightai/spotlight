@@ -17,7 +17,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-export const MOST_QUEUE_ATTEMPTS = 10;
+export const MAX_QUEUE_ATTEMPTS = 10;
 
 const isConclusive = (checks: ChangeChecks | null): boolean =>
   checks?.state === 'passed' || checks?.state === 'failed';
@@ -461,7 +461,7 @@ export class ReplayEntry {
     return (
       this.occupiesARunner &&
       !this.state.queued &&
-      this.state.queueAttempts >= MOST_QUEUE_ATTEMPTS
+      this.state.queueAttempts >= MAX_QUEUE_ATTEMPTS
     );
   }
 

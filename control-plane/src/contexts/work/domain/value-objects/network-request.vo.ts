@@ -6,9 +6,9 @@ import { InvalidNetworkCallError } from '@work/domain/exceptions/invalid-network
 
 const METHOD = /^[A-Z]{1,16}$/;
 
-const MOST_TIMEOUT_MS = 60_000;
+const MAX_TIMEOUT_MS = 60_000;
 
-const MOST_BODY_BYTES = 1024 * 1024;
+const MAX_BODY_BYTES = 1024 * 1024;
 
 const sameHeaders = (
   one: Readonly<Record<string, string>>,
@@ -67,16 +67,16 @@ export class NetworkRequest implements Secret {
     if (
       !Number.isInteger(input.timeoutMs) ||
       input.timeoutMs < 1 ||
-      input.timeoutMs > MOST_TIMEOUT_MS
+      input.timeoutMs > MAX_TIMEOUT_MS
     ) {
       throw new InvalidNetworkCallError(
-        `timeout must be 1 to ${MOST_TIMEOUT_MS} milliseconds`,
+        `timeout must be 1 to ${MAX_TIMEOUT_MS} milliseconds`,
       );
     }
 
-    if (input.body.byteLength > MOST_BODY_BYTES) {
+    if (input.body.byteLength > MAX_BODY_BYTES) {
       throw new InvalidNetworkCallError(
-        `body can be at most ${MOST_BODY_BYTES} bytes`,
+        `body can be at most ${MAX_BODY_BYTES} bytes`,
       );
     }
 

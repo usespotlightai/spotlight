@@ -12,7 +12,7 @@ import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { durationTicks, tickLasted } from '@/lib/insights-shipping';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 
 type DaySeries = {
   readonly key: string;
@@ -25,7 +25,7 @@ type DayChartProps = {
   label: string;
   points: readonly Record<string, string | number | null>[];
   series: readonly DaySeries[];
-  shown: (value: number) => string;
+  format: (value: number) => string;
   durations?: boolean;
   height?: number;
   legend?: boolean;
@@ -36,13 +36,13 @@ const Said = ({
   active,
   payload,
   series,
-  shown,
+  format,
 }: {
   placement: TipPlacement;
   active?: boolean;
   payload?: { payload: Record<string, string | number | null> }[];
   series: readonly DaySeries[];
-  shown: (value: number) => string;
+  format: (value: number) => string;
 }) => {
   const point = payload?.[0]?.payload;
 
@@ -52,7 +52,7 @@ const Said = ({
 
   return (
     <ChartTip placement={placement}>
-      <p className="text-muted-foreground">{dayShown(String(point.day))}</p>
+      <p className="text-muted-foreground">{formatDay(String(point.day))}</p>
       {series.map((each) => {
         const value = point[each.key];
 
@@ -60,7 +60,7 @@ const Said = ({
           <p key={each.key} className="text-foreground">
             {each.label}{' '}
             <span className="tabular-nums">
-              {typeof value === 'number' ? shown(value) : '–'}
+              {typeof value === 'number' ? format(value) : '–'}
             </span>
           </p>
         );
@@ -73,13 +73,13 @@ export function DayChart({
   label,
   points,
   series,
-  shown,
+  format,
   durations = false,
   height = 180,
   legend = true,
 }: DayChartProps) {
   const cursor = useCursorTooltip();
-  const most = Math.max(
+  const max = Math.max(
     0,
     ...points.flatMap((point) =>
       series.map((each) => {
@@ -88,7 +88,7 @@ export function DayChart({
       }),
     ),
   );
-  const ticks = durations ? durationTicks(most) : undefined;
+  const ticks = durations ? durationTicks(max) : undefined;
 
   return (
     <figure aria-label={label} className="flex flex-col gap-2">
@@ -105,7 +105,7 @@ export function DayChart({
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
                 tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                tickFormatter={dayShown}
+                tickFormatter={formatDay}
                 minTickGap={32}
               />
               <YAxis
@@ -116,7 +116,7 @@ export function DayChart({
                 ticks={ticks}
                 domain={ticks ? [0, ticks[ticks.length - 1] ?? 0] : undefined}
                 allowDecimals={false}
-                tickFormatter={durations ? tickLasted : shown}
+                tickFormatter={durations ? tickLasted : format}
               />
               <Tooltip
                 {...cursor.tooltip}
@@ -124,7 +124,7 @@ export function DayChart({
                   <Said
                     placement={cursor.placement}
                     series={series}
-                    shown={shown}
+                    format={format}
                   />
                 }
                 cursor={{ stroke: 'var(--chart-grid)' }}

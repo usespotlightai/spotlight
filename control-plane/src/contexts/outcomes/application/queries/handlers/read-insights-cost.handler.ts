@@ -7,7 +7,7 @@ import type { ReadInsightsCostQuery } from '@outcomes/application/queries/read-i
 import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { costBreakdownFrom } from '@outcomes/domain/services/cost-breakdown';
 import { spendChangeOf } from '@outcomes/domain/value-objects/change.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadInsightsCostHandler
@@ -20,14 +20,14 @@ export class ReadInsightsCostHandler
 
   async execute(query: ReadInsightsCostQuery): Promise<InsightsCostDto> {
     try {
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
       const counts = await this.reader.costCounts({
-        workspaceId: clearance.workspaceId,
-        teamId: clearance.teamId,
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
         period,
       });
       const cost = costBreakdownFrom(counts.current);
@@ -38,7 +38,7 @@ export class ReadInsightsCostHandler
         spendChange: spendChangeOf(cost.spend, counts.spendBefore, 'neither'),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

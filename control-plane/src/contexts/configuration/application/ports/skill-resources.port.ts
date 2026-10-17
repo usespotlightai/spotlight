@@ -2,7 +2,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const SKILL_RESOURCES = Symbol('SKILL_RESOURCES');
 
-export interface KeptSkill {
+export interface SkillRecord {
   readonly id: string;
   readonly version: number;
   readonly teamId: TeamId;
@@ -11,9 +11,9 @@ export interface KeptSkill {
 }
 
 export interface SkillResourcesPort {
-  withId(id: string): Promise<KeptSkill | null>;
+  withId(id: string): Promise<SkillRecord | null>;
 
-  at(teamId: TeamId, key: string): Promise<KeptSkill | null>;
+  at(teamId: TeamId, key: string): Promise<SkillRecord | null>;
 
-  ofTeam(teamId: TeamId): Promise<readonly KeptSkill[]>;
+  ofTeam(teamId: TeamId): Promise<readonly SkillRecord[]>;
 }

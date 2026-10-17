@@ -1,28 +1,28 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { OnlyOnSeenTasksMark } from '@/components/features/searches/OnlyOnSeenTasksMark';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import type { SearchDetail } from '@/lib/search';
 import {
-  bestOnShown,
-  bestTermShown,
-  likelyShown,
+  formatBestOn,
+  formatBestTerm,
+  formatLikely,
+  formatNoBest,
+  formatObjective,
+  formatSentences,
   NO_VALUE,
-  noBestShown,
   objectiveNote,
-  objectiveShown,
-  sentencesShown,
 } from '@/lib/search-words';
 
 export function BestTile({ search }: { search: SearchDetail }) {
   const { best, objective } = search;
-  const aims = `The search aims for ${objectiveShown(objective).toLowerCase()}. ${objectiveNote(objective)}`;
+  const aims = `The search aims for ${formatObjective(objective).toLowerCase()}. ${objectiveNote(objective)}`;
 
   if (!best) {
     return (
       <InsightsTile
-        label={bestTermShown(objective)}
+        label={formatBestTerm(objective)}
         value={NO_VALUE}
-        detail={noBestShown(objective)}
+        detail={formatNoBest(objective)}
         note={aims}
       />
     );
@@ -33,19 +33,19 @@ export function BestTile({ search }: { search: SearchDetail }) {
 
   return (
     <InsightsTile
-      label={bestTermShown(objective)}
+      label={formatBestTerm(objective)}
       value={best.seed ? 'Live config' : best.name}
       detail={
         <span className="inline-flex flex-wrap items-center gap-1.5">
-          {rate !== null && `${percentShown(rate)} ${bestOnShown(heldOut)}`}
+          {rate !== null && `${formatPercent(rate)} ${formatBestOn(heldOut)}`}
           {best.onlyOnSeenTasks && (
             <OnlyOnSeenTasksMark mark={best.onlyOnSeenTasks} />
           )}
         </span>
       }
-      note={sentencesShown(
+      note={formatSentences(
         aims,
-        likelyShown(heldOut ? best.heldOutInterval : best.searchInterval),
+        formatLikely(heldOut ? best.heldOutInterval : best.searchInterval),
       )}
     />
   );

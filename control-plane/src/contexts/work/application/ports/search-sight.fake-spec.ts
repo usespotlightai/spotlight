@@ -1,10 +1,10 @@
-import type { HeldLineStation } from '@work/application/contracts/held-line.contract';
+import type { LineDefinitionStation } from '@work/application/contracts/line-definition.contract';
 import type {
   SearchSight,
   SearchSightPort,
 } from '@work/application/ports/search-sight.port';
 
-export const BUILD_BLOCK: HeldLineStation = {
+export const BUILD_BLOCK: LineDefinitionStation = {
   key: 'build',
   name: 'Build',
   kind: 'work',

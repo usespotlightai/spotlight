@@ -9,7 +9,7 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
 import { filesChangedIn } from '@work/domain/services/workspace-path';
 
-const MOST_WAIT_MS = 5_000;
+const MAX_WAIT_MS = 5_000;
 
 export const distinctFiles = (files: readonly TouchedFile[]): TouchedFile[] => [
   ...new Map(
@@ -55,7 +55,7 @@ export class TouchedFiles {
     try {
       const paths = await Promise.race([
         this.pullRequests.changedIn(task.workspaceId, repository, url),
-        this.clock.sleep(MOST_WAIT_MS, answered.signal).then(() => null),
+        this.clock.sleep(MAX_WAIT_MS, answered.signal).then(() => null),
       ]);
 
       if (!paths) {

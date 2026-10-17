@@ -18,7 +18,7 @@ export class HoldStartingPoints implements StartingPointHoldsPort {
   ): Promise<void> {
     const runs = runIds.map((each) => RunId.of(each));
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const held = await this.holds.find(holder);
 
       if (held) {
@@ -28,7 +28,7 @@ export class HoldStartingPoints implements StartingPointHoldsPort {
 
       if (runs.length > 0) {
         await this.holds.add(
-          StartingPointHold.taken(holder, WorkspaceId.of(workspaceId)).holding(
+          StartingPointHold.take(holder, WorkspaceId.of(workspaceId)).holding(
             runs,
           ),
         );
@@ -37,7 +37,7 @@ export class HoldStartingPoints implements StartingPointHoldsPort {
   }
 
   release(holder: string): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const held = await this.holds.find(holder);
 
       if (held) {

@@ -87,7 +87,7 @@ const usd = (amount: number) => Spend.of(amount, 'USD');
 const charged = (amount: number) => ({ spent: usd(amount), unpriced: 0 });
 
 const searchAt = (id: string): Search => {
-  const set = ReplaySet.opened({
+  const set = ReplaySet.open({
     id: ReplaySetId.of(`set_of_${id}`),
     station: STATION,
     name: ReplaySetName.of('Searched'),
@@ -115,27 +115,27 @@ const travelled = (search: Search): Search => {
   const runs = searchRunIds();
 
   return search
-    .replayEnded(SEED, 'finished', charged(5), NOW, runs, true)
-    .runQueued(RunId.of('search_run_1'))
+    .recordReplayEnd(SEED, 'finished', charged(5), NOW, runs, true)
+    .queueRun(RunId.of('search_run_1'))
     .admitted(RunId.of('search_run_1'), {
       candidateId: CandidateId.of('candidate_terse'),
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
     .proposalRefused(RunId.of('search_run_1'))
-    .spentByAgent(
+    .recordAgentSpend(
       RunId.of('search_run_1'),
       ModelSpent.of([usd(0.75)], 0),
       later(1),
       runs,
     )
-    .runEnded(
+    .recordRunEnd(
       RunId.of('search_run_1'),
       { failed: false, started: true },
       later(1),
       runs,
     )
-    .replayEnded(
+    .recordReplayEnd(
       ReplayId.of('replay_terse'),
       'finished',
       charged(2.5),
@@ -199,7 +199,7 @@ describe('DrizzleSearchRepository', () => {
     const runs = searchRunIds();
     let search = travelled(aSearch({ budget: aBudget({ iterations: 2 }) }));
 
-    search = search.runEnded(
+    search = search.recordRunEnd(
       RunId.of('search_run_2'),
       { failed: true, started: false },
       later(3),
@@ -226,7 +226,7 @@ describe('DrizzleSearchRepository', () => {
       () => ReplayId.of('held_terse'),
       later(4),
     );
-    search = search.replayEnded(
+    search = search.recordReplayEnd(
       ReplayId.of('held_terse'),
       'over-budget',
       charged(1),
@@ -261,7 +261,7 @@ describe('DrizzleSearchRepository', () => {
       SearchUnderwayError,
     );
 
-    await searches.save(first.stopped(NOW, BY));
+    await searches.save(first.stop(NOW, BY));
     await searches.add(searchAt('search_2'));
 
     expect((await searches.activeAtStation(STATION.stationId))?.id.value).toBe(
@@ -281,14 +281,14 @@ describe('DrizzleSearchRepository', () => {
 
     const found = (await searches.find(SEARCH_ID)) as Search;
 
-    await searches.save(found.stopped(NOW, BY));
-    await expect(searches.save(found.setGone(NOW))).rejects.toThrow(
+    await searches.save(found.stop(NOW, BY));
+    await expect(searches.save(found.recordSetGone(NOW))).rejects.toThrow(
       SearchVersionConflictError,
     );
 
     const current = (await searches.locked(SEARCH_ID)) as Search;
 
-    await searches.save(current.abandoned());
+    await searches.save(current.abandon());
 
     expect(await searches.find(SEARCH_ID)).toBeNull();
   });
@@ -306,7 +306,7 @@ describe('replays, candidates and sets a search keeps', () => {
   };
 
   const searched = (id: string, name: string, searchId = SEARCH_ID) =>
-    Candidate.searched({
+    Candidate.fromSearch({
       ...made,
       id: CandidateId.of(id),
       name,
@@ -321,7 +321,7 @@ describe('replays, candidates and sets a search keeps', () => {
   it('keeps a searched candidate and a planned one with what made them', async () => {
     await candidates.add(searched('candidate_a', 'terse'));
     await candidates.add(
-      Candidate.planned({
+      Candidate.plan({
         ...made,
         id: CandidateId.of('candidate_b'),
         changedFrom: StationChanges.none(LIVE_FINGERPRINT),
@@ -364,7 +364,7 @@ describe('replays, candidates and sets a search keeps', () => {
 
   it('keeps which runs a replay replays and the search it belongs to', async () => {
     const set = aSet(4);
-    const started = Replay.started({
+    const started = Replay.start({
       id: ReplayId.of('replay_some'),
       set,
       candidate: searched('candidate_a', 'terse'),
@@ -399,7 +399,7 @@ describe('replays, candidates and sets a search keeps', () => {
 
     const stale = (await sets.find(set.id)) as ReplaySet;
 
-    await sets.save(((await sets.locked(set.id)) as ReplaySet).searched());
+    await sets.save(((await sets.locked(set.id)) as ReplaySet).recordSearch());
 
     expect((await sets.find(set.id))?.version).toBe(1);
     await expect(
@@ -409,7 +409,7 @@ describe('replays, candidates and sets a search keeps', () => {
 
   it('keeps which set guards a station’s changes, one per station', async () => {
     const first = aSet(1);
-    const second = ReplaySet.opened({
+    const second = ReplaySet.open({
       id: ReplaySetId.of('set_2'),
       station: STATION,
       name: ReplaySetName.of('Other'),

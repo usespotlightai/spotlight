@@ -16,7 +16,7 @@ export interface TeamMembership extends WorkspaceMembership {
   readonly teamId: TeamId;
 }
 
-export interface WorkspaceClearance {
+export interface WorkspacePermissions {
   readonly workspaceId: WorkspaceId;
   readonly slug: string;
   readonly configures: boolean;
@@ -26,7 +26,7 @@ export interface WorkspaceClearance {
   readonly administers: boolean;
 }
 
-export interface TeamClearance extends WorkspaceClearance {
+export interface TeamPermissions extends WorkspacePermissions {
   readonly teamId: TeamId;
 }
 
@@ -45,20 +45,20 @@ export interface WorkspaceAccessPort {
 
   onTeam(teamId: string, viewer: UserId): Promise<TeamMembership | null>;
 
-  clearanceIn(
+  permissionsIn(
     workspaceId: WorkspaceId,
     principal: Principal,
-  ): Promise<WorkspaceClearance | null>;
+  ): Promise<WorkspacePermissions | null>;
 
-  clearanceOnTeam(
+  permissionsOnTeam(
     teamId: string,
     principal: Principal,
-  ): Promise<TeamClearance | null>;
+  ): Promise<TeamPermissions | null>;
 
-  clearanceAsTeamReader(
+  permissionsAsTeamReader(
     teamId: string,
     principal: Principal,
-  ): Promise<TeamClearance | null>;
+  ): Promise<TeamPermissions | null>;
 
   mayPlan(principal: Principal): boolean;
 }

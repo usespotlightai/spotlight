@@ -17,13 +17,13 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-const MOST_TOLD = 2_000;
+const MAX_TOLD = 2_000;
 
-const MOST_STEPS_TOLD = 100_000;
+const MAX_STEPS_TOLD = 100_000;
 
-const MOST_NOTES_TOLD = 20_000;
+const MAX_NOTES_TOLD = 20_000;
 
-const MOST_STANDING_TOLD = 50;
+const MAX_STANDING_TOLD = 50;
 
 export type NoteSpeaker = 'person' | 'world';
 
@@ -46,20 +46,20 @@ export interface ChangedPath {
 
 const clipped = (text: string): string => {
   const trimmed = text.trim();
-  return trimmed.length > MOST_TOLD
-    ? `${trimmed.slice(0, MOST_TOLD)} …`
+  return trimmed.length > MAX_TOLD
+    ? `${trimmed.slice(0, MAX_TOLD)} …`
     : trimmed;
 };
 
 const within = <T extends { readonly text: string }>(
   items: readonly T[],
-  most: number,
+  max: number,
 ): T[] => {
   const kept: T[] = [];
   let used = 0;
 
   for (const item of items) {
-    if (used + item.text.length > most) {
+    if (used + item.text.length > max) {
       break;
     }
 
@@ -113,18 +113,18 @@ export class DraftEvidence {
       input.steps
         .map((each) => ({ ...each, text: clipped(each.text) }))
         .reverse(),
-      MOST_STEPS_TOLD,
+      MAX_STEPS_TOLD,
     ).reverse();
     const ordered = [...input.notes]
       .sort((a, b) => a.position - b.position)
       .map((each) => ({ ...each, text: clipped(each.text) }));
     const unread = within(
       ordered.filter((each) => each.position >= input.notesRead),
-      MOST_NOTES_TOLD,
+      MAX_NOTES_TOLD,
     );
     const revisited = within(
       ordered.filter((each) => each.position < input.notesRead),
-      MOST_NOTES_TOLD - unread.reduce((sum, each) => sum + each.text.length, 0),
+      MAX_NOTES_TOLD - unread.reduce((sum, each) => sum + each.text.length, 0),
     );
     const changed = input.changed.flatMap((each) => {
       const path = pathOf(each.path);
@@ -138,7 +138,7 @@ export class DraftEvidence {
       .sort(
         (one, other) => other.approval.at.getTime() - one.approval.at.getTime(),
       )
-      .slice(0, MOST_STANDING_TOLD);
+      .slice(0, MAX_STANDING_TOLD);
 
     return new DraftEvidence(
       input.taskId,

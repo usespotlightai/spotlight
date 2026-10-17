@@ -4,10 +4,10 @@ import { IntegrationNeed } from '@/components/features/integrations/IntegrationN
 import { IntegrationReadProblem } from '@/components/features/integrations/IntegrationReadProblem';
 import { IntegrationRowFrame } from '@/components/features/integrations/IntegrationRowFrame';
 import {
+  formatUsedFor,
   type Integration,
   type Joined,
   type MyConnection,
-  usedForShown,
 } from '@/lib/integration';
 
 type IntegrationRowProps = {
@@ -35,7 +35,7 @@ export function IntegrationRow({
           <IntegrationReadProblem described={integration.described} />
         )
       }
-      summary={usedForShown(integration)}
+      summary={formatUsedFor(integration)}
       need={
         <IntegrationNeed
           integration={integration}

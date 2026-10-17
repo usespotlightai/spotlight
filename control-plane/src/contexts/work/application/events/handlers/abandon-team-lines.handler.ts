@@ -18,13 +18,13 @@ export class AbandonTeamLines {
   async of(teamId: TeamId): Promise<void> {
     for (const line of await this.lines.ofTeam(teamId)) {
       try {
-        await this.transaction.run(async () => {
+        await this.transaction.inTransaction(async () => {
           const tasks = await this.tallies.lockedStandingAt(
             line.stations.map((each) => each.id),
           );
 
           await this.lines.save(
-            line.retired(tasks, Attribution.spotlight(line.workspaceId)),
+            line.retire(tasks, Attribution.spotlight(line.workspaceId)),
           );
         });
       } catch (error) {

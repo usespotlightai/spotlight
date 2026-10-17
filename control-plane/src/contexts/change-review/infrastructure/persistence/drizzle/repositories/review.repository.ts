@@ -67,7 +67,7 @@ export class DrizzleReviewRepository implements ReviewRepository {
   ) {}
 
   async add(added: Review): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.inserted(added);
       await this.events.dispatch(added.pullEvents());
     });
@@ -78,7 +78,7 @@ export class DrizzleReviewRepository implements ReviewRepository {
   }
 
   async save(saved: Review): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());
     });

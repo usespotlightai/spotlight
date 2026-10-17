@@ -34,7 +34,7 @@ export interface TokenTerms {
   readonly expiresAt: Date | null;
 }
 
-interface Kept extends TokenTerms {
+interface Props extends TokenTerms {
   readonly id: WorkspaceTokenId;
   readonly workspaceId: WorkspaceId;
   readonly hash: TokenHash;
@@ -47,7 +47,7 @@ interface Kept extends TokenTerms {
   readonly version: number;
 }
 
-interface State extends Kept {
+interface State extends Props {
   readonly revoked: boolean;
 }
 
@@ -65,7 +65,7 @@ export class WorkspaceToken extends EventRecorder {
 
   static issue(
     input: Omit<
-      Kept,
+      Props,
       | 'version'
       | 'issuedAt'
       | 'mintedThrough'
@@ -116,7 +116,7 @@ export class WorkspaceToken extends EventRecorder {
 
   static minted(
     input: Omit<
-      Kept,
+      Props,
       | 'version'
       | 'issuedAt'
       | 'description'
@@ -253,7 +253,7 @@ export class WorkspaceToken extends EventRecorder {
     return minted;
   }
 
-  static rehydrate(input: Kept): WorkspaceToken {
+  static rehydrate(input: Props): WorkspaceToken {
     if ((input.mintedForRun === null) !== (input.mintedForAttempt === null)) {
       throw new InconsistentStateError(
         'workspace token',
@@ -270,7 +270,7 @@ export class WorkspaceToken extends EventRecorder {
     }
   }
 
-  redescribed(terms: TokenTerms, by: Attribution): WorkspaceToken {
+  redescribe(terms: TokenTerms, by: Attribution): WorkspaceToken {
     this.guardStanding();
 
     if (this.isMinted) {
@@ -303,7 +303,7 @@ export class WorkspaceToken extends EventRecorder {
     return redescribed;
   }
 
-  revoked(by: Attribution): WorkspaceToken {
+  revoke(by: Attribution): WorkspaceToken {
     this.guardStanding();
 
     const revoked = this.with({ revoked: true });

@@ -17,7 +17,7 @@ import {
   changeOf,
 } from '@outcomes/domain/value-objects/change.vo';
 
-export const FEWEST_SETTLED_RUNS = 5;
+export const MIN_SETTLED_RUNS = 5;
 
 export const VERDICTS = [
   'better',
@@ -124,8 +124,8 @@ export const verdictFrom = (
       was.value,
       now.value,
       sameMoney &&
-        was.settled >= FEWEST_SETTLED_RUNS &&
-        now.settled >= FEWEST_SETTLED_RUNS,
+        was.settled >= MIN_SETTLED_RUNS &&
+        now.settled >= MIN_SETTLED_RUNS,
     ),
     change: changeOf(now.value, sameMoney ? was.value : null, {
       better: 'neither',

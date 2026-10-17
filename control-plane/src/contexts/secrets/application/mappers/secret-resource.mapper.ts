@@ -1,10 +1,10 @@
 import type { SecretResourceDto } from '@secrets/application/dto/secret-resource.dto';
-import type { ConfiguredSecret } from '@secrets/application/ports/secret-configuration.port';
-import type { KeptSecret } from '@secrets/application/ports/secret-resources.port';
+import type { SecretView } from '@secrets/application/ports/secret-configuration.port';
+import type { SecretRecord } from '@secrets/application/ports/secret-resources.port';
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 
 export const SecretResourceMapper = {
-  toDto(secret: KeptSecret): SecretResourceDto {
+  toDto(secret: SecretRecord): SecretResourceDto {
     return {
       id: secret.id,
       version: secret.version,
@@ -19,7 +19,7 @@ export const SecretResourceMapper = {
     };
   },
 
-  configured(secret: Secret): ConfiguredSecret {
+  configured(secret: Secret): SecretView {
     return {
       id: secret.id.value,
       address: secret.name.value,

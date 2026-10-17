@@ -19,7 +19,7 @@ import type {
   SuggestedRunResponseDto,
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
-import { claimsMetShown, percentShown } from '@/lib/judge';
+import { formatClaimsMet, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
   AGAINST_LIVE,
@@ -66,13 +66,13 @@ export const LIVE = 'live';
 
 export const REPLAYS_ANCHOR = 'replays';
 
-const MOST_CEILING = 1_000;
+const MAX_CEILING = 1_000;
 
-export type CountBounds = { readonly least: number; readonly most: number };
+export type CountBounds = { readonly min: number; readonly max: number };
 
 export const REPEAT_BOUNDS = {
-  least: 1,
-  most: 5,
+  min: 1,
+  max: 5,
 } as const satisfies CountBounds;
 
 export const USUAL_CURRENCY = 'USD';
@@ -114,7 +114,9 @@ export const latestOf = (replays: readonly Replay[]): Replay | null =>
 export const baselineIn = (replays: readonly Replay[]): Replay | null =>
   replays.find((each) => each.isBaseline) ?? null;
 
-export const candidateShown = (candidate: ReplayedCandidate | null): string => {
+export const formatCandidate = (
+  candidate: ReplayedCandidate | null,
+): string => {
   if (!candidate) {
     return 'A removed candidate';
   }
@@ -122,7 +124,7 @@ export const candidateShown = (candidate: ReplayedCandidate | null): string => {
   return candidate.kind === 'live' ? LIVE_CONFIG_LABEL : candidate.name;
 };
 
-export const titleShown = (title: string | null): string =>
+export const formatTitle = (title: string | null): string =>
   title ?? 'A deleted task';
 
 export const spendOfCeiling = (spent: Spend, ceiling: Spend): string =>
@@ -190,7 +192,7 @@ export const comparisonInOrder = (
 const signOf = (delta: number): string =>
   delta > 0 ? '+' : delta < 0 ? '−' : '';
 
-export const costDeltaShown = (
+export const formatCostDelta = (
   delta: number | null,
   currency: string,
 ): string =>
@@ -198,10 +200,10 @@ export const costDeltaShown = (
     ? '–'
     : `${signOf(delta)}${spentIn(Math.abs(delta), currency)}`;
 
-export const msDeltaShown = (delta: number | null): string =>
+export const formatMsDelta = (delta: number | null): string =>
   delta === null ? '–' : `${signOf(delta)}${took(Math.abs(delta))}`;
 
-export const scoreDeltaShown = (delta: number | null): string =>
+export const formatScoreDelta = (delta: number | null): string =>
   delta === null ? '–' : `${signOf(delta)}${Math.abs(delta).toFixed(2)}`;
 
 type Counterpart = 'baseline' | 'search-start' | 'live' | 'earlier-baseline';
@@ -225,7 +227,7 @@ const counterpartOf = (
   }
 };
 
-const COUNTERPARTS_SHOWN: Record<Counterpart, string> = {
+const COUNTERPART_PHRASES: Record<Counterpart, string> = {
   baseline: THE_BASELINE,
   'search-start': THE_SEARCH_START,
   live: AGAINST_LIVE,
@@ -239,12 +241,12 @@ const COUNTERPART_LABELS: Record<Counterpart, string> = {
   'earlier-baseline': EARLIER_BASELINE_LABEL,
 };
 
-export const counterpartShown = (
+export const formatCounterpart = (
   counterpartId: string,
   candidate: Replay['candidate'],
   baselineId: string | null,
 ): string =>
-  COUNTERPARTS_SHOWN[counterpartOf(counterpartId, candidate, baselineId)];
+  COUNTERPART_PHRASES[counterpartOf(counterpartId, candidate, baselineId)];
 
 export const counterpartLabel = (
   counterpartId: string,
@@ -285,7 +287,7 @@ export const readingsDisagree = (pair: EntryPair): boolean =>
   pair.outcome === 'tie' &&
   new Set(pair.readings.map((each) => each.outcome)).size > 1;
 
-export const judgeScoreShown = (
+export const formatJudgeScore = (
   judge: EntryJudgeResponseDto | null,
 ): string => {
   if (!judge || judge.score === null) {
@@ -297,8 +299,8 @@ export const judgeScoreShown = (
       return judge.score >= 1 ? 'Yes' : 'No';
     case 'claims':
       return judge.marks
-        ? claimsMetShown(judge.marks)
-        : `${percentShown(judge.score)} of claims met`;
+        ? formatClaimsMet(judge.marks)
+        : `${formatPercent(judge.score)} of claims met`;
     default:
       return `${judge.score}/5`;
   }
@@ -330,8 +332,8 @@ export const ceilingFrom = (
   if (amount.trim() === '' || Number.isNaN(value) || value <= 0) {
     return 'Please enter a ceiling above 0.';
   }
-  if (value > MOST_CEILING) {
-    return `Maximum ceiling: ${MOST_CEILING.toLocaleString('en-US')}`;
+  if (value > MAX_CEILING) {
+    return `Maximum ceiling: ${MAX_CEILING.toLocaleString('en-US')}`;
   }
   if (!CURRENCY.test(currency)) {
     return 'Please enter a three-letter currency code, like USD.';
@@ -342,16 +344,16 @@ export const ceilingFrom = (
 
 export const countFrom = (
   text: string,
-  { least, most }: CountBounds,
+  { min, max }: CountBounds,
 ): number | string => {
   const value = Number(text);
 
   return text.trim() !== '' &&
     Number.isInteger(value) &&
-    value >= least &&
-    value <= most
+    value >= min &&
+    value <= max
     ? value
-    : `Please enter a whole number from ${least} to ${most}.`;
+    : `Please enter a whole number from ${min} to ${max}.`;
 };
 
 export const repeatsFrom = (text: string): number | string =>
@@ -397,7 +399,9 @@ export const meanMsOf = (entries: readonly ReplayEntry[]): number | null => {
 };
 
 export const taskTitleIn = (set: ReplaySet, taskId: string): string =>
-  titleShown(set.entries.find((each) => each.taskId === taskId)?.title ?? null);
+  formatTitle(
+    set.entries.find((each) => each.taskId === taskId)?.title ?? null,
+  );
 
 export const flippedTitles = (set: ReplaySet, noise: SetNoise): string[] =>
   noise.flippedTasks.map((taskId) => taskTitleIn(set, taskId));
@@ -450,7 +454,7 @@ export const taskColumnsOf = (replay: ReplayDetail): TaskColumns => ({
   ),
   paired: replay.comparison.some((each) => each.pair !== null),
   counterpart: replay.comparedWith
-    ? counterpartShown(
+    ? formatCounterpart(
         replay.comparedWith.replayId,
         replay.candidate,
         replay.baselineReplayId,

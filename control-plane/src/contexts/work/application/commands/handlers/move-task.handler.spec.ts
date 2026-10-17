@@ -1,6 +1,6 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -12,7 +12,7 @@ import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.h
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
-import { LineAtHand } from '@work/application/services/line-at-hand.service';
+import { LineLoader } from '@work/application/services/line-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -31,7 +31,7 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const transaction: TransactionPort = { run: (work) => work() };
+const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 const at = (id: string, name: string, position: number, harness?: HarnessId) =>
   Station.of({
@@ -174,7 +174,7 @@ const move = (
   new MoveTaskHandler(
     held,
     held,
-    new LineAtHand(access(), board),
+    new LineLoader(access(), board),
     transaction,
     dispatch(),
     clock,
@@ -212,7 +212,7 @@ describe('MoveTaskHandler', () => {
   it('refuses a revision that is no whole number of moves', async () => {
     await expect(
       move('station_1', lines(), tasks(), 'team_1', -1),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
   it('answers with the person who raised it, not with nobody', async () => {
@@ -287,7 +287,7 @@ describe('MoveTaskHandler', () => {
     await expect(
       move('station_4', lines(), tasks(standing('station_2'))),
     ).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
       message: expect.stringContaining('from Triage to Spec'),
     });
     expect(saved).toBeUndefined();
@@ -297,7 +297,7 @@ describe('MoveTaskHandler', () => {
   it('refuses a person moving a completed task back out', async () => {
     await expect(
       move('station_1', lines(), tasks(standing('station_3'))),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
     expect(saved).toBeUndefined();
   });
 
@@ -308,7 +308,7 @@ describe('MoveTaskHandler', () => {
   });
 
   it('refuses a station that is not on this line', async () => {
-    await expect(move('station_elsewhere')).rejects.toThrow(UseCaseFault);
+    await expect(move('station_elsewhere')).rejects.toThrow(ApplicationError);
   });
 
   it('refuses to move a task standing on another line', async () => {
@@ -318,34 +318,36 @@ describe('MoveTaskHandler', () => {
         lines(),
         tasks(standing('station_elsewhere', elsewhere())),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
   });
 
   it('refuses a task that does not exist', async () => {
     await expect(move('station_1', lines(), tasks(null))).rejects.toThrow(
-      UseCaseFault,
+      ApplicationError,
     );
   });
 
   it('refuses a line of a team the mover does not stand on', async () => {
     await expect(move('station_1', lines(), tasks(), 'team_2')).rejects.toThrow(
-      UseCaseFault,
+      ApplicationError,
     );
     expect(saved).toBeUndefined();
   });
 
   it('refuses a line that does not exist', async () => {
-    await expect(move('station_1', lines(null))).rejects.toThrow(UseCaseFault);
+    await expect(move('station_1', lines(null))).rejects.toThrow(
+      ApplicationError,
+    );
   });
 
   it('gives unclaimed work to whoever moves it from the backlog into active', async () => {
-    await move('station_2', lines(), tasks(standing('station_1').unassigned()));
+    await move('station_2', lines(), tasks(standing('station_1').unassign()));
 
     expect(saved?.assignee?.value).toBe('user_mover');
   });
 
   it('leaves work its owner already holds with them when moved active', async () => {
-    const owned = standing('station_1').assignedTo(UserId.of('user_other'));
+    const owned = standing('station_1').assign(UserId.of('user_other'));
 
     await move('station_2', lines(), tasks(owned));
 
@@ -353,7 +355,7 @@ describe('MoveTaskHandler', () => {
   });
 
   it('assigns nobody when the move is not out of the backlog', async () => {
-    await move('station_3', lines(), tasks(standing('station_2').unassigned()));
+    await move('station_3', lines(), tasks(standing('station_2').unassign()));
 
     expect(saved?.assignee).toBeNull();
   });

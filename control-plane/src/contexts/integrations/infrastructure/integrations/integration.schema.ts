@@ -4,16 +4,16 @@ import {
   CATALOG_SOURCE,
   DOTTED_NAME,
   SECRET_NAME_SHAPE,
-  SOURCE_WORD,
-  WORDS,
+  SLUG_SHAPE,
+  SOURCE_KEY_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
 import { z } from 'zod';
 
-const NAME = new RegExp(`^${SOURCE_WORD}$`);
+const NAME = new RegExp(`^${SOURCE_KEY_SHAPE}$`);
 const HAPPENING = new RegExp(`^${DOTTED_NAME}$`);
 const MARK_KIND = HAPPENING;
-const KEY = new RegExp(`^${WORDS}$`);
+const KEY = new RegExp(`^${SLUG_SHAPE}$`);
 export const SECRET_REF = new RegExp(`^secret\\.${SECRET_NAME_SHAPE}$`);
 const WITHIN = /^\d+s$/;
 

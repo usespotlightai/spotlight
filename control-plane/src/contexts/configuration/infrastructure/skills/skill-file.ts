@@ -114,7 +114,7 @@ const readSkill = (
     tools: toolsIn(key, tools),
   };
 
-  return origin === 'defined' ? Skill.defined(input) : Skill.shipped(input);
+  return origin === 'defined' ? Skill.define(input) : Skill.ship(input);
 };
 
 export const readSkillFolder = (

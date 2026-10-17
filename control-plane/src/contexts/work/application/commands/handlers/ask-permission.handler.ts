@@ -1,4 +1,4 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import type {
@@ -54,7 +54,7 @@ export class AskPermissionHandler
 
       return { decision: ANSWERS[cleared] };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

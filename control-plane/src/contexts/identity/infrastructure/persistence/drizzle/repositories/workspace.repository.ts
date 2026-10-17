@@ -90,14 +90,14 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   }
 
   async save(saved: Workspace): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());
     });
   }
 
   private async stored(saved: Workspace): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       if (saved.isClosed) {
         await this.closed(saved);
         return;
@@ -177,7 +177,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   }
 
   async add(added: Workspace): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.inserted(added);
       await this.events.dispatch(added.pullEvents());
     });
@@ -185,7 +185,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
 
   private async inserted(added: Workspace): Promise<void> {
     try {
-      await this.context.run(async () => {
+      await this.context.inTransaction(async () => {
         await this.context.db.insert(workspace).values({
           id: added.id.value,
           name: added.name.value,

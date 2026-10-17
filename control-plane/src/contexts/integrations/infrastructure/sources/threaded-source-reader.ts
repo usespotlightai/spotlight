@@ -42,7 +42,7 @@ const FROM_SOURCE_WITH = {
   env: { ...process.env, TS_NODE_PROJECT: 'tsconfig.build.json' },
 };
 
-const HEAP_AT_MOST_MB = 1024;
+const MAX_HEAP_MB = 1024;
 
 const SLOTS = new ReadSlots(2);
 
@@ -196,7 +196,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
       const worker = new Worker(WORKER, {
         workerData: asked,
         ...(FROM_SOURCE ? FROM_SOURCE_WITH : {}),
-        resourceLimits: { maxOldGenerationSizeMb: HEAP_AT_MOST_MB },
+        resourceLimits: { maxOldGenerationSizeMb: MAX_HEAP_MB },
       });
       const timer = setTimeout(() => {
         void worker.terminate();

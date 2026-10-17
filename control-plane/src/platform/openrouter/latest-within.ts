@@ -1,12 +1,12 @@
 export const latestWithin = (
   lines: readonly string[],
-  most: number,
+  max: number,
 ): string[] => {
   const kept: string[] = [];
   let used = 0;
 
   for (const line of [...lines].reverse()) {
-    if (used + line.length > most) {
+    if (used + line.length > max) {
       break;
     }
 

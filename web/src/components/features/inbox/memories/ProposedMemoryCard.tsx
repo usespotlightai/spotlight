@@ -6,7 +6,7 @@ import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import {
-  MOST_MEMORY_BODY,
+  MAX_MEMORY_BODY,
   type ProposedMemory,
   proposalStandingOf,
   proposalTitleOf,
@@ -35,7 +35,7 @@ export function ProposedMemoryCard({
   const bodyId = useId();
   const written = body.trim();
   const ready =
-    !editing || (written.length > 0 && written.length <= MOST_MEMORY_BODY);
+    !editing || (written.length > 0 && written.length <= MAX_MEMORY_BODY);
 
   return (
     <DecisionCard as="li" data-slot="proposed-memory">

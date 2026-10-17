@@ -4,7 +4,7 @@ import type {
   ReviewedTask,
   WorkPort,
 } from '@change-review/application/ports/work.port';
-import { ReviewClearance } from '@change-review/domain/services/review-clearance';
+import { TeamAccess } from '@change-review/domain/services/team-access';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -41,7 +41,7 @@ export class ChangeStackAccess {
     ]);
 
     return member &&
-      ReviewClearance.of(member).reaches({
+      TeamAccess.of(member).reaches({
         workspaceId: run.workspaceId,
         teamId: ranFor,
       })
@@ -57,8 +57,6 @@ export class ChangeStackAccess {
     const member = await this.people.memberOf(teamId, viewerId);
     const task = member ? await this.work.task(TaskId.of(taskId)) : null;
 
-    return member && task && ReviewClearance.of(member).reaches(task)
-      ? task
-      : null;
+    return member && task && TeamAccess.of(member).reaches(task) ? task : null;
   }
 }

@@ -113,7 +113,7 @@ export class DrizzleDescribedDocuments implements DescribedDocumentRepository {
   }
 
   async keep(document: DescribedDocument): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const kept = await this.context.db
         .insert(describedDocument)
         .values({

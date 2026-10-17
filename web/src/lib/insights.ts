@@ -38,7 +38,7 @@ import {
   type PullRequestFilterKey,
   pullRequestFilterOf,
 } from '@/lib/insights-pull-requests';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { RANGES, type Range } from '@/lib/range';
 import { teamSectionPath } from '@/lib/team';
@@ -127,7 +127,7 @@ const RUN_NEXTS: readonly RunNext[] = [
   'sent-back',
 ];
 
-const MOST_TASK_IDS = 200;
+const MAX_TASK_IDS = 200;
 
 const RUN_FILTER_KEYS = [
   'lineId',
@@ -285,23 +285,23 @@ export const whyNoSpend = (mixedCurrencies: boolean): string =>
   mixedCurrencies ? MIXED_CURRENCIES : NOTHING_PRICED;
 
 export const mergedFilter = (taskIds: readonly string[]): RunFilter =>
-  taskIds.length > 0 && taskIds.length <= MOST_TASK_IDS
+  taskIds.length > 0 && taskIds.length <= MAX_TASK_IDS
     ? { taskIds: taskIds.join(',') }
     : { delivery: 'merged' };
 
 export const tasksFilter = (taskIds: readonly string[]): RunFilter | null =>
-  taskIds.length > 0 && taskIds.length <= MOST_TASK_IDS
+  taskIds.length > 0 && taskIds.length <= MAX_TASK_IDS
     ? { taskIds: taskIds.join(',') }
     : null;
 
-export const spendShown = (spend: Spend | null): string =>
+export const formatSpend = (spend: Spend | null): string =>
   spend ? spentIn(spend.amount, spend.currency) : '–';
 
-export const countShown = (count: number): string => count.toLocaleString();
+export const formatCount = (count: number): string => count.toLocaleString();
 
-export const shareShown = percentShown;
+export const formatShare = formatPercent;
 
-export const perShown = (value: number | null): string =>
+export const formatPer = (value: number | null): string =>
   value === null ? '–' : value.toFixed(1);
 
 const HOUR_MS = 3_600_000;
@@ -325,13 +325,13 @@ export const lasted = (ms: number): string => {
 export const lastedOrNone = (ms: number | null): string =>
   ms === null ? '–' : lasted(ms);
 
-export const medianShown = (spread: Spread): string =>
+export const formatMedian = (spread: Spread): string =>
   spread.p50Ms === null ? '–' : lasted(spread.p50Ms);
 
-export const tailShown = (spread: Spread): string | null =>
+export const formatTail = (spread: Spread): string | null =>
   spread.p50Ms === null ? null : `p90 ${lastedOrNone(spread.p90Ms)}`;
 
-export const spreadShown = (spread: Spread): string =>
+export const formatSpread = (spread: Spread): string =>
   spread.p50Ms === null
     ? '–'
     : `${lasted(spread.p50Ms)} · p90 ${lastedOrNone(spread.p90Ms)}`;
@@ -369,7 +369,7 @@ const changedBy = (change: Change): string => {
     : PERCENT_CHANGE.format(change.by);
 };
 
-export const changeShown = (change: Change | null): Delta | null =>
+export const changeDelta = (change: Change | null): Delta | null =>
   change && {
     shown: change.direction === 'same' ? 'No change' : changedBy(change),
     tone: change.tone,
@@ -395,33 +395,33 @@ export const headlineTiles = (
   {
     id: 'spend',
     label: 'Spend',
-    value: spendShown(now.spend),
+    value: formatSpend(now.spend),
     detail: now.spend
-      ? `Over ${countShown(now.runs)} ${now.runs === 1 ? 'run' : 'runs'}`
+      ? `Over ${formatCount(now.runs)} ${now.runs === 1 ? 'run' : 'runs'}`
       : whyNoSpend(now.mixedCurrencies),
-    delta: changeShown(changes.spend),
+    delta: changeDelta(changes.spend),
     drill: { tab: 'runs' },
   },
   {
     id: 'merged',
     label: 'PRs merged',
-    value: countShown(now.mergedPullRequests),
-    detail: `${countShown(now.closedPullRequests)} closed unmerged`,
-    delta: changeShown(changes.mergedPullRequests),
+    value: formatCount(now.mergedPullRequests),
+    detail: `${formatCount(now.closedPullRequests)} closed unmerged`,
+    delta: changeDelta(changes.mergedPullRequests),
     drill: { tab: 'runs', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
     id: 'merge-rate',
     label: 'Merge rate',
-    value: shareShown(now.mergeRate),
-    delta: changeShown(changes.mergeRate),
+    value: formatShare(now.mergeRate),
+    delta: changeDelta(changes.mergeRate),
     drill: { tab: 'runs', filter: { delivery: 'merged' } },
   },
   {
     id: 'cost-per-merge',
     label: 'Cost per merged PR',
-    value: spendShown(now.costPerMerge),
-    delta: changeShown(changes.costPerMerge),
+    value: formatSpend(now.costPerMerge),
+    delta: changeDelta(changes.costPerMerge),
     drill: { tab: 'cost' },
   },
   {
@@ -432,22 +432,22 @@ export const headlineTiles = (
       now.taskToMerge.p90Ms === null
         ? undefined
         : `p90 ${lasted(now.taskToMerge.p90Ms)}`,
-    delta: changeShown(changes.taskToMerge),
+    delta: changeDelta(changes.taskToMerge),
     drill: { tab: 'runs', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
     id: 'touches',
     label: 'Human touches per task',
-    value: perShown(now.touchesPerTask),
-    detail: `${countShown(now.touches)} over ${countShown(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
-    delta: changeShown(changes.touchesPerTask),
+    value: formatPer(now.touchesPerTask),
+    detail: `${formatCount(now.touches)} over ${formatCount(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
+    delta: changeDelta(changes.touchesPerTask),
     drill: { tab: 'people' },
   },
   {
     id: 'people',
     label: 'Active people',
-    value: countShown(now.activePeople),
-    delta: changeShown(changes.activePeople),
+    value: formatCount(now.activePeople),
+    delta: changeDelta(changes.activePeople),
     drill: { tab: 'people' },
   },
 ];
@@ -486,7 +486,7 @@ export const stationNamesOf = (
 
 const REMOVED_STATION = 'A removed station';
 
-export const stationShown = (names: StationNames, stationId: string): string =>
+export const formatStation = (names: StationNames, stationId: string): string =>
   names.get(stationId)?.stationName ?? REMOVED_STATION;
 
 export const improvingOf = (named: NamedStation): ImprovedStation => ({
@@ -498,7 +498,7 @@ export const improvingOf = (named: NamedStation): ImprovedStation => ({
   stationName: named.stationName,
 });
 
-export const personShown = (
+export const formatPerson = (
   people: readonly PersonName[],
   personId: string | null,
 ): string => {
@@ -511,7 +511,7 @@ export const personShown = (
   );
 };
 
-export const harnessShown = (
+export const formatHarness = (
   harnesses: readonly HarnessResponseDto[] | undefined,
   harness: string,
 ): string => harnesses?.find((each) => each.id === harness)?.name ?? harness;
@@ -520,10 +520,10 @@ const HARNESS_DEFAULT = 'Harness default';
 
 const NO_REPOSITORY = 'No repository';
 
-export const modelShown = (model: string | null): string =>
+export const formatModel = (model: string | null): string =>
   model ?? HARNESS_DEFAULT;
 
-const repositoryShown = (repository: string | null): string =>
+const formatRepository = (repository: string | null): string =>
   repository ?? NO_REPOSITORY;
 
 export const dayOf = (at: string): string => at.slice(0, 10);
@@ -555,7 +555,7 @@ export const signalValue = (
     return value.toFixed(2);
   }
 
-  return shareShown(value);
+  return formatShare(value);
 };
 
 const SIGNAL_ROOM = 1.1;
@@ -576,18 +576,18 @@ const tidyAbove = (value: number): number => {
 };
 
 export const signalScale = (reading: SignalReading): number => {
-  const most = Math.max(
+  const max = Math.max(
     reading.now,
     reading.before ?? 0,
     reading.team ?? 0,
     reading.flaggedAbove,
   );
 
-  if (most <= 0) {
+  if (max <= 0) {
     return 1;
   }
 
-  const tidy = tidyAbove(most * SIGNAL_ROOM);
+  const tidy = tidyAbove(max * SIGNAL_ROOM);
 
   return SHARES.has(reading.signal) ? Math.min(tidy, 1) : tidy;
 };
@@ -597,7 +597,7 @@ export const signalPlace = (reading: SignalReading, value: number): number =>
 
 export const signalTick = (reading: SignalReading, value: number): string => {
   if (SHARES.has(reading.signal)) {
-    return shareShown(value);
+    return formatShare(value);
   }
 
   const number = value.toLocaleString('en', { maximumFractionDigits: 2 });
@@ -612,7 +612,7 @@ export const signalTick = (reading: SignalReading, value: number): string => {
     : number;
 };
 
-export const signalShown = (reading: SignalReading): string => {
+export const formatSignal = (reading: SignalReading): string => {
   const shown = (value: number | null) => signalValue(reading, value);
   const against = [
     ...(reading.before === null ? [] : [`was ${shown(reading.before)}`]),
@@ -624,10 +624,10 @@ export const signalShown = (reading: SignalReading): string => {
     : `${signalLabel(reading.signal)} ${shown(reading.now)}`;
 };
 
-export const taskFailureShown = (failure: TaskFailureSummary): string =>
+export const formatTaskFailure = (failure: TaskFailureSummary): string =>
   `${failure.source} · ${failure.code}`;
 
-export const runFailureShown = (failure: RunFailureSummary): string =>
+export const formatRunFailure = (failure: RunFailureSummary): string =>
   failure.failure ?? 'No reason given';
 
 export type TrendPoint = {
@@ -657,7 +657,7 @@ export const waitRows = (
 ): WaitRow[] =>
   stations.map((each) => ({
     stationId: each.stationId,
-    label: stationShown(names, each.stationId),
+    label: formatStation(names, each.stationId),
     queued: each.queued.p50Ms ?? 0,
     running: each.running.p50Ms ?? 0,
     inbox: each.inbox.p50Ms ?? 0,
@@ -699,13 +699,13 @@ export const sliceNamer =
   (dimension, key) => {
     switch (dimension) {
       case 'harness':
-        return key === null ? '–' : harnessShown(harnesses, key);
+        return key === null ? '–' : formatHarness(harnesses, key);
       case 'model':
-        return modelShown(key);
+        return formatModel(key);
       case 'station':
-        return key === null ? REMOVED_STATION : stationShown(names, key);
+        return key === null ? REMOVED_STATION : formatStation(names, key);
       case 'repository':
-        return repositoryShown(key);
+        return formatRepository(key);
     }
   };
 
@@ -806,7 +806,7 @@ export const pageShownOf = (paged: Paged, none: string): string => {
   const first = (paged.page - 1) * paged.size + 1;
   const last = Math.min(paged.page * paged.size, paged.total);
 
-  return `${countShown(first)}–${countShown(last)} of ${countShown(paged.total)}`;
+  return `${formatCount(first)}–${formatCount(last)} of ${formatCount(paged.total)}`;
 };
 
 export const runsShownOf = (runs: InsightsRuns): string =>
@@ -856,7 +856,7 @@ const NEXTS: Record<RunNext, string> = {
   'sent-back': 'Sent back',
 };
 
-export const filterValueShown = (key: RunFilterKey, value: string): string => {
+export const formatFilterValue = (key: RunFilterKey, value: string): string => {
   switch (key) {
     case 'model':
       return value === DEFAULT_MODEL_FILTER ? HARNESS_DEFAULT : value;
@@ -881,8 +881,8 @@ export const filterValueShown = (key: RunFilterKey, value: string): string => {
   }
 };
 
-export const cacheShown = (share: number | null): string =>
-  share === null ? 'not reported' : shareShown(share);
+export const formatCache = (share: number | null): string =>
+  share === null ? 'not reported' : formatShare(share);
 
 export type TallyTile = HeadlineTile & { readonly trend?: readonly number[] };
 
@@ -899,8 +899,8 @@ const counted = (
         {
           id,
           label,
-          value: countShown(now),
-          delta: changeShown(change),
+          value: formatCount(now),
+          delta: changeDelta(change),
           drill,
         },
       ]
@@ -916,20 +916,20 @@ export const tallyTiles = (
   {
     id: 'runs',
     label: 'Runs',
-    value: countShown(now.runs),
-    delta: changeShown(changes.runs),
+    value: formatCount(now.runs),
+    delta: changeDelta(changes.runs),
     drill: { tab: 'runs', filter },
     trend: trend.map((day) => day.runs),
   },
   {
     id: 'failed',
     label: 'Failed',
-    value: countShown(now.failed),
+    value: formatCount(now.failed),
     detail:
       now.failedShare === null
         ? undefined
-        : `${shareShown(now.failedShare)} of runs`,
-    delta: changeShown(changes.failed),
+        : `${formatShare(now.failedShare)} of runs`,
+    delta: changeDelta(changes.failed),
     drill: { tab: 'runs', filter: { ...filter, outcome: 'failed' } },
     trend: trend.map((day) => day.failed),
   },
@@ -952,8 +952,8 @@ export const tallyTiles = (
   {
     id: 'cost',
     label: 'Cost',
-    value: spendShown(now.cost),
-    delta: changeShown(changes.cost),
+    value: formatSpend(now.cost),
+    delta: changeDelta(changes.cost),
     drill: { tab: 'cost' },
   },
   {
@@ -961,7 +961,7 @@ export const tallyTiles = (
     label: 'Median run',
     value: lastedOrNone(now.medianMs),
     detail: now.p90Ms === null ? undefined : `p90 ${lasted(now.p90Ms)}`,
-    delta: changeShown(changes.median),
+    delta: changeDelta(changes.median),
     drill: undefined,
   },
 ];
@@ -989,7 +989,7 @@ export const insightsCrumbs = (
             page: 1,
           }),
         },
-        { label: stationShown(names, stationId) },
+        { label: formatStation(names, stationId) },
       ]
     : [{ label: tab }];
 };
@@ -1010,4 +1010,4 @@ export const signalHeadings = (
 ];
 
 export const signalAsk = (reading: SignalReading): string =>
-  `${signalShown(reading)}. What should change at this station?`;
+  `${formatSignal(reading)}. What should change at this station?`;

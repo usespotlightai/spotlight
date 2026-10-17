@@ -64,7 +64,7 @@ const NO_SPEND = ModelSpent.of([], 0);
 const run = (number: number) => RunId.of(`search_run_${number}`);
 
 const searching = (search = aSearch(), runIds = searchRunIds()): Search => {
-  const seeded = search.replayEnded(
+  const seeded = search.recordReplayEnd(
     SEED,
     'finished',
     charged(5),
@@ -104,7 +104,7 @@ const endingReplays = (
 ): Search =>
   names.reduce(
     (held, name) =>
-      held.replayEnded(
+      held.recordReplayEnd(
         ReplayId.of(`replay_${name}`),
         end,
         charged(spent),
@@ -124,8 +124,13 @@ const iterated = (
 ): Search =>
   endingReplays(
     proposing(search, number, names)
-      .runEnded(run(number), { failed: false, started: true }, later(1), runIds)
-      .spentByAgent(run(number), NO_SPEND, later(1), runIds),
+      .recordRunEnd(
+        run(number),
+        { failed: false, started: true },
+        later(1),
+        runIds,
+      )
+      .recordAgentSpend(run(number), NO_SPEND, later(1), runIds),
     names,
     end,
     runIds,
@@ -138,13 +143,13 @@ const stalled = (
   [1, 2].reduce(
     (held, number) =>
       held
-        .runEnded(
+        .recordRunEnd(
           run(number),
           { failed: number === 1, started: true },
           later(number),
           runIds,
         )
-        .spentByAgent(run(number), NO_SPEND, later(number), runIds),
+        .recordAgentSpend(run(number), NO_SPEND, later(number), runIds),
     searching(aSearch({ budget }), runIds),
   );
 
@@ -157,7 +162,7 @@ describe('Search', () => {
         entries: set.entries,
         digest: sha256,
       });
-      const started = Search.started({
+      const started = Search.start({
         id: SEARCH_ID,
         set,
         agent: AGENT,
@@ -192,7 +197,7 @@ describe('Search', () => {
 
     it('records the agent, budget and how many tasks it holds out', () => {
       const set = aSet(10);
-      const started = Search.started({
+      const started = Search.start({
         id: SEARCH_ID,
         set,
         agent: AGENT,
@@ -229,7 +234,7 @@ describe('Search', () => {
       const set = aSet(10);
 
       expect(() =>
-        Search.started({
+        Search.start({
           id: SEARCH_ID,
           set,
           agent: AGENT,
@@ -251,7 +256,7 @@ describe('Search', () => {
       const set = aSet(10);
 
       expect(() =>
-        Search.started({
+        Search.start({
           id: SEARCH_ID,
           set,
           agent: AGENT,
@@ -288,7 +293,7 @@ describe('Search', () => {
   describe('seeding', () => {
     it('wants its first iteration once its seed replay finished', () => {
       const runIds = searchRunIds();
-      const seeded = aSearch().replayEnded(
+      const seeded = aSearch().recordReplayEnd(
         SEED,
         'finished',
         charged(5),
@@ -307,7 +312,7 @@ describe('Search', () => {
     });
 
     it('ends, its ceiling reached, when its seed replay went over budget', () => {
-      const over = aSearch().replayEnded(
+      const over = aSearch().recordReplayEnd(
         SEED,
         'over-budget',
         charged(50),
@@ -324,7 +329,7 @@ describe('Search', () => {
     it.each(['stopped', 'abandoned'] as const)(
       'ends, its seed failed, when its seed replay ended %s',
       (end) => {
-        const failed = aSearch().replayEnded(
+        const failed = aSearch().recordReplayEnd(
           SEED,
           end,
           charged(5),
@@ -392,13 +397,13 @@ describe('Search', () => {
 
     it('takes no candidate once its run ended, nor from a run it never held', () => {
       const ended = searching()
-        .runEnded(
+        .recordRunEnd(
           run(1),
           { failed: false, started: true },
           later(1),
           searchRunIds(),
         )
-        .spentByAgent(run(1), NO_SPEND, later(1), searchRunIds());
+        .recordAgentSpend(run(1), NO_SPEND, later(1), searchRunIds());
 
       expect(() => ended.admitted(run(1), admission('late'))).toThrow(
         SearchIterationClosedError,
@@ -432,8 +437,13 @@ describe('Search', () => {
         'two',
       ]);
       const runOver = proposed
-        .runEnded(run(1), { failed: false, started: true }, later(1), runIds)
-        .spentByAgent(run(1), NO_SPEND, later(1), runIds);
+        .recordRunEnd(
+          run(1),
+          { failed: false, started: true },
+          later(1),
+          runIds,
+        )
+        .recordAgentSpend(run(1), NO_SPEND, later(1), runIds);
 
       expect(runOver.iterations).toHaveLength(1);
 
@@ -465,7 +475,7 @@ describe('Search', () => {
       expect(again.iterations).toHaveLength(ended.iterations.length);
       expect(endingReplays(ended, ['one'], 'stopped', runIds, 0.5)).toBe(ended);
       expect(
-        seeded.replayEnded(SEED, 'stopped', charged(1), NOW, runIds, true),
+        seeded.recordReplayEnd(SEED, 'stopped', charged(1), NOW, runIds, true),
       ).toBe(seeded);
     });
 
@@ -490,7 +500,7 @@ describe('Search', () => {
 
     it('closes an iteration only once its agent’s spend is known, however late it comes', () => {
       const runIds = searchRunIds();
-      const ended = searching(aSearch(), runIds).runEnded(
+      const ended = searching(aSearch(), runIds).recordRunEnd(
         run(1),
         { failed: false, started: true },
         later(1),
@@ -500,7 +510,7 @@ describe('Search', () => {
       expect(ended.heldRun).toBeNull();
       expect(ended.awaitingAgentSpend.map((each) => each.number)).toEqual([1]);
 
-      const spent = ended.spentByAgent(
+      const spent = ended.recordAgentSpend(
         run(1),
         ModelSpent.of([usd(2)], 0),
         later(2),
@@ -510,14 +520,18 @@ describe('Search', () => {
       expect(spent.heldRun).toEqual(run(2));
       expect(spent.spent.amount).toBe(7);
       expect(
-        spent.spentByAgent(run(1), ModelSpent.of([usd(9)], 0), later(3), runIds)
-          .spent.amount,
+        spent.recordAgentSpend(
+          run(1),
+          ModelSpent.of([usd(9)], 0),
+          later(3),
+          runIds,
+        ).spent.amount,
       ).toBe(7);
     });
 
     it('closes an iteration whose run never started without waiting for a spend', () => {
       const runIds = searchRunIds();
-      const withdrawn = searching(aSearch(), runIds).runEnded(
+      const withdrawn = searching(aSearch(), runIds).recordRunEnd(
         run(1),
         { failed: true, started: false },
         later(1),
@@ -540,13 +554,13 @@ describe('Search', () => {
         );
         const search = endingReplays(
           proposing(seeded, 1, ['one'])
-            .runEnded(
+            .recordRunEnd(
               run(1),
               { failed: false, started: true },
               later(1),
               runIds,
             )
-            .spentByAgent(run(1), spent, later(1), runIds),
+            .recordAgentSpend(run(1), spent, later(1), runIds),
           ['one'],
           'finished',
           runIds,
@@ -561,7 +575,7 @@ describe('Search', () => {
     });
 
     it('charges each unpriced or foreign run of a replay its share per run', () => {
-      const seeded = aSearch().replayEnded(
+      const seeded = aSearch().recordReplayEnd(
         SEED,
         'finished',
         charged(5, 3),
@@ -582,8 +596,8 @@ describe('Search', () => {
     it('takes word that Work queued its run, and what its agent spent', () => {
       const runIds = searchRunIds();
       const search = searching(aSearch(), runIds)
-        .runQueued(run(1))
-        .spentByAgent(
+        .queueRun(run(1))
+        .recordAgentSpend(
           run(1),
           ModelSpent.of([usd(2), Spend.of(1, 'EUR')], 0),
           later(1),
@@ -634,13 +648,13 @@ describe('Search', () => {
       const flat = (search: Search, number: number, name: string) =>
         endingReplays(
           proposing(search, number, [name])
-            .runEnded(
+            .recordRunEnd(
               run(number),
               { failed: false, started: true },
               later(number),
               runIds,
             )
-            .spentByAgent(run(number), NO_SPEND, later(number), runIds),
+            .recordAgentSpend(run(number), NO_SPEND, later(number), runIds),
           [name],
           'finished',
           runIds,
@@ -683,11 +697,11 @@ describe('Search', () => {
         'finished',
         runIds,
       )
-        .runEnded(run(1), { failed: true, started: true }, later(1), runIds)
-        .spentByAgent(run(1), NO_SPEND, later(1), runIds);
+        .recordRunEnd(run(1), { failed: true, started: true }, later(1), runIds)
+        .recordAgentSpend(run(1), NO_SPEND, later(1), runIds);
       const search = improvedThenFailed
-        .runEnded(run(2), { failed: true, started: true }, later(2), runIds)
-        .spentByAgent(run(2), NO_SPEND, later(2), runIds);
+        .recordRunEnd(run(2), { failed: true, started: true }, later(2), runIds)
+        .recordAgentSpend(run(2), NO_SPEND, later(2), runIds);
 
       expect(search.iterations[0]?.current).toBe('failed');
       expect(search.iterations[0]?.cameToNothing).toBe(false);
@@ -703,14 +717,24 @@ describe('Search', () => {
       const runIds = searchRunIds();
       const search = iterated(
         searching(aSearch({ budget: aBudget({ iterations: 5 }) }), runIds)
-          .runEnded(run(1), { failed: true, started: true }, later(1), runIds)
-          .spentByAgent(run(1), NO_SPEND, later(1), runIds),
+          .recordRunEnd(
+            run(1),
+            { failed: true, started: true },
+            later(1),
+            runIds,
+          )
+          .recordAgentSpend(run(1), NO_SPEND, later(1), runIds),
         2,
         ['good'],
         runIds,
       )
-        .runEnded(run(3), { failed: false, started: true }, later(3), runIds)
-        .spentByAgent(run(3), NO_SPEND, later(3), runIds);
+        .recordRunEnd(
+          run(3),
+          { failed: false, started: true },
+          later(3),
+          runIds,
+        )
+        .recordAgentSpend(run(3), NO_SPEND, later(3), runIds);
 
       expect(search.current).toBe('searching');
       expect(search.iterations).toHaveLength(4);
@@ -767,8 +791,13 @@ describe('Search', () => {
           1,
           ['costly'],
         )
-          .runEnded(run(1), { failed: false, started: true }, later(1), runIds)
-          .spentByAgent(run(1), NO_SPEND, later(1), runIds),
+          .recordRunEnd(
+            run(1),
+            { failed: false, started: true },
+            later(1),
+            runIds,
+          )
+          .recordAgentSpend(run(1), NO_SPEND, later(1), runIds),
         ['costly'],
         'finished',
         runIds,
@@ -816,8 +845,13 @@ describe('Search', () => {
 
     const reflected = (search: Search): Search =>
       search
-        .runEnded(run(3), { failed: false, started: true }, later(3), runIds)
-        .spentByAgent(run(3), NO_SPEND, later(3), runIds);
+        .recordRunEnd(
+          run(3),
+          { failed: false, started: true },
+          later(3),
+          runIds,
+        )
+        .recordAgentSpend(run(3), NO_SPEND, later(3), runIds);
 
     let runIds = searchRunIds();
 
@@ -887,9 +921,9 @@ describe('Search', () => {
     it('records one cause per task it looks into, the later replacing the earlier', () => {
       const search = stalledAgain();
       const recorded = search
-        .causeRecorded(run(3), given(search, 0, 'judge'), later(4))
-        .causeRecorded(run(3), given(search, 0, 'config'), later(5))
-        .causeRecorded(run(3), given(search, 1, 'task'), later(5));
+        .recordCause(run(3), given(search, 0, 'judge'), later(4))
+        .recordCause(run(3), given(search, 0, 'config'), later(5))
+        .recordCause(run(3), given(search, 1, 'task'), later(5));
       const causes = recorded.iterations[2]?.causes ?? [];
 
       expect(causes.map((each) => [each.taskId, each.cause])).toEqual([
@@ -914,7 +948,7 @@ describe('Search', () => {
         TaskId.of('task_unknown'),
       ]) {
         expect(() =>
-          search.causeRecorded(
+          search.recordCause(
             run(3),
             { ...given(search, 0, 'config'), taskId },
             later(4),
@@ -927,26 +961,31 @@ describe('Search', () => {
       const search = stalledAgain();
 
       expect(() =>
-        search.causeRecorded(
+        search.recordCause(
           run(3),
           { ...given(search, 0, 'config'), cause: 'luck' },
           later(4),
         ),
       ).toThrow(InvalidSearchCauseError);
       expect(() =>
-        search.causeRecorded(
+        search.recordCause(
           run(3),
           { ...given(search, 0, 'config'), evidence: '  ' },
           later(4),
         ),
       ).toThrow(InvalidSearchCauseError);
       expect(() =>
-        searching().causeRecorded(run(1), given(search, 0, 'config'), later(4)),
+        searching().recordCause(run(1), given(search, 0, 'config'), later(4)),
       ).toThrow(SearchNotReflectingError);
       expect(() =>
         search
-          .runEnded(run(3), { failed: false, started: true }, later(3), runIds)
-          .causeRecorded(run(3), given(search, 0, 'config'), later(4)),
+          .recordRunEnd(
+            run(3),
+            { failed: false, started: true },
+            later(3),
+            runIds,
+          )
+          .recordCause(run(3), given(search, 0, 'config'), later(4)),
       ).toThrow(SearchIterationClosedError);
     });
 
@@ -959,8 +998,8 @@ describe('Search', () => {
     it('searches on, its stall forgotten, once it finds a cause the config can fix', () => {
       const search = stalledAgain(aBudget({ iterations: 7 }));
       const reflection = search
-        .causeRecorded(run(3), given(search, 0, 'config'), later(4))
-        .causeRecorded(run(3), given(search, 1, 'judge'), later(4));
+        .recordCause(run(3), given(search, 0, 'config'), later(4))
+        .recordCause(run(3), given(search, 1, 'judge'), later(4));
 
       reflection.pullEvents();
 
@@ -976,14 +1015,14 @@ describe('Search', () => {
       ]);
 
       const once = goneOn
-        .runEnded(run(4), { failed: true, started: true }, later(5), runIds)
-        .spentByAgent(run(4), NO_SPEND, later(5), runIds);
+        .recordRunEnd(run(4), { failed: true, started: true }, later(5), runIds)
+        .recordAgentSpend(run(4), NO_SPEND, later(5), runIds);
 
       expect(once.iterations[4]?.kind).toBe('propose');
 
       const twice = once
-        .runEnded(run(5), { failed: true, started: true }, later(6), runIds)
-        .spentByAgent(run(5), NO_SPEND, later(6), runIds);
+        .recordRunEnd(run(5), { failed: true, started: true }, later(6), runIds)
+        .recordAgentSpend(run(5), NO_SPEND, later(6), runIds);
 
       expect(twice.iterations[5]?.kind).toBe('reflect');
     });
@@ -993,7 +1032,7 @@ describe('Search', () => {
         const search = stalledAgain(aBudget({ iterations: 6 }));
         const reflection = causes.reduce(
           (held, cause, at) =>
-            held.causeRecorded(run(3), given(search, at, cause), later(4)),
+            held.recordCause(run(3), given(search, at, cause), later(4)),
           search,
         );
 
@@ -1014,7 +1053,7 @@ describe('Search', () => {
     });
 
     it('ends stalled when its run failed before it said anything', () => {
-      const search = stalledAgain().runEnded(
+      const search = stalledAgain().recordRunEnd(
         run(3),
         { failed: true, started: false },
         later(3),
@@ -1037,18 +1076,23 @@ describe('Search', () => {
       const twice = [2, 3].reduce(
         (held, number) =>
           held
-            .runEnded(
+            .recordRunEnd(
               run(number),
               { failed: true, started: true },
               later(number),
               runIds,
             )
-            .spentByAgent(run(number), NO_SPEND, later(number), runIds),
+            .recordAgentSpend(run(number), NO_SPEND, later(number), runIds),
         found,
       );
       const ended = twice
-        .runEnded(run(4), { failed: false, started: true }, later(4), runIds)
-        .spentByAgent(run(4), NO_SPEND, later(4), runIds);
+        .recordRunEnd(
+          run(4),
+          { failed: false, started: true },
+          later(4),
+          runIds,
+        )
+        .recordAgentSpend(run(4), NO_SPEND, later(4), runIds);
 
       expect(twice.iterations[3]?.kind).toBe('reflect');
       expect(ended.current).toBe('holding-out');
@@ -1058,9 +1102,14 @@ describe('Search', () => {
     it('says it ended the search when it found a config cause but the budget left no room to try it', () => {
       const search = stalledAgain();
       const costly = search
-        .causeRecorded(run(3), given(search, 0, 'config'), later(4))
-        .runEnded(run(3), { failed: false, started: true }, later(3), runIds);
-      const broke = costly.spentByAgent(
+        .recordCause(run(3), given(search, 0, 'config'), later(4))
+        .recordRunEnd(
+          run(3),
+          { failed: false, started: true },
+          later(3),
+          runIds,
+        );
+      const broke = costly.recordAgentSpend(
         run(3),
         ModelSpent.of([usd(99)], 0),
         later(4),
@@ -1075,7 +1124,7 @@ describe('Search', () => {
 
     it('refuses a stored iteration that both proposes and looks into tasks, or holds a cause for a task it never looked into', () => {
       const search = stalledAgain();
-      const recorded = search.causeRecorded(
+      const recorded = search.recordCause(
         run(3),
         given(search, 0, 'config'),
         later(4),
@@ -1191,7 +1240,7 @@ describe('Search', () => {
         ]),
       ).toEqual([['candidate_one', 'held_1']]);
 
-      const finished = held.replayEnded(
+      const finished = held.recordReplayEnd(
         ReplayId.of('held_1'),
         'finished',
         charged(1),
@@ -1301,7 +1350,7 @@ describe('Search', () => {
           heldIds(),
           NOW,
         )
-        .replayEnded(
+        .recordReplayEnd(
           ReplayId.of('held_1'),
           'stopped',
           charged(1),
@@ -1321,7 +1370,7 @@ describe('Search', () => {
   describe('ending early', () => {
     it('stops on request, withdrawing its run and stopping its replays underway', () => {
       const search = proposing(searching(), 1, ['one']);
-      const stopped = search.stopped(later(5), BY);
+      const stopped = search.stop(later(5), BY);
 
       expect(stopped.current).toBe('stopped');
       expect(stopped.ending).toBe('stopped');
@@ -1352,40 +1401,46 @@ describe('Search', () => {
     });
 
     it('stops its seed replay when stopped while seeding', () => {
-      const stopped = aSearch().stopped(NOW, BY);
+      const stopped = aSearch().stop(NOW, BY);
 
       expect((stopped.pullEvents()[0] as SearchEnded).stopping).toEqual([SEED]);
     });
 
     it('cannot be stopped once it ended', () => {
-      const stopped = searching().stopped(NOW, BY);
+      const stopped = searching().stop(NOW, BY);
 
-      expect(() => stopped.stopped(NOW, BY)).toThrow(SearchEndedError);
+      expect(() => stopped.stop(NOW, BY)).toThrow(SearchEndedError);
     });
 
     it('ends when its station or its set is gone, once', () => {
       const gone = searching().stationLeft(NOW);
-      const setGone = searching().setGone(NOW);
+      const setGone = searching().recordSetGone(NOW);
 
       expect(gone.ending).toBe('station-gone');
       expect(setGone.ending).toBe('set-gone');
       expect(gone.stationLeft(later(1))).toBe(gone);
-      expect(gone.setGone(later(1))).toBe(gone);
+      expect(gone.recordSetGone(later(1))).toBe(gone);
     });
 
     it('takes no more candidates once ended, though word of its replays still arrives', () => {
       const runIds = searchRunIds();
-      const stopped = proposing(searching(aSearch(), runIds), 1, [
-        'one',
-      ]).stopped(NOW, BY);
+      const stopped = proposing(searching(aSearch(), runIds), 1, ['one']).stop(
+        NOW,
+        BY,
+      );
 
       expect(() => stopped.admitted(run(1), admission('two'))).toThrow(
         SearchIterationClosedError,
       );
 
       const noted = endingReplays(stopped, ['one'], 'stopped', runIds)
-        .runEnded(run(1), { failed: false, started: true }, later(1), runIds)
-        .spentByAgent(run(1), NO_SPEND, later(1), runIds);
+        .recordRunEnd(
+          run(1),
+          { failed: false, started: true },
+          later(1),
+          runIds,
+        )
+        .recordAgentSpend(run(1), NO_SPEND, later(1), runIds);
 
       expect(noted.current).toBe('stopped');
       expect(noted.iterations).toHaveLength(1);
@@ -1393,7 +1448,7 @@ describe('Search', () => {
     });
 
     it('is abandoned with its team', () => {
-      expect(searching().abandoned().isAbandoned).toBe(true);
+      expect(searching().abandon().isAbandoned).toBe(true);
     });
   });
 

@@ -31,7 +31,7 @@ import { and, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 type Row = typeof memory.$inferSelect;
 
-const MOST_LISTED = 500;
+const MAX_LISTED = 500;
 
 const groundsOf = (row: Row): MemoryGrounds | null => {
   const { taskId, runId, steps, notes } = row;
@@ -120,7 +120,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
   ) {}
 
   async add(added: Memory): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(memory)
         .values({
@@ -159,7 +159,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
   }
 
   async save(saved: Memory): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(memory)
         .set({ version: saved.version + 1, ...changedColumnsOf(saved) })
@@ -205,7 +205,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
           ? desc(memory.retiredAt)
           : desc(memory.approvedAt),
       )
-      .limit(MOST_LISTED);
+      .limit(MAX_LISTED);
 
     return rows.map(toMemory);
   }

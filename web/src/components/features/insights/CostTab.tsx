@@ -10,15 +10,15 @@ import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useInsightsCost } from '@/hooks/api/useInsightsCost';
 import {
   COST_DIMENSIONS,
-  cacheShown,
-  changeShown,
-  countShown,
+  changeDelta,
+  formatCache,
+  formatCount,
+  formatSpend,
   type InsightsPeriod,
   type StationNames,
   sankeyOf,
   sliceNamer,
   slicesOf,
-  spendShown,
   whyNoSpend,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
@@ -65,19 +65,19 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
       <InsightsTiles label="Spend">
         <InsightsTile
           label="Spend"
-          value={spendShown(spend)}
+          value={formatSpend(spend)}
           detail={spend ? undefined : whyNoSpend(breakdown.mixedCurrencies)}
-          delta={changeShown(spendChange)}
+          delta={changeDelta(spendChange)}
           drill={{ tab: 'runs' }}
         />
         <InsightsTile
           label="Runs with no price"
-          value={countShown(breakdown.unpriced)}
+          value={formatCount(breakdown.unpriced)}
           detail="Harness reports no cost"
         />
         <InsightsTile
           label="Cache share"
-          value={cacheShown(breakdown.cache.cacheShare)}
+          value={formatCache(breakdown.cache.cacheShare)}
           detail="Share of input tokens read from cache"
         />
       </InsightsTiles>

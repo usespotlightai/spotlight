@@ -3,7 +3,7 @@ import type { SearchCandidateProposed } from '@replays/application/dto/replay-ou
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   ExaminedCandidate,
-  StationAtHand,
+  StationView,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { CandidateProblems } from '@replays/application/rendering/candidate-problems';
@@ -24,7 +24,7 @@ import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -144,7 +144,7 @@ export class ProposeSearchCandidateHandler
         examined,
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
@@ -168,7 +168,7 @@ export class ProposeSearchCandidateHandler
   }
 
   private refused(seen: Search, run: RunId): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(seen.id);
 
       if (!search) {
@@ -182,11 +182,11 @@ export class ProposeSearchCandidateHandler
   private admitted(
     seen: Search,
     run: RunId,
-    station: StationAtHand,
+    station: StationView,
     teamKey: string,
     proposal: Proposal,
   ): Promise<SearchCandidateProposed> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(seen.id);
       const set = search ? await this.sets.find(search.setId) : null;
 
@@ -222,7 +222,7 @@ export class ProposeSearchCandidateHandler
 
       await this.candidates.add(candidate);
       await this.replays.add(
-        Replay.started({
+        Replay.start({
           id: replayId,
           set,
           candidate,
@@ -254,7 +254,7 @@ export class ProposeSearchCandidateHandler
     address: StationAddress,
     made: { iteration: number; block: StationBlock; at: Date },
   ): Candidate {
-    return Candidate.searched({
+    return Candidate.fromSearch({
       id: CandidateId.of(this.ids.generate()),
       station: search.station,
       address,

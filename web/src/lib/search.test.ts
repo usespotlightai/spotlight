@@ -4,8 +4,8 @@ import {
   budgetFrom,
   byIteration,
   fieldOf,
+  formatHeldOut,
   frontierPoints,
-  heldOutShown,
   iterationTitle,
   pickRefusal,
   refusalsOf,
@@ -221,13 +221,13 @@ describe('search', () => {
   });
 
   it('says whether a candidate was held out', () => {
-    expect(heldOutShown(candidate({}))).toBe('Not held out');
+    expect(formatHeldOut(candidate({}))).toBe('Not held out');
     expect(
-      heldOutShown(
+      formatHeldOut(
         candidate({ heldOutReplayId: 'h', heldOutReplayState: 'running' }),
       ),
     ).toBe('Replaying');
-    expect(heldOutShown(candidate({ seed: true }))).toBe('–');
+    expect(formatHeldOut(candidate({ seed: true }))).toBe('–');
   });
 
   it('plots finished priced scores, and keeps the unpriced apart', () => {
@@ -278,7 +278,7 @@ describe('iterationTitle', () => {
   it('explains guarding, with the line’s threshold or that it sets none', () => {
     expect(
       replayCheckNote({
-        mostRegressions: 2,
+        maxRegressions: 2,
         ceiling: 10,
         currency: 'USD',
         minGain: 0.05,

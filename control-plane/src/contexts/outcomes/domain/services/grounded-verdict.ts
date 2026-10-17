@@ -7,9 +7,9 @@ import type { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteri
 import type { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
 import { shareMet } from '@outcomes/domain/value-objects/score-scale.vo';
 
-export const MOST_REASONS = 5;
+export const MAX_REASONS = 5;
 
-export const MOST_REASONS_PER_CLAIM = 3;
+export const MAX_REASONS_PER_CLAIM = 3;
 
 export interface ClaimVerdict {
   readonly index: number;
@@ -53,7 +53,7 @@ const groundedOnClaims = (
       (each, at) =>
         each.index !== at ||
         each.reasons.length === 0 ||
-        each.reasons.length > MOST_REASONS_PER_CLAIM,
+        each.reasons.length > MAX_REASONS_PER_CLAIM,
     )
   ) {
     return UNREADABLE;
@@ -101,7 +101,7 @@ export const groundedVerdict = (
     throw error;
   }
 
-  if (verdict.reasons.length > MOST_REASONS) {
+  if (verdict.reasons.length > MAX_REASONS) {
     return UNREADABLE;
   }
 

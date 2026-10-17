@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  areWords,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class LineRole {
@@ -16,10 +16,10 @@ export class LineRole {
   static of(raw: string): LineRole {
     const named = raw.trim();
 
-    if (!areWords(named)) {
+    if (!isSlug(named)) {
       throw new InvalidIdentifierError(
         'line role',
-        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in delivery`,
+        `must be lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in delivery`,
       );
     }
 

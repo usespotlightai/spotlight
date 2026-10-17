@@ -2,11 +2,11 @@ import { InvalidChangeStackError } from '@change-review/domain/exceptions/invali
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export const MOST_CHECK_ATTEMPTS = 3;
+export const MAX_CHECK_ATTEMPTS = 3;
 
 const CHECK_LEASE_MS = 10 * 60 * 1000;
 
-export const MOST_HOLD_MS = 65 * 60 * 1000;
+export const MAX_HOLD_MS = 65 * 60 * 1000;
 
 export interface CheckHold {
   readonly leaseExpiresAt: Date | null;
@@ -14,7 +14,7 @@ export interface CheckHold {
 }
 
 const heldTooLongAt = (claimedAt: Date, now: Date): boolean =>
-  now.getTime() - claimedAt.getTime() >= MOST_HOLD_MS;
+  now.getTime() - claimedAt.getTime() >= MAX_HOLD_MS;
 
 export const holdsAt = (hold: CheckHold, now: Date): boolean =>
   hold.leaseExpiresAt !== null &&
@@ -65,7 +65,7 @@ export class CheckClaim implements CheckHold {
   }
 
   get exhausted(): boolean {
-    return this.attempts >= MOST_CHECK_ATTEMPTS;
+    return this.attempts >= MAX_CHECK_ATTEMPTS;
   }
 
   heldAt(now: Date): boolean {

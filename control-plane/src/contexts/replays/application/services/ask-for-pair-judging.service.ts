@@ -28,7 +28,7 @@ export class AskForPairJudging {
             teamId: replay.teamId,
             judge,
             reference: event.original,
-            mostAttempts: PAIR_ATTEMPTS,
+            maxAttempts: PAIR_ATTEMPTS,
           })
         : 'unreadable-rubric';
 

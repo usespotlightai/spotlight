@@ -25,11 +25,11 @@ export interface IndexedFacts {
   readonly tests: readonly SymbolLink[];
 }
 
-const MOST_MEMBER_DEFINERS = 3;
+const MAX_MEMBER_DEFINERS = 3;
 
-const LEAST_MEMBER_NAME = 4;
+const MIN_MEMBER_NAME = 4;
 
-const MOST_OUTSIDE = 6;
+const MAX_OUTSIDE = 6;
 
 const WILDCARD = /^(:\w+|\{[^}]*\}|<[^>]*>|\*)$/;
 
@@ -212,7 +212,7 @@ export const indexedFacts = (
 
     const notes = outside.get(user) ?? new Set<string>();
 
-    if (notes.size < MOST_OUTSIDE) {
+    if (notes.size < MAX_OUTSIDE) {
       notes.add(`${name} from ${imported.specifier}`);
     }
     outside.set(user, notes);
@@ -279,9 +279,9 @@ export const indexedFacts = (
       const definers = new Set(candidates.map((each) => each.hunk));
 
       if (
-        reference.name.length < LEAST_MEMBER_NAME ||
+        reference.name.length < MIN_MEMBER_NAME ||
         definers.size === 0 ||
-        definers.size > MOST_MEMBER_DEFINERS
+        definers.size > MAX_MEMBER_DEFINERS
       ) {
         continue;
       }

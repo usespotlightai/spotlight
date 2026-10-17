@@ -34,7 +34,7 @@ export type StationVersion = {
 };
 
 const DEFAULT_LAST = 50;
-const MOST_LAST = 200;
+const MAX_LAST = 200;
 
 const lineOf = (teamId: string, lineId: string): LineResponseDto | undefined =>
   world().lines[teamId]?.find((each) => each.id === lineId);
@@ -203,7 +203,7 @@ const groupOf = (
 const lastOf = (asked: number | null): number =>
   asked === null || Number.isNaN(asked)
     ? DEFAULT_LAST
-    : Math.min(MOST_LAST, Math.max(1, asked));
+    : Math.min(MAX_LAST, Math.max(1, asked));
 
 export const stationOutcomes = (
   teamId: string,

@@ -12,15 +12,15 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
-import { shareShown } from '@/lib/insights';
+import { formatShare } from '@/lib/insights';
 import {
   type DepthWeek,
+  formatRounds,
   ROUNDS,
   type Rounds,
   type RoundsCount,
-  roundsShown,
 } from '@/lib/insights-shipping';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 
 const shade = (share: number): string =>
   `color-mix(in oklab, var(--chart-primary) ${share}%, var(--card))`;
@@ -51,11 +51,11 @@ const Said = ({
 
   return (
     <ChartTip placement={placement}>
-      <p className="text-muted-foreground">Week of {dayShown(bar.week)}</p>
+      <p className="text-muted-foreground">Week of {formatDay(bar.week)}</p>
       <p className="text-foreground">{bar.merged} merged</p>
       {ROUNDS.map((rounds) => (
         <p key={rounds} className="text-muted-foreground">
-          {roundsShown(rounds)} {shareShown(bar[rounds])}
+          {formatRounds(rounds)} {formatShare(bar[rounds])}
         </p>
       ))}
     </ChartTip>
@@ -94,7 +94,7 @@ export function ReviewDepthOverTime({
                     tickLine={false}
                     axisLine={{ stroke: 'var(--chart-grid)' }}
                     tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                    tickFormatter={dayShown}
+                    tickFormatter={formatDay}
                   />
                   <YAxis
                     yAxisId="share"
@@ -103,7 +103,7 @@ export function ReviewDepthOverTime({
                     axisLine={false}
                     domain={[0, 1]}
                     tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                    tickFormatter={shareShown}
+                    tickFormatter={formatShare}
                   />
                   <YAxis
                     yAxisId="merged"
@@ -144,7 +144,7 @@ export function ReviewDepthOverTime({
           <ChartLegend
             entries={[
               ...ROUNDS.map((rounds) => ({
-                label: roundsShown(rounds),
+                label: formatRounds(rounds),
                 color: FILLS[rounds],
               })),
               { label: 'Merged that week', color: THROUGHPUT },
@@ -164,11 +164,11 @@ export function ReviewDepthOverTime({
                 style={{ background: FILLS[total.rounds] }}
               />
               <dt className="flex-1 text-foreground">
-                {roundsShown(total.rounds)}
+                {formatRounds(total.rounds)}
               </dt>
               <dd className="text-foreground tabular-nums">{total.merged}</dd>
               <dd className="w-10 text-right text-muted-foreground tabular-nums">
-                {shareShown(total.share)}
+                {formatShare(total.share)}
               </dd>
             </div>
           ))}

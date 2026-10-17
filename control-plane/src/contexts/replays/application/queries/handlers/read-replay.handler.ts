@@ -12,7 +12,7 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { baselineOf, comparedAgainst } from '@replays/domain/services/baseline';
 import { comparedWith } from '@replays/domain/services/replay-results';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadReplayHandler
@@ -28,11 +28,8 @@ export class ReadReplayHandler
 
   async execute(query: ReadReplayQuery): Promise<ReplayDetailDto> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
-      const replay = await this.access.replayOn(clearance, query.replayId);
+      const access = await this.access.forTeam(query.teamId, query.principal);
+      const replay = await this.access.replayOn(access, query.replayId);
       const setReplays = await this.replays.ofSet(replay.setId);
       const baseline = baselineOf(setReplays);
       const against = comparedAgainst(replay, setReplays);
@@ -40,7 +37,7 @@ export class ReadReplayHandler
       const compared = comparedWith(replay, against);
       const { minGain } = await this.healths.standardAt(replay.station);
       const titles = new Map(
-        (await this.work.standing(clearance.workspaceId, replay.originals)).map(
+        (await this.work.standing(access.workspaceId, replay.originals)).map(
           (each) => [each.runId.value, each.title],
         ),
       );
@@ -71,7 +68,7 @@ export class ReadReplayHandler
         })),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

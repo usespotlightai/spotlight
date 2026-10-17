@@ -10,9 +10,9 @@ export interface CauseLink {
   readonly saying: string;
 }
 
-const MOST_KEPT = 32;
+const MAX_KEPT = 32;
 
-const MOST_KEY = 500;
+const MAX_KEY = 500;
 
 const isKind = (kind: unknown): kind is CauseKind =>
   CAUSE_KINDS.some((each) => each === kind);
@@ -71,7 +71,7 @@ export class CausalChain {
 
     return {
       kind: link.kind,
-      key: link.key.slice(0, MOST_KEY),
+      key: link.key.slice(0, MAX_KEY),
       saying: link.saying,
     };
   }
@@ -82,13 +82,13 @@ export class CausalChain {
 
   followedBy(link: CauseLink): CausalChain {
     return new CausalChain(
-      [...this.links, CausalChain.linkOf(link)].slice(-MOST_KEPT),
+      [...this.links, CausalChain.linkOf(link)].slice(-MAX_KEPT),
       this.depth + 1,
     );
   }
 
   holds(key: string): boolean {
-    return this.links.some((each) => each.key === key.slice(0, MOST_KEY));
+    return this.links.some((each) => each.key === key.slice(0, MAX_KEY));
   }
 
   get saying(): string {

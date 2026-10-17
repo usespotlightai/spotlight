@@ -34,7 +34,7 @@ export class HostConnection extends EventRecorder {
     super();
   }
 
-  static linkedFrom(input: {
+  static linkFrom(input: {
     workspaceId: WorkspaceId;
     teamId: TeamId;
     source: SourceKey;
@@ -227,7 +227,7 @@ export class HostConnection extends EventRecorder {
     return refused;
   }
 
-  disconnected(): HostConnection {
+  disconnect(): HostConnection {
     const gone = this.with({});
 
     gone.record(new HostDisconnected(this.teamId, this.source, this.holder));

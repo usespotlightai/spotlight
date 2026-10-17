@@ -9,7 +9,7 @@ import {
   forbiddenTo,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -30,18 +30,18 @@ export class UpdateTeamHandler
 
     try {
       const standing = await this.teams.find(id);
-      const cleared = standing
-        ? await this.access.clearanceIn(
+      const permissions = standing
+        ? await this.access.permissionsIn(
             standing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !cleared) {
+      if (!standing || !permissions) {
         return null;
       }
 
-      if (!cleared.configures) {
+      if (!permissions.configures) {
         return forbiddenTo('configure');
       }
 
@@ -53,7 +53,7 @@ export class UpdateTeamHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      await this.transaction.run(() =>
+      await this.transaction.inTransaction(() =>
         this.teams.save(
           standing.redefinedAs(
             compiled,
@@ -79,7 +79,7 @@ export class UpdateTeamHandler
         };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

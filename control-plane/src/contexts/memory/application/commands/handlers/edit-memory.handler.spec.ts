@@ -4,7 +4,7 @@ import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port'
 import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
-import { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
+import { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryStood } from '@memory/domain/events/memory-stood.event';
@@ -23,7 +23,7 @@ const NOW = new Date('2026-09-27T10:00:00.000Z');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const ADA = UserId.of('user_ada');
 
-const OLD = Memory.written({
+const OLD = Memory.write({
   id: MemoryId.of('memory_old'),
   handle: MemoryHandle.of(7),
   workspaceId: WORKSPACE,
@@ -56,7 +56,7 @@ const editing = (member = true) => {
   const repository = memories as unknown as MemoryRepository;
   const handler = new EditMemoryHandler(
     new MemoryAccess(people, work),
-    new TeamMemoryAtHand(repository, work),
+    new TeamMemoryLoader(repository, work),
     repository,
     new TeamMemoryViews(repository, work, people, {
       runsUsing: async () => new Map(),

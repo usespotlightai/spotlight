@@ -46,7 +46,7 @@ describe('baselineOf', () => {
   it('is the newest baseline replay that was not stopped or cut short', () => {
     const old = aBaseline('replay_old', 0);
     const fresh = aBaseline('replay_fresh', 1);
-    const stopped = aBaseline('replay_stopped', 2).stopped(later(3), BY);
+    const stopped = aBaseline('replay_stopped', 2).stop(later(3), BY);
     const proposed = aReplay({ id: 'replay_proposed', at: later(4) });
 
     expect(baselineOf([old, fresh, stopped, proposed])?.id.value).toBe(
@@ -116,7 +116,7 @@ describe('needsBaseline', () => {
   });
 
   it('wants a new one when the only covering baseline was stopped', () => {
-    const stopped = aBaseline('replay_stopped', 0, 3).stopped(later(1), BY);
+    const stopped = aBaseline('replay_stopped', 0, 3).stop(later(1), BY);
 
     expect(needsBaseline(aSet(2), [stopped], SCORING, 1)).toBe(true);
   });
@@ -146,7 +146,7 @@ describe('baselineFor', () => {
 
   it('is the newest finished baseline of the live config covering the runs, else the newest standing one, else any', () => {
     const running = aBaseline('replay_running', 2);
-    const stopped = aBaseline('replay_stopped', 3).stopped(later(4), BY);
+    const stopped = aBaseline('replay_stopped', 3).stop(later(4), BY);
     const old = aReplay({
       id: 'replay_stale',
       candidate: stale,
@@ -173,7 +173,7 @@ describe('comparedAgainst', () => {
 
   const withTheAnswer = (against: Replay) => {
     const set = aSet(3);
-    const replay = Replay.started({
+    const replay = Replay.start({
       id: ReplayId.of('replay_answer'),
       set,
       candidate: Candidate.oracleOf(live, {

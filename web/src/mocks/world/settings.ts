@@ -1,7 +1,7 @@
 import type {
-  ConfiguredIntegrationResponseDto,
   ConnectionToolRuleResponseDto,
   HarnessResponseDto,
+  IntegrationViewResponseDto,
   MyConnectionResponseDto,
   PersonConnectionResponseDto,
   RunnerPoolResourceResponseDto,
@@ -67,8 +67,8 @@ export const REPOSITORIES = [
 const integration = (
   source: string,
   name: string,
-  over: Partial<ConfiguredIntegrationResponseDto> = {},
-): ConfiguredIntegrationResponseDto => ({
+  over: Partial<IntegrationViewResponseDto> = {},
+): IntegrationViewResponseDto => ({
   source,
   name,
   path: `integrations/${source}`,
@@ -91,7 +91,7 @@ const SENTRY = integration('sentry', 'Sentry', {
 
 const SLACK = integration('slack', 'Slack', { handle: 'Acme' });
 
-const INTEGRATIONS: Record<string, ConfiguredIntegrationResponseDto[]> = {
+const INTEGRATIONS: Record<string, IntegrationViewResponseDto[]> = {
   [PLATFORM_ID]: [
     LINEAR,
     SENTRY,
@@ -271,7 +271,7 @@ const TOKENS: WorkspaceTokenResourceResponseDto[] = [
 
 export type SettingsWorld = {
   gitHubConnected: boolean;
-  integrations: Record<string, ConfiguredIntegrationResponseDto[]>;
+  integrations: Record<string, IntegrationViewResponseDto[]>;
   connections: Record<string, TeamConnections>;
   skills: Record<string, TeamSkillResponseDto[]>;
   tokens: WorkspaceTokenResourceResponseDto[];

@@ -1,11 +1,11 @@
 import { InvalidRunPageError } from '@outcomes/domain/exceptions/invalid-run-page.error';
 
-export const MOST_RUN_PAGE = 10_000;
+export const MAX_RUN_PAGE = 10_000;
 
 export const pageAskedOf = (page: number): number => {
-  if (page > MOST_RUN_PAGE) {
+  if (page > MAX_RUN_PAGE) {
     throw new InvalidRunPageError(
-      `must be at most ${MOST_RUN_PAGE}, not ${page}`,
+      `must be at most ${MAX_RUN_PAGE}, not ${page}`,
     );
   }
 

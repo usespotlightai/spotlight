@@ -1,17 +1,17 @@
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
 import type { ViewableWorkspacesPort } from '@identity/application/ports/viewable-workspaces.port';
 import type {
-  TeamClearance,
   TeamMembership,
+  TeamPermissions,
   WorkspaceAccessPort,
-  WorkspaceClearance,
   WorkspaceMembership,
+  WorkspacePermissions,
 } from '@identity/application/ports/workspace-access.port';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
-import { TeamReadership } from '@identity/domain/services/team-readership';
-import { Clearance } from '@identity/domain/value-objects/clearance.vo';
+import { TeamAccess } from '@identity/domain/services/team-access';
+import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import {
   PersonPrincipal,
@@ -21,33 +21,33 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const clearanceIn = (
+const permissionsIn = (
   workspace: Workspace | null,
   principal: Principal,
-): WorkspaceClearance | null => {
-  const cleared = workspace?.clearanceFor(principal);
+): WorkspacePermissions | null => {
+  const permissions = workspace?.permissionsFor(principal);
 
-  return workspace && cleared?.reads
+  return workspace && permissions?.reads
     ? {
         workspaceId: workspace.id,
         slug: workspace.slug.value,
-        configures: cleared.configures,
-        managesSecrets: cleared.managesSecrets,
-        managesRunners: cleared.managesRunners,
-        managesTokenTrusts: cleared.managesTokenTrusts,
-        administers: cleared.administers,
+        configures: permissions.configures,
+        managesSecrets: permissions.managesSecrets,
+        managesRunners: permissions.managesRunners,
+        managesTokenTrusts: permissions.managesTokenTrusts,
+        administers: permissions.administers,
       }
     : null;
 };
 
 const membershipOf = (
-  cleared: WorkspaceClearance,
+  permissions: WorkspacePermissions,
   viewer: UserId,
 ): WorkspaceMembership => ({
-  workspaceId: cleared.workspaceId,
-  slug: cleared.slug,
+  workspaceId: permissions.workspaceId,
+  slug: permissions.slug,
   viewer,
-  administers: cleared.administers,
+  administers: permissions.administers,
 });
 
 export class WorkspaceAccess implements WorkspaceAccessPort {
@@ -75,62 +75,62 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     slug: string,
     viewer: UserId,
   ): Promise<WorkspaceMembership | null> {
-    const cleared = clearanceIn(
+    const permissions = permissionsIn(
       await this.workspaces.findBySlug(WorkspaceSlug.of(slug)),
       PersonPrincipal.of(viewer),
     );
 
-    return cleared ? membershipOf(cleared, viewer) : null;
+    return permissions ? membershipOf(permissions, viewer) : null;
   }
 
   async onTeam(teamId: string, viewer: UserId): Promise<TeamMembership | null> {
-    const cleared = await this.clearanceOnTeam(
+    const permissions = await this.permissionsOnTeam(
       teamId,
       PersonPrincipal.of(viewer),
     );
 
-    return cleared
-      ? { ...membershipOf(cleared, viewer), teamId: cleared.teamId }
+    return permissions
+      ? { ...membershipOf(permissions, viewer), teamId: permissions.teamId }
       : null;
   }
 
-  async clearanceIn(
+  async permissionsIn(
     workspaceId: WorkspaceId,
     principal: Principal,
-  ): Promise<WorkspaceClearance | null> {
-    return clearanceIn(await this.workspaces.find(workspaceId), principal);
+  ): Promise<WorkspacePermissions | null> {
+    return permissionsIn(await this.workspaces.find(workspaceId), principal);
   }
 
-  async clearanceOnTeam(
+  async permissionsOnTeam(
     teamId: string,
     principal: Principal,
-  ): Promise<TeamClearance | null> {
+  ): Promise<TeamPermissions | null> {
     const team = await this.resources.teamWithId(TeamId.of(teamId));
-    const cleared = team
-      ? await this.clearanceIn(team.workspaceId, principal)
+    const permissions = team
+      ? await this.permissionsIn(team.workspaceId, principal)
       : null;
 
-    return team && cleared ? { ...cleared, teamId: team.id } : null;
+    return team && permissions ? { ...permissions, teamId: team.id } : null;
   }
 
-  async clearanceAsTeamReader(
+  async permissionsAsTeamReader(
     teamId: string,
     principal: Principal,
-  ): Promise<TeamClearance | null> {
+  ): Promise<TeamPermissions | null> {
     const team = await this.teams.find(TeamId.of(teamId));
     const workspace = team
       ? await this.workspaces.find(team.workspaceId)
       : null;
 
-    const cleared =
-      team && workspace && TeamReadership.admits(team, workspace, principal)
-        ? clearanceIn(workspace, principal)
+    const permissions =
+      team && workspace && TeamAccess.admits(team, workspace, principal)
+        ? permissionsIn(workspace, principal)
         : null;
 
-    return team && cleared ? { ...cleared, teamId: team.id } : null;
+    return team && permissions ? { ...permissions, teamId: team.id } : null;
   }
 
   mayPlan(principal: Principal): boolean {
-    return Clearance.beyondWorkspaces(principal).plans;
+    return Permissions.beyondWorkspaces(principal).plans;
   }
 }

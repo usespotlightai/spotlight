@@ -80,7 +80,7 @@ describe('TaskTouches', () => {
       at: day('2026-09-29', 10),
     });
     const touches = TaskTouches.heardOf(TaskId.of('task_1'), WORKSPACE)
-      .actedOn(answer)
+      .recordAction(answer)
       .asked(InboxAsk.of('station_1', day('2026-09-29', 9)));
 
     expect(touches.waits()[0]?.answeredBy).toBe('user_bob');
@@ -101,7 +101,7 @@ describe('TaskTouches', () => {
     const opened = touchesOf('task_1', { openedBy: 'user_ada' });
     const again = touchesOf('task_1', { openedBy: 'user_bob' }).opening;
 
-    expect(again && opened.opened(again)).toBe(opened);
+    expect(again && opened.recordOpen(again)).toBe(opened);
   });
 
   it('was last touched by its latest opening, ask or act', () => {

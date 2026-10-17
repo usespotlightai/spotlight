@@ -1,8 +1,8 @@
 import { ChoiceCard } from '@/components/shared/form/ChoiceCard';
 import {
+  formatObjective,
   OBJECTIVE_LABEL,
   objectiveNote,
-  objectiveShown,
   type SearchObjective,
 } from '@/lib/search-words';
 
@@ -37,7 +37,9 @@ export function ObjectiveChoices({
             onChange={() => onChange(objective)}
             note={objectiveNote(objective)}
           >
-            <span className="text-foreground">{objectiveShown(objective)}</span>
+            <span className="text-foreground">
+              {formatObjective(objective)}
+            </span>
           </ChoiceCard>
         ))}
       </div>

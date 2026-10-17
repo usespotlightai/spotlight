@@ -13,7 +13,7 @@ import type {
   SearchRunQueued,
   SearchRunStanding,
   StandingRun,
-  StationAtHand,
+  StationView,
   UnclaimedWithdrawal,
   WorkPort,
 } from '@replays/application/ports/work.port';
@@ -50,7 +50,7 @@ import type { SearchDispatchPort } from '@work/application/ports/search-dispatch
 import type { SearchRunsPort } from '@work/application/ports/search-runs.port';
 import type { StartingPointHoldsPort } from '@work/application/ports/starting-point-holds.port';
 
-const stationOf = (station: ReplayStation): StationAtHand => ({
+const stationOf = (station: ReplayStation): StationView => ({
   workspaceId: WorkspaceId.of(station.workspaceId),
   teamId: TeamId.of(station.teamId),
   lineId: station.lineId,
@@ -99,13 +99,13 @@ export class Work implements WorkPort {
   async station(
     lineId: string,
     stationId: string,
-  ): Promise<StationAtHand | null> {
+  ): Promise<StationView | null> {
     const station = await this.candidates.station(lineId, stationId);
 
     return station ? stationOf(station) : null;
   }
 
-  async keyed(lineId: string, key: string): Promise<StationAtHand | null> {
+  async keyed(lineId: string, key: string): Promise<StationView | null> {
     const station = await this.candidates.keyed(lineId, key);
 
     return station ? stationOf(station) : null;
@@ -152,9 +152,9 @@ export class Work implements WorkPort {
   async recentAt(
     workspaceId: WorkspaceId,
     stationId: string,
-    most: number,
+    max: number,
   ): Promise<readonly PickableRun[]> {
-    return (await this.runs.recentAt(workspaceId.value, stationId, most)).map(
+    return (await this.runs.recentAt(workspaceId.value, stationId, max)).map(
       (each) => ({
         ...replayabilityOf(each),
         title: each.title,

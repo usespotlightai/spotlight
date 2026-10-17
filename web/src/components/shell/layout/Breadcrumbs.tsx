@@ -24,7 +24,7 @@ export function Breadcrumbs({ segments }: BreadcrumbsProps) {
         {avatar && <InitialAvatar name={avatar} className="bg-card" />}
         <Shortened
           text={label}
-          most={LABEL_WIDTH}
+          max={LABEL_WIDTH}
           className="whitespace-nowrap"
         />
       </>

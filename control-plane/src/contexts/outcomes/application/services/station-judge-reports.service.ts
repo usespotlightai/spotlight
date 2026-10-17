@@ -26,9 +26,9 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const MOST_JUDGED = 500;
+const MAX_JUDGED = 500;
 
-const MOST_RECORDS = 200;
+const MAX_RECORDS = 200;
 
 export interface StationPlace {
   readonly workspaceId: WorkspaceId;
@@ -104,11 +104,11 @@ export class StationJudgeReports implements JudgeStandingPort {
     const judge = await this.currentJudge(station);
     const judged = await this.scores.judgedAtStation({
       ...station,
-      last: MOST_JUDGED,
+      last: MAX_JUDGED,
     });
     const recent = await this.records.lastAtStation({
       ...station,
-      last: MOST_RECORDS,
+      last: MAX_RECORDS,
     });
     const report = await this.reportOf(judged, recent);
 
@@ -159,7 +159,7 @@ export class StationJudgeReports implements JudgeStandingPort {
             ]
           : [],
       ),
-      last: MOST_JUDGED,
+      last: MAX_JUDGED,
     });
     const labels = await this.labelsFor(judged, []);
 
@@ -186,7 +186,7 @@ export class StationJudgeReports implements JudgeStandingPort {
       ? await this.scores.judgedAtStation({
           ...station,
           rubricVersion: judge.rubricVersion,
-          last: MOST_JUDGED,
+          last: MAX_JUDGED,
         })
       : [];
 

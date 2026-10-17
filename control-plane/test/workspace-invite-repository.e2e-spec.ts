@@ -49,7 +49,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
   };
 
   const accepted = (invite: WorkspaceInvite, by = 'user_ada') =>
-    invite.acceptedBySomeone(
+    invite.acceptBySomeone(
       UserId.of(by),
       EmailAddress.of('ada@example.com'),
       NOW,
@@ -130,7 +130,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     const withdrawn = offered();
     await invites.add(withdrawn);
     await invites.save(
-      (await readBack(withdrawn)).revoked(UserId.of('user_leon'), NOW),
+      (await readBack(withdrawn)).revoke(UserId.of('user_leon'), NOW),
     );
 
     expect(
@@ -173,7 +173,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
       .where(eq(schema.workspaceInviteTeam.teamId, 'team_2'));
 
     await invites.save(
-      (await readBack(invite)).revoked(UserId.of('user_leon'), NOW),
+      (await readBack(invite)).revoke(UserId.of('user_leon'), NOW),
     );
 
     expect(
@@ -191,7 +191,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     const first = offered();
     await invites.add(first);
     await invites.save(
-      (await readBack(first)).revoked(UserId.of('user_leon'), NOW),
+      (await readBack(first)).revoke(UserId.of('user_leon'), NOW),
     );
 
     await expect(invites.add(offered())).resolves.toBeUndefined();
@@ -219,7 +219,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     const revoker = await readBack(invite);
 
     await invites.save(
-      acceptor.acceptedBySomeone(
+      acceptor.acceptBySomeone(
         UserId.of('user_ada'),
         EmailAddress.of('ada@example.com'),
         NOW,
@@ -227,7 +227,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     );
 
     await expect(
-      invites.save(revoker.revoked(UserId.of('user_leon'), NOW)),
+      invites.save(revoker.revoke(UserId.of('user_leon'), NOW)),
     ).rejects.toThrow(InviteVersionConflictError);
     expect((await readBack(invite)).acceptedAt).toEqual(NOW);
     expect((await readBack(invite)).version).toBe(2);
@@ -241,7 +241,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     await invites.add(invite);
 
     await invites.save(
-      (await readBack(invite)).sentAgain({
+      (await readBack(invite)).resend({
         terms: InviteTerms.of(WorkspaceRole.member, [TeamId.of('team_2')]),
         tokenHash: TokenHash.of('f'.repeat(64)),
         by: UserId.of('user_ada'),

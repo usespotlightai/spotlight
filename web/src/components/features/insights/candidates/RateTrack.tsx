@@ -1,5 +1,5 @@
 import { Noted } from '@/components/shared/Noted';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import type { RateInterval } from '@/lib/replay';
 
 const SCALE = 'shrink-0 text-[0.6rem] text-faint tabular-nums';
@@ -33,7 +33,7 @@ export function RateTrack({
 
         {rate !== null && interval && (
           <Noted
-            note={`Likely range: ${percentShown(interval.low)}–${percentShown(interval.high)}`}
+            note={`Likely range: ${formatPercent(interval.low)}–${formatPercent(interval.high)}`}
           >
             <span
               className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full opacity-35"
@@ -47,7 +47,7 @@ export function RateTrack({
         )}
 
         {live !== null && (
-          <Noted note={`Live config: ${percentShown(live)}`}>
+          <Noted note={`Live config: ${formatPercent(live)}`}>
             <span
               className="absolute inset-y-0 flex w-2 -translate-x-1/2 justify-center"
               style={{ left: at(live) }}
@@ -58,7 +58,7 @@ export function RateTrack({
         )}
 
         {rate !== null && (
-          <Noted note={`Candidate: ${percentShown(rate)}`}>
+          <Noted note={`Candidate: ${formatPercent(rate)}`}>
             <span
               className="absolute top-1/2 size-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full"
               style={{ left: at(rate), background: ink }}

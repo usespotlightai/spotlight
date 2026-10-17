@@ -13,11 +13,11 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useFolds } from '@/hooks/useFolds';
 import {
-  countShown,
+  formatCount,
+  formatStation,
   improvingOf,
   type StationNames,
   signalHeadings,
-  stationShown,
   type WorthImproving,
 } from '@/lib/insights';
 import { stationPath } from '@/lib/station';
@@ -57,7 +57,7 @@ export function WorthImprovingList({
         >
           {stations.map((station) => {
             const named = names.get(station.stationId);
-            const name = stationShown(names, station.stationId);
+            const name = formatStation(names, station.stationId);
             const open = folds.isOpen(station.stationId);
 
             return (
@@ -106,7 +106,7 @@ export function WorthImprovingList({
                       filter={{ stationId: station.stationId }}
                       className="whitespace-nowrap text-muted-foreground hover:text-foreground"
                     >
-                      {countShown(station.runs)}{' '}
+                      {formatCount(station.runs)}{' '}
                       {station.runs === 1 ? 'run' : 'runs'}
                     </InsightsLink>
                   </span>

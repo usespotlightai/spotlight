@@ -4,9 +4,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ENFORCEMENT_SHOWN, ENFORCEMENT_TOLD } from '@/lib/run-network';
+import { ENFORCEMENT_LABELS, ENFORCEMENT_TOLD } from '@/lib/run-network';
 
-const SHOWN = `Egress ${ENFORCEMENT_SHOWN['not-enforced'].toLowerCase()}`;
+const SHOWN = `Egress ${ENFORCEMENT_LABELS['not-enforced'].toLowerCase()}`;
 
 export function TraceEgressMark() {
   return (

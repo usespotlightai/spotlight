@@ -3,7 +3,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 
-const MOST_AT_ONCE = 20;
+const MAX_AT_ONCE = 20;
 
 export class TraceReference {
   private constructor(
@@ -21,9 +21,9 @@ export class TraceReference {
   }
 
   static refuseTooMany(count: number): void {
-    if (count > MOST_AT_ONCE) {
+    if (count > MAX_AT_ONCE) {
       throw new InvalidChatMessageError(
-        `can share at most ${MOST_AT_ONCE} traces`,
+        `can share at most ${MAX_AT_ONCE} traces`,
       );
     }
   }

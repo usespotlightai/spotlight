@@ -11,7 +11,7 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
 import { notFound } from '@/lib/error';
-import { judgeTiles, rubricShown } from '@/lib/judge';
+import { formatRubric, judgeTiles } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 
 const BOX = 'flex justify-center rounded-xl border border-border py-10';
@@ -101,7 +101,7 @@ export function JudgeAgreement({
             clearable={false}
             choices={versions.map((version) => ({
               value: version.rubricVersion,
-              label: rubricShown(version),
+              label: formatRubric(version),
             }))}
             value={shown.rubricVersion}
             placeholder="Current version"

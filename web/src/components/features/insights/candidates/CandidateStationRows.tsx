@@ -3,7 +3,7 @@ import { StationGroupName } from '@/components/features/insights/candidates/Stat
 import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import type { Folds } from '@/hooks/useFolds';
-import { type StationNames, stationShown } from '@/lib/insights';
+import { formatStation, type StationNames } from '@/lib/insights';
 import type { CandidatesStation } from '@/lib/insights-candidates';
 import type { ReplayedStation } from '@/lib/replay';
 
@@ -29,7 +29,7 @@ export function CandidateStationRows({
   return (
     <>
       <NestedGroupRow
-        label={stationShown(names, station.stationId)}
+        label={formatStation(names, station.stationId)}
         open={open}
         depth={0}
         onToggle={() => folds.toggle(station.stationId)}

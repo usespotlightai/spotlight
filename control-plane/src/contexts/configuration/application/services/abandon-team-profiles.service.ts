@@ -14,8 +14,8 @@ export class AbandonTeamProfiles {
     const by = Attribution.spotlight(workspaceId);
 
     for (const profile of await this.profiles.ofTeam(teamId)) {
-      await this.transaction.run(() =>
-        this.profiles.save(profile.abandoned(by)),
+      await this.transaction.inTransaction(() =>
+        this.profiles.save(profile.abandon(by)),
       );
     }
   }

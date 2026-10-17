@@ -4,7 +4,7 @@ import { useElementWidth } from '@/hooks/useElementWidth';
 import { usePipelineParticles } from '@/hooks/usePipelineParticles';
 import { lastedOrNone } from '@/lib/insights';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
-import { type FlowStage, partShown } from '@/lib/insights-shipping';
+import { type FlowStage, formatPart } from '@/lib/insights-shipping';
 import {
   bandEdge,
   geometryOf,
@@ -166,7 +166,7 @@ export function PipelineFlowChart({
             <span className="font-mono">{lastedOrNone(worst.ms)}</span>
             {worstPart && (
               <span className="text-destructive/80">
-                mostly {partShown(worstPart)}
+                mostly {formatPart(worstPart)}
               </span>
             )}
           </span>

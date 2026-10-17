@@ -56,7 +56,7 @@ export class TaskTouches {
     return times.length > 0 ? new Date(Math.max(...times)) : null;
   }
 
-  opened(opening: TaskOpening): TaskTouches {
+  recordOpen(opening: TaskOpening): TaskTouches {
     return this.opening ? this : this.with({ opening });
   }
 
@@ -66,7 +66,7 @@ export class TaskTouches {
       : this.with({ asks: [...this.asks, ask].sort(byTime) });
   }
 
-  actedOn(act: PersonTouch): TaskTouches {
+  recordAction(act: PersonTouch): TaskTouches {
     return this.acts.some((each) => each.equals(act))
       ? this
       : this.with({ acts: [...this.acts, act].sort(byTime) });

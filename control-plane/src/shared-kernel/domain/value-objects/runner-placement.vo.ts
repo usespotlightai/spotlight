@@ -2,8 +2,8 @@ import { InvalidRunnerPlacementError } from '@shared-kernel/domain/exceptions/in
 import { distinct } from '@shared-kernel/domain/services/distinct';
 import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
 import {
-  areWords,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
@@ -29,9 +29,9 @@ export class RunnerPlacement {
     for (const each of raw) {
       const trimmed = each.trim();
 
-      if (!areWords(trimmed)) {
+      if (!isSlug(trimmed)) {
         throw new InvalidRunnerPlacementError(
-          `must each name a pool or trust label in lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, such as vpc-internal`,
+          `must each name a pool or trust label in lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, such as vpc-internal`,
         );
       }
 

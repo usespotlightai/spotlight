@@ -4,7 +4,7 @@ import { reviseRunner } from '@runners/application/services/runner-revisions';
 import { UnknownRunnerError } from '@runners/domain/exceptions/unknown-runner.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -35,7 +35,7 @@ export class RegisterRunnerHandler
 
       return { runnerId: registered.id.value };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -3,7 +3,7 @@ import type { MemberReaderPort } from '@identity/application/ports/member-reader
 import type { ListMembersQuery } from '@identity/application/queries/list-members.query';
 import { rolesGivable } from '@identity/domain/services/role-giving';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -45,7 +45,7 @@ export class ListMembersHandler
         };
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

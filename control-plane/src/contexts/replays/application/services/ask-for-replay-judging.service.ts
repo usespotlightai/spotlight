@@ -36,9 +36,9 @@ export class AskForReplayJudging {
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(event.replayId);
-      const refused = replay?.judgingFailed(
+      const refused = replay?.recordJudgingFailure(
         event.run,
         asked,
         null,

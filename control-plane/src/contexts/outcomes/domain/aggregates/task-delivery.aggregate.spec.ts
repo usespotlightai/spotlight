@@ -11,7 +11,7 @@ const AT = new Date('2026-09-30T12:00:00.000Z');
 const OPENED = new Date('2026-09-30T10:00:00.000Z');
 
 const opened = () =>
-  TaskDelivery.opened({
+  TaskDelivery.open({
     taskId: TaskId.of('task_1'),
     workspaceId: WORKSPACE,
     teamId: TEAM,
@@ -26,7 +26,7 @@ describe('TaskDelivery', () => {
   });
 
   it('merges when its pull request merges', () => {
-    const merged = opened().closed({
+    const merged = opened().close({
       pullRequest: FIRST,
       merged: true,
       at: AT,
@@ -38,26 +38,26 @@ describe('TaskDelivery', () => {
 
   it('closes when its pull request closes unmerged', () => {
     expect(
-      opened().closed({ pullRequest: FIRST, merged: false, at: AT }).state,
+      opened().close({ pullRequest: FIRST, merged: false, at: AT }).state,
     ).toBe('closed');
   });
 
   it('stays merged once merged', () => {
-    const merged = opened().closed({
+    const merged = opened().close({
       pullRequest: FIRST,
       merged: true,
       at: AT,
     });
 
-    expect(merged.closed({ pullRequest: FIRST, merged: false, at: AT })).toBe(
+    expect(merged.close({ pullRequest: FIRST, merged: false, at: AT })).toBe(
       merged,
     );
   });
 
   it('merges after it was closed, as a reopened pull request can', () => {
     const merged = opened()
-      .closed({ pullRequest: FIRST, merged: false, at: AT })
-      .closed({ pullRequest: FIRST, merged: true, at: AT });
+      .close({ pullRequest: FIRST, merged: false, at: AT })
+      .close({ pullRequest: FIRST, merged: true, at: AT });
 
     expect(merged.state).toBe('merged');
   });
@@ -65,15 +65,15 @@ describe('TaskDelivery', () => {
   it('ignores another pull request closing', () => {
     const delivery = opened();
 
-    expect(delivery.closed({ pullRequest: SECOND, merged: true, at: AT })).toBe(
+    expect(delivery.close({ pullRequest: SECOND, merged: true, at: AT })).toBe(
       delivery,
     );
   });
 
   it('follows a new pull request the task opens, open again', () => {
     const reopened = opened()
-      .closed({ pullRequest: FIRST, merged: false, at: AT })
-      .reopenedAs(SECOND, AT);
+      .close({ pullRequest: FIRST, merged: false, at: AT })
+      .reopen(SECOND, AT);
 
     expect(reopened.pullRequest.equals(SECOND)).toBe(true);
     expect(reopened.state).toBe('open');
@@ -81,23 +81,23 @@ describe('TaskDelivery', () => {
   });
 
   it('is left as it is when the same pull request is opened again', () => {
-    const merged = opened().closed({
+    const merged = opened().close({
       pullRequest: FIRST,
       merged: true,
       at: AT,
     });
 
-    expect(merged.reopenedAs(FIRST, AT)).toBe(merged);
+    expect(merged.reopen(FIRST, AT)).toBe(merged);
   });
 
   it('dates its first review by a person, keeping the earliest', () => {
     const reviewed = opened()
-      .reviewed({ pullRequest: FIRST, at: AT, byBot: false })
-      .reviewed({ pullRequest: FIRST, at: OPENED, byBot: false });
+      .recordReview({ pullRequest: FIRST, at: AT, byBot: false })
+      .recordReview({ pullRequest: FIRST, at: OPENED, byBot: false });
 
     expect(reviewed.firstReviewAt).toEqual(OPENED);
     expect(
-      reviewed.reviewed({
+      reviewed.recordReview({
         pullRequest: FIRST,
         at: new Date('2026-09-30T13:00:00.000Z'),
         byBot: false,
@@ -108,21 +108,21 @@ describe('TaskDelivery', () => {
   it('counts no bot’s review, nor one of another pull request', () => {
     const delivery = opened();
 
-    expect(delivery.reviewed({ pullRequest: FIRST, at: AT, byBot: true })).toBe(
-      delivery,
-    );
     expect(
-      delivery.reviewed({ pullRequest: SECOND, at: AT, byBot: false }),
+      delivery.recordReview({ pullRequest: FIRST, at: AT, byBot: true }),
     ).toBe(delivery);
     expect(
-      delivery.reviewed({ pullRequest: FIRST, at: null, byBot: false }),
+      delivery.recordReview({ pullRequest: SECOND, at: AT, byBot: false }),
+    ).toBe(delivery);
+    expect(
+      delivery.recordReview({ pullRequest: FIRST, at: null, byBot: false }),
     ).toBe(delivery);
   });
 
   it('starts over when the task opens a new pull request', () => {
     const reopened = opened()
-      .reviewed({ pullRequest: FIRST, at: AT, byBot: false })
-      .reopenedAs(SECOND, AT);
+      .recordReview({ pullRequest: FIRST, at: AT, byBot: false })
+      .reopen(SECOND, AT);
 
     expect(reopened.openedAt).toEqual(AT);
     expect(reopened.firstReviewAt).toBeNull();
@@ -130,10 +130,10 @@ describe('TaskDelivery', () => {
 
   it('tells it closed each time its pull request closes or merges, carrying whether it merged', () => {
     const closed = opened()
-      .reviewed({ pullRequest: FIRST, at: AT, byBot: false })
-      .closed({ pullRequest: FIRST, merged: false, at: AT })
-      .closed({ pullRequest: FIRST, merged: false, at: AT })
-      .closed({ pullRequest: FIRST, merged: true, at: AT });
+      .recordReview({ pullRequest: FIRST, at: AT, byBot: false })
+      .close({ pullRequest: FIRST, merged: false, at: AT })
+      .close({ pullRequest: FIRST, merged: false, at: AT })
+      .close({ pullRequest: FIRST, merged: true, at: AT });
 
     const events = closed.pullEvents();
 

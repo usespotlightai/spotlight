@@ -99,7 +99,7 @@ func (r *restoring) place(archive *tar.Reader, header *tar.Header, name string) 
 		return nil
 	case tar.TypeReg:
 		r.unpacked += header.Size
-		if header.Size < 0 || r.unpacked > MostUnpackedBytes {
+		if header.Size < 0 || r.unpacked > MaxUnpackedBytes {
 			return ErrTooLarge
 		}
 		if err := r.write(archive, header, name, mode); err != nil {

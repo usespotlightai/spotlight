@@ -11,7 +11,7 @@ import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { PayloadTypes } from '@platform/events/payload-types';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { CreateSecretCommand } from '@secrets/application/commands/create-secret.command';
 import { DeleteSecretCommand } from '@secrets/application/commands/delete-secret.command';
@@ -52,7 +52,7 @@ import { SecretConfiguration } from '@secrets/application/services/secret-config
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { SecretUsesRegistry } from '@secrets/application/services/secret-uses-registry.service';
-import { SECRETS_EVENT_TYPES } from '@secrets/domain/event-types';
+import { SECRETS_PAYLOAD_TYPES } from '@secrets/domain/payload-types';
 import {
   RUN_GRANTS_REPOSITORY,
   type RunGrantsRepository,
@@ -219,7 +219,7 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   {
     provide: SECRETS_EVENTS,
     inject: [
-      EventTypes,
+      PayloadTypes,
       EventSubscribers,
       SECRETS,
       WorkspaceKeys,
@@ -227,14 +227,14 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
       TRANSACTION,
     ],
     useFactory: (
-      types: EventTypes,
+      types: PayloadTypes,
       subscribers: EventSubscribers,
       secrets: SecretRepository,
       keys: WorkspaceKeys,
       runGrants: ForgetRunGrants,
       transaction: TransactionPort,
     ) => {
-      types.register('secrets', SECRETS_EVENT_TYPES);
+      types.register('secrets', SECRETS_PAYLOAD_TYPES);
       subscribers.register(
         secretsSubscribers({
           abandoning: new AbandonWorkspaceSecrets(secrets, transaction),

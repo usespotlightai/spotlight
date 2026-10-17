@@ -3,12 +3,12 @@ import type {
   RememberedTask,
   WorkPort,
 } from '@memory/application/ports/work.port';
-import { MemoryClearance } from '@memory/domain/services/memory-clearance';
+import { TeamAccess } from '@memory/domain/services/team-access';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export interface Reviewing {
   readonly task: RememberedTask;
-  readonly clearance: MemoryClearance;
+  readonly access: TeamAccess;
 }
 
 export class MemoryAccess {
@@ -17,8 +17,8 @@ export class MemoryAccess {
     private readonly work: WorkPort,
   ) {}
 
-  async clearance(teamId: string, viewerId: string): Promise<MemoryClearance> {
-    return MemoryClearance.onTeam(
+  async forTeam(teamId: string, viewerId: string): Promise<TeamAccess> {
+    return TeamAccess.onTeam(
       teamId,
       await this.people.memberOf(teamId, viewerId),
     );
@@ -29,9 +29,9 @@ export class MemoryAccess {
     taskId: string,
     viewerId: string,
   ): Promise<Reviewing | null> {
-    const clearance = await this.clearance(teamId, viewerId);
+    const access = await this.forTeam(teamId, viewerId);
     const task = await this.work.task(TaskId.of(taskId));
 
-    return task && clearance.reviews(task) ? { task, clearance } : null;
+    return task && access.reviews(task) ? { task, access } : null;
   }
 }

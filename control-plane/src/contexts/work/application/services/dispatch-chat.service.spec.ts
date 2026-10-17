@@ -125,7 +125,7 @@ const dispatching = (
       warn: () => undefined,
       error: () => undefined,
     },
-    { isolated: (work) => work() },
+    { inSavepoint: (work) => work() },
   );
 
   return { dispatch, added: () => add.mock.calls[0]?.[0] as Run };
@@ -180,8 +180,8 @@ describe('DispatchChat', () => {
   it('briefs a resumed chat with what a run that kept nothing was handed', async () => {
     const resumed = chatIn([API])
       .handedTo(RunId.of('run_1'), NOW)
-      .workedIn(HarnessSession.of('session_1'), null)
-      .endedRun(RunId.of('run_1'))
+      .recordSession(HarnessSession.of('session_1'), null)
+      .endRun(RunId.of('run_1'))
       .said({
         by: UserId.of('user_1'),
         body: ChatMessageBody.of('Split it.'),

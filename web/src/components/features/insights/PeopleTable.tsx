@@ -5,8 +5,8 @@ import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
-import { countShown, dayOf, type InsightsPeople } from '@/lib/insights';
-import { dayShown } from '@/lib/judge';
+import { dayOf, formatCount, type InsightsPeople } from '@/lib/insights';
+import { formatDay } from '@/lib/judge';
 import { SPREAD } from '@/lib/nested-table';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
@@ -54,12 +54,12 @@ export function PeopleTable({ people }: { people: readonly PersonUse[] }) {
             )}
           </span>
           <NestedCell heading="Tasks opened" strong>
-            {countShown(person.tasksOpened)}
+            {formatCount(person.tasksOpened)}
           </NestedCell>
-          <NestedCell heading="Acts">{countShown(person.acts)}</NestedCell>
-          <NestedCell heading="Chats">{countShown(person.chats)}</NestedCell>
+          <NestedCell heading="Acts">{formatCount(person.acts)}</NestedCell>
+          <NestedCell heading="Chats">{formatCount(person.chats)}</NestedCell>
           <NestedCell heading="First seen">
-            {dayShown(dayOf(person.firstSeenAt))}
+            {formatDay(dayOf(person.firstSeenAt))}
           </NestedCell>
           <NestedCell heading="Last active">
             {since(person.lastActiveAt)}

@@ -23,16 +23,16 @@ const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/3');
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
 const actedOn = (act: PersonAct) =>
-  endedRecord('run_1').actedOn(NextAct.of(act, AT));
+  endedRecord('run_1').recordAction(NextAct.of(act, AT));
 
 const delivered = (merged: boolean) =>
-  TaskDelivery.opened({
+  TaskDelivery.open({
     taskId: TaskId.of('task_1'),
     workspaceId: WORKSPACE,
     teamId: TEAM,
     pullRequest: PULL,
     at: AT,
-  }).closed({ pullRequest: PULL, merged, at: AT });
+  }).close({ pullRequest: PULL, merged, at: AT });
 
 const labelled = (change: Partial<Parameters<typeof humanLabelOf>[0]>) =>
   humanLabelOf({

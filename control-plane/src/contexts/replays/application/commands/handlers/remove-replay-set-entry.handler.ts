@@ -5,7 +5,7 @@ import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -22,17 +22,17 @@ export class RemoveReplaySetEntryHandler
 
   async execute(command: RemoveReplaySetEntryCommand): Promise<SetChanged> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.principal,
       );
-      const set = await this.access.setOn(clearance, command.setId);
+      const set = await this.access.setOn(access, command.setId);
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const locked = await this.sets.locked(set.id);
 
         if (!locked) {
@@ -48,7 +48,7 @@ export class RemoveReplaySetEntryHandler
 
       return { outcome: 'changed' };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -3,7 +3,7 @@ import { ResourceMapper } from '@identity/application/mappers/resource.mapper';
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { ListTeamResourcesQuery } from '@identity/application/queries/list-team-resources.query';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -20,18 +20,18 @@ export class ListTeamResourcesHandler
     query: ListTeamResourcesQuery,
   ): Promise<readonly TeamResourceDto[] | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
 
-      return cleared
-        ? (await this.resources.teamsIn(cleared.workspaceId)).map(
+      return permissions
+        ? (await this.resources.teamsIn(permissions.workspaceId)).map(
             ResourceMapper.team,
           )
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

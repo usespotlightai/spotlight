@@ -1,5 +1,5 @@
 import type {
-  KeptSkill,
+  SkillRecord,
   SkillResourcesPort,
 } from '@configuration/application/ports/skill-resources.port';
 import { skillDefinition } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
@@ -20,11 +20,11 @@ const KEPT = {
 export class DrizzleSkillResources implements SkillResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  withId(id: string): Promise<KeptSkill | null> {
+  withId(id: string): Promise<SkillRecord | null> {
     return this.kept(eq(skillDefinition.id, id));
   }
 
-  at(teamId: TeamId, key: string): Promise<KeptSkill | null> {
+  at(teamId: TeamId, key: string): Promise<SkillRecord | null> {
     return this.kept(
       and(
         eq(skillDefinition.teamId, teamId.value),
@@ -33,7 +33,7 @@ export class DrizzleSkillResources implements SkillResourcesPort {
     );
   }
 
-  async ofTeam(teamId: TeamId): Promise<readonly KeptSkill[]> {
+  async ofTeam(teamId: TeamId): Promise<readonly SkillRecord[]> {
     const found = await this.context.db
       .select(KEPT)
       .from(skillDefinition)
@@ -42,7 +42,7 @@ export class DrizzleSkillResources implements SkillResourcesPort {
     return found.map((each) => ({ ...each, teamId }));
   }
 
-  private async kept(where: SQL | undefined): Promise<KeptSkill | null> {
+  private async kept(where: SQL | undefined): Promise<SkillRecord | null> {
     const [found] = await this.context.db
       .select(KEPT)
       .from(skillDefinition)

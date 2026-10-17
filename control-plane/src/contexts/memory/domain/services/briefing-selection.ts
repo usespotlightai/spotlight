@@ -3,11 +3,11 @@ import { withoutSuperseded } from '@memory/domain/services/superseded-memories';
 import { isWarning } from '@memory/domain/value-objects/memory-kind';
 import type { TouchedSite } from '@memory/domain/value-objects/run-site';
 
-const MOST_BRIEFED = 8;
+const MAX_BRIEFED = 8;
 
-const MOST_BRIEFED_LENGTH = 3_000;
+const MAX_BRIEFED_LENGTH = 3_000;
 
-const MOST_CUT_KEPT = 20;
+const MAX_CUT_KEPT = 20;
 
 const TASK_WEIGHT = 3;
 
@@ -73,8 +73,8 @@ export const selectForBriefing = (
 
   for (const memory of ranked) {
     if (
-      chosen.length === MOST_BRIEFED ||
-      length + memory.body.length > MOST_BRIEFED_LENGTH
+      chosen.length === MAX_BRIEFED ||
+      length + memory.body.length > MAX_BRIEFED_LENGTH
     ) {
       break;
     }
@@ -85,6 +85,6 @@ export const selectForBriefing = (
 
   return {
     briefed: chosen,
-    cut: ranked.slice(chosen.length, chosen.length + MOST_CUT_KEPT),
+    cut: ranked.slice(chosen.length, chosen.length + MAX_CUT_KEPT),
   };
 };

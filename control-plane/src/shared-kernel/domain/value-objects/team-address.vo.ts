@@ -1,5 +1,5 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import { areWords } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const SEPARATOR = '/';
 
@@ -19,7 +19,7 @@ export class TeamAddress {
   ) {}
 
   static of(teamKey: string, key: string): TeamAddress {
-    return areWords(teamKey) && areWords(key)
+    return isSlug(teamKey) && isSlug(key)
       ? new TeamAddress(teamKey, key)
       : refused();
   }

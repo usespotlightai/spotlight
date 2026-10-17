@@ -40,22 +40,20 @@ export class NoteTaskFailed {
     const workspaceId = WorkspaceId.of(heard.workspaceId);
     const teamId = TeamId.of(heard.teamId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId, teamId);
       const held = await this.failures.of(taskId);
 
       if (!held) {
         if (!(await this.forgotten.forgot(workspaceId, taskId, teamId))) {
           await this.failures.add(
-            TaskFailures.heardOf(taskId, workspaceId, teamId).raised(
-              occurrence,
-            ),
+            TaskFailures.heardOf(taskId, workspaceId, teamId).raise(occurrence),
           );
         }
         return;
       }
 
-      const raised = held.raised(occurrence);
+      const raised = held.raise(occurrence);
 
       if (raised !== held) {
         await this.failures.save(raised);

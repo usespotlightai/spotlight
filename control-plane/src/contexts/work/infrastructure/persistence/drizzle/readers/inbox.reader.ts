@@ -289,7 +289,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           async (teamId) =>
             [
               teamId,
-              (await this.access.clearanceAsTeamReader(
+              (await this.access.permissionsAsTeamReader(
                 teamId,
                 PersonPrincipal.of(userId),
               )) !== null,

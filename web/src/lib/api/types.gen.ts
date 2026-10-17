@@ -138,7 +138,7 @@ export type LineReplayCheckResponseDto = {
   /**
    * How many tasks a planned change may regress on and still pass `spotlight replay check`
    */
-  mostRegressions: number;
+  maxRegressions: number;
   /**
    * The most one check’s replay may spend
    */
@@ -507,7 +507,7 @@ export type HistoryPlaceResponseDto = {
   name: string;
 };
 
-export type ConfiguredProfileResponseDto = {
+export type ProfileViewResponseDto = {
   key: string;
   /**
    * The permissions, MCP servers and native settings it held
@@ -517,12 +517,12 @@ export type ConfiguredProfileResponseDto = {
   };
 };
 
-export type ConfiguredRepositoryResponseDto = {
+export type RepositoryViewResponseDto = {
   name: string;
   setup: string | null;
 };
 
-export type ConfiguredSkillResponseDto = {
+export type SkillViewResponseDto = {
   key: string;
   /**
    * The SHA-256 of the skill's files
@@ -530,7 +530,7 @@ export type ConfiguredSkillResponseDto = {
   digest: string;
 };
 
-export type ConfiguredJudgeResponseDto = {
+export type JudgeViewResponseDto = {
   /**
    * The SHA-256 of the judge's rubric
    */
@@ -550,14 +550,14 @@ export type StationConfigResponseDto = {
   harness: string;
   model: string | null;
   effort: string | null;
-  profile: ConfiguredProfileResponseDto | null;
+  profile: ProfileViewResponseDto | null;
   image: string | null;
-  repositories: Array<ConfiguredRepositoryResponseDto>;
-  skills: Array<ConfiguredSkillResponseDto>;
+  repositories: Array<RepositoryViewResponseDto>;
+  skills: Array<SkillViewResponseDto>;
   tools: Array<string>;
   decisions: boolean;
   memories: boolean;
-  judge: ConfiguredJudgeResponseDto | null;
+  judge: JudgeViewResponseDto | null;
 };
 
 export type HistoryConfigResponseDto = {
@@ -951,7 +951,7 @@ export type RunnerReleaseResponseDto = {
   /**
    * The oldest runner release this control plane works with; a host refuses an image whose runner is older
    */
-  atLeast: string;
+  minimum: string;
 };
 
 export type HostRequirementsResponseDto = {
@@ -3267,7 +3267,7 @@ export type WorkspaceRunnersResourceListResponseDto = {
   items: Array<WorkspaceRunnersResourceResponseDto>;
 };
 
-export type ConfiguredDescriptionResponseDto = {
+export type DescriptionViewResponseDto = {
   /**
    * The kind of API description, or the MCP server, its tools are generated from
    */
@@ -3286,7 +3286,7 @@ export type ConfiguredDescriptionResponseDto = {
   problem: string | null;
 };
 
-export type ConfiguredIntegrationResponseDto = {
+export type IntegrationViewResponseDto = {
   source: string;
   name: string;
   /**
@@ -3308,11 +3308,11 @@ export type ConfiguredIntegrationResponseDto = {
   /**
    * The API description its tools are generated from, as last read; null where it names none
    */
-  described: ConfiguredDescriptionResponseDto | null;
+  described: DescriptionViewResponseDto | null;
 };
 
 export type ConfigurationResponseDto = {
-  integrations: Array<ConfiguredIntegrationResponseDto>;
+  integrations: Array<IntegrationViewResponseDto>;
 };
 
 export type TeamSkillResponseDto = {
@@ -5597,7 +5597,7 @@ export type TaskFailureSummaryResponseDto = {
   /**
    * The most times it repeated on one task without a break
    */
-  mostInARow: number;
+  maxInARow: number;
   taskIds: Array<string>;
 };
 
@@ -5900,9 +5900,9 @@ export type TrendRuleResponseDto = {
    */
   recentWeeks: number;
   /**
-   * The fewest runs each side needs for a trend
+   * The minimum number of runs each side needs for a trend
    */
-  fewestRuns: number;
+  minRuns: number;
   /**
    * How many points the share of runs that used a skill must move
    */
@@ -6185,11 +6185,11 @@ export type SizeBoundResponseDto = {
   /**
    * The most lines a run’s changes may take out and put in to be this size; none for no limit
    */
-  mostLines: number | null;
+  maxLines: number | null;
   /**
    * For a run that changed no lines, the most steps it may take to be this size; none for no limit
    */
-  mostSteps: number | null;
+  maxSteps: number | null;
 };
 
 export type SetupOutcomesResponseDto = {
@@ -6260,9 +6260,9 @@ export type InsightsSetupsResponseDto = {
    */
   sizes: Array<SizeBoundResponseDto>;
   /**
-   * The fewest runs a setup needs to sit on the frontier
+   * The minimum number of runs a setup needs to sit on the frontier
    */
-  fewestRuns: number;
+  minRuns: number;
   /**
    * The currency the frontier is drawn in; setups priced in another are left off it
    */
@@ -8743,7 +8743,7 @@ export type ReplayCheckThresholdResponseDto = {
   /**
    * How many tasks the change may regress on and still pass, taken from the live line’s replay_check when the check started
    */
-  mostRegressions: number;
+  maxRegressions: number;
   /**
    * The smallest gain in success the live line’s replay_check counts as real, when the check started
    */

@@ -3,14 +3,14 @@ import type { WorkspaceResourceDto } from '@identity/application/dto/workspace-r
 import type { WorkspaceTokenResourceDto } from '@identity/application/dto/workspace-token-resource.dto';
 import type { WorkspaceTokenTrustResourceDto } from '@identity/application/dto/workspace-token-trust-resource.dto';
 import type {
-  KeptTeam,
-  KeptWorkspace,
-  KeptWorkspaceToken,
-  KeptWorkspaceTokenTrust,
+  TeamRecord,
+  WorkspaceRecord,
+  WorkspaceTokenRecord,
+  WorkspaceTokenTrustRecord,
 } from '@identity/application/ports/identity-resources.port';
 
 export const ResourceMapper = {
-  workspace(workspace: KeptWorkspace): WorkspaceResourceDto {
+  workspace(workspace: WorkspaceRecord): WorkspaceResourceDto {
     return {
       id: workspace.id.value,
       version: workspace.version,
@@ -21,7 +21,7 @@ export const ResourceMapper = {
     };
   },
 
-  team(team: KeptTeam): TeamResourceDto {
+  team(team: TeamRecord): TeamResourceDto {
     return {
       id: team.id.value,
       version: team.version,
@@ -33,7 +33,7 @@ export const ResourceMapper = {
     };
   },
 
-  workspaceToken(token: KeptWorkspaceToken): WorkspaceTokenResourceDto {
+  workspaceToken(token: WorkspaceTokenRecord): WorkspaceTokenResourceDto {
     return {
       id: token.id.value,
       version: token.version,
@@ -50,7 +50,7 @@ export const ResourceMapper = {
   },
 
   workspaceTokenTrust(
-    trust: KeptWorkspaceTokenTrust,
+    trust: WorkspaceTokenTrustRecord,
   ): WorkspaceTokenTrustResourceDto {
     return {
       id: trust.id.value,

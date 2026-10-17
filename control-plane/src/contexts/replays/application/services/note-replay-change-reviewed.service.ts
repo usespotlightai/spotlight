@@ -20,14 +20,14 @@ export class NoteReplayChangeReviewed {
   reviewed(runId: string): Promise<void> {
     const run = RunId.of(runId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const replay = await this.replays.ranAs(run);
 
       if (!replay) {
         return;
       }
 
-      const reviewed = replay.reviewed(
+      const reviewed = replay.recordReview(
         run,
         ...reviewOf(await this.changes.stacksOf(run)),
         this.clock.now(),
@@ -42,14 +42,14 @@ export class NoteReplayChangeReviewed {
   rechecked(runId: string): Promise<void> {
     const run = RunId.of(runId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const replay = await this.replays.ranAs(run);
 
       if (!replay) {
         return;
       }
 
-      const rechecked = replay.rechecked(
+      const rechecked = replay.recheck(
         run,
         ChangeChecks.of(await this.changes.rechecksOf(run)),
       );
@@ -61,9 +61,9 @@ export class NoteReplayChangeReviewed {
   }
 
   recheckUnavailable(event: ReplayRecheckUnavailable): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(event.replayId);
-      const unchecked = replay?.rechecked(event.run, ChangeChecks.of([]));
+      const unchecked = replay?.recheck(event.run, ChangeChecks.of([]));
 
       if (replay && unchecked && unchecked !== replay) {
         await this.replays.save(unchecked);

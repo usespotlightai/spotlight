@@ -2,7 +2,7 @@ import type { LatestChangeStackDto } from '@change-review/application/dto/change
 import type { ChangeStackReaderPort } from '@change-review/application/ports/change-stack-reader.port';
 import type { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
 import type { ChangeStackAccess } from '@change-review/application/services/change-stack-access.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -43,7 +43,7 @@ export class ReadTaskChangeStackHandler
           }
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

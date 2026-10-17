@@ -68,7 +68,7 @@ export class TaskTouchesInMemory implements TaskTouchesRepository {
 
   async ofTeamBetween(
     window: TeamWindow,
-    most: number,
+    max: number,
   ): Promise<readonly TaskTouches[]> {
     const worked = new Set(
       (
@@ -86,7 +86,7 @@ export class TaskTouchesInMemory implements TaskTouchesRepository {
               (each.touchedAt?.getTime() ?? 0) >= window.from.getTime() &&
               each.opening.at.getTime() < window.to.getTime())),
       )
-      .slice(0, most);
+      .slice(0, max);
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
@@ -141,7 +141,7 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
 
   async ofTeamBetween(
     window: TeamWindow,
-    most: number,
+    max: number,
   ): Promise<readonly TaskFailures[]> {
     return [...this.held.values()]
       .filter(
@@ -150,7 +150,7 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
           each.teamId.equals(window.teamId) &&
           (each.lastAt?.getTime() ?? 0) >= window.from.getTime(),
       )
-      .slice(0, most);
+      .slice(0, max);
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
@@ -190,7 +190,7 @@ export class ChatRecordsInMemory implements ChatRecordRepository {
 
   async ofTeamBetween(
     window: TeamWindow,
-    most: number,
+    max: number,
   ): Promise<readonly ChatRecord[]> {
     return [...this.held.values()]
       .filter(
@@ -199,7 +199,7 @@ export class ChatRecordsInMemory implements ChatRecordRepository {
           each.teamId.equals(window.teamId) &&
           inWindow(window, each.startedAt),
       )
-      .slice(0, most);
+      .slice(0, max);
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
@@ -232,7 +232,7 @@ export const touchesOf = (
     acts?: readonly (readonly [PersonAct, string, string, Date])[];
   } = {},
 ): TaskTouches => {
-  const opened = TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).opened(
+  const opened = TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).recordOpen(
     TaskOpening.of({
       teamId: TEAM,
       lineId: touched.lineId ?? 'line_1',
@@ -251,7 +251,9 @@ export const touchesOf = (
 
   return (touched.acts ?? []).reduce(
     (held, [act, by, stationId, at]) =>
-      held.actedOn(PersonTouch.of({ act, by: UserId.of(by), stationId, at })),
+      held.recordAction(
+        PersonTouch.of({ act, by: UserId.of(by), stationId, at }),
+      ),
     asked,
   );
 };
@@ -268,7 +270,7 @@ export const failuresOf = (
 ): TaskFailures =>
   raised.reduce(
     (held, each) =>
-      held.raised(
+      held.raise(
         FailureOccurrence.of({
           stationId: each.stationId ?? 'station_1',
           runId: null,
@@ -282,7 +284,7 @@ export const failuresOf = (
   );
 
 export const chatOf = (chatId: string, by: string, at: Date): ChatRecord =>
-  ChatRecord.started({
+  ChatRecord.start({
     chatId,
     workspaceId: WORKSPACE,
     teamId: TEAM,
@@ -311,7 +313,7 @@ export const deliveredOf = (
   const pullRequest = PullRequestUrl.of(
     `https://github.com/acme/api/pull/${taskId.replace(/\D/g, '') || '1'}`,
   );
-  const opened = TaskDelivery.opened({
+  const opened = TaskDelivery.open({
     taskId: TaskId.of(taskId),
     workspaceId: WORKSPACE,
     teamId: TEAM,
@@ -319,11 +321,15 @@ export const deliveredOf = (
     at: delivered.openedAt,
   });
   const reviewed = delivered.reviewedAt
-    ? opened.reviewed({ pullRequest, at: delivered.reviewedAt, byBot: false })
+    ? opened.recordReview({
+        pullRequest,
+        at: delivered.reviewedAt,
+        byBot: false,
+      })
     : opened;
 
   return delivered.closedAt
-    ? reviewed.closed({
+    ? reviewed.close({
         pullRequest,
         merged: delivered.merged ?? true,
         at: delivered.closedAt,

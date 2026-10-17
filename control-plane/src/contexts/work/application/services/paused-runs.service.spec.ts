@@ -82,10 +82,10 @@ const asked = () =>
     newId: () => 'task_1',
   })
     .handedTo(RUN, line)
-    .putToAPersonBy(RUN, note('Which queue?', Voice.station(RUN)));
+    .putToAPerson(RUN, note('Which queue?', Voice.station(RUN)));
 
 const answered = () =>
-  asked().answered(
+  asked().answer(
     NotePosition.of(0),
     note('The default one.', Voice.person(UserId.of('user_1'))),
   );
@@ -175,7 +175,7 @@ describe('PausedRuns', () => {
   });
 
   it('leaves a run its task no longer holds, or one asked to stop, alone', async () => {
-    const moved = taking(answered().leftBy(RUN, NOW), waiting());
+    const moved = taking(answered().leaveRun(RUN, NOW), waiting());
     const stopping = taking(answered(), waiting().requestStop(NOW));
 
     await moved.takeUp();

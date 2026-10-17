@@ -2,7 +2,7 @@ import type { ConfigurationDto } from '@configuration/application/dto/configurat
 import { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
 import {
   ConfigurationResponseDto,
-  ConfiguredIntegrationResponseDto,
+  IntegrationViewResponseDto,
 } from '@configuration/presentation/http/dto/configuration.response.dto';
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
@@ -19,7 +19,7 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 
 const shown = (read: ConfigurationDto): ConfigurationResponseDto =>
   new ConfigurationResponseDto(
-    read.integrations.map((each) => new ConfiguredIntegrationResponseDto(each)),
+    read.integrations.map((each) => new IntegrationViewResponseDto(each)),
   );
 
 @ApiTags('configuration')

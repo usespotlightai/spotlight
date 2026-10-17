@@ -106,14 +106,14 @@ export class DrizzleReviewCommentRepository implements ReviewCommentRepository {
   ) {}
 
   async add(comment: ReviewComment): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db.insert(reviewComment).values(toRow(comment));
       await this.events.dispatch(comment.pullEvents());
     });
   }
 
   async save(comment: ReviewComment): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(comment);
       await this.events.dispatch(comment.pullEvents());
     });

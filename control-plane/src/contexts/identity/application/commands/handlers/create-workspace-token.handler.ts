@@ -12,7 +12,7 @@ import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -57,16 +57,16 @@ export class CreateWorkspaceTokenHandler
   ): Promise<WorkspaceTokenCreatedDto | null> {
     try {
       const { principal } = command.actor;
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(command.workspaceId),
         principal,
       );
 
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.administers) {
+      if (!permissions.administers) {
         return refused(forbiddenTo('administer'));
       }
 
@@ -88,16 +88,16 @@ export class CreateWorkspaceTokenHandler
       };
 
       try {
-        const created = await this.transaction.run(() =>
+        const created = await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             const issued = WorkspaceToken.issue({
               ...compiled.terms,
               id: WorkspaceTokenId.of(this.ids.generate()),
-              workspaceId: cleared.workspaceId,
+              workspaceId: permissions.workspaceId,
               hash: TokenHash.of(minted.hash),
               issuedBy: principal.userId,
               now: this.clock.now(),
-              by: Attribution.of(command.actor, cleared.workspaceId),
+              by: Attribution.of(command.actor, permissions.workspaceId),
             });
 
             await this.tokens.add(issued);
@@ -132,7 +132,7 @@ export class CreateWorkspaceTokenHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

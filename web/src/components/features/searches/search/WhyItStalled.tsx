@@ -12,16 +12,16 @@ import {
   whyItStalledAnchor,
 } from '@/lib/search';
 import {
-  causeActionShown,
-  causeMeaningShown,
-  causeTitleShown,
+  formatCauseAction,
+  formatCauseMeaning,
+  formatCauseTitle,
+  formatReflectionLooked,
+  formatReflectionOutcome,
+  formatStanding,
+  formatWhyItStalled,
   REFLECTION_LOOKING,
-  reflectionLookedShown,
-  reflectionOutcomeShown,
-  standingShown,
   UNCAUSED_NOTE,
   UNCAUSED_TITLE,
-  whyItStalledShown,
 } from '@/lib/search-words';
 
 type WhyItStalledProps = {
@@ -44,7 +44,7 @@ export function WhyItStalled({
   const anchor = whyItStalledAnchor(iteration.number);
 
   return (
-    <InsightsCard id={anchor} title={whyItStalledShown(iteration.number)}>
+    <InsightsCard id={anchor} title={formatWhyItStalled(iteration.number)}>
       <div
         data-slot="why-it-stalled"
         data-iteration={iteration.number}
@@ -53,7 +53,7 @@ export function WhyItStalled({
         <div className="flex flex-col gap-1 text-sm leading-6">
           {standing && (
             <p data-slot="reflection-standing" className="text-foreground">
-              {standingShown(standing)}
+              {formatStanding(standing)}
             </p>
           )}
           {looking || !reflection?.outcome ? (
@@ -62,11 +62,11 @@ export function WhyItStalled({
             <>
               {reflection.tasks.length > 0 && (
                 <p className="text-muted-foreground">
-                  {reflectionLookedShown(reflection.tasks.length)}
+                  {formatReflectionLooked(reflection.tasks.length)}
                 </p>
               )}
               <p data-slot="reflection-outcome" className="text-foreground">
-                {reflectionOutcomeShown(reflection.outcome)}
+                {formatReflectionOutcome(reflection.outcome)}
               </p>
             </>
           )}
@@ -76,9 +76,9 @@ export function WhyItStalled({
           <StallGroup
             key={group.cause}
             kind={group.cause}
-            title={causeTitleShown(group.cause)}
-            meaning={causeMeaningShown(group.cause)}
-            action={causeActionShown(group.cause)}
+            title={formatCauseTitle(group.cause)}
+            meaning={formatCauseMeaning(group.cause)}
+            action={formatCauseAction(group.cause)}
           >
             {group.causes.map((cause) => (
               <StallTask

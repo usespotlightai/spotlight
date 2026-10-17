@@ -85,15 +85,17 @@ const mostOf = (types: readonly PullRequestType[]): PullRequestType | null => {
     counts.set(each, (counts.get(each) ?? 0) + 1);
   }
 
-  let most: PullRequestType | null = null;
+  let commonest: PullRequestType | null = null;
 
   for (const each of PULL_REQUEST_TYPES) {
-    if ((counts.get(each) ?? 0) > (most ? (counts.get(most) ?? 0) : 0)) {
-      most = each;
+    if (
+      (counts.get(each) ?? 0) > (commonest ? (counts.get(commonest) ?? 0) : 0)
+    ) {
+      commonest = each;
     }
   }
 
-  return most;
+  return commonest;
 };
 
 const typeOfChanges = (said: PullRequestSaid): PullRequestType | null =>

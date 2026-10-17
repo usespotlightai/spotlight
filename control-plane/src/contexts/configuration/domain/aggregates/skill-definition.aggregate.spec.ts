@@ -21,7 +21,7 @@ const TEAM = TeamId.of('team_1');
 const ID = SkillDefinitionId.of('skill_1');
 
 const read = (key = 'grafana', body = 'Search first.') => ({
-  skill: Skill.defined({
+  skill: Skill.define({
     key: SkillKey.of(key),
     description: 'Look up dashboards',
     instructions: body,
@@ -96,12 +96,12 @@ describe('SkillDefinition', () => {
   });
 
   it('will not retire while a station gives it', () => {
-    expect(() => kept().retired(GIVEN, BY)).toThrow(SkillInUseError);
-    expect(() => kept().retired(GIVEN, BY)).toThrow(/delivery\/implementation/);
+    expect(() => kept().retire(GIVEN, BY)).toThrow(SkillInUseError);
+    expect(() => kept().retire(GIVEN, BY)).toThrow(/delivery\/implementation/);
   });
 
   it('retires when no station gives it, and cannot change after', () => {
-    const retired = kept().retired(
+    const retired = kept().retire(
       StationUses.of([{ name: 'loki', by: 'delivery/implementation' }]),
       BY,
     );
@@ -121,7 +121,7 @@ describe('SkillDefinition', () => {
   });
 
   it('is abandoned with its team, whoever still gives it', () => {
-    const abandoned = kept().abandoned(BY);
+    const abandoned = kept().abandon(BY);
 
     expect(abandoned.isRetired).toBe(true);
     expect(abandoned.pullEvents()).toEqual([

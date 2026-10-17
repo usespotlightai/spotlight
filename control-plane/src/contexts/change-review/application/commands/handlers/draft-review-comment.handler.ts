@@ -7,7 +7,7 @@ import { fileThreadOf } from '@change-review/domain/services/file-thread';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -52,7 +52,7 @@ export class DraftReviewCommentHandler
           ? ReviewAnchor.onFile(command.on.file)
           : ReviewAnchor.onLines(command.on);
 
-      return await this.transaction.run(async () => {
+      return await this.transaction.inTransaction(async () => {
         const thread = anchor.wholeFile
           ? await this.threadOnFile(task.id, anchor)
           : null;
@@ -61,7 +61,7 @@ export class DraftReviewCommentHandler
           return this.answer(thread, command.body, author, id, now);
         }
 
-        const draft = ReviewComment.drafted({
+        const draft = ReviewComment.draft({
           id,
           workspaceId: task.workspaceId,
           taskId: task.id,
@@ -76,7 +76,7 @@ export class DraftReviewCommentHandler
         return draft.id.value;
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

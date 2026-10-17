@@ -3,7 +3,7 @@ import type { HarnessProfileResourcesPort } from '@configuration/application/por
 import type { ReadHarnessProfileQuery } from '@configuration/application/queries/read-harness-profile.query';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadHarnessProfileHandler
@@ -24,14 +24,17 @@ export class ReadHarnessProfileHandler
 
       if (
         !kept ||
-        !(await this.access.clearanceOnTeam(kept.teamId.value, query.principal))
+        !(await this.access.permissionsOnTeam(
+          kept.teamId.value,
+          query.principal,
+        ))
       ) {
         return null;
       }
 
       return this.views.of(kept);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

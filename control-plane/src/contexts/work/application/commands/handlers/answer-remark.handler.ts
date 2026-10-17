@@ -1,9 +1,9 @@
 import type { RemarksPort } from '@github/application/ports/remarks.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { AnswerRemarkCommand } from '@work/application/commands/answer-remark.command';
-import type { RunAtHand } from '@work/application/services/run-at-hand.service';
+import type { RunLoader } from '@work/application/services/run-loader.service';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -16,7 +16,7 @@ export class AnswerRemarkHandler
   implements CommandHandlerPort<AnswerRemarkCommand, void>
 {
   constructor(
-    private readonly held: RunAtHand,
+    private readonly runs: RunLoader,
     private readonly tasks: TaskRepository,
     private readonly lines: LineRepository,
     private readonly remarks: RemarksPort,
@@ -25,7 +25,7 @@ export class AnswerRemarkHandler
 
   async execute(command: AnswerRemarkCommand): Promise<void> {
     try {
-      const { run, task } = await this.held.heldBy(
+      const { run, task } = await this.runs.forRunner(
         command.runId,
         command.runnerId,
       );
@@ -59,7 +59,7 @@ export class AnswerRemarkHandler
         }),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

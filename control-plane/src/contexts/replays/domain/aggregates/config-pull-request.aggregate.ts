@@ -17,7 +17,7 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const MOST_TRIES = 5;
+export const MAX_TRIES = 5;
 
 const FIRST_RETRY_MS = 30_000;
 
@@ -75,7 +75,7 @@ export class ConfigPullRequest extends EventRecorder {
     return `spotlight/search-${searchId.value.slice(0, SEARCH_PREFIX)}-${slugOf(candidateName)}`;
   }
 
-  static picked(input: {
+  static pick(input: {
     id: ConfigPullRequestId;
     searchId: SearchId;
     candidateId: CandidateId;
@@ -302,13 +302,13 @@ export class ConfigPullRequest extends EventRecorder {
     return retried;
   }
 
-  committed(commit: string, at: Date): ConfigPullRequest {
+  commit(commit: string, at: Date): ConfigPullRequest {
     this.mustBeOpening();
 
     return this.with({ lastCommit: commit, updatedAt: at });
   }
 
-  opened(
+  open(
     url: PullRequestUrl,
     proposing: StationFingerprint,
     at: Date,
@@ -349,7 +349,7 @@ export class ConfigPullRequest extends EventRecorder {
 
     const tries = this.state.tries + 1;
 
-    return tries >= MOST_TRIES
+    return tries >= MAX_TRIES
       ? this.with({ tries }).refused(
           ConfigPullRequestReason.of({ code: 'github-refused', message }),
           at,
@@ -361,7 +361,7 @@ export class ConfigPullRequest extends EventRecorder {
         });
   }
 
-  abandoned(): ConfigPullRequest {
+  abandon(): ConfigPullRequest {
     return new ConfigPullRequest(this.state, true);
   }
 

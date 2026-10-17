@@ -1,7 +1,7 @@
 import { PairJudged } from '@outcomes/domain/events/pair-judged.event';
 import { PairJudgingFailed } from '@outcomes/domain/events/pair-judging-failed.event';
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
-import { MOST_REASONS } from '@outcomes/domain/services/grounded-verdict';
+import { MAX_REASONS } from '@outcomes/domain/services/grounded-verdict';
 import type {
   PairCitedReason,
   PairEvidence,
@@ -58,7 +58,7 @@ const readingOf = (
   if (
     !PAIR_LABELS.includes(shown.verdict.preferred) ||
     given.length === 0 ||
-    given.length > MOST_REASONS
+    given.length > MAX_REASONS
   ) {
     return UNREADABLE;
   }
@@ -83,7 +83,7 @@ interface State {
   readonly teamId: TeamId;
   readonly criteria: JudgeCriteria;
   readonly reference: RunId;
-  readonly mostAttempts: number;
+  readonly maxAttempts: number;
   readonly order: PairOrder;
   readonly askedAt: Date;
   readonly work: OwedWork | null;
@@ -108,10 +108,10 @@ export class PairJudging
     teamId: TeamId;
     criteria: JudgeCriteria;
     reference: RunId;
-    mostAttempts: number;
+    maxAttempts: number;
     now: Date;
   }): PairJudging {
-    if (!Number.isInteger(input.mostAttempts) || input.mostAttempts < 1) {
+    if (!Number.isInteger(input.maxAttempts) || input.maxAttempts < 1) {
       throw InvalidScoreError.ofJudging(
         'attempts must be from 1 to the number paid for',
       );
@@ -183,8 +183,8 @@ export class PairJudging
     return this.state.reference;
   }
 
-  get mostAttempts(): number {
-    return this.state.mostAttempts;
+  get maxAttempts(): number {
+    return this.state.maxAttempts;
   }
 
   get order(): PairOrder {
@@ -252,7 +252,7 @@ export class PairJudging
     }
 
     const next =
-      work.attempts < this.state.mostAttempts
+      work.attempts < this.state.maxAttempts
         ? failure.retry.after(work.attempts, failure.at)
         : null;
 
@@ -261,7 +261,7 @@ export class PairJudging
       : this.ended(failure);
   }
 
-  usedModel(usage: ModelCall | null): PairJudging {
+  recordModel(usage: ModelCall | null): PairJudging {
     return usage && this.state.work
       ? this.with({ spent: this.state.spent.with(usage) })
       : this;
@@ -271,7 +271,7 @@ export class PairJudging
     return [this.state.order, oppositeOf(this.state.order)];
   }
 
-  judged(input: {
+  recordVerdict(input: {
     readings: readonly PairShown[];
     model: string;
     now: Date;

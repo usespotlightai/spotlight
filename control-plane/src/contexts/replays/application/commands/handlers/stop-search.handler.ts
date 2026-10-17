@@ -4,7 +4,7 @@ import type { ReplaysAccess } from '@replays/application/services/replays-access
 import { UnknownSearchError } from '@replays/domain/exceptions/unknown-search.error';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -22,17 +22,17 @@ export class StopSearchHandler
 
   async execute(command: StopSearchCommand): Promise<SearchStoppedOutcome> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.actor.principal,
       );
-      const seen = await this.access.searchOn(clearance, command.searchId);
+      const seen = await this.access.searchOn(access, command.searchId);
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const search = await this.searches.locked(seen.id);
 
         if (!search) {
@@ -40,7 +40,7 @@ export class StopSearchHandler
         }
 
         await this.searches.save(
-          search.stopped(
+          search.stop(
             this.clock.now(),
             Attribution.of(command.actor, search.workspaceId),
           ),
@@ -49,7 +49,7 @@ export class StopSearchHandler
 
       return { outcome: 'stopped' };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

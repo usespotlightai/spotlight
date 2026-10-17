@@ -215,12 +215,12 @@ describe('forgetting a task’s or a team’s pull requests', () => {
     await held.pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, PULL)
         .seenAs(seenOf())
-        .ownedBy({ taskId: TASK, teamId: TEAM }),
+        .assignOwner({ taskId: TASK, teamId: TEAM }),
     );
     await held.pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, people)
         .seenAs(seenOf({ number: 8 }))
-        .reviewedBy(TASK),
+        .recordReview(TASK),
     );
     const saving = held.pullRequests.save.bind(held.pullRequests);
     let collisions = 1;
@@ -248,7 +248,7 @@ describe('forgetting a task’s or a team’s pull requests', () => {
     await held.pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, PULL)
         .seenAs(seenOf())
-        .ownedBy({ taskId: TASK, teamId: TEAM }),
+        .assignOwner({ taskId: TASK, teamId: TEAM }),
     );
 
     await forgetting(held).pullRequestsOfTeam(WORKSPACE, TEAM);

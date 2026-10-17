@@ -1,10 +1,10 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  SOURCE_WORD,
-  WORDS,
+  SLUG_SHAPE,
+  SOURCE_KEY_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
-const OFFERED = new RegExp(`^${SOURCE_WORD}\\.${WORDS}$`);
+const OFFERED = new RegExp(`^${SOURCE_KEY_SHAPE}\\.${SLUG_SHAPE}$`);
 
 export class ToolName {
   private constructor(readonly value: string) {}

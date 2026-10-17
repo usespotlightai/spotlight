@@ -11,7 +11,7 @@ import type {
 } from '@change-review/application/ports/review-reader.port';
 import type { ReadRunReviewQuery } from '@change-review/application/queries/read-run-review.query';
 import type { ReviewAccess } from '@change-review/application/services/review-access.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -118,7 +118,7 @@ export class ReadRunReviewHandler
         ),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

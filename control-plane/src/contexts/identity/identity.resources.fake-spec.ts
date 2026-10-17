@@ -99,7 +99,7 @@ export const teams = (
 
 export const access = (administers = true): WorkspaceAccessPort =>
   ({
-    clearanceIn: vi.fn(async () => ({
+    permissionsIn: vi.fn(async () => ({
       workspaceId: WORKSPACE,
       slug: 'acme',
       configures: administers,
@@ -131,4 +131,4 @@ export const creates = () =>
     created: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
-export const transaction: TransactionPort = { run: (work) => work() };
+export const transaction: TransactionPort = { inTransaction: (work) => work() };

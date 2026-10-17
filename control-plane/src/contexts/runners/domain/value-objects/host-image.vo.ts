@@ -5,10 +5,10 @@ import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 
-const clipped = (raw: string | undefined, most: number): string | null => {
+const clipped = (raw: string | undefined, max: number): string | null => {
   const held = raw?.trim() ?? '';
 
-  return held ? held.slice(0, most) : null;
+  return held ? held.slice(0, max) : null;
 };
 
 const imageAt = (field: string, raw: string): RunnerImage => {

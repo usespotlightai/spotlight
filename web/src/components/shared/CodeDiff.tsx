@@ -6,7 +6,7 @@ import type { LineRange } from '@/lib/changes';
 import { diffOptions } from '@/lib/diff';
 import { cn } from '@/lib/utils';
 
-const MOST_TRIES = 60;
+const MAX_TRIES = 60;
 
 export function CodeDiff({
   path,
@@ -40,7 +40,7 @@ export function CodeDiff({
 
       if (shown) {
         shown.scrollIntoView({ block: 'center' });
-      } else if (tries < MOST_TRIES) {
+      } else if (tries < MAX_TRIES) {
         tries += 1;
         waiting = requestAnimationFrame(find);
       }

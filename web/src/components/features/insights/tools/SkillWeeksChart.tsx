@@ -2,7 +2,7 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import type { SkillWeek } from '@/lib/insights-tools';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 
 const HEIGHT = 16;
 
@@ -23,7 +23,7 @@ const Said = ({
 
   return (
     <ChartTip placement={placement}>
-      <p className="text-muted-foreground">Week of {dayShown(week.week)}</p>
+      <p className="text-muted-foreground">Week of {formatDay(week.week)}</p>
       <p className="text-foreground">
         Read in {week.used} of {week.runs} {week.runs === 1 ? 'run' : 'runs'}
       </p>

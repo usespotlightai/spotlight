@@ -1,8 +1,8 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import { teamAccess } from '@identity/application/ports/workspace-access.fake-spec';
 import type {
-  CompiledIntegration,
   IntegrationCompilerPort,
+  ParsedIntegration,
 } from '@integrations/application/ports/integration-compiler.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
 import { IntegrationSources } from '@integrations/application/services/integration-sources.service';
@@ -37,7 +37,7 @@ export const LINEAR = { integration: 'linear', name: 'Linear' };
 
 export const SLACK = { integration: 'slack', name: 'Slack' };
 
-const compiledFor = (source: string, held: object): CompiledIntegration => ({
+const compiledFor = (source: string, held: object): ParsedIntegration => ({
   ok: true,
   integration: Integration.of({
     source: SourceKey.of(source),
@@ -50,7 +50,7 @@ const compiledFor = (source: string, held: object): CompiledIntegration => ({
 });
 
 const compiler: IntegrationCompilerPort = {
-  compile: (held): CompiledIntegration =>
+  compile: (held): ParsedIntegration =>
     held === LINEAR
       ? compiledFor('linear', held)
       : held === SLACK
@@ -118,7 +118,7 @@ export const recalls = (recall: IdempotentRecall = { kind: 'unseen' }) =>
 export const toolsGiven = (given = ToolUses.none()): ToolsGiven =>
   ({ onTeam: vi.fn(async () => given) }) as unknown as ToolsGiven;
 
-export const transaction: TransactionPort = { run: (work) => work() };
+export const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 export const definitions = (
   over: {

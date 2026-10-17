@@ -3,10 +3,10 @@ import type {
   HeldResourceDto,
 } from '@configuration/application/dto/held-configuration.dto';
 import type {
-  HeldHookMatch,
-  HeldHookStep,
-} from '@configuration/application/ports/held-hooks.port';
-import type { WornSecret } from '@configuration/application/ports/held-integrations.port';
+  HookConfigMatch,
+  HookConfigStep,
+} from '@configuration/application/ports/hook-configs.port';
+import type { WornSecret } from '@configuration/application/ports/integration-configs.port';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import {
   attribute,
@@ -25,15 +25,15 @@ import {
 import type { FieldSegment } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { isToolName } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type {
-  HeldLineAlert,
-  HeldLineJudge,
-  HeldLineReaction,
-  HeldLineReplayCheck,
-  HeldLineRepository,
-  HeldLineReviews,
-  HeldLineSource,
-  HeldLineStation,
-} from '@work/application/contracts/held-line.contract';
+  LineDefinitionAlert,
+  LineDefinitionJudge,
+  LineDefinitionReaction,
+  LineDefinitionReplayCheck,
+  LineDefinitionRepository,
+  LineDefinitionReviews,
+  LineDefinitionSource,
+  LineDefinitionStation,
+} from '@work/application/contracts/line-definition.contract';
 
 export interface TerraformFile {
   readonly path: string;
@@ -75,7 +75,7 @@ const MAIN = 'main.tf';
 
 const VARIABLES = 'variables.tf';
 
-const HOOK_MATCHES: readonly (keyof HeldHookMatch)[] = [
+const HOOK_MATCHES: readonly (keyof HookConfigMatch)[] = [
   'tools',
   'lines',
   'stations',
@@ -331,7 +331,7 @@ const line = (
   const files: TerraformFile[] = [];
   const { definition } = held;
 
-  const judge = (stationKey: string, set: HeldLineJudge): HclBlock => {
+  const judge = (stationKey: string, set: LineDefinitionJudge): HclBlock => {
     const path = `judges/${held.teamKey}/${held.key}/${stationKey}.md`;
 
     if (set.rubric !== undefined) {
@@ -355,7 +355,7 @@ const line = (
     );
   };
 
-  const alert = (set: HeldLineAlert): HclBlock =>
+  const alert = (set: LineDefinitionAlert): HclBlock =>
     block(
       'alert',
       [],
@@ -369,7 +369,7 @@ const line = (
       ],
     );
 
-  const station = (each: HeldLineStation): HclBlock => {
+  const station = (each: LineDefinitionStation): HclBlock => {
     const path = `prompts/${held.teamKey}/${held.key}/${each.key}.md`;
 
     if (each.prompt !== undefined) {
@@ -421,7 +421,7 @@ const line = (
     );
   };
 
-  const repository = (each: HeldLineRepository): HclBlock =>
+  const repository = (each: LineDefinitionRepository): HclBlock =>
     block(
       'repository',
       [],
@@ -432,7 +432,7 @@ const line = (
       ],
     );
 
-  const reaction = (each: HeldLineReaction): HclBlock =>
+  const reaction = (each: LineDefinitionReaction): HclBlock =>
     block(
       'reaction',
       [],
@@ -443,7 +443,7 @@ const line = (
       ],
     );
 
-  const reviews = (policy: HeldLineReviews): HclBlock =>
+  const reviews = (policy: LineDefinitionReviews): HclBlock =>
     block(
       'reviews',
       [],
@@ -463,19 +463,19 @@ const line = (
       ],
     );
 
-  const replayCheck = (policy: HeldLineReplayCheck): HclBlock =>
+  const replayCheck = (policy: LineDefinitionReplayCheck): HclBlock =>
     block(
       'replay_check',
       [],
       [
-        attribute('most_regressions', policy.mostRegressions),
+        attribute('max_regressions', policy.maxRegressions),
         attribute('ceiling', policy.ceiling),
         attribute('currency', policy.currency),
         attribute('min_gain', policy.minGain),
       ],
     );
 
-  const source = (from: HeldLineSource): HclBlock =>
+  const source = (from: LineDefinitionSource): HclBlock =>
     block(
       'source',
       [],
@@ -625,7 +625,7 @@ const hookMatch = (held: HeldBy<'hook'>, refer: Referring): HclItem[] => {
 
 const hookStep = (
   teamKey: string,
-  step: HeldHookStep,
+  step: HookConfigStep,
   refer: Referring,
 ): HclValue => {
   if ('call' in step) {

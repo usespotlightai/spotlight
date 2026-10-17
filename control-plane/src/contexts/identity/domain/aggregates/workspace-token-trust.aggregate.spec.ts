@@ -127,7 +127,7 @@ describe('WorkspaceTokenTrust', () => {
     expect(token.mintedUnder).toBe(2);
     expect(kept(2).stillGrants(token)).toBe(true);
     expect(kept(3).stillGrants(token)).toBe(false);
-    expect(kept(2).withdrawn(Grantor.unlimited, BY).stillGrants(token)).toBe(
+    expect(kept(2).withdraw(Grantor.unlimited, BY).stillGrants(token)).toBe(
       false,
     );
   });
@@ -184,13 +184,13 @@ describe('WorkspaceTokenTrust', () => {
 
   it('is withdrawn only by a grantor holding every scope it grants', () => {
     expect(() =>
-      kept().withdrawn(
+      kept().withdraw(
         Grantor.holding(TokenScopes.named(['plan', 'trusts'])),
         BY,
       ),
     ).toThrow(TokenTrustBeyondGrantorError);
     expect(
-      kept().withdrawn(
+      kept().withdraw(
         Grantor.holding(TokenScopes.named(['configure', 'secrets', 'trusts'])),
         BY,
       ).isWithdrawn,
@@ -214,13 +214,13 @@ describe('WorkspaceTokenTrust', () => {
   });
 
   it('admits nothing, and cannot change, once withdrawn', () => {
-    const withdrawn = kept().withdrawn(Grantor.unlimited, BY);
+    const withdrawn = kept().withdraw(Grantor.unlimited, BY);
 
     expect(withdrawn.admits(workload())).toBe(false);
     expect(withdrawn.pullEvents().map((each) => each.kind)).toEqual([
       'workspace-token-trust.withdrawn',
     ]);
-    expect(() => withdrawn.withdrawn(Grantor.unlimited, BY)).toThrow(
+    expect(() => withdrawn.withdraw(Grantor.unlimited, BY)).toThrow(
       InconsistentStateError,
     );
   });
@@ -247,7 +247,7 @@ describe('a minted WorkspaceToken', () => {
     const token = minted();
 
     expect(() =>
-      token.redescribed(
+      token.redescribe(
         {
           name: token.name,
           description: token.description,
@@ -263,7 +263,7 @@ describe('a minted WorkspaceToken', () => {
     const token = minted();
     token.pullEvents();
 
-    const revoked = token.revoked(BY);
+    const revoked = token.revoke(BY);
 
     expect(revoked.isRevoked).toBe(true);
     expect(revoked.pullEvents().map((each) => each.kind)).toEqual([

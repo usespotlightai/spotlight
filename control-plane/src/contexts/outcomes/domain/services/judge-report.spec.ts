@@ -9,7 +9,7 @@ import {
   judgeReportOf,
   standingIn,
 } from '@outcomes/domain/services/judge-report';
-import { FEWEST_PAIRS } from '@outcomes/domain/services/judge-standing';
+import { MIN_PAIRS } from '@outcomes/domain/services/judge-standing';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { describe, expect, it } from 'vitest';
@@ -25,7 +25,7 @@ const runs = (count: number, agreeing: number) =>
 
     return {
       score: judgeScore(runId, YES_NO, judged),
-      record: endedRecord(runId, { taskId: `task_${runId}` }).actedOn(
+      record: endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
         NextAct.of((judged === 1) === agrees ? 'closed' : 'sent-back', AT),
       ),
     };
@@ -61,7 +61,7 @@ describe('judgeReportOf', () => {
       judged: [judgeScore('run_1', YES_NO, 1)],
       grades: [personGrade('run_1', YES_NO, 0)],
       records: [
-        endedRecord('run_1', { taskId: 'task_run_1' }).actedOn(
+        endedRecord('run_1', { taskId: 'task_run_1' }).recordAction(
           NextAct.of('closed', AT),
         ),
       ],
@@ -116,7 +116,7 @@ describe('standingIn', () => {
   });
 
   it('hides the scores until enough runs have both', () => {
-    expect(standingIn(reportOf(FEWEST_PAIRS - 1, 9), CURRENT)).toMatchObject({
+    expect(standingIn(reportOf(MIN_PAIRS - 1, 9), CURRENT)).toMatchObject({
       trusted: false,
       hiddenBecause: 'too-few-pairs',
     });

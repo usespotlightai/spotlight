@@ -23,7 +23,7 @@ describe('WorkspaceRunners', () => {
   it('says it was declared, declared again, and dropped', () => {
     const made = declared();
     const again = made.redeclaredAs({ trusts: [], pools: [] }, BY);
-    const dropped = again.dropped(BY);
+    const dropped = again.drop(BY);
 
     expect(dropped.pullEvents().map((each) => each.kind)).toEqual([
       'workspace-runners.declared',

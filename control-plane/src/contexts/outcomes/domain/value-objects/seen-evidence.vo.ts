@@ -14,37 +14,37 @@ export interface SeenHunk {
   readonly lines: readonly string[];
 }
 
-const MOST_TEXT_KEPT = 2_000;
+const MAX_TEXT_KEPT = 2_000;
 
-const MOST_LINES_KEPT = 20;
+const MAX_LINES_KEPT = 20;
 
-const MOST_LINE_KEPT = 200;
+const MAX_LINE_KEPT = 200;
 
-const MOST_NAME_KEPT = 100;
+const MAX_NAME_KEPT = 100;
 
-const MOST_PATH_KEPT = 500;
+const MAX_PATH_KEPT = 500;
 
-const MOST_HEADER_KEPT = 200;
+const MAX_HEADER_KEPT = 200;
 
 const ITEM_OVERHEAD = 64;
 
-const clipped = (text: string, most: number): string =>
-  text.length > most ? `${text.slice(0, most)} …` : text;
+const clipped = (text: string, max: number): string =>
+  text.length > max ? `${text.slice(0, max)} …` : text;
 
 const keptStep = (seen: SeenStep): SeenStep => ({
   index: seen.index,
-  kind: clipped(seen.kind, MOST_NAME_KEPT),
-  tool: seen.tool === null ? null : clipped(seen.tool, MOST_NAME_KEPT),
-  text: clipped(seen.text, MOST_TEXT_KEPT),
+  kind: clipped(seen.kind, MAX_NAME_KEPT),
+  tool: seen.tool === null ? null : clipped(seen.tool, MAX_NAME_KEPT),
+  text: clipped(seen.text, MAX_TEXT_KEPT),
 });
 
 const keptHunk = (seen: SeenHunk): SeenHunk => ({
   id: seen.id,
-  path: clipped(seen.path, MOST_PATH_KEPT),
-  header: clipped(seen.header, MOST_HEADER_KEPT),
+  path: clipped(seen.path, MAX_PATH_KEPT),
+  header: clipped(seen.header, MAX_HEADER_KEPT),
   lines: seen.lines
-    .slice(0, MOST_LINES_KEPT)
-    .map((line) => clipped(line, MOST_LINE_KEPT)),
+    .slice(0, MAX_LINES_KEPT)
+    .map((line) => clipped(line, MAX_LINE_KEPT)),
 });
 
 const sizeOfStep = (step: SeenStep): number =>
@@ -123,10 +123,10 @@ export class SeenEvidence {
     );
   }
 
-  within(most: number): SeenEvidence {
+  within(max: number): SeenEvidence {
     let used = 0;
     const fits = (size: number): boolean => {
-      if (used + size > most) {
+      if (used + size > max) {
         return false;
       }
 

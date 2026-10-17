@@ -8,8 +8,8 @@ import { StackCheckNotHeldError } from '@change-review/domain/exceptions/stack-c
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import {
   CheckClaim,
-  MOST_CHECK_ATTEMPTS,
-  MOST_HOLD_MS,
+  MAX_CHECK_ATTEMPTS,
+  MAX_HOLD_MS,
 } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
@@ -212,7 +212,7 @@ describe('StackCheck', () => {
   });
 
   it('keeps what each layer’s check found', () => {
-    const checked = checking().recorded(
+    const checked = checking().recordResult(
       RUNNER,
       planned(),
       [
@@ -229,7 +229,7 @@ describe('StackCheck', () => {
   });
 
   it('judges no layer where the finished change itself fails', () => {
-    const checked = checking().recorded(
+    const checked = checking().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, false, 'error TS2304')],
@@ -251,13 +251,13 @@ describe('StackCheck', () => {
     const check = checking();
 
     expect(() =>
-      check.recorded(RUNNER, planned(), [step('nowhere', true)], LATER),
+      check.recordResult(RUNNER, planned(), [step('nowhere', true)], LATER),
     ).toThrow(InvalidChangeStackError);
     expect(() =>
-      check.recorded(RUNNER, planned(), [step('c1.l1', true)], LATER),
+      check.recordResult(RUNNER, planned(), [step('c1.l1', true)], LATER),
     ).toThrow(InvalidChangeStackError);
 
-    const checked = check.recorded(
+    const checked = check.recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true)],
@@ -265,12 +265,12 @@ describe('StackCheck', () => {
     );
 
     expect(() =>
-      checked.recorded(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER),
+      checked.recordResult(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER),
     ).toThrow(InvalidChangeStackError);
   });
 
   it('says why a runner could not check it, in its own words', () => {
-    const skipped = checking().skipped(
+    const skipped = checking().skip(
       RUNNER,
       skipOf('setup-failed', 'npm ci: no network'),
       LATER,
@@ -304,7 +304,7 @@ describe('StackCheck', () => {
   });
 
   it('asks for reordering where the whole change builds but a layer does not', () => {
-    const checked = checking().recorded(
+    const checked = checking().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
@@ -316,7 +316,7 @@ describe('StackCheck', () => {
   });
 
   it('takes the reordered layers and waits to be checked afresh', () => {
-    const reordering = checking().recorded(
+    const reordering = checking().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
@@ -330,7 +330,7 @@ describe('StackCheck', () => {
   });
 
   it('keeps the checked layers where reordering is given up', () => {
-    const reordering = checking().recorded(
+    const reordering = checking().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
@@ -345,7 +345,7 @@ describe('StackCheck', () => {
   });
 
   it('lets a reservation go when it takes reordered layers', () => {
-    const failing = checking().recorded(
+    const failing = checking().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
@@ -371,7 +371,7 @@ describe('StackCheck', () => {
     const failing = (check: StackCheck) =>
       check
         .claimedFor(RUNNER, ANY, LATER)
-        .recorded(
+        .recordResult(
           RUNNER,
           planned(),
           [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
@@ -421,12 +421,12 @@ describe('StackCheck', () => {
       let check = waiting();
       let at = LATER;
 
-      for (let round = 0; round < MOST_CHECK_ATTEMPTS; round += 1) {
+      for (let round = 0; round < MAX_CHECK_ATTEMPTS; round += 1) {
         check = check.claimedFor(RUNNER, ANY, at);
         at = new Date((check.claim.leaseExpiresAt?.getTime() ?? 0) + 1000);
       }
 
-      expect(check.claim.attempts).toBe(MOST_CHECK_ATTEMPTS);
+      expect(check.claim.attempts).toBe(MAX_CHECK_ATTEMPTS);
       expect(check.claimableAt(at)).toBe(false);
     });
 
@@ -478,16 +478,21 @@ describe('StackCheck', () => {
       const check = checking();
 
       expect(() =>
-        check.recorded(OTHER, planned(), [step(WHOLE_STEP, true)], LATER),
+        check.recordResult(OTHER, planned(), [step(WHOLE_STEP, true)], LATER),
+      ).toThrow(StackCheckNotHeldError);
+      expect(() => check.skip(OTHER, skipOf('no-room', null), LATER)).toThrow(
+        StackCheckNotHeldError,
+      );
+      expect(() =>
+        waiting().recordResult(
+          RUNNER,
+          planned(),
+          [step(WHOLE_STEP, true)],
+          LATER,
+        ),
       ).toThrow(StackCheckNotHeldError);
       expect(() =>
-        check.skipped(OTHER, skipOf('no-room', null), LATER),
-      ).toThrow(StackCheckNotHeldError);
-      expect(() =>
-        waiting().recorded(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER),
-      ).toThrow(StackCheckNotHeldError);
-      expect(() =>
-        waiting().skipped(RUNNER, skipOf('no-room', null), LATER),
+        waiting().skip(RUNNER, skipOf('no-room', null), LATER),
       ).toThrow(StackCheckNotHeldError);
     });
 
@@ -495,11 +500,11 @@ describe('StackCheck', () => {
       const held = waiting().claimedFor(RUNNER, ANY, LATER);
 
       expect(
-        held.recorded(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER).claim
-          .claimedBy,
+        held.recordResult(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER)
+          .claim.claimedBy,
       ).toBeNull();
       expect(
-        held.skipped(RUNNER, skipOf('no-room', null), LATER).claim.claimedBy,
+        held.skip(RUNNER, skipOf('no-room', null), LATER).claim.claimedBy,
       ).toBeNull();
     });
   });
@@ -538,13 +543,13 @@ describe('StackCheck', () => {
 
     it('refuses once the check was recorded or skipped', () => {
       const check = checking();
-      const recorded = check.recorded(
+      const recorded = check.recordResult(
         RUNNER,
         planned(),
         [step(WHOLE_STEP, true)],
         LATER,
       );
-      const skipped = check.skipped(RUNNER, skipOf('no-room', null), LATER);
+      const skipped = check.skip(RUNNER, skipOf('no-room', null), LATER);
 
       expect(recorded.checkableAt(LATER)).toBe(false);
       expect(skipped.checkableAt(LATER)).toBe(false);
@@ -580,7 +585,7 @@ describe('StackCheck', () => {
         new Date(OVERDUE.getTime() - 60_000),
       );
 
-      const recorded = check.recorded(
+      const recorded = check.recordResult(
         RUNNER,
         planned(),
         [step(WHOLE_STEP, true)],
@@ -606,7 +611,7 @@ describe('StackCheck', () => {
         InvalidChangeStackError,
       );
       expect(() =>
-        check.recorded(RUNNER, planned(), [step(WHOLE_STEP, true)], lapsed),
+        check.recordResult(RUNNER, planned(), [step(WHOLE_STEP, true)], lapsed),
       ).toThrow(InvalidChangeStackError);
       expect(check.settledOverdue(lapsed).skippedAt(lapsed)).toEqual({
         code: 'nobody-checked',
@@ -627,7 +632,7 @@ describe('StackCheck', () => {
       }
       return renewed.renewedFor(RUNNER, until);
     };
-    const ceiling = new Date(LATER.getTime() + MOST_HOLD_MS);
+    const ceiling = new Date(LATER.getTime() + MAX_HOLD_MS);
     const justBefore = new Date(ceiling.getTime() - 1000);
 
     it('keeps its runner renewing up to the ceiling', () => {
@@ -651,7 +656,12 @@ describe('StackCheck', () => {
         InvalidChangeStackError,
       );
       expect(() =>
-        renewed.recorded(RUNNER, planned(), [step(WHOLE_STEP, true)], ceiling),
+        renewed.recordResult(
+          RUNNER,
+          planned(),
+          [step(WHOLE_STEP, true)],
+          ceiling,
+        ),
       ).toThrow(InvalidChangeStackError);
       expect(renewed.overdueAt(ceiling)).toBe(true);
       expect(renewed.settledOverdue(ceiling).skippedAt(ceiling)).toEqual({
@@ -763,11 +773,7 @@ describe('StackCheck', () => {
         LATER,
       );
       const claimed = waiting().claimedFor(RUNNER, ANY, LATER);
-      const skipped = checking().skipped(
-        RUNNER,
-        skipOf('no-room', null),
-        LATER,
-      );
+      const skipped = checking().skip(RUNNER, skipOf('no-room', null), LATER);
 
       expect(reserved.provisionableAt(LATER)).toBe(false);
       expect(claimed.provisionableAt(LATER)).toBe(false);
@@ -973,7 +979,7 @@ describe('StackCheck', () => {
       const reordering = failedAgain(waiting())
         .reservedFor(RUNNER, PoolId.of('pool_burst'), RESERVED_UNTIL)
         .claimedFor(RUNNER, ANY, RESERVED_UNTIL)
-        .recorded(
+        .recordResult(
           RUNNER,
           planned(),
           [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
@@ -1001,7 +1007,7 @@ describe('StackCheck', () => {
       expect(held.overdueAt(OVERDUE)).toBe(false);
       expect(
         checking()
-          .skipped(RUNNER, skipOf('no-room', null), LATER)
+          .skip(RUNNER, skipOf('no-room', null), LATER)
           .overdueAt(OVERDUE),
       ).toBe(false);
     });
@@ -1091,7 +1097,7 @@ describe('StackCheck, rechecked', () => {
   };
 
   const passedOnce = () => {
-    const checked = replayed().recorded(
+    const checked = replayed().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', true)],
@@ -1119,7 +1125,7 @@ describe('StackCheck, rechecked', () => {
 
   it('says what the recheck found as a recheck, and never asks to reorder the stack', () => {
     const again = passedOnce().rechecking(LATER).claimedFor(OTHER, ANY, LATER);
-    const found = again.recorded(
+    const found = again.recordResult(
       OTHER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', false)],
@@ -1139,7 +1145,7 @@ describe('StackCheck, rechecked', () => {
     expect(() => replayed().rechecking(LATER)).toThrow(InvalidChangeStackError);
     expect(() =>
       checking()
-        .recorded(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER)
+        .recordResult(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER)
         .rechecking(LATER),
     ).toThrow(InvalidChangeStackError);
     expect(() => passedOnce().rechecking(LATER).rechecking(LATER)).toThrow(

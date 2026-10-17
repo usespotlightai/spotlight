@@ -275,7 +275,7 @@ export const historyHeldIn = ({
   chats,
 }: HeldRepositories): HistoryHeld => ({
   records: {
-    endedForTeam: async (window, most) => {
+    endedForTeam: async (window, max) => {
       const keys = await db
         .select({ runId: runRecord.runId })
         .from(runRecord)
@@ -283,7 +283,7 @@ export const historyHeldIn = ({
         .orderBy(
           ...startOrderColumns(runRecord).map((each) => sql`${each} desc`),
         )
-        .limit(most);
+        .limit(max);
 
       return [
         ...(await runs.ofRuns(keys.map((each) => RunId.of(each.runId)))),
@@ -326,7 +326,7 @@ export const historyHeldIn = ({
   },
   deliveries: {
     forTasks: (taskIds) => deliveries.forTasks(taskIds),
-    ofTeamBetween: async (window, most) => {
+    ofTeamBetween: async (window, max) => {
       const keys = (
         await db
           .select({ taskId: taskDelivery.taskId })
@@ -354,7 +354,7 @@ export const historyHeldIn = ({
             ),
           )
           .orderBy(desc(taskDelivery.openedAt), desc(taskDelivery.taskId))
-          .limit(most)
+          .limit(max)
       ).map((each) => each.taskId);
 
       return inKeyOrder(
@@ -366,7 +366,7 @@ export const historyHeldIn = ({
   },
   touches: {
     forTasks: (taskIds) => touchesOf(touches, taskIds),
-    ofTeamBetween: async (window, most) => {
+    ofTeamBetween: async (window, max) => {
       const keys = (
         await db
           .select({ taskId: taskTouches.taskId })
@@ -385,14 +385,14 @@ export const historyHeldIn = ({
             ),
           )
           .orderBy(desc(taskTouches.touchedAt), desc(taskTouches.taskId))
-          .limit(most)
+          .limit(max)
       ).map((each) => each.taskId);
 
       return touchesOf(touches, keys.map(TaskId.of));
     },
   },
   failures: {
-    ofTeamBetween: async (window, most) => {
+    ofTeamBetween: async (window, max) => {
       const keys = await db
         .select({ taskId: taskFailures.taskId })
         .from(taskFailures)
@@ -404,7 +404,7 @@ export const historyHeldIn = ({
           ),
         )
         .orderBy(desc(taskFailures.lastAt), desc(taskFailures.taskId))
-        .limit(most);
+        .limit(max);
       const found = await Promise.all(
         keys.map((each) => failures.of(TaskId.of(each.taskId))),
       );
@@ -413,7 +413,7 @@ export const historyHeldIn = ({
     },
   },
   chats: {
-    ofTeamBetween: async (window, most) => {
+    ofTeamBetween: async (window, max) => {
       const keys = await db
         .select({ chatId: chatRecord.chatId })
         .from(chatRecord)
@@ -426,7 +426,7 @@ export const historyHeldIn = ({
           ),
         )
         .orderBy(desc(chatRecord.startedAt), desc(chatRecord.chatId))
-        .limit(most);
+        .limit(max);
       const found = await Promise.all(
         keys.map((each) => chats.of(each.chatId)),
       );
@@ -442,7 +442,7 @@ export const pullRequestsHeld = ({
   shapes,
 }: HeldRepositories): PullRequestsHeld => ({
   records: {
-    seenForTeamBetween: async (window, most) => {
+    seenForTeamBetween: async (window, max) => {
       const repositories = window.repositories.map((each) =>
         each.toLowerCase(),
       );
@@ -470,7 +470,7 @@ export const pullRequestsHeld = ({
           desc(pullRequestRecord.openedAt),
           sql`${pullRequestRecord.pullRequest} collate "C" desc`,
         )
-        .limit(most);
+        .limit(max);
       const found = await Promise.all(
         keys.map((each) =>
           pullRequests.at(

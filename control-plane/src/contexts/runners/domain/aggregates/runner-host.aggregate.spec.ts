@@ -85,7 +85,7 @@ const reportedThrough = (
   workspaceId = WorkspaceId.of('ws_1'),
   images: Images = [],
 ) =>
-  host.reportedThrough({
+  host.reportThrough({
     admission,
     workspaceId,
     session: FIRST_SESSION,
@@ -94,7 +94,7 @@ const reportedThrough = (
   });
 
 const reportedIn = (host: RunnerHost, session: HostSession, at: Date) =>
-  host.reportedThrough({
+  host.reportThrough({
     admission: THROUGH_POOL,
     workspaceId: WorkspaceId.of('ws_1'),
     session,

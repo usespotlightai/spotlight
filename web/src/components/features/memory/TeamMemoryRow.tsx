@@ -12,7 +12,7 @@ import { useMemoryEditing } from '@/hooks/useMemoryEditing';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useRowExpansion } from '@/hooks/useRowExpansion';
 import type { LineResponseDto } from '@/lib/api';
-import { placeTreeOf, SOURCE_SHOWN, type TeamMemory } from '@/lib/memory';
+import { placeTreeOf, SOURCE_LABELS, type TeamMemory } from '@/lib/memory';
 import { cn } from '@/lib/utils';
 
 type TeamMemoryRowProps = {
@@ -103,7 +103,7 @@ export function TeamMemoryRow({
         </span>
 
         <div className="relative z-10 flex min-w-0 flex-col gap-2 text-muted-foreground text-xs leading-5 group-data-clamped/row:pointer-events-none">
-          <span className="truncate">{SOURCE_SHOWN[memory.source]}</span>
+          <span className="truncate">{SOURCE_LABELS[memory.source]}</span>
           {seen && (
             <div className="group-data-clamped/row:hidden">
               <MemorySource slug={slug} teamId={teamId} memoryId={memory.id} />

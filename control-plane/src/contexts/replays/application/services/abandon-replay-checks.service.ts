@@ -32,11 +32,11 @@ export class AbandonReplayChecks {
   }
 
   check(id: ReplayCheckId): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const check = await this.checks.find(id);
 
       if (check) {
-        await this.checks.save(check.abandoned());
+        await this.checks.save(check.abandon());
       }
     });
   }

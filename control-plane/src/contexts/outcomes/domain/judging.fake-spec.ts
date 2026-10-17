@@ -94,7 +94,7 @@ export const judgeScore = (
     marks?: readonly boolean[];
   } = {},
 ): Score =>
-  Score.judged({
+  Score.judge({
     id: ScoreId.of(`judge_${runId}_${change.rubricVersion ?? RUBRIC_VERSION}`),
     runId: RunId.of(runId),
     workspaceId: WORKSPACE,
@@ -124,7 +124,7 @@ export const personGrade = (
     marks?: readonly boolean[];
   } = {},
 ): Score =>
-  Score.graded({
+  Score.grade({
     id: ScoreId.of(`grade_${runId}_${change.by ?? 'user_ada'}`),
     runId: RunId.of(runId),
     workspaceId: WORKSPACE,
@@ -323,7 +323,7 @@ export class PairJudgingsInMemory implements PairJudgingRepository {
         teamId: judging.teamId,
         criteria: judging.criteria,
         reference: judging.reference,
-        mostAttempts: judging.mostAttempts,
+        maxAttempts: judging.maxAttempts,
         order: judging.order,
         askedAt: judging.askedAt,
         work: judging.work,

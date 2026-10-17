@@ -49,7 +49,7 @@ const calling = (
         now.getTime() - NOW.getTime() >= answerAfter &&
         stored.stateAt(now) === 'waiting'
       ) {
-        stored = stored.claimedBy(HOST, now).answeredWith(HOST, answer, now);
+        stored = stored.claimedBy(HOST, now).answerWith(HOST, answer, now);
       }
       return stored;
     },

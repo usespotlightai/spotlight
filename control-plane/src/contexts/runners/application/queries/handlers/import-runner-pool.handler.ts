@@ -4,7 +4,7 @@ import { RunnerResourceMapper } from '@runners/application/mappers/runner-resour
 import type { RunnerResourcesPort } from '@runners/application/ports/runner-resources.port';
 import type { ImportRunnerPoolQuery } from '@runners/application/queries/runner-resource.queries';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -21,20 +21,20 @@ export class ImportRunnerPoolHandler
     query: ImportRunnerPoolQuery,
   ): Promise<RunnerPoolResourceDto | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = cleared
+      const kept = permissions
         ? await this.resources.poolAt(
-            cleared.workspaceId,
+            permissions.workspaceId,
             PoolKey.of(query.address).value,
           )
         : null;
 
       return kept ? RunnerResourceMapper.pool(kept) : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

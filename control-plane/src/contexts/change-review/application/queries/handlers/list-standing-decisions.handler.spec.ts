@@ -92,7 +92,7 @@ describe('listing the decisions that shipped', () => {
       within: ['api/src/uploads.ts', 'api/src/retry'],
       since: new Date('2026-09-01'),
       until: null,
-      most: 50,
+      max: 50,
     });
     expect(sought[0]?.repository?.value).toBe('acme/api');
   });
@@ -109,7 +109,7 @@ describe('listing the decisions that shipped', () => {
     const { list } = listing();
 
     await expect(list(null, ['src/uploads.ts'])).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
   });
 
@@ -117,10 +117,10 @@ describe('listing the decisions that shipped', () => {
     const { list } = listing();
 
     await expect(list('acme/api', ['../secrets'])).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
     await expect(list('acme/api', [], 'last week')).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
   });
 

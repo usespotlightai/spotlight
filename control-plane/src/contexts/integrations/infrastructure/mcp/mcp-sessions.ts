@@ -8,7 +8,7 @@ import {
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import { cappedReply } from '@integrations/infrastructure/outbound/capped-body';
 import { sameHost } from '@integrations/infrastructure/outbound/followed-redirects';
-import { ANSWER_AT_MOST_BYTES } from '@integrations/infrastructure/outbound/http-outbound';
+import { MAX_ANSWER_BYTES } from '@integrations/infrastructure/outbound/http-outbound';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import {
   type PolicedFetch,
@@ -53,7 +53,7 @@ const IDLE_MS = 5 * 60_000;
 
 const ANSWERS_WITHIN_MS = 60_000;
 
-const PAGES_AT_MOST = 50;
+const MAX_PAGES = 50;
 
 const ASKS = 'elicitation/create';
 
@@ -101,11 +101,11 @@ export class McpSessions implements OnModuleDestroy {
 
       return cappedReply(
         reply,
-        ANSWER_AT_MOST_BYTES,
+        MAX_ANSWER_BYTES,
         () =>
           new UpstreamRefusedError(
             `reading what ${new URL(url.toString()).host} answered`,
-            `it is larger than the ${ANSWER_AT_MOST_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
+            `it is larger than the ${MAX_ANSWER_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
           ),
       );
     };
@@ -144,7 +144,7 @@ export class McpSessions implements OnModuleDestroy {
       const tools: Tool[] = [];
       let cursor: string | undefined;
 
-      for (let page = 0; page < PAGES_AT_MOST; page += 1) {
+      for (let page = 0; page < MAX_PAGES; page += 1) {
         const listed = await session.client.listTools(
           cursor ? { cursor } : undefined,
           { timeout: ANSWERS_WITHIN_MS },

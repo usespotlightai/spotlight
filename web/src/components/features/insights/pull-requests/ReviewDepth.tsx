@@ -4,11 +4,11 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
-import { countShown } from '@/lib/insights';
+import { formatCount } from '@/lib/insights';
 import {
+  formatRounds,
   groupFilter,
   type RoundsShare,
-  roundsShown,
 } from '@/lib/insights-pull-requests';
 
 type ReviewDepthProps = {
@@ -23,17 +23,17 @@ export function ReviewDepth({ depth, repositories }: ReviewDepthProps) {
         tab="productivity"
         filter={groupFilter(author, repositories, { rounds: share.rounds })}
       >
-        {countShown(share[author])}
+        {formatCount(share[author])}
       </InsightsLink>
     ) : (
-      countShown(0)
+      formatCount(0)
     );
 
   const columns: InsightsColumn<RoundsShare>[] = [
     {
       id: 'rounds',
       header: 'Review rounds',
-      cell: (share) => roundsShown(share.rounds),
+      cell: (share) => formatRounds(share.rounds),
     },
     {
       id: 'spotlight',

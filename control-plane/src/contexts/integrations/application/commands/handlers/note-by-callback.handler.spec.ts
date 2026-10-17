@@ -19,7 +19,7 @@ const NOW = new Date('2026-09-26T10:00:00.000Z');
 
 const HASH = TokenHash.of('a'.repeat(64));
 
-const HOLDER = HookCallbackGrant.issuedFor(
+const HOLDER = HookCallbackGrant.issueFor(
   {
     tokenHash: HASH,
     workspaceId: WorkspaceId.of('workspace_1'),

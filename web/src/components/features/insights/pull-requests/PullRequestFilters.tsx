@@ -4,19 +4,19 @@ import { FilterRow } from '@/components/shared/filter/FilterRow';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { Pill } from '@/components/shared/Pill';
 import {
-  authorShown,
+  formatAuthor,
+  formatPullRequestFilterValue,
+  formatState,
+  formatType,
   PULL_REQUEST_AUTHORS,
   PULL_REQUEST_STATES,
   PULL_REQUEST_TYPES,
   type PullRequestFilter,
   type PullRequestFilterKey,
   pullRequestFilterLabel,
-  pullRequestFilterValueShown,
   pullRequestsNarrowedBy,
-  stateShown,
-  typeShown,
 } from '@/lib/insights-pull-requests';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 
 const PICKED: readonly PullRequestFilterKey[] = [
   'repository',
@@ -60,8 +60,8 @@ export function PullRequestFilters({
             {pullRequestFilterLabel(key)}
           </span>
           {key === 'week'
-            ? dayShown(filter.week ?? '')
-            : pullRequestFilterValueShown(key, filter[key] ?? '')}
+            ? formatDay(filter.week ?? '')
+            : formatPullRequestFilterValue(key, filter[key] ?? '')}
           <button
             type="button"
             aria-label={`Stop narrowing by ${pullRequestFilterLabel(key).toLowerCase()}`}
@@ -109,7 +109,7 @@ export function PullRequestFilters({
             label="Written by"
             choices={PULL_REQUEST_AUTHORS.map((author) => ({
               value: author,
-              label: authorShown(author),
+              label: formatAuthor(author),
             }))}
             value={filter.author ?? null}
             placeholder="Anyone"
@@ -123,7 +123,7 @@ export function PullRequestFilters({
             label="Type"
             choices={PULL_REQUEST_TYPES.map((type) => ({
               value: type,
-              label: typeShown(type),
+              label: formatType(type),
             }))}
             value={filter.type ?? null}
             placeholder="Every type"
@@ -137,7 +137,7 @@ export function PullRequestFilters({
             label="State"
             choices={PULL_REQUEST_STATES.map((state) => ({
               value: state,
-              label: stateShown(state),
+              label: formatState(state),
             }))}
             value={filter.state ?? null}
             placeholder="Every state"

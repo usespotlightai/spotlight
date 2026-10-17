@@ -1,5 +1,5 @@
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import type { HeldLineStation } from '@work/application/contracts/held-line.contract';
+import type { LineDefinitionStation } from '@work/application/contracts/line-definition.contract';
 import type { ConfigChangeShape } from '@work/application/contracts/station-config.contract';
 
 export const REPLAY_CANDIDATES = Symbol('REPLAY_CANDIDATES');
@@ -46,12 +46,12 @@ export type ExaminedCandidate =
       readonly scoring: CandidateScoring;
       readonly live: string;
       readonly changes: readonly ConfigChangeShape[];
-      readonly station: HeldLineStation;
+      readonly station: LineDefinitionStation;
     }
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 export interface ReplayThreshold {
-  readonly mostRegressions: number;
+  readonly maxRegressions: number;
   readonly ceiling: number;
   readonly currency: string;
   readonly minGain: number;
@@ -59,7 +59,7 @@ export interface ReplayThreshold {
 
 export interface LiveStation {
   readonly lineKey: string;
-  readonly station: HeldLineStation;
+  readonly station: LineDefinitionStation;
   readonly fingerprint: string;
   readonly scoring: CandidateScoring;
   readonly digests: ConfigDigests;

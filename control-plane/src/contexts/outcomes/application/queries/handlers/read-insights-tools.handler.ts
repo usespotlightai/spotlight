@@ -6,12 +6,12 @@ import type { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-
 import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { weeksOf } from '@outcomes/domain/services/pull-request-insights';
 import {
-  TREND_FEWEST_RUNS,
+  TREND_MIN_RUNS,
   TREND_RECENT_WEEKS,
   TREND_SHIFT_POINTS,
 } from '@outcomes/domain/services/skill-trend';
 import { toolInsightsFrom } from '@outcomes/domain/services/tool-insights';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadInsightsToolsHandler
@@ -25,15 +25,15 @@ export class ReadInsightsToolsHandler
 
   async execute(query: ReadInsightsToolsQuery): Promise<InsightsToolsDto> {
     try {
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
       const weeks = weeksOf(period.current);
       const counts = await this.reader.toolCounts({
-        workspaceId: clearance.workspaceId,
-        teamId: clearance.teamId,
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
         period,
       });
 
@@ -42,17 +42,17 @@ export class ReadInsightsToolsHandler
         weeks,
         trendRule: {
           recentWeeks: TREND_RECENT_WEEKS,
-          fewestRuns: TREND_FEWEST_RUNS,
+          minRuns: TREND_MIN_RUNS,
           shiftPoints: TREND_SHIFT_POINTS,
         },
         ...toolInsightsFrom(
           counts,
           weeks,
-          await this.work.teamSkillKeys(clearance.teamId.value),
+          await this.work.teamSkillKeys(access.teamId.value),
         ),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

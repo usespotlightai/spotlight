@@ -29,7 +29,7 @@ export class NotePullRequestReviewed {
       return Promise.resolve();
     }
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(review.workspaceId, null);
       const held = await this.deliveries.forPullRequest(
         review.workspaceId,
@@ -53,7 +53,7 @@ export class NotePullRequestReviewed {
         return;
       }
 
-      const reviewed = held.reviewed(review);
+      const reviewed = held.recordReview(review);
 
       if (reviewed !== held) {
         await this.deliveries.save(reviewed);

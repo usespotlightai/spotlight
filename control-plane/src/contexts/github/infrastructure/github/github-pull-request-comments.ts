@@ -9,7 +9,7 @@ import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-
 
 const API = 'https://api.github.com';
 
-const MOST_PAGES = 10;
+const MAX_PAGES = 10;
 
 type Fetch = typeof globalThis.fetch;
 
@@ -91,7 +91,7 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
     marker: string,
     token: string,
   ): Promise<number | null> {
-    for (let page = 1; page <= MOST_PAGES; page += 1) {
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
       const response = await this.fetch(
         `${API}/repos/${repo}/issues/${number}/comments?per_page=100&page=${page}`,
         { headers: this.headers(token) },

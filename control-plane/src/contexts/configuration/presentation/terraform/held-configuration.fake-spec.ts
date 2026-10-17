@@ -3,11 +3,11 @@ import type {
   HeldResourceDto,
 } from '@configuration/application/dto/held-configuration.dto';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import type { HeldLine } from '@work/application/contracts/held-line.contract';
+import type { LineDefinition } from '@work/application/contracts/line-definition.contract';
 
 export const WORKSPACE_ID = '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57';
 
-const DELIVERY: HeldLine = {
+const DELIVERY: LineDefinition = {
   key: 'delivery',
   name: 'Delivery',
   role: 'delivery',
@@ -82,7 +82,7 @@ const DELIVERY: HeldLine = {
     },
   ],
   replayCheck: {
-    mostRegressions: 1,
+    maxRegressions: 1,
     ceiling: 12.5,
     currency: 'USD',
     minGain: 0.05,
@@ -90,7 +90,7 @@ const DELIVERY: HeldLine = {
   source: { repository: 'acme/platform', path: 'teams/core/delivery.tf' },
 };
 
-const REVIEW: HeldLine = {
+const REVIEW: LineDefinition = {
   key: 'review',
   name: 'Review',
   role: 'review',

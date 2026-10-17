@@ -1,5 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import type { LineResourceDto } from '@work/application/dto/line-resource.dto';
 import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
@@ -21,14 +21,17 @@ export class ReadLineHandler
 
       if (
         !kept ||
-        !(await this.access.clearanceOnTeam(kept.teamId.value, query.principal))
+        !(await this.access.permissionsOnTeam(
+          kept.teamId.value,
+          query.principal,
+        ))
       ) {
         return null;
       }
 
       return this.views.of(kept);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

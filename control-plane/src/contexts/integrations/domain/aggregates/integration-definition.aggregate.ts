@@ -20,7 +20,7 @@ import type { Attribution } from '@shared-kernel/domain/value-objects/attributio
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-interface Kept {
+interface Props {
   readonly id: IntegrationDefinitionId;
   readonly teamId: TeamId;
   readonly source: SourceKey;
@@ -30,7 +30,7 @@ interface Kept {
   readonly version: number;
 }
 
-interface State extends Kept {
+interface State extends Props {
   readonly retired: boolean;
 }
 
@@ -123,7 +123,7 @@ export class IntegrationDefinition extends EventRecorder {
     return defined;
   }
 
-  static rehydrate(input: Kept): IntegrationDefinition {
+  static rehydrate(input: Props): IntegrationDefinition {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'integration definition',
@@ -243,7 +243,7 @@ export class IntegrationDefinition extends EventRecorder {
     return reread;
   }
 
-  retired(given: ToolUses, by: Attribution): IntegrationDefinition {
+  retire(given: ToolUses, by: Attribution): IntegrationDefinition {
     this.guardLive();
     this.guardUnused(given, this.offers);
 
@@ -254,7 +254,7 @@ export class IntegrationDefinition extends EventRecorder {
     return retired;
   }
 
-  abandoned(by: Attribution): IntegrationDefinition {
+  abandon(by: Attribution): IntegrationDefinition {
     this.guardLive();
 
     const abandoned = this.with({ retired: true });

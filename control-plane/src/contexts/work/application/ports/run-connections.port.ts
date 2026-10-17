@@ -22,5 +22,5 @@ export interface RunConnectionsPort {
 
   wentWrongIn(runIds: readonly string[]): Promise<readonly ConnectionOfRun[]>;
 
-  forgetBefore(before: Date, most: number): Promise<number>;
+  forgetBefore(before: Date, max: number): Promise<number>;
 }

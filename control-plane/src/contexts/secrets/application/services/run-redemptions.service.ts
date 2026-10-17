@@ -76,7 +76,7 @@ export class RunRedemptions implements RunRedemptionsPort {
           throw new NoSuchSecretError(name);
         }
 
-        granting.push({ secret, grants: secret.grantedTo(runId) });
+        granting.push({ secret, grants: secret.grantTo(runId) });
       } catch (error) {
         withheld.push(withheldFor(name, error));
       }
@@ -84,11 +84,11 @@ export class RunRedemptions implements RunRedemptionsPort {
 
     await this.kept.changed({ hold, workspaceId }, (held) =>
       held
-        .granted(
+        .grant(
           hold,
           granting.flatMap((each) => each.grants),
         )
-        .redeemedFor(
+        .redeemFor(
           hold,
           Redeemer.of(
             RedemptionRecipient.of(recipient.key),

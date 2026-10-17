@@ -5,7 +5,7 @@ import { forgetHost } from '@runners/application/services/runner-host-revisions'
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
 export class LeaveAsHostHandler
@@ -32,7 +32,7 @@ export class LeaveAsHostHandler
 
       return { outcome: 'left' };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

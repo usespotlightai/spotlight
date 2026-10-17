@@ -21,7 +21,7 @@ import { workspacePath } from '@work/domain/services/workspace-path';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 
-const MOST_TEXT = 4_000;
+const MAX_TEXT = 4_000;
 
 interface AskedOfRun {
   readonly taskId: string;
@@ -29,19 +29,19 @@ interface AskedOfRun {
   readonly description: string | null;
 }
 
-const MOST_TOLD = 2_000;
+const MAX_TOLD = 2_000;
 
-const clipped = (text: string, most: number): string =>
-  text.length > most ? `${text.slice(0, most)} …` : text;
+const clipped = (text: string, max: number): string =>
+  text.length > max ? `${text.slice(0, max)} …` : text;
 
 const clippedOrNone = (text: string | null): string | null =>
-  text === null ? null : clipped(text, MOST_TOLD);
+  text === null ? null : clipped(text, MAX_TOLD);
 
 const evidenced = (step: JournalStep, index: number): EvidencedStep => ({
   index,
   kind: step.kind,
   tool: step.tool,
-  text: clipped(step.text, MOST_TEXT),
+  text: clipped(step.text, MAX_TEXT),
   given: clippedOrNone(step.given),
   returned: clippedOrNone(step.returned),
 });

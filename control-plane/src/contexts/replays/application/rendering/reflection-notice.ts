@@ -5,9 +5,9 @@ import type {
   SearchCauseKind,
 } from '@replays/domain/value-objects/search-cause.vo';
 
-const MOST_POINTS = 20;
+const MAX_POINTS = 20;
 
-const MOST_POINT = 1_000;
+const MAX_POINT = 1_000;
 
 export interface NoticeWords {
   readonly headline: string;
@@ -52,7 +52,7 @@ const HAPPENINGS: Readonly<
 };
 
 const clipped = (text: string): string =>
-  text.length > MOST_POINT ? `${text.slice(0, MOST_POINT - 1)}…` : text;
+  text.length > MAX_POINT ? `${text.slice(0, MAX_POINT - 1)}…` : text;
 
 const UNTITLED = 'one of the searched tasks';
 
@@ -70,10 +70,10 @@ const pointOf =
   };
 
 const keptToMost = (points: readonly string[]): readonly string[] =>
-  points.length > MOST_POINTS
+  points.length > MAX_POINTS
     ? [
-        ...points.slice(0, MOST_POINTS - 1),
-        `The search page shows ${points.length - MOST_POINTS + 1} more.`,
+        ...points.slice(0, MAX_POINTS - 1),
+        `The search page shows ${points.length - MAX_POINTS + 1} more.`,
       ]
     : points;
 

@@ -16,7 +16,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { EGRESS_TOKEN_HEADER } from '@runners/presentation/http/controllers/egress-resource.controller';
 import {
   DrizzleRunConnections,
-  MOST_WENT_WRONG_FOR_A_RUN,
+  MAX_WENT_WRONG_FOR_A_RUN,
 } from '@work/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { eq, inArray } from 'drizzle-orm';
 import {
@@ -458,7 +458,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     });
 
     await db.insert(schema.runConnection).values([
-      ...Array.from({ length: MOST_WENT_WRONG_FOR_A_RUN + 1 }, (_, each) =>
+      ...Array.from({ length: MAX_WENT_WRONG_FOR_A_RUN + 1 }, (_, each) =>
         row(busy, each % 60, {
           host: 'loop.example.com',
           outcome: 'blocked',
@@ -517,7 +517,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     );
 
     expect(read.filter((each) => each.runId === busy)).toHaveLength(
-      MOST_WENT_WRONG_FOR_A_RUN,
+      MAX_WENT_WRONG_FOR_A_RUN,
     );
     expect(
       read

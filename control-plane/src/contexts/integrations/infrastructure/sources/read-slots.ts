@@ -2,7 +2,7 @@ export class ReadSlots {
   private busy = 0;
   private readonly waiting: (() => void)[] = [];
 
-  constructor(private readonly most: number) {}
+  constructor(private readonly max: number) {}
 
   async within<T>(
     deadline: number,
@@ -20,7 +20,7 @@ export class ReadSlots {
   }
 
   private taken(deadline: number, late: () => Error): Promise<void> {
-    if (this.busy < this.most) {
+    if (this.busy < this.max) {
       this.busy += 1;
       return Promise.resolve();
     }

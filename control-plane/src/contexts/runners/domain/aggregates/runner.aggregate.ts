@@ -58,7 +58,7 @@ export class Runner extends EventRecorder {
     super();
   }
 
-  static started(input: {
+  static start(input: {
     id: RunnerId;
     through: RunnerPool | RunnerTrust;
     host: HostId | null;

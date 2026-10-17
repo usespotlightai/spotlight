@@ -1,6 +1,6 @@
 import { InvalidRunnerImageError } from '@shared-kernel/domain/exceptions/invalid-runner-image.error';
 
-const MOST_LENGTH = 255;
+const MAX_LENGTH = 255;
 const DIGEST = /@sha256:[0-9a-f]{64}$/;
 const REFERENCE =
   /^[a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(\/[a-z0-9]+([._-][a-z0-9]+)*)*(:[A-Za-z0-9_][A-Za-z0-9._-]{0,127})?(@sha256:[0-9a-f]{64})?$/;
@@ -11,9 +11,9 @@ export class RunnerImage {
   static of(raw: string): RunnerImage {
     const reference = raw.trim();
 
-    if (!reference || reference.length > MOST_LENGTH) {
+    if (!reference || reference.length > MAX_LENGTH) {
       throw new InvalidRunnerImageError(
-        `reference must be at most ${MOST_LENGTH} characters`,
+        `reference must be at most ${MAX_LENGTH} characters`,
       );
     }
 

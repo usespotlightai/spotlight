@@ -13,7 +13,7 @@ import {
   forbiddenTo,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -34,18 +34,18 @@ export class UpdateHookHandler
 
     try {
       const standing = await this.definitions.withId(id);
-      const cleared = standing
-        ? await this.access.clearanceOnTeam(
+      const permissions = standing
+        ? await this.access.permissionsOnTeam(
             standing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !cleared) {
+      if (!standing || !permissions) {
         return null;
       }
 
-      if (!cleared.configures) {
+      if (!permissions.configures) {
         return forbiddenTo('configure');
       }
 
@@ -57,13 +57,13 @@ export class UpdateHookHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      await this.transaction.run(async () =>
+      await this.transaction.inTransaction(async () =>
         this.definitions.save(
           standing.redefinedAs(
             compiled,
             secretGiven(compiled.secret),
             await this.allowances.onTeam(standing.teamId),
-            Attribution.of(command.actor, cleared.workspaceId),
+            Attribution.of(command.actor, permissions.workspaceId),
           ),
         ),
       );
@@ -96,7 +96,7 @@ export class UpdateHookHandler
         };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

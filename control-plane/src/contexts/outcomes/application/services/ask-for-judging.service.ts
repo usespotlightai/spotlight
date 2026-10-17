@@ -64,7 +64,7 @@ export class AskForJudging {
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const workspaceId = WorkspaceId.of(run.workspaceId);
       const taskId = TaskId.of(run.taskId);
       const teamId = TeamId.of(run.teamId);

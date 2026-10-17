@@ -3,12 +3,12 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 
 export const HARNESS_PROFILE_COMPILER = Symbol('HARNESS_PROFILE_COMPILER');
 
-export type CompiledProfile =
+export type ParsedProfile =
   | ({ readonly ok: true } & ReadProfile)
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 export interface HarnessProfileCompilerPort {
-  compile(held: unknown): CompiledProfile;
-  read(held: unknown): CompiledProfile;
+  compile(held: unknown): ParsedProfile;
+  read(held: unknown): ParsedProfile;
   warningsOf(read: ReadProfile): readonly ConfigurationProblem[];
 }

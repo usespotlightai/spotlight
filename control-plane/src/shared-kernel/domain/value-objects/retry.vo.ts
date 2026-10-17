@@ -2,7 +2,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 
 export class Retry {
   private constructor(
-    readonly most: number,
+    readonly max: number,
     readonly firstMs: number,
     readonly longestMs: number,
   ) {}
@@ -12,14 +12,14 @@ export class Retry {
   }
 
   static backoff(input: {
-    most: number;
+    max: number;
     firstMs: number;
     longestMs: number;
   }): Retry {
-    if (!Number.isInteger(input.most) || input.most < 2) {
+    if (!Number.isInteger(input.max) || input.max < 2) {
       throw new InconsistentStateError(
         'retry',
-        `must allow at least one more attempt, not ${input.most} in all`,
+        `must allow at least one more attempt, not ${input.max} in all`,
       );
     }
 
@@ -30,15 +30,15 @@ export class Retry {
       );
     }
 
-    return new Retry(input.most, input.firstMs, input.longestMs);
+    return new Retry(input.max, input.firstMs, input.longestMs);
   }
 
   get retries(): boolean {
-    return this.most > 1;
+    return this.max > 1;
   }
 
   exhaustedAfter(failures: number): boolean {
-    return failures >= this.most;
+    return failures >= this.max;
   }
 
   after(failures: number, now: Date): Date | null {
@@ -56,7 +56,7 @@ export class Retry {
 
   equals(other: Retry): boolean {
     return (
-      this.most === other.most &&
+      this.max === other.max &&
       this.firstMs === other.firstMs &&
       this.longestMs === other.longestMs
     );

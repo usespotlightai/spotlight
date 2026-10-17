@@ -35,7 +35,7 @@ describe('GitHubConnection', () => {
   });
 
   it('takes the installation it is connected to, and says so', () => {
-    const after = none().connectedTo(INSTALLED, allowed);
+    const after = none().connectTo(INSTALLED, allowed);
 
     expect(after.installation).toEqual(INSTALLED);
     expect(after.pullEvents()).toEqual([
@@ -44,25 +44,25 @@ describe('GitHubConnection', () => {
   });
 
   it('takes a second installation over the first', () => {
-    expect(connected().connectedTo(REINSTALLED, allowed).installation).toEqual(
+    expect(connected().connectTo(REINSTALLED, allowed).installation).toEqual(
       REINSTALLED,
     );
   });
 
   it('keeps the version it was read at, for the repository to check', () => {
-    expect(connected().connectedTo(REINSTALLED, allowed).version).toBe(3);
+    expect(connected().connectTo(REINSTALLED, allowed).version).toBe(3);
   });
 
   it('leaves the connection it was asked of unchanged', () => {
     const connection = none();
-    connection.connectedTo(INSTALLED, allowed);
+    connection.connectTo(INSTALLED, allowed);
 
     expect(connection.installation).toBeNull();
   });
 
   it('refuses somebody who does not administer the workspace', () => {
     expect(() =>
-      none().connectedTo(INSTALLED, {
+      none().connectTo(INSTALLED, {
         ...allowed,
         workspaceAdministered: false,
       }),
@@ -71,7 +71,7 @@ describe('GitHubConnection', () => {
 
   it('refuses an installation the caller does not administer on GitHub', () => {
     expect(() =>
-      none().connectedTo(INSTALLED, {
+      none().connectTo(INSTALLED, {
         ...allowed,
         installationAdministered: false,
       }),
@@ -80,13 +80,13 @@ describe('GitHubConnection', () => {
 
   it('refuses an installation another workspace already holds', () => {
     expect(() =>
-      none().connectedTo(INSTALLED, { ...allowed, claimedBy: ELSEWHERE }),
+      none().connectTo(INSTALLED, { ...allowed, claimedBy: ELSEWHERE }),
     ).toThrow(InstallationClaimedError);
   });
 
   it('takes again an installation it already holds itself', () => {
     expect(
-      connected().connectedTo(INSTALLED, { ...allowed, claimedBy: WORKSPACE })
+      connected().connectTo(INSTALLED, { ...allowed, claimedBy: WORKSPACE })
         .installation,
     ).toEqual(INSTALLED);
   });
@@ -103,7 +103,7 @@ describe('GitHubConnection', () => {
 
   describe('letting an installation go', () => {
     it('drops the installation, and says so', () => {
-      const after = connected().disconnectedFrom(INSTALLED);
+      const after = connected().disconnectFrom(INSTALLED);
 
       expect(after.installation).toBeNull();
       expect(after.pullEvents()).toEqual([
@@ -114,13 +114,13 @@ describe('GitHubConnection', () => {
     it('leaves a connection to another installation alone', () => {
       const connection = connected();
 
-      expect(connection.disconnectedFrom(REINSTALLED)).toBe(connection);
+      expect(connection.disconnectFrom(REINSTALLED)).toBe(connection);
     });
 
     it('says nothing where it held nothing', () => {
       const connection = none();
 
-      expect(connection.disconnectedFrom(INSTALLED)).toBe(connection);
+      expect(connection.disconnectFrom(INSTALLED)).toBe(connection);
       expect(connection.pullEvents()).toEqual([]);
     });
   });

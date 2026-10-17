@@ -22,7 +22,7 @@ import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type {
   Claimant,
-  KeptWithRun,
+  RunExtras,
   RunRepository,
 } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
@@ -88,14 +88,14 @@ export class DrizzleRunRepository implements RunRepository {
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  async add(added: Run, kept: KeptWithRun = {}): Promise<void> {
-    await this.context.run(async () => {
+  async add(added: Run, kept: RunExtras = {}): Promise<void> {
+    await this.context.inTransaction(async () => {
       await this.inserted(added, kept);
       await this.events.dispatch(added.pullEvents());
     });
   }
 
-  private async inserted(added: Run, kept: KeptWithRun): Promise<void> {
+  private async inserted(added: Run, kept: RunExtras): Promise<void> {
     await this.context.db.insert(run).values({
       id: added.id.value,
       workspaceId: added.workspaceId.value,
@@ -135,7 +135,7 @@ export class DrizzleRunRepository implements RunRepository {
 
     const named = by.harnesses.map((harness) => harness.value);
 
-    return this.context.run(async () => {
+    return this.context.inTransaction(async () => {
       const locked = await this.context.db.execute<{ id: string }>(sql`
         SELECT id
         FROM ${run}
@@ -183,7 +183,7 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   async save(saved: Run): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());
     });
@@ -249,7 +249,7 @@ export class DrizzleRunRepository implements RunRepository {
     now: Date,
     page: {
       readonly skip: number;
-      readonly most: number;
+      readonly max: number;
       readonly withSecrets: boolean;
     },
   ): Promise<readonly Run[]> {
@@ -266,7 +266,7 @@ export class DrizzleRunRepository implements RunRepository {
         ),
       )
       .orderBy(desc(run.priority), run.createdAt, run.id)
-      .limit(page.most)
+      .limit(page.max)
       .offset(page.skip);
 
     return rows.map(toRun);

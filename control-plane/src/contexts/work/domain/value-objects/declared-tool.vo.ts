@@ -19,7 +19,7 @@ import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 const TOOL_INPUT_NAME = new RegExp(`^${INPUT_NAME}$`);
 
-const SHOWN_AT_MOST = 80;
+const MAX_SHOWN = 80;
 
 export interface ToolInput {
   readonly name: string;
@@ -38,8 +38,8 @@ const absent = (read: unknown): boolean =>
 const shown = (value: unknown): string => {
   const written = JSON.stringify(value) ?? String(value);
 
-  return written.length > SHOWN_AT_MOST
-    ? `${written.slice(0, SHOWN_AT_MOST - 1)}…`
+  return written.length > MAX_SHOWN
+    ? `${written.slice(0, MAX_SHOWN - 1)}…`
     : written;
 };
 

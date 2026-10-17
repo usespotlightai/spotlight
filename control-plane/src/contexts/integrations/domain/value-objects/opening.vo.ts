@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  areWords,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class Opening {
@@ -14,17 +14,17 @@ export class Opening {
     const onto = input.onto.trim();
     const at = input.at?.trim() || null;
 
-    if (!areWords(onto)) {
+    if (!isSlug(onto)) {
       throw new InvalidIdentifierError(
         'line role',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in delivery`,
+        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in delivery`,
       );
     }
 
-    if (at !== null && !areWords(at)) {
+    if (at !== null && !isSlug(at)) {
       throw new InvalidIdentifierError(
         'station key',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in code-review`,
+        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in code-review`,
       );
     }
 

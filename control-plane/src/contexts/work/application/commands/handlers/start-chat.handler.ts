@@ -1,6 +1,6 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -15,8 +15,8 @@ import type { StartChatCommand } from '@work/application/commands/chat.commands'
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { ReachableRepositoriesPort } from '@work/application/ports/reachable-repositories.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
-import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
-import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
+import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ConfigHomeUnreachableError } from '@work/domain/exceptions/config-home-unreachable.error';
 import { SetupNeedsEgressError } from '@work/domain/exceptions/setup-needs-egress.error';
@@ -36,8 +36,8 @@ export class StartChatHandler
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly chats: ChatRepository,
-    private readonly files: FilesAtHand,
-    private readonly traces: TracesAtHand,
+    private readonly files: FilesLoader,
+    private readonly traces: TracesLoader,
     private readonly lines: LineRepository,
     private readonly dispatch: ChatDispatching,
     private readonly launch: HarnessLaunchPort,
@@ -81,7 +81,7 @@ export class StartChatHandler
         throw new SetupNeedsEgressError();
       }
 
-      const started = await this.transaction.run(async () => {
+      const started = await this.transaction.inTransaction(async () => {
         const attachments = await this.files.handedOver(
           workspaceId,
           command.attachments,
@@ -122,7 +122,7 @@ export class StartChatHandler
 
       return started.id.value;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

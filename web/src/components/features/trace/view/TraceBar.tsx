@@ -2,7 +2,7 @@ import { spentOn, took } from '@/lib/inbox';
 import { laidOut, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
-const LEAST_WIDTH = 0.4;
+const MIN_WIDTH = 0.4;
 
 export const LABEL_ROOM = 128;
 
@@ -15,7 +15,7 @@ const fills: Record<TraceNode['tone'], string> = {
 export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {
   const { left, width } = laidOut(node, trace);
 
-  const drawn = Math.max(width, LEAST_WIDTH);
+  const drawn = Math.max(width, MIN_WIDTH);
 
   return (
     <div

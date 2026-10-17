@@ -2,9 +2,9 @@ import { X } from 'lucide-react';
 import { BeforeAfter } from '@/components/features/insights/changes/BeforeAfter';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import {
+  formatStation,
   type InsightsPeriod,
   type StationNames,
-  stationShown,
 } from '@/lib/insights';
 import type { ChangeAt } from '@/lib/insights-changes';
 
@@ -43,7 +43,7 @@ export function BeforeAfterPanel({
       >
         <div className="flex items-center gap-2 px-4 py-2">
           <p className="min-w-0 flex-1 truncate font-medium text-foreground text-xs">
-            {stationShown(names, change.stationId)}: impact
+            {formatStation(names, change.stationId)}: impact
           </p>
           <button
             type="button"

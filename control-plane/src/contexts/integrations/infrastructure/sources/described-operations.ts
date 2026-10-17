@@ -19,13 +19,13 @@ export type DescriptionAnswered =
   | { readonly kind: 'read'; readonly read: ReadOperations }
   | { readonly kind: 'unread'; readonly problem: string };
 
-const ALIASES_AT_MOST = 100;
+const MAX_ALIASES = 100;
 
 const parsed = (text: string): unknown => {
   try {
     return text.trimStart().startsWith('{')
       ? JSON.parse(text)
-      : parseYaml(text, { maxAliasCount: ALIASES_AT_MOST });
+      : parseYaml(text, { maxAliasCount: MAX_ALIASES });
   } catch (error) {
     throw new DescriptionUnreadable(
       `is not JSON or YAML Spotlight can read: ${error instanceof Error ? error.message : String(error)}`,

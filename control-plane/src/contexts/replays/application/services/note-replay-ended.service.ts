@@ -27,7 +27,7 @@ export class NoteReplayEnded {
   ended(event: ReplayRunEnded): Promise<void> {
     const run = RunId.of(event.runId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const replay = await this.replays.ranAs(run);
 
       if (!replay) {
@@ -36,7 +36,7 @@ export class NoteReplayEnded {
 
       const now = this.clock.now();
       const ended = replay
-        .ended(
+        .recordRunEnd(
           run,
           RunEnd.of({
             outcome: event.outcome,
@@ -47,7 +47,7 @@ export class NoteReplayEnded {
             at: now,
           }),
         )
-        .reviewed(run, ...reviewOf(await this.changes.stacksOf(run)), now);
+        .recordReview(run, ...reviewOf(await this.changes.stacksOf(run)), now);
 
       if (ended !== replay) {
         await this.replays.save(ended);

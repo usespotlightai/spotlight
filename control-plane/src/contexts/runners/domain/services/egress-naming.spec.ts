@@ -59,7 +59,7 @@ describe('refuseUnfitEgress', () => {
 
     expect(refused(reference)).toBe(reason);
     expect(
-      refused(reference, { named: anEgress().retired([], attributedIn()) }),
+      refused(reference, { named: anEgress().retire([], attributedIn()) }),
     ).toBe(reason);
     expect(
       refused(reference, {

@@ -21,7 +21,9 @@ export class MintedTokens {
 
     for (const token of await this.tokens.mintedThrough(withdrawn.trustId)) {
       await this.settled(() =>
-        this.transaction.run(() => this.tokens.save(token.revoked(by))),
+        this.transaction.inTransaction(() =>
+          this.tokens.save(token.revoke(by)),
+        ),
       );
     }
   }
@@ -32,7 +34,9 @@ export class MintedTokens {
 
     for (const token of expired) {
       await this.settled(() =>
-        this.transaction.run(() => this.tokens.save(token.lapsed(now))),
+        this.transaction.inTransaction(() =>
+          this.tokens.save(token.lapsed(now)),
+        ),
       );
     }
 

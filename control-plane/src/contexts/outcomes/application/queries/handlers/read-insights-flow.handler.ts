@@ -7,7 +7,7 @@ import type { InsightsReaderPort } from '@outcomes/application/ports/insights-re
 import type { ReadInsightsFlowQuery } from '@outcomes/application/queries/read-insights-flow.query';
 import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { flowFrom } from '@outcomes/domain/services/flow';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadInsightsFlowHandler
@@ -20,14 +20,14 @@ export class ReadInsightsFlowHandler
 
   async execute(query: ReadInsightsFlowQuery): Promise<InsightsFlowDto> {
     try {
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
       const counts = await this.reader.flowCounts({
-        workspaceId: clearance.workspaceId,
-        teamId: clearance.teamId,
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
         period,
       });
 
@@ -36,7 +36,7 @@ export class ReadInsightsFlowHandler
         flow: flowDtoOf(flowFrom(counts, period)),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

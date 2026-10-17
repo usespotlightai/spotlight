@@ -3,7 +3,7 @@ import type { WorkspaceRunnersResourceDto } from '@runners/application/dto/runne
 import { RunnerResourceMapper } from '@runners/application/mappers/runner-resource.mapper';
 import type { RunnerResourcesPort } from '@runners/application/ports/runner-resources.port';
 import type { ReadWorkspaceRunnersQuery } from '@runners/application/queries/runner-resource.queries';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadWorkspaceRunnersHandler
@@ -23,19 +23,19 @@ export class ReadWorkspaceRunnersHandler
   ): Promise<WorkspaceRunnersResourceDto | null> {
     try {
       const kept = await this.resources.declaredWithId(query.declarationId);
-      const cleared = kept
-        ? await this.access.clearanceIn(kept.workspaceId, query.principal)
+      const permissions = kept
+        ? await this.access.permissionsIn(kept.workspaceId, query.principal)
         : null;
 
-      return kept && cleared
+      return kept && permissions
         ? RunnerResourceMapper.workspaceRunners(
             kept,
-            cleared.slug,
+            permissions.slug,
             await this.resources.waysIn(kept.workspaceId),
           )
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

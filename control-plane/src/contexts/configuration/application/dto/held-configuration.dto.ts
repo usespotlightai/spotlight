@@ -1,14 +1,14 @@
 import type {
-  HeldHookMatch,
-  HeldHookSigning,
-  HeldHookStep,
-} from '@configuration/application/ports/held-hooks.port';
-import type { WornSecret } from '@configuration/application/ports/held-integrations.port';
+  HookConfigMatch,
+  HookConfigSigning,
+  HookConfigStep,
+} from '@configuration/application/ports/hook-configs.port';
+import type { WornSecret } from '@configuration/application/ports/integration-configs.port';
 import {
   CONFIGURED_RESOURCES,
   type ConfiguredResource,
 } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import type { HeldLine } from '@work/application/contracts/held-line.contract';
+import type { LineDefinition } from '@work/application/contracts/line-definition.contract';
 
 const UNHELD = [
   'workspace-token',
@@ -113,7 +113,7 @@ export type HeldResourceDto =
   | (HeldByTeam & {
       readonly kind: 'line';
       readonly key: string;
-      readonly definition: HeldLine;
+      readonly definition: LineDefinition;
     })
   | (HeldByTeam & {
       readonly kind: 'skill';
@@ -130,11 +130,11 @@ export type HeldResourceDto =
       readonly kind: 'hook';
       readonly key: string;
       readonly on: string;
-      readonly match: HeldHookMatch;
+      readonly match: HookConfigMatch;
       readonly when: string | null;
       readonly vars: Readonly<Record<string, string>>;
-      readonly steps: readonly HeldHookStep[];
-      readonly signing: HeldHookSigning | null;
+      readonly steps: readonly HookConfigStep[];
+      readonly signing: HookConfigSigning | null;
       readonly failure: string | null;
       readonly timeoutSeconds: number | null;
     })

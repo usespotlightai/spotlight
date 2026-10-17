@@ -133,7 +133,7 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
         ),
       )
       .orderBy(desc(decisionSet.mergedAt))
-      .limit(sought.most);
+      .limit(sought.max);
 
     const { decisions, disputes } = await this.held(
       sets.map((each) => each.id),

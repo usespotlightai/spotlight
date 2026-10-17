@@ -3,7 +3,7 @@ import type { JoinedWorkspaceDto } from '@identity/application/dto/invite.dto';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
@@ -32,7 +32,7 @@ export class AcceptInviteHandler
         return null;
       }
 
-      const accepted = invite.acceptedBySomeone(
+      const accepted = invite.acceptBySomeone(
         UserId.of(command.viewerId),
         EmailAddress.of(command.viewerEmail),
         this.clock.now(),
@@ -47,7 +47,7 @@ export class AcceptInviteHandler
 
       return { workspaceSlug: workspace.slug.value };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

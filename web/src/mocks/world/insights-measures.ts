@@ -188,7 +188,7 @@ export const MEASURES: readonly Measure[] = [
   'cost_per_run',
 ];
 
-const FEWEST_SETTLED = 10;
+const MIN_SETTLED = 10;
 
 const LOWER_IS_BETTER: ReadonlySet<Measure> = new Set([
   'sent_back_rate',
@@ -210,8 +210,8 @@ const verdictOf = (
   if (
     before.value === null ||
     after.value === null ||
-    before.settled < FEWEST_SETTLED ||
-    after.settled < FEWEST_SETTLED
+    before.settled < MIN_SETTLED ||
+    after.settled < MIN_SETTLED
   ) {
     return 'insufficient';
   }

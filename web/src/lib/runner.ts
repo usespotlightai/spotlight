@@ -223,7 +223,7 @@ export const hiddenRunTip = (run: HeldRun): string =>
     ? 'Title hidden. This agent chat belongs to a team you’re not on.'
     : 'Title hidden. This run belongs to a team you’re not on.';
 
-export const runShown = (run: HeldRun | null): string => {
+export const formatRun = (run: HeldRun | null): string => {
   if (run === null) {
     return 'No run yet';
   }

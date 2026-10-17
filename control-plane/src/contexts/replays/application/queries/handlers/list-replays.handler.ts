@@ -6,7 +6,7 @@ import type { SetHealths } from '@replays/application/services/set-healths.servi
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { baselineOf, comparedAgainst } from '@replays/domain/services/baseline';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ListReplaysHandler
@@ -21,11 +21,8 @@ export class ListReplaysHandler
 
   async execute(query: ListReplaysQuery): Promise<readonly ReplayDto[]> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
-      const set = await this.access.setOn(clearance, query.setId);
+      const access = await this.access.forTeam(query.teamId, query.principal);
+      const set = await this.access.setOn(access, query.setId);
       const replays = await this.replays.ofSet(set.id);
       const candidates = await this.candidates.findMany(
         replays.map((each) => each.candidateId),
@@ -49,7 +46,7 @@ export class ListReplaysHandler
           ),
         );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

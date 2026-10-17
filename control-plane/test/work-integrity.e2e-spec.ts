@@ -147,7 +147,7 @@ describe('a line that drops a station', () => {
     const { whole, reviewId } = await withReview();
     await tasks.add(added(whole, reviewId));
 
-    const tally = await context.run(() =>
+    const tally = await context.inTransaction(() =>
       new DrizzleStationTallies(context).lockedStandingAt([reviewId]),
     );
 
@@ -187,7 +187,7 @@ describe('a mark worn by one task and claimed by another', () => {
     await tasks.add(before);
 
     const newest = added(line, stationId, { marks: [thread] });
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await takeWornMarks(tasks, newest);
       await tasks.add(newest);
     });
@@ -227,7 +227,7 @@ describe('a file handed over twice', () => {
 
     const again = (await tasks.find(first.id)) as Task;
 
-    await expect(tasks.save(again.assignedTo(owner))).resolves.toBeUndefined();
+    await expect(tasks.save(again.assign(owner))).resolves.toBeUndefined();
   });
 
   it('cannot be given to a chat once a task holds it', async () => {

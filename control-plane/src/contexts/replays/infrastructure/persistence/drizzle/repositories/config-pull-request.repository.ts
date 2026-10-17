@@ -156,7 +156,7 @@ export class DrizzleConfigPullRequestRepository
   }
 
   add(added: ConfigPullRequest): Promise<ConfigPullRequest> {
-    return this.context.run(async () => {
+    return this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(configPullRequest)
         .values({
@@ -186,7 +186,7 @@ export class DrizzleConfigPullRequestRepository
   }
 
   async save(saved: ConfigPullRequest): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const at = and(
         eq(configPullRequest.id, saved.id.value),
         eq(configPullRequest.version, saved.version),

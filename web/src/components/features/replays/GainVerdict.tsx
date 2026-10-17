@@ -2,11 +2,11 @@ import type { ReactNode } from 'react';
 import { Noted } from '@/components/shared/Noted';
 import type { GainReading } from '@/lib/replay';
 import {
+  formatGain,
+  formatGainRange,
+  formatGainVerdict,
   type GainVerdictCode,
-  gainRangeShown,
-  gainShown,
   gainVerdictNote,
-  gainVerdictShown,
   VERSUS,
 } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
@@ -37,8 +37,8 @@ export function GainVerdict({
         className,
       )}
     >
-      <span className="text-foreground">{gainShown(gain)}</span>
-      <span className="text-muted-foreground">({gainRangeShown(gain)})</span>
+      <span className="text-foreground">{formatGain(gain)}</span>
+      <span className="text-muted-foreground">({formatGainRange(gain)})</span>
       {against && (
         <span className="text-muted-foreground">
           {VERSUS} {against}
@@ -49,7 +49,7 @@ export function GainVerdict({
           data-slot="gain-verdict-word"
           className={cn('font-medium', TONES[gain.verdict])}
         >
-          · {gainVerdictShown(gain.verdict)}
+          · {formatGainVerdict(gain.verdict)}
         </span>
       </Noted>
     </span>

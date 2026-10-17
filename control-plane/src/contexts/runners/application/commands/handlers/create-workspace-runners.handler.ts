@@ -11,7 +11,7 @@ import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type {
@@ -41,16 +41,16 @@ export class CreateWorkspaceRunnersHandler
     command: CreateWorkspaceRunnersCommand,
   ): Promise<ResourceCreated | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(command.workspaceId),
         command.actor.principal,
       );
 
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.managesRunners) {
+      if (!permissions.managesRunners) {
         return forbiddenTo('manage-runners');
       }
 
@@ -71,12 +71,12 @@ export class CreateWorkspaceRunnersHandler
       };
 
       try {
-        return await this.transaction.run(() =>
+        return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             const declared = WorkspaceRunners.declare({
               id: WorkspaceRunnersId.of(this.ids.generate()),
-              workspaceId: cleared.workspaceId,
-              by: Attribution.of(command.actor, cleared.workspaceId),
+              workspaceId: permissions.workspaceId,
+              by: Attribution.of(command.actor, permissions.workspaceId),
               trusts: compiled.trusts,
               pools: compiled.pools,
             });
@@ -88,7 +88,7 @@ export class CreateWorkspaceRunnersHandler
         );
       } catch (error) {
         if (error instanceof WorkspaceRunnersAlreadyDeclaredError) {
-          return { outcome: 'taken', address: cleared.slug };
+          return { outcome: 'taken', address: permissions.slug };
         }
 
         if (error instanceof InvalidWorkspaceRunnersError) {
@@ -101,7 +101,7 @@ export class CreateWorkspaceRunnersHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

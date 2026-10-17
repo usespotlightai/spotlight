@@ -125,7 +125,7 @@ const kept = async (
     holder.kind === 'task'
       ? ContinuityKey.forTask(holder.taskId.value)
       : ContinuityKey.forChat(holder.chatId.value);
-  const granted = WorkspaceArchive.granted({
+  const granted = WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of(randomUUID()),
     workspaceId: WorkspaceId.of('ws_1'),
     continuity,
@@ -142,7 +142,7 @@ const kept = async (
     return granted;
   }
 
-  await archives.save(granted.sealed(STORED, times.sealedAt));
+  await archives.save(granted.seal(STORED, times.sealedAt));
 
   return (await archives.find(granted.id)) as WorkspaceArchive;
 };
@@ -181,15 +181,15 @@ describe('keeping workspace archives', () => {
     const taskId = await aTask();
     const granted = await kept(forTask(taskId), { grantedAt: ago(HOUR) });
 
-    await archives.save(granted.sealed(STORED, ago(HOUR)));
+    await archives.save(granted.seal(STORED, ago(HOUR)));
 
-    await expect(archives.save(granted.sealed(STORED, NOW))).rejects.toThrow(
+    await expect(archives.save(granted.seal(STORED, NOW))).rejects.toThrow(
       WorkspaceArchiveVersionConflictError,
     );
 
     const sealed = (await archives.find(granted.id)) as WorkspaceArchive;
     await archives.save(
-      sealed.removed(NOW, {
+      sealed.remove(NOW, {
         holder: null,
         supersededAt: null,
         lastStartedFromAt: null,

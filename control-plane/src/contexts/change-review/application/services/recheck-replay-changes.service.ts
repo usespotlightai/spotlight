@@ -25,7 +25,7 @@ export class RecheckReplayChanges implements ReplayRechecksPort {
   recheck(runId: string, stackId: string): Promise<void> {
     const stack = ChangeStackId.of(stackId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const first = await this.checks.find(stack, false);
 
       if (

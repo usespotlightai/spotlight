@@ -1,8 +1,8 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
-import type { LineAtHand } from '@work/application/services/line-at-hand.service';
+import type { LineLoader } from '@work/application/services/line-loader.service';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
@@ -11,7 +11,7 @@ export class DeleteTaskHandler
 {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: LineAtHand,
+    private readonly lines: LineLoader,
   ) {}
 
   async execute(command: DeleteTaskCommand): Promise<void> {
@@ -31,7 +31,7 @@ export class DeleteTaskHandler
 
       await this.tasks.remove(found.deleted());
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

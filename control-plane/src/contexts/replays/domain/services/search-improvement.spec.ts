@@ -37,8 +37,8 @@ const proposedIn = (
       name: CandidateName.searched(name),
       replayId: ReplayId.of(`replay_${name}`),
     })
-    .runEnded(run, { failed: false, started: true }, later(number), ids)
-    .spentByAgent(run, NONE, later(number), ids);
+    .recordRunEnd(run, { failed: false, started: true }, later(number), ids)
+    .recordAgentSpend(run, NONE, later(number), ids);
 };
 
 const searchWith = (objective: SearchObjective = 'success'): Search => {
@@ -47,7 +47,7 @@ const searchWith = (objective: SearchObjective = 'success'): Search => {
     set: SET,
     objective,
     budget: aBudget({ iterations: 5 }),
-  }).replayEnded(
+  }).recordReplayEnd(
     ReplayId.of('replay_seed'),
     'finished',
     { spent: Spend.of(10, 'USD'), unpriced: 0 },
@@ -55,7 +55,7 @@ const searchWith = (objective: SearchObjective = 'success'): Search => {
     ids,
     false,
   );
-  const first = proposedIn(seeded, 1, 'firmer', ids).replayEnded(
+  const first = proposedIn(seeded, 1, 'firmer', ids).recordReplayEnd(
     ReplayId.of('replay_firmer'),
     'finished',
     { spent: Spend.of(1, 'USD'), unpriced: 0 },

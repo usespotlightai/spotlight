@@ -104,7 +104,7 @@ describe('PairReplayEntries', () => {
         count: 2,
         candidate: proposed,
         pairsWith: 'baseline_1',
-      }).stopped(NOW, BY),
+      }).stop(NOW, BY),
     );
     const baseline = (await memory.replayRepository.find(
       ReplayId.of('baseline_1'),

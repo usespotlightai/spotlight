@@ -72,7 +72,7 @@ export interface HeardComment {
   readonly byBot: boolean;
 }
 
-interface Kept {
+interface Props {
   readonly title: string;
   readonly author: string | null;
   readonly authorIsBot: boolean;
@@ -138,7 +138,7 @@ export class PullRequest extends EventRecorder {
     readonly url: PullRequestUrl,
     readonly repository: Repository,
     readonly number: number,
-    private readonly kept: Kept,
+    private readonly kept: Props,
     readonly version: number,
   ) {
     super();
@@ -207,7 +207,7 @@ export class PullRequest extends EventRecorder {
       repository: Repository;
       number: number;
       version: number;
-    } & Kept,
+    } & Props,
   ): PullRequest {
     return new PullRequest(
       input.workspaceId,
@@ -365,7 +365,7 @@ export class PullRequest extends EventRecorder {
     return pastRetention(this.kept, now);
   }
 
-  described(facts: PullRequestFacts): PullRequest {
+  describe(facts: PullRequestFacts): PullRequest {
     if (!facts.url.equals(this.url)) {
       return this;
     }
@@ -399,7 +399,7 @@ export class PullRequest extends EventRecorder {
         : this.kept.state === 'merged'
           ? this.kept.closedAt
           : (facts.closedAt ?? this.kept.closedAt);
-    const next: Kept = {
+    const next: Props = {
       ...this.kept,
       title: facts.title,
       author: facts.author ?? this.kept.author,
@@ -441,7 +441,7 @@ export class PullRequest extends EventRecorder {
     return described;
   }
 
-  reviewedBy(review: HeardReview): PullRequest {
+  recordReview(review: HeardReview): PullRequest {
     if (this.kept.reviews.some((each) => each.id === review.id)) {
       return this;
     }
@@ -452,7 +452,7 @@ export class PullRequest extends EventRecorder {
     });
   }
 
-  reviewDismissed(id: number): PullRequest {
+  dismissReview(id: number): PullRequest {
     if (this.kept.dismissedReviews.includes(id)) {
       return this;
     }
@@ -467,7 +467,7 @@ export class PullRequest extends EventRecorder {
       : this.quietly(next);
   }
 
-  commentedOn(comment: HeardComment): PullRequest {
+  recordComment(comment: HeardComment): PullRequest {
     if (comment.byBot) {
       return this.botCommented(comment);
     }
@@ -499,7 +499,7 @@ export class PullRequest extends EventRecorder {
     return this;
   }
 
-  threadResolved(thread: HeardThread): PullRequest {
+  resolveThread(thread: HeardThread): PullRequest {
     const held = this.kept.threads.find((each) => each.id === thread.id);
 
     if (!thread.byBot || (held && held.resolved === thread.resolved)) {
@@ -515,7 +515,7 @@ export class PullRequest extends EventRecorder {
     });
   }
 
-  revertedWith(revert: PullRequestUrl): PullRequest {
+  recordRevert(revert: PullRequestUrl): PullRequest {
     if (
       !this.merged ||
       revert.equals(this.url) ||
@@ -606,7 +606,7 @@ export class PullRequest extends EventRecorder {
     );
   }
 
-  private unchanged(next: Kept): boolean {
+  private unchanged(next: Props): boolean {
     return (
       next.title === this.kept.title &&
       next.author === this.kept.author &&
@@ -623,19 +623,19 @@ export class PullRequest extends EventRecorder {
     );
   }
 
-  private changed(next: Kept): PullRequest {
+  private changed(next: Props): PullRequest {
     const changed = this.succeeded(next, notRecorded);
     changed.recordSnapshot();
 
     return changed;
   }
 
-  private quietly(next: Kept): PullRequest {
+  private quietly(next: Props): PullRequest {
     return this.succeeded(next, () => true);
   }
 
   private succeeded(
-    next: Kept,
+    next: Props,
     keeping: (event: DomainEvent) => boolean,
   ): PullRequest {
     const succeeded = new PullRequest(

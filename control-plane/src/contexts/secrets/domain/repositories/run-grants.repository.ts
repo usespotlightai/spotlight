@@ -12,7 +12,7 @@ export interface RunGrantsRepository {
   endedBy(
     at: Date,
     after: RunId | null,
-    most: number,
+    max: number,
   ): Promise<readonly RunId[]>;
 
   save(grants: RunGrants): Promise<void>;

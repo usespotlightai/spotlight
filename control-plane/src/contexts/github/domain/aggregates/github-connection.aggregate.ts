@@ -49,7 +49,7 @@ export class GitHubConnection extends EventRecorder {
     return this.installation !== null;
   }
 
-  connectedTo(
+  connectTo(
     installation: GitHubInstallation,
     facts: ConnectingFacts,
   ): GitHubConnection {
@@ -69,7 +69,7 @@ export class GitHubConnection extends EventRecorder {
     return connected;
   }
 
-  disconnectedFrom(installation: GitHubInstallation): GitHubConnection {
+  disconnectFrom(installation: GitHubInstallation): GitHubConnection {
     if (!this.installation?.equals(installation)) {
       return this;
     }

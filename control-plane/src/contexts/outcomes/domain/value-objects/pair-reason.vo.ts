@@ -1,8 +1,8 @@
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
 
-const MOST_SAID = 1_000;
+const MAX_SAID = 1_000;
 
-const MOST_CITED = 10;
+const MAX_CITED = 10;
 
 const distinct = (ids: readonly string[]): readonly string[] => [
   ...new Set(ids.map((each) => each.trim()).filter(Boolean)),
@@ -25,15 +25,15 @@ export class PairReason {
     const againstHunks = distinct(input.againstHunks);
     const cited = runHunks.length + againstHunks.length;
 
-    if (!text || text.length > MOST_SAID) {
+    if (!text || text.length > MAX_SAID) {
       throw new InvalidScoreError(
-        `must be 1 to ${MOST_SAID} characters`,
+        `must be 1 to ${MAX_SAID} characters`,
         'reason',
       );
     }
-    if (cited === 0 || cited > MOST_CITED) {
+    if (cited === 0 || cited > MAX_CITED) {
       throw new InvalidScoreError(
-        `must cite 1 to ${MOST_CITED} hunks of the two changes`,
+        `must cite 1 to ${MAX_CITED} hunks of the two changes`,
         'reason',
       );
     }

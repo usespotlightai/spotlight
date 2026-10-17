@@ -333,7 +333,7 @@ describe('forgetting outcomes', () => {
   it('forgets what it heard of a deleted task’s runs before they ended', async () => {
     const records = new RunRecordsInMemory();
     await records.add(
-      RunRecord.heardOf(RunId.of('run_1'), WORKSPACE, TASK).checked(
+      RunRecord.heardOf(RunId.of('run_1'), WORKSPACE, TASK).recordCheck(
         'passed',
         HEARD_AT,
       ),

@@ -47,7 +47,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
   ) {}
 
   async add(added: TaskAside): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db.insert(taskAside).values({
         id: added.id.value,
         workspaceId: added.workspaceId.value,
@@ -64,7 +64,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
   }
 
   async save(saved: TaskAside): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(taskAside)
         .set({

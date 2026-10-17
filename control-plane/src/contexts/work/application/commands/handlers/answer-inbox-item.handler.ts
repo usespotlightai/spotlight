@@ -1,12 +1,12 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { ApprovalAnswered } from '@work/application/rendering/approval-answered';
-import type { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
-import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -19,19 +19,19 @@ export class AnswerInboxItemHandler
   implements CommandHandlerPort<AnswerInboxItemCommand, void>
 {
   constructor(
-    private readonly conversations: ConversationAtHand,
+    private readonly conversations: ConversationLoader,
     private readonly tasks: TaskRepository,
     private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
-    private readonly files: FilesAtHand,
+    private readonly files: FilesLoader,
   ) {}
 
   async execute(command: AnswerInboxItemCommand): Promise<void> {
     try {
       for (let attempt = 1; ; attempt++) {
         try {
-          await this.transaction.run(() => this.answer(command));
+          await this.transaction.inTransaction(() => this.answer(command));
           return;
         } catch (error) {
           if (
@@ -43,7 +43,7 @@ export class AnswerInboxItemHandler
         }
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
@@ -60,7 +60,7 @@ export class AnswerInboxItemHandler
     );
 
     const changed = task.changesAt(item.from, command.decision, command.edits);
-    const answered = task.answered(
+    const answered = task.answer(
       item.from,
       {
         station,

@@ -23,9 +23,9 @@ export const REVIEW_COMMENT_STATES = [
 
 export type ReviewCommentState = (typeof REVIEW_COMMENT_STATES)[number];
 
-const MOST_REVIEW_COMMENT = 65_000;
+const MAX_REVIEW_COMMENT = 65_000;
 
-const MOST_EDITS_AWAITING_ECHO = 5;
+const MAX_EDITS_AWAITING_ECHO = 5;
 
 export interface OnGitHub {
   readonly id: number;
@@ -38,9 +38,9 @@ const written = (body: string): string => {
   if (!trimmed) {
     throw new InvalidReviewError('comment must say something');
   }
-  if (trimmed.length > MOST_REVIEW_COMMENT) {
+  if (trimmed.length > MAX_REVIEW_COMMENT) {
     throw new InvalidReviewError(
-      `comment must be at most ${MOST_REVIEW_COMMENT} characters`,
+      `comment must be at most ${MAX_REVIEW_COMMENT} characters`,
     );
   }
 
@@ -69,7 +69,7 @@ export class ReviewComment extends EventRecorder {
     super();
   }
 
-  static drafted(input: {
+  static draft(input: {
     id: ReviewCommentId;
     workspaceId: WorkspaceId;
     taskId: TaskId;
@@ -104,7 +104,7 @@ export class ReviewComment extends EventRecorder {
     );
   }
 
-  static arrived(input: {
+  static receive(input: {
     id: ReviewCommentId;
     workspaceId: WorkspaceId;
     taskId: TaskId;
@@ -405,7 +405,7 @@ export class ReviewComment extends EventRecorder {
       editsAwaitingEcho: [
         ...this.editsAwaitingEcho.filter((each) => each !== body),
         body,
-      ].slice(-MOST_EDITS_AWAITING_ECHO),
+      ].slice(-MAX_EDITS_AWAITING_ECHO),
     });
   }
 

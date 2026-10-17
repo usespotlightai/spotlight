@@ -3,7 +3,7 @@ import type { HookFiringHistoryPort } from '@integrations/application/ports/hook
 import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
 import { InvalidCallbackNoteError } from '@integrations/domain/exceptions/invalid-callback-note.error';
 import { CallbackNote } from '@integrations/domain/value-objects/callback-note.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TaskNotesFromHooksPort } from '@work/application/ports/task-notes-from-hooks.port';
@@ -62,7 +62,7 @@ export class NoteByCallbackHandler
 
       return noted ? 'noted' : 'refused';
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

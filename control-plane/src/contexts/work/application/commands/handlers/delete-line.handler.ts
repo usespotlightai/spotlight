@@ -3,7 +3,7 @@ import {
   forbiddenTo,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -30,30 +30,30 @@ export class DeleteLineHandler
 
     try {
       const standing = await this.lines.find(id);
-      const cleared = standing
-        ? await this.access.clearanceOnTeam(
+      const permissions = standing
+        ? await this.access.permissionsOnTeam(
             standing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !cleared) {
+      if (!standing || !permissions) {
         return null;
       }
 
-      if (!cleared.configures) {
+      if (!permissions.configures) {
         return forbiddenTo('configure');
       }
 
       standing.assertVersion(command.expectedVersion);
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const tasks = await this.tallies.lockedStandingAt(
           standing.stations.map((each) => each.id),
         );
 
         await this.lines.save(
-          standing.retired(
+          standing.retire(
             tasks,
             Attribution.of(command.actor, standing.workspaceId),
           ),
@@ -77,7 +77,7 @@ export class DeleteLineHandler
         return { outcome: 'in-use', reason: error.message };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

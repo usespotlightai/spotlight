@@ -71,7 +71,7 @@ const seen = () =>
   });
 
 const judged = (runId: string, value: number, at = NOW) =>
-  Score.judged({
+  Score.judge({
     id: ScoreId.of(`judge_${runId}`),
     runId: RunId.of(runId),
     workspaceId: WORKSPACE,
@@ -88,7 +88,7 @@ const judged = (runId: string, value: number, at = NOW) =>
   });
 
 const graded = (runId: string, value: number, by = 'user_ada') =>
-  Score.graded({
+  Score.grade({
     id: ScoreId.of(`grade_${runId}_${by}`),
     runId: RunId.of(runId),
     workspaceId: WORKSPACE,
@@ -103,7 +103,7 @@ const graded = (runId: string, value: number, by = 'user_ada') =>
   });
 
 const endedRecord = (runId: string) =>
-  RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+  RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
     RunEnd.of({
       place: placeOf(`task_${runId}`),
       fingerprint: CONFIG,
@@ -215,7 +215,7 @@ describe('judgings, kept', () => {
 
     const held = await judgings.of(RunId.of('run_judged'));
     await judgings.save(
-      held?.judged({
+      held?.recordVerdict({
         verdict: {
           value: true,
           reasons: [{ text: 'It retried.', steps: [4], hunks: [] }],
@@ -278,7 +278,7 @@ describe('scores, kept', () => {
   it('keeps one judge score for a run and rubric', async () => {
     await expect(
       scores.add(
-        Score.judged({
+        Score.judge({
           id: ScoreId.of('judge_run_a_again'),
           runId: RunId.of('run_a'),
           workspaceId: WORKSPACE,
@@ -302,7 +302,7 @@ describe('scores, kept', () => {
 
     await expect(
       scores.add(
-        Score.graded({
+        Score.grade({
           id: ScoreId.of('grade_twice'),
           runId: RunId.of('run_a'),
           workspaceId: WORKSPACE,
@@ -320,7 +320,7 @@ describe('scores, kept', () => {
 
     const mine = await scores.gradeBy(RunId.of('run_a'), UserId.of('user_ada'));
     await scores.save(
-      mine?.regraded({
+      mine?.regrade({
         scale: YES_NO,
         value: 0,
         marks: null,
@@ -350,7 +350,7 @@ describe('judge scores at many stations, read at once', () => {
       rubricVersion?: string;
     },
   ) =>
-    Score.judged({
+    Score.judge({
       id: ScoreId.of(`judge_${runId}`),
       runId: RunId.of(runId),
       workspaceId: where.workspaceId ?? ELSEWHERE,
@@ -404,7 +404,7 @@ describe('judge scores at many stations, read at once', () => {
       await scores.add(each);
     }
     await scores.add(
-      Score.graded({
+      Score.grade({
         id: ScoreId.of('grade_many_c_1'),
         runId: RunId.of('many_c_1'),
         workspaceId: ELSEWHERE,
@@ -480,7 +480,7 @@ describe('how often the judge agrees with people', () => {
       const runId = `run_${at}`;
       const yes = at % 2 === 0;
       await records.add(
-        endedRecord(runId).actedOn(
+        endedRecord(runId).recordAction(
           NextAct.of(yes ? 'closed' : 'sent-back', LATER),
         ),
       );
@@ -573,7 +573,7 @@ describe('how often the judge agrees with people', () => {
     );
     await lockedNow;
 
-    const forgetting = context.run(async () => {
+    const forgetting = context.inTransaction(async () => {
       await judgings.removeForTask(TaskId.of('task_racing'));
       await scores.removeForTask(TaskId.of('task_racing'));
     });
@@ -606,7 +606,7 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
       const personMarks = [retried, tested];
 
       await scores.add(
-        Score.judged({
+        Score.judge({
           id: ScoreId.of(`judge_${runId}`),
           runId: RunId.of(runId),
           workspaceId: WORKSPACE,
@@ -629,7 +629,7 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
         }),
       );
       await scores.add(
-        Score.graded({
+        Score.grade({
           id: ScoreId.of(`grade_${runId}`),
           runId: RunId.of(runId),
           workspaceId: WORKSPACE,

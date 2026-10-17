@@ -12,7 +12,7 @@ import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import {
-  type HeldImage,
+  type HostImageRecord,
   runnerHost,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
@@ -70,7 +70,7 @@ const heldOf = (host: RunnerHost) => ({
   capacity: host.report.capacity,
   running: host.report.running.map((each) => each.value),
   images: host.report.images.map(
-    (each): HeldImage => ({
+    (each): HostImageRecord => ({
       image: each.image.value,
       usual: each.usual,
       harnesses: each.harnesses.map((harness) => ({
@@ -107,7 +107,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   }
 
   async add(host: RunnerHost): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       try {
         await this.context.db.insert(runnerHost).values({
           id: host.id.value,
@@ -127,7 +127,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   }
 
   async save(host: RunnerHost): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(runnerHost)
         .set({ ...heldOf(host), version: host.version + 1 })

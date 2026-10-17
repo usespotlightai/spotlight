@@ -5,7 +5,7 @@ import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow'
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { useFolds } from '@/hooks/useFolds';
 import type { HarnessResponseDto } from '@/lib/api';
-import { harnessShown } from '@/lib/insights';
+import { formatHarness } from '@/lib/insights';
 import {
   harnessGroupsOf,
   type OutcomeMeasure,
@@ -35,7 +35,7 @@ export function SetupTable({
       headings={setupHeadings(judged)}
     >
       {harnessGroupsOf(setups).map((group) => {
-        const name = harnessShown(harnesses, group.harness);
+        const name = formatHarness(harnesses, group.harness);
         const open = folds.isOpen(group.harness);
 
         return (

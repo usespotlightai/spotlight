@@ -1,5 +1,5 @@
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
-import { OutcomesClearance } from '@outcomes/domain/services/outcomes-clearance';
+import { TeamAccess } from '@outcomes/domain/services/team-access';
 import {
   PersonPrincipal,
   type Principal,
@@ -9,26 +9,20 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 export class OutcomesAccess {
   constructor(private readonly people: PeoplePort) {}
 
-  async clearance(
-    teamId: string,
-    viewerId: string,
-  ): Promise<OutcomesClearance> {
-    return OutcomesClearance.onTeam(
+  async forTeam(teamId: string, viewerId: string): Promise<TeamAccess> {
+    return TeamAccess.onTeam(
       teamId,
-      await this.people.clearedOnTeam(
+      await this.people.membershipOnTeam(
         teamId,
         PersonPrincipal.of(UserId.of(viewerId)),
       ),
     );
   }
 
-  async clearanceFor(
-    teamId: string,
-    principal: Principal,
-  ): Promise<OutcomesClearance> {
-    return OutcomesClearance.onTeam(
+  async accessFor(teamId: string, principal: Principal): Promise<TeamAccess> {
+    return TeamAccess.onTeam(
       teamId,
-      await this.people.clearedOnTeam(teamId, principal),
+      await this.people.membershipOnTeam(teamId, principal),
     );
   }
 }

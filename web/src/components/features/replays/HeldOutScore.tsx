@@ -1,6 +1,6 @@
 import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
 import type { RateInterval } from '@/lib/replay';
-import { heldOutRunsShown } from '@/lib/replay-words';
+import { formatHeldOutRuns } from '@/lib/replay-words';
 
 type HeldOutScoreProps = {
   rate: number | null;
@@ -23,7 +23,7 @@ export function HeldOutScore({
     <span data-slot="held-out-score" className="tabular-nums">
       <RateWithInterval rate={rate} interval={interval} />
       {runs !== null && (
-        <span className="text-foreground"> {heldOutRunsShown(runs)}</span>
+        <span className="text-foreground"> {formatHeldOutRuns(runs)}</span>
       )}
     </span>
   );

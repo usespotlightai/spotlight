@@ -28,9 +28,9 @@ import type {
 import { ListReplaysQuery } from '@replays/application/queries/list-replays.query';
 import { ReadReplayQuery } from '@replays/application/queries/read-replay.query';
 import { ReadReplayOfRunQuery } from '@replays/application/queries/read-replay-of-run.query';
-import { FEWEST_CHECKED_RUNS } from '@replays/domain/services/set-health';
+import { MIN_CHECKED_RUNS } from '@replays/domain/services/set-health';
 import { PROBE_REPEATS } from '@replays/domain/value-objects/replay-repeats';
-import { MOST_CEILING } from '@replays/domain/value-objects/spend.vo';
+import { MAX_CEILING } from '@replays/domain/value-objects/spend.vo';
 import {
   allowed,
   ceilingIn,
@@ -87,7 +87,7 @@ export class ReplaysController {
     operationId: 'startReplay',
     summary:
       'Replay a set’s runs under a candidate, or the live config, within a ceiling that applies to this replay on its own',
-    description: `When the set has no baseline covering its runs, a baseline replay of the live config starts beside it; the answer names it and gives its own ceiling. Replaying live when the set has no baseline makes that replay the baseline. On a set of at least ${FEWEST_CHECKED_RUNS} runs, the first baseline of a live config also checks the set: it replays each run at least ${PROBE_REPEATS} times, with its ceiling raised in step up to ${MOST_CEILING.toLocaleString('en-US')}, and judges and checks each change a second time. The set's health then reads its noise, and whether the judge and the check give the same answer twice. Once a whole-set replay of the live config finishes, Spotlight replays the live config again on the runs people accepted or sent back, handing each its answer, with the same ceiling and repeats; the set's health reads the gain as its room to improve.`,
+    description: `When the set has no baseline covering its runs, a baseline replay of the live config starts beside it; the answer names it and gives its own ceiling. Replaying live when the set has no baseline makes that replay the baseline. On a set of at least ${MIN_CHECKED_RUNS} runs, the first baseline of a live config also checks the set: it replays each run at least ${PROBE_REPEATS} times, with its ceiling raised in step up to ${MAX_CEILING.toLocaleString('en-US')}, and judges and checks each change a second time. The set's health then reads its noise, and whether the judge and the check give the same answer twice. Once a whole-set replay of the live config finishes, Spotlight replays the live config again on the runs people accepted or sent back, handing each its answer, with the same ceiling and repeats; the set's health reads the gain as its room to improve.`,
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiBody({ type: StartReplayRequestDto })

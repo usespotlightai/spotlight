@@ -1,6 +1,6 @@
 import type {
-  CompiledHookDefinition,
   HookCompilerPort,
+  ParsedHookDefinition,
 } from '@integrations/application/ports/hook-compiler.port';
 import {
   compileHook,
@@ -11,7 +11,7 @@ import type { ExpressionEnginePort } from '@platform/expressions/expression-engi
 export class HookCompiler implements HookCompilerPort {
   constructor(private readonly expressions: ExpressionEnginePort) {}
 
-  compile(held: unknown): CompiledHookDefinition {
+  compile(held: unknown): ParsedHookDefinition {
     const compiled = compileHook(held, this.expressions);
 
     return compiled.ok

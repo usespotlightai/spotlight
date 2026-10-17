@@ -1,7 +1,7 @@
 import type { GainReading } from '@replays/domain/services/gain-reading';
 import {
   DEFAULT_MIN_GAIN,
-  FEWEST_PAIRED_TASKS,
+  MIN_PAIRED_TASKS,
 } from '@replays/domain/services/gain-reading';
 import { overfitOf } from '@replays/domain/services/overfit';
 import { describe, expect, it } from 'vitest';
@@ -28,10 +28,7 @@ describe('overfitOf', () => {
 
   it('marks a candidate whose held out reading pairs exactly the fewest tasks it trusts', () => {
     expect(
-      overfitOf(
-        reading('better'),
-        reading('within-noise', FEWEST_PAIRED_TASKS),
-      ),
+      overfitOf(reading('better'), reading('within-noise', MIN_PAIRED_TASKS)),
     ).toBe('marked');
   });
 
@@ -39,7 +36,7 @@ describe('overfitOf', () => {
     expect(
       overfitOf(
         reading('better'),
-        reading('within-noise', FEWEST_PAIRED_TASKS - 1),
+        reading('within-noise', MIN_PAIRED_TASKS - 1),
       ),
     ).toBe('too-few-held-out');
     expect(overfitOf(reading('better'), reading('within-noise', 1))).toBe(

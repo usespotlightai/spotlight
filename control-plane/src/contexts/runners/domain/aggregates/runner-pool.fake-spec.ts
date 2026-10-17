@@ -122,7 +122,7 @@ export const aRunner = (
     proxyCredentialHash?: TokenHash | null;
   } = {},
 ): Runner =>
-  Runner.started({
+  Runner.start({
     id: RunnerId.of(input.id ?? 'pooled_1'),
     through: input.through ?? aPullPool(),
     host: input.host === null ? null : HostId.of(input.host ?? HOST_ID.value),

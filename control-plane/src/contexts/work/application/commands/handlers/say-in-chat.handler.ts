@@ -1,14 +1,14 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { SayInChatCommand } from '@work/application/commands/chat.commands';
-import type { ChatAtHand } from '@work/application/services/chat-at-hand.service';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
-import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
-import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
+import type { ChatLoader } from '@work/application/services/chat-loader.service';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
+import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
@@ -17,10 +17,10 @@ export class SayInChatHandler
   implements CommandHandlerPort<SayInChatCommand, void>
 {
   constructor(
-    private readonly held: ChatAtHand,
+    private readonly loader: ChatLoader,
     private readonly chats: ChatRepository,
-    private readonly files: FilesAtHand,
-    private readonly traces: TracesAtHand,
+    private readonly files: FilesLoader,
+    private readonly traces: TracesLoader,
     private readonly dispatch: ChatDispatching,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -28,8 +28,8 @@ export class SayInChatHandler
 
   async execute(command: SayInChatCommand): Promise<void> {
     try {
-      await this.transaction.run(async () => {
-        const chat = await this.held.inTeam(command.teamId, command.chatId);
+      await this.transaction.inTransaction(async () => {
+        const chat = await this.loader.inTeam(command.teamId, command.chatId);
         const attachments = await this.files.handedOver(
           chat.workspaceId,
           command.attachments,
@@ -57,7 +57,7 @@ export class SayInChatHandler
         await this.files.takenIn(chat.workspaceId, attachments);
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

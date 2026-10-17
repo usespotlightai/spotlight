@@ -38,7 +38,7 @@ import { describe, expect, it } from 'vitest';
 
 const live = candidateOf('live');
 
-const terse = Candidate.searched({
+const terse = Candidate.fromSearch({
   ...made,
   id: CandidateId.of('candidate_terse'),
   name: 'terse',
@@ -69,16 +69,16 @@ const scoredOn = (replay: Replay, tasks: number): Replay => {
     const run = entry.run as RunId;
 
     return held
-      .confirmed(run, FINGERPRINT, NOW)
-      .ended(run, endOf('completed'))
-      .reviewed(run, CONCLUDING_CHECKS, null, later(60_000))
-      .measured(run, measuresOf(1), later(61_000));
+      .confirm(run, FINGERPRINT, NOW)
+      .recordRunEnd(run, endOf('completed'))
+      .recordReview(run, CONCLUDING_CHECKS, null, later(60_000))
+      .measure(run, measuresOf(1), later(61_000));
   }, reserved);
 };
 
 const withTheAnswer = (against: Replay): Replay => {
   const set = aSet(3);
-  const replay = Replay.started({
+  const replay = Replay.start({
     id: ReplayId.of('replay_answer'),
     set,
     candidate: Candidate.oracleOf(live, {

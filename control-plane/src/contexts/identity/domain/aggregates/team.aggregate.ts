@@ -43,7 +43,7 @@ export class Team extends EventRecorder {
   }
 
   static open(input: Opening): Team {
-    const team = Team.founded(input);
+    const team = Team.make(input);
 
     team.record(
       new TeamCreated(
@@ -59,7 +59,7 @@ export class Team extends EventRecorder {
   }
 
   static define(input: Opening & { key: TeamKey }): Team {
-    const team = Team.founded(input);
+    const team = Team.make(input);
 
     team.record(
       new TeamCreated(
@@ -74,7 +74,7 @@ export class Team extends EventRecorder {
     return team;
   }
 
-  private static founded(input: Opening): Team {
+  private static make(input: Opening): Team {
     return new Team(
       input.id,
       input.workspaceId,
@@ -110,7 +110,7 @@ export class Team extends EventRecorder {
     return this.members.some((each) => each.equals(userId));
   }
 
-  joinedBy(userId: UserId, workspace: Workspace): Team {
+  join(userId: UserId, workspace: Workspace): Team {
     if (!workspace.id.equals(this.workspaceId)) {
       throw new TeamOutsideWorkspaceError(this.id.value);
     }
@@ -121,23 +121,23 @@ export class Team extends EventRecorder {
       return this;
     }
 
-    const joined = this.reshaped({ members: [...this.members, userId] });
+    const joined = this.with({ members: [...this.members, userId] });
 
     joined.record(new TeamMemberJoined(this.id, userId));
 
     return joined;
   }
 
-  memberAdded(userId: UserId, workspace: Workspace): Team {
+  addMember(userId: UserId, workspace: Workspace): Team {
     if (this.holds(userId)) {
       throw new AlreadyOnTheTeamError(this.name.value);
     }
 
-    return this.joinedBy(userId, workspace);
+    return this.join(userId, workspace);
   }
 
-  renamedTo(name: TeamName): Team {
-    return name.equals(this.name) ? this : this.reshaped({ name });
+  rename(name: TeamName): Team {
+    return name.equals(this.name) ? this : this.with({ name });
   }
 
   assertVersion(version: number): void {
@@ -159,7 +159,7 @@ export class Team extends EventRecorder {
       );
     }
 
-    const redefined = this.reshaped({ name: definition.name });
+    const redefined = this.with({ name: definition.name });
 
     redefined.record(
       new TeamRedefined(
@@ -173,14 +173,14 @@ export class Team extends EventRecorder {
     return redefined;
   }
 
-  disbanded(holdings: Holdings, by: Attribution): Team {
+  disband(holdings: Holdings, by: Attribution): Team {
     this.guardStanding();
 
     if (!holdings.isEmpty) {
       throw new TeamInUseError(this.key.value, holdings);
     }
 
-    const disbanded = this.reshaped({ disbanded: true });
+    const disbanded = this.with({ disbanded: true });
 
     disbanded.record(
       new TeamDisbanded(
@@ -215,7 +215,7 @@ export class Team extends EventRecorder {
     }
   }
 
-  private reshaped(
+  private with(
     over: Partial<Pick<Team, 'name' | 'members'>> & { disbanded?: boolean },
   ): Team {
     const next = new Team(

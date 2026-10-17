@@ -9,7 +9,7 @@ import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type {
@@ -38,16 +38,16 @@ export class CreateTeamHandler
   async execute(command: CreateTeamCommand): Promise<ResourceCreated | null> {
     try {
       const { principal } = command.actor;
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(command.workspaceId),
         principal,
       );
 
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.configures) {
+      if (!permissions.configures) {
         return forbiddenTo('configure');
       }
 
@@ -68,15 +68,15 @@ export class CreateTeamHandler
       };
 
       try {
-        return await this.transaction.run(() =>
+        return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             const defined = Team.define({
               id: TeamId.of(this.ids.generate()),
-              workspaceId: cleared.workspaceId,
+              workspaceId: permissions.workspaceId,
               key: compiled.key,
               name: compiled.name,
               openedBy: principal.userId,
-              by: Attribution.of(command.actor, cleared.workspaceId),
+              by: Attribution.of(command.actor, permissions.workspaceId),
             });
 
             await this.teams.add(defined);
@@ -96,7 +96,7 @@ export class CreateTeamHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

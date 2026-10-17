@@ -3,7 +3,7 @@ import type { ConfigurationAuditPort } from '@identity/application/ports/configu
 import type { ListConfigurationChangesQuery } from '@identity/application/queries/list-configuration-changes.query';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ListConfigurationChangesHandler
@@ -26,13 +26,13 @@ export class ListConfigurationChangesHandler
         WorkspaceSlug.of(query.slug),
       );
 
-      if (!workspace?.clearanceFor(query.principal).administers) {
+      if (!workspace?.permissionsFor(query.principal).administers) {
         return null;
       }
 
       return await this.audit.changesIn(workspace.id, query.page);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

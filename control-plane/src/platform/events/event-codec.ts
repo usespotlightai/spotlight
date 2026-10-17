@@ -1,4 +1,4 @@
-import type { EventType, EventTypes } from '@platform/events/event-types';
+import type { EventType, PayloadTypes } from '@platform/events/payload-types';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { isSecret } from '@shared-kernel/domain/value-objects/secret';
 
@@ -14,7 +14,7 @@ type Encoded =
   | { [key: string]: Encoded };
 
 export class EventCodec {
-  constructor(private readonly types: EventTypes) {}
+  constructor(private readonly types: PayloadTypes) {}
 
   encode(event: DomainEvent): Encoded {
     return this.encoded(event);

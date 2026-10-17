@@ -7,7 +7,7 @@ const EVERY_MS = 5_000;
 
 @Injectable()
 export class ReviewSyncWorker implements OnModuleDestroy {
-  #turning = false;
+  #ticking = false;
   #stopped = false;
 
   constructor(
@@ -20,19 +20,19 @@ export class ReviewSyncWorker implements OnModuleDestroy {
   }
 
   @Interval(EVERY_MS)
-  async turn(): Promise<void> {
-    if (this.#turning || this.#stopped) {
+  async tick(): Promise<void> {
+    if (this.#ticking || this.#stopped) {
       return;
     }
 
-    this.#turning = true;
+    this.#ticking = true;
 
     try {
       await this.work.syncDue();
     } catch (error) {
       this.logger.error({ err: error }, 'Syncing reviews with GitHub');
     } finally {
-      this.#turning = false;
+      this.#ticking = false;
     }
   }
 }

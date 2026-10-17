@@ -192,7 +192,7 @@ export class FireHooks {
       }
 
       const queued = await this.firings.add(
-        HookFiring.fired({
+        HookFiring.fire({
           id: this.ids.generate(),
           hookId: hook.id,
           workspaceId: happened.task.workspaceId,
@@ -252,7 +252,7 @@ export class FireHooks {
     return true;
   }
 
-  async workOff(limit = 50): Promise<number> {
+  async processDue(limit = 50): Promise<number> {
     let worked = 0;
 
     while (worked < limit && (await this.workOne())) {
@@ -296,7 +296,7 @@ export class FireHooks {
     loop: HookFailure,
   ): Promise<void> {
     if (!held.firing.stoppedForLooping) {
-      held.firing = await this.kept(held.firing.stoppedForLoop(loop));
+      held.firing = await this.kept(held.firing.stopForLoop(loop));
     }
 
     const { firing } = held;
@@ -452,7 +452,7 @@ export class FireHooks {
         return;
       }
 
-      held.firing = await this.kept(firing.matchedAs(moment.event));
+      held.firing = await this.kept(firing.recordMatch(moment.event));
     }
 
     const loop = held.firing.loopStop(
@@ -490,7 +490,7 @@ export class FireHooks {
 
       if (taken.outcome.status === 'waiting') {
         const waiting = await this.kept(
-          held.firing.stepped([...earlier, taken.outcome]),
+          held.firing.recordStep([...earlier, taken.outcome]),
         );
 
         await this.firings.save(
@@ -505,7 +505,7 @@ export class FireHooks {
 
       if (taken.outcome.status === 'failed') {
         held.firing = await this.kept(
-          held.firing.stepped([...earlier, taken.outcome]),
+          held.firing.recordStep([...earlier, taken.outcome]),
         );
         throw new StepFailed(
           hook.key,
@@ -515,7 +515,7 @@ export class FireHooks {
       }
 
       earlier.push(taken.outcome);
-      held.firing = await this.kept(held.firing.stepped(earlier));
+      held.firing = await this.kept(held.firing.recordStep(earlier));
     }
 
     await this.firings.save(held.firing.worked(this.clock.now()));

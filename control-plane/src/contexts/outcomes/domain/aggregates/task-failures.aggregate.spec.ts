@@ -20,7 +20,7 @@ describe('TaskFailures', () => {
     const failures = failuresOf('task_1', [{ at: day('2026-09-29') }]);
 
     expect(
-      failures.raised(
+      failures.raise(
         FailureOccurrence.of({
           stationId: 'station_1',
           runId: null,

@@ -9,7 +9,7 @@ import { useReplayRun } from '@/hooks/api/useReplayRun';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
-import { titleShown } from '@/lib/replay';
+import { formatTitle } from '@/lib/replay';
 import { runPath } from '@/lib/run';
 import { teamCrumb } from '@/lib/team-crumb';
 import { useTrail } from '@/lib/trail';
@@ -31,7 +31,7 @@ export function ReplayRun({ slug, teamId, runId }: ReplayRunProps) {
     ...(run
       ? [
           {
-            label: titleShown(run.original.title),
+            label: formatTitle(run.original.title),
             to: runPath(slug, teamId, run.original.runId),
           },
           { label: `Replay at ${run.station?.name ?? 'a removed station'}` },
@@ -75,7 +75,7 @@ export function ReplayRun({ slug, teamId, runId }: ReplayRunProps) {
       run={run}
       banner={<ReplayRunBanner slug={slug} teamId={teamId} run={run} />}
       opening={run.original.title}
-      title={titleShown(run.original.title)}
+      title={formatTitle(run.original.title)}
       briefing={run.briefing}
       footer={
         <AutonomousComposer

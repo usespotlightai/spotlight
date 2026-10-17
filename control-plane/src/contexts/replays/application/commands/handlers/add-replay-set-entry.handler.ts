@@ -7,7 +7,7 @@ import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -28,13 +28,13 @@ export class AddReplaySetEntryHandler
 
   async execute(command: AddReplaySetEntryCommand): Promise<SetChanged> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.principal,
       );
-      const set = await this.access.setOn(clearance, command.setId);
+      const set = await this.access.setOn(access, command.setId);
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
@@ -43,7 +43,7 @@ export class AddReplaySetEntryHandler
       const run = RunId.of(command.runId);
       const [replayable] = await this.work.replayable(set.workspaceId, [run]);
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const locked = await this.sets.locked(set.id);
 
         if (!locked) {
@@ -69,7 +69,7 @@ export class AddReplaySetEntryHandler
 
       return { outcome: 'changed' };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

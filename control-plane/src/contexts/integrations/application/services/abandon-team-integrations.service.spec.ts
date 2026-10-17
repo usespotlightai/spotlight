@@ -27,11 +27,11 @@ const INTEGRATION_ID = IntegrationDefinitionId.of('integration_1');
 const setUp = ({ gone = false } = {}) => {
   const hook = {
     id: HOOK_ID,
-    abandoned: vi.fn(() => 'abandoned hook'),
+    abandon: vi.fn(() => 'abandoned hook'),
   } as unknown as HookDefinition;
   const integration = {
     id: INTEGRATION_ID,
-    abandoned: vi.fn(() => 'abandoned integration'),
+    abandon: vi.fn(() => 'abandoned integration'),
   } as unknown as IntegrationDefinition;
   const hooks = {
     withId: vi.fn(async () => (gone ? null : hook)),
@@ -81,9 +81,7 @@ describe('AbandonTeamIntegrations', () => {
 
     await abandoning.hook(HOOK_ID, WORKSPACE);
 
-    expect(hook.abandoned).toHaveBeenCalledWith(
-      Attribution.spotlight(WORKSPACE),
-    );
+    expect(hook.abandon).toHaveBeenCalledWith(Attribution.spotlight(WORKSPACE));
     expect(hooks.save).toHaveBeenCalledWith('abandoned hook');
   });
 
@@ -92,7 +90,7 @@ describe('AbandonTeamIntegrations', () => {
 
     await abandoning.integration(INTEGRATION_ID, WORKSPACE);
 
-    expect(integration.abandoned).toHaveBeenCalledWith(
+    expect(integration.abandon).toHaveBeenCalledWith(
       Attribution.spotlight(WORKSPACE),
     );
     expect(definitions.save).toHaveBeenCalledWith('abandoned integration');

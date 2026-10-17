@@ -1,5 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -36,7 +36,7 @@ export class ListRunnerActivityHandler
         (
           await Promise.all(
             teams.map(async (teamId) =>
-              (await this.access.clearanceAsTeamReader(
+              (await this.access.permissionsAsTeamReader(
                 teamId,
                 PersonPrincipal.of(viewer),
               ))
@@ -63,7 +63,7 @@ export class ListRunnerActivityHandler
         };
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

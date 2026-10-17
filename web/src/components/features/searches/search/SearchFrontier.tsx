@@ -8,7 +8,7 @@ import {
   frontierPoints,
   type SearchDetail,
 } from '@/lib/search';
-import { frontierNote, onlyOnSeenTasksCountShown } from '@/lib/search-words';
+import { formatOnlyOnSeenTasksCount, frontierNote } from '@/lib/search-words';
 
 type SearchFrontierProps = {
   search: SearchDetail;
@@ -32,7 +32,7 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
           role="note"
           className="text-amber-700 text-xs leading-5 dark:text-amber-300"
         >
-          {onlyOnSeenTasksCountShown(search.onlyOnSeenTasks)}
+          {formatOnlyOnSeenTasksCount(search.onlyOnSeenTasks)}
         </p>
       )}
 

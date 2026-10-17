@@ -51,7 +51,7 @@ export const WHOLE_STEP = 'whole';
 
 export type StepId = LayerId | typeof WHOLE_STEP;
 
-export const MOST_CHECK_COMMAND = 500;
+export const MAX_CHECK_COMMAND = 500;
 
 export interface CheckStep {
   readonly id: StepId;
@@ -88,7 +88,7 @@ export type SkipCode =
   | typeof NOBODY_CHECKED
   | typeof UNPROVISIONED;
 
-const MOST_SKIP_DETAIL = 2_000;
+const MAX_SKIP_DETAIL = 2_000;
 
 export interface StackSkip {
   readonly code: SkipCode;
@@ -102,7 +102,7 @@ export const skipOf = (code: string, detail: string | null): StackSkip => {
     );
   }
 
-  const trimmed = detail?.trim().slice(-MOST_SKIP_DETAIL);
+  const trimmed = detail?.trim().slice(-MAX_SKIP_DETAIL);
 
   return { code: code as ReportedSkip, detail: trimmed ? trimmed : null };
 };

@@ -31,7 +31,7 @@ class Contended extends InMemoryGrants {
 }
 
 const pinning = (held: RunGrants) =>
-  held.redeemedFor(
+  held.redeemFor(
     HOLD,
     Redeemer.beside(RedemptionRecipient.of('recipient-key')),
   );
@@ -55,7 +55,7 @@ describe('RunGrantsKept', () => {
     const grants = new InMemoryGrants();
 
     await new RunGrantsKept(grants).changed(RUN, (held) =>
-      held.granted(HOLD, []),
+      held.grant(HOLD, []),
     );
 
     expect(grants.of('run_1')).toBeNull();
@@ -65,7 +65,7 @@ describe('RunGrantsKept', () => {
     const grants = new InMemoryGrants();
 
     await new RunGrantsKept(grants).changedIfHeld(HOLD.runId, (held) =>
-      held.ended(NOW),
+      held.end(NOW),
     );
 
     expect(grants.of('run_1')).toBeNull();
@@ -79,8 +79,8 @@ describe('RunGrantsKept', () => {
 
     const held = (await grants.find(HOLD.runId)) as RunGrants;
 
-    expect(await kept.settled(held, held.ended(NOW))).toBe(true);
-    expect(await kept.settled(held, held.lostHold(HOLD))).toBe(false);
+    expect(await kept.settled(held, held.end(NOW))).toBe(true);
+    expect(await kept.settled(held, held.loseHold(HOLD))).toBe(false);
     expect(await kept.settled(held, held)).toBe(false);
   });
 });

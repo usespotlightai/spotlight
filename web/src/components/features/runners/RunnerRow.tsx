@@ -11,13 +11,13 @@ import { StandingDot } from '@/components/features/runners/StandingDot';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   type ActiveRunner,
+  formatRun,
   harnessesOf,
   heldRunPath,
   hiddenFromViewer,
   hiddenRunTip,
   type NamedHarness,
   runnerStanding,
-  runShown,
 } from '@/lib/runner';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,7 @@ type RunnerRowProps = {
 };
 
 export function RunnerRow({ slug, runner, harnesses }: RunnerRowProps) {
-  const label = runShown(runner.currentRun);
+  const label = formatRun(runner.currentRun);
   const path = heldRunPath(slug, runner.currentRun);
 
   return (

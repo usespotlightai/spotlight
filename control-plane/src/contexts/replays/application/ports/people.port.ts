@@ -1,4 +1,4 @@
-import type { TeamStanding } from '@replays/domain/services/replays-clearance';
+import type { TeamStanding } from '@replays/domain/services/team-access';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

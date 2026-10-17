@@ -138,7 +138,9 @@ const running = (
       hash: () => 'c'.repeat(64),
     } as TokenMintPort,
     { generate: () => 'pooled_9' } as IdGeneratorPort,
-    { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+    {
+      inTransaction: (work: () => Promise<unknown>) => work(),
+    } as TransactionPort,
     {
       error: (fields: unknown) => {
         logged.push(fields);
@@ -338,7 +340,7 @@ describe('Runners', () => {
       ).resolves.toEqual({ outcome: 'gone' });
       await expect(
         running(null, {
-          trust: aTrust().withdrawn(attributedIn()),
+          trust: aTrust().withdraw(attributedIn()),
           host: aHost({ through: aTrust() }),
         }).service.start(THROUGH_TRUST, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'gone' });

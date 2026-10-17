@@ -9,7 +9,7 @@ import { distinct } from '@shared-kernel/domain/services/distinct';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-const MOST_PATHS = 20;
+const MAX_PATHS = 20;
 
 export class MemoryScope {
   private constructor(
@@ -40,8 +40,8 @@ export class MemoryScope {
       throw new InvalidMemoryError('about paths must name their repository');
     }
 
-    if (paths.length > MOST_PATHS) {
-      throw new InvalidMemoryError(`can cover at most ${MOST_PATHS} paths`);
+    if (paths.length > MAX_PATHS) {
+      throw new InvalidMemoryError(`can cover at most ${MAX_PATHS} paths`);
     }
 
     return new MemoryScope(input.teamId, lineId, stationId, repository, paths);

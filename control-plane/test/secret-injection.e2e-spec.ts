@@ -349,7 +349,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     const connections = app.get<HostConnectionRepository>(HOST_CONNECTIONS);
 
     await connections.save(
-      HostConnection.linkedFrom({
+      HostConnection.linkFrom({
         workspaceId: WorkspaceId.of(held),
         teamId: TeamId.of(held),
         source: SourceKey.of('slack'),

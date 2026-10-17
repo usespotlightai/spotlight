@@ -3,7 +3,7 @@ import type { RunSite } from '@memory/domain/value-objects/run-site';
 
 const REJECTIONS_HEEDED_MS = 90 * 24 * 60 * 60 * 1000;
 
-const MOST_REJECTIONS_HEEDED = 20;
+const MAX_REJECTIONS_HEEDED = 20;
 
 export interface Rejection {
   readonly scope: MemoryScope;
@@ -20,4 +20,4 @@ export const rejectionsHeededAt = <T extends Rejection>(
   rejected
     .filter((each) => each.scope.appliesAt(site))
     .sort((one, other) => other.decidedAt.getTime() - one.decidedAt.getTime())
-    .slice(0, MOST_REJECTIONS_HEEDED);
+    .slice(0, MAX_REJECTIONS_HEEDED);

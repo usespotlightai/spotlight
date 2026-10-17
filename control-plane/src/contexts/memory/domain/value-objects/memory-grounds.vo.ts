@@ -2,16 +2,16 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-const MOST_CITED = 20;
+const MAX_CITED = 20;
 
 const cited = (raw: readonly number[], what: string): number[] => {
   const kept = [...new Set(raw)].sort((a, b) => a - b);
 
   if (
-    kept.length > MOST_CITED ||
+    kept.length > MAX_CITED ||
     kept.some((each) => !Number.isInteger(each) || each < 0)
   ) {
-    throw new InvalidMemoryError(`cites at most ${MOST_CITED} ${what}`);
+    throw new InvalidMemoryError(`cites at most ${MAX_CITED} ${what}`);
   }
 
   return kept;

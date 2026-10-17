@@ -5,7 +5,7 @@ import type { WorkspaceAdministration } from '@identity/application/services/wor
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
@@ -48,7 +48,7 @@ export class ResendInviteHandler
         (team) => invite.terms.joins(team.id),
       );
       const minted = this.tokens.mint();
-      const again = invite.sentAgain({
+      const again = invite.resend({
         terms: workspace.inviteTerms({
           role: invite.terms.role,
           teams: joining.map((team) => team.id),
@@ -79,7 +79,7 @@ export class ResendInviteHandler
         expiresAt: again.expiresAt.toISOString(),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

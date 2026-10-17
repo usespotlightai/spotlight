@@ -46,7 +46,7 @@ export class LearnOutputShapes {
       try {
         await this.learned.save(
           held
-            ? held.learnedFrom(answer, at)
+            ? held.learnFrom(answer, at)
             : LearnedOutput.first({ teamId, tool, answer, at }),
         );
         return;

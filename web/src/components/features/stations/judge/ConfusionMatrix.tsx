@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils';
 
 const AXIS = 'font-normal text-muted-foreground';
 
-const shadeOf = (count: number, most: number): string =>
-  count === 0 || most === 0
+const shadeOf = (count: number, max: number): string =>
+  count === 0 || max === 0
     ? 'var(--muted)'
-    : `color-mix(in oklab, var(--chart-primary) ${Math.round((count / most) * 85)}%, transparent)`;
+    : `color-mix(in oklab, var(--chart-primary) ${Math.round((count / max) * 85)}%, transparent)`;
 
 export function ConfusionMatrix({
   confusion,
@@ -15,7 +15,7 @@ export function ConfusionMatrix({
   confusion: RubricVersion['confusion'];
 }) {
   const captionId = useId();
-  const most = Math.max(0, ...confusion.cells.flat());
+  const max = Math.max(0, ...confusion.cells.flat());
   const size = confusion.labels.length;
 
   return (
@@ -81,12 +81,12 @@ export function ConfusionMatrix({
                 {row.map((count, column) => (
                   <td
                     key={confusion.labels[column]}
-                    style={{ background: shadeOf(count, most) }}
+                    style={{ background: shadeOf(count, max) }}
                     className={cn(
                       'size-11 rounded-sm text-center',
                       count === 0
                         ? 'text-muted-foreground'
-                        : count > most / 2
+                        : count > max / 2
                           ? 'font-medium text-white'
                           : 'text-foreground',
                     )}

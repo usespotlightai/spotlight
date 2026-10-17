@@ -140,7 +140,7 @@ const reading = ({
     stationsKeyed,
     endedAt: async (_station, wanted) => {
       asked.push(wanted);
-      return runs.slice(0, wanted.most);
+      return runs.slice(0, wanted.max);
     },
     endedAmong: async (_station, runIds) =>
       among.filter((each) => runIds.includes(each.runId)),
@@ -284,7 +284,7 @@ describe('ReadRunnerHistoryHandler', () => {
 
     await plain.read({ last: 2 });
 
-    expect(plain.asked[0]?.most).toBe(2);
+    expect(plain.asked[0]?.max).toBe(2);
 
     const matching = reading({
       outcomes: [
@@ -295,7 +295,7 @@ describe('ReadRunnerHistoryHandler', () => {
     });
     const answer = await matching.read({ outcome: 'failed', last: 1 });
 
-    expect(matching.asked[0]?.most).toBe(500);
+    expect(matching.asked[0]?.max).toBe(500);
     expect(
       answer.kind === 'found' && answer.history.runs.map((each) => each.runId),
     ).toEqual(['run_2']);

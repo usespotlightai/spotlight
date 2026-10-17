@@ -17,9 +17,9 @@ const measured = (font: string) => {
 const fitted = (
   text: string,
   width: (of: string) => number,
-  most: number,
+  max: number,
 ): string => {
-  if (width(text) <= most) {
+  if (width(text) <= max) {
     return text;
   }
 
@@ -29,7 +29,7 @@ const fitted = (
   while (fits < over) {
     const half = Math.ceil((fits + over) / 2);
 
-    if (width(text.slice(0, half) + ELLIPSIS) <= most) {
+    if (width(text.slice(0, half) + ELLIPSIS) <= max) {
       fits = half;
     } else {
       over = half - 1;
@@ -41,11 +41,11 @@ const fitted = (
 
 export function Shortened({
   text,
-  most,
+  max,
   className,
 }: {
   text: string;
-  most: number;
+  max: number;
   className?: string;
 }) {
   const [shown, setShown] = useState(text);
@@ -70,7 +70,7 @@ export function Shortened({
         return;
       }
 
-      setShown(fitted(text, width, most));
+      setShown(fitted(text, width, max));
     };
 
     cut();
@@ -79,7 +79,7 @@ export function Shortened({
     return () => {
       reading = false;
     };
-  }, [text, most]);
+  }, [text, max]);
 
   return (
     <span

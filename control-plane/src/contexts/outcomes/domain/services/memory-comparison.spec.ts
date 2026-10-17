@@ -18,22 +18,22 @@ const WINDOW = {
 describe('memoryCountsOf', () => {
   const records = [
     endedRecord('run_1', { taskId: 'task_1' })
-      .actedOn(NextAct.of('closed', AT))
-      .usedMemories('briefed', ['mem_1', 'mem_2']),
-    endedRecord('run_2', { taskId: 'task_2' }).actedOn(
+      .recordAction(NextAct.of('closed', AT))
+      .recordMemories('briefed', ['mem_1', 'mem_2']),
+    endedRecord('run_2', { taskId: 'task_2' }).recordAction(
       NextAct.of('sent-back', AT),
     ),
-    endedRecord('run_3', { taskId: 'task_3' }).usedMemories('recalled', [
+    endedRecord('run_3', { taskId: 'task_3' }).recordMemories('recalled', [
       'mem_2',
     ]),
     endedRecord('run_4', {
       taskId: 'task_4',
       ending: 'withdrawn',
-    }).usedMemories('briefed', ['mem_3']),
+    }).recordMemories('briefed', ['mem_3']),
     endedRecord('run_5', {
       taskId: 'task_5',
       endedAt: new Date('2026-08-01T10:00:00.000Z'),
-    }).usedMemories('briefed', ['mem_4']),
+    }).recordMemories('briefed', ['mem_4']),
   ];
 
   it('sets the runs briefed or reading memories against the rest', () => {
@@ -93,12 +93,15 @@ describe('verdicts from counts', () => {
             : endedRecord(runId, { taskId, endedAt });
 
         if (random() < 0.6) {
-          record = record.actedOn(
+          record = record.recordAction(
             NextAct.of(pick(['closed', 'sent-back', 'parked']), AT),
           );
         }
         if (random() < 0.5) {
-          record = record.checked(pick(['passed', 'failed', 'skipped']), AT);
+          record = record.recordCheck(
+            pick(['passed', 'failed', 'skipped']),
+            AT,
+          );
         }
 
         records.push(record);
@@ -120,7 +123,7 @@ describe('verdicts from counts', () => {
         historyOf({
           records: [
             ...before,
-            ...after.map((each) => each.usedMemories('briefed', ['mem_1'])),
+            ...after.map((each) => each.recordMemories('briefed', ['mem_1'])),
           ],
           deliveries,
         }),

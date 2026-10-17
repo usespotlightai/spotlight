@@ -4,7 +4,7 @@ import type {
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-review.error';
-import { ReviewClearance } from '@change-review/domain/services/review-clearance';
+import { TeamAccess } from '@change-review/domain/services/team-access';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -31,7 +31,7 @@ export class ReviewAccess {
     const run = member ? await this.work.run(RunId.of(runId)) : null;
     const task = run?.taskId ? await this.work.task(run.taskId) : null;
 
-    if (!member || !task || !ReviewClearance.of(member).reaches(task)) {
+    if (!member || !task || !TeamAccess.of(member).reaches(task)) {
       throw new UnknownReviewError(`run ${runId}`);
     }
 

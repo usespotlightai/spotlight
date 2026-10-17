@@ -83,7 +83,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
   ) {}
 
   async add(added: ChangeStack): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.inserted(added);
       await this.events.dispatch(added.pullEvents());
     });
@@ -118,7 +118,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
   }
 
   async save(saved: ChangeStack): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());
     });

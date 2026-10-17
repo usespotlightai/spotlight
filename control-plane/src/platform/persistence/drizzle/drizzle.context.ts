@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { IsolationPort } from '@shared-kernel/application/ports/isolation.port';
+import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
 interface Ambient {
@@ -11,7 +11,7 @@ interface Ambient {
 }
 
 @Injectable()
-export class DrizzleContext implements TransactionPort, IsolationPort {
+export class DrizzleContext implements TransactionPort, SavepointPort {
   private readonly ambient = new AsyncLocalStorage<Ambient>();
 
   constructor(@Inject(DRIZZLE) private readonly root: DrizzleDatabase) {}
@@ -24,7 +24,7 @@ export class DrizzleContext implements TransactionPort, IsolationPort {
     return this.ambient.getStore() !== undefined;
   }
 
-  async run<T>(work: () => Promise<T>): Promise<T> {
+  async inTransaction<T>(work: () => Promise<T>): Promise<T> {
     if (this.ambient.getStore()) {
       return work();
     }
@@ -44,11 +44,11 @@ export class DrizzleContext implements TransactionPort, IsolationPort {
     return result;
   }
 
-  async isolated<T>(work: () => Promise<T>): Promise<T> {
+  async inSavepoint<T>(work: () => Promise<T>): Promise<T> {
     const held = this.ambient.getStore();
 
     if (!held) {
-      return this.run(work);
+      return this.inTransaction(work);
     }
 
     return held.db.transaction((savepoint) =>

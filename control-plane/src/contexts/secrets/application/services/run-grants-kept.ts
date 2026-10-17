@@ -17,7 +17,7 @@ export class RunGrantsKept {
     await this.retried(async () => {
       const held =
         (await this.grants.find(run.hold.runId)) ??
-        RunGrants.begun(run.hold, run.workspaceId);
+        RunGrants.start(run.hold, run.workspaceId);
 
       await this.saved(held, change(held));
     });

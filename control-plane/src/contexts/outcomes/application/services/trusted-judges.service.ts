@@ -1,6 +1,6 @@
 import type { JudgeStandingPort } from '@outcomes/application/ports/judge-standing.port';
 import type { JudgeStanding } from '@outcomes/domain/services/judge-standing';
-import type { OutcomesClearance } from '@outcomes/domain/services/outcomes-clearance';
+import type { TeamAccess } from '@outcomes/domain/services/team-access';
 import type { StationPlace } from '@outcomes/domain/services/team-history';
 
 export interface StationJudgeStanding extends StationPlace, JudgeStanding {
@@ -16,13 +16,13 @@ export class TrustedJudges {
   constructor(private readonly standing: JudgeStandingPort) {}
 
   async standings(
-    clearance: OutcomesClearance,
+    access: TeamAccess,
     stations: readonly StationPlace[],
   ): Promise<JudgeStandings> {
     const shapes = await this.standing.standingsOf(
       {
-        workspaceId: clearance.workspaceId.value,
-        teamId: clearance.teamId.value,
+        workspaceId: access.workspaceId.value,
+        teamId: access.teamId.value,
       },
       stations.map((station) => ({
         lineId: station.lineId,

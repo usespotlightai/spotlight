@@ -102,7 +102,7 @@ func (c *controlPlane) EgressHolds(_ context.Context, credentials []string) ([]s
 	defer c.mu.Unlock()
 
 	c.asked = append(c.asked, len(credentials))
-	if len(credentials) > protocol.MostHoldsAtOnce {
+	if len(credentials) > protocol.MaxHoldsAtOnce {
 		return nil, &control.Rejection{Status: http.StatusUnprocessableEntity, Err: fmt.Errorf("too many")}
 	}
 	return slices.DeleteFunc(slices.Clone(credentials), func(credential string) bool { return !c.held[credential] }), nil
@@ -117,7 +117,7 @@ func (c *controlPlane) RecordConnections(_ context.Context, records []protocol.E
 		c.failSend--
 		return &control.Rejection{Status: http.StatusServiceUnavailable, Err: fmt.Errorf("busy")}
 	}
-	if len(records) > protocol.MostRecordsAtOnce {
+	if len(records) > protocol.MaxRecordsAtOnce {
 		return &control.Rejection{Status: http.StatusUnprocessableEntity, Err: fmt.Errorf("too many")}
 	}
 	c.recorded = append(c.recorded, records...)
@@ -731,7 +731,7 @@ func admittedAlready(e *Egress, credentials ...string) {
 func TestAsksWhichRunsAreHeldInBatchesTheControlPlaneTakes(t *testing.T) {
 	r := rigged(t, Settings{})
 	var credentials []string
-	for at := range 2*protocol.MostHoldsAtOnce + 1 {
+	for at := range 2*protocol.MaxHoldsAtOnce + 1 {
 		credentials = append(credentials, fmt.Sprintf("many_%d", at))
 	}
 	admittedAlready(r.egress, credentials...)
@@ -739,7 +739,7 @@ func TestAsksWhichRunsAreHeldInBatchesTheControlPlaneTakes(t *testing.T) {
 
 	r.egress.checkHolds(context.Background())
 
-	if !slices.Equal(r.control.asked, []int{protocol.MostHoldsAtOnce, protocol.MostHoldsAtOnce, 1}) {
+	if !slices.Equal(r.control.asked, []int{protocol.MaxHoldsAtOnce, protocol.MaxHoldsAtOnce, 1}) {
 		t.Errorf("asked in batches of %v", r.control.asked)
 	}
 	if len(r.egress.runs) != 1 || r.egress.runs["many_0"] == nil {
@@ -749,16 +749,16 @@ func TestAsksWhichRunsAreHeldInBatchesTheControlPlaneTakes(t *testing.T) {
 
 func TestSendsConnectionRecordsInBatchesTheControlPlaneTakes(t *testing.T) {
 	r := rigged(t, Settings{})
-	for range 2*protocol.MostRecordsAtOnce + 500 {
+	for range 2*protocol.MaxRecordsAtOnce + 500 {
 		r.egress.records.add(protocol.EgressConnection{ProxyCredential: "one", Host: "api.example.com", Port: 443})
 	}
 
 	r.egress.records.flush(context.Background())
 
-	if !slices.Equal(r.control.sent, []int{protocol.MostRecordsAtOnce, protocol.MostRecordsAtOnce, 500}) {
+	if !slices.Equal(r.control.sent, []int{protocol.MaxRecordsAtOnce, protocol.MaxRecordsAtOnce, 500}) {
 		t.Errorf("sent in batches of %v", r.control.sent)
 	}
-	if len(r.control.recorded) != 2*protocol.MostRecordsAtOnce+500 {
+	if len(r.control.recorded) != 2*protocol.MaxRecordsAtOnce+500 {
 		t.Errorf("recorded %d", len(r.control.recorded))
 	}
 }

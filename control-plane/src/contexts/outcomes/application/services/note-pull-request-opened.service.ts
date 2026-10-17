@@ -28,7 +28,7 @@ export class NotePullRequestOpened {
   ) {}
 
   opened(opening: PullRequestOpening): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(
         opening.workspaceId,
         opening.taskId,
@@ -48,15 +48,16 @@ export class NotePullRequestOpened {
       }
 
       const opened = held
-        ? held.reopenedAs(opening.pullRequest, opening.at)
-        : TaskDelivery.opened(opening);
+        ? held.reopen(opening.pullRequest, opening.at)
+        : TaskDelivery.open(opening);
       const pending = await this.reviews.heldFor(
         opening.workspaceId,
         opening.pullRequest,
         longestLookbackFrom(this.clock.now()),
       );
       const reviewed = pending.reduce(
-        (delivery, review) => delivery.reviewed({ ...review, byBot: false }),
+        (delivery, review) =>
+          delivery.recordReview({ ...review, byBot: false }),
         opened,
       );
 

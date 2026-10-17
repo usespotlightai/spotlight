@@ -12,7 +12,7 @@ import {
   forbiddenTo,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -36,13 +36,13 @@ export class DeleteWorkspaceHandler
     try {
       const standing = await this.workspaces.find(id);
 
-      const cleared = standing?.clearanceFor(command.actor.principal);
+      const permissions = standing?.permissionsFor(command.actor.principal);
 
-      if (!standing || !cleared?.reads) {
+      if (!standing || !permissions?.reads) {
         return null;
       }
 
-      if (!cleared.administers) {
+      if (!permissions.administers) {
         return forbiddenTo('administer');
       }
 
@@ -50,14 +50,14 @@ export class DeleteWorkspaceHandler
 
       const held = Holdings.of(await this.holdings.of(id));
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const teams = await this.resources.teamKeysIn(id);
         const tokens = await this.resources.tokenNamesIn(id);
         const trusts = await this.resources.tokenTrustKeysIn(id);
         const minting = await this.resources.mintingTrustKeysIn(id);
 
         await this.workspaces.save(
-          standing.closed(
+          standing.close(
             teams.map((each) => TeamKey.of(each)),
             tokens.map((each) => TokenName.of(each)),
             trusts.map((each) => TokenTrustKey.of(each)),
@@ -82,7 +82,7 @@ export class DeleteWorkspaceHandler
         return { outcome: 'in-use', reason: error.message };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -1,5 +1,5 @@
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import { MOST_CHECK_COMMAND } from '@change-review/domain/value-objects/stack-check.vo';
+import { MAX_CHECK_COMMAND } from '@change-review/domain/value-objects/stack-check.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 
 const oneLine = (raw: string, what: string): string => {
@@ -7,11 +7,11 @@ const oneLine = (raw: string, what: string): string => {
 
   if (
     !trimmed ||
-    trimmed.length > MOST_CHECK_COMMAND ||
+    trimmed.length > MAX_CHECK_COMMAND ||
     /[\r\n]/.test(trimmed)
   ) {
     throw InvalidChangeStackError.because(
-      `${what} must be one line of at most ${MOST_CHECK_COMMAND} characters`,
+      `${what} must be one line of at most ${MAX_CHECK_COMMAND} characters`,
     );
   }
 

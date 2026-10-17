@@ -20,7 +20,7 @@ const ADA = UserId.of('user_ada');
 const BEA = UserId.of('user_bea');
 
 const raised = (change: { form?: string; about?: string } = {}) =>
-  TaskAside.raised({
+  TaskAside.raise({
     id: TaskAsideId.of('aside_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     taskId: TaskId.of('task_1'),
@@ -64,7 +64,7 @@ describe('TaskAside', () => {
     const settled = raised().readBy(ADA, NOW).settled(NOW);
     settled.pullEvents();
 
-    const reopened = settled.reopened(LATER);
+    const reopened = settled.reopen(LATER);
 
     expect(reopened.open).toBe(true);
     expect(reopened.raisedAt).toEqual(LATER);
@@ -77,7 +77,7 @@ describe('TaskAside', () => {
         AsideAbout.of('run_1'),
       ),
     ]);
-    expect(reopened.reopened(LATER)).toBe(reopened);
+    expect(reopened.reopen(LATER)).toBe(reopened);
   });
 
   it('says it settled', () => {

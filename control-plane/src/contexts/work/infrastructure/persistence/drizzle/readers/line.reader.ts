@@ -210,7 +210,7 @@ const group = (
         : null,
       replayCheck: row.lineReplayCheck
         ? {
-            mostRegressions: row.lineReplayCheck.mostRegressions,
+            maxRegressions: row.lineReplayCheck.maxRegressions,
             ceiling: row.lineReplayCheck.ceiling,
             currency: row.lineReplayCheck.currency,
             minGain: row.lineReplayCheck.minGain,

@@ -90,7 +90,7 @@ export class HookFiring extends EventRecorder {
     super();
   }
 
-  static fired(input: Fired): HookFiring {
+  static fire(input: Fired): HookFiring {
     return new HookFiring({
       ...input,
       event: heldEvent(input.event),
@@ -267,13 +267,13 @@ export class HookFiring extends EventRecorder {
     return this.with({ progress: { kind: 'working', claimedAt: now } });
   }
 
-  stepped(steps: readonly HookStepOutcome[]): HookFiring {
+  recordStep(steps: readonly HookStepOutcome[]): HookFiring {
     this.guardWorking('take a step');
 
     return this.with({ steps: steps.map((each) => ({ ...each })) });
   }
 
-  matchedAs(event: Readonly<Record<string, unknown>>): HookFiring {
+  recordMatch(event: Readonly<Record<string, unknown>>): HookFiring {
     this.guardWorking('be matched');
 
     if (this.state.matched) {
@@ -312,7 +312,7 @@ export class HookFiring extends EventRecorder {
       : null;
   }
 
-  stoppedForLoop(loop: HookFailure): HookFiring {
+  stopForLoop(loop: HookFailure): HookFiring {
     this.guardWorking('be stopped');
 
     if (loop.code !== 'loop') {

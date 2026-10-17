@@ -53,7 +53,7 @@ const remembered = async (
 };
 
 const ran = async (runId: string) => {
-  const ended = RunRecord.heardOf(RunId.of(runId), team.workspaceId).ended(
+  const ended = RunRecord.heardOf(RunId.of(runId), team.workspaceId).recordEnd(
     RunEnd.of({
       place: RunPlace.of({
         teamId: team.teamId,
@@ -83,7 +83,9 @@ const ran = async (runId: string) => {
   await app
     .get(DrizzleRunRecordRepository)
     .add(
-      runId.endsWith('x') ? ended.actedOn(NextAct.of('closed', ago(1))) : ended,
+      runId.endsWith('x')
+        ? ended.recordAction(NextAct.of('closed', ago(1)))
+        : ended,
     );
 };
 

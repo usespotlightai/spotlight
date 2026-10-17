@@ -45,7 +45,7 @@ export const BY = Attribution.of(ADMIN, WORKSPACE);
 
 export const accessFor = (managesSecrets: () => boolean): WorkspaceAccessPort =>
   ({
-    clearanceIn: async (workspaceId: WorkspaceId) =>
+    permissionsIn: async (workspaceId: WorkspaceId) =>
       workspaceId.equals(WORKSPACE)
         ? {
             workspaceId,
@@ -59,7 +59,7 @@ export const accessFor = (managesSecrets: () => boolean): WorkspaceAccessPort =>
         : null,
   }) as unknown as WorkspaceAccessPort;
 
-export const transaction: TransactionPort = { run: (work) => work() };
+export const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 export class InMemoryCreates implements IdempotentCreatesPort {
   readonly #made = new Map<string, { request: string; id: string | null }>();
@@ -139,14 +139,14 @@ export const definition = (
   valueVersion: over.valueVersion === undefined ? 1 : over.valueVersion,
 });
 
-interface Kept {
+interface StoredSecret {
   readonly secret: Secret;
   readonly version: number;
 }
 
 export class InMemorySecrets implements SecretRepository {
   readonly events: DomainEvent[] = [];
-  readonly #kept = new Map<string, Kept>();
+  readonly #kept = new Map<string, StoredSecret>();
 
   constructor(private readonly values = new InMemoryStore()) {}
 
@@ -205,7 +205,7 @@ export class InMemorySecrets implements SecretRepository {
     });
   }
 
-  private rehydrated(kept: Kept): Secret {
+  private rehydrated(kept: StoredSecret): Secret {
     return Secret.rehydrate({
       id: kept.secret.id,
       workspaceId: kept.secret.workspaceId,
@@ -248,7 +248,7 @@ export class InMemoryGrants implements RunGrantsRepository {
   async endedBy(
     at: Date,
     after: RunId | null,
-    most: number,
+    max: number,
   ): Promise<readonly RunId[]> {
     return [...this.#kept.values()]
       .filter(
@@ -259,7 +259,7 @@ export class InMemoryGrants implements RunGrantsRepository {
       )
       .map((each) => each.runId)
       .sort((one, other) => (one.value < other.value ? -1 : 1))
-      .slice(0, most);
+      .slice(0, max);
   }
 
   async save(grants: RunGrants): Promise<void> {

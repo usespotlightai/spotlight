@@ -1,6 +1,6 @@
 import { ClaimMark } from '@/components/features/runs/judge/ClaimMark';
 import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
-import { CLAIMS_LABEL, claimShown, type JudgeReason } from '@/lib/judge';
+import { CLAIMS_LABEL, formatClaim, type JudgeReason } from '@/lib/judge';
 
 type ClaimVerdictsProps = {
   claims: readonly (string | null)[];
@@ -27,12 +27,12 @@ export function ClaimVerdicts({ claims, marks, reasons }: ClaimVerdictsProps) {
           >
             <p className="flex items-baseline gap-2 text-foreground text-sm leading-6">
               <ClaimMark met={met} />
-              <span>{claimShown(claims, at)}</span>
+              <span>{formatClaim(claims, at)}</span>
             </p>
             {why.length > 0 && (
               <JudgeReasons
                 reasons={why}
-                label={`Why, on ${claimShown(claims, at)}`}
+                label={`Why, on ${formatClaim(claims, at)}`}
                 className="pl-5"
               />
             )}

@@ -125,7 +125,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
   ) {}
 
   async add(added: Score): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(score)
         .values({
@@ -157,7 +157,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
   }
 
   async save(saved: Score): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(score)
         .set({ version: saved.version + 1, ...columnsOf(saved) })

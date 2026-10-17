@@ -21,7 +21,7 @@ import {
 } from '@outcomes/domain/services/judge-shares';
 import { tallyOf } from '@outcomes/domain/services/run-tally';
 import type { StationPlace } from '@outcomes/domain/services/team-history';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 const placesOf = (places: readonly StationPlace[]): readonly StationPlace[] => [
@@ -45,18 +45,18 @@ export class ReadInsightsChangesHandler
 
   async execute(query: ReadInsightsChangesQuery): Promise<InsightsChangesDto> {
     try {
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
       const changes = await this.reader.changeCounts({
-        workspaceId: clearance.workspaceId,
-        teamId: clearance.teamId,
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
         period,
       });
       const standings = await this.judges.standings(
-        clearance,
+        access,
         placesOf(changes.map((each) => each.marker)),
       );
       const trustedStations = new Set(
@@ -100,7 +100,7 @@ export class ReadInsightsChangesHandler
         judges: standings.judges.map(({ rubricVersion: _, ...each }) => each),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

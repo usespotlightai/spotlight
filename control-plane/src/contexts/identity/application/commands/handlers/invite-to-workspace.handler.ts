@@ -1,6 +1,6 @@
 import {
   type InviteToWorkspaceCommand,
-  MOST_INVITED_AT_ONCE,
+  MAX_INVITED_AT_ONCE,
 } from '@identity/application/commands/invite-to-workspace.command';
 import type {
   InviteOutcome,
@@ -24,7 +24,7 @@ import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import type { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -90,7 +90,7 @@ export class InviteToWorkspaceHandler
       const joining = held.filter((team) => terms.joins(team.id));
       const emails = distinct(command.emails.map(EmailAddress.of));
 
-      if (emails.length === 0 || emails.length > MOST_INVITED_AT_ONCE) {
+      if (emails.length === 0 || emails.length > MAX_INVITED_AT_ONCE) {
         throw new InviteeCountError(emails.length);
       }
 
@@ -107,7 +107,7 @@ export class InviteToWorkspaceHandler
 
       return { outcomes };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
@@ -140,7 +140,7 @@ export class InviteToWorkspaceHandler
 
   private async written(asked: Asked): Promise<Written> {
     const minted = this.tokens.mint();
-    const { invite, again } = WorkspaceInvite.offeredTo(
+    const { invite, again } = WorkspaceInvite.offerTo(
       await this.invites.openTo(asked.workspace.id, asked.email),
       {
         id: InviteId.of(this.ids.generate()),

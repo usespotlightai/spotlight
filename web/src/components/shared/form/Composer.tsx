@@ -11,7 +11,7 @@ type ComposerProps = {
   label: string;
   submitLabel: string;
   placeholder: string;
-  most?: number;
+  max?: number;
   initial?: string;
   avatar?: ReactNode;
   pending: boolean;
@@ -23,7 +23,7 @@ export function Composer({
   label,
   submitLabel,
   placeholder,
-  most,
+  max,
   initial = '',
   avatar,
   pending,
@@ -64,7 +64,7 @@ export function Composer({
         <AutoGrowTextarea
           aria-label={label}
           placeholder={placeholder}
-          maxLength={most}
+          maxLength={max}
           value={body}
           onChange={(event) => setBody(event.target.value)}
           onKeyDown={onKeyDown}

@@ -8,9 +8,9 @@ import {
 } from 'recharts';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
-import { shareShown } from '@/lib/insights';
+import { formatShare } from '@/lib/insights';
 import type { WeekShare } from '@/lib/insights-pull-requests';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 
 const HEIGHT = 180;
 
@@ -38,14 +38,14 @@ const Said = ({
 
   return (
     <ChartTip placement={placement}>
-      <p className="text-muted-foreground">Week of {dayShown(bar.week)}</p>
+      <p className="text-muted-foreground">Week of {formatDay(bar.week)}</p>
       {SERIES.map((series) => (
         <p key={series.key} className="text-foreground">
           {bar[series.key]} {series.label.toLowerCase()}
         </p>
       ))}
       <p className="text-muted-foreground">
-        Spotlight’s share {shareShown(bar.share)}
+        Spotlight’s share {formatShare(bar.share)}
       </p>
     </ChartTip>
   );
@@ -80,7 +80,7 @@ export function PenetrationChart({ weeks }: { weeks: readonly WeekShare[] }) {
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
                 tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                tickFormatter={dayShown}
+                tickFormatter={formatDay}
                 minTickGap={24}
               />
               <YAxis hide allowDecimals={false} />

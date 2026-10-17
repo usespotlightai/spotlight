@@ -27,7 +27,7 @@ describe('humanLoadFrom the counts of humanLoadCountsOf', () => {
           endedRecord('run_1', {
             taskId: 'task_1',
             endedAt: day('2026-09-26'),
-          }).actedOn(NextAct.of('sent-back', day('2026-09-26', 13))),
+          }).recordAction(NextAct.of('sent-back', day('2026-09-26', 13))),
           endedRecord('run_2', {
             taskId: 'task_2',
             endedAt: day('2026-09-26'),

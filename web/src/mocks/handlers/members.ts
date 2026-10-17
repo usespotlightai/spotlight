@@ -9,7 +9,7 @@ import type {
 } from '@/lib/api';
 import {
   isEmailAddress,
-  MOST_INVITED_AT_ONCE,
+  MAX_INVITED_AT_ONCE,
   sameAddress,
 } from '@/lib/members';
 import type { Role } from '@/lib/role';
@@ -184,11 +184,11 @@ const inviteHandlers = [
     );
     if (
       terms.emails.length === 0 ||
-      terms.emails.length > MOST_INVITED_AT_ONCE
+      terms.emails.length > MAX_INVITED_AT_ONCE
     ) {
       return problem(
         422,
-        `Number of email addresses must be 1 to ${MOST_INVITED_AT_ONCE}. Received: ${terms.emails.length}`,
+        `Number of email addresses must be 1 to ${MAX_INVITED_AT_ONCE}. Received: ${terms.emails.length}`,
       );
     }
     if ((terms.role as Role) === 'owner') {

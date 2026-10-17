@@ -3,11 +3,11 @@ import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo
 import { InvalidStationJudgeError } from '@work/domain/exceptions/invalid-station-judge.error';
 import { WrittenText } from '@work/domain/value-objects/written-text';
 
-const MOST_RUBRIC_LENGTH = 20_000;
+const MAX_RUBRIC_LENGTH = 20_000;
 
-const MOST_CLAIMS = 20;
+const MAX_CLAIMS = 20;
 
-const MOST_CLAIM_LENGTH = 500;
+const MAX_CLAIM_LENGTH = 500;
 
 const ALL_CLAIMS = 1;
 
@@ -29,7 +29,7 @@ const isShare = (value: number): boolean =>
 const rubricOf = (written: string, scored: boolean): string => {
   const rubric = WrittenText.prose(
     written,
-    MOST_RUBRIC_LENGTH,
+    MAX_RUBRIC_LENGTH,
     InvalidRubricError,
   );
 
@@ -52,15 +52,15 @@ const rubricOf = (written: string, scored: boolean): string => {
 };
 
 const claimsOf = (written: readonly string[]): readonly string[] => {
-  if (written.length === 0 || written.length > MOST_CLAIMS) {
+  if (written.length === 0 || written.length > MAX_CLAIMS) {
     throw new InvalidStationJudgeError(
       'claims',
-      `must list 1 to ${MOST_CLAIMS} claims`,
+      `must list 1 to ${MAX_CLAIMS} claims`,
     );
   }
 
   return written.map((each) =>
-    WrittenText.prose(each, MOST_CLAIM_LENGTH, InvalidClaimError).trim(),
+    WrittenText.prose(each, MAX_CLAIM_LENGTH, InvalidClaimError).trim(),
   );
 };
 

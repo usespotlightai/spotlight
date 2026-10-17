@@ -12,7 +12,7 @@ export interface DescribedOperations {
   readonly operations: readonly DescribedOperation[];
 }
 
-export type CompiledIntegration =
+export type ParsedIntegration =
   | {
       readonly ok: true;
       readonly integration: Integration;
@@ -27,5 +27,5 @@ export interface IntegrationCompilerPort {
   compile(
     held: unknown,
     described?: DescribedOperations | null,
-  ): CompiledIntegration;
+  ): ParsedIntegration;
 }

@@ -34,7 +34,7 @@ export class PairReplayEntries {
 
     const accepted = await this.acceptedOf(seen);
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(replayId);
       const counterpart = replay?.pairsWith
         ? await this.replays.find(replay.pairsWith)
@@ -44,7 +44,7 @@ export class PairReplayEntries {
         return;
       }
 
-      const paired = replay.pairedAgainst(counterpart, (original) =>
+      const paired = replay.pairAgainst(counterpart, (original) =>
         accepted.has(original.value),
       );
 

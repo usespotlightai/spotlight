@@ -1,7 +1,7 @@
 import type {
-  CompiledTeam,
-  CompiledWorkspace,
-  CompiledWorkspaceToken,
+  ParsedTeam,
+  ParsedWorkspace,
+  ParsedWorkspaceToken,
 } from '@identity/application/ports/identity-definitions.port';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 const definitions = new IdentityDefinitions();
 
 const refusedAt = (
-  compiled: CompiledWorkspace | CompiledTeam | CompiledWorkspaceToken,
+  compiled: ParsedWorkspace | ParsedTeam | ParsedWorkspaceToken,
 ): (string | undefined)[] =>
   compiled.ok ? [] : compiled.problems.map((each) => dottedOf(each.field));
 

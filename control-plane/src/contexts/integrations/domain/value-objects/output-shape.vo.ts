@@ -25,13 +25,13 @@ export type ShapeNode =
 
 const DEEPEST = 5;
 
-const MOST_FIELDS = 40;
+const MAX_FIELDS = 40;
 
-const MOST_SAMPLED = 20;
+const MAX_SAMPLED = 20;
 
-const MOST_NODES = 400;
+const MAX_NODES = 400;
 
-const MOST_CHOICES = 4;
+const MAX_CHOICES = 4;
 
 const FIELD_NAME = /^[A-Za-z_$][A-Za-z0-9_$-]{0,63}$/;
 
@@ -50,10 +50,10 @@ const churns = (held: number, given: number, unseen: number): boolean =>
   held > 0 && given > 0 && unseen * 2 > given;
 
 const keyedByData = (keys: readonly string[]): boolean =>
-  keys.length > MOST_FIELDS || !keys.every(namesAField);
+  keys.length > MAX_FIELDS || !keys.every(namesAField);
 
 class Budget {
-  #left = MOST_NODES;
+  #left = MAX_NODES;
 
   take(): boolean {
     this.#left -= 1;
@@ -91,7 +91,7 @@ const inferred = (value: unknown, depth: number, budget: Budget): ShapeNode => {
     return {
       kind: 'list',
       of: value
-        .slice(0, MOST_SAMPLED)
+        .slice(0, MAX_SAMPLED)
         .map((each) => inferred(each, depth + 1, budget))
         .reduce(merged, NOTHING),
     };
@@ -107,7 +107,7 @@ const inferred = (value: unknown, depth: number, budget: Budget): ShapeNode => {
     return {
       kind: 'record',
       of: Object.values(value)
-        .slice(0, MOST_SAMPLED)
+        .slice(0, MAX_SAMPLED)
         .map((each) => inferred(each, depth + 1, budget))
         .reduce(merged, NOTHING),
     };
@@ -215,7 +215,7 @@ const merged = (one: ShapeNode, other: ShapeNode): ShapeNode => {
     }
   }
 
-  if (choices.length > MOST_CHOICES) {
+  if (choices.length > MAX_CHOICES) {
     return UNKNOWN;
   }
 
@@ -246,7 +246,7 @@ const bounded = (node: ShapeNode, depth: number, budget: Budget): ShapeNode => {
             })),
           };
     case 'oneOf':
-      return node.shapes.length > MOST_CHOICES
+      return node.shapes.length > MAX_CHOICES
         ? UNKNOWN
         : {
             kind: 'oneOf',

@@ -10,8 +10,8 @@ import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-
 import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answer-inbox-item.handler';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
-import { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -41,7 +41,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-29T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
-const transaction: TransactionPort = { run: async (work) => work() };
+const transaction: TransactionPort = { inTransaction: async (work) => work() };
 
 const line = () =>
   Line.rehydrate({
@@ -182,14 +182,14 @@ const store = {
   open: vi.fn(),
 } satisfies AttachmentStorePort;
 
-const files = new FilesAtHand(store);
+const files = new FilesLoader(store);
 
 const answer = (
   found: Task,
   command = new AnswerInboxItemCommand('task_1:0', 'user_1', 'Cap it at 500.'),
 ) =>
   new AnswerInboxItemHandler(
-    new ConversationAtHand(tasks(found), lines()),
+    new ConversationLoader(tasks(found), lines()),
     tasks(found),
     dispatch,
     transaction,

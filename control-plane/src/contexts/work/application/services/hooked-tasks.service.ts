@@ -193,7 +193,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
   private async retried<T>(work: () => Promise<T>): Promise<T> {
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.transaction.run(work);
+        return await this.transaction.inTransaction(work);
       } catch (error) {
         if (
           !(error instanceof TaskVersionConflictError) ||

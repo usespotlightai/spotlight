@@ -49,7 +49,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
   ) {}
 
   async add(added: TaskDelivery): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(taskDelivery)
         .values({
@@ -76,7 +76,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
   }
 
   async save(saved: TaskDelivery): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(taskDelivery)
         .set({ version: saved.version + 1, ...columnsOf(saved) })
@@ -165,7 +165,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db
         .delete(taskDelivery)
         .where(eq(taskDelivery.taskId, taskId.value));
@@ -175,7 +175,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const removed = await this.context.db
         .delete(taskDelivery)
         .where(
@@ -195,7 +195,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db
         .delete(taskDelivery)
         .where(eq(taskDelivery.workspaceId, workspaceId.value));

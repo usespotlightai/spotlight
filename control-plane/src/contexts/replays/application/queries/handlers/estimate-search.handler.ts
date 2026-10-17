@@ -16,7 +16,7 @@ import { estimateOf } from '@replays/domain/services/search-estimate';
 import { objectiveFor } from '@replays/domain/services/search-objective';
 import { searchWarningsOf } from '@replays/domain/services/search-warnings';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class EstimateSearchHandler
@@ -33,16 +33,13 @@ export class EstimateSearchHandler
     query: EstimateSearchQuery,
   ): Promise<SearchEstimateDto | SearchRefused> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
+      const access = await this.access.forTeam(query.teamId, query.principal);
       const station = await this.access.stationOn(
-        clearance,
+        access,
         query.lineId,
         query.stationId,
       );
-      const set = await this.access.setOn(clearance, query.setId);
+      const set = await this.access.setOn(access, query.setId);
 
       if (!set.isAtStation(station.stationId)) {
         throw new UnknownReplaySetError(query.setId);
@@ -82,7 +79,7 @@ export class EstimateSearchHandler
       if (error instanceof SearchTermsRefusedError) {
         return { outcome: 'invalid', problems: error.problems };
       }
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

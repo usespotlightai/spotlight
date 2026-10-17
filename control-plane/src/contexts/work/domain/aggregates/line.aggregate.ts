@@ -125,7 +125,7 @@ export class Line extends EventRecorder {
       return ids[found] as StationId;
     };
 
-    return Line.laidOut({
+    return Line.layOut({
       id: LineId.of(input.newId()),
       workspaceId: input.workspaceId,
       teamId: input.teamId,
@@ -161,8 +161,8 @@ export class Line extends EventRecorder {
     });
   }
 
-  static laidOut(input: LineIdentity & LineLayout & { by: Attribution }): Line {
-    const opened = Line.built(input, input, 0);
+  static layOut(input: LineIdentity & LineLayout & { by: Attribution }): Line {
+    const opened = Line.build(input, input, 0);
 
     opened.record(
       new LineOpened(
@@ -180,10 +180,10 @@ export class Line extends EventRecorder {
   static rehydrate(
     input: LineIdentity & LineLayout & { version?: number },
   ): Line {
-    return Line.built(input, input, input.version ?? 0);
+    return Line.build(input, input, input.version ?? 0);
   }
 
-  private static built(
+  private static build(
     identity: LineIdentity,
     layout: LineLayout,
     version: number,
@@ -292,7 +292,7 @@ export class Line extends EventRecorder {
     return relaid;
   }
 
-  retired(standing: TasksStanding, by: Attribution): Line {
+  retire(standing: TasksStanding, by: Attribution): Line {
     const stranded = this.stations
       .map((each) => ({
         key: each.key.value,
@@ -343,7 +343,7 @@ export class Line extends EventRecorder {
       throw new InconsistentStateError('line', 'was changed after it retired');
     }
 
-    const next = Line.built(
+    const next = Line.build(
       this,
       {
         key: part.key ?? this.key,

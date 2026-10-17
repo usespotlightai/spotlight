@@ -281,7 +281,7 @@ export class LineReplayCheckResponseDto {
     description:
       'How many tasks a planned change may regress on and still pass `spotlight replay check`',
   })
-  readonly mostRegressions: number;
+  readonly maxRegressions: number;
 
   @ApiProperty({
     example: 10,
@@ -300,7 +300,7 @@ export class LineReplayCheckResponseDto {
   readonly minGain: number;
 
   constructor(check: LineReplayCheckSummary) {
-    this.mostRegressions = check.mostRegressions;
+    this.maxRegressions = check.maxRegressions;
     this.ceiling = check.ceiling;
     this.currency = check.currency;
     this.minGain = check.minGain;

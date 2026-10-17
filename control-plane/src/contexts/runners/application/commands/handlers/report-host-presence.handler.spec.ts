@@ -21,7 +21,7 @@ import {
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -199,12 +199,12 @@ describe('ReportHostPresenceHandler', () => {
   it('refuses a report it cannot read, or one with no session, as invalid', async () => {
     const { report, hosts } = reporting();
 
-    await expect(report({ capacity: 0 })).rejects.toThrow(UseCaseFault);
+    await expect(report({ capacity: 0 })).rejects.toThrow(ApplicationError);
     await expect(report({ capacity: 0 })).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
     await expect(report({}, CREDENTIAL, '  ')).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
     expect(hosts.add).not.toHaveBeenCalled();
     expect(hosts.save).not.toHaveBeenCalled();

@@ -87,7 +87,7 @@ const working = () => {
 };
 
 const proposing = () => {
-  const chat = working().proposed({
+  const chat = working().propose({
     runId: RunId.of('run_1'),
     placement: ProposalPlacement.of({
       lineId: LineId.of('line_1'),
@@ -238,7 +238,7 @@ describe('Chat', () => {
 
   it('says which of its messages it handed a run', () => {
     const handed = working()
-      .endedRun(RunId.of('run_1'))
+      .endRun(RunId.of('run_1'))
       .said({ by: LEON, body: ChatMessageBody.of('And then?'), at: LATER })
       .handedTo(RunId.of('run_2'), LATER);
 
@@ -257,7 +257,7 @@ describe('Chat', () => {
 
   it('takes back only what it handed to a run that kept nothing, and wants following up', () => {
     const handed = working()
-      .endedRun(RunId.of('run_1'))
+      .endRun(RunId.of('run_1'))
       .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER })
       .handedTo(RunId.of('run_2'), LATER)
       .said({ by: LEON, body: ChatMessageBody.of('And docs.'), at: LATER });
@@ -281,21 +281,21 @@ describe('Chat', () => {
 
   it('counts nothing as heard by a run it is not held by', () => {
     const said = working()
-      .endedRun(RunId.of('run_1'))
+      .endRun(RunId.of('run_1'))
       .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER });
 
     expect(
-      said.deliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
+      said.markDeliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
     ).toHaveLength(1);
   });
 
   it('keeps what a run heard once it started', () => {
     const heard = working()
       .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER })
-      .deliveredUpTo(RunId.of('run_1'), SECOND, LATER);
+      .markDeliveredUpTo(RunId.of('run_1'), SECOND, LATER);
 
     expect(heard.messages[1]?.wasDeliveredTo(RunId.of('run_1'))).toBe(true);
-    expect(heard.endedRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
+    expect(heard.endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
   });
 
   it('will not be handed to a second run while one works it', () => {
@@ -313,7 +313,7 @@ describe('Chat', () => {
 
     expect(said.undelivered.map((each) => each.position.value)).toEqual([1]);
     expect(
-      said.deliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
+      said.markDeliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
     ).toHaveLength(0);
   });
 
@@ -356,8 +356,8 @@ describe('Chat', () => {
     });
 
     expect(said.wantsFollowUp).toBe(false);
-    expect(said.endedRun(RunId.of('run_1')).wantsFollowUp).toBe(true);
-    expect(working().endedRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
+    expect(said.endRun(RunId.of('run_1')).wantsFollowUp).toBe(true);
+    expect(working().endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
   });
 
   describe('when its run ends', () => {
@@ -423,8 +423,8 @@ describe('Chat', () => {
   it('lets go of its run only for the run that works it', () => {
     const chat = working();
 
-    expect(chat.endedRun(RunId.of('run_2')).running).toBe(true);
-    expect(chat.endedRun(RunId.of('run_1')).running).toBe(false);
+    expect(chat.endRun(RunId.of('run_2')).running).toBe(true);
+    expect(chat.endRun(RunId.of('run_1')).running).toBe(false);
   });
 
   it('may be stopped only by the person who started it, and only while worked', () => {
@@ -440,7 +440,7 @@ describe('Chat', () => {
   it('carries on in the same workspace, taking up the session it was worked in', () => {
     const plain = started().continuity();
     const worked = started()
-      .workedIn(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
+      .recordSession(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
       .continuity();
 
     expect(plain.key.value).toBe('chat-chat_1');
@@ -451,7 +451,7 @@ describe('Chat', () => {
 
   it('takes a proposal only from the run working it', () => {
     expect(() =>
-      started().proposed({
+      started().propose({
         runId: RunId.of('run_1'),
         placement: ProposalPlacement.of({
           lineId: LineId.of('line_1'),
@@ -465,7 +465,7 @@ describe('Chat', () => {
   });
 
   it('holds a proposal open, says it was proposed, and never delivers it back', () => {
-    const chat = working().proposed({
+    const chat = working().propose({
       runId: RunId.of('run_1'),
       placement: ProposalPlacement.of({
         lineId: LineId.of('line_1'),
@@ -515,7 +515,7 @@ describe('Chat', () => {
   it('opens a proposal again where its task could not be created', () => {
     const reopened = proposing()
       .accept(SECOND, LEON, LATER)
-      .acceptanceFailed(SECOND);
+      .recordAcceptanceFailure(SECOND);
 
     expect(reopened.proposalAt(SECOND).isOpen).toBe(true);
   });
@@ -596,7 +596,7 @@ describe('Chat', () => {
     });
 
     it('keeps the pull request its run opened', () => {
-      const opened = settingUp().setupOpened(
+      const opened = settingUp().openSetup(
         RunId.of('run_1'),
         BRANCH,
         URL,
@@ -608,7 +608,7 @@ describe('Chat', () => {
 
     it('refuses a pull request in another repository', () => {
       expect(() =>
-        settingUp().setupOpened(
+        settingUp().openSetup(
           RunId.of('run_1'),
           BRANCH,
           PullRequestUrl.of('https://github.com/acme/api/pull/3'),
@@ -619,7 +619,7 @@ describe('Chat', () => {
 
     it('refuses a run that no longer works the chat', () => {
       expect(() =>
-        settingUp().setupOpened(RunId.of('run_2'), BRANCH, URL, LATER),
+        settingUp().openSetup(RunId.of('run_2'), BRANCH, URL, LATER),
       ).toThrow(InvalidChatTransitionError);
     });
 
@@ -627,20 +627,15 @@ describe('Chat', () => {
       expect(() =>
         started()
           .handedTo(RunId.of('run_1'), NOW)
-          .setupOpened(RunId.of('run_1'), BRANCH, URL, LATER),
+          .openSetup(RunId.of('run_1'), BRANCH, URL, LATER),
       ).toThrow(NotASetupChatError);
     });
 
     it('keeps the first pull request, opening no second', () => {
-      const once = settingUp().setupOpened(
-        RunId.of('run_1'),
-        BRANCH,
-        URL,
-        LATER,
-      );
+      const once = settingUp().openSetup(RunId.of('run_1'), BRANCH, URL, LATER);
       once.pullEvents();
 
-      const again = once.setupOpened(
+      const again = once.openSetup(
         RunId.of('run_1'),
         BRANCH,
         PullRequestUrl.of('https://github.com/acme/infra/pull/13'),

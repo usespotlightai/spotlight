@@ -4,11 +4,11 @@ import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port'
 import type { HeldRun, WorkPort } from '@memory/application/ports/work.port';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
-import { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
+import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -61,12 +61,12 @@ const remembering = (held: HeldRun | null = HELD) => {
   } as unknown as WorkPort;
 
   const handler = new RememberHandler(
-    new RunnerMemoryAtHand(
+    new RunnerMemoryLoader(
       work,
       new RecordMemoryUses(
         { record: async () => {} } as unknown as MemoryUsesPort,
         { dispatch: async () => {} },
-        { run: (work) => work() },
+        { inTransaction: (work) => work() },
         { now: () => NOW, sleep: async () => {} },
       ),
     ),
@@ -79,7 +79,7 @@ const remembering = (held: HeldRun | null = HELD) => {
     } as unknown as MemoryDraftRepository,
     {} as MemoryRepository,
     new MemoryReviews(work, { find: async () => null } as never),
-    { run: <T>(each: () => Promise<T>) => each() },
+    { inTransaction: <T>(each: () => Promise<T>) => each() },
     {
       generate: () => {
         ids += 1;
@@ -125,7 +125,7 @@ describe('RememberHandler', () => {
     const { remember } = remembering({ ...HELD, taskId: null });
 
     await expect(remember()).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
       message: expect.stringContaining("a task's run"),
     });
   });
@@ -133,7 +133,7 @@ describe('RememberHandler', () => {
   it('knows no run this runner does not hold', async () => {
     const { remember } = remembering(null);
 
-    await expect(remember()).rejects.toBeInstanceOf(UseCaseFault);
+    await expect(remember()).rejects.toBeInstanceOf(ApplicationError);
     await expect(remember()).rejects.toMatchObject({ kind: 'not-found' });
   });
 });

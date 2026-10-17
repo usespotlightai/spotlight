@@ -6,14 +6,14 @@ import {
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 
-const MOST_RUNNING = 1_000;
-const MOST_IMAGES = 500;
+const MAX_RUNNING = 1_000;
+const MAX_IMAGES = 500;
 
-const bounded = (field: string, raw: string, most: number): string => {
+const bounded = (field: string, raw: string, max: number): string => {
   const held = raw.trim();
 
-  if (!held || held.length > most) {
-    throw new InvalidHostReportError(field, `must be 1 to ${most} characters`);
+  if (!held || held.length > max) {
+    throw new InvalidHostReportError(field, `must be 1 to ${max} characters`);
   }
 
   return held;
@@ -40,11 +40,11 @@ export class HostReport {
     if (
       !Number.isInteger(input.capacity) ||
       input.capacity < 1 ||
-      input.capacity > MOST_RUNNING
+      input.capacity > MAX_RUNNING
     ) {
       throw new InvalidHostReportError(
         'capacity',
-        `must be a whole number from 1 to ${MOST_RUNNING}`,
+        `must be a whole number from 1 to ${MAX_RUNNING}`,
       );
     }
 
@@ -55,10 +55,10 @@ export class HostReport {
       );
     }
 
-    if (input.images.length > MOST_IMAGES) {
+    if (input.images.length > MAX_IMAGES) {
       throw new InvalidHostReportError(
         'images',
-        `names more than ${MOST_IMAGES} images`,
+        `names more than ${MAX_IMAGES} images`,
       );
     }
 

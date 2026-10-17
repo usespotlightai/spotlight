@@ -69,9 +69,9 @@ export interface CodeReading {
   importsIn(path: string, added: readonly string[]): readonly string[];
 }
 
-const MOST_DEFINERS = 3;
+const MAX_DEFINERS = 3;
 
-const LEAST_MOVED_LINES = 3;
+const MIN_MOVED_LINES = 3;
 
 const IDENTIFIER = /[A-Za-z_$][\w$]*/g;
 
@@ -115,7 +115,7 @@ const movedBetween = (from: DiffHunk, to: DiffHunk): boolean => {
   const block = squeezed(removed);
 
   return (
-    removed.length >= LEAST_MOVED_LINES &&
+    removed.length >= MIN_MOVED_LINES &&
     block.length > 0 &&
     squeezed(linesOf(to, '+')).includes(block)
   );
@@ -224,7 +224,7 @@ export const factsOf = (
     for (const symbol of used) {
       const where = definers.get(symbol) ?? [];
 
-      if (where.length > MOST_DEFINERS) {
+      if (where.length > MAX_DEFINERS) {
         continue;
       }
 

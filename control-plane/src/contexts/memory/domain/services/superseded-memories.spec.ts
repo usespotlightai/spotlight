@@ -17,7 +17,7 @@ const BY = MemoryDecision.of({
 });
 
 const kept = (id: number) =>
-  Memory.written({
+  Memory.write({
     id: MemoryId.of(`memory_${id}`),
     handle: MemoryHandle.of(id),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -29,7 +29,7 @@ const kept = (id: number) =>
   });
 
 const correcting = (old: Memory, id: number) =>
-  old.correctedAs({
+  old.correct({
     id: MemoryId.of(`memory_${id}`),
     handle: MemoryHandle.of(id),
     kind: old.kind,

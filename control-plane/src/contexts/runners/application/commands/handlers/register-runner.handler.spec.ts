@@ -5,7 +5,7 @@ import { aRunner } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-version-conflict.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -82,7 +82,7 @@ describe('RegisterRunnerHandler', () => {
         aRunner({ id: ID }).took(RunnerWork.run('run_1'), NOW).ended(NOW),
     });
 
-    await expect(handler.execute(register)).rejects.toThrow(UseCaseFault);
+    await expect(handler.execute(register)).rejects.toThrow(ApplicationError);
     expect(save).not.toHaveBeenCalled();
   });
 

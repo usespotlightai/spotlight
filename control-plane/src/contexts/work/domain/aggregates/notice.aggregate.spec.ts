@@ -17,7 +17,7 @@ const later = (ms: number) => new Date(NOW.getTime() + ms);
 const PERSON = UserId.of('user_1');
 
 const raised = (subject = 'replay-search search_1 iteration 3') =>
-  Notice.raised({
+  Notice.raise({
     id: NoticeId.of('notice_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),

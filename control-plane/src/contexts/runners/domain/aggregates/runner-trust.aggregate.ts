@@ -113,7 +113,7 @@ export class RunnerTrust extends EventRecorder {
       );
     }
 
-    const redefined = this.reshaped({
+    const redefined = this.with({
       workload: definition.workload,
       labels: definition.labels,
     });
@@ -130,10 +130,10 @@ export class RunnerTrust extends EventRecorder {
     return redefined;
   }
 
-  withdrawn(by: Attribution): RunnerTrust {
+  withdraw(by: Attribution): RunnerTrust {
     this.guardStanding();
 
-    const withdrawn = this.reshaped({ withdrawn: true });
+    const withdrawn = this.with({ withdrawn: true });
 
     withdrawn.record(
       new RunnerTrustWithdrawn(
@@ -164,7 +164,7 @@ export class RunnerTrust extends EventRecorder {
     }
   }
 
-  private reshaped(part: {
+  private with(part: {
     workload?: TrustedWorkload;
     labels?: RunnerLabels;
     withdrawn?: boolean;

@@ -1,4 +1,4 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -78,7 +78,7 @@ export class CompleteRunHandler
         this.ended(runId, runnerId, outcome, said, command.kept),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
@@ -87,7 +87,7 @@ export class CompleteRunHandler
   ): Promise<RunCompletionDto> {
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.transaction.run(work);
+        return await this.transaction.inTransaction(work);
       } catch (error) {
         if (!isVersionConflict(error) || attempt >= ATTEMPTS) {
           throw error;

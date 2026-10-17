@@ -2,10 +2,10 @@ import type { ReplayableRunDto } from '@replays/application/dto/replays.dto';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ListReplayableRunsQuery } from '@replays/application/queries/list-replayable-runs.query';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-const MOST_PICKED_FROM = 50;
+const MAX_PICKED_FROM = 50;
 
 export class ListReplayableRunsHandler
   implements
@@ -20,21 +20,18 @@ export class ListReplayableRunsHandler
     query: ListReplayableRunsQuery,
   ): Promise<readonly ReplayableRunDto[]> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
+      const access = await this.access.forTeam(query.teamId, query.principal);
       const station = await this.access.stationOn(
-        clearance,
+        access,
         query.lineId,
         query.stationId,
       );
 
       return (
         await this.work.recentAt(
-          clearance.workspaceId,
+          access.workspaceId,
           station.stationId,
-          MOST_PICKED_FROM,
+          MAX_PICKED_FROM,
         )
       ).map((each) => ({
         runId: each.runId.value,
@@ -46,7 +43,7 @@ export class ListReplayableRunsHandler
         reason: each.reason,
       }));
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

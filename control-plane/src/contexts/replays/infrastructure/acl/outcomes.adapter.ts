@@ -78,7 +78,7 @@ export class Outcomes implements OutcomesPort {
       claims: order.judge.claims,
       passShare: order.judge.passShare,
       reference: order.reference.value,
-      mostAttempts: order.mostAttempts,
+      maxAttempts: order.maxAttempts,
     });
   }
 }

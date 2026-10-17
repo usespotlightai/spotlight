@@ -3,7 +3,7 @@ import type { WorkspaceRunnersResourceDto } from '@runners/application/dto/runne
 import { RunnerResourceMapper } from '@runners/application/mappers/runner-resource.mapper';
 import type { RunnerResourcesPort } from '@runners/application/ports/runner-resources.port';
 import type { ImportWorkspaceRunnersQuery } from '@runners/application/queries/runner-resource.queries';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -23,24 +23,24 @@ export class ImportWorkspaceRunnersHandler
     query: ImportWorkspaceRunnersQuery,
   ): Promise<WorkspaceRunnersResourceDto | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
       const kept =
-        cleared && cleared.slug === query.address
-          ? await this.resources.declaredIn(cleared.workspaceId)
+        permissions && permissions.slug === query.address
+          ? await this.resources.declaredIn(permissions.workspaceId)
           : null;
 
-      return kept && cleared
+      return kept && permissions
         ? RunnerResourceMapper.workspaceRunners(
             kept,
-            cleared.slug,
+            permissions.slug,
             await this.resources.waysIn(kept.workspaceId),
           )
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

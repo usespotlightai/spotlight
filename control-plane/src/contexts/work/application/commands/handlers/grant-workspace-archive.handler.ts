@@ -1,4 +1,4 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -38,7 +38,7 @@ export class GrantWorkspaceArchiveHandler
 
       run.mayReachBeyondItself('keep a workspace for a later run');
 
-      const archive = WorkspaceArchive.granted({
+      const archive = WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of(this.ids.generate()),
         workspaceId: run.workspaceId,
         continuity: run.continuity,
@@ -55,7 +55,7 @@ export class GrantWorkspaceArchiveHandler
 
       return { id: archive.id.value, url: upload.url, headers: upload.headers };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

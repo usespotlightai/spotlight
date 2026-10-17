@@ -10,7 +10,7 @@ import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -22,7 +22,7 @@ const TASK = TaskId.of('task_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 const draft = (id: string) =>
-  ReviewComment.drafted({
+  ReviewComment.draft({
     id: ReviewCommentId.of(id),
     workspaceId: WORKSPACE,
     taskId: TASK,
@@ -58,7 +58,7 @@ const submitting = (over: { racing?: boolean } = {}) => {
     {
       add: async (review: Review) => void reviews.push(review),
     } as unknown as ReviewRepository,
-    { run: (work) => work() },
+    { inTransaction: (work) => work() },
     { generate: () => `review_${++ids}` },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -84,7 +84,7 @@ describe('SubmitReviewHandler', () => {
     const { handler, reviews } = submitting();
 
     await handler.execute(command());
-    await expect(handler.execute(command())).rejects.toThrow(UseCaseFault);
+    await expect(handler.execute(command())).rejects.toThrow(ApplicationError);
 
     expect(reviews).toHaveLength(1);
   });

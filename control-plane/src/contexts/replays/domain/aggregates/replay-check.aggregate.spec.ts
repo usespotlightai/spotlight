@@ -20,10 +20,8 @@ import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import { describe, expect, it } from 'vitest';
 
-const started = (
-  more: Partial<Parameters<typeof ReplayCheck.started>[0]> = {},
-) =>
-  ReplayCheck.started({
+const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
+  ReplayCheck.start({
     id: ReplayCheckId.of('check_1'),
     station: STATION,
     stationKey: 'build',
@@ -38,7 +36,7 @@ const started = (
     liveDigests: LIVE_DIGESTS,
     candidateDigests: DIGESTS,
     threshold: ReplayThreshold.of({
-      mostRegressions: 0,
+      maxRegressions: 0,
       ceiling: 10,
       currency: 'USD',
       minGain: 0.05,
@@ -76,13 +74,13 @@ describe('ReplayCheck', () => {
   it('is reused only for its own set holding the same runs, under the same threshold, while running, passed or failed', () => {
     const check = started({ setId: SET.id, setEntries: 'entries_1' });
     const threshold = ReplayThreshold.of({
-      mostRegressions: 0,
+      maxRegressions: 0,
       ceiling: 10,
       currency: 'USD',
       minGain: 0.05,
     });
     const raised = ReplayThreshold.of({
-      mostRegressions: 1,
+      maxRegressions: 1,
       ceiling: 10,
       currency: 'USD',
       minGain: 0.05,
@@ -118,7 +116,7 @@ describe('ReplayCheck', () => {
       repeats: 3,
     });
     const threshold = ReplayThreshold.of({
-      mostRegressions: 0,
+      maxRegressions: 0,
       ceiling: 10,
       currency: 'USD',
       minGain: 0.05,
@@ -137,7 +135,7 @@ describe('ReplayCheck', () => {
   it('is reused under another min gain, which only reads the gain and is a share above 0 and at most 1', () => {
     const check = started({ setId: SET.id, setEntries: 'entries_1' });
     const wider = ReplayThreshold.of({
-      mostRegressions: 0,
+      maxRegressions: 0,
       ceiling: 10,
       currency: 'USD',
       minGain: 0.1,
@@ -147,7 +145,7 @@ describe('ReplayCheck', () => {
     for (const minGain of [0, -0.1, 1.5, Number.NaN]) {
       expect(() =>
         ReplayThreshold.of({
-          mostRegressions: 0,
+          maxRegressions: 0,
           ceiling: 10,
           currency: 'USD',
           minGain,
@@ -159,7 +157,7 @@ describe('ReplayCheck', () => {
   it('charges a run without a price its share of the ceiling', () => {
     expect(
       ReplayThreshold.of({
-        mostRegressions: 0,
+        maxRegressions: 0,
         ceiling: 9,
         currency: 'USD',
         minGain: 0.05,
@@ -171,15 +169,17 @@ describe('ReplayCheck', () => {
     const check = started();
 
     expect(check.baseline).toBe('awaiting');
-    expect(check.baselineFound().baseline).toBe('found');
-    expect(check.baselineUnavailable().baseline).toBe('unavailable');
-    expect(check.baselineFound().baselineUnavailable().baseline).toBe('found');
+    expect(check.recordBaseline().baseline).toBe('found');
+    expect(check.markBaselineUnavailable().baseline).toBe('unavailable');
+    expect(check.recordBaseline().markBaselineUnavailable().baseline).toBe(
+      'found',
+    );
   });
 
   it('takes a threshold of whole tasks and a ceiling a replay may spend', () => {
     expect(() =>
       ReplayThreshold.of({
-        mostRegressions: -1,
+        maxRegressions: -1,
         ceiling: 10,
         currency: 'USD',
         minGain: 0.05,
@@ -187,7 +187,7 @@ describe('ReplayCheck', () => {
     ).toThrow(InvalidReplayCheckError);
     expect(() =>
       ReplayThreshold.of({
-        mostRegressions: 0,
+        maxRegressions: 0,
         ceiling: 0,
         currency: 'USD',
         minGain: 0.05,
@@ -195,7 +195,7 @@ describe('ReplayCheck', () => {
     ).toThrow(InvalidSpendError);
     expect(
       ReplayThreshold.of({
-        mostRegressions: 2,
+        maxRegressions: 2,
         ceiling: 5,
         currency: 'eur',
         minGain: 0.05,

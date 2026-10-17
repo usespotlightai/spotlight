@@ -5,7 +5,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { SettleNoticeHandler } from '@work/application/commands/handlers/settle-notice.handler';
 import { SettleNoticeCommand } from '@work/application/commands/settle-notice.command';
 import type { NoticeOf } from '@work/application/ports/notices.port';
-import { NoticeAtHand } from '@work/application/services/notice-at-hand.service';
+import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
 import type { Notice } from '@work/domain/aggregates/notice.aggregate';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
@@ -62,7 +62,7 @@ const noticesOver = (memory: InMemoryNotices) =>
   new Notices(
     memory,
     access,
-    { run: <T>(work: () => Promise<T>) => work() },
+    { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => `notice_${++next}` },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -137,9 +137,9 @@ describe('Notices', () => {
   it('lets only its person, still on its team, in its workspace, settle it', async () => {
     const memory = new InMemoryNotices();
     const clock = { now: () => NOW, sleep: async () => {} };
-    const atHand = new NoticeAtHand(memory, access);
+    const loader = new NoticeLoader(memory, access);
     const settle = (id: string, slug: string, person: string) =>
-      new SettleNoticeHandler(atHand, memory, clock).execute(
+      new SettleNoticeHandler(loader, memory, clock).execute(
         new SettleNoticeCommand(id, slug, person),
       );
 

@@ -7,7 +7,7 @@ const EVERY_MS = 60 * 60_000;
 
 @Injectable()
 export class ForgottenRunGrantsWorker implements OnModuleDestroy {
-  #turning: Promise<void> | null = null;
+  #ticking: Promise<void> | null = null;
   #stopped = false;
 
   constructor(
@@ -17,18 +17,18 @@ export class ForgottenRunGrantsWorker implements OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
-    await this.#turning;
+    await this.#ticking;
   }
 
   @Interval(EVERY_MS)
-  async turn(): Promise<void> {
-    if (this.#turning || this.#stopped) {
+  async tick(): Promise<void> {
+    if (this.#ticking || this.#stopped) {
       return;
     }
 
-    this.#turning = this.forgotten();
-    await this.#turning;
-    this.#turning = null;
+    this.#ticking = this.forgotten();
+    await this.#ticking;
+    this.#ticking = null;
   }
 
   private async forgotten(): Promise<void> {

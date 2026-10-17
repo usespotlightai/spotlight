@@ -177,7 +177,7 @@ describe('an approval a run asked for', () => {
     const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
 
     await tasks.save(
-      task.answered(
+      task.answer(
         at,
         {
           station: StationName.of('Backlog'),
@@ -198,7 +198,7 @@ describe('an approval a run asked for', () => {
       'Approved.',
     );
 
-    const { task: claimed, clearance } = Task.rehydrate({
+    const { task: claimed, check } = Task.rehydrate({
       ...granted,
       currentRunId: runId,
     }).clearFor(
@@ -213,14 +213,14 @@ describe('an approval a run asked for', () => {
       runId,
       null,
     );
-    expect(clearance.kind).toBe('given');
+    expect(check.kind).toBe('given');
     await tasks.save(claimed);
 
     const spent = await readBack(granted);
     expect(spent.approvalFor(CALL)?.approval.grants).toBe(false);
     expect(spent.approvalFor(CALL)?.approval.spent).toBe(true);
 
-    await tasks.save(spent.approvalReturned(at));
+    await tasks.save(spent.returnApproval(at));
 
     expect((await readBack(granted)).approvalFor(CALL)?.approval.grants).toBe(
       true,
@@ -232,7 +232,7 @@ describe('an approval a run asked for', () => {
     const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
 
     await tasks.save(
-      task.answered(
+      task.answer(
         at,
         {
           station: StationName.of('Backlog'),
@@ -263,8 +263,8 @@ describe('an approval a run asked for', () => {
 
     const [one, other] = await Promise.all([claiming(), claiming()]);
 
-    expect(one.clearance.kind).toBe('given');
-    expect(other.clearance.kind).toBe('given');
+    expect(one.check.kind).toBe('given');
+    expect(other.check.kind).toBe('given');
 
     await tasks.save(one.task);
     await expect(tasks.save(other.task)).rejects.toBeInstanceOf(
@@ -286,7 +286,7 @@ describe('an approval a run asked for', () => {
       task.notes[task.notes.length - 1]?.position ?? NotePosition.of(0);
 
     await tasks.save(
-      task.answered(
+      task.answer(
         at,
         {
           station: StationName.of('Backlog'),
@@ -320,7 +320,7 @@ describe('an approval a run asked for', () => {
     expect((await readBack(task)).approvalFor(asked)?.approval.open).toBe(true);
 
     await tasks.save(
-      task.answered(
+      task.answer(
         at,
         {
           station: StationName.of('Backlog'),
@@ -378,7 +378,7 @@ describe('an approval a run asked for', () => {
     const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
 
     await tasks.save(
-      task.answered(
+      task.answer(
         at,
         {
           station: StationName.of('Backlog'),

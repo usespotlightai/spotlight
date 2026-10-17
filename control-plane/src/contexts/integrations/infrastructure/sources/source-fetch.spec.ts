@@ -1,7 +1,7 @@
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import {
   DescriptionUnauthorized,
-  READ_AT_MOST_BYTES,
+  MAX_READ_BYTES,
   SourceFetch,
   type SourceWearing,
 } from '@integrations/infrastructure/sources/source-fetch';
@@ -218,7 +218,7 @@ describe('SourceFetch', () => {
   it('will not read a description larger than it reads', async () => {
     const { fetching } = answering(
       new Response('{}', {
-        headers: { 'content-length': String(READ_AT_MOST_BYTES + 1) },
+        headers: { 'content-length': String(MAX_READ_BYTES + 1) },
       }),
     );
 

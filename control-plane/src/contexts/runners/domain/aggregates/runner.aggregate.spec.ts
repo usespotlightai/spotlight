@@ -174,10 +174,10 @@ describe('Runner', () => {
 
   it('is not started for a pool that is retired, a trust that is withdrawn, nor with no time to claim', () => {
     expect(() =>
-      aRunner({ through: aPullPool().retired(attributedIn()) }),
+      aRunner({ through: aPullPool().retire(attributedIn()) }),
     ).toThrow(InconsistentStateError);
     expect(() =>
-      aRunner({ through: aTrust().withdrawn(attributedIn()) }),
+      aRunner({ through: aTrust().withdraw(attributedIn()) }),
     ).toThrow(InconsistentStateError);
     expect(() => aRunner({ claimWithinMs: 0 })).toThrow(InconsistentStateError);
   });

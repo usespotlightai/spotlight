@@ -1,6 +1,6 @@
 import { Minus, Triangle } from 'lucide-react';
 import { Noted } from '@/components/shared/Noted';
-import { type SkillTrend, trendShown } from '@/lib/insights-tools';
+import { formatTrend, type SkillTrend } from '@/lib/insights-tools';
 import { cn } from '@/lib/utils';
 
 const TONES: Record<SkillTrend, string> = {
@@ -17,7 +17,7 @@ export function SkillTrendMark({ trend }: { trend: SkillTrend | null }) {
   const icon = cn('size-2.5 shrink-0', TONES[trend]);
 
   return (
-    <Noted note={trendShown(trend)}>
+    <Noted note={formatTrend(trend)}>
       <span
         data-slot="skill-trend"
         data-trend={trend}
@@ -35,7 +35,7 @@ export function SkillTrendMark({ trend }: { trend: SkillTrend | null }) {
             )}
           />
         )}
-        <span className="sr-only">{trendShown(trend)}</span>
+        <span className="sr-only">{formatTrend(trend)}</span>
       </span>
     </Noted>
   );

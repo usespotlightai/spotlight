@@ -111,7 +111,7 @@ export class RunConnection {
     return this.trouble !== null;
   }
 
-  static recordedAt(parts: Parts, now: Date): RunConnection {
+  static record(parts: Parts, now: Date): RunConnection {
     const told = parts.at.getTime();
     const near =
       told >= now.getTime() - EARLIEST_BEFORE_MS &&

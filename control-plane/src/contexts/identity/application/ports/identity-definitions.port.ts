@@ -13,7 +13,7 @@ type Refused = {
   readonly problems: readonly ConfigurationProblem[];
 };
 
-export type CompiledWorkspace =
+export type ParsedWorkspace =
   | {
       readonly ok: true;
       readonly name: WorkspaceName;
@@ -21,24 +21,24 @@ export type CompiledWorkspace =
     }
   | Refused;
 
-export type CompiledTeam =
+export type ParsedTeam =
   | { readonly ok: true; readonly key: TeamKey; readonly name: TeamName }
   | Refused;
 
-export type CompiledWorkspaceToken =
+export type ParsedWorkspaceToken =
   | { readonly ok: true; readonly terms: TokenTerms }
   | Refused;
 
-export type CompiledWorkspaceTokenTrust =
+export type ParsedWorkspaceTokenTrust =
   | { readonly ok: true; readonly terms: TokenTrustTerms }
   | Refused;
 
 export interface IdentityDefinitionsPort {
-  workspace(held: unknown): CompiledWorkspace;
+  workspace(held: unknown): ParsedWorkspace;
 
-  team(held: unknown): CompiledTeam;
+  team(held: unknown): ParsedTeam;
 
-  workspaceToken(held: unknown): CompiledWorkspaceToken;
+  workspaceToken(held: unknown): ParsedWorkspaceToken;
 
-  workspaceTokenTrust(held: unknown): CompiledWorkspaceTokenTrust;
+  workspaceTokenTrust(held: unknown): ParsedWorkspaceTokenTrust;
 }

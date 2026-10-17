@@ -1,11 +1,11 @@
 import type { JudgeStandingShape } from '@outcomes/application/ports/judge-standing.port';
 import { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
-import { OutcomesClearance } from '@outcomes/domain/services/outcomes-clearance';
+import { TeamAccess } from '@outcomes/domain/services/team-access';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const CLEARANCE = OutcomesClearance.onTeam('team_1', {
+const ACCESS = TeamAccess.onTeam('team_1', {
   workspaceId: WorkspaceId.of('workspace_1'),
   by: UserId.of('user_ada'),
 });
@@ -55,7 +55,7 @@ describe('TrustedJudges', () => {
       },
     });
 
-    const standings = await judges.standings(CLEARANCE, [
+    const standings = await judges.standings(ACCESS, [
       { lineId: 'line_1', stationId: 'station_a' },
       { lineId: 'line_1', stationId: 'station_b' },
       { lineId: 'line_2', stationId: 'station_c' },

@@ -243,7 +243,7 @@ export class RunnerPool extends EventRecorder {
       access.mode === 'pull' &&
       this.access.mode === 'pull' &&
       !access.tokenHash.equals(this.access.tokenHash);
-    const redefined = this.reshaped({
+    const redefined = this.with({
       labels: definition.labels,
       maxRuns: definition.maxRuns,
       access,
@@ -271,10 +271,10 @@ export class RunnerPool extends EventRecorder {
     return redefined;
   }
 
-  retired(by: Attribution): RunnerPool {
+  retire(by: Attribution): RunnerPool {
     this.guardStanding();
 
-    const retired = this.reshaped({ retired: true });
+    const retired = this.with({ retired: true });
 
     retired.record(
       new RunnerPoolRetired(
@@ -343,7 +343,7 @@ export class RunnerPool extends EventRecorder {
     }
   }
 
-  private reshaped(part: {
+  private with(part: {
     labels?: RunnerLabels;
     maxRuns?: MaxRuns | null;
     access?: PoolAccess;

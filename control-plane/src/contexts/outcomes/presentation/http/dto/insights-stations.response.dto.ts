@@ -184,7 +184,7 @@ export class TaskFailureSummaryResponseDto {
     example: 3,
     description: 'The most times it repeated on one task without a break',
   })
-  readonly mostInARow: number;
+  readonly maxInARow: number;
 
   @ApiProperty({ type: String, isArray: true })
   readonly taskIds: readonly string[];
@@ -193,7 +193,7 @@ export class TaskFailureSummaryResponseDto {
     this.source = summary.source;
     this.code = summary.code;
     this.occurrences = summary.occurrences;
-    this.mostInARow = summary.mostInARow;
+    this.maxInARow = summary.maxInARow;
     this.taskIds = summary.taskIds;
   }
 }

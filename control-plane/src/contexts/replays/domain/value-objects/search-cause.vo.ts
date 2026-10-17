@@ -13,7 +13,7 @@ export const SEARCH_CAUSES = [
 
 export type SearchCauseKind = (typeof SEARCH_CAUSES)[number];
 
-export const MOST_CAUSE_TEXT = 4_000;
+export const MAX_CAUSE_TEXT = 4_000;
 
 const isCause = (held: unknown): held is SearchCauseKind =>
   (SEARCH_CAUSES as readonly unknown[]).includes(held);
@@ -49,16 +49,16 @@ export class SearchCause {
     const evidence = textOf(input.evidence);
     const suggestion = textOf(input.suggestion);
 
-    if (evidence.length === 0 || evidence.length > MOST_CAUSE_TEXT) {
+    if (evidence.length === 0 || evidence.length > MAX_CAUSE_TEXT) {
       throw new InvalidSearchCauseError(
         'evidence',
-        `says what in the runs shows the cause, in 1 to ${MOST_CAUSE_TEXT.toLocaleString('en-US')} characters`,
+        `says what in the runs shows the cause, in 1 to ${MAX_CAUSE_TEXT.toLocaleString('en-US')} characters`,
       );
     }
-    if (suggestion.length > MOST_CAUSE_TEXT) {
+    if (suggestion.length > MAX_CAUSE_TEXT) {
       throw new InvalidSearchCauseError(
         'suggestion',
-        `says what to fix in at most ${MOST_CAUSE_TEXT.toLocaleString('en-US')} characters`,
+        `says what to fix in at most ${MAX_CAUSE_TEXT.toLocaleString('en-US')} characters`,
       );
     }
 

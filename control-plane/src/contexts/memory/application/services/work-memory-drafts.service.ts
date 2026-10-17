@@ -28,7 +28,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-const MOST_DRAFTS_AT_ONCE = 4;
+const MAX_DRAFTS_AT_ONCE = 4;
 
 const known = (each: {
   readonly id: MemoryId;
@@ -60,7 +60,7 @@ export class WorkMemoryDrafts implements OwedWorkPort {
     this.#pool = new OwedWorkPool<MemoryDraft, TaskId>(
       {
         name: this.name,
-        mostAtOnce: MOST_DRAFTS_AT_ONCE,
+        maxAtOnce: MAX_DRAFTS_AT_ONCE,
         due: (now) => this.drafts.dueForWork(now),
         find: (taskId) => this.drafts.forTask(taskId),
         save: (draft) => this.drafts.save(draft),
@@ -157,7 +157,7 @@ export class WorkMemoryDrafts implements OwedWorkPort {
       throw error;
     }
 
-    return draft.drafted({
+    return draft.recordDraft({
       runId,
       proposed,
       evidence,

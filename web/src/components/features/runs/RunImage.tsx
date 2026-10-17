@@ -1,4 +1,4 @@
-import { imageShown } from '@/lib/run';
+import { formatImage } from '@/lib/run';
 
 export function RunImage({ image }: { image: string | null }) {
   if (!image) {
@@ -9,7 +9,7 @@ export function RunImage({ image }: { image: string | null }) {
     <p className="mt-2 text-center text-muted-foreground text-xs">
       Ran in{' '}
       <span className="font-mono" title={image}>
-        {imageShown(image)}
+        {formatImage(image)}
       </span>
     </p>
   );

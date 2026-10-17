@@ -41,7 +41,7 @@ export class DrizzleHeardHappenings implements HeardHappeningsPort {
     return first.length > 0;
   }
 
-  async forgetBefore(before: Date, most: number): Promise<number> {
+  async forgetBefore(before: Date, max: number): Promise<number> {
     const doomed = this.context.db
       .select({
         workspaceId: heardHappening.workspaceId,
@@ -49,7 +49,7 @@ export class DrizzleHeardHappenings implements HeardHappeningsPort {
       })
       .from(heardHappening)
       .where(lt(heardHappening.heardAt, before))
-      .limit(most);
+      .limit(max);
     const forgotten = await this.context.db
       .delete(heardHappening)
       .where(

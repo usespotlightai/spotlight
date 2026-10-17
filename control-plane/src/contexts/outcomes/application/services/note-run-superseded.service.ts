@@ -20,7 +20,7 @@ export class NoteRunSuperseded {
     workspaceId: WorkspaceId,
     taskId: TaskId,
   ): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId);
       const held = await this.records.of(runId);
 

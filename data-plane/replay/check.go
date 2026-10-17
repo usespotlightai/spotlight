@@ -78,9 +78,9 @@ type checkRead struct {
 	Tasks            int      `json:"tasks"`
 	Compared         int      `json:"compared"`
 	Threshold        struct {
-		MostRegressions int     `json:"mostRegressions"`
-		MinGain         float64 `json:"minGain"`
-		Ceiling         spend   `json:"ceiling"`
+		MaxRegressions int     `json:"maxRegressions"`
+		MinGain        float64 `json:"minGain"`
+		Ceiling        spend   `json:"ceiling"`
 	} `json:"threshold"`
 	Repeats     int               `json:"repeats"`
 	Gain        *gainReading      `json:"gain"`
@@ -152,8 +152,8 @@ func checkOptionsOf(args []string) (checkOptions, error) {
 	if *pullRequest < 0 {
 		return checkOptions{}, fmt.Errorf("--pull-request is the number of a pull request, not %d", *pullRequest)
 	}
-	if *repeats < 1 || *repeats > mostRepeats {
-		return checkOptions{}, fmt.Errorf("--repeats is how many times to replay each run, from 1 to %d, not %d", mostRepeats, *repeats)
+	if *repeats < 1 || *repeats > maxRepeats {
+		return checkOptions{}, fmt.Errorf("--repeats is how many times to replay each run, from 1 to %d, not %d", maxRepeats, *repeats)
 	}
 
 	return checkOptions{
@@ -307,7 +307,7 @@ func (c *checking) start(held *stationCheck, each plannedStation, options checkO
 	var err error
 	for failures := 0; ; failures++ {
 		err = c.api.call(http.MethodPost, teamPath(each.TeamID)+"/replay-checks", body, map[string]string{idempotencyHeader: key}, &read)
-		if !transient(err) || failures+1 >= mostFailures {
+		if !transient(err) || failures+1 >= maxFailures {
 			break
 		}
 		c.sleep(backedOff(options.every, failures+1))
@@ -337,7 +337,7 @@ func (c *checking) follow(held *stationCheck) {
 			return
 		}
 		held.misses++
-		if held.misses >= mostFailures {
+		if held.misses >= maxFailures {
 			held.pending = false
 			held.Status = checkRefused
 			held.Message = fmt.Sprintf("gave up after %d failed tries in a row: %v", held.misses, err)
@@ -409,7 +409,7 @@ func (r *checkReport) print(out io.Writer) {
 			set = fmt.Sprintf("set %q", *read.SetName)
 		}
 		fmt.Fprintf(out, "  %d of %d tasks regressed (at most %d may), replaying %s: %d tasks, %d scored on both sides\n",
-			len(read.Regressions), read.Tasks, read.Threshold.MostRegressions, set, read.Tasks, read.Compared)
+			len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions, set, read.Tasks, read.Compared)
 		if read.UndecidedBecause != nil {
 			fmt.Fprintf(out, "  undecided: %s\n", undecidedSays(*read.UndecidedBecause))
 		}
@@ -457,7 +457,7 @@ func (r *checkReport) summarise(path string) error {
 	for _, each := range r.Stations {
 		regressed, candidate, baseline, gain, spent, link := "", "", "", "", "", ""
 		if read := each.Check; read != nil {
-			regressed = fmt.Sprintf("%d of %d (at most %d)", len(read.Regressions), read.Tasks, read.Threshold.MostRegressions)
+			regressed = fmt.Sprintf("%d of %d (at most %d)", len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions)
 			candidate = sideSays(read.Candidate)
 			baseline = sideSays(read.Baseline)
 			gain = gainCell(read.Gain)

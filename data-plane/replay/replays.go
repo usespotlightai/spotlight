@@ -111,16 +111,16 @@ type followed struct {
 }
 
 const (
-	live         = "live"
-	mostFailures = 5
-	mostBackoff  = 2 * time.Minute
-	mostRepeats  = 5
+	live        = "live"
+	maxFailures = 5
+	maxBackoff  = 2 * time.Minute
+	maxRepeats  = 5
 )
 
 func backedOff(every time.Duration, failures int) time.Duration {
 	wait := every << failures
-	if wait <= 0 || wait > mostBackoff {
-		return mostBackoff
+	if wait <= 0 || wait > maxBackoff {
+		return maxBackoff
 	}
 
 	return wait
@@ -186,8 +186,8 @@ func (c *cli) start(args []string) error {
 	if err := flags.parse(args); err != nil {
 		return err
 	}
-	if *repeats < 1 || *repeats > mostRepeats {
-		return fmt.Errorf("--repeats is how many times to replay each run, from 1 to %d, not %d", mostRepeats, *repeats)
+	if *repeats < 1 || *repeats > maxRepeats {
+		return fmt.Errorf("--repeats is how many times to replay each run, from 1 to %d, not %d", maxRepeats, *repeats)
 	}
 	if *setNamed == "" || *candidateNamed == "" {
 		return fmt.Errorf("--set and --candidate name what to replay, and under what\nusage:\n%s", Usage)
@@ -326,7 +326,7 @@ func (c *cli) watch(args []string) error {
 				return err
 			}
 			failures++
-			if failures >= mostFailures {
+			if failures >= maxFailures {
 				return fmt.Errorf("gave up after %d failed tries in a row: %w", failures, err)
 			}
 			if !*flags.json {

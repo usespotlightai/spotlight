@@ -1,9 +1,9 @@
 import { TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  repeatsSuggestionShown,
+  formatRepeatsSuggestion,
+  formatWarning,
   type SearchWarning,
-  warningShown,
 } from '@/lib/search-words';
 
 type SearchWarningsProps = {
@@ -38,7 +38,7 @@ export function SearchWarnings({
           >
             <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
             <span className="flex min-w-0 flex-col items-start gap-1">
-              <span>{warningShown(warning)}</span>
+              <span>{formatWarning(warning)}</span>
               {suggested !== null && suggested !== repeats && (
                 <Button
                   type="button"
@@ -47,7 +47,7 @@ export function SearchWarnings({
                   disabled={disabled}
                   onClick={() => onUseRepeats(suggested)}
                 >
-                  {repeatsSuggestionShown(suggested)}
+                  {formatRepeatsSuggestion(suggested)}
                 </Button>
               )}
             </span>

@@ -3,15 +3,15 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { BestTile } from '@/components/features/searches/search/BestTile';
 import { LiveConfigTile } from '@/components/features/searches/search/LiveConfigTile';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
-import { spendShown } from '@/lib/insights';
+import { formatSpend } from '@/lib/insights';
 import type { ReplaySet } from '@/lib/replay';
-import { repeatsShown } from '@/lib/replay-words';
+import { formatRepeats } from '@/lib/replay-words';
 import { type SearchDetail, setTaskTitle } from '@/lib/search';
 import {
-  budgetNoteShown,
-  heldOutTasksShown,
+  formatBudgetNote,
+  formatHeldOutTasks,
+  formatSentences,
   SPLIT_NOTE,
-  sentencesShown,
 } from '@/lib/search-words';
 
 type SearchTilesProps = {
@@ -34,9 +34,9 @@ export function SearchTiles({ search, set }: SearchTilesProps) {
         label="Iterations"
         value={`${search.iterationsRun} of ${budget.iterations}`}
         detail={`${search.proposed} ${search.proposed === 1 ? 'candidate' : 'candidates'} proposed`}
-        note={budgetNoteShown(
+        note={formatBudgetNote(
           budget,
-          repeatsShown(budget.repeats),
+          formatRepeats(budget.repeats),
           [harness, agent.model, agent.effort].filter(Boolean).join(' · '),
         )}
       />
@@ -45,9 +45,9 @@ export function SearchTiles({ search, set }: SearchTilesProps) {
         label="Tasks"
         value={`${split.searchedTasks}`}
         detail={`searched · ${split.heldOutTasks} held out`}
-        note={sentencesShown(
+        note={formatSentences(
           SPLIT_NOTE,
-          heldOutTasksShown(
+          formatHeldOutTasks(
             split.heldOut.map((entry) => setTaskTitle(entry, set)),
           ),
         )}
@@ -55,8 +55,8 @@ export function SearchTiles({ search, set }: SearchTilesProps) {
 
       <InsightsTile
         label="Spent"
-        value={spendShown(search.spent)}
-        detail={`of ${spendShown(budget.ceiling)}`}
+        value={formatSpend(search.spent)}
+        detail={`of ${formatSpend(budget.ceiling)}`}
       />
     </InsightsTiles>
   );

@@ -1,9 +1,9 @@
 import { NotedWarning } from '@/components/shared/NotedWarning';
 import type { SearchBestResponseDto } from '@/lib/api';
 import {
-  noBestShown,
+  formatNoBest,
+  formatOnlyOnSeenTasks,
   onlyOnSeenTasksNote,
-  onlyOnSeenTasksShown,
   type SearchObjective,
 } from '@/lib/search-words';
 
@@ -15,7 +15,7 @@ type SearchBestNameProps = {
 export function SearchBestName({ best, objective }: SearchBestNameProps) {
   if (!best) {
     return (
-      <span className="text-muted-foreground">{noBestShown(objective)}</span>
+      <span className="text-muted-foreground">{formatNoBest(objective)}</span>
     );
   }
 
@@ -30,8 +30,8 @@ export function SearchBestName({ best, objective }: SearchBestNameProps) {
         <NotedWarning
           data-slot="only-on-seen-tasks"
           data-mark={mark}
-          note={`${onlyOnSeenTasksShown(mark)}. ${onlyOnSeenTasksNote(mark)}`}
-          label={onlyOnSeenTasksShown(mark)}
+          note={`${formatOnlyOnSeenTasks(mark)}. ${onlyOnSeenTasksNote(mark)}`}
+          label={formatOnlyOnSeenTasks(mark)}
           tone={mark === 'marked' ? 'warning' : 'muted'}
           className="relative z-10"
         />

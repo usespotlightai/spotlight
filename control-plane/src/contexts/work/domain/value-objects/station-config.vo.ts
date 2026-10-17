@@ -5,22 +5,22 @@ const SHA256_HEX = /^[0-9a-f]{64}$/;
 const textOrder = (a: string, b: string): number =>
   a < b ? -1 : a > b ? 1 : 0;
 
-interface ConfiguredProfile {
+interface ProfileView {
   readonly key: string;
   readonly settings: unknown;
 }
 
-interface ConfiguredRepository {
+interface RepositoryView {
   readonly name: string;
   readonly setup: string | null;
 }
 
-interface ConfiguredSkill {
+interface SkillView {
   readonly key: string;
   readonly digest: string;
 }
 
-interface ConfiguredJudge {
+interface JudgeView {
   readonly rubricDigest: string;
   readonly sample: number;
   readonly trust: number;
@@ -31,14 +31,14 @@ export interface StationConfigParts {
   readonly harness: string;
   readonly model: string | null;
   readonly effort: string | null;
-  readonly profile: ConfiguredProfile | null;
+  readonly profile: ProfileView | null;
   readonly image: string | null;
-  readonly repositories: readonly ConfiguredRepository[];
-  readonly skills: readonly ConfiguredSkill[];
+  readonly repositories: readonly RepositoryView[];
+  readonly skills: readonly SkillView[];
   readonly tools: readonly string[];
   readonly decisions: boolean;
   readonly memories: boolean;
-  readonly judge?: ConfiguredJudge;
+  readonly judge?: JudgeView;
 }
 
 const CONFIG_PARTS = [
@@ -180,8 +180,8 @@ const namedChanges = <T>(
 const switched = (value: boolean): string => (value ? 'on' : 'off');
 
 const judgeChanges = (
-  was: ConfiguredJudge | undefined,
-  now: ConfiguredJudge | undefined,
+  was: JudgeView | undefined,
+  now: JudgeView | undefined,
 ): ConfigChange[] => {
   if (!was || !now) {
     return was === now

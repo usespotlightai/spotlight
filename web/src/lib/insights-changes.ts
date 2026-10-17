@@ -9,10 +9,10 @@ import type {
   StationStandingResponseDto,
 } from '@/lib/api';
 import {
-  changeShown,
-  harnessShown,
-  modelShown,
-  shareShown,
+  changeDelta,
+  formatHarness,
+  formatModel,
+  formatShare,
 } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import type { ComparedRow } from '@/lib/tally-comparison';
@@ -73,33 +73,33 @@ const SIZES: Record<RunSize, string> = {
 
 export const RUN_SIZES: readonly RunSize[] = ['small', 'medium', 'large'];
 
-export const sizeShown = (size: RunSize): string => SIZES[size];
+export const formatSize = (size: RunSize): string => SIZES[size];
 
 export const asSize = (raw: string): RunSize | null =>
   RUN_SIZES.find((each) => each === raw) ?? null;
 
-export const sizeRuleShown = (bound: SizeBound): string =>
-  bound.mostLines === null || bound.mostSteps === null
-    ? `${sizeShown(bound.size)}: anything bigger`
-    : `${sizeShown(bound.size)}: up to ${bound.mostLines} changed lines, or ${bound.mostSteps} steps for a run that changed none`;
+export const formatSizeRule = (bound: SizeBound): string =>
+  bound.maxLines === null || bound.maxSteps === null
+    ? `${formatSize(bound.size)}: anything bigger`
+    : `${formatSize(bound.size)}: up to ${bound.maxLines} changed lines, or ${bound.maxSteps} steps for a run that changed none`;
 
 export const setupKey = (setup: SetupOutcome): string =>
   JSON.stringify([setup.harness, setup.model, setup.effort, setup.profileKey]);
 
-export const setupWithinShown = (setup: SetupOutcome): string =>
+export const formatSetupWithin = (setup: SetupOutcome): string =>
   [
-    modelShown(setup.model),
+    formatModel(setup.model),
     setup.effort ? `${setup.effort} effort` : null,
     setup.profileKey ? `${setup.profileKey} profile` : null,
   ]
     .filter(Boolean)
     .join(' · ');
 
-export const setupShown = (
+export const formatSetup = (
   setup: SetupOutcome,
   harnesses: readonly HarnessResponseDto[] | undefined,
 ): string =>
-  `${harnessShown(harnesses, setup.harness)} · ${setupWithinShown(setup)}`;
+  `${formatHarness(harnesses, setup.harness)} · ${formatSetupWithin(setup)}`;
 
 export type HarnessGroup = {
   readonly harness: string;
@@ -151,21 +151,21 @@ export type RunsScale = {
 
 export const runsScaleOf = (points: readonly SetupPoint[]): RunsScale => {
   const runs = points.map((each) => each.runs);
-  const least = Math.min(...runs);
-  const most = Math.max(...runs);
-  const middle = Math.round((least + most) / 2);
+  const min = Math.min(...runs);
+  const max = Math.max(...runs);
+  const middle = Math.round((min + max) / 2);
 
   return {
-    domain: [least, most],
+    domain: [min, max],
     range: DOT_AREA,
-    legend: [...new Set([least, middle, most])],
+    legend: [...new Set([min, middle, max])],
   };
 };
 
 export const dotRadius = (scale: RunsScale, runs: number): number => {
-  const [least, most] = scale.domain;
+  const [min, max] = scale.domain;
   const [small, large] = scale.range;
-  const share = most === least ? 1 : (runs - least) / (most - least);
+  const share = max === min ? 1 : (runs - min) / (max - min);
 
   return Math.sqrt((small + share * (large - small)) / Math.PI);
 };
@@ -183,7 +183,7 @@ export const setupPoints = (
       : [
           {
             key: setupKey(setup),
-            label: setupShown(setup, harnesses),
+            label: formatSetup(setup, harnesses),
             cost: setup.costPerRun,
             value,
             runs: setup.tally.runs,
@@ -197,16 +197,17 @@ export const frontierOf = (points: readonly SetupPoint[]): SetupPoint[] =>
     .filter((each) => each.frontier)
     .sort((a, b) => a.cost - b.cost || a.value - b.value);
 
-export const outcomeShown = (value: number | null): string => shareShown(value);
+export const formatOutcome = (value: number | null): string =>
+  formatShare(value);
 
 const judgeCount = (share: JudgeShare | null): number => share?.judged ?? 0;
 
 export const judgeRow = (marker: ChangeMarker, to: string): ComparedRow => ({
   id: 'judge',
   label: 'Judge score',
-  one: shareShown(marker.judgeBefore?.mean ?? null),
-  other: shareShown(marker.judgeAfter?.mean ?? null),
-  delta: changeShown(marker.judgeChange),
+  one: formatShare(marker.judgeBefore?.mean ?? null),
+  other: formatShare(marker.judgeAfter?.mean ?? null),
+  delta: changeDelta(marker.judgeChange),
   note: `Over ${judgeCount(marker.judgeBefore)} judged runs before and ${judgeCount(marker.judgeAfter)} after. Opens how often the judge agrees with people.`,
   to,
 });

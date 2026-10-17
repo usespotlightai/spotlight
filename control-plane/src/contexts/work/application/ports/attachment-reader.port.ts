@@ -7,10 +7,10 @@ export interface AttachmentSummary {
   readonly size: number;
 }
 
-export interface HeldAttachment extends AttachmentSummary {
+export interface AttachmentRecord extends AttachmentSummary {
   readonly workspaceId: string;
 }
 
 export interface AttachmentReaderPort {
-  find(id: string): Promise<HeldAttachment | null>;
+  find(id: string): Promise<AttachmentRecord | null>;
 }

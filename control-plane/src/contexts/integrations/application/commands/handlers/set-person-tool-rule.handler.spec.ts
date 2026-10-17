@@ -76,6 +76,6 @@ describe('SetPersonToolRuleHandler', () => {
   it('refuses a rule that is not one', async () => {
     await expect(
       setting().set('linear.comment', 'sometimes'),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
   });
 });

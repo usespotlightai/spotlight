@@ -1,7 +1,7 @@
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
 import { holdings, reported } from '@/lib/detail';
 import { counted, spentOn, spokenAt, took } from '@/lib/inbox';
-import { REASON_SHOWN, TROUBLE_SHOWN } from '@/lib/run-network';
+import { REASON_LABELS, TROUBLE_LABELS } from '@/lib/run-network';
 import type { TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +50,7 @@ export function DetailHeader({ node }: { node: TraceNode }) {
         )}
         {node.connection?.trouble && (
           <DetailProperty name="Outcome" failed>
-            {TROUBLE_SHOWN[node.connection.trouble]}
+            {TROUBLE_LABELS[node.connection.trouble]}
           </DetailProperty>
         )}
         {node.connection?.status != null && (
@@ -60,7 +60,7 @@ export function DetailHeader({ node }: { node: TraceNode }) {
         )}
         {node.connection?.reason && (
           <DetailProperty name="Reason">
-            {REASON_SHOWN[node.connection.reason]}
+            {REASON_LABELS[node.connection.reason]}
           </DetailProperty>
         )}
         {node.connection && node.connection.times > 1 && (

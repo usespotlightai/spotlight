@@ -3,7 +3,7 @@ import { SetCaveats } from '@/components/features/insights/candidates/SetCaveats
 import { Noted } from '@/components/shared/Noted';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { type CandidatesSet, tasksShown } from '@/lib/insights-candidates';
+import { type CandidatesSet, formatTasks } from '@/lib/insights-candidates';
 import { type ReplayedStation, replaySetPath } from '@/lib/replay';
 
 type SetSummaryProps = {
@@ -27,7 +27,7 @@ export function SetSummary({ at, set }: SetSummaryProps) {
         <span className="text-muted-foreground text-xs">
           {set.health.tasks === 0
             ? 'No tasks yet'
-            : tasksShown(set.health.tasks, set.health.runs)}
+            : formatTasks(set.health.tasks, set.health.runs)}
         </span>
         <SetCaveats health={set.health} minGain={set.health.minGain} />
         {set.guardsChanges && (

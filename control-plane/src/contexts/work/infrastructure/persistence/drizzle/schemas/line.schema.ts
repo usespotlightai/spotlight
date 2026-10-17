@@ -13,7 +13,7 @@ export interface ReviewsRow {
 }
 
 export interface ReplayCheckRow {
-  readonly mostRegressions: number;
+  readonly maxRegressions: number;
   readonly ceiling: number;
   readonly currency: string;
   readonly minGain: number;

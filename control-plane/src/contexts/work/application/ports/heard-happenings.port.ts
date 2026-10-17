@@ -7,5 +7,5 @@ export interface HeardHappeningsPort {
 
   hearing(workspaceId: WorkspaceId, key: string, at: Date): Promise<boolean>;
 
-  forgetBefore(before: Date, most: number): Promise<number>;
+  forgetBefore(before: Date, max: number): Promise<number>;
 }

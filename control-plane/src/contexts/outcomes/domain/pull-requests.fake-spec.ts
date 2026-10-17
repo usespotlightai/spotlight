@@ -118,7 +118,7 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
 
   async seenForTeamBetween(
     window: TeamPullRequestWindow,
-    most: number,
+    max: number,
   ): Promise<readonly PullRequestRecord[]> {
     const repositories = window.repositories.map((each) => each.toLowerCase());
 
@@ -136,7 +136,7 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
             seen.closedAt.getTime() >= window.from.getTime())
         );
       })
-      .slice(0, most);
+      .slice(0, max);
   }
 
   async heldByTask(

@@ -173,7 +173,7 @@ export class DrizzleForgotten implements ForgottenPort {
     return found ?? null;
   }
 
-  async dropTombstonesBefore(before: Date, most: number): Promise<number> {
+  async dropTombstonesBefore(before: Date, max: number): Promise<number> {
     const expired = this.context.db
       .select({
         workspaceId: forgottenPullRequest.workspaceId,
@@ -181,7 +181,7 @@ export class DrizzleForgotten implements ForgottenPort {
       })
       .from(forgottenPullRequest)
       .where(lt(forgottenPullRequest.updatedAt, before))
-      .limit(most);
+      .limit(max);
     const dropped = await this.context.db
       .delete(forgottenPullRequest)
       .where(

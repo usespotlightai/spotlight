@@ -999,7 +999,7 @@ describe('Line, what it records of its changes', () => {
 
     it('retires once no task stands on it, and says so', () => {
       const line = kept();
-      const retired = line.retired(new Map(), attributedIn());
+      const retired = line.retire(new Map(), attributedIn());
 
       expect(retired.isRetired).toBe(true);
       expect(retired.pullEvents()).toEqual([
@@ -1023,10 +1023,10 @@ describe('Line, what it records of its changes', () => {
       const [, working] = line.stations;
 
       expect(() =>
-        line.retired(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
+        line.retire(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
       ).toThrow(LineInUseError);
       expect(() =>
-        line.retired(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
+        line.retire(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
       ).toThrow(`${working?.name.value} (2)`);
     });
   });

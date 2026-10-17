@@ -1,5 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -56,7 +56,7 @@ export class ReadRunConfigHandler
             : null,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
@@ -68,7 +68,7 @@ export class ReadRunConfigHandler
       return true;
     }
 
-    const reader = await this.access.clearanceAsTeamReader(
+    const reader = await this.access.permissionsAsTeamReader(
       query.teamId,
       PersonPrincipal.of(UserId.of(query.viewerId)),
     );

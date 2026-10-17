@@ -48,7 +48,7 @@ const listing = (member: boolean) => {
             }
           : null,
       ),
-      clearanceAsTeamReader: vi.fn(async (teamId: string) =>
+      permissionsAsTeamReader: vi.fn(async (teamId: string) =>
         teamId === 'team_read' ? { workspaceId: WORKSPACE, teamId } : null,
       ),
     } as unknown as WorkspaceAccessPort,

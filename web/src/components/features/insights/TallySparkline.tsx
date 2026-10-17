@@ -1,6 +1,6 @@
 import { Line, LineChart, YAxis } from 'recharts';
 import type { TrendPoint } from '@/lib/insights';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 
 const WIDTH = 120;
 const HEIGHT = 16;
@@ -8,10 +8,10 @@ const HEIGHT = 16;
 const summaryOf = (trend: readonly TrendPoint[]): string => {
   const first = trend[0];
   const last = trend[trend.length - 1];
-  const most = Math.max(...trend.map((each) => each.runs), 0);
+  const max = Math.max(...trend.map((each) => each.runs), 0);
 
   return first && last
-    ? `Runs per day from ${dayShown(first.day)} to ${dayShown(last.day)}, at most ${most}`
+    ? `Runs per day from ${formatDay(first.day)} to ${formatDay(last.day)}, at most ${max}`
     : 'No runs per day';
 };
 

@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { type PullRequestType, typeShown } from '@/lib/insights-pull-requests';
+import { formatType, type PullRequestType } from '@/lib/insights-pull-requests';
 import { jamColor, TYPE_COLORS, type TypeShare } from '@/lib/pipeline-flow';
 import { cn } from '@/lib/utils';
 
@@ -71,7 +71,7 @@ export function PipelineFlowLegend({
               className="size-2 rounded-sm"
               style={{ background: TYPE_COLORS[type] }}
             />
-            {typeShown(type)}
+            {formatType(type)}
           </button>
         ))}
       </fieldset>

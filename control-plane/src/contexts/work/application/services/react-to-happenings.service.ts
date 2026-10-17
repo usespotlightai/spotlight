@@ -93,7 +93,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       // Fetch outside the transaction, so that a slow host does not hold the task during the download.
       const attachments = await this.kept(workspaceId, happened.attachments);
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         if (
           !key ||
           (await this.heardBefore.hearing(workspaceId, key, this.clock.now()))
@@ -203,7 +203,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       ReactionFor.happened({
         task,
         line,
-        word: happened.word,
+        payload: happened.payload,
         said: spoken(happened, attachments),
       }),
       task,
@@ -322,7 +322,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
           title: opening.title,
           description: opening.description,
           attachments,
-          heardFrom: happened.word.happening,
+          heardFrom: happened.payload.happening,
           rank: Placement.atTheBack(
             (await this.placements.placementsAt(opening.at.id)).map(
               (each) => each.rank,
@@ -334,7 +334,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       ),
     );
 
-    const opened = assignee ? added.assignedTo(assignee) : added;
+    const opened = assignee ? added.assign(assignee) : added;
 
     const runId = opened.wantsRun(line)
       ? await this.dispatch.runIdFor({ task: opened, line })
@@ -373,14 +373,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
     }
 
     if (reaction.kind === 'interrupts') {
-      return task.interrupted(saying);
+      return task.interrupt(saying);
     }
 
     if (reaction.kind === 'answers') {
-      return task.answered(reaction.to, saying);
+      return task.answer(reaction.to, saying);
     }
 
-    return task.reactedTo(
+    return task.react(
       line,
       reaction.to.id,
       Placement.atTheTop(

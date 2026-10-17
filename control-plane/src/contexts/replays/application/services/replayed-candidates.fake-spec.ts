@@ -47,7 +47,7 @@ export const made = {
 };
 
 const searchedCandidate = (name: string): Candidate =>
-  Candidate.searched({
+  Candidate.fromSearch({
     ...made,
     id: CandidateId.of(`candidate_${name}`),
     name,
@@ -65,7 +65,7 @@ export const replayOf = (
   candidate: Candidate,
   at: Date,
 ): Replay => {
-  const started = Replay.started({
+  const started = Replay.start({
     id: ReplayId.of(id),
     set,
     candidate,
@@ -93,11 +93,11 @@ export const heldOutOf = (
   ids: () => RunId,
 ): Search => {
   let held = search
-    .runEnded(RUN_ONE, { failed: false, started: true }, later(1), ids)
-    .spentByAgent(RUN_ONE, ModelSpent.of([], 0), later(1), ids);
+    .recordRunEnd(RUN_ONE, { failed: false, started: true }, later(1), ids)
+    .recordAgentSpend(RUN_ONE, ModelSpent.of([], 0), later(1), ids);
 
   for (const replayId of ['replay_terse', 'replay_wordy']) {
-    held = held.replayEnded(
+    held = held.recordReplayEnd(
       ReplayId.of(replayId),
       'finished',
       { spent: Spend.of(1, 'USD'), unpriced: 0 },
@@ -110,8 +110,8 @@ export const heldOutOf = (
     const run = held.heldRun;
 
     held = held
-      .runEnded(run, { failed: false, started: true }, later(3), ids)
-      .spentByAgent(run, ModelSpent.of([], 0), later(3), ids);
+      .recordRunEnd(run, { failed: false, started: true }, later(3), ids)
+      .recordAgentSpend(run, ModelSpent.of([], 0), later(3), ids);
   }
 
   return held.heldOutFrom(
@@ -126,7 +126,7 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
   const set = aSet(10);
   const ids = searchRunIds();
   const searching = aSearch({ set })
-    .replayEnded(
+    .recordReplayEnd(
       ReplayId.of('replay_seed'),
       'finished',
       { spent: Spend.of(20, 'USD'), unpriced: 0 },

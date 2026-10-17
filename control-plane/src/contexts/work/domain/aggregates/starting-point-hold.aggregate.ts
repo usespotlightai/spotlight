@@ -2,15 +2,15 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { InvalidStartingPointHoldError } from '@work/domain/exceptions/invalid-starting-point-hold.error';
 
-const MOST_HOLDER_LENGTH = 200;
-export const MOST_HELD_RUNS = 500;
+const MAX_HOLDER_LENGTH = 200;
+export const MAX_HELD_RUNS = 500;
 
 const holderNamed = (holder: string): string => {
   const named = holder.trim();
 
-  if (named.length === 0 || named.length > MOST_HOLDER_LENGTH) {
+  if (named.length === 0 || named.length > MAX_HOLDER_LENGTH) {
     throw new InvalidStartingPointHoldError(
-      `holder name must be 1 to ${MOST_HOLDER_LENGTH} characters`,
+      `holder name must be 1 to ${MAX_HOLDER_LENGTH} characters`,
     );
   }
 
@@ -26,7 +26,7 @@ export class StartingPointHold {
     readonly isReleased: boolean,
   ) {}
 
-  static taken(holder: string, workspaceId: WorkspaceId): StartingPointHold {
+  static take(holder: string, workspaceId: WorkspaceId): StartingPointHold {
     return new StartingPointHold(
       holderNamed(holder),
       workspaceId,
@@ -54,9 +54,9 @@ export class StartingPointHold {
   holding(runs: readonly RunId[]): StartingPointHold {
     const held = [...new Set(runs.map((each) => each.value))];
 
-    if (held.length > MOST_HELD_RUNS) {
+    if (held.length > MAX_HELD_RUNS) {
       throw new InvalidStartingPointHoldError(
-        `can hold at most ${MOST_HELD_RUNS} runs`,
+        `can hold at most ${MAX_HELD_RUNS} runs`,
       );
     }
 

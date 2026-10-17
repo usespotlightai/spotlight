@@ -184,7 +184,7 @@ describe('turnEnded', () => {
   });
 
   it('carries on at once, unchanged, when the person answered before the turn was reported', () => {
-    const answered = approvalAsked().answered(NotePosition.of(0), {
+    const answered = approvalAsked().answer(NotePosition.of(0), {
       station: StationName.of('build'),
       body: TaskNoteBody.of('Yes.'),
       at: NOW,
@@ -285,7 +285,7 @@ describe('turnEnded', () => {
 
   it('ends a turn whose task has moved on, or that works no task', () => {
     expect(
-      ending({ task: held().leftBy(RUN, NOW), declared: { next: 'review' } })
+      ending({ task: held().leaveRun(RUN, NOW), declared: { next: 'review' } })
         .waiting,
     ).toBe(false);
     expect(ending({ task: null, declared: { next: 'review' } }).waiting).toBe(

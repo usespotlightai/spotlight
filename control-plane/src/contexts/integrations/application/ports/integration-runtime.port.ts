@@ -82,7 +82,7 @@ export type Acted =
   | { readonly kind: 'refused'; readonly refusal: HostRefusal }
   | { readonly kind: 'nothing-to-do' };
 
-export interface TaskWord {
+export interface TaskPayload {
   readonly task: BoundTask;
   readonly ask: {
     readonly body: string;
@@ -136,7 +136,7 @@ export interface IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     event: string,
-    word: TaskWord,
+    payload: TaskPayload,
     reach: Reach,
   ): Promise<Posted>;
 

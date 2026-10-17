@@ -10,7 +10,7 @@ import {
   windowOf,
 } from '@outcomes/application/services/team-scopes.service';
 import { memoryComparisonFrom } from '@outcomes/domain/services/memory-comparison';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadInsightsMemoryHandler
@@ -26,25 +26,23 @@ export class ReadInsightsMemoryHandler
 
   async execute(query: ReadInsightsMemoryQuery): Promise<InsightsMemoryDto> {
     try {
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
       const compared = memoryComparisonFrom(
         await this.reader.memoryCounts({
-          workspaceId: clearance.workspaceId,
-          teamId: clearance.teamId,
+          workspaceId: access.workspaceId,
+          teamId: access.teamId,
           period,
         }),
       );
-      const use = await this.memory.between(
-        windowOf(clearance, period.current),
-      );
+      const use = await this.memory.between(windowOf(access, period.current));
       const names = await this.people.namesOf(
         use.flagged.flatMap((each) => (each.by ? [each.by] : [])),
       );
-      const benchmark = await this.benchmark.latestFor(clearance.teamId.value);
+      const benchmark = await this.benchmark.latestFor(access.teamId.value);
 
       return {
         period: periodOf(period),
@@ -66,7 +64,7 @@ export class ReadInsightsMemoryHandler
           : null,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

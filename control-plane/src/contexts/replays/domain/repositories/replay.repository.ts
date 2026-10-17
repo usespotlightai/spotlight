@@ -28,7 +28,7 @@ export interface ReplayRepository {
   ofTeamStartedSince(
     teamId: TeamId,
     since: Date,
-    most: number,
+    max: number,
   ): Promise<readonly Replay[]>;
 
   teamsDispatching(): Promise<readonly TeamId[]>;

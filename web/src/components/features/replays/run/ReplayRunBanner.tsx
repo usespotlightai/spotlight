@@ -5,10 +5,10 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useReplayOfRun } from '@/hooks/api/useReplayOfRun';
 import { loading } from '@/lib/query';
 import {
-  candidateShown,
+  formatCandidate,
+  formatTitle,
   type ReplayRun,
   replayPath,
-  titleShown,
 } from '@/lib/replay';
 import { runPath } from '@/lib/run';
 
@@ -36,7 +36,7 @@ export function ReplayRunBanner({ slug, teamId, run }: ReplayRunBannerProps) {
           to={runPath(slug, teamId, run.original.runId)}
           className={LINK}
         >
-          {titleShown(run.original.title)}
+          {formatTitle(run.original.title)}
         </TrailLink>
       </p>
 
@@ -47,7 +47,7 @@ export function ReplayRunBanner({ slug, teamId, run }: ReplayRunBannerProps) {
           <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-muted-foreground">
             <span>Under</span>
             <span className="text-foreground">
-              {candidateShown(of.candidate)}
+              {formatCandidate(of.candidate)}
             </span>
             {of.isBaseline && <span>(the baseline)</span>}
             {of.search && (

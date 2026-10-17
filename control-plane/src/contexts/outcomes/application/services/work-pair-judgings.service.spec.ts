@@ -60,7 +60,7 @@ const working = async (
       teamId: TeamId.of('team_1'),
       criteria: claimsCriteria(),
       reference: RunId.of('original_1'),
-      mostAttempts: 2,
+      maxAttempts: 2,
       now: NOW,
     }),
   );

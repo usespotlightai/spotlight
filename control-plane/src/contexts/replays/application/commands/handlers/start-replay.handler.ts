@@ -17,13 +17,13 @@ import {
   standingBaselineFor,
 } from '@replays/domain/services/baseline';
 import { baselineTermsOf } from '@replays/domain/services/baseline-terms';
-import type { ReplaysClearance } from '@replays/domain/services/replays-clearance';
 import { checksSet } from '@replays/domain/services/set-health';
+import type { TeamAccess } from '@replays/domain/services/team-access';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -49,13 +49,13 @@ export class StartReplayHandler
 
   async execute(command: StartReplayCommand): Promise<ReplayStarted> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.actor.principal,
       );
-      const seen = await this.access.setOn(clearance, command.setId);
+      const seen = await this.access.setOn(access, command.setId);
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
@@ -69,7 +69,7 @@ export class StartReplayHandler
       const asked =
         command.candidate === LIVE
           ? null
-          : await this.proposed(clearance, seen, command.candidate);
+          : await this.proposed(access, seen, command.candidate);
       const liveScoring = await this.snapshots.scoringOf(seen);
       const wantedBefore = needsBaseline(
         seen,
@@ -84,7 +84,7 @@ export class StartReplayHandler
       const baselineId = ReplayId.of(this.ids.generate());
 
       const started = await this.keepingLive(live, asked === null, () =>
-        this.transaction.run(async () => {
+        this.transaction.inTransaction(async () => {
           const set = await this.sets.locked(seen.id);
 
           if (!set) {
@@ -133,7 +133,7 @@ export class StartReplayHandler
               : { probe: false, repeats: command.repeats, ceiling };
 
           await this.replays.add(
-            Replay.started({
+            Replay.start({
               id,
               set,
               candidate,
@@ -190,7 +190,7 @@ export class StartReplayHandler
             : null,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
@@ -216,7 +216,7 @@ export class StartReplayHandler
   }
 
   private async proposed(
-    clearance: ReplaysClearance,
+    access: TeamAccess,
     set: ReplaySet,
     candidateId: string,
   ): Promise<Candidate> {
@@ -224,7 +224,7 @@ export class StartReplayHandler
 
     if (
       !candidate ||
-      !clearance.sees(candidate.station) ||
+      !access.sees(candidate.station) ||
       !candidate.isFor(set.station.stationId)
     ) {
       throw new UnknownCandidateError(candidateId);

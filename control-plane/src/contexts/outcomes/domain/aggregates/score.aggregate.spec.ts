@@ -1,5 +1,5 @@
 import {
-  MOST_SEEN_KEPT,
+  MAX_SEEN_KEPT,
   Score,
 } from '@outcomes/domain/aggregates/score.aggregate';
 import type { ScoreRecorded } from '@outcomes/domain/events/score-recorded.event';
@@ -33,7 +33,7 @@ describe('Score', () => {
 
   it('from the judge always gives its reasons', () => {
     expect(() =>
-      Score.judged({
+      Score.judge({
         id: ScoreId.of('score_1'),
         runId: RunId.of('run_1'),
         workspaceId: WORKSPACE,
@@ -55,7 +55,7 @@ describe('Score', () => {
     const citations = Array.from({ length: 10 }, (_, at) =>
       Citation.ofHunk(`api/src/big.ts#${at}`),
     );
-    const score = Score.judged({
+    const score = Score.judge({
       id: ScoreId.of('score_1'),
       runId: RunId.of('run_1'),
       workspaceId: WORKSPACE,
@@ -83,7 +83,7 @@ describe('Score', () => {
 
     expect(score.seen.steps).toEqual([]);
     expect(score.seen.hunks.length).toBeLessThanOrEqual(10);
-    expect(score.seen.size).toBeLessThanOrEqual(MOST_SEEN_KEPT);
+    expect(score.seen.size).toBeLessThanOrEqual(MAX_SEEN_KEPT);
   });
 
   it('from a person keeps nothing the judge saw', () => {
@@ -122,7 +122,7 @@ describe('Score', () => {
     const grade = personGrade('run_1', ScoreScale.yesNo(), 1);
     grade.pullEvents();
 
-    const regraded = grade.regraded({
+    const regraded = grade.regrade({
       scale: ScoreScale.yesNo(),
       value: 0,
       marks: null,
@@ -140,7 +140,7 @@ describe('Score', () => {
     const grade = personGrade('run_1', ScoreScale.yesNo(), 1);
 
     expect(
-      grade.regraded({
+      grade.regrade({
         scale: ScoreScale.yesNo(),
         value: 1,
         marks: null,
@@ -152,7 +152,7 @@ describe('Score', () => {
 
   it('from the judge is never graded again', () => {
     expect(() =>
-      judgeScore('run_1', ScoreScale.yesNo(), 1).regraded({
+      judgeScore('run_1', ScoreScale.yesNo(), 1).regrade({
         scale: ScoreScale.yesNo(),
         value: 0,
         marks: null,
@@ -174,7 +174,7 @@ describe('Score', () => {
 
   it('on a claims scale from the judge gives a reason for every claim, each naming its claim', () => {
     expect(() =>
-      Score.judged({
+      Score.judge({
         id: ScoreId.of('score_1'),
         runId: RunId.of('run_1'),
         workspaceId: WORKSPACE,
@@ -200,7 +200,7 @@ describe('Score', () => {
 
   it('on a claims scale holds a value that is the share its marks give, and marks only there', () => {
     expect(() =>
-      personGrade('run_1', ScoreScale.claims(), 0).regraded({
+      personGrade('run_1', ScoreScale.claims(), 0).regrade({
         scale: ScoreScale.claims(),
         value: 1,
         marks: [true, false],
@@ -221,7 +221,7 @@ describe('Score', () => {
       marks: [true, true],
     });
 
-    const regraded = grade.regraded({
+    const regraded = grade.regrade({
       scale: ScoreScale.claims(),
       value: 0.5,
       marks: [true, false],

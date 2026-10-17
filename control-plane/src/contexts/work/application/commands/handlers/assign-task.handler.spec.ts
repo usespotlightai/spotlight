@@ -3,7 +3,7 @@ import type {
   TeamDirectoryPort,
   TeamProfile,
 } from '@identity/application/ports/team-directory.port';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -26,7 +26,7 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const transaction: TransactionPort = { run: (work) => work() };
+const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 const team = (): TeamProfile => ({
   id: TeamId.of('team_1'),
@@ -126,7 +126,7 @@ describe('AssignTaskHandler', () => {
   });
 
   it('takes a task back to unclaimed', async () => {
-    const held = tasks(task().assignedTo(UserId.of('user_2')));
+    const held = tasks(task().assign(UserId.of('user_2')));
 
     const dto = await assign(null, 'user_1', held);
 
@@ -135,18 +135,18 @@ describe('AssignTaskHandler', () => {
   });
 
   it('refuses to give work to someone not on the team', async () => {
-    await expect(assign('user_stranger')).rejects.toThrow(UseCaseFault);
+    await expect(assign('user_stranger')).rejects.toThrow(ApplicationError);
   });
 
   it('turns away a viewer who is not on the team', async () => {
     await expect(assign('user_2', 'user_outsider')).rejects.toThrow(
-      UseCaseFault,
+      ApplicationError,
     );
   });
 
   it('turns away a task the team does not hold', async () => {
     await expect(
       assign('user_2', 'user_1', tasks(task('ws_other'))),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
   });
 });

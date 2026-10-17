@@ -32,7 +32,7 @@ export class RecordMemoryUses {
       return Promise.resolve();
     }
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.uses.record(run.id, way, memories, this.clock.now());
       await this.events.dispatch([
         new MemoriesUsed(run.id, run.workspaceId, run.taskId, way, memories),

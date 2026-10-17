@@ -39,7 +39,7 @@ export class ReceiveReviewComment {
   async receive(received: ReceivedReviewComment): Promise<void> {
     const { workspaceId, comment } = received;
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const known = await this.comments.onGitHub(workspaceId, comment.id);
 
       if (received.action === 'edited') {
@@ -92,7 +92,7 @@ export class ReceiveReviewComment {
         : await this.comments.onGitHub(workspaceId, comment.answers);
 
     await this.comments.add(
-      ReviewComment.arrived({
+      ReviewComment.receive({
         id: ReviewCommentId.of(this.ids.generate()),
         workspaceId,
         taskId: task.id,

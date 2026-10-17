@@ -10,7 +10,7 @@ export type OriginalOutcome = (typeof ORIGINAL_OUTCOMES)[number];
 
 const UNKNOWN_ORIGIN = 'unknown';
 
-const FEWEST_ENTRIES_TO_WARN = 6;
+const MIN_ENTRIES_TO_WARN = 6;
 
 const DOMINANT_SHARE = 2 / 3;
 
@@ -70,7 +70,7 @@ const warningOf = (
   outcomes: readonly OutcomeCount[],
   entries: number,
 ): BalanceWarning | null => {
-  if (entries < FEWEST_ENTRIES_TO_WARN) {
+  if (entries < MIN_ENTRIES_TO_WARN) {
     return null;
   }
 

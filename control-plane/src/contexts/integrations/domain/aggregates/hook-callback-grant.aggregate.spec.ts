@@ -9,7 +9,7 @@ const NOW = new Date('2026-09-26T10:00:00.000Z');
 const later = (minutes: number) => new Date(NOW.getTime() + minutes * 60_000);
 
 const grant = (firing: string | null = 'firing_1') =>
-  HookCallbackGrant.issuedFor(
+  HookCallbackGrant.issueFor(
     {
       tokenHash: TokenHash.of('a'.repeat(64)),
       workspaceId: WorkspaceId.of('workspace_1'),

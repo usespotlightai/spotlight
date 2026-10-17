@@ -5,18 +5,18 @@ import {
 } from '@/components/ui/tooltip';
 import { sized } from '@/lib/attachment';
 import {
+  CONNECTION_OUTCOME_LABELS,
   type ConnectionGroup,
-  OUTCOME_SHOWN,
+  formatTraffic,
   OUTCOME_TOLD,
-  TROUBLE_SHOWN,
-  trafficShown,
+  TROUBLE_LABELS,
 } from '@/lib/run-network';
 import { cn } from '@/lib/utils';
 
 export function ConnectionRow({ group }: { group: ConnectionGroup }) {
   const shown = group.trouble
-    ? TROUBLE_SHOWN[group.trouble]
-    : OUTCOME_SHOWN[group.outcome];
+    ? TROUBLE_LABELS[group.trouble]
+    : CONNECTION_OUTCOME_LABELS[group.outcome];
 
   return (
     <li data-slot="connection" data-outcome={group.outcome}>
@@ -48,7 +48,7 @@ export function ConnectionRow({ group }: { group: ConnectionGroup }) {
             {group.count === 1 ? 'connection' : 'connections'}
           </span>
           <span>{OUTCOME_TOLD[group.outcome]}</span>
-          <span>{trafficShown(group)}</span>
+          <span>{formatTraffic(group)}</span>
         </TooltipContent>
       </Tooltip>
     </li>

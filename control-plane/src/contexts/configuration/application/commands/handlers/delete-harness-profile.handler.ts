@@ -9,7 +9,7 @@ import {
   forbiddenTo,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -32,18 +32,18 @@ export class DeleteHarnessProfileHandler
 
     try {
       const standing = await this.profiles.withId(id);
-      const cleared = standing
-        ? await this.access.clearanceOnTeam(
+      const permissions = standing
+        ? await this.access.permissionsOnTeam(
             standing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !cleared) {
+      if (!standing || !permissions) {
         return null;
       }
 
-      if (!cleared.configures) {
+      if (!permissions.configures) {
         return forbiddenTo('configure');
       }
 
@@ -51,11 +51,11 @@ export class DeleteHarnessProfileHandler
 
       const named = await this.given.onTeam(standing.teamId, 'profile');
 
-      await this.transaction.run(() =>
+      await this.transaction.inTransaction(() =>
         this.profiles.save(
-          standing.retired(
+          standing.retire(
             named,
-            Attribution.of(command.actor, cleared.workspaceId),
+            Attribution.of(command.actor, permissions.workspaceId),
           ),
         ),
       );
@@ -74,7 +74,7 @@ export class DeleteHarnessProfileHandler
         return { outcome: 'in-use', reason: error.message };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

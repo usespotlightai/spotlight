@@ -21,7 +21,7 @@ export interface PairJudgingOrder {
   readonly teamId: TeamId;
   readonly judge: JudgeCriteria;
   readonly reference: RunId;
-  readonly mostAttempts: number;
+  readonly maxAttempts: number;
 }
 
 export type JudgingOrdered = 'asked' | 'unavailable' | 'unreadable-rubric';

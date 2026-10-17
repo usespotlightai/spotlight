@@ -26,7 +26,7 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import { PROBE_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
@@ -145,7 +145,7 @@ describe('StartReplayHandler', () => {
 
   it('refuses to replay a run more than five times', async () => {
     await expect(start('candidate_proposed', true, 6)).rejects.toBeInstanceOf(
-      UseCaseFault,
+      ApplicationError,
     );
   });
 
@@ -310,7 +310,7 @@ describe('StartReplayHandler', () => {
     memory.setRepository.locked = async () => aSet(0);
 
     for (const candidate of ['live', 'candidate_proposed']) {
-      await expect(start(candidate)).rejects.toBeInstanceOf(UseCaseFault);
+      await expect(start(candidate)).rejects.toBeInstanceOf(ApplicationError);
     }
 
     expect(memory.replays.size).toBe(0);
@@ -355,7 +355,7 @@ describe('StartReplayHandler', () => {
 
   it('knows no candidate of another station or team', async () => {
     await expect(start('candidate_elsewhere')).rejects.toBeInstanceOf(
-      UseCaseFault,
+      ApplicationError,
     );
   });
 
@@ -371,7 +371,7 @@ describe('StartReplayHandler', () => {
           ACTOR,
         ),
       ),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
   it('refuses one who may not plan', async () => {

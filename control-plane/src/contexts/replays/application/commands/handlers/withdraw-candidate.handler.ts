@@ -11,7 +11,7 @@ import {
   forbiddenTo,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -49,7 +49,7 @@ export class WithdrawCandidateHandler
         return forbiddenTo('plan');
       }
 
-      const withdrawn = await this.transaction.run(async () => {
+      const withdrawn = await this.transaction.inTransaction(async () => {
         const candidate = await this.candidates.locked(id);
 
         if (!candidate) {
@@ -61,7 +61,7 @@ export class WithdrawCandidateHandler
         const replays = await this.replays.ofCandidate(id);
 
         await this.candidates.save(
-          candidate.withdrawn(
+          candidate.withdraw(
             replays.some((each) => each.isUnderway),
             Attribution.of(command.actor, candidate.workspaceId),
           ),
@@ -88,7 +88,7 @@ export class WithdrawCandidateHandler
         return { outcome: 'in-use', reason: error.message };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

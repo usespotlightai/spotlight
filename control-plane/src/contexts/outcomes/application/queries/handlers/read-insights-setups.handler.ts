@@ -11,11 +11,11 @@ import {
   SIZE_BOUNDS,
 } from '@outcomes/domain/services/run-size';
 import {
-  FEWEST_SETUP_RUNS,
   judgeWithheldFrom,
+  MIN_SETUP_RUNS,
   setupsFrom,
 } from '@outcomes/domain/services/setup-comparison';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 const sizeAsked = (raw: string | null) => {
@@ -46,15 +46,15 @@ export class ReadInsightsSetupsHandler
   async execute(query: ReadInsightsSetupsQuery): Promise<InsightsSetupsDto> {
     try {
       const size = sizeAsked(query.size);
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
       const counts = await this.reader.setupCounts(
         {
-          workspaceId: clearance.workspaceId,
-          teamId: clearance.teamId,
+          workspaceId: access.workspaceId,
+          teamId: access.teamId,
           period,
         },
         { stationId: query.stationId, size },
@@ -65,7 +65,7 @@ export class ReadInsightsSetupsHandler
           ? null
           : {
               stationId: query.stationId,
-              ...(await this.judges.standings(clearance, counts.stations)),
+              ...(await this.judges.standings(access, counts.stations)),
             };
       const compared = setupsFrom(
         counts.setups,
@@ -82,7 +82,7 @@ export class ReadInsightsSetupsHandler
         stationId: query.stationId,
         size,
         sizes: SIZE_BOUNDS,
-        fewestRuns: FEWEST_SETUP_RUNS,
+        minRuns: MIN_SETUP_RUNS,
         currency: compared.currency,
         setups: compared.setups,
         judgeWithheld,
@@ -91,7 +91,7 @@ export class ReadInsightsSetupsHandler
         ),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

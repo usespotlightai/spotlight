@@ -68,7 +68,7 @@ export class StartOracleReplay {
       at: this.clock.now(),
     });
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const locked = await this.sets.locked(set.id);
       const against = await this.replays.find(baseline.id);
       const answers = locked
@@ -88,7 +88,7 @@ export class StartOracleReplay {
 
       await this.candidates.add(oracle);
       await this.replays.add(
-        Replay.started({
+        Replay.start({
           id: ReplayId.of(this.ids.generate()),
           set: locked,
           candidate: oracle,

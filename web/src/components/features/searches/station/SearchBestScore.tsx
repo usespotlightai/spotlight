@@ -1,6 +1,6 @@
 import { Noted } from '@/components/shared/Noted';
 import type { SearchBestResponseDto } from '@/lib/api';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import { bestScoreOf } from '@/lib/search';
 import { bestScoreNote } from '@/lib/search-words';
 
@@ -18,7 +18,7 @@ export function SearchBestScore({
   return (
     <Noted note={bestScoreNote(heldOut, interval)}>
       <span className="relative z-10 text-foreground tabular-nums">
-        {percentShown(rate)}
+        {formatPercent(rate)}
       </span>
     </Noted>
   );

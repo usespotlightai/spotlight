@@ -7,7 +7,7 @@ import {
   forbiddenTo,
   type ResourceDeleted,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -26,26 +26,28 @@ export class DeleteHookHandler
 
     try {
       const standing = await this.definitions.withId(id);
-      const cleared = standing
-        ? await this.access.clearanceOnTeam(
+      const permissions = standing
+        ? await this.access.permissionsOnTeam(
             standing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !cleared) {
+      if (!standing || !permissions) {
         return null;
       }
 
-      if (!cleared.configures) {
+      if (!permissions.configures) {
         return forbiddenTo('configure');
       }
 
       standing.assertVersion(command.expectedVersion);
 
-      await this.transaction.run(() =>
+      await this.transaction.inTransaction(() =>
         this.definitions.save(
-          standing.retired(Attribution.of(command.actor, cleared.workspaceId)),
+          standing.retire(
+            Attribution.of(command.actor, permissions.workspaceId),
+          ),
         ),
       );
 
@@ -59,7 +61,7 @@ export class DeleteHookHandler
           : null;
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

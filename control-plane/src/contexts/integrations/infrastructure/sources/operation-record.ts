@@ -1,7 +1,7 @@
 import type { OperationCall } from '@integrations/domain/value-objects/described-operation.vo';
 import {
   INPUT_NAME,
-  wordsFrom,
+  slugify,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export interface OperationRecord {
@@ -30,14 +30,14 @@ export class DescriptionUnreadable extends Error {
   }
 }
 
-const DESCRIPTION_AT_MOST = 1000;
+const MAX_DESCRIPTION = 1000;
 
 const NAMEABLE = new RegExp(`^${INPUT_NAME}$`);
 
 export const isNameable = (name: string): boolean => NAMEABLE.test(name);
 
 export const toolWordsOf = (upstream: string): string =>
-  wordsFrom(
+  slugify(
     upstream
       .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
       .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2'),
@@ -46,7 +46,7 @@ export const toolWordsOf = (upstream: string): string =>
 export const describedAs = (text: unknown, otherwise: string): string => {
   const said = typeof text === 'string' ? text.trim() : '';
 
-  return (said === '' ? otherwise : said).slice(0, DESCRIPTION_AT_MOST);
+  return (said === '' ? otherwise : said).slice(0, MAX_DESCRIPTION);
 };
 
 export const keepingFirst = (

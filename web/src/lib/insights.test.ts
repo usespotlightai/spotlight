@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { LineResponseDto, RunTallyResponseDto } from '@/lib/api';
 import {
   type Change,
-  changeShown,
-  filterValueShown,
+  changeDelta,
+  formatFilterValue,
+  formatRunFailure,
+  formatSignal,
+  formatSpread,
+  formatStation,
+  formatTaskFailure,
   type Headline,
   type HeadlineChanges,
   headlineTiles,
@@ -11,17 +16,12 @@ import {
   lasted,
   lastPageOf,
   paramsOf,
-  runFailureShown,
   runsShownOf,
   sankeyOf,
-  signalShown,
   sliceFilter,
   sliceNamer,
-  spreadShown,
   stationNamesOf,
-  stationShown,
   tallyTiles,
-  taskFailureShown,
   viewOf,
 } from '@/lib/insights';
 
@@ -252,34 +252,34 @@ describe('the insights view in the address', () => {
   });
 });
 
-describe('changeShown', () => {
+describe('changeDelta', () => {
   it('shows a relative change as a signed percent, in the server’s tone', () => {
-    expect(changeShown(change(0.2, 'good'))).toEqual({
+    expect(changeDelta(change(0.2, 'good'))).toEqual({
       shown: '+20%',
       tone: 'good',
     });
-    expect(changeShown(change(-0.5))).toEqual({ shown: '-50%', tone: 'flat' });
+    expect(changeDelta(change(-0.5))).toEqual({ shown: '-50%', tone: 'flat' });
   });
 
   it('shows a rate’s change in points, to one decimal below a point', () => {
-    expect(changeShown(change(0.05, 'good', 'points'))?.shown).toBe('+5 pts');
-    expect(changeShown(change(-0.03, 'bad', 'points'))?.shown).toBe('−3 pts');
-    expect(changeShown(change(0.004, 'good', 'points'))?.shown).toBe(
+    expect(changeDelta(change(0.05, 'good', 'points'))?.shown).toBe('+5 pts');
+    expect(changeDelta(change(-0.03, 'bad', 'points'))?.shown).toBe('−3 pts');
+    expect(changeDelta(change(0.004, 'good', 'points'))?.shown).toBe(
       '+0.4 pts',
     );
   });
 
   it('says no change, up from nothing, or nothing to compare', () => {
-    expect(changeShown(change(0))).toEqual({
+    expect(changeDelta(change(0))).toEqual({
       shown: 'No change',
       tone: 'flat',
     });
-    expect(changeShown(change(0, 'flat', 'points'))?.shown).toBe('No change');
-    expect(changeShown(change(null, 'good'))).toEqual({
+    expect(changeDelta(change(0, 'flat', 'points'))?.shown).toBe('No change');
+    expect(changeDelta(change(null, 'good'))).toEqual({
       shown: 'Up from 0',
       tone: 'good',
     });
-    expect(changeShown(null)).toBeNull();
+    expect(changeDelta(null)).toBeNull();
   });
 });
 
@@ -291,10 +291,10 @@ describe('durations', () => {
   });
 
   it('shows a spread as its median and p90', () => {
-    expect(spreadShown({ p50Ms: HOUR, p90Ms: 3 * HOUR, count: 4 })).toBe(
+    expect(formatSpread({ p50Ms: HOUR, p90Ms: 3 * HOUR, count: 4 })).toBe(
       '1h · p90 3h',
     );
-    expect(spreadShown({ p50Ms: null, p90Ms: null, count: 0 })).toBe('–');
+    expect(formatSpread({ p50Ms: null, p90Ms: null, count: 0 })).toBe('–');
   });
 });
 
@@ -374,31 +374,31 @@ describe('station names', () => {
   it('names stations from the team’s lines, and says when one is gone', () => {
     const names = stationNamesOf(LINES);
 
-    expect(stationShown(names, 'station_build')).toBe('Implementation');
+    expect(formatStation(names, 'station_build')).toBe('Implementation');
     expect(names.get('station_build')?.lineName).toBe('Delivery');
-    expect(stationShown(names, 'station_gone')).toBe('A removed station');
+    expect(formatStation(names, 'station_gone')).toBe('A removed station');
   });
 });
 
 describe('what to show for failures and signals', () => {
   it('names a task failure by source and code, and a run failure by its reason', () => {
     expect(
-      taskFailureShown({
+      formatTaskFailure({
         source: 'hook:notify',
         code: 'loop',
         occurrences: 3,
-        mostInARow: 3,
+        maxInARow: 3,
         taskIds: [],
       }),
     ).toBe('hook:notify · loop');
-    expect(runFailureShown({ failure: null, runs: 2, runIds: [] })).toBe(
+    expect(formatRunFailure({ failure: null, runs: 2, runIds: [] })).toBe(
       'No reason given',
     );
   });
 
   it('sets a signal against the period before and all stations', () => {
     expect(
-      signalShown({
+      formatSignal({
         signal: 'sent-back',
         now: 0.3,
         before: 0.1,
@@ -410,7 +410,7 @@ describe('what to show for failures and signals', () => {
       }),
     ).toBe('Sent back 30% (was 10%, all stations 15%)');
     expect(
-      signalShown({
+      formatSignal({
         signal: 'cost',
         now: 1.5,
         before: null,
@@ -452,13 +452,13 @@ describe('cost', () => {
   });
 
   it('names what a drilled-in filter narrows to', () => {
-    expect(filterValueShown('model', '~default')).toBe('Harness default');
-    expect(filterValueShown('repository', 'none')).toBe('No repository');
-    expect(filterValueShown('refusedServer', 'none')).toBe('No server');
-    expect(filterValueShown('refusedServer', 'linear')).toBe('linear');
-    expect(filterValueShown('taskIds', 'task_1,task_2')).toBe('2 tasks');
-    expect(filterValueShown('next', 'sent-back')).toBe('Sent back');
-    expect(filterValueShown('delivery', 'merged')).toBe('Merged');
+    expect(formatFilterValue('model', '~default')).toBe('Harness default');
+    expect(formatFilterValue('repository', 'none')).toBe('No repository');
+    expect(formatFilterValue('refusedServer', 'none')).toBe('No server');
+    expect(formatFilterValue('refusedServer', 'linear')).toBe('linear');
+    expect(formatFilterValue('taskIds', 'task_1,task_2')).toBe('2 tasks');
+    expect(formatFilterValue('next', 'sent-back')).toBe('Sent back');
+    expect(formatFilterValue('delivery', 'merged')).toBe('Merged');
   });
 
   it('lays the flow out by index for a Sankey, dropping what does not connect', () => {

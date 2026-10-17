@@ -3,7 +3,7 @@ import { ResourceMapper } from '@identity/application/mappers/resource.mapper';
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { ReadTeamQuery } from '@identity/application/queries/read-team.query';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -20,11 +20,11 @@ export class ReadTeamHandler
       const kept = await this.resources.teamWithId(TeamId.of(query.teamId));
 
       return kept &&
-        (await this.access.clearanceIn(kept.workspaceId, query.principal))
+        (await this.access.permissionsIn(kept.workspaceId, query.principal))
         ? ResourceMapper.team(kept)
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

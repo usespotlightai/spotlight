@@ -31,7 +31,7 @@ export interface Offering {
   readonly operation: DescribedOperation | null;
 }
 
-const COMPILED_AT_MOST = 500;
+const MAX_COMPILED = 500;
 
 export class IntegrationReader {
   readonly #compiled = new Map<string, Compiled>();
@@ -155,7 +155,7 @@ export class IntegrationReader {
     this.#compiled.set(key, compiled);
 
     for (const oldest of this.#compiled.keys()) {
-      if (this.#compiled.size <= COMPILED_AT_MOST) {
+      if (this.#compiled.size <= MAX_COMPILED) {
         break;
       }
       this.#compiled.delete(oldest);

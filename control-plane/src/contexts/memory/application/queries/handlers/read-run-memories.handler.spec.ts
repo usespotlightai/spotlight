@@ -32,7 +32,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 let made = 0;
 const kept = (body: string, teamId = TEAM) => {
   made += 1;
-  return Memory.written({
+  return Memory.write({
     id: MemoryId.of(`memory_${made}`),
     handle: MemoryHandle.of(made),
     workspaceId: WORKSPACE,

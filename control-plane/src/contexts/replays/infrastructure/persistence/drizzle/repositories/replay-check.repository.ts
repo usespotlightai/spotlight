@@ -79,7 +79,7 @@ const toCheck = (row: CheckRow): ReplayCheck =>
       scoring: row.candidateScoring,
     }),
     threshold: ReplayThreshold.of({
-      mostRegressions: row.mostRegressions,
+      maxRegressions: row.maxRegressions,
       ceiling: row.ceilingAmount,
       currency: row.ceilingCurrency,
       minGain: row.minGain,
@@ -174,7 +174,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
   }
 
   async add(added: ReplayCheck): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db
         .insert(replayCheck)
         .values({
@@ -197,7 +197,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           liveScoring: added.liveDigests.scoring,
           candidateBehaviour: added.candidateDigests.behaviour,
           candidateScoring: added.candidateDigests.scoring,
-          mostRegressions: added.threshold.mostRegressions,
+          maxRegressions: added.threshold.maxRegressions,
           ceilingAmount: added.threshold.ceiling.amount,
           ceilingCurrency: added.threshold.ceiling.currency,
           minGain: added.threshold.minGain,
@@ -217,7 +217,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
   }
 
   async save(saved: ReplayCheck): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       if (saved.isAbandoned) {
         await this.context.db
           .delete(replayCheck)

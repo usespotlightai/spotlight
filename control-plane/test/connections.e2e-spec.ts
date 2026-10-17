@@ -102,7 +102,7 @@ describe('each person’s own connections (e2e)', () => {
 
   const connect = (personId: string, handle: string) =>
     app.get<HostConnectionRepository>(HOST_CONNECTIONS).save(
-      HostConnection.linkedFrom({
+      HostConnection.linkFrom({
         workspaceId: WorkspaceId.of(held),
         teamId: TeamId.of(held),
         source: SourceKey.of('linear'),

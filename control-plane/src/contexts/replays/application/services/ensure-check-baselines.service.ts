@@ -48,7 +48,7 @@ export class EnsureCheckBaselines implements OwedWorkPort {
     const { baseline, set, replay } = await this.readings.of(check);
 
     if (baseline) {
-      await this.checks.save(check.baselineFound());
+      await this.checks.save(check.recordBaseline());
       return;
     }
 
@@ -58,11 +58,11 @@ export class EnsureCheckBaselines implements OwedWorkPort {
         : null;
 
     if (!live || live.digests.scoring !== check.liveDigests.scoring) {
-      await this.checks.save(check.baselineUnavailable());
+      await this.checks.save(check.markBaselineUnavailable());
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const locked = await this.sets.locked(check.setId);
 
       if (
@@ -78,7 +78,7 @@ export class EnsureCheckBaselines implements OwedWorkPort {
       }
 
       await this.replays.add(
-        Replay.started({
+        Replay.start({
           id: ReplayId.of(this.ids.generate()),
           set: locked,
           candidate: await this.snapshots.taken(locked),

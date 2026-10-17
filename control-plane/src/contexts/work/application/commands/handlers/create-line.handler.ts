@@ -4,7 +4,7 @@ import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type {
   IdempotentCreate,
@@ -37,19 +37,19 @@ export class CreateLineHandler
 
   async execute(command: CreateLineCommand): Promise<ResourceCreated | null> {
     try {
-      const cleared = await this.access.clearanceOnTeam(
+      const permissions = await this.access.permissionsOnTeam(
         command.teamId,
         command.actor.principal,
       );
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.configures) {
+      if (!permissions.configures) {
         return forbiddenTo('configure');
       }
 
-      const team = await this.teams.find(cleared.teamId);
+      const team = await this.teams.find(permissions.teamId);
 
       if (!team) {
         return null;
@@ -82,7 +82,7 @@ export class CreateLineHandler
       };
 
       try {
-        return await this.transaction.run(() =>
+        return await this.transaction.inTransaction(() =>
           createdOnce(
             this.creates,
             create,
@@ -113,7 +113,7 @@ export class CreateLineHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

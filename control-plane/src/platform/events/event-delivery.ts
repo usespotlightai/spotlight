@@ -25,7 +25,7 @@ import {
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { and, asc, count, eq, isNull, lte } from 'drizzle-orm';
 
-export const MOST_ATTEMPTS = 8;
+export const MAX_ATTEMPTS = 8;
 
 const backoffMs = (attempts: number): number =>
   Math.min(2 ** attempts * 1000, 60 * 60 * 1000);
@@ -65,7 +65,7 @@ export class EventDelivery {
     @Inject(ERROR_REPORTS) private readonly reports: ErrorReportsPort,
   ) {}
 
-  async workOff(limit = 100): Promise<number> {
+  async processDue(limit = 100): Promise<number> {
     let worked = 0;
 
     while (worked < limit && (await this.deliverOne())) {
@@ -79,7 +79,7 @@ export class EventDelivery {
     const until = Date.now() + timeoutMs;
 
     for (;;) {
-      await this.workOff();
+      await this.processDue();
 
       if ((await this.stillDue()) === 0 || Date.now() > until) {
         return;
@@ -108,7 +108,7 @@ export class EventDelivery {
     const claimed: { due: Due | null } = { due: null };
 
     try {
-      return await this.context.run(async () => {
+      return await this.context.inTransaction(async () => {
         const due = await this.nextDue();
         claimed.due = due;
 
@@ -176,7 +176,7 @@ export class EventDelivery {
   private async failed(due: Due, error: unknown): Promise<void> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
-    const givingUp = attempts >= MOST_ATTEMPTS;
+    const givingUp = attempts >= MAX_ATTEMPTS;
 
     this.logger.error(
       { err: error, subscriber: due.subscriber, attempts },
@@ -195,7 +195,7 @@ export class EventDelivery {
       });
     }
 
-    await this.context.run(() =>
+    await this.context.inTransaction(() =>
       this.context.db
         .update(eventDelivery)
         .set({

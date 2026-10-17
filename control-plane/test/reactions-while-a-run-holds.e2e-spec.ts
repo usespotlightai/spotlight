@@ -233,7 +233,7 @@ const awaitingProvision = async () =>
   (
     await runs.awaitingProvision(team.workspaceId, new Date(), {
       skip: 0,
-      most: 1_000,
+      max: 1_000,
       withSecrets: false,
     })
   ).map((each) => each.id.value);

@@ -88,7 +88,7 @@ describe('NetworkCall', () => {
   it('keeps the answer the host sent', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
-      .answeredWith(HOST, OK, later(2_000));
+      .answerWith(HOST, OK, later(2_000));
 
     expect(answered.stateAt(later(60_000))).toBe('answered');
     expect(answered.answer).toBe(OK);
@@ -103,9 +103,9 @@ describe('NetworkCall', () => {
   it('is answered once', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
-      .answeredWith(HOST, OK, later(2_000));
+      .answerWith(HOST, OK, later(2_000));
 
-    expect(() => answered.answeredWith(HOST, OK, later(3_000))).toThrow(
+    expect(() => answered.answerWith(HOST, OK, later(3_000))).toThrow(
       'Network call call_1 was already answered.',
     );
   });
@@ -114,12 +114,12 @@ describe('NetworkCall', () => {
     expect(() =>
       queued()
         .claimedBy(HOST, later(1_000))
-        .answeredWith(HOST, OK, later(15_000)),
+        .answerWith(HOST, OK, later(15_000)),
     ).toThrow('Network call call_1 lapsed before it was answered.');
   });
 
   it('takes no answer before a host claims it', () => {
-    expect(() => queued().answeredWith(HOST, OK, later(1_000))).toThrow(
+    expect(() => queued().answerWith(HOST, OK, later(1_000))).toThrow(
       'Network call call_1 is not claimed by a host yet.',
     );
   });
@@ -128,14 +128,14 @@ describe('NetworkCall', () => {
     expect(() =>
       queued()
         .claimedBy(HOST, later(1_000))
-        .answeredWith(CallingHost.of('host_2'), OK, later(2_000)),
+        .answerWith(CallingHost.of('host_2'), OK, later(2_000)),
     ).toThrow(NotThisHostsCallError);
   });
 
   it('forgets what it sent once answered, keeping where it went', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
-      .answeredWith(HOST, OK, later(2_000));
+      .answerWith(HOST, OK, later(2_000));
 
     expect(answered.request.headers).toEqual({});
     expect(answered.request.body.byteLength).toBe(0);
@@ -161,7 +161,7 @@ describe('NetworkCall', () => {
     expect(given.progress).toEqual({ kind: 'given-up', at: later(5_000) });
     expect(given.stateAt(later(60_000))).toBe('given-up');
     expect(given.request.headers).toEqual({});
-    expect(() => given.answeredWith(HOST, OK, later(6_000))).toThrow(
+    expect(() => given.answerWith(HOST, OK, later(6_000))).toThrow(
       'Network call call_1 was given up. The hook stopped waiting for it.',
     );
     expect(() => queued().givenUp(later(1)).claimedBy(HOST, later(2))).toThrow(
@@ -172,7 +172,7 @@ describe('NetworkCall', () => {
   it('is kept a week after it settles, then forgotten', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
-      .answeredWith(HOST, OK, later(2_000));
+      .answerWith(HOST, OK, later(2_000));
     const week = 7 * 24 * 60 * 60_000;
 
     expect(answered.isForgettableAt(later(2_000 + week - 1))).toBe(false);
@@ -190,7 +190,7 @@ describe('NetworkCall', () => {
   it('stays answered when given up on after its answer came', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
-      .answeredWith(HOST, OK, later(2_000));
+      .answerWith(HOST, OK, later(2_000));
 
     expect(answered.givenUp(later(3_000))).toBe(answered);
   });
@@ -204,7 +204,7 @@ describe('NetworkCall', () => {
   it('stays answered once answered, however late it is asked to lapse', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
-      .answeredWith(HOST, OK, later(2_000));
+      .answerWith(HOST, OK, later(2_000));
 
     expect(answered.lapsed(later(60_000))).toBe(answered);
   });

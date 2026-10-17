@@ -8,7 +8,7 @@ import type {
   WorkPort,
 } from '@memory/application/ports/work.port';
 import type { MemoryReviews } from '@memory/application/services/memory-reviews.service';
-import type { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
+import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
@@ -24,7 +24,7 @@ import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { StationSite } from '@memory/domain/value-objects/run-site';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -47,7 +47,7 @@ export class RememberHandler
   implements CommandHandlerPort<RememberCommand, ProposedMemoryDto>
 {
   constructor(
-    private readonly atHand: RunnerMemoryAtHand,
+    private readonly loader: RunnerMemoryLoader,
     private readonly work: WorkPort,
     private readonly drafts: MemoryDraftRepository,
     private readonly memories: MemoryRepository,
@@ -59,7 +59,7 @@ export class RememberHandler
 
   async execute(command: RememberCommand): Promise<ProposedMemoryDto> {
     try {
-      const held = await this.atHand.held(command.runId, command.runnerId);
+      const held = await this.loader.held(command.runId, command.runnerId);
       const remembering = Remembering.of({
         taskId: held.taskId,
         runId: held.id,
@@ -107,7 +107,7 @@ export class RememberHandler
 
       return shown;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
@@ -134,11 +134,11 @@ export class RememberHandler
   ): Promise<{ draft: MemoryDraft; id: MemoryId }> {
     const { remembering, runId, task, site, asked } = remembrance;
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const found = await this.drafts.forTask(remembering.taskId);
       const draft =
         found ??
-        MemoryDraft.opened({
+        MemoryDraft.open({
           id: MemoryDraftId.of(this.ids.generate()),
           taskId: remembering.taskId,
           workspaceId: task.workspaceId,
@@ -160,7 +160,7 @@ export class RememberHandler
         },
         now: this.clock.now(),
       });
-      const next = draft.remembered(proposal);
+      const next = draft.remember(proposal);
 
       if (next !== draft) {
         await (found ? this.drafts.save(next) : this.drafts.add(next));

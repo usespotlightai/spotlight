@@ -49,7 +49,7 @@ interface Dispatched {
   readonly worn: WornSecrets;
 }
 
-export const ANSWER_AT_MOST_BYTES = 4 * 1024 * 1024;
+export const MAX_ANSWER_BYTES = 4 * 1024 * 1024;
 
 const connectionOf = (against: Bindings): string | null =>
   typeof against.connection === 'string' && against.connection !== ''
@@ -144,11 +144,11 @@ export class HttpOutbound {
         parsed(
           await cappedText(
             reply,
-            ANSWER_AT_MOST_BYTES,
+            MAX_ANSWER_BYTES,
             () =>
               new UpstreamRefusedError(
                 `reading what ${new URL(request.url).host} answered`,
-                `it is larger than the ${ANSWER_AT_MOST_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
+                `it is larger than the ${MAX_ANSWER_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
               ),
           ),
         ),

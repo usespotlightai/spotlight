@@ -51,7 +51,7 @@ const rehydrated = (
 
 describe('HostConnection', () => {
   it('announces the host was connected when first linked', () => {
-    const connection = HostConnection.linkedFrom({
+    const connection = HostConnection.linkFrom({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TEAM,
       source: SLACK,
@@ -168,7 +168,7 @@ describe('HostConnection', () => {
   });
 
   it('announces whose connection it is, and in which workspace', () => {
-    const [connected] = HostConnection.linkedFrom({
+    const [connected] = HostConnection.linkFrom({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TEAM,
       source: SLACK,
@@ -182,7 +182,7 @@ describe('HostConnection', () => {
 
   it('is a different connection for each holder of the same host', () => {
     const team = rehydrated();
-    const alice = HostConnection.linkedFrom({
+    const alice = HostConnection.linkFrom({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TEAM,
       source: SLACK,
@@ -249,7 +249,7 @@ describe('HostConnection', () => {
   it('announces it was disconnected', () => {
     expect(
       rehydrated()
-        .disconnected()
+        .disconnect()
         .pullEvents()
         .map((each) => each.kind),
     ).toEqual(['integrations.host-disconnected']);

@@ -1,5 +1,5 @@
 import { Noted } from '@/components/shared/Noted';
-import { type ClaimAgreement, kappaNote, statShown } from '@/lib/judge';
+import { type ClaimAgreement, formatStat, kappaNote } from '@/lib/judge';
 
 const percent = (value: number): string =>
   `${Math.round(Math.min(Math.max(value, 0), 1) * 100)}%`;
@@ -15,7 +15,7 @@ export function KappaBar({ kappa, reading, trust }: KappaBarProps) {
     <Noted note={kappaNote(reading)}>
       <span className="flex min-w-0 cursor-default items-center gap-2">
         <span className="w-8 shrink-0 text-foreground tabular-nums">
-          {statShown(kappa)}
+          {formatStat(kappa)}
         </span>
         <span
           aria-hidden

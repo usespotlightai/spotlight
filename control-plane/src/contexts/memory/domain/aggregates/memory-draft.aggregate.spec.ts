@@ -21,7 +21,7 @@ import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { MOST_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { MAX_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -74,7 +74,7 @@ const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
 });
 
 const opened = () =>
-  MemoryDraft.opened({
+  MemoryDraft.open({
     id: MemoryDraftId.of('draft_1'),
     taskId: TASK,
     workspaceId: WorkspaceId.of('ws_1'),
@@ -92,7 +92,7 @@ const drafting = (
   proposed: readonly ProposedMemory[],
   notes?: readonly { position: number; by: 'person' | 'world' }[],
 ) =>
-  draft.drafted({
+  draft.recordDraft({
     runId,
     proposed,
     evidence: evidence(runId, notes),
@@ -203,7 +203,7 @@ describe('MemoryDraft', () => {
     it('keeps the proposals still waiting for a person when a later run brought nothing to read', () => {
       const first = drafting(opened().asked(FIRST, NOW), FIRST, [remembered()]);
 
-      const quiet = first.asked(SECOND, LATER).drafted({
+      const quiet = first.asked(SECOND, LATER).recordDraft({
         runId: SECOND,
         proposed: [],
         evidence: DraftEvidence.of({
@@ -237,7 +237,7 @@ describe('MemoryDraft', () => {
       const asked = opened().asked(FIRST, NOW);
 
       expect(() =>
-        asked.drafted({
+        asked.recordDraft({
           runId: FIRST,
           proposed: [remembered()],
           evidence: evidence(SECOND),
@@ -329,7 +329,7 @@ describe('MemoryDraft', () => {
       let draft = opened().asked(FIRST, NOW);
       let at = NOW;
 
-      for (let attempt = 0; attempt < MOST_WORK_ATTEMPTS; attempt += 1) {
+      for (let attempt = 0; attempt < MAX_WORK_ATTEMPTS; attempt += 1) {
         draft = draft.leased(at);
         at = draft.drafting?.work.dueAt ?? at;
       }
@@ -375,7 +375,7 @@ describe('MemoryDraft', () => {
     const outside = () => {
       const draft = opened()
         .asked(FIRST, NOW)
-        .drafted({
+        .recordDraft({
           runId: FIRST,
           proposed: [
             remembered({ body: 'From outside.' }),
@@ -413,7 +413,7 @@ describe('MemoryDraft', () => {
     it('approves a memory, recording who approved it and when', () => {
       const draft = three();
 
-      const approved = draft.approved({
+      const approved = draft.approve({
         runId: FIRST,
         approving: [{ id: idOf(draft, 0) }],
         decision: ADA,
@@ -436,7 +436,7 @@ describe('MemoryDraft', () => {
       const draft = three();
       const before = draft.proposals[0];
 
-      const approved = draft.approved({
+      const approved = draft.approve({
         runId: FIRST,
         approving: [{ id: idOf(draft, 0), body: '  Edited.  ' }],
         decision: ADA,
@@ -451,7 +451,7 @@ describe('MemoryDraft', () => {
     it('approves several memories at once', () => {
       const draft = three();
 
-      const approved = draft.approved({
+      const approved = draft.approve({
         runId: FIRST,
         approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 1) }],
         decision: ADA,
@@ -468,14 +468,14 @@ describe('MemoryDraft', () => {
       const draft = outside();
 
       expect(() =>
-        draft.approved({
+        draft.approve({
           runId: FIRST,
           approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 1) }],
           decision: ADA,
         }),
       ).toThrow(InvalidMemoryError);
       expect(
-        draft.approved({
+        draft.approve({
           runId: FIRST,
           approving: [{ id: idOf(draft, 0) }],
           decision: ADA,
@@ -486,7 +486,7 @@ describe('MemoryDraft', () => {
     it('rejects a memory and keeps it, announcing nothing to keep', () => {
       const draft = three();
 
-      const rejected = draft.rejected({
+      const rejected = draft.reject({
         runId: FIRST,
         id: idOf(draft, 2),
         decision: ADA,
@@ -499,14 +499,14 @@ describe('MemoryDraft', () => {
 
     it('decides a memory only once', () => {
       const draft = three();
-      const rejected = draft.rejected({
+      const rejected = draft.reject({
         runId: FIRST,
         id: idOf(draft, 0),
         decision: ADA,
       });
 
       expect(() =>
-        rejected.approved({
+        rejected.approve({
           runId: FIRST,
           approving: [{ id: idOf(draft, 0) }],
           decision: ADA,
@@ -518,7 +518,7 @@ describe('MemoryDraft', () => {
       const draft = three();
 
       expect(() =>
-        draft.rejected({ runId: SECOND, id: idOf(draft, 0), decision: ADA }),
+        draft.reject({ runId: SECOND, id: idOf(draft, 0), decision: ADA }),
       ).toThrow(UnknownMemoryError);
     });
 
@@ -526,14 +526,14 @@ describe('MemoryDraft', () => {
       const draft = three();
 
       expect(() =>
-        draft.rejected({
+        draft.reject({
           runId: FIRST,
           id: MemoryId.of('memory_elsewhere'),
           decision: ADA,
         }),
       ).toThrow(UnknownMemoryError);
       expect(() =>
-        draft.approved({
+        draft.approve({
           runId: FIRST,
           approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 0) }],
           decision: ADA,
@@ -544,7 +544,7 @@ describe('MemoryDraft', () => {
     it('settles a run’s review once nothing it proposed is left to decide', () => {
       let draft = three();
 
-      draft = draft.approved({
+      draft = draft.approve({
         runId: FIRST,
         approving: [{ id: idOf(draft, 0) }, { id: idOf(draft, 1) }],
         decision: ADA,
@@ -553,7 +553,7 @@ describe('MemoryDraft', () => {
         expect.any(MemoryReviewSettled),
       );
 
-      draft = draft.rejected({
+      draft = draft.reject({
         runId: FIRST,
         id: idOf(draft, 2),
         decision: ADA,
@@ -581,12 +581,12 @@ describe('MemoryDraft', () => {
     it('keeps approved and rejected memories when a later run replaces the rest', () => {
       const draft = three();
       const decided = draft
-        .approved({
+        .approve({
           runId: FIRST,
           approving: [{ id: idOf(draft, 0) }],
           decision: ADA,
         })
-        .rejected({ runId: FIRST, id: idOf(draft, 1), decision: ADA });
+        .reject({ runId: FIRST, id: idOf(draft, 1), decision: ADA });
 
       const later = drafting(decided.asked(SECOND, LATER), SECOND, []);
 
@@ -632,7 +632,7 @@ describe('MemoryDraft', () => {
       });
 
     it('takes in what a run asked to remember and puts it to a person', () => {
-      const draft = opened().remembered(asked(FIRST));
+      const draft = opened().remember(asked(FIRST));
 
       expect(draft.proposals.map((each) => each.id.value)).toEqual([
         'memory_asked',
@@ -644,11 +644,11 @@ describe('MemoryDraft', () => {
     });
 
     it('takes in the same memory from the same run only once', () => {
-      const draft = opened().remembered(asked(FIRST));
+      const draft = opened().remember(asked(FIRST));
       draft.pullEvents();
       const again = asked(FIRST, undefined, 'memory_again');
 
-      expect(draft.remembered(again)).toBe(draft);
+      expect(draft.remember(again)).toBe(draft);
       expect(draft.holding(again)?.id.value).toBe('memory_asked');
     });
 
@@ -660,19 +660,19 @@ describe('MemoryDraft', () => {
         throw new Error('nothing was drafted');
       }
 
-      expect(() => opened().remembered(drafted)).toThrow(InvalidMemoryError);
+      expect(() => opened().remember(drafted)).toThrow(InvalidMemoryError);
       expect(() =>
-        MemoryDraft.opened({
+        MemoryDraft.open({
           id: MemoryDraftId.of('draft_2'),
           taskId: TaskId.of('task_other'),
           workspaceId: WorkspaceId.of('ws_1'),
-        }).remembered(asked(FIRST)),
+        }).remember(asked(FIRST)),
       ).toThrow(InvalidMemoryError);
     });
 
     it('drafts nothing the run already asked to remember in the same words', () => {
       const draft = opened()
-        .remembered(asked(FIRST, remembered().body))
+        .remember(asked(FIRST, remembered().body))
         .asked(FIRST, NOW);
       draft.pullEvents();
 
@@ -687,7 +687,7 @@ describe('MemoryDraft', () => {
 
     it('keeps what a run remembered when a later draft replaces the rest', () => {
       const draft = drafting(
-        opened().remembered(asked(FIRST)).asked(FIRST, NOW),
+        opened().remember(asked(FIRST)).asked(FIRST, NOW),
         FIRST,
         [remembered()],
       ).asked(SECOND, LATER);

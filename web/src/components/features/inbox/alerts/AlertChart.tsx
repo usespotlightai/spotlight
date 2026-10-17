@@ -10,14 +10,14 @@ import {
 import { AlertChartLegend } from '@/components/features/inbox/alerts/AlertChartLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 import {
   type AlertPoint,
-  crossingShown,
-  measureValueShown,
+  formatCrossing,
+  formatMeasureValue,
+  formatThreshold,
   type StationAlertCrossing,
   thresholdLine,
-  thresholdShown,
 } from '@/lib/station-alert';
 
 export const ALERT_CHART_HEIGHT = 160;
@@ -35,7 +35,7 @@ const ticksWidth = (alert: StationAlertCrossing): number => {
   const widest = Math.max(
     ...values.map(
       (value) =>
-        measureValueShown(alert.threshold.measure, value, alert.currency)
+        formatMeasureValue(alert.threshold.measure, value, alert.currency)
           .length,
     ),
   );
@@ -63,10 +63,10 @@ const Said = ({
   return (
     <ChartTip placement={placement}>
       <p className="text-muted-foreground">
-        Run ended {dayShown(point.endedAt.slice(0, 10))}
+        Run ended {formatDay(point.endedAt.slice(0, 10))}
       </p>
       <p className="text-foreground">
-        {measureValueShown(
+        {formatMeasureValue(
           alert.threshold.measure,
           point.value,
           alert.currency,
@@ -89,8 +89,8 @@ export function AlertChart({ alert }: { alert: StationAlertCrossing }) {
           <ResponsiveContainer width="100%" height={ALERT_CHART_HEIGHT}>
             <LineChart
               data={[...alert.series]}
-              title={thresholdShown(alert)}
-              desc={crossingShown(alert)}
+              title={formatThreshold(alert)}
+              desc={formatCrossing(alert)}
               margin={{ top: 8, right: 0, bottom: 8, left: 0 }}
             >
               <XAxis dataKey="runId" hide />
@@ -108,7 +108,7 @@ export function AlertChart({ alert }: { alert: StationAlertCrossing }) {
                   style: { fontVariantNumeric: 'tabular-nums' },
                 }}
                 tickFormatter={(value: number) =>
-                  measureValueShown(
+                  formatMeasureValue(
                     alert.threshold.measure,
                     value,
                     alert.currency,

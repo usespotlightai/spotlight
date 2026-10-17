@@ -1,11 +1,11 @@
 import { HttpResponse, type RequestHandler } from 'msw';
 import type {
-  ConfiguredIntegrationResponseDto,
   ConnectGitHubRequestDto,
   ConnectIntegrationRequestDto,
   CreateRunnerPoolData,
   CreateWorkspaceRequestDto,
   CreateWorkspaceTokenData,
+  IntegrationViewResponseDto,
   OnboardingResponseDto,
   SetToolRuleRequestDto,
 } from '@/lib/api';
@@ -50,7 +50,7 @@ const connectionsOf = (teamId: string): TeamConnections => {
   return store[teamId];
 };
 
-const configured = (teamId: string): ConfiguredIntegrationResponseDto[] =>
+const configured = (teamId: string): IntegrationViewResponseDto[] =>
   settingsWorld().integrations[teamId] ?? [];
 
 const setupChatOf = (teamId: string): OnboardingResponseDto['setupChat'] => {

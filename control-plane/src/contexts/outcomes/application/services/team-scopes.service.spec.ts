@@ -11,7 +11,7 @@ const NOW = new Date('2026-10-01T15:00:00.000Z');
 const scopes = (onTeam: boolean) =>
   new TeamScopes(
     new OutcomesAccess({
-      clearedOnTeam: async () =>
+      membershipOnTeam: async () =>
         onTeam ? { workspaceId: WORKSPACE, by: UserId.of('user_ada') } : null,
       namesOf: async () => new Map(),
     }),
@@ -20,14 +20,14 @@ const scopes = (onTeam: boolean) =>
 
 describe('TeamScopes', () => {
   it('clears a team member and reads the period they asked for up to now', async () => {
-    const { clearance, period } = await scopes(true).scope(
+    const { access, period } = await scopes(true).scope(
       'team_1',
       PersonPrincipal.of(UserId.of('user_ada')),
       '30d',
     );
 
-    expect(clearance.teamId.value).toBe('team_1');
-    expect(clearance.workspaceId).toEqual(WORKSPACE);
+    expect(access.teamId.value).toBe('team_1');
+    expect(access.workspaceId).toEqual(WORKSPACE);
     expect(period).toEqual(InsightsPeriod.of('30d', NOW));
   });
 

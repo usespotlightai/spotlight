@@ -2,7 +2,7 @@ import type { DescribedDocumentRepository } from '@integrations/domain/repositor
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
 
-const HELD_AT_MOST = 2000;
+const MAX_HELD = 2000;
 
 export class OperationCache {
   readonly #held = new Map<string, DescribedOperation>();
@@ -29,7 +29,7 @@ export class OperationCache {
       this.#held.set(key, found);
 
       for (const oldest of this.#held.keys()) {
-        if (this.#held.size <= HELD_AT_MOST) {
+        if (this.#held.size <= MAX_HELD) {
           break;
         }
         this.#held.delete(oldest);

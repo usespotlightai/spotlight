@@ -2,9 +2,9 @@ import { TriangleAlert } from 'lucide-react';
 import { Noted } from '@/components/shared/Noted';
 import { Pill } from '@/components/shared/Pill';
 import {
+  formatOnlyOnSeenTasks,
   type OnlyOnSeenTasks,
   onlyOnSeenTasksNote,
-  onlyOnSeenTasksShown,
 } from '@/lib/search-words';
 import { cn } from '@/lib/utils';
 
@@ -31,11 +31,11 @@ export function OnlyOnSeenTasksBadge({
               'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
             )}
           >
-            {onlyOnSeenTasksShown(mark)}
+            {formatOnlyOnSeenTasks(mark)}
           </Pill>
         ) : (
           <span className="text-muted-foreground text-xs">
-            {onlyOnSeenTasksShown(mark)}
+            {formatOnlyOnSeenTasks(mark)}
           </span>
         )}
       </span>

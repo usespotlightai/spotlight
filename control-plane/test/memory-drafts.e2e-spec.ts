@@ -54,7 +54,7 @@ let next = 0;
 
 const opened = () => {
   next += 1;
-  return MemoryDraft.opened({
+  return MemoryDraft.open({
     id: MemoryDraftId.of(`draft_${next}`),
     taskId: TaskId.of(`task_${next}`),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -67,7 +67,7 @@ const drafting = (
   proposed: readonly ProposedMemory[],
 ) => {
   let made = 0;
-  return draft.drafted({
+  return draft.recordDraft({
     runId,
     proposed,
     evidence: DraftEvidence.of({

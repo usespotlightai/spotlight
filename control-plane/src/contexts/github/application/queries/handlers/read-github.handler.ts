@@ -3,7 +3,7 @@ import type { GitHubAppPort } from '@github/application/ports/github-app.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -35,7 +35,7 @@ export class ReadGitHubHandler
 
       return { connected, installUrl };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

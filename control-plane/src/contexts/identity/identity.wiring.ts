@@ -42,7 +42,7 @@ import {
   DeleteWorkspaceTokenTrustCommand,
   UpdateWorkspaceTokenTrustCommand,
 } from '@identity/application/commands/workspace-token-trust.commands';
-import { IDENTITY_PUBLICATIONS } from '@identity/application/integration-events/identity.publications';
+import { IDENTITY_EVENT_MAPPERS } from '@identity/application/integration-events/identity.event-mappers';
 import {
   CONFIGURATION_AUDIT,
   type ConfigurationAuditPort,
@@ -129,7 +129,7 @@ import { TokenBearers } from '@identity/application/services/token-bearers.servi
 import { TokenTrustConfiguration } from '@identity/application/services/token-trust-configuration.service';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
 import { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
-import { IDENTITY_EVENT_TYPES } from '@identity/domain/event-types';
+import { IDENTITY_PAYLOAD_TYPES } from '@identity/domain/payload-types';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { OutboxWorkspaceProvisioning } from '@identity/infrastructure/events/outbox-workspace-provisioning';
 import { InviteByMail } from '@identity/infrastructure/mail/invite.mail';
@@ -170,9 +170,9 @@ import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventProjections } from '@platform/events/event-projections';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import {
   CLOCK,
   type ClockPort,
@@ -539,8 +539,8 @@ const published: Provider[] = [
   {
     provide: IDENTITY_EVENTS,
     inject: [
-      EventTypes,
-      EventPublications,
+      PayloadTypes,
+      IntegrationEventMappers,
       EventSubscribers,
       EventProjections,
       DrizzleWorkspaceRepository,
@@ -550,8 +550,8 @@ const published: Provider[] = [
       PERSON_READER,
     ],
     useFactory: (
-      types: EventTypes,
-      publications: EventPublications,
+      types: PayloadTypes,
+      mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       projections: EventProjections,
       workspaces: DrizzleWorkspaceRepository,
@@ -560,8 +560,8 @@ const published: Provider[] = [
       minted: MintedTokens,
       people: PersonReaderPort,
     ) => {
-      types.register('identity', IDENTITY_EVENT_TYPES);
-      publications.register(IDENTITY_PUBLICATIONS);
+      types.register('identity', IDENTITY_PAYLOAD_TYPES);
+      mappers.register(IDENTITY_EVENT_MAPPERS);
       projections.register(identityProjections(audit));
       subscribers.register(
         identitySubscribers(

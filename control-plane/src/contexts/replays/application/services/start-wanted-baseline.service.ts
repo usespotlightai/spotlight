@@ -18,7 +18,7 @@ export class StartWantedBaseline {
   ) {}
 
   wanted(event: ReplayBaselineWanted): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       if (await this.replays.find(event.baselineId)) {
         return;
       }
@@ -40,12 +40,12 @@ export class StartWantedBaseline {
           event.repeats,
         )
       ) {
-        await this.candidates.save(candidate.abandoned());
+        await this.candidates.save(candidate.abandon());
         return;
       }
 
       await this.replays.add(
-        Replay.started({
+        Replay.start({
           id: event.baselineId,
           set,
           candidate,

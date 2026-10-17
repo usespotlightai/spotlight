@@ -71,7 +71,7 @@ class PullRequestsInMemory implements PullRequestRepository {
     );
   }
 
-  async lastHeardBefore(before: Date, after: PullRequest | null, most: number) {
+  async lastHeardBefore(before: Date, after: PullRequest | null, max: number) {
     return [...this.held.values()]
       .filter(
         (each) =>
@@ -89,19 +89,19 @@ class PullRequestsInMemory implements PullRequestRepository {
           (each.updatedAt.getTime() === after.updatedAt.getTime() &&
             each.url.value > after.url.value),
       )
-      .slice(0, most);
+      .slice(0, max);
   }
 
   async ofWorkspace(
     workspaceId: WorkspaceId,
     after: PullRequestUrl | null,
-    most: number,
+    max: number,
   ) {
     return [...this.held.values()]
       .filter((each) => each.workspaceId.equals(workspaceId))
       .sort((a, b) => a.url.value.localeCompare(b.url.value))
       .filter((each) => !after || each.url.value > after.value)
-      .slice(0, most);
+      .slice(0, max);
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId) {
@@ -220,7 +220,7 @@ const recordingAt = (
     service: new RecordPullRequests(
       pullRequests,
       connections,
-      { run: (work) => work() },
+      { inTransaction: (work) => work() },
       { now: () => now, sleep: async () => {} },
       {
         debug: () => {},
@@ -528,9 +528,7 @@ describe('RecordPullRequests', () => {
 
   it('records nothing once the workspace no longer holds the installation the delivery came through', async () => {
     const { service, pullRequests, connections } = recording();
-    await connections.save(
-      connections.connection.disconnectedFrom(INSTALLATION),
-    );
+    await connections.save(connections.connection.disconnectFrom(INSTALLATION));
 
     await service.described(FROM, factsOf(7));
 

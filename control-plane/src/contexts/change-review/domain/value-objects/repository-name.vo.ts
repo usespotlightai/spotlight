@@ -1,6 +1,6 @@
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 
-const MOST_LENGTH = 100;
+const MAX_LENGTH = 100;
 
 export class RepositoryName {
   private constructor(readonly value: string) {}
@@ -8,9 +8,9 @@ export class RepositoryName {
   static of(raw: string): RepositoryName {
     const name = raw.trim();
 
-    if (!name || name.length > MOST_LENGTH) {
+    if (!name || name.length > MAX_LENGTH) {
       throw InvalidChangeStackError.because(
-        `repository name must be at most ${MOST_LENGTH} characters`,
+        `repository name must be at most ${MAX_LENGTH} characters`,
       );
     }
 

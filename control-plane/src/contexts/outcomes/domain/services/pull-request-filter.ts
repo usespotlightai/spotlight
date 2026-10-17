@@ -27,7 +27,7 @@ import {
   type PullRequestType,
 } from '@outcomes/domain/value-objects/pull-request-type';
 
-export const MOST_FILTERED_REPOSITORIES = 50;
+export const MAX_FILTERED_REPOSITORIES = 50;
 
 type AskedValue = string | readonly string[] | null;
 
@@ -113,9 +113,9 @@ const weekOf = (value: AskedValue): Window | null => {
 const repositoriesOf = (
   asked: readonly string[] | null,
 ): readonly string[] | null => {
-  if (asked !== null && asked.length > MOST_FILTERED_REPOSITORIES) {
+  if (asked !== null && asked.length > MAX_FILTERED_REPOSITORIES) {
     throw new InvalidPullRequestFilterError(
-      `takes at most ${MOST_FILTERED_REPOSITORIES} repositories`,
+      `takes at most ${MAX_FILTERED_REPOSITORIES} repositories`,
     );
   }
 

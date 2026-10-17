@@ -22,7 +22,7 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-interface HeldSigningSecret {
+interface VersionedSigningSecret {
   readonly secret: HookSigningSecret;
   readonly version: number;
 }
@@ -31,7 +31,7 @@ export interface SigningVersion {
   readonly version: number;
 }
 
-interface Kept {
+interface Props {
   readonly id: HookDefinitionId;
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
@@ -43,7 +43,7 @@ interface Kept {
   readonly version: number;
 }
 
-interface State extends Kept {
+interface State extends Props {
   readonly retired: boolean;
   readonly givenSecret: HookSigningSecret | null;
 }
@@ -59,7 +59,7 @@ export interface Compiled {
 }
 
 export type SecretGiven =
-  | { readonly kind: 'given'; readonly held: HeldSigningSecret }
+  | { readonly kind: 'given'; readonly held: VersionedSigningSecret }
   | { readonly kind: 'kept'; readonly version: number }
   | { readonly kind: 'none' };
 
@@ -189,7 +189,7 @@ export class HookDefinition extends EventRecorder {
     return defined;
   }
 
-  static rehydrate(input: Kept): HookDefinition {
+  static rehydrate(input: Props): HookDefinition {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'hook definition',
@@ -242,7 +242,7 @@ export class HookDefinition extends EventRecorder {
     return redefined;
   }
 
-  retired(by: Attribution): HookDefinition {
+  retire(by: Attribution): HookDefinition {
     this.guardLive();
 
     const retired = this.with({ retired: true });
@@ -252,8 +252,8 @@ export class HookDefinition extends EventRecorder {
     return retired;
   }
 
-  abandoned(by: Attribution): HookDefinition {
-    return this.retired(by);
+  abandon(by: Attribution): HookDefinition {
+    return this.retire(by);
   }
 
   get id(): HookDefinitionId {

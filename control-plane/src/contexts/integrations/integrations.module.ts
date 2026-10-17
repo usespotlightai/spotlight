@@ -1,5 +1,5 @@
-import { HELD_HOOKS } from '@configuration/application/ports/held-hooks.port';
-import { HELD_INTEGRATIONS } from '@configuration/application/ports/held-integrations.port';
+import { HOOK_CONFIGS } from '@configuration/application/ports/hook-configs.port';
+import { INTEGRATION_CONFIGS } from '@configuration/application/ports/integration-configs.port';
 import { INTEGRATION_READER } from '@configuration/application/ports/integration-reader.port';
 import { ConfigurationModule } from '@configuration/configuration.module';
 import { GitHubModule } from '@github/github.module';
@@ -32,8 +32,8 @@ import { WorkModule } from '@work/work.module';
   exports: [
     TEAM_INTEGRATIONS,
     INTEGRATION_READER,
-    HELD_INTEGRATIONS,
-    HELD_HOOKS,
+    INTEGRATION_CONFIGS,
+    HOOK_CONFIGS,
     TASK_NOTICES,
     INTEGRATION_TOOL_CALLS,
     LIFECYCLE_HOOKS,

@@ -20,7 +20,7 @@ import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { useDotHover } from '@/hooks/useDotHover';
 import { AXIS_TITLE, costTick } from '@/lib/chart';
 import { spentIn } from '@/lib/inbox';
-import { countShown, shareShown } from '@/lib/insights';
+import { formatCount, formatShare } from '@/lib/insights';
 import type { ReplayedPoint } from '@/lib/insights-candidates';
 import {
   frontierOf,
@@ -67,11 +67,11 @@ const Said = ({
     <ChartTip placement={placement}>
       <p className="text-foreground">{point.label}</p>
       <p className="text-muted-foreground">
-        {outcomeLabel(measure)} {shareShown(point.value)} ·{' '}
+        {outcomeLabel(measure)} {formatShare(point.value)} ·{' '}
         {spentIn(point.cost, currency)} a run
       </p>
       <p className="text-muted-foreground">
-        {countShown(point.runs)} {point.runs === 1 ? 'run' : 'runs'}
+        {formatCount(point.runs)} {point.runs === 1 ? 'run' : 'runs'}
         {point.frontier ? ' · on the frontier' : ''}
       </p>
     </ChartTip>
@@ -137,7 +137,7 @@ export function SetupScatter({
                 axisLine={false}
                 width={56}
                 tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                tickFormatter={(value: number) => shareShown(value)}
+                tickFormatter={(value: number) => formatShare(value)}
                 label={{
                   ...AXIS_TITLE,
                   value:

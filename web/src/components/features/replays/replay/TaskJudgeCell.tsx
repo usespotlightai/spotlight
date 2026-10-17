@@ -2,14 +2,14 @@ import { Noted } from '@/components/shared/Noted';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   type EntryComparison,
-  judgeScoreShown,
+  formatJudgeScore,
+  formatScoreDelta,
   type ReplayEntry,
-  scoreDeltaShown,
 } from '@/lib/replay';
-import { capitalised, uncomparedShown } from '@/lib/replay-words';
+import { capitalised, formatUncompared } from '@/lib/replay-words';
 
-const judgesShown = (copies: readonly ReplayEntry[]): string =>
-  copies.map((each) => judgeScoreShown(each.judge)).join(' · ');
+const formatJudges = (copies: readonly ReplayEntry[]): string =>
+  copies.map((each) => formatJudgeScore(each.judge)).join(' · ');
 
 type TaskJudgeCellProps = {
   row: EntryComparison;
@@ -24,19 +24,19 @@ export function TaskJudgeCell({
 }: TaskJudgeCellProps) {
   if (!compared) {
     return (
-      <NestedCell heading="Judge">{judgesShown(row.candidate)}</NestedCell>
+      <NestedCell heading="Judge">{formatJudges(row.candidate)}</NestedCell>
     );
   }
 
   return (
     <NestedCell heading="Judge">
       <Noted
-        note={`This replay ${judgesShown(row.candidate)} · ${capitalised(counterpart)} ${judgesShown(row.baseline)}`}
+        note={`This replay ${formatJudges(row.candidate)} · ${capitalised(counterpart)} ${formatJudges(row.baseline)}`}
       >
         <span className="relative z-10">
           {row.scoreUncompared
-            ? uncomparedShown(row.scoreUncompared)
-            : scoreDeltaShown(row.scoreDelta)}
+            ? formatUncompared(row.scoreUncompared)
+            : formatScoreDelta(row.scoreDelta)}
         </span>
       </Noted>
     </NestedCell>

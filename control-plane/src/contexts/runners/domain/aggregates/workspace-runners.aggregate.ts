@@ -112,7 +112,7 @@ export class WorkspaceRunners extends EventRecorder {
     this.guardStanding();
     refuseRepeats(declaration);
 
-    const redeclared = this.reshaped({
+    const redeclared = this.with({
       trusts: declaration.trusts,
       pools: declaration.pools,
     });
@@ -128,10 +128,10 @@ export class WorkspaceRunners extends EventRecorder {
     return redeclared;
   }
 
-  dropped(by: Attribution): WorkspaceRunners {
+  drop(by: Attribution): WorkspaceRunners {
     this.guardStanding();
 
-    const dropped = this.reshaped({ dropped: true });
+    const dropped = this.with({ dropped: true });
 
     dropped.record(
       new WorkspaceRunnersDropped(
@@ -161,7 +161,7 @@ export class WorkspaceRunners extends EventRecorder {
     }
   }
 
-  private reshaped(part: {
+  private with(part: {
     trusts?: readonly TrustKey[];
     pools?: readonly PoolKey[];
     dropped?: boolean;

@@ -38,7 +38,7 @@ export class TaskAside extends EventRecorder {
     super();
   }
 
-  static raised(input: {
+  static raise(input: {
     id: TaskAsideId;
     workspaceId: WorkspaceId;
     taskId: TaskId;
@@ -157,7 +157,7 @@ export class TaskAside extends EventRecorder {
     return settled;
   }
 
-  reopened(now: Date): TaskAside {
+  reopen(now: Date): TaskAside {
     if (this.open) {
       return this;
     }

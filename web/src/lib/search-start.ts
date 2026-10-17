@@ -11,7 +11,7 @@ import {
   typedIn,
 } from '@/lib/search';
 import {
-  objectiveSuggestedShown,
+  formatObjectiveSuggested,
   type SearchObjective,
 } from '@/lib/search-words';
 
@@ -108,7 +108,7 @@ export const objectiveSuggestionOf = (
   saturatedRate: number | null,
 ): string | null =>
   chosen === null && saturatedRate !== null
-    ? objectiveSuggestedShown(saturatedRate)
+    ? formatObjectiveSuggested(saturatedRate)
     : null;
 
 export const estimateRefusalOf = (

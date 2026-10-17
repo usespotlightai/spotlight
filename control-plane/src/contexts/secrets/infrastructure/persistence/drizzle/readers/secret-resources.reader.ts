@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DefinedSecretsPort } from '@secrets/application/ports/defined-secrets.port';
 import type {
-  KeptSecret,
+  SecretRecord,
   SecretResourcesPort,
 } from '@secrets/application/ports/secret-resources.port';
 import type { SecretSourceKind } from '@secrets/domain/value-objects/secret-source.vo';
@@ -11,7 +11,7 @@ import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secr
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 
-const keptFrom = (row: typeof secret.$inferSelect): KeptSecret => ({
+const keptFrom = (row: typeof secret.$inferSelect): SecretRecord => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -32,17 +32,17 @@ export class DrizzleSecretResources
 {
   constructor(private readonly context: DrizzleContext) {}
 
-  withId(id: string): Promise<KeptSecret | null> {
+  withId(id: string): Promise<SecretRecord | null> {
     return this.first(eq(secret.id, id));
   }
 
-  named(workspaceId: WorkspaceId, name: string): Promise<KeptSecret | null> {
+  named(workspaceId: WorkspaceId, name: string): Promise<SecretRecord | null> {
     return this.first(
       and(eq(secret.workspaceId, workspaceId.value), eq(secret.name, name)),
     );
   }
 
-  async secretsIn(workspaceId: WorkspaceId): Promise<readonly KeptSecret[]> {
+  async secretsIn(workspaceId: WorkspaceId): Promise<readonly SecretRecord[]> {
     return (
       await this.context.db
         .select()
@@ -67,7 +67,7 @@ export class DrizzleSecretResources
     );
   }
 
-  private async first(where: SQL | undefined): Promise<KeptSecret | null> {
+  private async first(where: SQL | undefined): Promise<SecretRecord | null> {
     const [found] = await this.context.db
       .select()
       .from(secret)

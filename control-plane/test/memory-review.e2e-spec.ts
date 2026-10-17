@@ -63,13 +63,13 @@ const proposing = async (
   const held = await drafts.forTask(team.list.id);
   const asked = (
     held ??
-    MemoryDraft.opened({
+    MemoryDraft.open({
       id: MemoryDraftId.of(randomUUID()),
       taskId: team.list.id,
       workspaceId: team.workspaceId,
     })
   ).asked(runId, NOW);
-  const drafted = asked.drafted({
+  const drafted = asked.recordDraft({
     runId,
     proposed: bodies.map(remembered),
     evidence: DraftEvidence.of({

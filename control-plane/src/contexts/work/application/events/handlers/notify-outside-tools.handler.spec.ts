@@ -72,7 +72,7 @@ const notifying = (marks: readonly Mark[] = [], wearer: Task | null = null) => {
       save,
     } as unknown as TaskRepository,
     { notify } satisfies OutboundTaskNotifierPort,
-    { run: (work) => work() } satisfies TransactionPort,
+    { inTransaction: (work) => work() } satisfies TransactionPort,
   );
 
   return { handler, task, save, notify };

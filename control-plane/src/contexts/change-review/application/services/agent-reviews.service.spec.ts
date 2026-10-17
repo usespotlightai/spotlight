@@ -58,7 +58,7 @@ const reviewing = (
     {
       add: async (review: Review) => void reviews.push(review),
     } as unknown as ReviewRepository,
-    { run: (work) => work() },
+    { inTransaction: (work) => work() },
     { generate: () => `id_${++ids}` },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -98,7 +98,7 @@ describe('AgentReviews', () => {
 
   it('submits the run’s own drafts as one review, and nobody else’s', async () => {
     const { agent, comments, reviews } = reviewing();
-    const ada = ReviewComment.drafted({
+    const ada = ReviewComment.draft({
       id: ReviewCommentId.of('comment_ada'),
       workspaceId: WORKSPACE,
       taskId: TASK,

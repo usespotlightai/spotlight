@@ -5,7 +5,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { type ReplayedStation, replaySetPath } from '@/lib/replay';
 import { type SearchDetail, searchLabel } from '@/lib/search';
-import { ranShown, since } from '@/lib/since';
+import { formatRan, since } from '@/lib/since';
 
 type SearchHeadingProps = {
   at: ReplayedStation;
@@ -38,7 +38,7 @@ export function SearchHeading({
         {setName ?? 'Its replay set'}
       </TrailLink>
       {' · '}
-      <Noted note={ranShown(search.startedAt, search.endedAt)}>
+      <Noted note={formatRan(search.startedAt, search.endedAt)}>
         <span>{since(search.endedAt ?? search.startedAt)}</span>
       </Noted>
     </StationItemHeading>

@@ -11,9 +11,9 @@ import {
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import {
+  formatSignal,
   type SignalReading,
   signalLabel,
-  signalShown,
   signalValue,
 } from '@/lib/insights';
 import { cn } from '@/lib/utils';
@@ -34,7 +34,7 @@ type SignalRowProps = {
 export function SignalRow({ reading, nested = true, action }: SignalRowProps) {
   const pictured = action
     ? {}
-    : { role: 'img' as const, 'aria-label': signalShown(reading) };
+    : { role: 'img' as const, 'aria-label': formatSignal(reading) };
 
   return (
     <li
@@ -57,7 +57,7 @@ export function SignalRow({ reading, nested = true, action }: SignalRowProps) {
 
       <div
         {...(action
-          ? { role: 'img' as const, 'aria-label': signalShown(reading) }
+          ? { role: 'img' as const, 'aria-label': formatSignal(reading) }
           : {})}
         className="col-span-full min-w-0 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1"
       >

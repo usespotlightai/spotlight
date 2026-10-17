@@ -6,7 +6,7 @@ import { YourAccountActions } from '@/components/features/integrations/YourAccou
 import { YourAccountButton } from '@/components/features/integrations/YourAccountButton';
 import { YourToolRules } from '@/components/features/integrations/YourToolRules';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
-import { readProblemShown, toolsReadShown } from '@/lib/described';
+import { formatReadProblem, formatToolsRead } from '@/lib/described';
 import {
   actsAsEachPerson,
   type Integration,
@@ -33,7 +33,7 @@ export function IntegrationDetails({
   joined,
 }: IntegrationDetailsProps) {
   const { described } = integration;
-  const problem = described ? readProblemShown(described) : null;
+  const problem = described ? formatReadProblem(described) : null;
 
   return (
     <dl className="flex flex-col gap-2 pr-4 pb-4 pl-12">
@@ -116,7 +116,7 @@ export function IntegrationDetails({
         <FactRow>
           <dt className={FACT_LABEL}>Tools</dt>
           <dd className={cn(FACT_VALUE, problem && 'text-destructive')}>
-            {problem ?? toolsReadShown(described)}
+            {problem ?? formatToolsRead(described)}
           </dd>
         </FactRow>
       )}

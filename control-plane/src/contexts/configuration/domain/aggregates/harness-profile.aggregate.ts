@@ -17,7 +17,7 @@ import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configu
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-interface Kept {
+interface Props {
   readonly id: HarnessProfileId;
   readonly teamId: TeamId;
   readonly key: ProfileKey;
@@ -25,7 +25,7 @@ interface Kept {
   readonly version: number;
 }
 
-interface State extends Kept {
+interface State extends Props {
   readonly retired: boolean;
 }
 
@@ -78,7 +78,7 @@ export class HarnessProfile extends EventRecorder {
     return defined;
   }
 
-  static rehydrate(input: Kept): HarnessProfile {
+  static rehydrate(input: Props): HarnessProfile {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'harness profile',
@@ -125,7 +125,7 @@ export class HarnessProfile extends EventRecorder {
     return redefined;
   }
 
-  retired(named: StationUses, by: Attribution): HarnessProfile {
+  retire(named: StationUses, by: Attribution): HarnessProfile {
     this.guardLive();
 
     const using = named.of(this.key);
@@ -134,10 +134,10 @@ export class HarnessProfile extends EventRecorder {
       throw new HarnessProfileInUseError(this.key.value, using);
     }
 
-    return this.abandoned(by);
+    return this.abandon(by);
   }
 
-  abandoned(by: Attribution): HarnessProfile {
+  abandon(by: Attribution): HarnessProfile {
     this.guardLive();
 
     const retired = this.with({ retired: true });

@@ -1,11 +1,11 @@
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { lastedOrNone, spendShown } from '@/lib/insights';
+import { formatSpend, lastedOrNone } from '@/lib/insights';
 import {
-  costDeltaShown,
   type EntryComparison,
+  formatCostDelta,
+  formatMsDelta,
   meanCostOf,
   meanMsOf,
-  msDeltaShown,
 } from '@/lib/replay';
 
 type TaskSpendCellsProps = {
@@ -23,7 +23,7 @@ export function TaskSpendCells({
     return (
       <>
         <NestedCell heading="Cost">
-          {spendShown(meanCostOf(row.candidate))}
+          {formatSpend(meanCostOf(row.candidate))}
         </NestedCell>
         <NestedCell heading="Time">
           {lastedOrNone(meanMsOf(row.candidate))}
@@ -35,9 +35,11 @@ export function TaskSpendCells({
   return (
     <>
       <NestedCell heading="Cost change">
-        {costDeltaShown(row.costDelta, currency)}
+        {formatCostDelta(row.costDelta, currency)}
       </NestedCell>
-      <NestedCell heading="Time change">{msDeltaShown(row.msDelta)}</NestedCell>
+      <NestedCell heading="Time change">
+        {formatMsDelta(row.msDelta)}
+      </NestedCell>
     </>
   );
 }

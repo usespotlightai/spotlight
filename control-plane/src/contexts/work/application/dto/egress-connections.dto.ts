@@ -13,7 +13,7 @@ export interface EgressConnectionRecord {
 
 export type EgressConnectionsRecordedDto =
   | { readonly outcome: 'refused' }
-  | { readonly outcome: 'too-many'; readonly most: number }
+  | { readonly outcome: 'too-many'; readonly max: number }
   | {
       readonly outcome: 'recorded';
       readonly recorded: number;

@@ -13,7 +13,7 @@ import type { EgressRepository } from '@runners/domain/repositories/egress.repos
 import type { GivenEgressTokensRepository } from '@runners/domain/repositories/given-egress-tokens.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type {
@@ -46,16 +46,16 @@ export class CreateEgressHandler
     command: CreateEgressCommand,
   ): Promise<EgressCreatedDto | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(command.workspaceId),
         command.actor.principal,
       );
 
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.managesRunners) {
+      if (!permissions.managesRunners) {
         return { created: forbiddenTo('manage-runners'), token: null };
       }
 
@@ -86,12 +86,12 @@ export class CreateEgressHandler
       };
 
       try {
-        const created = await this.transaction.run(() =>
+        const created = await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             const defined = Egress.define({
               id: EgressId.of(this.ids.generate()),
-              workspaceId: cleared.workspaceId,
-              by: Attribution.of(command.actor, cleared.workspaceId),
+              workspaceId: permissions.workspaceId,
+              by: Attribution.of(command.actor, permissions.workspaceId),
               key: compiled.key,
               url: compiled.url,
               token: {
@@ -139,7 +139,7 @@ export class CreateEgressHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

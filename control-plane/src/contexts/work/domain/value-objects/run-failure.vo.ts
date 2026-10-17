@@ -11,12 +11,12 @@ export const RUN_FAILURES = {
   refused: Retry.never(),
   unprovisioned: Retry.never(),
   'hooks-unanswered': Retry.backoff({
-    most: 6,
+    max: 6,
     firstMs: 5_000,
     longestMs: 120_000,
   }),
-  'runner-lost': Retry.backoff({ most: 3, firstMs: 0, longestMs: 0 }),
-  'timed-out': Retry.backoff({ most: 3, firstMs: 0, longestMs: 0 }),
+  'runner-lost': Retry.backoff({ max: 3, firstMs: 0, longestMs: 0 }),
+  'timed-out': Retry.backoff({ max: 3, firstMs: 0, longestMs: 0 }),
   superseded: Retry.never(),
 } as const satisfies Record<RunFailureCode, Retry>;
 

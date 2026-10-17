@@ -63,7 +63,7 @@ const started = (
   among: readonly RunId[] | null = null,
   against: Replay | null = null,
 ) => {
-  const replay = Replay.started({
+  const replay = Replay.start({
     id: ReplayId.of(id),
     set: SET,
     candidate,
@@ -103,11 +103,11 @@ const probed = (
       const run = entry.run as RunId;
 
       return held
-        .confirmed(run, FINGERPRINT, NOW)
-        .ended(run, endOf('completed'))
-        .measured(run, measuresOf(1), later(61_000))
-        .reviewed(run, checksOf(checked(place)), null, later(62_000))
-        .judged(run, verdictOf(passing(place)), null, later(63_000));
+        .confirm(run, FINGERPRINT, NOW)
+        .recordRunEnd(run, endOf('completed'))
+        .measure(run, measuresOf(1), later(61_000))
+        .recordReview(run, checksOf(checked(place)), null, later(62_000))
+        .recordVerdict(run, verdictOf(passing(place)), null, later(63_000));
     },
     started('replay_probe', SCORED, 2, true),
   );
@@ -188,7 +188,7 @@ describe('setHealthOf', () => {
     const probe = probed(() => true);
     const answered = probe.entries.reduce(
       (held, entry, place) =>
-        held.rejudged(entry.run as RunId, verdictOf(place >= 3), null),
+        held.recordRejudgment(entry.run as RunId, verdictOf(place >= 3), null),
       probe,
     );
     const health = setHealthOf([answered], [SCORED], FINGERPRINT, MIN_GAIN);
@@ -214,7 +214,7 @@ describe('setHealthOf', () => {
     const probe = probed(() => true);
     const rechecked = probe.entries.reduce(
       (held, entry, place) =>
-        held.rechecked(
+        held.recheck(
           entry.run as RunId,
           checksOf(place === 1 ? 'failed' : 'passed'),
         ),
@@ -350,7 +350,7 @@ describe('setHealthOf', () => {
   });
 
   it('says the replay it was compared with stopped, rather than waiting on it for ever', () => {
-    const stoppedLive = started('replay_live', PLAIN, 1).stopped(later(1), BY);
+    const stoppedLive = started('replay_live', PLAIN, 1).stop(later(1), BY);
     const oracle = setHealthOf(
       [stoppedLive, plainly('replay_oracle', ORACLE, [])],
       [PLAIN, ORACLE],

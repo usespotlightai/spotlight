@@ -16,7 +16,7 @@ import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-i
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import {
   holdsRepeats,
-  MOST_REPEATS,
+  MAX_REPEATS,
 } from '@replays/domain/value-objects/replay-repeats';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
@@ -62,7 +62,7 @@ export class ReplayCheck extends EventRecorder {
     super();
   }
 
-  static started(
+  static start(
     input: Omit<State, 'baseline'> & { by: Attribution },
   ): ReplayCheck {
     const { by, ...rest } = input;
@@ -78,7 +78,7 @@ export class ReplayCheck extends EventRecorder {
     }
     if (!holdsRepeats(state.repeats)) {
       throw new InvalidReplayCheckError(
-        `repeats must be from 1 to ${MOST_REPEATS}`,
+        `repeats must be from 1 to ${MAX_REPEATS}`,
       );
     }
 
@@ -193,11 +193,11 @@ export class ReplayCheck extends EventRecorder {
     return this.state.baseline === 'awaiting';
   }
 
-  baselineFound(): ReplayCheck {
+  recordBaseline(): ReplayCheck {
     return this.baselineSettled('found');
   }
 
-  baselineUnavailable(): ReplayCheck {
+  markBaselineUnavailable(): ReplayCheck {
     return this.baselineSettled('unavailable');
   }
 
@@ -223,7 +223,7 @@ export class ReplayCheck extends EventRecorder {
     );
   }
 
-  abandoned(): ReplayCheck {
+  abandon(): ReplayCheck {
     return new ReplayCheck(this.state, true);
   }
 }

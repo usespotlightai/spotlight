@@ -203,7 +203,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
 
     await expect(
       workspaces.save(
-        standing?.closed(
+        standing?.close(
           [],
           [],
           [],

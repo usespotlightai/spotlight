@@ -1,7 +1,7 @@
 import type { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
 import type { TeamMemoryDetailDto } from '@memory/application/dto/team-memory.dto';
 import type { MemoryAccess } from '@memory/application/services/memory-access.service';
-import type { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
+import type { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
 import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
@@ -9,7 +9,7 @@ import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -19,7 +19,7 @@ export class WriteMemoryHandler
 {
   constructor(
     private readonly access: MemoryAccess,
-    private readonly atHand: TeamMemoryAtHand,
+    private readonly loader: TeamMemoryLoader,
     private readonly memories: MemoryRepository,
     private readonly views: TeamMemoryViews,
     private readonly ids: IdGeneratorPort,
@@ -28,27 +28,27 @@ export class WriteMemoryHandler
 
   async execute(command: WriteMemoryCommand): Promise<TeamMemoryDetailDto> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.viewerId,
       );
-      const layout = await this.atHand.layoutOf(clearance);
-      const written = Memory.written({
+      const layout = await this.loader.layoutOf(access);
+      const written = Memory.write({
         id: MemoryId.of(this.ids.generate()),
         handle: await this.memories.nextHandle(),
-        workspaceId: clearance.workspaceId,
+        workspaceId: access.workspaceId,
         kind: parseMemoryKind(command.writing.kind),
         body: MemoryBody.of(command.writing.body),
         scope: layout.scopeOf(command.writing),
         grounds: null,
-        by: MemoryDecision.of({ by: clearance.by, at: this.clock.now() }),
+        by: MemoryDecision.of({ by: access.by, at: this.clock.now() }),
       });
 
       await this.memories.add(written);
 
       return await this.views.detail(written);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

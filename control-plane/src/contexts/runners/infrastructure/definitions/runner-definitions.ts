@@ -4,10 +4,10 @@ import {
   refinedBy,
 } from '@platform/definitions/definition-schema';
 import type {
-  CompiledEgress,
-  CompiledPool,
-  CompiledTrust,
-  CompiledWorkspaceRunners,
+  ParsedEgress,
+  ParsedPool,
+  ParsedTrust,
+  ParsedWorkspaceRunners,
   RunnerDefinitionsPort,
 } from '@runners/application/ports/runner-definitions.port';
 import {
@@ -125,7 +125,7 @@ const workspaceRunnersSchema = z.object({
 });
 
 export class RunnerDefinitions implements RunnerDefinitionsPort {
-  trust(held: unknown): CompiledTrust {
+  trust(held: unknown): ParsedTrust {
     const read = trustSchema.safeParse(held);
 
     return read.success
@@ -138,7 +138,7 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
       : { ok: false, problems: problemsIn(RUNNER_TRUST, read.error) };
   }
 
-  pool(held: unknown): CompiledPool {
+  pool(held: unknown): ParsedPool {
     const read = poolSchema.safeParse(held);
 
     if (!read.success) {
@@ -178,7 +178,7 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
     };
   }
 
-  egress(held: unknown): CompiledEgress {
+  egress(held: unknown): ParsedEgress {
     const read = egressSchema.safeParse(held);
 
     return read.success
@@ -192,7 +192,7 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
       : { ok: false, problems: problemsIn(EGRESS, read.error) };
   }
 
-  workspaceRunners(held: unknown): CompiledWorkspaceRunners {
+  workspaceRunners(held: unknown): ParsedWorkspaceRunners {
     const read = workspaceRunnersSchema.safeParse(held);
 
     return read.success

@@ -64,7 +64,7 @@ export class DrizzleWorkspaceTokenTrustRepository
   ) {}
 
   async add(added: WorkspaceTokenTrust): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       try {
         await this.context.db.insert(workspaceTokenTrust).values({
           id: added.id.value,
@@ -97,7 +97,7 @@ export class DrizzleWorkspaceTokenTrustRepository
   }
 
   async save(saved: WorkspaceTokenTrust): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const matching = and(
         eq(workspaceTokenTrust.id, saved.id.value),
         eq(workspaceTokenTrust.version, saved.version),

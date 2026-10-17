@@ -24,29 +24,29 @@ const AT = new Date('2026-09-30T12:00:00.000Z');
 const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/1');
 
 const merged = (taskId: string) =>
-  TaskDelivery.opened({
+  TaskDelivery.open({
     taskId: TaskId.of(taskId),
     workspaceId: WORKSPACE,
     teamId: TEAM,
     pullRequest: PULL,
     at: AT,
-  }).closed({ pullRequest: PULL, merged: true, at: AT });
+  }).close({ pullRequest: PULL, merged: true, at: AT });
 
 describe('runTally', () => {
   it('counts how the runs ended and what people did next, never counting an answered approval as accepting or sending back', () => {
     const tally = runTally(
       [
         endedRecord('run_1', { ending: 'failed', failure: 'exited' })
-          .checked('failed', HEARD_AT)
-          .actedOn(NextAct.of('sent-back', AT)),
+          .recordCheck('failed', HEARD_AT)
+          .recordAction(NextAct.of('sent-back', AT)),
         endedRecord('run_2', { ending: 'stopped' }),
         endedRecord('run_3')
-          .checked('passed', HEARD_AT)
-          .actedOn(NextAct.of('approved', AT)),
+          .recordCheck('passed', HEARD_AT)
+          .recordAction(NextAct.of('approved', AT)),
         endedRecord('run_4')
-          .checked('skipped', HEARD_AT)
-          .actedOn(NextAct.of('closed', AT)),
-        endedRecord('run_5').actedOn(NextAct.of('refused', AT)),
+          .recordCheck('skipped', HEARD_AT)
+          .recordAction(NextAct.of('closed', AT)),
+        endedRecord('run_5').recordAction(NextAct.of('refused', AT)),
       ],
       [],
     );
@@ -87,7 +87,7 @@ describe('runTally', () => {
       [
         costedRecord('run_1', { ending: 'withdrawn', ms: 1, amount: 9 })
           .supersededByItsTask(HEARD_AT)
-          .actedOn(NextAct.of('closed', AT)),
+          .recordAction(NextAct.of('closed', AT)),
         costedRecord('run_2', { ending: 'failed', ms: 40_000, amount: 0.5 }),
       ],
       [],
@@ -231,11 +231,11 @@ describe('tallyChangesOf', () => {
 describe('tallySeenOf', () => {
   it('sees a count above zero in either period, and none that stayed at zero in both', () => {
     const now = runTally(
-      [endedRecord('run_1').actedOn(NextAct.of('closed', AT))],
+      [endedRecord('run_1').recordAction(NextAct.of('closed', AT))],
       [],
     );
     const before = runTally(
-      [endedRecord('run_2').actedOn(NextAct.of('sent-back', AT))],
+      [endedRecord('run_2').recordAction(NextAct.of('sent-back', AT))],
       [],
     );
 
@@ -252,9 +252,9 @@ describe('tallySharesOf', () => {
     const tally = runTally(
       [
         endedRecord('run_1', { taskId: 'task_1' })
-          .checked('passed', AT)
-          .actedOn(NextAct.of('closed', AT)),
-        endedRecord('run_2').checked('failed', AT),
+          .recordCheck('passed', AT)
+          .recordAction(NextAct.of('closed', AT)),
+        endedRecord('run_2').recordCheck('failed', AT),
         endedRecord('run_3'),
         endedRecord('run_4'),
       ],
@@ -284,7 +284,7 @@ describe('tallyCountedOf', () => {
         runTally(
           [
             endedRecord('run_1', { ending: 'failed' }),
-            endedRecord('run_2').actedOn(NextAct.of('sent-back', AT)),
+            endedRecord('run_2').recordAction(NextAct.of('sent-back', AT)),
           ],
           [],
         ),

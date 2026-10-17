@@ -275,7 +275,7 @@ export class Chat extends EventRecorder {
     return setup;
   }
 
-  setupOpened(
+  openSetup(
     runId: RunId,
     branch: Branch,
     pullRequest: PullRequestUrl,
@@ -360,7 +360,7 @@ export class Chat extends EventRecorder {
       return { chat: this.runKeptNothing(runId), followsUp: false };
     }
 
-    const worked = this.endedRun(runId).workedIn(
+    const worked = this.endRun(runId).recordSession(
       ending.session,
       ending.workedBy,
     );
@@ -368,17 +368,17 @@ export class Chat extends EventRecorder {
     return { chat: worked, followsUp: !ending.stopped && worked.wantsFollowUp };
   }
 
-  endedRun(runId: RunId): Chat {
+  endRun(runId: RunId): Chat {
     return this.currentRunId?.equals(runId)
       ? this.with({ currentRunId: null })
       : this;
   }
 
-  workedIn(sessionId: HarnessSession, runnerId: RunnerId | null): Chat {
+  recordSession(sessionId: HarnessSession, runnerId: RunnerId | null): Chat {
     return this.with({ sessionId, runnerId });
   }
 
-  deliveredUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
+  markDeliveredUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
     if (!this.heldBy(runId)) {
       return this;
     }
@@ -411,7 +411,7 @@ export class Chat extends EventRecorder {
     });
   }
 
-  proposed(input: {
+  propose(input: {
     runId: RunId;
     placement: ProposalPlacement;
     title: TaskTitle;
@@ -424,7 +424,7 @@ export class Chat extends EventRecorder {
       );
     }
 
-    const message = ChatMessage.proposed({
+    const message = ChatMessage.propose({
       ...input,
       position: this.nextPosition,
     });
@@ -450,7 +450,7 @@ export class Chat extends EventRecorder {
   accept(position: MessagePosition, by: UserId, at: Date): Chat {
     this.refuseStranger(by);
 
-    const proposal = this.proposalAt(position).accepted(at);
+    const proposal = this.proposalAt(position).accept(at);
     const next = this.settle(proposal);
 
     next.record(
@@ -472,14 +472,14 @@ export class Chat extends EventRecorder {
     return this.settle(this.proposalAt(position).createdAs(taskId, at));
   }
 
-  acceptanceFailed(position: MessagePosition): Chat {
-    return this.settle(this.proposalAt(position).reopened());
+  recordAcceptanceFailure(position: MessagePosition): Chat {
+    return this.settle(this.proposalAt(position).reopen());
   }
 
   dismiss(position: MessagePosition, by: UserId, at: Date): Chat {
     this.refuseStranger(by);
 
-    const next = this.settle(this.proposalAt(position).dismissed(at));
+    const next = this.settle(this.proposalAt(position).dismiss(at));
 
     next.record(new ProposalDismissed(this.id, position));
 

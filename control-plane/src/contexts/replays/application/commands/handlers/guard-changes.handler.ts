@@ -4,7 +4,7 @@ import type { ReplaysAccess } from '@replays/application/services/replays-access
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -20,17 +20,17 @@ export class GuardChangesHandler
 
   async execute(command: GuardChangesCommand): Promise<SetChanged> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.actor.principal,
       );
-      const seen = await this.access.setOn(clearance, command.setId);
+      const seen = await this.access.setOn(access, command.setId);
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const set = await this.sets.locked(seen.id);
 
         if (!set) {
@@ -53,7 +53,7 @@ export class GuardChangesHandler
 
       return { outcome: 'changed' };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

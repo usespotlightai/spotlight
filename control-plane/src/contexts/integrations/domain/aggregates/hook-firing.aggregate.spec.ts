@@ -24,7 +24,7 @@ const AUDIT = {
 const LOOP = HookFailure.of('loop', 'The hook audit was stopped: again');
 
 const fired = (cause = CausalChain.none().followedBy(MOVED)) =>
-  HookFiring.fired({
+  HookFiring.fire({
     id: 'firing_1',
     hookId: 'audit_id',
     workspaceId: 'workspace_1',
@@ -81,7 +81,7 @@ describe('HookFiring', () => {
 
   it('keeps its own frozen copy of the event it fired on', () => {
     const event = { from: 'triage', to: 'build', marks: ['db'] };
-    const firing = HookFiring.fired({
+    const firing = HookFiring.fire({
       ...stateOf(fired()),
       event,
     });
@@ -134,7 +134,7 @@ describe('HookFiring', () => {
 
   describe('while a worker holds it', () => {
     it('keeps the steps it has taken', () => {
-      expect(working().stepped([DONE_A]).steps).toEqual([DONE_A]);
+      expect(working().recordStep([DONE_A]).steps).toEqual([DONE_A]);
     });
 
     it('is matched once, with what it learned about the event', () => {
@@ -143,11 +143,11 @@ describe('HookFiring', () => {
         matched: false,
         version: 1,
       }).claimed(NOW);
-      const matched = unmatched.matchedAs({ changed: ['db/1.sql'] });
+      const matched = unmatched.recordMatch({ changed: ['db/1.sql'] });
 
       expect(matched.matched).toBe(true);
       expect(matched.event).toEqual({ changed: ['db/1.sql'] });
-      expect(() => matched.matchedAs({})).toThrow(
+      expect(() => matched.recordMatch({})).toThrow(
         InvalidHookFiringTransitionError,
       );
     });
@@ -160,7 +160,7 @@ describe('HookFiring', () => {
         version: 1,
       })
         .claimed(NOW)
-        .matchedAs(learned);
+        .recordMatch(learned);
 
       learned.changed.push('db/2.sql');
 
@@ -189,7 +189,7 @@ describe('HookFiring', () => {
     it('refuses every change unless a worker holds it', () => {
       const pending = kept(fired());
 
-      expect(() => pending.stepped([DONE_A])).toThrow(
+      expect(() => pending.recordStep([DONE_A])).toThrow(
         InvalidHookFiringTransitionError,
       );
       expect(() => pending.waitUntil(NOW)).toThrow(
@@ -201,7 +201,7 @@ describe('HookFiring', () => {
       expect(() =>
         pending.failedWith(HookFailure.of('errored', 'x'), NOW, false),
       ).toThrow(InvalidHookFiringTransitionError);
-      expect(() => pending.stoppedForLoop(LOOP)).toThrow(
+      expect(() => pending.stopForLoop(LOOP)).toThrow(
         InvalidHookFiringTransitionError,
       );
     });
@@ -296,28 +296,28 @@ describe('HookFiring', () => {
 
     it('is never stopped once partway through its steps', () => {
       expect(
-        working(fired(looped)).stepped([DONE_A]).loopStop('audit', 9),
+        working(fired(looped)).recordStep([DONE_A]).loopStop('audit', 9),
       ).toBeNull();
     });
 
     it('keeps a stop, however its chain reads later', () => {
-      const stopped = working().stoppedForLoop(LOOP);
+      const stopped = working().stopForLoop(LOOP);
 
       expect(stopped.stoppedForLooping).toBe(true);
       expect(stopped.loopStop('audit', 0)).toBe(LOOP);
-      expect(stopped.stoppedForLoop(HookFailure.of('loop', 'other'))).toBe(
+      expect(stopped.stopForLoop(HookFailure.of('loop', 'other'))).toBe(
         stopped,
       );
     });
 
     it('is stopped only by a loop', () => {
       expect(() =>
-        working().stoppedForLoop(HookFailure.of('errored', 'x')),
+        working().stopForLoop(HookFailure.of('errored', 'x')),
       ).toThrow(InvalidHookFiringTransitionError);
     });
 
     it('ends as a loop once told of, or superseded when nobody is there to tell', () => {
-      const stopped = working().stoppedForLoop(LOOP);
+      const stopped = working().stopForLoop(LOOP);
 
       expect(stopped.toldOfLoop(NOW, false).failure).toBe(LOOP);
       expect(stopped.toldOfLoop(NOW, false).progress.kind).toBe('failed');
@@ -331,7 +331,7 @@ describe('HookFiring', () => {
     });
 
     it('keeps its stop to tell of again when something fails before it is told', () => {
-      const stopped = working().stoppedForLoop(LOOP);
+      const stopped = working().stopForLoop(LOOP);
       const again = stopped.failedWith(
         HookFailure.of('errored', 'db went away'),
         NOW,
@@ -344,7 +344,7 @@ describe('HookFiring', () => {
 
     it('ends as a loop when it could never be told of', () => {
       const stopped = HookFiring.rehydrate({
-        ...stateOf(working().stoppedForLoop(LOOP)),
+        ...stateOf(working().stopForLoop(LOOP)),
         attempts: 7,
         version: 1,
       });
@@ -355,7 +355,7 @@ describe('HookFiring', () => {
     });
 
     it('lets a failure that may never be retried end a stop still to be told of', () => {
-      const stopped = working().stoppedForLoop(LOOP);
+      const stopped = working().stopForLoop(LOOP);
 
       expect(
         stopped.failedWith(HookFailure.of('broken', 'unreadable'), NOW, false)

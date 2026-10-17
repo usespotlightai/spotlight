@@ -86,13 +86,13 @@ const held = () =>
   }).handedTo(RUN, line);
 
 const paused = () =>
-  held().putToAPersonBy(
+  held().putToAPerson(
     RUN,
     said('Which queue should I drain?', Voice.station(RUN)),
   );
 
 const answer = (task: Task) =>
-  task.answered(
+  task.answer(
     NotePosition.of(0),
     said('The default one.', Voice.person(UserId.of('user_1'))),
   );
@@ -118,13 +118,13 @@ describe('a task put to a person by the run that holds it', () => {
 
   it('is put to a person only by the run holding it, and only once at a time', () => {
     expect(() =>
-      held().putToAPersonBy(
+      held().putToAPerson(
         RunId.of('run_2'),
         said('Which?', Voice.station(RunId.of('run_2'))),
       ),
     ).toThrow(InvalidTaskTransitionError);
     expect(() =>
-      paused().putToAPersonBy(RUN, said('And?', Voice.station(RUN))),
+      paused().putToAPerson(RUN, said('And?', Voice.station(RUN))),
     ).toThrow(InvalidTaskTransitionError);
   });
 
@@ -141,7 +141,7 @@ describe('a task put to a person by the run that holds it', () => {
       'The default one.',
     ]);
     expect(
-      task.deliveredUpTo(NotePosition.of(1), NOW).undelivered,
+      task.markDeliveredUpTo(NotePosition.of(1), NOW).undelivered,
     ).toHaveLength(0);
   });
 
@@ -157,7 +157,7 @@ describe('a task put to a person by the run that holds it', () => {
   });
 
   it('can be put to a person again by the same run once answered', () => {
-    const again = answer(paused()).putToAPersonBy(
+    const again = answer(paused()).putToAPerson(
       RUN,
       said('Ready for review.', Voice.station(RUN)),
     );
@@ -168,11 +168,11 @@ describe('a task put to a person by the run that holds it', () => {
   });
 
   it('is let go by its run when that run ends while the person is still asked', () => {
-    const task = paused().leftBy(RUN, NOW);
+    const task = paused().leaveRun(RUN, NOW);
 
     expect(task.running).toBe(false);
     expect(task.awaitingReview).toBe(true);
-    expect(paused().leftBy(RunId.of('run_2'), NOW).heldBy(RUN)).toBe(true);
+    expect(paused().leaveRun(RunId.of('run_2'), NOW).heldBy(RUN)).toBe(true);
   });
 
   it('takes a person speaking to the waiting run as their answer to its open question', () => {
@@ -240,7 +240,7 @@ describe('a task put to a person by the run that holds it', () => {
   it('hands an answer its run never heard on to the next run’s briefing once it lets go', () => {
     const answered = answer(paused());
 
-    expect(answered.leftBy(RUN, NOW).undelivered).toEqual([]);
+    expect(answered.leaveRun(RUN, NOW).undelivered).toEqual([]);
     expect(
       answered.moveTo(
         line,

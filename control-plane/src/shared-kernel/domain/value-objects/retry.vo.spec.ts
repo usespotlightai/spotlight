@@ -16,7 +16,7 @@ describe('Retry', () => {
 
   it('waits the first backoff after the first failure and doubles it after each', () => {
     const retry = Retry.backoff({
-      most: 5,
+      max: 5,
       firstMs: 5_000,
       longestMs: 120_000,
     });
@@ -28,7 +28,7 @@ describe('Retry', () => {
 
   it('never waits longer than its longest backoff', () => {
     const retry = Retry.backoff({
-      most: 20,
+      max: 20,
       firstMs: 5_000,
       longestMs: 120_000,
     });
@@ -37,7 +37,7 @@ describe('Retry', () => {
   });
 
   it('gives up once it has failed as many times as it allows attempts', () => {
-    const retry = Retry.backoff({ most: 3, firstMs: 0, longestMs: 0 });
+    const retry = Retry.backoff({ max: 3, firstMs: 0, longestMs: 0 });
 
     expect(retry.after(2, noon)).toEqual(noon);
     expect(retry.exhaustedAfter(3)).toBe(true);
@@ -45,10 +45,10 @@ describe('Retry', () => {
   });
 
   it('refuses a backoff that allows no second attempt or waits backwards', () => {
-    expect(() => Retry.backoff({ most: 1, firstMs: 0, longestMs: 0 })).toThrow(
+    expect(() => Retry.backoff({ max: 1, firstMs: 0, longestMs: 0 })).toThrow(
       InconsistentStateError,
     );
-    expect(() => Retry.backoff({ most: 3, firstMs: 10, longestMs: 5 })).toThrow(
+    expect(() => Retry.backoff({ max: 3, firstMs: 10, longestMs: 5 })).toThrow(
       InconsistentStateError,
     );
   });

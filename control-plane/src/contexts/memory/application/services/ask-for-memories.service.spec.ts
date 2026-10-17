@@ -53,7 +53,7 @@ const asking = (input: {
       },
     } as unknown as MemoryDraftRepository,
     { available: input.available ?? true } as MemoryDrafterPort,
-    { run: <T>(work: () => Promise<T>) => work() },
+    { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'draft_1' },
     { now: () => NOW, sleep: async () => undefined },
   );

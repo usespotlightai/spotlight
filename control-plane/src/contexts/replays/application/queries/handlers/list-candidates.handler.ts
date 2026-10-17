@@ -5,7 +5,7 @@ import { candidateResourceView } from '@replays/application/services/replay-view
 import { InvalidStationAddressError } from '@replays/domain/exceptions/invalid-station-address.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ListCandidatesHandler
@@ -46,7 +46,7 @@ export class ListCandidatesHandler
         )
         .map(candidateResourceView);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

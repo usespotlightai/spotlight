@@ -4,7 +4,7 @@ import { SettingsSection } from '@/components/features/settings/SettingsSection'
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
 import type { useWorkspaceMembers } from '@/hooks/api/useWorkspaceMembers';
-import { MEMBER_SHOWS, type MemberShow, membersShown } from '@/lib/members';
+import { MEMBER_SHOWS, type MemberShow, visibleMembers } from '@/lib/members';
 import { failed, loading } from '@/lib/query';
 
 type MembersListProps = {
@@ -15,7 +15,7 @@ type MembersListProps = {
 };
 
 export function MembersList({ slug, members, show, action }: MembersListProps) {
-  const shown = membersShown(members.data ?? [], show);
+  const shown = visibleMembers(members.data ?? [], show);
   const named = MEMBER_SHOWS.find((each) => each.value === show)?.label;
 
   return (

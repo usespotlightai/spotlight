@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  areWords,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class HookKey {
@@ -10,10 +10,10 @@ export class HookKey {
   static of(raw: string): HookKey {
     const trimmed = raw.trim();
 
-    if (!areWords(trimmed)) {
+    if (!isSlug(trimmed)) {
       throw new InvalidIdentifierError(
         'hook',
-        `is lower case words joined by dashes, at most ${LONGEST_WORDS} characters, as in migrations-need-a-dba`,
+        `is lower case words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in migrations-need-a-dba`,
       );
     }
 

@@ -407,7 +407,7 @@ export class DrizzleSearchRepository implements SearchRepository {
   }
 
   async add(added: Search): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db
         .insert(replaySearch)
         .values({ ...this.columnsOf(added), version: added.version })
@@ -423,7 +423,7 @@ export class DrizzleSearchRepository implements SearchRepository {
   }
 
   async save(saved: Search): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const at = and(
         eq(replaySearch.id, saved.id.value),
         eq(replaySearch.version, saved.version),

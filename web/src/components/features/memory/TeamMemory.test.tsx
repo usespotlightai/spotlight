@@ -92,7 +92,7 @@ vi.mock('@/components/features/memory/MemoryDetails', () => ({
   ),
 }));
 
-const rowsShown = () =>
+const visibleRows = () =>
   Array.from(document.querySelectorAll('[data-slot="team-memory"]'));
 
 const memory = (over: Partial<Memory> = {}): Memory => ({
@@ -175,7 +175,7 @@ describe('TeamMemory', () => {
 
     showing();
 
-    expect(rowsShown()).toHaveLength(2);
+    expect(visibleRows()).toHaveLength(2);
     const places = screen.getAllByRole('list', { name: 'Where it applies' });
     expect(places[0]).toHaveTextContent('The whole team');
     expect(places[1]).toHaveTextContent(
@@ -414,7 +414,7 @@ describe('TeamMemory', () => {
 
     showing();
 
-    const rows = rowsShown();
+    const rows = visibleRows();
     expect(rows[0]).toHaveTextContent(/3$/);
     expect(rows[1]).toHaveTextContent(/0$/);
   });
@@ -427,7 +427,7 @@ describe('TeamMemory', () => {
 
     showing('/w/acme/team/team_1/memory?memory=memory_9');
 
-    expect(rowsShown()).toHaveLength(2);
+    expect(visibleRows()).toHaveLength(2);
     expect(
       screen.getByRole('button', { name: 'The one linked.' }),
     ).toHaveAttribute('aria-expanded', 'true');
@@ -458,7 +458,7 @@ describe('TeamMemory', () => {
       screen.queryByRole('textbox', { name: 'What the team should remember' }),
     ).not.toBeInTheDocument();
     expect(
-      within(rowsShown()[0] as HTMLElement).getByRole('button', {
+      within(visibleRows()[0] as HTMLElement).getByRole('button', {
         name: 'Edit',
       }),
     ).toBeInTheDocument();

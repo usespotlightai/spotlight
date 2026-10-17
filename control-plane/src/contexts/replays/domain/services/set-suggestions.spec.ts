@@ -1,7 +1,7 @@
 import type { OriginalOutcome } from '@replays/domain/services/composition';
 import {
   balancingPicks,
-  MOST_SUGGESTED,
+  MAX_SUGGESTED,
   newestOfEachTask,
 } from '@replays/domain/services/set-suggestions';
 import { describe, expect, it } from 'vitest';
@@ -27,7 +27,7 @@ describe('balancingPicks', () => {
             run('sent_2', 'sent-back'),
             run('accepted_3', 'accepted'),
           ],
-          MOST_SUGGESTED,
+          MAX_SUGGESTED,
         ),
       ),
     ).toEqual(['accepted_1', 'sent_1', 'accepted_2', 'sent_2', 'accepted_3']);
@@ -39,7 +39,7 @@ describe('balancingPicks', () => {
         balancingPicks(
           [...held('failed', 4), ...held('accepted', 2)],
           [run('accepted_1', 'accepted'), run('asked_1', 'asked')],
-          MOST_SUGGESTED,
+          MAX_SUGGESTED,
         ),
       ),
     ).toEqual(['asked_1', 'accepted_1']);
@@ -55,7 +55,7 @@ describe('balancingPicks', () => {
             run('accepted_2', 'accepted'),
             run('accepted_3', 'accepted'),
           ],
-          MOST_SUGGESTED,
+          MAX_SUGGESTED,
         ),
       ),
     ).toEqual(['accepted_1']);
@@ -66,7 +66,7 @@ describe('balancingPicks', () => {
       balancingPicks(
         held('failed', 3),
         [run('other_1', 'other'), run('failed_1', 'failed')],
-        MOST_SUGGESTED,
+        MAX_SUGGESTED,
       ),
     ).toEqual([]);
   });
@@ -75,9 +75,9 @@ describe('balancingPicks', () => {
     const recent = [run('accepted_1', 'accepted'), run('failed_1', 'failed')];
 
     expect(
-      balancingPicks(['accepted', 'failed'], recent, MOST_SUGGESTED),
+      balancingPicks(['accepted', 'failed'], recent, MAX_SUGGESTED),
     ).toEqual([]);
-    expect(balancingPicks([], recent, MOST_SUGGESTED)).toEqual([]);
+    expect(balancingPicks([], recent, MAX_SUGGESTED)).toEqual([]);
   });
 
   it('suggests no more than it is asked for', () => {

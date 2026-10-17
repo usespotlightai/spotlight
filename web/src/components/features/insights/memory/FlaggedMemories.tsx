@@ -7,7 +7,7 @@ import {
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { FlaggedMemory } from '@/lib/insights-memory';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 import { memoryPath } from '@/lib/memory';
 import { SPREAD } from '@/lib/nested-table';
 import { cn } from '@/lib/utils';
@@ -72,7 +72,7 @@ export function FlaggedMemories({
                 {memory.byName ?? 'A former member'}
               </NestedCell>
               <NestedCell heading="Date">
-                {dayShown(memory.at.slice(0, 10))}
+                {formatDay(memory.at.slice(0, 10))}
               </NestedCell>
             </li>
           ))}

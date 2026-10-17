@@ -7,7 +7,7 @@ import { ReviewDepthOverTime } from '@/components/features/insights/shipping/Rev
 import { TimeToFirstReview } from '@/components/features/insights/shipping/TimeToFirstReview';
 import { TimeToMerge } from '@/components/features/insights/shipping/TimeToMerge';
 import { TimeToMergeByType } from '@/components/features/insights/shipping/TimeToMergeByType';
-import { countShown } from '@/lib/insights';
+import { formatCount } from '@/lib/insights';
 import type { InsightsShipping } from '@/lib/insights-shipping';
 
 type ShippingPanelsProps = {
@@ -54,7 +54,7 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
                   as: 'line',
                 },
               ]}
-              shown={countShown}
+              format={formatCount}
               legend={false}
             />
           </InsightsCard>
@@ -79,7 +79,7 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
                   as: 'bar',
                 },
               ]}
-              shown={countShown}
+              format={formatCount}
               legend={false}
             />
           </InsightsCard>

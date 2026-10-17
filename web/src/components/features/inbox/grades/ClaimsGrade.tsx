@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { GradeOptionButton } from '@/components/features/inbox/grades/GradeOptionButton';
-import { claimShown, type Grade, gradeOptions, YOUR_GRADE } from '@/lib/judge';
+import { formatClaim, type Grade, gradeOptions, YOUR_GRADE } from '@/lib/judge';
 
 type ClaimsGradeProps = {
   claims: readonly (string | null)[];
@@ -53,7 +53,7 @@ export function ClaimsGrade({
               <span aria-hidden className="text-muted-foreground tabular-nums">
                 {at + 1}.{' '}
               </span>
-              {claimShown(claims, at)}
+              {formatClaim(claims, at)}
             </legend>
             <div className="flex flex-wrap items-center gap-2">
               {gradeOptions('yes-no').map((option) => (

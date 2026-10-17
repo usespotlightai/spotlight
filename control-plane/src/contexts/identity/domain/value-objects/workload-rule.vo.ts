@@ -10,7 +10,7 @@ const CLAIM_NAME = /^[a-z][a-z0-9_]{0,63}$/;
 
 const REGISTERED = new Set(['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti']);
 
-const MOST_CLAIMS = 16;
+const MAX_CLAIMS = 16;
 
 const OWNER_END = '/';
 
@@ -88,10 +88,10 @@ export class WorkloadRule {
   }): WorkloadRule {
     const named = Object.entries(input.claims);
 
-    if (named.length > MOST_CLAIMS) {
+    if (named.length > MAX_CLAIMS) {
       throw new InvalidTokenTrustError(
         'claims',
-        `must name at most ${MOST_CLAIMS} claims`,
+        `must name at most ${MAX_CLAIMS} claims`,
       );
     }
 

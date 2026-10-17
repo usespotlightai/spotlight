@@ -1,6 +1,6 @@
 import {
   loopStopFor,
-  MOST_DEPTH,
+  MAX_DEPTH,
 } from '@integrations/domain/services/loop-guard';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { describe, expect, it } from 'vitest';
@@ -73,9 +73,9 @@ describe('loopStopFor', () => {
     ).toBeNull();
   });
 
-  it(`stops a chain already ${MOST_DEPTH} causes deep`, () => {
+  it(`stops a chain already ${MAX_DEPTH} causes deep`, () => {
     let chain = CausalChain.none();
-    for (let each = 0; each < MOST_DEPTH; each += 1) {
+    for (let each = 0; each < MAX_DEPTH; each += 1) {
       chain = chain.followedBy({ ...slack, key: `delivery:${each}` });
     }
 

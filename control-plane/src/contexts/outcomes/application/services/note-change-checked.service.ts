@@ -24,7 +24,7 @@ export class NoteChangeChecked {
   ): Promise<void> {
     const verdict = verdictOf(passed);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId);
       const held = await this.records.of(runId);
 
@@ -34,7 +34,7 @@ export class NoteChangeChecked {
         }
 
         await this.records.add(
-          RunRecord.heardOf(runId, workspaceId, taskId).checked(
+          RunRecord.heardOf(runId, workspaceId, taskId).recordCheck(
             verdict,
             this.clock.now(),
           ),
@@ -42,7 +42,7 @@ export class NoteChangeChecked {
         return;
       }
 
-      const checked = held.checked(verdict, this.clock.now());
+      const checked = held.recordCheck(verdict, this.clock.now());
 
       if (checked !== held) {
         await this.records.save(checked);

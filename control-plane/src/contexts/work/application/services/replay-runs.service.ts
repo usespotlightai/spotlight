@@ -39,7 +39,7 @@ export class ReplayRuns implements ReplayDispatchPort {
   ) {}
 
   enqueue(order: ReplayOrder): Promise<ReplayDispatched> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const id = RunId.of(order.id);
       const original = RunId.of(order.original);
       const claim = await this.claims.claim(ReplayRunClaim.toQueue(id));
@@ -90,7 +90,7 @@ export class ReplayRuns implements ReplayDispatchPort {
   }
 
   forgo(runId: string, keep: boolean): Promise<ReplayForgone> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const id = RunId.of(runId);
       const claim = await this.claims.claim(ReplayRunClaim.toForgo(id));
 
@@ -200,7 +200,7 @@ export class ReplayRuns implements ReplayDispatchPort {
     change: (run: Run) => Run,
   ): Promise<void> {
     for (const runId of runIds) {
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const run = await this.runs.findById(RunId.of(runId));
 
         if (!run?.replayOf || run.hasEnded) {

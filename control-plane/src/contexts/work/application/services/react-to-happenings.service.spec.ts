@@ -48,7 +48,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-31T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
-const transaction: TransactionPort = { run: async (work) => work() };
+const transaction: TransactionPort = { inTransaction: async (work) => work() };
 const ids: IdGeneratorPort = { generate: () => 'task_new' };
 const members: MemberDirectoryPort = {
   byEmail: async () => null,
@@ -402,7 +402,7 @@ describe('ReactToHappenings', () => {
   it('takes a Slack thread reply as the answer a paused run waits for, so that same run is taken up', async () => {
     const paused = standing()
       .handedTo(RunId.of('run_1'), line())
-      .putToAPersonBy(RunId.of('run_1'), {
+      .putToAPerson(RunId.of('run_1'), {
         voice: Voice.station(RunId.of('run_1')),
         station: StationName.of('Code Review'),
         body: TaskNoteBody.of('Which repository should this live in?'),
@@ -656,7 +656,7 @@ describe('ReactToHappenings', () => {
     const paused = (stationId: string) => {
       const task = standing(stationId)
         .handedTo(RunId.of('run_1'), line())
-        .putToAPersonBy(RunId.of('run_1'), {
+        .putToAPerson(RunId.of('run_1'), {
           station: StationName.of('Implementation'),
           body: TaskNoteBody.of('Which queue should I drain?'),
           at: NOW,

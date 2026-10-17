@@ -3,12 +3,12 @@ import type { IdentityDefinitionsPort } from '@identity/application/ports/identi
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { WorkspaceRegistration } from '@identity/domain/services/workspace-registration';
-import { Clearance } from '@identity/domain/value-objects/clearance.vo';
+import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type {
@@ -42,7 +42,7 @@ export class CreateWorkspaceHandler
     try {
       const { principal } = command.actor;
 
-      if (!Clearance.beyondWorkspaces(principal).opensWorkspaces) {
+      if (!Permissions.beyondWorkspaces(principal).opensWorkspaces) {
         return forbiddenTo('open-workspaces');
       }
 
@@ -59,7 +59,7 @@ export class CreateWorkspaceHandler
       };
 
       try {
-        return await this.transaction.run(() =>
+        return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             const id = WorkspaceId.of(this.ids.generate());
             const opened = await this.registration.register({
@@ -83,7 +83,7 @@ export class CreateWorkspaceHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

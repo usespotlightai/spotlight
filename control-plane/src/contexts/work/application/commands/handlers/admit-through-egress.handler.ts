@@ -1,5 +1,5 @@
 import type { RunnerEgressPort } from '@runners/application/ports/runner-egress.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { AdmitThroughEgressCommand } from '@work/application/commands/egress.commands';
@@ -41,7 +41,7 @@ export class AdmitThroughEgressHandler
           }
         : { outcome: 'refused' };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

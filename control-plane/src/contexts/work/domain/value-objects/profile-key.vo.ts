@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  areWords,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class ProfileKey {
@@ -10,10 +10,10 @@ export class ProfileKey {
   static of(raw: string): ProfileKey {
     const trimmed = raw.trim();
 
-    if (!areWords(trimmed)) {
+    if (!isSlug(trimmed)) {
       throw new InvalidIdentifierError(
         'harness profile',
-        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in careful`,
+        `must be lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in careful`,
       );
     }
 

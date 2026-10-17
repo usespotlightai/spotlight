@@ -9,7 +9,7 @@ export interface PairJudgingAsk {
   readonly claims: readonly string[];
   readonly passShare: number;
   readonly reference: string;
-  readonly mostAttempts: number;
+  readonly maxAttempts: number;
 }
 
 export type PairJudgingAnswer = 'asked' | 'unavailable' | 'unreadable-rubric';

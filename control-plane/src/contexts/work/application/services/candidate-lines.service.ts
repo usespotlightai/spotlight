@@ -2,10 +2,10 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import type { HeldLineStation } from '@work/application/contracts/held-line.contract';
+import type { LineDefinitionStation } from '@work/application/contracts/line-definition.contract';
 import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
 import type {
-  KeptLine,
+  LineRecord,
   LineResourcesPort,
 } from '@work/application/ports/line-resources.port';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
@@ -30,7 +30,7 @@ const NO_TASKS_STANDING: ReadonlyMap<string, number> = new Map();
 export interface StandingStation {
   readonly line: Line;
   readonly station: Station;
-  readonly kept: KeptLine;
+  readonly kept: LineRecord;
 }
 
 export type CandidateLine =
@@ -98,7 +98,10 @@ export class CandidateLines {
     return line && station && kept ? { line, station, kept } : null;
   }
 
-  liveBlockOf({ station, kept }: StandingStation): HeldLineStation | null {
+  liveBlockOf({
+    station,
+    kept,
+  }: StandingStation): LineDefinitionStation | null {
     return (
       kept.definition.stations.find((each) => each.key === station.key.value) ??
       null

@@ -18,7 +18,7 @@ export const HOOK_FAILURES = {
 
 export type HookFailureCode = keyof typeof HOOK_FAILURES;
 
-const MOST_REASON = 1_000;
+const MAX_REASON = 1_000;
 
 export class HookFailure {
   private constructor(
@@ -27,7 +27,7 @@ export class HookFailure {
   ) {}
 
   static of(code: HookFailureCode, reason: string): HookFailure {
-    return new HookFailure(code, reason.trim().slice(0, MOST_REASON));
+    return new HookFailure(code, reason.trim().slice(0, MAX_REASON));
   }
 
   static answered(status: number, reason: string): HookFailure {

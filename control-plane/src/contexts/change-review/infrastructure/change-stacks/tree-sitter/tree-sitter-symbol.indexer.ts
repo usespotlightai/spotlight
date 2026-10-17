@@ -41,7 +41,7 @@ const GRAMMARS: readonly Grammar[] = [
   TERRAFORM_GRAMMAR,
 ];
 
-const MOST_SOURCE_LENGTH = 512 * 1024;
+const MAX_SOURCE_LENGTH = 512 * 1024;
 
 const THROUGH = /^[\w$.:]{1,60}$/;
 
@@ -297,7 +297,7 @@ export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
         extensions.test(source.path),
       );
 
-      return grammar && source.text.length <= MOST_SOURCE_LENGTH
+      return grammar && source.text.length <= MAX_SOURCE_LENGTH
         ? [{ source, grammar }]
         : [];
     });

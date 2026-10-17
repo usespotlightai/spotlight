@@ -1,6 +1,6 @@
 import type { StationAlertCrossingResponseDto } from '@/lib/api';
 import { amountIn } from '@/lib/inbox';
-import { insightsPath, shareShown, stationAnchor } from '@/lib/insights';
+import { formatShare, insightsPath, stationAnchor } from '@/lib/insights';
 import { alertPhrase } from '@/lib/station-watch';
 
 export type StationAlertCrossing = StationAlertCrossingResponseDto;
@@ -9,7 +9,7 @@ export type AlertPoint = StationAlertCrossing['series'][number];
 
 type Measure = StationAlertCrossing['threshold']['measure'];
 
-export const measureValueShown = (
+export const formatMeasureValue = (
   measure: Measure,
   value: number | null,
   currency: string | null,
@@ -20,7 +20,7 @@ export const measureValueShown = (
 
   return measure === 'cost_per_run'
     ? amountIn(value, currency)
-    : shareShown(value);
+    : formatShare(value);
 };
 
 const lastRuns = (over: number): string =>
@@ -46,13 +46,13 @@ const MOVED_FROM: Record<
   same: 'the same as',
 };
 
-export const thresholdShown = (alert: StationAlertCrossing): string =>
+export const formatThreshold = (alert: StationAlertCrossing): string =>
   alertPhrase(alert.threshold, alert.currency);
 
-export const crossingShown = (alert: StationAlertCrossing): string => {
+export const formatCrossing = (alert: StationAlertCrossing): string => {
   const { measure, over } = alert.threshold;
   const shown = (value: number | null) =>
-    measureValueShown(measure, value, alert.currency);
+    formatMeasureValue(measure, value, alert.currency);
   const before =
     alert.baseline === null
       ? ''
@@ -68,29 +68,29 @@ export const crossingShown = (alert: StationAlertCrossing): string => {
   return `${shown(alert.value)} of ${lastRuns(over)} ${DID[measure][over === 1 ? 1 : 0]}${before}.`;
 };
 
-const changeShown = (
+const formatChange = (
   measure: Measure,
   change: number,
   currency: string | null,
   direction: 'rise' | 'fall',
 ): string => {
   if (measure === 'cost_per_run') {
-    return `a ${direction} of ${measureValueShown(measure, change, currency)}`;
+    return `a ${direction} of ${formatMeasureValue(measure, change, currency)}`;
   }
 
   return `a ${Math.round(change * 1000) / 10}-point ${direction}`;
 };
 
-export const limitShown = (alert: StationAlertCrossing): string => {
+export const formatLimit = (alert: StationAlertCrossing): string => {
   const { measure, risesBy, fallsBy, above, below } = alert.threshold;
   const shown = (value: number) =>
-    measureValueShown(measure, value, alert.currency);
+    formatMeasureValue(measure, value, alert.currency);
 
   if (risesBy !== null) {
-    return `The alert is set at ${changeShown(measure, risesBy, alert.currency, 'rise')}.`;
+    return `The alert is set at ${formatChange(measure, risesBy, alert.currency, 'rise')}.`;
   }
   if (fallsBy !== null) {
-    return `The alert is set at ${changeShown(measure, fallsBy, alert.currency, 'fall')}.`;
+    return `The alert is set at ${formatChange(measure, fallsBy, alert.currency, 'fall')}.`;
   }
   if (below !== null) {
     return `The alert is set at below ${shown(below)}.`;
@@ -105,7 +105,7 @@ export const BEFORE_LEVEL = 'Before';
 
 export const CROSSING_RUN = 'The run it went off at';
 
-export const recoveredShown = (
+export const formatRecovered = (
   alert: StationAlertCrossing,
   day: string,
 ): string => {

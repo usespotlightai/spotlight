@@ -13,7 +13,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-const MOST_SETS_AT_ONCE = 4;
+const MAX_SETS_AT_ONCE = 4;
 
 export class WorkDecisionSets implements OwedWorkPort {
   readonly name = 'Drafting decisions';
@@ -33,7 +33,7 @@ export class WorkDecisionSets implements OwedWorkPort {
     this.#pool = new OwedWorkPool<DecisionSet, TaskId>(
       {
         name: this.name,
-        mostAtOnce: MOST_SETS_AT_ONCE,
+        maxAtOnce: MAX_SETS_AT_ONCE,
         due: (now) => this.sets.dueForWork(now),
         find: (taskId) => this.sets.forTask(taskId),
         save: (set) => this.sets.save(set),
@@ -81,7 +81,7 @@ export class WorkDecisionSets implements OwedWorkPort {
         ? await this.drafter.draft(reasoning)
         : [];
 
-    return set.drafted({
+    return set.recordDraft({
       runId,
       proposed,
       grounds: DecisionGrounds.of({

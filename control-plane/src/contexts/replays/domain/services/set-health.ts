@@ -2,9 +2,9 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
 import {
-  FEWEST_PAIRED_TASKS,
   type GainReading,
   gainBetween,
+  MIN_PAIRED_TASKS,
 } from '@replays/domain/services/gain-reading';
 import { totalsOf } from '@replays/domain/services/replay-results';
 import {
@@ -23,7 +23,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export const SATURATED_ABOVE = 0.95;
 
-export const FEWEST_CHECKED_RUNS = 5;
+export const MIN_CHECKED_RUNS = 5;
 
 export const JUDGE_UNSTABLE_BELOW = 0.8;
 
@@ -131,7 +131,7 @@ export const checksSet = (
   configs: readonly ReplayedConfig[],
   liveFingerprint: StationFingerprint,
 ): boolean =>
-  set.entries.length >= FEWEST_CHECKED_RUNS &&
+  set.entries.length >= MIN_CHECKED_RUNS &&
   !replays.some(
     (each) =>
       each.probe &&
@@ -235,9 +235,7 @@ const oracleOf = (
     withAnswer: compared ? totalsOf(oracle, answered).successRate : null,
     gain,
     roomToImprove:
-      gain && gain.tasks >= FEWEST_PAIRED_TASKS
-        ? gain.verdict === 'better'
-        : null,
+      gain && gain.tasks >= MIN_PAIRED_TASKS ? gain.verdict === 'better' : null,
   };
 };
 

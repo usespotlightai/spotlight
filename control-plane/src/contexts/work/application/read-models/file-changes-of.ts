@@ -7,9 +7,9 @@ export interface FileChange {
   readonly omitted: boolean;
 }
 
-const MOST_TEXT_PER_FILE = 256_000;
+const MAX_TEXT_PER_FILE = 256_000;
 
-const MOST_TEXT_PER_RUN = 1_000_000;
+const MAX_TEXT_PER_RUN = 1_000_000;
 
 export const fileChangesOf = (journal: RunJournal): FileChange[] => {
   const files = new Map<string, { before: string; after: string }>();
@@ -29,14 +29,14 @@ export const fileChangesOf = (journal: RunJournal): FileChange[] => {
     });
   }
 
-  let left = MOST_TEXT_PER_RUN;
+  let left = MAX_TEXT_PER_RUN;
 
   return [...files.entries()]
     .filter(([, file]) => file.before !== file.after)
     .map(([path, file]) => {
       const size = file.before.length + file.after.length;
 
-      if (size > MOST_TEXT_PER_FILE || size > left) {
+      if (size > MAX_TEXT_PER_FILE || size > left) {
         return { path, before: '', after: '', omitted: true };
       }
 

@@ -145,7 +145,7 @@ describe('RunnerEgress', () => {
       ).resolves.toBeNull();
       await expect(
         egressOf(null, {
-          egress: anEgress().retired([], attributedIn()),
+          egress: anEgress().retire([], attributedIn()),
         }).sharedWith('shared-token'),
       ).resolves.toBeNull();
     });

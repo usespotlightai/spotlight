@@ -1,7 +1,7 @@
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import type { TipPlacement } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
-import { countShown, shareShown } from '@/lib/insights';
+import { formatCount, formatShare } from '@/lib/insights';
 import type { ReplayedPoint } from '@/lib/insights-candidates';
 
 type ReplayedPointSaidProps = {
@@ -22,7 +22,7 @@ export function ReplayedPointSaid({
         {point.label}
       </p>
       <p className="text-muted-foreground">
-        Replay success {shareShown(point.value)} of {countShown(point.scored)}{' '}
+        Replay success {formatShare(point.value)} of {formatCount(point.scored)}{' '}
         scored {point.scored === 1 ? 'run' : 'runs'} ·{' '}
         {spentIn(point.cost, currency)} a run
       </p>

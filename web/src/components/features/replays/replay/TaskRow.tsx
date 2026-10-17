@@ -11,10 +11,10 @@ import {
 } from '@/components/shared/nested-table/nested-rows';
 import {
   type EntryComparison,
+  formatTitle,
   type TaskColumns,
-  titleShown,
 } from '@/lib/replay';
-import { pairShown, REGRESSED_NOTE } from '@/lib/replay-words';
+import { formatPair, REGRESSED_NOTE } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
 type TaskRowProps = {
@@ -32,7 +32,7 @@ export function TaskRow({
   picked,
   onPick,
 }: TaskRowProps) {
-  const title = titleShown(row.title);
+  const title = formatTitle(row.title);
   const { compared, judged, paired, counterpart, counterpartLabel } = columns;
 
   return (
@@ -83,7 +83,7 @@ export function TaskRow({
       {paired && (
         <NestedCell heading="Closer" numeric={false}>
           <span data-slot="pair" data-pair={row.pair ?? 'none'}>
-            {pairShown(row.pair, counterpart)}
+            {formatPair(row.pair, counterpart)}
           </span>
         </NestedCell>
       )}

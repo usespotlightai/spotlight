@@ -25,12 +25,12 @@ describe('RunOutcomes', () => {
     const deliveries = new TaskDeliveriesInMemory();
     await records.add(
       endedRecord('run_1', { round: 2 })
-        .checked('passed', HEARD_AT)
-        .actedOn(NextAct.of('closed', AT)),
+        .recordCheck('passed', HEARD_AT)
+        .recordAction(NextAct.of('closed', AT)),
     );
     await records.add(RunRecord.heardOf(RunId.of('run_2'), WORKSPACE));
     await deliveries.add(
-      TaskDelivery.opened({
+      TaskDelivery.open({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -75,18 +75,18 @@ describe('RunOutcomes', () => {
     const pullRequest = PullRequestUrl.of('https://github.com/acme/api/pull/1');
     await records.add(
       endedRecord('run_1', { round: 2 })
-        .checked('passed', later(2))
-        .actedOn(NextAct.of('closed', later(3)))
+        .recordCheck('passed', later(2))
+        .recordAction(NextAct.of('closed', later(3)))
         .supersededByItsTask(later(4)),
     );
     await deliveries.add(
-      TaskDelivery.opened({
+      TaskDelivery.open({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
         pullRequest,
         at: later(1),
-      }).closed({ pullRequest, merged: true, at: later(5) }),
+      }).close({ pullRequest, merged: true, at: later(5) }),
     );
     const of = (asOf: Date) =>
       new RunOutcomes(records, deliveries)

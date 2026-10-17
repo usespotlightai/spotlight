@@ -45,7 +45,7 @@ describe('hook firings, kept in the database (e2e)', () => {
   const at = (seconds: number) => new Date(NOW.getTime() + seconds * 1000);
 
   const firing = (occurrence: string, firedAt: Date = NOW): HookFiring =>
-    HookFiring.fired({
+    HookFiring.fire({
       id: randomUUID(),
       hookId,
       workspaceId: 'workspace_1',
