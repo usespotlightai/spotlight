@@ -3,8 +3,8 @@ import { CandidateProposed } from '@replays/domain/events/candidate-proposed.eve
 import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
 import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
-import { CandidateMovedOnError } from '@replays/domain/exceptions/candidate-moved-on.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
+import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -340,9 +340,9 @@ export class Candidate extends EventRecorder {
     return this.state.version;
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.state.version) {
-      throw new CandidateMovedOnError(this.id.value);
+      throw new CandidateVersionConflictError(this.id.value);
     }
   }
 

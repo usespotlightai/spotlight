@@ -3,7 +3,7 @@ import { EgressRedefined } from '@runners/domain/events/egress-redefined.event';
 import { EgressRetired } from '@runners/domain/events/egress-retired.event';
 import { EgressInUseError } from '@runners/domain/exceptions/egress-in-use.error';
 import { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
-import { EgressMovedOnError } from '@runners/domain/exceptions/egress-moved-on.error';
+import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import { EgressChangeDetail } from '@runners/domain/value-objects/egress-change-detail.vo';
 import type { EgressId } from '@runners/domain/value-objects/egress-id.vo';
@@ -111,9 +111,9 @@ export class Egress extends EventRecorder {
     return this.workspaceId.equals(workspaceId);
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new EgressMovedOnError(this.id.value);
+      throw new EgressVersionConflictError(this.id.value);
     }
   }
 

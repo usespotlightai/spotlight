@@ -1,5 +1,5 @@
 import { StationWatch } from '@outcomes/domain/aggregates/station-watch.aggregate';
-import { StationWatchMovedOnError } from '@outcomes/domain/exceptions/station-watch-moved-on.error';
+import { StationWatchVersionConflictError } from '@outcomes/domain/exceptions/station-watch-version-conflict.error';
 import type { StationWatchRepository } from '@outcomes/domain/repositories/station-watch.repository';
 import type { AlertCrossing } from '@outcomes/domain/value-objects/alert-crossing.vo';
 import type { AlertId } from '@outcomes/domain/value-objects/alert-id.vo';
@@ -14,7 +14,7 @@ export class StationWatchesInMemory implements StationWatchRepository {
 
   async add(watch: StationWatch): Promise<void> {
     if (this.held.has(watch.station.stationId)) {
-      throw new StationWatchMovedOnError(watch.station.stationId);
+      throw new StationWatchVersionConflictError(watch.station.stationId);
     }
     this.keep(watch, [], watch.version);
   }
@@ -23,7 +23,7 @@ export class StationWatchesInMemory implements StationWatchRepository {
     const held = this.held.get(watch.station.stationId);
 
     if (!held || held.version !== watch.version) {
-      throw new StationWatchMovedOnError(watch.station.stationId);
+      throw new StationWatchVersionConflictError(watch.station.stationId);
     }
     this.keep(watch, held.crossings, watch.version + 1);
   }

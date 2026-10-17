@@ -4,7 +4,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { IdentityProblems } from '@identity/application/rendering/identity-problems';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
-import { TokenTrustMovedOnError } from '@identity/domain/exceptions/token-trust-moved-on.error';
+import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
 import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import {
@@ -50,7 +50,7 @@ export class UpdateWorkspaceTokenTrustHandler
         return forbiddenTo('manage-token-trusts');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.workspaceTokenTrust(command.definition);
 
@@ -70,11 +70,11 @@ export class UpdateWorkspaceTokenTrustHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof TokenTrustMovedOnError) {
+      if (error instanceof TokenTrustVersionConflictError) {
         const current = await this.trusts.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

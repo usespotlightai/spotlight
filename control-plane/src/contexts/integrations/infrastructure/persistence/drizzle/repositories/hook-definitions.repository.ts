@@ -1,7 +1,7 @@
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import { HookAlreadyDefinedError } from '@integrations/domain/exceptions/hook-already-defined.error';
-import { HookDefinitionMovedOnError } from '@integrations/domain/exceptions/hook-definition-moved-on.error';
+import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
@@ -183,7 +183,7 @@ export class DrizzleHookDefinitions
           .returning({ id: hookDefinition.id });
 
     if (touched.length === 0) {
-      throw new HookDefinitionMovedOnError(definition.key.value);
+      throw new HookDefinitionVersionConflictError(definition.key.value);
     }
   }
 

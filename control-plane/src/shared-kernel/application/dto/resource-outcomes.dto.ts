@@ -19,7 +19,7 @@ export const forbiddenTo = (act: ForbiddenAct): Forbidden => ({
 });
 
 export type Refused =
-  | { readonly outcome: 'moved-on'; readonly currentVersion: number }
+  | { readonly outcome: 'version-conflict'; readonly currentVersion: number }
   | { readonly outcome: 'in-use'; readonly reason: string }
   | Forbidden;
 

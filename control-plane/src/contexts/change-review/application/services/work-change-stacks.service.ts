@@ -1,7 +1,7 @@
 import type { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
 import type { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
-import { ChangeStackMovedOnError } from '@change-review/domain/exceptions/change-stack-moved-on.error';
+import { ChangeStackVersionConflictError } from '@change-review/domain/exceptions/change-stack-version-conflict.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -48,7 +48,7 @@ export class WorkChangeStacks implements OwedWorkPort {
           attempts: stack.work.attempts,
         }),
         worked: (stack) => this.worked(stack),
-        stale: (error) => error instanceof ChangeStackMovedOnError,
+        stale: (error) => error instanceof ChangeStackVersionConflictError,
       },
       transaction,
       clock,

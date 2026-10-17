@@ -3,7 +3,7 @@ import {
   type HookFiringProgress,
   type HookStepOutcome,
 } from '@integrations/domain/aggregates/hook-firing.aggregate';
-import { HookFiringMovedOnError } from '@integrations/domain/exceptions/hook-firing-moved-on.error';
+import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import {
@@ -216,7 +216,7 @@ export class DrizzleHookFirings implements HookFiringRepository {
             .returning({ id: hookFiring.id });
 
       if (written.length === 0) {
-        throw new HookFiringMovedOnError(firing.id);
+        throw new HookFiringVersionConflictError(firing.id);
       }
 
       await this.events.dispatch(firing.pullEvents());

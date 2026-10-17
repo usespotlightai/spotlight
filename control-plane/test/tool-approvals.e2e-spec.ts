@@ -4,7 +4,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -268,7 +268,7 @@ describe('an approval a run asked for', () => {
 
     await tasks.save(one.task);
     await expect(tasks.save(other.task)).rejects.toBeInstanceOf(
-      TaskMovedOnError,
+      TaskVersionConflictError,
     );
     expect((await readBack(task)).approvalFor(CALL)?.approval.spent).toBe(true);
   });

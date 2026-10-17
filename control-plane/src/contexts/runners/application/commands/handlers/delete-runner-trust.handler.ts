@@ -1,6 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteRunnerTrustCommand } from '@runners/application/commands/runner-resource.commands';
-import { RunnerTrustMovedOnError } from '@runners/domain/exceptions/runner-trust-moved-on.error';
+import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import {
@@ -44,7 +44,7 @@ export class DeleteRunnerTrustHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       await this.transaction.run(() =>
         this.trusts.save(
@@ -56,11 +56,11 @@ export class DeleteRunnerTrustHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof RunnerTrustMovedOnError) {
+      if (error instanceof RunnerTrustVersionConflictError) {
         const current = await this.trusts.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

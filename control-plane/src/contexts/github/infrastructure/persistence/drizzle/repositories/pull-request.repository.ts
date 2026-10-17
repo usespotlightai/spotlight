@@ -1,5 +1,5 @@
 import { PullRequest } from '@github/domain/aggregates/pull-request.aggregate';
-import { PullRequestMovedOnError } from '@github/domain/exceptions/pull-request-moved-on.error';
+import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-request-version-conflict.error';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
 import { githubPullRequest } from '@github/infrastructure/persistence/drizzle/schemas/pull-request.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -270,7 +270,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
         .returning({ url: githubPullRequest.url });
 
       if (written.length === 0) {
-        throw new PullRequestMovedOnError(added.url.value);
+        throw new PullRequestVersionConflictError(added.url.value);
       }
 
       await this.events.dispatch(added.pullEvents());
@@ -291,7 +291,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
         .returning({ url: githubPullRequest.url });
 
       if (written.length === 0) {
-        throw new PullRequestMovedOnError(saved.url.value);
+        throw new PullRequestVersionConflictError(saved.url.value);
       }
 
       await this.events.dispatch(saved.pullEvents());
@@ -311,7 +311,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
         .returning({ url: githubPullRequest.url });
 
       if (gone.length === 0) {
-        throw new PullRequestMovedOnError(removed.url.value);
+        throw new PullRequestVersionConflictError(removed.url.value);
       }
 
       await this.events.dispatch(removed.pullEvents());

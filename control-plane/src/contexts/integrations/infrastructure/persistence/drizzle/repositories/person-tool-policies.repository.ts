@@ -1,5 +1,5 @@
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
-import { PersonToolPolicyMovedOnError } from '@integrations/domain/exceptions/person-tool-policy-moved-on.error';
+import { PersonToolPolicyVersionConflictError } from '@integrations/domain/exceptions/person-tool-policy-version-conflict.error';
 import type { PersonToolPolicyRepository } from '@integrations/domain/repositories/person-tool-policy.repository';
 import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
@@ -95,7 +95,7 @@ export class DrizzlePersonToolPolicies implements PersonToolPolicyRepository {
           .returning({ source: personToolPolicy.source });
 
     if (kept.length === 0) {
-      throw new PersonToolPolicyMovedOnError(policy.source.value);
+      throw new PersonToolPolicyVersionConflictError(policy.source.value);
     }
   }
 

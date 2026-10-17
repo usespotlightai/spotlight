@@ -1,5 +1,5 @@
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
-import { RunnerHostMovedOnError } from '@runners/domain/exceptions/runner-host-moved-on.error';
+import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 
@@ -22,7 +22,10 @@ export const reviseHost = async (
       await (known ? hosts.save(changed) : hosts.add(changed));
       return changed;
     } catch (error) {
-      if (!(error instanceof RunnerHostMovedOnError) || attempt >= ATTEMPTS) {
+      if (
+        !(error instanceof RunnerHostVersionConflictError) ||
+        attempt >= ATTEMPTS
+      ) {
         throw error;
       }
     }
@@ -45,7 +48,10 @@ export const forgetHost = async (
       await hosts.remove(known);
       return;
     } catch (error) {
-      if (!(error instanceof RunnerHostMovedOnError) || attempt >= ATTEMPTS) {
+      if (
+        !(error instanceof RunnerHostVersionConflictError) ||
+        attempt >= ATTEMPTS
+      ) {
         throw error;
       }
     }

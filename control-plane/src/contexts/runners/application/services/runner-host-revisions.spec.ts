@@ -6,7 +6,7 @@ import {
   heldHosts,
   STARTED_AT,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
-import { RunnerHostMovedOnError } from '@runners/domain/exceptions/runner-host-moved-on.error';
+import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import { describe, expect, it } from 'vitest';
 
 const LATER = new Date(STARTED_AT.getTime() + 30_000);
@@ -56,7 +56,7 @@ describe('reviseHost', () => {
 
     hosts.add.mockImplementationOnce(async (host) => {
       held.set(host.id.value, host);
-      throw new RunnerHostMovedOnError(host.id.value);
+      throw new RunnerHostVersionConflictError(host.id.value);
     });
 
     const revised = await reviseHost(hosts, HOST_ID, (known) => {
@@ -69,21 +69,21 @@ describe('reviseHost', () => {
     expect(held.get(HOST_ID.value)?.version).toBe(1);
   });
 
-  it('gives up after three tries, answering the host moved on', async () => {
+  it('gives up after three tries, answering that the host changed', async () => {
     const { hosts } = heldHosts(aHost());
 
     hosts.save.mockImplementation(async (host) => {
-      throw new RunnerHostMovedOnError(host.id.value);
+      throw new RunnerHostVersionConflictError(host.id.value);
     });
 
     await expect(
       reviseHost(hosts, HOST_ID, (known) => reported(known ?? aHost())),
-    ).rejects.toThrow(RunnerHostMovedOnError);
+    ).rejects.toThrow(RunnerHostVersionConflictError);
     expect(hosts.find).toHaveBeenCalledTimes(3);
     expect(hosts.save).toHaveBeenCalledTimes(3);
   });
 
-  it('never retries what is not the host having moved on', async () => {
+  it('never retries what is not a version conflict on the host', async () => {
     const { hosts } = heldHosts(aHost());
     const lost = new Error('the database is down');
 

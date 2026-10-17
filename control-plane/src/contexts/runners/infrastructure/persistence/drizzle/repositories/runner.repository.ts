@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
-import { RunnerMovedOnError } from '@runners/domain/exceptions/runner-moved-on.error';
+import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-version-conflict.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
@@ -167,7 +167,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
             .returning({ id: runner.id });
 
       if (written.length === 0) {
-        throw new RunnerMovedOnError(saved.id.value);
+        throw new RunnerVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

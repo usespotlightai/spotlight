@@ -1,7 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteEgressCommand } from '@runners/application/commands/runner-resource.commands';
 import { EgressInUseError } from '@runners/domain/exceptions/egress-in-use.error';
-import { EgressMovedOnError } from '@runners/domain/exceptions/egress-moved-on.error';
+import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { poolsNaming } from '@runners/domain/services/egress-uses';
@@ -45,12 +45,12 @@ export class DeleteEgressHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       await this.transaction.run(async () => {
         const locked = (await this.egresses.findToRetire(id)) ?? standing;
 
-        locked.expecting(command.expectedVersion);
+        locked.assertVersion(command.expectedVersion);
 
         await this.egresses.save(
           locked.retired(
@@ -65,11 +65,11 @@ export class DeleteEgressHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof EgressMovedOnError) {
+      if (error instanceof EgressVersionConflictError) {
         const current = await this.egresses.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

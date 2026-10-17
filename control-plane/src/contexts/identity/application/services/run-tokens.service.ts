@@ -4,7 +4,7 @@ import type {
   RunTokenWanted,
 } from '@identity/application/ports/run-tokens.port';
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
-import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
+import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -79,7 +79,7 @@ export class RunTokens implements RunTokensPort {
         ),
       );
     } catch (error) {
-      if (!(error instanceof WorkspaceTokenMovedOnError)) {
+      if (!(error instanceof WorkspaceTokenVersionConflictError)) {
         throw error;
       }
     }

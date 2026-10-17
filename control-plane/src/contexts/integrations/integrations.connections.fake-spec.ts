@@ -1,5 +1,5 @@
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
-import { HostConnectionMovedOnError } from '@integrations/domain/exceptions/host-connection-moved-on.error';
+import { HostConnectionVersionConflictError } from '@integrations/domain/exceptions/host-connection-version-conflict.error';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
@@ -29,7 +29,7 @@ export class InMemoryHostConnections implements HostConnectionRepository {
   readonly #held = new Map<string, HostConnection>();
   readonly saved: HostConnection[] = [];
   readonly events: DomainEvent[] = [];
-  #movedOnce = 0;
+  #conflicts = 0;
 
   hold(connection: HostConnection): void {
     this.#held.set(
@@ -38,8 +38,8 @@ export class InMemoryHostConnections implements HostConnectionRepository {
     );
   }
 
-  moveOnNext(times = 1): void {
-    this.#movedOnce = times;
+  conflictOnNext(times = 1): void {
+    this.#conflicts = times;
   }
 
   bump(teamId: TeamId, source: SourceKey, holder: ConnectionHolder): void {
@@ -63,16 +63,16 @@ export class InMemoryHostConnections implements HostConnectionRepository {
     const key = keyOf(connection.teamId, connection.source, connection.holder);
     const held = this.#held.get(key);
 
-    if (this.#movedOnce > 0) {
-      this.#movedOnce--;
+    if (this.#conflicts > 0) {
+      this.#conflicts--;
       if (held) {
         this.#held.set(key, keptAs(held, held.version + 1));
       }
-      throw new HostConnectionMovedOnError(connection.source.value);
+      throw new HostConnectionVersionConflictError(connection.source.value);
     }
 
     if (!connection.isNew && held?.version !== connection.version) {
-      throw new HostConnectionMovedOnError(connection.source.value);
+      throw new HostConnectionVersionConflictError(connection.source.value);
     }
 
     this.#held.set(key, keptAs(connection, (held?.version ?? 0) + 1));

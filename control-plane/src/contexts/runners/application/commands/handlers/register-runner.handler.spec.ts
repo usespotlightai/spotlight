@@ -2,7 +2,7 @@ import { RegisterRunnerHandler } from '@runners/application/commands/handlers/re
 import { RegisterRunnerCommand } from '@runners/application/commands/runner-fleet.commands';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { aRunner } from '@runners/domain/aggregates/runner-pool.fake-spec';
-import { RunnerMovedOnError } from '@runners/domain/exceptions/runner-moved-on.error';
+import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-version-conflict.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
@@ -92,7 +92,7 @@ describe('RegisterRunnerHandler', () => {
       save: async () => {
         if (!raced) {
           raced = true;
-          throw new RunnerMovedOnError(ID);
+          throw new RunnerVersionConflictError(ID);
         }
       },
     });

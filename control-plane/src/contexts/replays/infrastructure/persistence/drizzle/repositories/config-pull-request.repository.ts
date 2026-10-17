@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
-import { ConfigPullRequestMovedOnError } from '@replays/domain/exceptions/config-pull-request-moved-on.error';
+import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
@@ -173,7 +173,7 @@ export class DrizzleConfigPullRequestRepository
         const kept = await this.forCandidate(added.searchId, added.candidateId);
 
         if (!kept) {
-          throw new ConfigPullRequestMovedOnError(added.id.value);
+          throw new ConfigPullRequestVersionConflictError(added.id.value);
         }
 
         return kept;
@@ -203,7 +203,7 @@ export class DrizzleConfigPullRequestRepository
             .returning({ id: configPullRequest.id });
 
       if (written.length === 0) {
-        throw new ConfigPullRequestMovedOnError(saved.id.value);
+        throw new ConfigPullRequestVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

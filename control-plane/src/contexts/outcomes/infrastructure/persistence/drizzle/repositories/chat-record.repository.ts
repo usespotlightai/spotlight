@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
-import { ChatRecordMovedOnError } from '@outcomes/domain/exceptions/chat-record-moved-on.error';
+import { ChatRecordVersionConflictError } from '@outcomes/domain/exceptions/chat-record-version-conflict.error';
 import type { ChatRecordRepository } from '@outcomes/domain/repositories/chat-record.repository';
 import { chatRecord } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -40,7 +40,7 @@ export class DrizzleChatRecordRepository implements ChatRecordRepository {
       .returning({ chatId: chatRecord.chatId });
 
     if (written.length === 0) {
-      throw new ChatRecordMovedOnError(added.chatId);
+      throw new ChatRecordVersionConflictError(added.chatId);
     }
   }
 

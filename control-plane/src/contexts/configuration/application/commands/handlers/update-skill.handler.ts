@@ -1,7 +1,7 @@
 import type { UpdateSkillCommand } from '@configuration/application/commands/update-skill.command';
 import type { SkillCompilerPort } from '@configuration/application/ports/skill-compiler.port';
 import { SkillProblems } from '@configuration/application/rendering/skill-problems';
-import { SkillDefinitionMovedOnError } from '@configuration/domain/exceptions/skill-definition-moved-on.error';
+import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import { SkillKeyFixedError } from '@configuration/domain/exceptions/skill-key-fixed.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
@@ -45,7 +45,7 @@ export class UpdateSkillHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.compiler.compile(command.definition);
 
@@ -64,11 +64,11 @@ export class UpdateSkillHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof SkillDefinitionMovedOnError) {
+      if (error instanceof SkillDefinitionVersionConflictError) {
         const current = await this.definitions.withId(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

@@ -2,7 +2,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { DeleteSecretCommand } from '@secrets/application/commands/delete-secret.command';
 import type { SecretUsesPort } from '@secrets/application/ports/secret-uses.port';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
-import { SecretMovedOnError } from '@secrets/domain/exceptions/secret-moved-on.error';
+import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
@@ -45,7 +45,7 @@ export class DeleteSecretHandler
         return forbiddenTo('manage-secrets');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const uses = SecretUses.of(
         await this.uses.of({
@@ -65,11 +65,11 @@ export class DeleteSecretHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof SecretMovedOnError) {
+      if (error instanceof SecretVersionConflictError) {
         const current = await this.secrets.withId(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

@@ -2,10 +2,10 @@ import { ChangeJudging } from '@outcomes/domain/aggregates/change-judging.aggreg
 import { Judging } from '@outcomes/domain/aggregates/judging.aggregate';
 import { PairJudging } from '@outcomes/domain/aggregates/pair-judging.aggregate';
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
-import { ChangeJudgingMovedOnError } from '@outcomes/domain/exceptions/change-judging-moved-on.error';
-import { JudgingMovedOnError } from '@outcomes/domain/exceptions/judging-moved-on.error';
-import { PairJudgingMovedOnError } from '@outcomes/domain/exceptions/pair-judging-moved-on.error';
-import { ScoreMovedOnError } from '@outcomes/domain/exceptions/score-moved-on.error';
+import { ChangeJudgingVersionConflictError } from '@outcomes/domain/exceptions/change-judging-version-conflict.error';
+import { JudgingVersionConflictError } from '@outcomes/domain/exceptions/judging-version-conflict.error';
+import { PairJudgingVersionConflictError } from '@outcomes/domain/exceptions/pair-judging-version-conflict.error';
+import { ScoreVersionConflictError } from '@outcomes/domain/exceptions/score-version-conflict.error';
 import { FIRST_CONFIG, WORKSPACE } from '@outcomes/domain/outcomes.fake-spec';
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
 import type { JudgingRepository } from '@outcomes/domain/repositories/judging.repository';
@@ -147,7 +147,7 @@ export class JudgingsInMemory implements JudgingRepository {
 
   async add(judging: Judging): Promise<void> {
     if (this.held.has(judging.runId.value)) {
-      throw new JudgingMovedOnError(judging.runId.value);
+      throw new JudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
     this.held.set(judging.runId.value, judging);
@@ -157,7 +157,7 @@ export class JudgingsInMemory implements JudgingRepository {
     const held = this.held.get(judging.runId.value);
 
     if (!held || held.version !== judging.version) {
-      throw new JudgingMovedOnError(judging.runId.value);
+      throw new JudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
     this.held.set(
@@ -221,7 +221,7 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
     const key = keyOf(judging.runId, judging.round);
 
     if (this.held.has(key)) {
-      throw new ChangeJudgingMovedOnError(judging.runId.value);
+      throw new ChangeJudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
     this.held.set(key, judging);
@@ -232,7 +232,7 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
     const held = this.held.get(key);
 
     if (!held || held.version !== judging.version) {
-      throw new ChangeJudgingMovedOnError(judging.runId.value);
+      throw new ChangeJudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
     this.held.set(
@@ -294,7 +294,7 @@ export class PairJudgingsInMemory implements PairJudgingRepository {
     const key = pairKeyOf(judging.runId, judging.against);
 
     if (this.held.has(key)) {
-      throw new PairJudgingMovedOnError(
+      throw new PairJudgingVersionConflictError(
         judging.runId.value,
         judging.against.value,
       );
@@ -308,7 +308,7 @@ export class PairJudgingsInMemory implements PairJudgingRepository {
     const held = this.held.get(key);
 
     if (!held || held.version !== judging.version) {
-      throw new PairJudgingMovedOnError(
+      throw new PairJudgingVersionConflictError(
         judging.runId.value,
         judging.against.value,
       );
@@ -379,7 +379,7 @@ export class ScoresInMemory implements ScoreRepository {
     );
 
     if (this.held.has(score.id.value) || twin) {
-      throw new ScoreMovedOnError(score.id.value);
+      throw new ScoreVersionConflictError(score.id.value);
     }
     this.events.push(...score.pullEvents());
     this.held.set(score.id.value, score);
@@ -389,7 +389,7 @@ export class ScoresInMemory implements ScoreRepository {
     const held = this.held.get(score.id.value);
 
     if (!held || held.version !== score.version) {
-      throw new ScoreMovedOnError(score.id.value);
+      throw new ScoreVersionConflictError(score.id.value);
     }
     this.events.push(...score.pullEvents());
     this.held.set(

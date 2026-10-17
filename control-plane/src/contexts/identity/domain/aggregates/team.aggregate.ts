@@ -7,8 +7,8 @@ import { AlreadyOnTheTeamError } from '@identity/domain/exceptions/already-on-th
 import { NotInTheWorkspaceError } from '@identity/domain/exceptions/not-in-the-workspace.error';
 import { TeamInUseError } from '@identity/domain/exceptions/team-in-use.error';
 import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
-import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
+import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import type { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
@@ -140,9 +140,9 @@ export class Team extends EventRecorder {
     return name.equals(this.name) ? this : this.reshaped({ name });
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new TeamMovedOnError(this.id.value);
+      throw new TeamVersionConflictError(this.id.value);
     }
   }
 

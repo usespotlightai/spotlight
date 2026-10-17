@@ -108,7 +108,7 @@ func (gone) Lost() bool { return true }
 
 type conflict struct{}
 
-func (conflict) Error() string { return "409 Conflict: the run moved on while its lease was renewed" }
+func (conflict) Error() string { return "409 Conflict: the run changed while its lease was renewed" }
 
 func (conflict) Lost() bool { return false }
 

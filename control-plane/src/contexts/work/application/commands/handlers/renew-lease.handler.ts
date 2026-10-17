@@ -6,7 +6,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RenewLeaseCommand } from '@work/application/commands/runner.commands';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import { UnknownRunnerError } from '@work/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -44,7 +44,10 @@ export class RenewLeaseHandler
           await this.runs.save(run.renewLease(renewing, at));
           return;
         } catch (error) {
-          if (!(error instanceof RunMovedOnError) || attempt >= ATTEMPTS) {
+          if (
+            !(error instanceof RunVersionConflictError) ||
+            attempt >= ATTEMPTS
+          ) {
             throw error;
           }
         }

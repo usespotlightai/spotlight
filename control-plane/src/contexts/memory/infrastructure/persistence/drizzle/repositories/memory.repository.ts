@@ -1,5 +1,5 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import { MemoryMovedOnError } from '@memory/domain/exceptions/memory-moved-on.error';
+import { MemoryVersionConflictError } from '@memory/domain/exceptions/memory-version-conflict.error';
 import type {
   MemoryCriteria,
   MemoryRepository,
@@ -149,7 +149,9 @@ export class DrizzleMemoryRepository implements MemoryRepository {
         .returning({ id: memory.id });
 
       if (written.length === 0) {
-        throw new MemoryMovedOnError(added.supersedes?.value ?? added.id.value);
+        throw new MemoryVersionConflictError(
+          added.supersedes?.value ?? added.id.value,
+        );
       }
 
       await this.events.dispatch(added.pullEvents());
@@ -167,7 +169,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
         .returning({ id: memory.id });
 
       if (written.length === 0) {
-        throw new MemoryMovedOnError(saved.id.value);
+        throw new MemoryVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

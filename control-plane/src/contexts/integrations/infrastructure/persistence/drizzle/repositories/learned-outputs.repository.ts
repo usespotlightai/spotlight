@@ -1,5 +1,5 @@
 import { LearnedOutput } from '@integrations/domain/aggregates/learned-output.aggregate';
-import { LearnedOutputMovedOnError } from '@integrations/domain/exceptions/learned-output-moved-on.error';
+import { LearnedOutputVersionConflictError } from '@integrations/domain/exceptions/learned-output-version-conflict.error';
 import type { LearnedOutputRepository } from '@integrations/domain/repositories/learned-output.repository';
 import { OutputShape } from '@integrations/domain/value-objects/output-shape.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
@@ -91,7 +91,7 @@ export class DrizzleLearnedOutputs implements LearnedOutputRepository {
           .returning({ tool: learnedOutput.tool });
 
     if (kept.length === 0) {
-      throw new LearnedOutputMovedOnError(learned.tool.value);
+      throw new LearnedOutputVersionConflictError(learned.tool.value);
     }
   }
 

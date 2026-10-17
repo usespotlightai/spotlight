@@ -1038,7 +1038,7 @@ func TestARefusedCredentialStopsClaimingButLetsRunningSandboxesFinish(t *testing
 }
 
 func TestATransientConflictDoesNotStopTheHost(t *testing.T) {
-	err := fmt.Errorf("claim: %w", &control.Rejection{Status: 409, Err: errors.New("the runner moved on")})
+	err := fmt.Errorf("claim: %w", &control.Rejection{Status: 409, Err: errors.New("the runner changed")})
 	if control.Rejected(err, "host-taken") || errors.Is(err, control.ErrRefused) {
 		t.Fatal("a plain conflict read as final")
 	}

@@ -2,7 +2,7 @@ import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import type { PendingReviewsPort } from '@outcomes/application/ports/pending-reviews.port';
 import type { StationConfigPullRequestsPort } from '@outcomes/application/ports/station-config-pull-requests.port';
 import type { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
-import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
+import { PullRequestRecordVersionConflictError } from '@outcomes/domain/exceptions/pull-request-record-version-conflict.error';
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
 import type { ChatRecordRepository } from '@outcomes/domain/repositories/chat-record.repository';
 import type { JudgingRepository } from '@outcomes/domain/repositories/judging.repository';
@@ -288,7 +288,10 @@ export class ForgetOutcomes {
         });
         return;
       } catch (error) {
-        if (!(error instanceof PullRequestRecordMovedOnError) || left <= 1) {
+        if (
+          !(error instanceof PullRequestRecordVersionConflictError) ||
+          left <= 1
+        ) {
           throw error;
         }
       }

@@ -525,7 +525,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         const stale = problem(
           await admin().update(made.id, fixture.changedAgain, made.version),
           409,
-          'moved-on',
+          'version-conflict',
         );
 
         expect(stale.currentVersion).toBe(changed.body.version);
@@ -559,9 +559,9 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
 
         expect(won?.status).toBe(200);
         expect(lost?.headers.etag).toBe(`"${won?.body.version}"`);
-        expect(problem(lost as Response, 409, 'moved-on').currentVersion).toBe(
-          won?.body.version,
-        );
+        expect(
+          problem(lost as Response, 409, 'version-conflict').currentVersion,
+        ).toBe(won?.body.version);
         expect((await admin().read(made.id)).body).toEqual(won?.body);
       },
     );
@@ -603,7 +603,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       const stale = updates ? made.version : made.version + 1;
 
       expect(
-        problem(await admin().remove(made.id, stale), 409, 'moved-on')
+        problem(await admin().remove(made.id, stale), 409, 'version-conflict')
           .currentVersion,
       ).toBe(current);
 

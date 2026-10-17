@@ -22,8 +22,8 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -358,7 +358,7 @@ describe('CompleteRunHandler', () => {
       stored.tasks.push = (...each: Task[]) => {
         if (!conflicted) {
           conflicted = true;
-          throw new TaskMovedOnError('task_1');
+          throw new TaskVersionConflictError('task_1');
         }
         return saving(...each);
       };
@@ -442,14 +442,14 @@ describe('CompleteRunHandler', () => {
       expect(saved[0]?.outcome?.failure?.code).toBe('timed-out');
     });
 
-    it('tries again when the run moved on as it was told, as by the lease its host was still renewing', async () => {
+    it('tries again when the run changed while it was told of its end, as by the lease its host was still renewing', async () => {
       const saved: Run[] = [];
       let tries = 0;
 
       await completing(async (run) => {
         tries += 1;
         if (tries === 1) {
-          throw new RunMovedOnError(run.id.value);
+          throw new RunVersionConflictError(run.id.value);
         }
         saved.push(run);
       }).execute(timedOut);
@@ -459,10 +459,10 @@ describe('CompleteRunHandler', () => {
     });
   });
 
-  it('reports a run that moved on while it was completing as a conflict', async () => {
+  it('reports a run that changed while it was completing as a conflict', async () => {
     await expect(
       completing(async (run) => {
-        throw new RunMovedOnError(run.id.value);
+        throw new RunVersionConflictError(run.id.value);
       }).execute(new CompleteRunCommand('run_1', 'runner_1', 0, false)),
     ).rejects.toMatchObject({ kind: 'conflict' });
   });

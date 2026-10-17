@@ -57,7 +57,9 @@ export class MoveTaskHandler
         throw new UnknownTaskError(command.taskId);
       }
 
-      const task = found.expecting(TaskRevision.of(command.expectedRevision));
+      const task = found.assertRevision(
+        TaskRevision.of(command.expectedRevision),
+      );
 
       const station = line.stationAt(stationId);
 

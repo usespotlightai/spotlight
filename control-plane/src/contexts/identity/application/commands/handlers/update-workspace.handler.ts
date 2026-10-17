@@ -1,8 +1,8 @@
 import type { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
 import type { IdentityDefinitionsPort } from '@identity/application/ports/identity-definitions.port';
 import { IdentityProblems } from '@identity/application/rendering/identity-problems';
-import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
+import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import {
   forbiddenTo,
@@ -41,7 +41,7 @@ export class UpdateWorkspaceHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.workspace(command.definition);
 
@@ -57,11 +57,11 @@ export class UpdateWorkspaceHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof WorkspaceMovedOnError) {
+      if (error instanceof WorkspaceVersionConflictError) {
         const current = await this.workspaces.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

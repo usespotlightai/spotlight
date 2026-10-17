@@ -1,7 +1,7 @@
 import type { DecisionDrafterPort } from '@change-review/application/ports/decision-drafter.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
-import { DecisionSetMovedOnError } from '@change-review/domain/exceptions/decision-set-moved-on.error';
+import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -47,7 +47,7 @@ export class WorkDecisionSets implements OwedWorkPort {
           attempts: set.draft?.work.attempts,
         }),
         worked: (set) => this.drafted(set),
-        stale: (error) => error instanceof DecisionSetMovedOnError,
+        stale: (error) => error instanceof DecisionSetVersionConflictError,
       },
       transaction,
       clock,

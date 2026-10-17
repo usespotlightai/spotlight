@@ -5,8 +5,8 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { CandidateMovedOnError } from '@replays/domain/exceptions/candidate-moved-on.error';
 import { CandidateNameTakenError } from '@replays/domain/exceptions/candidate-name-taken.error';
+import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
@@ -200,7 +200,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
         .returning({ id: replayCandidate.id });
 
       if (written.length === 0) {
-        throw new CandidateMovedOnError(saved.id.value);
+        throw new CandidateVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());
@@ -255,7 +255,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
         });
 
       if (written.length === 0) {
-        throw new CandidateMovedOnError(added.id.value);
+        throw new CandidateVersionConflictError(added.id.value);
       }
 
       await this.events.dispatch(added.pullEvents());

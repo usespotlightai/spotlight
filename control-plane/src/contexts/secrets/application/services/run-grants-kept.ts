@@ -1,5 +1,5 @@
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
-import { RunGrantsMovedOnError } from '@secrets/domain/exceptions/run-grants-moved-on.error';
+import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import type { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -41,7 +41,7 @@ export class RunGrantsKept {
       await this.saved(held, changed);
       return changed !== held;
     } catch (error) {
-      if (error instanceof RunGrantsMovedOnError) {
+      if (error instanceof RunGrantsVersionConflictError) {
         return false;
       }
 
@@ -60,7 +60,7 @@ export class RunGrantsKept {
       try {
         return await attempt();
       } catch (error) {
-        if (!(error instanceof RunGrantsMovedOnError) || left <= 1) {
+        if (!(error instanceof RunGrantsVersionConflictError) || left <= 1) {
           throw error;
         }
       }

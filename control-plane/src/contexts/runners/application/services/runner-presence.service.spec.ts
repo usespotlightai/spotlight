@@ -5,7 +5,7 @@ import {
   aTrust,
   STARTED_AT,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
-import { RunnerMovedOnError } from '@runners/domain/exceptions/runner-moved-on.error';
+import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-version-conflict.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
@@ -76,7 +76,7 @@ describe('RunnerPresence', () => {
       );
     const save = vi
       .fn()
-      .mockRejectedValueOnce(new RunnerMovedOnError(ID.value))
+      .mockRejectedValueOnce(new RunnerVersionConflictError(ID.value))
       .mockResolvedValueOnce(undefined);
 
     const seen = await new RunnerPresence({

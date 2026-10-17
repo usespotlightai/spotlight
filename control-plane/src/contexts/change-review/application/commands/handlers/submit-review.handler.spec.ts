@@ -3,7 +3,7 @@ import { SubmitReviewCommand } from '@change-review/application/commands/submit-
 import type { ReviewAccess } from '@change-review/application/services/review-access.service';
 import type { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
-import { ReviewCommentMovedOnError } from '@change-review/domain/exceptions/review-comment-moved-on.error';
+import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
@@ -50,7 +50,7 @@ const submitting = (over: { racing?: boolean } = {}) => {
         [...comments.values()].filter((each) => each.state === 'draft'),
       save: async (comment: ReviewComment) => {
         if (over.racing) {
-          throw new ReviewCommentMovedOnError(comment.id.value);
+          throw new ReviewCommentVersionConflictError(comment.id.value);
         }
         comments.set(comment.id.value, comment);
       },

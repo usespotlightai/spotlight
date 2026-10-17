@@ -11,7 +11,7 @@ import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -110,20 +110,20 @@ const waiting = () =>
       NOW,
     );
 
-const taking = (task: Task, run: Run | null, movesOnFirst = false) => {
+const taking = (task: Task, run: Run | null, conflictsFirst = false) => {
   const saved: Run[] = [];
   let reads = 0;
-  let movedOn = !movesOnFirst;
+  let conflicted = !conflictsFirst;
 
   const paused = new PausedRuns(
     { find: async () => task } as unknown as TaskRepository,
     {
       findById: async () =>
-        reads++ > 0 && movesOnFirst ? run?.park(RUNNER, NOW) : run,
+        reads++ > 0 && conflictsFirst ? run?.park(RUNNER, NOW) : run,
       save: async (each: Run) => {
-        if (!movedOn) {
-          movedOn = true;
-          throw new RunMovedOnError(each.id.value);
+        if (!conflicted) {
+          conflicted = true;
+          throw new RunVersionConflictError(each.id.value);
         }
         saved.push(each);
       },

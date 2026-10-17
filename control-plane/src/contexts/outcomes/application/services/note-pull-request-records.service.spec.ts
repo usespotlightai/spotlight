@@ -8,7 +8,7 @@ import { NoteChangeShaped } from '@outcomes/application/services/note-change-sha
 import { NotePullRequestRecords } from '@outcomes/application/services/note-pull-request-records.service';
 import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
-import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
+import { PullRequestRecordVersionConflictError } from '@outcomes/domain/exceptions/pull-request-record-version-conflict.error';
 import {
   ChatRecordsInMemory,
   TaskFailuresInMemory,
@@ -227,7 +227,9 @@ describe('forgetting a task’s or a team’s pull requests', () => {
     held.pullRequests.save = async (record) => {
       if (collisions > 0) {
         collisions -= 1;
-        throw new PullRequestRecordMovedOnError(record.pullRequest.value);
+        throw new PullRequestRecordVersionConflictError(
+          record.pullRequest.value,
+        );
       }
       await saving(record);
     };

@@ -29,7 +29,7 @@ import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.s
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
-import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
+import { RunRecordVersionConflictError } from '@outcomes/domain/exceptions/run-record-version-conflict.error';
 import { lastConfigRunsFrom } from '@outcomes/domain/outcomes.fake-spec';
 import type { StretchBound } from '@outcomes/domain/services/config-stretches';
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
@@ -728,7 +728,7 @@ describe('how a station’s runs turned out', () => {
 
     await expect(
       records.save(read.checked('failed', HEARD_AT)),
-    ).rejects.toBeInstanceOf(RunRecordMovedOnError);
+    ).rejects.toBeInstanceOf(RunRecordVersionConflictError);
   });
 
   it('forgets a deleted task’s runs and delivery', async () => {

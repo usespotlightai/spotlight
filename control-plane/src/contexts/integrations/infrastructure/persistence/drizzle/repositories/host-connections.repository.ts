@@ -1,5 +1,5 @@
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
-import { HostConnectionMovedOnError } from '@integrations/domain/exceptions/host-connection-moved-on.error';
+import { HostConnectionVersionConflictError } from '@integrations/domain/exceptions/host-connection-version-conflict.error';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
@@ -156,7 +156,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       .returning({ source: hostConnection.source });
 
     if (updated.length === 0) {
-      throw new HostConnectionMovedOnError(connection.source.value);
+      throw new HostConnectionVersionConflictError(connection.source.value);
     }
   }
 

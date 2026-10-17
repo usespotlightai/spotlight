@@ -1,5 +1,5 @@
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 
 export class RunLeases {
@@ -28,7 +28,7 @@ export class RunLeases {
       await this.runs.save(run);
       return true;
     } catch (error) {
-      if (error instanceof RunMovedOnError) {
+      if (error instanceof RunVersionConflictError) {
         return false;
       }
       throw error;

@@ -12,7 +12,7 @@ import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import { ConfigPullRequestMovedOnError } from '@replays/domain/exceptions/config-pull-request-moved-on.error';
+import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -90,7 +90,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
         due.claimed(new Date(this.clock.now().getTime() + CLAIM_MS)),
       );
     } catch (error) {
-      if (error instanceof ConfigPullRequestMovedOnError) {
+      if (error instanceof ConfigPullRequestVersionConflictError) {
         return;
       }
       throw error;

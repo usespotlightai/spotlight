@@ -5,7 +5,7 @@ import { EgressRedefined } from '@runners/domain/events/egress-redefined.event';
 import { EgressRetired } from '@runners/domain/events/egress-retired.event';
 import { EgressInUseError } from '@runners/domain/exceptions/egress-in-use.error';
 import { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
-import { EgressMovedOnError } from '@runners/domain/exceptions/egress-moved-on.error';
+import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
@@ -101,8 +101,10 @@ describe('Egress', () => {
   });
 
   it('refuses a write based on another version', () => {
-    expect(() => anEgress().expecting(1)).toThrow(EgressMovedOnError);
-    expect(() => anEgress().expecting(0)).not.toThrow();
+    expect(() => anEgress().assertVersion(1)).toThrow(
+      EgressVersionConflictError,
+    );
+    expect(() => anEgress().assertVersion(0)).not.toThrow();
   });
 });
 

@@ -1,7 +1,7 @@
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { SecretAlreadyDefinedError } from '@secrets/domain/exceptions/secret-already-defined.error';
-import { SecretMovedOnError } from '@secrets/domain/exceptions/secret-moved-on.error';
+import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
@@ -142,7 +142,7 @@ export class DrizzleSecrets implements SecretRepository {
           .returning({ id: secret.id });
 
     if (touched.length === 0) {
-      throw new SecretMovedOnError(held.name.value);
+      throw new SecretVersionConflictError(held.name.value);
     }
   }
 

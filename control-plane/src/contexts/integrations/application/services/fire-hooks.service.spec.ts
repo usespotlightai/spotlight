@@ -13,7 +13,7 @@ import type {
 import { FireHooks } from '@integrations/application/services/fire-hooks.service';
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { Hook } from '@integrations/domain/entities/hook.entity';
-import { HookFiringMovedOnError } from '@integrations/domain/exceptions/hook-firing-moved-on.error';
+import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import {
@@ -154,7 +154,7 @@ const firingsInMemory = (stored: HookFiring | null) => {
     }),
     save: vi.fn(async (firing: HookFiring) => {
       if (kept.get(firing.id)?.version !== firing.version) {
-        throw new HookFiringMovedOnError(firing.id);
+        throw new HookFiringVersionConflictError(firing.id);
       }
 
       saved.push(firing);
@@ -785,7 +785,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
       { stored: stored({ cause: looped }) },
     );
     vi.mocked(firings.save).mockRejectedValueOnce(
-      new HookFiringMovedOnError('firing_1'),
+      new HookFiringVersionConflictError('firing_1'),
     );
 
     await expect(hooked.workOne()).resolves.toBe(true);
@@ -997,7 +997,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
       { stored: stored() },
     );
     vi.mocked(firings.save).mockRejectedValueOnce(
-      new HookFiringMovedOnError('firing_1'),
+      new HookFiringVersionConflictError('firing_1'),
     );
 
     await expect(hooked.workOne()).resolves.toBe(true);

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import { StationWatchMovedOnError } from '@outcomes/domain/exceptions/station-watch-moved-on.error';
+import { StationWatchVersionConflictError } from '@outcomes/domain/exceptions/station-watch-version-conflict.error';
 import { AlertId } from '@outcomes/domain/value-objects/alert-id.vo';
 import { DrizzleStationWatchRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/station-watch.repository';
 import { EventDelivery } from '@platform/events/event-delivery';
@@ -364,7 +364,7 @@ describe('a station alert (e2e)', () => {
       watches.save(
         stale?.checked([], new Date(), () => AlertId.of(randomUUID())) as never,
       ),
-    ).rejects.toBeInstanceOf(StationWatchMovedOnError);
+    ).rejects.toBeInstanceOf(StationWatchVersionConflictError);
     expect(await alertsAtStation()).toEqual([]);
   });
 });

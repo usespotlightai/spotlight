@@ -1,6 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteRunnerPoolCommand } from '@runners/application/commands/runner-resource.commands';
-import { RunnerPoolMovedOnError } from '@runners/domain/exceptions/runner-pool-moved-on.error';
+import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import {
@@ -43,7 +43,7 @@ export class DeleteRunnerPoolHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       await this.transaction.run(() =>
         this.pools.save(
@@ -53,11 +53,11 @@ export class DeleteRunnerPoolHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof RunnerPoolMovedOnError) {
+      if (error instanceof RunnerPoolVersionConflictError) {
         const current = await this.pools.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

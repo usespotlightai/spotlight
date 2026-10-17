@@ -6,7 +6,7 @@ import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/
 import { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
 import { HoldingsRegistry } from '@identity/application/services/holdings-registry.service';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
-import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
+import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import {
   creates,
   MEMBER,
@@ -157,15 +157,15 @@ describe('UpdateWorkspaceHandler', () => {
 
   it('names the current version to a change made against another', async () => {
     expect(await updating().update(ACME, { version: 2 })).toEqual({
-      outcome: 'moved-on',
+      outcome: 'version-conflict',
       currentVersion: 3,
     });
     expect(
       await updating({
-        refusing: new WorkspaceMovedOnError('acme'),
+        refusing: new WorkspaceVersionConflictError('acme'),
         thenAt: workspaceAt(4),
       }).update(ACME),
-    ).toEqual({ outcome: 'moved-on', currentVersion: 4 });
+    ).toEqual({ outcome: 'version-conflict', currentVersion: 4 });
   });
 
   it('forbids a member who does not administer it, and answers no one else', async () => {

@@ -4,10 +4,10 @@ import { SecretRedefined } from '@secrets/domain/events/secret-redefined.event';
 import { SecretSet } from '@secrets/domain/events/secret-set.event';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
-import { SecretMovedOnError } from '@secrets/domain/exceptions/secret-moved-on.error';
 import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fixed.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretUnwearableError } from '@secrets/domain/exceptions/secret-unwearable.error';
+import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import type {
   SecretBinding,
   WornSecret,
@@ -136,9 +136,9 @@ export class Secret extends EventRecorder {
     });
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new SecretMovedOnError(this.name.value);
+      throw new SecretVersionConflictError(this.name.value);
     }
   }
 

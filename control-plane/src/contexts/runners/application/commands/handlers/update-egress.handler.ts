@@ -4,9 +4,9 @@ import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-de
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { giveEgressToken } from '@runners/application/services/give-egress-token';
 import { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
-import { EgressMovedOnError } from '@runners/domain/exceptions/egress-moved-on.error';
 import { EgressTokenSpentError } from '@runners/domain/exceptions/egress-token-spent.error';
 import { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { GivenEgressTokensRepository } from '@runners/domain/repositories/given-egress-tokens.repository';
@@ -54,7 +54,7 @@ export class UpdateEgressHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.egress(command.definition);
 
@@ -80,11 +80,11 @@ export class UpdateEgressHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof EgressMovedOnError) {
+      if (error instanceof EgressVersionConflictError) {
         const current = await this.egresses.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

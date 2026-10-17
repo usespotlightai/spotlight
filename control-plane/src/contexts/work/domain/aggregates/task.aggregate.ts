@@ -270,7 +270,7 @@ export class Task extends EventRecorder {
     );
   }
 
-  expecting(revision: TaskRevision): Task {
+  assertRevision(revision: TaskRevision): Task {
     if (!this.revision.equals(revision)) {
       throw new StaleTaskRevisionError(
         this.id.value,

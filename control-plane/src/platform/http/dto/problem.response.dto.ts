@@ -19,7 +19,7 @@ export class FieldErrorResponseDto {
 
 export class ProblemResponseDto {
   @ApiProperty({
-    example: 'urn:spotlight:problem:moved-on',
+    example: 'urn:spotlight:problem:version-conflict',
     description: 'What kind of problem it is; stable, safe to branch on',
   })
   readonly type!: string;

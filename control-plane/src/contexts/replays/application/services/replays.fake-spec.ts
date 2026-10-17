@@ -31,8 +31,8 @@ import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-reques
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import { ConfigPullRequestMovedOnError } from '@replays/domain/exceptions/config-pull-request-moved-on.error';
-import { ReplayMovedOnError } from '@replays/domain/exceptions/replay-moved-on.error';
+import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
+import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import {
   DIGESTS,
   FINGERPRINT,
@@ -230,7 +230,7 @@ export class InMemoryReplays {
     save: async (replay) => {
       const held = this.replays.get(replay.id.value);
       if (held && held.version !== replay.version) {
-        throw new ReplayMovedOnError(replay.id.value);
+        throw new ReplayVersionConflictError(replay.id.value);
       }
       this.events.push(...replay.pullEvents());
       if (replay.isAbandoned) {
@@ -667,7 +667,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     const held = this.kept.get(saved.id.value);
 
     if (!held || held.version !== saved.version) {
-      throw new ConfigPullRequestMovedOnError(saved.id.value);
+      throw new ConfigPullRequestVersionConflictError(saved.id.value);
     }
 
     this.events.push(...saved.pullEvents());

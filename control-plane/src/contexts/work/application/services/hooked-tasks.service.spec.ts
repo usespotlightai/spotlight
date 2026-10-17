@@ -13,7 +13,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.error';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { Concerns } from '@work/domain/value-objects/concerns.vo';
@@ -112,7 +112,7 @@ const hooking = (
     save: vi.fn(async (task: Task) => {
       if (clashes > 0) {
         clashes -= 1;
-        throw new TaskMovedOnError(task.id.value);
+        throw new TaskVersionConflictError(task.id.value);
       }
       standing = task;
     }),
@@ -249,7 +249,7 @@ describe('HookedTasks', () => {
       expect(noted?.openRemarks).toEqual([]);
     });
 
-    it('reads the task again when it moved on meanwhile', async () => {
+    it('reads the task again when it changed meanwhile', async () => {
       const { hooked, tasks } = hooking({ clashes: 1 });
 
       expect(

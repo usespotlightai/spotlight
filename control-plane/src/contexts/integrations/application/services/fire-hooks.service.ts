@@ -14,7 +14,7 @@ import type {
   TasksForHooksPort,
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
-import { HookFiringMovedOnError } from '@integrations/domain/exceptions/hook-firing-moved-on.error';
+import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
@@ -69,11 +69,13 @@ class StepFailed extends Error {
   }
 }
 
-const unlessMovedOn = async (work: () => Promise<void>): Promise<void> => {
+const unlessVersionConflict = async (
+  work: () => Promise<void>,
+): Promise<void> => {
   try {
     await work();
   } catch (error) {
-    if (!(error instanceof HookFiringMovedOnError)) {
+    if (!(error instanceof HookFiringVersionConflictError)) {
       throw error;
     }
   }
@@ -227,14 +229,14 @@ export class FireHooks {
 
     const held: Held = { firing: claimed };
 
-    await unlessMovedOn(async () => {
+    await unlessVersionConflict(async () => {
       try {
         await this.causation.within(
           claimed.cause.followedBy(claimed.link),
           () => this.delivered(held),
         );
       } catch (error) {
-        if (error instanceof HookFiringMovedOnError) {
+        if (error instanceof HookFiringVersionConflictError) {
           throw error;
         }
 
@@ -268,7 +270,9 @@ export class FireHooks {
     );
 
     for (const firing of finished) {
-      await unlessMovedOn(() => this.firings.save(firing.forgotten(now)));
+      await unlessVersionConflict(() =>
+        this.firings.save(firing.forgotten(now)),
+      );
     }
 
     return finished.length;
@@ -316,7 +320,7 @@ export class FireHooks {
         firing.toldOfLoop(this.clock.now(), heard !== 'reported'),
       );
     } catch (error) {
-      if (error instanceof HookFiringMovedOnError) {
+      if (error instanceof HookFiringVersionConflictError) {
         throw error;
       }
 
@@ -395,7 +399,7 @@ export class FireHooks {
     const reread = await this.firings.withId(firing.id);
 
     if (!reread) {
-      throw new HookFiringMovedOnError(firing.id);
+      throw new HookFiringVersionConflictError(firing.id);
     }
 
     return reread;

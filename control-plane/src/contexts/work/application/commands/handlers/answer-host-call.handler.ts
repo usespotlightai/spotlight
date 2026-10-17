@@ -8,7 +8,7 @@ import type {
 } from '@work/application/commands/host-call.commands';
 import type { HostCallAnswerDto } from '@work/application/dto/host-call.dto';
 import { InvalidNetworkCallTransitionError } from '@work/domain/exceptions/invalid-network-call-transition.error';
-import { NetworkCallMovedOnError } from '@work/domain/exceptions/network-call-moved-on.error';
+import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import { NotThisHostsCallError } from '@work/domain/exceptions/not-this-hosts-call.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
@@ -72,7 +72,7 @@ export class AnswerHostCallHandler
           return { outcome: 'settled', reason: error.message };
         }
 
-        if (error instanceof NetworkCallMovedOnError) {
+        if (error instanceof NetworkCallVersionConflictError) {
           return {
             outcome: 'settled',
             reason: 'The network call was settled while the host answered it.',

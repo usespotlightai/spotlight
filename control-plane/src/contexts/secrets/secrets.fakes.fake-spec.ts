@@ -8,9 +8,9 @@ import {
   Secret,
   type SecretDefinition,
 } from '@secrets/domain/aggregates/secret.aggregate';
-import { RunGrantsMovedOnError } from '@secrets/domain/exceptions/run-grants-moved-on.error';
+import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import { SecretAlreadyDefinedError } from '@secrets/domain/exceptions/secret-already-defined.error';
-import { SecretMovedOnError } from '@secrets/domain/exceptions/secret-moved-on.error';
+import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import { UnreadableSecretError } from '@secrets/domain/exceptions/unreadable-secret.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
@@ -183,7 +183,7 @@ export class InMemorySecrets implements SecretRepository {
         throw new SecretAlreadyDefinedError(secret.name.value);
       }
     } else if (!kept || kept.version !== secret.version) {
-      throw new SecretMovedOnError(secret.name.value);
+      throw new SecretVersionConflictError(secret.name.value);
     }
 
     this.events.push(...secret.pullEvents());
@@ -266,7 +266,7 @@ export class InMemoryGrants implements RunGrantsRepository {
     const kept = this.#kept.get(grants.runId.value);
 
     if (grants.isNew ? kept : kept?.version !== grants.version) {
-      throw new RunGrantsMovedOnError(grants.runId.value);
+      throw new RunGrantsVersionConflictError(grants.runId.value);
     }
 
     if (grants.isDiscarded) {

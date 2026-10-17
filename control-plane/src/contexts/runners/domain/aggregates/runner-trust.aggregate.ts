@@ -2,7 +2,7 @@ import { RunnerTrustDefined } from '@runners/domain/events/runner-trust-defined.
 import { RunnerTrustRedefined } from '@runners/domain/events/runner-trust-redefined.event';
 import { RunnerTrustWithdrawn } from '@runners/domain/events/runner-trust-withdrawn.event';
 import { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
-import { RunnerTrustMovedOnError } from '@runners/domain/exceptions/runner-trust-moved-on.error';
+import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
@@ -97,9 +97,9 @@ export class RunnerTrust extends EventRecorder {
     return this.isWithdrawn || mode !== 'pull' ? 'gone' : 'open';
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new RunnerTrustMovedOnError(this.id.value);
+      throw new RunnerTrustVersionConflictError(this.id.value);
     }
   }
 

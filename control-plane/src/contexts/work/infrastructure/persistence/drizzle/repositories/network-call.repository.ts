@@ -10,7 +10,7 @@ import {
   NetworkCall,
   type NetworkCallProgress,
 } from '@work/domain/aggregates/network-call.aggregate';
-import { NetworkCallMovedOnError } from '@work/domain/exceptions/network-call-moved-on.error';
+import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
@@ -181,7 +181,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
             .returning({ id: networkCall.id });
 
       if (written.length === 0) {
-        throw new NetworkCallMovedOnError(saved.id.value);
+        throw new NetworkCallVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

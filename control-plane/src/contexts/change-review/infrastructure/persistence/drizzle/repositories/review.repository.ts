@@ -1,5 +1,5 @@
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
-import { ReviewMovedOnError } from '@change-review/domain/exceptions/review-moved-on.error';
+import { ReviewVersionConflictError } from '@change-review/domain/exceptions/review-version-conflict.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
@@ -94,7 +94,7 @@ export class DrizzleReviewRepository implements ReviewRepository {
       .returning({ id: review.id });
 
     if (written.length === 0) {
-      throw new ReviewMovedOnError(id);
+      throw new ReviewVersionConflictError(id);
     }
   }
 

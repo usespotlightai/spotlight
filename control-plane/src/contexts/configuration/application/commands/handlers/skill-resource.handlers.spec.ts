@@ -198,7 +198,7 @@ describe('UpdateSkillHandler', () => {
 
   it('names the current version to a change made against another', async () => {
     expect(await updating().update(GRAFANA, 2)).toEqual({
-      outcome: 'moved-on',
+      outcome: 'version-conflict',
       currentVersion: 3,
     });
   });

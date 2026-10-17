@@ -6,7 +6,7 @@ import {
 } from '@platform/persistence/drizzle/violations';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import { WorkspaceRunnersAlreadyDeclaredError } from '@runners/domain/exceptions/workspace-runners-already-declared.error';
-import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
+import { WorkspaceRunnersVersionConflictError } from '@runners/domain/exceptions/workspace-runners-version-conflict.error';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
@@ -75,7 +75,7 @@ export class DrizzleWorkspaceRunnersRepository
             .returning({ id: workspaceRunners.id });
 
       if (written.length === 0) {
-        throw new WorkspaceRunnersMovedOnError(saved.id.value);
+        throw new WorkspaceRunnersVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

@@ -1,6 +1,6 @@
 import { LearnOutputShapes } from '@integrations/application/services/learn-output-shapes.service';
 import { LearnedOutput } from '@integrations/domain/aggregates/learned-output.aggregate';
-import { LearnedOutputMovedOnError } from '@integrations/domain/exceptions/learned-output-moved-on.error';
+import { LearnedOutputVersionConflictError } from '@integrations/domain/exceptions/learned-output-version-conflict.error';
 import type { LearnedOutputRepository } from '@integrations/domain/repositories/learned-output.repository';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
@@ -30,7 +30,7 @@ export class InMemoryLearnedOutputs implements LearnedOutputRepository {
     const kept = this.held.get(key);
 
     if ((kept?.version ?? 0) !== learned.version) {
-      throw new LearnedOutputMovedOnError(learned.tool.value);
+      throw new LearnedOutputVersionConflictError(learned.tool.value);
     }
 
     this.held.set(

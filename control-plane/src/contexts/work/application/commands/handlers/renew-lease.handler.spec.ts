@@ -6,7 +6,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { RenewLeaseCommand } from '@work/application/commands/runner.commands';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -36,18 +36,18 @@ const waiting = () =>
       NOW,
     );
 
-const renewing = (reads: Run[], movesOnFirst = false) => {
+const renewing = (reads: Run[], conflictsFirst = false) => {
   const saved: Run[] = [];
   let read = 0;
-  let movedOn = !movesOnFirst;
+  let conflicted = !conflictsFirst;
 
   const handler = new RenewLeaseHandler(
     {
       findById: async () => reads[Math.min(read++, reads.length - 1)],
       save: async (run: Run) => {
-        if (!movedOn) {
-          movedOn = true;
-          throw new RunMovedOnError(run.id.value);
+        if (!conflicted) {
+          conflicted = true;
+          throw new RunVersionConflictError(run.id.value);
         }
         saved.push(run);
       },

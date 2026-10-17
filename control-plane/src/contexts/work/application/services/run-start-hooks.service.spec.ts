@@ -13,7 +13,7 @@ import type {
 } from '@work/application/ports/lifecycle-hooks.port';
 import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -67,7 +67,7 @@ const starting = (
     save: vi.fn(async (run: Run) => {
       if (clashes > 0) {
         clashes -= 1;
-        throw new RunMovedOnError(run.id.value);
+        throw new RunVersionConflictError(run.id.value);
       }
       held = run;
     }),
@@ -125,7 +125,7 @@ describe('RunStartHooks', () => {
     expect(held().outcome?.message).toBe(REASON);
   });
 
-  it('reads the run again when it moved on while being refused', async () => {
+  it('reads the run again when it changed while being refused', async () => {
     const { hooks, held, runs } = starting({
       verdict: { kind: 'refused', reason: REASON },
       clashes: 1,

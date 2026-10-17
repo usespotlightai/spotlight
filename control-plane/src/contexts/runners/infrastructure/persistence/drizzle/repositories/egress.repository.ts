@@ -6,8 +6,8 @@ import {
 } from '@platform/persistence/drizzle/violations';
 import { Egress } from '@runners/domain/aggregates/egress.aggregate';
 import { EgressAlreadyDefinedError } from '@runners/domain/exceptions/egress-already-defined.error';
-import { EgressMovedOnError } from '@runners/domain/exceptions/egress-moved-on.error';
 import { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
@@ -99,7 +99,7 @@ export class DrizzleEgressRepository implements EgressRepository {
             .returning({ id: egress.id });
 
       if (stored.length === 0) {
-        throw new EgressMovedOnError(saved.id.value);
+        throw new EgressVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

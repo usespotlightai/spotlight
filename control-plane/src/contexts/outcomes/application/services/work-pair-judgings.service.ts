@@ -5,7 +5,7 @@ import type {
   PairJudging,
   PairShown,
 } from '@outcomes/domain/aggregates/pair-judging.aggregate';
-import { PairJudgingMovedOnError } from '@outcomes/domain/exceptions/pair-judging-moved-on.error';
+import { PairJudgingVersionConflictError } from '@outcomes/domain/exceptions/pair-judging-version-conflict.error';
 import type { PairJudgingRepository } from '@outcomes/domain/repositories/pair-judging.repository';
 import { PairEvidence } from '@outcomes/domain/services/pair-evidence';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
@@ -60,7 +60,7 @@ export class WorkPairJudgings implements OwedWorkPort {
           attempts: judging.work?.attempts,
         }),
         worked: (judging) => this.judged(judging),
-        stale: (error) => error instanceof PairJudgingMovedOnError,
+        stale: (error) => error instanceof PairJudgingVersionConflictError,
       },
       transaction,
       clock,

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
-import { ScoreMovedOnError } from '@outcomes/domain/exceptions/score-moved-on.error';
+import { ScoreVersionConflictError } from '@outcomes/domain/exceptions/score-version-conflict.error';
 import type {
   ScoreRepository,
   StationScores,
@@ -149,7 +149,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
         .returning({ id: score.id });
 
       if (written.length === 0) {
-        throw new ScoreMovedOnError(added.id.value);
+        throw new ScoreVersionConflictError(added.id.value);
       }
 
       await this.events.dispatch(added.pullEvents());
@@ -167,7 +167,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
         .returning({ id: score.id });
 
       if (written.length === 0) {
-        throw new ScoreMovedOnError(saved.id.value);
+        throw new ScoreVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

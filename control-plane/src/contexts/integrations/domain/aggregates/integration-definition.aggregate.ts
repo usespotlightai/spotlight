@@ -3,7 +3,7 @@ import { IntegrationDefined } from '@integrations/domain/events/integration-defi
 import { IntegrationRedefined } from '@integrations/domain/events/integration-redefined.event';
 import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
 import { IntegrationRetired } from '@integrations/domain/events/integration-retired.event';
-import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
+import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
@@ -141,9 +141,9 @@ export class IntegrationDefinition extends EventRecorder {
     return new IntegrationDefinition({ ...input, retired: false });
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new IntegrationDefinitionMovedOnError(this.source.value);
+      throw new IntegrationDefinitionVersionConflictError(this.source.value);
     }
   }
 

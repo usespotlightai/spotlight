@@ -4,7 +4,7 @@ import { WorkspaceTokenLapsed } from '@identity/domain/events/workspace-token-la
 import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
-import { TokenTrustMovedOnError } from '@identity/domain/exceptions/token-trust-moved-on.error';
+import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
 import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
@@ -208,7 +208,9 @@ describe('WorkspaceTokenTrust', () => {
   });
 
   it('is written over only at the version it was read at', () => {
-    expect(() => kept(2).expecting(1)).toThrow(TokenTrustMovedOnError);
+    expect(() => kept(2).assertVersion(1)).toThrow(
+      TokenTrustVersionConflictError,
+    );
   });
 
   it('admits nothing, and cannot change, once withdrawn', () => {

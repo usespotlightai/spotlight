@@ -14,7 +14,7 @@ import {
 } from '@work/application/commands/host-call.commands';
 import { LongPoll } from '@work/application/services/long-poll';
 import { NetworkCall } from '@work/domain/aggregates/network-call.aggregate';
-import { NetworkCallMovedOnError } from '@work/domain/exceptions/network-call-moved-on.error';
+import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
@@ -81,7 +81,7 @@ const hosting = (
     ),
     save: vi.fn(async (call: NetworkCall) => {
       if (over.clash) {
-        throw new NetworkCallMovedOnError(call.id.value);
+        throw new NetworkCallVersionConflictError(call.id.value);
       }
       saved.push(call);
     }),

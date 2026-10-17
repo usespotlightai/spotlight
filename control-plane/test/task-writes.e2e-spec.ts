@@ -6,7 +6,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { settling } from '@work/domain/services/setup-list';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -80,7 +80,7 @@ describe('writing a task somebody else has written', () => {
     await tasks.save(heldBy(one, RunId.of(randomUUID())));
 
     await expect(tasks.save(settled(other))).rejects.toBeInstanceOf(
-      TaskMovedOnError,
+      TaskVersionConflictError,
     );
   });
 
@@ -121,7 +121,7 @@ describe('writing a task somebody else has written', () => {
 
     await expect(
       tasks.save(heldBy(one, RunId.of(randomUUID()))),
-    ).rejects.toBeInstanceOf(TaskMovedOnError);
+    ).rejects.toBeInstanceOf(TaskVersionConflictError);
   });
 });
 

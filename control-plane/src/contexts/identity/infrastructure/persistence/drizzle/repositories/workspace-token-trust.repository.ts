@@ -1,7 +1,7 @@
 import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { TokenTrustAlreadyDefinedError } from '@identity/domain/exceptions/token-trust-already-defined.error';
-import { TokenTrustMovedOnError } from '@identity/domain/exceptions/token-trust-moved-on.error';
+import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
@@ -114,7 +114,7 @@ export class DrizzleWorkspaceTokenTrustRepository
             .returning({ id: workspaceTokenTrust.id });
 
       if (written.length === 0) {
-        throw new TokenTrustMovedOnError(saved.id.value);
+        throw new TokenTrustVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

@@ -5,7 +5,7 @@ import { PROVISION_FAILED } from '@work/application/contracts/run-journal.contra
 import type { RunJournalPort } from '@work/application/ports/run-journal.port';
 import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
@@ -69,7 +69,10 @@ export class ProvisionFailures {
         await this.runs.save(changed);
         return changed;
       } catch (error) {
-        if (!(error instanceof RunMovedOnError) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof RunVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }

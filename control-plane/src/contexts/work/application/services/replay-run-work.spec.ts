@@ -89,7 +89,7 @@ const working = () => {
     findById: async () => current,
     save: async (run: Run) => {
       if (run.version !== current.version) {
-        throw new Error('saved a run that moved on');
+        throw new Error('saved a run that changed');
       }
       saved.push(run);
       current = run;

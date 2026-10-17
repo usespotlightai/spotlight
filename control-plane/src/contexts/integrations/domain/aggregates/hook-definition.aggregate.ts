@@ -5,7 +5,7 @@ import type {
 import { HookDefined } from '@integrations/domain/events/hook-defined.event';
 import { HookRedefined } from '@integrations/domain/events/hook-redefined.event';
 import { HookRetired } from '@integrations/domain/events/hook-retired.event';
-import { HookDefinitionMovedOnError } from '@integrations/domain/exceptions/hook-definition-moved-on.error';
+import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import { HookKeyFixedError } from '@integrations/domain/exceptions/hook-key-fixed.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
@@ -200,9 +200,9 @@ export class HookDefinition extends EventRecorder {
     return new HookDefinition({ ...input, retired: false, givenSecret: null });
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new HookDefinitionMovedOnError(this.key.value);
+      throw new HookDefinitionVersionConflictError(this.key.value);
     }
   }
 

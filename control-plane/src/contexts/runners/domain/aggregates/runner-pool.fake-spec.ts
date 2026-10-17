@@ -2,7 +2,7 @@ import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { RunnerHostMovedOnError } from '@runners/domain/exceptions/runner-host-moved-on.error';
+import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
@@ -180,13 +180,13 @@ export const heldHosts = (...known: RunnerHost[]) => {
     find: vi.fn(async (id: HostId) => held.get(id.value) ?? null),
     add: vi.fn(async (host: RunnerHost) => {
       if (held.has(host.id.value)) {
-        throw new RunnerHostMovedOnError(host.id.value);
+        throw new RunnerHostVersionConflictError(host.id.value);
       }
       held.set(host.id.value, host);
     }),
     save: vi.fn(async (host: RunnerHost) => {
       if (held.get(host.id.value)?.version !== host.version) {
-        throw new RunnerHostMovedOnError(host.id.value);
+        throw new RunnerHostVersionConflictError(host.id.value);
       }
       held.set(
         host.id.value,
@@ -205,7 +205,7 @@ export const heldHosts = (...known: RunnerHost[]) => {
     }),
     remove: vi.fn(async (host: RunnerHost) => {
       if (held.get(host.id.value)?.version !== host.version) {
-        throw new RunnerHostMovedOnError(host.id.value);
+        throw new RunnerHostVersionConflictError(host.id.value);
       }
       held.delete(host.id.value);
     }),

@@ -121,9 +121,12 @@ export class ProblemException extends HttpException {
     });
   }
 
-  static movedOn(kind: string, currentVersion: number): ProblemException {
+  static versionConflict(
+    kind: string,
+    currentVersion: number,
+  ): ProblemException {
     return new ProblemException({
-      type: problemType('moved-on'),
+      type: problemType('version-conflict'),
       title: `The ${kind} changed since it was read`,
       status: HttpStatus.CONFLICT,
       detail: `The ${kind} changed since you read it. Please send the current version as If-Match. Current version: ${currentVersion}`,

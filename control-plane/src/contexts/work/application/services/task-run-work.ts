@@ -15,7 +15,7 @@ import type {
 } from '@work/application/services/run-work';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -199,7 +199,7 @@ export class TaskRunWork implements RunWork {
     try {
       await this.tasks.save(claimed.approvalReturned(at));
     } catch (error) {
-      if (!(error instanceof TaskMovedOnError)) {
+      if (!(error instanceof TaskVersionConflictError)) {
         throw error;
       }
     }

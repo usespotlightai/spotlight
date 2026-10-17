@@ -127,7 +127,7 @@ describe('UpdateTeamHandler', () => {
 
   it('names the current version to a change made against another', async () => {
     expect(await updating().update(CORE, 2)).toEqual({
-      outcome: 'moved-on',
+      outcome: 'version-conflict',
       currentVersion: 3,
     });
   });

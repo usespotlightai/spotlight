@@ -11,7 +11,7 @@ import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-stati
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error';
-import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
+import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import {
   BUILT_IN_LINES,
@@ -977,8 +977,8 @@ describe('Line, what it records of its changes', () => {
     });
 
     it('refuses a change made against another version', () => {
-      expect(() => kept(3).expecting(2)).toThrow(LineMovedOnError);
-      expect(() => kept(3).expecting(3)).not.toThrow();
+      expect(() => kept(3).assertVersion(2)).toThrow(LineVersionConflictError);
+      expect(() => kept(3).assertVersion(3)).not.toThrow();
     });
 
     it('keeps its key for its whole life', () => {

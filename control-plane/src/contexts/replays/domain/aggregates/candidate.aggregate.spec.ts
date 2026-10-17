@@ -3,8 +3,8 @@ import { CandidateProposed } from '@replays/domain/events/candidate-proposed.eve
 import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
 import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
-import { CandidateMovedOnError } from '@replays/domain/exceptions/candidate-moved-on.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
+import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import {
   AT,
@@ -102,7 +102,9 @@ describe('Candidate', () => {
     const proposed = candidateOf('proposed');
     proposed.pullEvents();
 
-    expect(() => proposed.expecting(1)).toThrow(CandidateMovedOnError);
+    expect(() => proposed.assertVersion(1)).toThrow(
+      CandidateVersionConflictError,
+    );
     expect(() => proposed.withdrawn(true, BY)).toThrow(CandidateUnderwayError);
 
     const withdrawn = proposed.withdrawn(false, BY);

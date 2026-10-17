@@ -4,7 +4,7 @@ import { Judging } from '@outcomes/domain/aggregates/judging.aggregate';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import { RunJudged } from '@outcomes/domain/events/run-judged.event';
-import { ScoreMovedOnError } from '@outcomes/domain/exceptions/score-moved-on.error';
+import { ScoreVersionConflictError } from '@outcomes/domain/exceptions/score-version-conflict.error';
 import { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
 import { Citation } from '@outcomes/domain/value-objects/citation.vo';
 import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
@@ -294,7 +294,7 @@ describe('scores, kept', () => {
           at: LATER,
         }),
       ),
-    ).rejects.toBeInstanceOf(ScoreMovedOnError);
+    ).rejects.toBeInstanceOf(ScoreVersionConflictError);
   });
 
   it('keeps one grade per person for a run, replaced by their later one', async () => {
@@ -316,7 +316,7 @@ describe('scores, kept', () => {
           at: LATER,
         }),
       ),
-    ).rejects.toBeInstanceOf(ScoreMovedOnError);
+    ).rejects.toBeInstanceOf(ScoreVersionConflictError);
 
     const mine = await scores.gradeBy(RunId.of('run_a'), UserId.of('user_ada'));
     await scores.save(

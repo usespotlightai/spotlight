@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
-import { TaskChangeShapeMovedOnError } from '@outcomes/domain/exceptions/task-change-shape-moved-on.error';
+import { TaskChangeShapeVersionConflictError } from '@outcomes/domain/exceptions/task-change-shape-version-conflict.error';
 import type { TaskChangeShapeRepository } from '@outcomes/domain/repositories/task-change-shape.repository';
 import { taskChangeShape } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -60,7 +60,7 @@ export class DrizzleTaskChangeShapeRepository
       .returning({ taskId: taskChangeShape.taskId });
 
     if (written.length === 0) {
-      throw new TaskChangeShapeMovedOnError(added.taskId.value);
+      throw new TaskChangeShapeVersionConflictError(added.taskId.value);
     }
   }
 
@@ -77,7 +77,7 @@ export class DrizzleTaskChangeShapeRepository
       .returning({ taskId: taskChangeShape.taskId });
 
     if (written.length === 0) {
-      throw new TaskChangeShapeMovedOnError(saved.taskId.value);
+      throw new TaskChangeShapeVersionConflictError(saved.taskId.value);
     }
   }
 

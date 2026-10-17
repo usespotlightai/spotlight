@@ -12,7 +12,7 @@ import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
-import { InviteMovedOnError } from '@identity/domain/exceptions/invite-moved-on.error';
+import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
@@ -315,7 +315,7 @@ describe('InviteToWorkspaceHandler', () => {
       save: async (saved) => {
         saves += 1;
         if (saves === 1) {
-          throw new InviteMovedOnError(saved.id.value);
+          throw new InviteVersionConflictError(saved.id.value);
         }
       },
     });

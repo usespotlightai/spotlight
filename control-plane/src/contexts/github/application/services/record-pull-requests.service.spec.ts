@@ -6,7 +6,7 @@ import {
   type PullRequestFacts,
 } from '@github/domain/aggregates/pull-request.aggregate';
 import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
-import { PullRequestMovedOnError } from '@github/domain/exceptions/pull-request-moved-on.error';
+import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-request-version-conflict.error';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
@@ -122,7 +122,7 @@ class PullRequestsInMemory implements PullRequestRepository {
 
   async add(pullRequest: PullRequest) {
     if (this.held.has(pullRequest.url.value)) {
-      throw new PullRequestMovedOnError(pullRequest.url.value);
+      throw new PullRequestVersionConflictError(pullRequest.url.value);
     }
     this.stored(pullRequest);
   }
@@ -130,10 +130,10 @@ class PullRequestsInMemory implements PullRequestRepository {
   async save(pullRequest: PullRequest) {
     if (this.collisions > 0) {
       this.collisions -= 1;
-      throw new PullRequestMovedOnError(pullRequest.url.value);
+      throw new PullRequestVersionConflictError(pullRequest.url.value);
     }
     if (this.held.get(pullRequest.url.value)?.version !== pullRequest.version) {
-      throw new PullRequestMovedOnError(pullRequest.url.value);
+      throw new PullRequestVersionConflictError(pullRequest.url.value);
     }
     this.stored(pullRequest);
   }

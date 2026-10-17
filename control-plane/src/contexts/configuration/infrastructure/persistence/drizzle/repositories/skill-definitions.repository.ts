@@ -1,6 +1,6 @@
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
 import { SkillAlreadyDefinedError } from '@configuration/domain/exceptions/skill-already-defined.error';
-import { SkillDefinitionMovedOnError } from '@configuration/domain/exceptions/skill-definition-moved-on.error';
+import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
@@ -113,7 +113,7 @@ export class DrizzleSkillDefinitions implements SkillDefinitionRepository {
           .returning({ id: skillDefinition.id });
 
     if (touched.length === 0) {
-      throw new SkillDefinitionMovedOnError(definition.key.value);
+      throw new SkillDefinitionVersionConflictError(definition.key.value);
     }
   }
 

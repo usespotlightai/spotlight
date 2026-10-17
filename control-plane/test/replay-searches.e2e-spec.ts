@@ -4,10 +4,10 @@ import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ChangesGuardedElsewhereError } from '@replays/domain/exceptions/changes-guarded-elsewhere.error';
-import { ReplaySetMovedOnError } from '@replays/domain/exceptions/replay-set-moved-on.error';
+import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
-import { SearchMovedOnError } from '@replays/domain/exceptions/search-moved-on.error';
 import { SearchUnderwayError } from '@replays/domain/exceptions/search-underway.error';
+import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
 import {
   AT,
   aBudget,
@@ -274,7 +274,7 @@ describe('DrizzleSearchRepository', () => {
     ).toHaveLength(2);
   });
 
-  it('refuses a write from a search that moved on, and deletes an abandoned one', async () => {
+  it('refuses a write from a search that changed, and deletes an abandoned one', async () => {
     const started = aSearch();
 
     await searches.add(started);
@@ -283,7 +283,7 @@ describe('DrizzleSearchRepository', () => {
 
     await searches.save(found.stopped(NOW, BY));
     await expect(searches.save(found.setGone(NOW))).rejects.toThrow(
-      SearchMovedOnError,
+      SearchVersionConflictError,
     );
 
     const current = (await searches.locked(SEARCH_ID)) as Search;
@@ -404,7 +404,7 @@ describe('replays, candidates and sets a search keeps', () => {
     expect((await sets.find(set.id))?.version).toBe(1);
     await expect(
       sets.save(stale.withoutEntry(RunId.of('original_0'), false)),
-    ).rejects.toThrow(ReplaySetMovedOnError);
+    ).rejects.toThrow(ReplaySetVersionConflictError);
   });
 
   it('keeps which set guards a station’s changes, one per station', async () => {

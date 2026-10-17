@@ -8,7 +8,7 @@ import { ApprovalAnswered } from '@work/application/rendering/approval-answered'
 import type { ConversationAtHand } from '@work/application/services/conversation-at-hand.service';
 import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -34,7 +34,10 @@ export class AnswerInboxItemHandler
           await this.transaction.run(() => this.answer(command));
           return;
         } catch (error) {
-          if (!(error instanceof TaskMovedOnError) || attempt >= ATTEMPTS) {
+          if (
+            !(error instanceof TaskVersionConflictError) ||
+            attempt >= ATTEMPTS
+          ) {
             throw error;
           }
         }

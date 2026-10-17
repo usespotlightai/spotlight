@@ -1,7 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteIntegrationCommand } from '@integrations/application/commands/delete-integration.command';
 import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
-import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
+import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
@@ -47,7 +47,7 @@ export class DeleteIntegrationHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const given = await this.given.onTeam(standing.teamId);
 
@@ -62,11 +62,11 @@ export class DeleteIntegrationHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof IntegrationDefinitionMovedOnError) {
+      if (error instanceof IntegrationDefinitionVersionConflictError) {
         const current = await this.definitions.withId(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

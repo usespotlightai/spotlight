@@ -6,7 +6,7 @@ import {
   type PullRequestFacts,
 } from '@github/domain/aggregates/pull-request.aggregate';
 import type { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
-import { PullRequestMovedOnError } from '@github/domain/exceptions/pull-request-moved-on.error';
+import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-request-version-conflict.error';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
 import { forgettableBefore } from '@github/domain/services/pull-request-retention';
@@ -301,7 +301,7 @@ export class RecordPullRequests {
         await attempt();
         return;
       } catch (error) {
-        if (!(error instanceof PullRequestMovedOnError) || left <= 1) {
+        if (!(error instanceof PullRequestVersionConflictError) || left <= 1) {
           throw error;
         }
       }

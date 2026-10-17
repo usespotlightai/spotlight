@@ -1,6 +1,6 @@
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
-import { MemoryDraftMovedOnError } from '@memory/domain/exceptions/memory-draft-moved-on.error';
+import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -177,7 +177,7 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
         .returning({ id: memoryDraft.id });
 
       if (written.length === 0) {
-        throw new MemoryDraftMovedOnError(added.id.value);
+        throw new MemoryDraftVersionConflictError(added.id.value);
       }
 
       await this.proposalsReplaced(added);
@@ -199,7 +199,7 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
         .returning({ id: memoryDraft.id });
 
       if (written.length === 0) {
-        throw new MemoryDraftMovedOnError(saved.id.value);
+        throw new MemoryDraftVersionConflictError(saved.id.value);
       }
 
       await this.proposalsReplaced(saved);
