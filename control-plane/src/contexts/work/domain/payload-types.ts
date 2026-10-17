@@ -1,9 +1,9 @@
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
-import { LineOpened } from '@work/domain/events/line-opened.event';
-import { LineRedefined } from '@work/domain/events/line-redefined.event';
+import { LineCreated } from '@work/domain/events/line-created.event';
+import { LineDeleted } from '@work/domain/events/line-deleted.event';
 import { LineRepositoriesChanged } from '@work/domain/events/line-repositories-changed.event';
-import { LineRetired } from '@work/domain/events/line-retired.event';
+import { LineUpdated } from '@work/domain/events/line-updated.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
@@ -276,9 +276,9 @@ export const WORK_PAYLOAD_TYPES = [
   ChatDispatched,
   ChatStarted,
   LineRepositoriesChanged,
-  LineOpened,
-  LineRedefined,
-  LineRetired,
+  LineCreated,
+  LineUpdated,
+  LineDeleted,
   ProposalAccepted,
   SetupPullRequestOpened,
   ProposalDismissed,

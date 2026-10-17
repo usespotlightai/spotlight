@@ -6,7 +6,7 @@ export function useDragGuard() {
   const pending = useRef<((event: MouseEvent) => void) | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const forget = useCallback(() => {
+  const reset = useCallback(() => {
     if (pending.current) {
       document.removeEventListener('click', pending.current, true);
       pending.current = null;
@@ -17,19 +17,19 @@ export function useDragGuard() {
     }
   }, []);
 
-  useEffect(() => forget, [forget]);
+  useEffect(() => reset, [reset]);
 
   return useCallback(() => {
-    forget();
+    reset();
 
     const swallow = (event: MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      forget();
+      reset();
     };
 
     pending.current = swallow;
     document.addEventListener('click', swallow, { capture: true });
-    timer.current = setTimeout(forget, GRACE_MS);
-  }, [forget]);
+    timer.current = setTimeout(reset, GRACE_MS);
+  }, [reset]);
 }

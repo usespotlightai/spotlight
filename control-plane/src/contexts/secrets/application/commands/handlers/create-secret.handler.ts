@@ -4,7 +4,7 @@ import type { SecretDefinitionsPort } from '@secrets/application/ports/secret-de
 import { SecretProblems } from '@secrets/application/rendering/secret-problems';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
-import { SecretAlreadyDefinedError } from '@secrets/domain/exceptions/secret-already-defined.error';
+import { SecretAlreadyExistsError } from '@secrets/domain/exceptions/secret-already-exists.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import {
@@ -70,7 +70,7 @@ export class CreateSecretHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const secret = Secret.set(compiled, {
+      const secret = Secret.create(compiled, {
         id: SecretId.of(this.ids.generate()),
         workspaceId: permissions.workspaceId,
         by: Attribution.of(command.actor, permissions.workspaceId),
@@ -95,7 +95,7 @@ export class CreateSecretHandler
           }),
         );
       } catch (error) {
-        if (error instanceof SecretAlreadyDefinedError) {
+        if (error instanceof SecretAlreadyExistsError) {
           return { outcome: 'taken', address: secret.name.value };
         }
 

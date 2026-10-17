@@ -140,7 +140,7 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     const stack = await this.stacks.find(due.stackId);
 
     if (!stack) {
-      await this.checks.remove(due.forgotten(now));
+      await this.checks.remove(due.delete(now));
       return null;
     }
 

@@ -47,7 +47,7 @@ const fresh = () => {
 
 const [opening] = BUILT_IN_LINES;
 
-const line = Line.open({
+const line = Line.create({
   by: attributedIn(),
   workspaceId: WORKSPACE,
   teamId: TeamId.of('team_1'),
@@ -465,12 +465,12 @@ describe('WorkLookup, reading the notes of people on a task', () => {
 
 describe('WorkLookup, reading a team’s lines', () => {
   it('names each line still in use, with the stations that work and its repositories', async () => {
-    const retired = { ...line, isRetired: true, id: { value: 'line_old' } };
+    const deleted = { ...line, isDeleted: true, id: { value: 'line_old' } };
 
     const lines = await new WorkLookup(
       {} as RunRepository,
       {} as TaskRepository,
-      { ofTeam: async () => [line, retired] } as unknown as LineRepository,
+      { ofTeam: async () => [line, deleted] } as unknown as LineRepository,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
     ).linesOf(TeamId.of('team_1'));

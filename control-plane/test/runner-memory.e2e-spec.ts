@@ -14,9 +14,9 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 interface Recalled {
   readonly id: string;
@@ -47,8 +47,8 @@ const BUILD = randomUUID();
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
-let other: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
+let other: Awaited<ReturnType<typeof createTeam>>;
 let runId: string;
 let token: string;
 
@@ -142,8 +142,8 @@ beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
   const tasks = app.get(DrizzleTaskRepository);
-  team = await openTeam(db, tasks, `recall-${randomUUID().slice(0, 8)}`);
-  other = await openTeam(db, tasks, `elsewhere-${randomUUID().slice(0, 8)}`);
+  team = await createTeam(db, tasks, `recall-${randomUUID().slice(0, 8)}`);
+  other = await createTeam(db, tasks, `elsewhere-${randomUUID().slice(0, 8)}`);
 
   await db.insert(schema.line).values({
     id: DELIVERY,
@@ -224,7 +224,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 
@@ -261,7 +261,7 @@ describe('recalling what the team remembers from inside a run', () => {
 
     const proposedIn = RunId.of(randomUUID());
     await app.get(DrizzleMemoryDraftRepository).add(
-      MemoryDraft.open({
+      MemoryDraft.create({
         id: MemoryDraftId.of(randomUUID()),
         taskId: team.list.id,
         workspaceId: team.workspaceId,

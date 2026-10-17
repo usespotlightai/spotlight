@@ -15,7 +15,7 @@ export interface LearnedOutputRepository {
 
   save(learned: LearnedOutput): Promise<void>;
 
-  forgetSource(teamId: TeamId, source: SourceKey): Promise<void>;
+  deleteForSource(teamId: TeamId, source: SourceKey): Promise<void>;
 
-  forgetTeam(teamId: TeamId): Promise<void>;
+  deleteForTeam(teamId: TeamId): Promise<void>;
 }

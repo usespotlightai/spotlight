@@ -76,7 +76,7 @@ describe('workSubscribers', () => {
     ]);
   });
 
-  it('revokes every token minted for a run once it ends, and an attempt’s once its lease expires or the run is suspended', async () => {
+  it('revokes every token issued for a run once it ends, and an attempt’s once its lease expires or the run is suspended', async () => {
     const revokeFor = vi.fn(async () => undefined);
     const subscribers = workSubscribers({
       runTokens: { revokeFor },

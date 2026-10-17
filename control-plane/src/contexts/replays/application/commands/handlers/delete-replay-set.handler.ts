@@ -44,7 +44,7 @@ export class DeleteReplaySetHandler
         const searched = await this.searches.activeOfSet(locked.id);
 
         await this.sets.save(
-          locked.deleted(
+          locked.delete(
             searched !== null || replays.some((each) => each.isUnderway),
           ),
         );

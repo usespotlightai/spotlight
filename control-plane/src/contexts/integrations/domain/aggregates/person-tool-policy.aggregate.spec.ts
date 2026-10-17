@@ -23,7 +23,7 @@ describe('PersonToolPolicy', () => {
     expect(none().isNew).toBe(true);
   });
 
-  it('keeps a stricter rule, and forgets one set back to allowed', () => {
+  it('keeps a stricter rule, and deletes one set back to allowed', () => {
     const blocked = none().set(COMMENT, PersonToolRule.of('blocked'));
 
     expect(blocked.ruleFor(COMMENT).name).toBe('blocked');

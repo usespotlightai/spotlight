@@ -89,7 +89,7 @@ export class WorkspaceRunnersResourceController {
 
   @WorkspaceRunnersResource.Create(
     'workspaces/:workspaceId/workspace-runners',
-    'Declare the pools and trusts a workspace lets work through',
+    'Create the workspace runners: the pools and trusts a workspace lets work through',
   )
   @WORKSPACE
   @DEFINITION
@@ -123,7 +123,7 @@ export class WorkspaceRunnersResourceController {
 
   @WorkspaceRunnersResource.Update(
     'workspace-runners/:id',
-    'Declare the workspace runners again',
+    'Update the workspace runners',
   )
   @ID
   @DEFINITION
@@ -145,7 +145,7 @@ export class WorkspaceRunnersResourceController {
 
   @WorkspaceRunnersResource.Delete(
     'workspace-runners/:id',
-    'Stop declaring the workspace runners, leaving every pool and trust as it is',
+    'Delete the workspace runners, leaving every pool and trust as it is',
   )
   @ID
   async delete(

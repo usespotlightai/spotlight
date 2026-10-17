@@ -3,7 +3,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { CreateIntegrationCommand } from '@integrations/application/commands/create-integration.command';
 import type { IntegrationSources } from '@integrations/application/services/integration-sources.service';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
-import { IntegrationAlreadyDefinedError } from '@integrations/domain/exceptions/integration-already-defined.error';
+import { IntegrationAlreadyExistsError } from '@integrations/domain/exceptions/integration-already-exists.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
@@ -97,7 +97,7 @@ export class CreateIntegrationHandler
       try {
         return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
-            const defined = IntegrationDefinition.define({
+            const created = IntegrationDefinition.create({
               ...compiled,
               reading,
               id: IntegrationDefinitionId.of(this.ids.generate()),
@@ -105,13 +105,13 @@ export class CreateIntegrationHandler
               by: Attribution.of(command.actor, permissions.workspaceId),
             });
 
-            await this.definitions.save(defined);
+            await this.definitions.save(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof IntegrationAlreadyDefinedError) {
+        if (error instanceof IntegrationAlreadyExistsError) {
           return { outcome: 'taken', address: address.toString() };
         }
 

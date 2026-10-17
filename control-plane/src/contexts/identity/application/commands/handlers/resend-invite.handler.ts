@@ -8,7 +8,7 @@ import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export class ResendInviteHandler
@@ -19,7 +19,7 @@ export class ResendInviteHandler
     private readonly invites: WorkspaceInviteRepository,
     private readonly teams: TeamRepository,
     private readonly sending: InviteSending,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly clock: ClockPort,
   ) {}
 
@@ -47,36 +47,36 @@ export class ResendInviteHandler
       const joining = (await this.teams.ofWorkspace(workspace.id)).filter(
         (team) => invite.terms.joins(team.id),
       );
-      const minted = this.tokens.mint();
-      const again = invite.resend({
+      const newToken = this.tokens.issue();
+      const resent = invite.resend({
         terms: workspace.inviteTerms({
           role: invite.terms.role,
           teams: joining.map((team) => team.id),
           among: joining,
         }),
-        tokenHash: TokenHash.of(minted.hash),
+        tokenHash: TokenHash.of(newToken.hash),
         by,
         now: this.clock.now(),
       });
 
-      await this.invites.save(again);
-      await this.sending.send(again, minted.token, {
+      await this.invites.save(resent);
+      await this.sending.send(resent, newToken.token, {
         workspace,
         teams: joining,
         by: sender,
       });
 
       return {
-        id: again.id.value,
-        email: again.email.value,
-        role: again.terms.invitedAs,
+        id: resent.id.value,
+        email: resent.email.value,
+        role: resent.terms.invitedAs,
         teams: joining.map((team) => ({
           id: team.id.value,
           name: team.name.value,
         })),
         invitedBy: sender,
-        invitedAt: again.invitedAt.toISOString(),
-        expiresAt: again.expiresAt.toISOString(),
+        invitedAt: resent.invitedAt.toISOString(),
+        expiresAt: resent.expiresAt.toISOString(),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

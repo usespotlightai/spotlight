@@ -8,9 +8,9 @@ import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  LINE_REDEFINED,
-  type LineRedefinedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+  LINE_CHANGED,
+  type LineChangedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
@@ -29,7 +29,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const SPEC = {
   command: { executable: 'sh', args: [] },
@@ -46,8 +46,8 @@ const ago = (minutes: number) => new Date(NOW - minutes * MINUTE);
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
-let elsewhere: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
+let elsewhere: Awaited<ReturnType<typeof createTeam>>;
 
 const asideOf = async (taskId: string) => {
   const [aside] = await db
@@ -148,8 +148,8 @@ beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
   const tasks = app.get(DrizzleTaskRepository);
-  team = await openTeam(db, tasks, `alerts-${randomUUID().slice(0, 8)}`);
-  elsewhere = await openTeam(
+  team = await createTeam(db, tasks, `alerts-${randomUUID().slice(0, 8)}`);
+  elsewhere = await createTeam(
     db,
     tasks,
     `elsewhere-${randomUUID().slice(0, 8)}`,
@@ -305,14 +305,14 @@ describe('a station alert (e2e)', () => {
       .update(schema.station)
       .set({ alerts: [] })
       .where(eq(schema.station.id, team.stationId.value));
-    const redefined: LineRedefinedIntegrationEvent = {
-      kind: LINE_REDEFINED,
+    const updated: LineChangedIntegrationEvent = {
+      kind: LINE_CHANGED,
       lineId: team.line.id.value,
       workspaceId: team.workspaceId.value,
       teamId: team.teamId.value,
       stationIds: [team.stationId.value],
     };
-    await app.get(EventOutbox).record([redefined as never]);
+    await app.get(EventOutbox).record([updated as never]);
 
     const [recovered] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();
@@ -335,7 +335,7 @@ describe('a station alert (e2e)', () => {
     expect(answer.status).toBe(404);
   });
 
-  it('forgets a deleted task’s alerts through the station’s watch, so a check read before the forgetting cannot write them back', async () => {
+  it('deletes the alerts of a deleted task through the station’s watch, so a check read before the deletion cannot write them back', async () => {
     const watches = app.get(DrizzleStationWatchRepository);
     const [alert] = await alertsAtStation();
     const stale = await watches.raising(AlertId.of(alert?.id as string));

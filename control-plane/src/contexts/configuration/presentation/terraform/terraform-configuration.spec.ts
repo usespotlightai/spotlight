@@ -594,7 +594,7 @@ describe('workspaceTerraform', () => {
         'resource "spotlight_workspace_runners" "acme"',
       ),
     ).toContain(
-      '  pools        = [spotlight_runner_pool.burst.key, spotlight_runner_pool.k8s-jobs.key, "retired"]\n',
+      '  pools        = [spotlight_runner_pool.burst.key, spotlight_runner_pool.k8s-jobs.key, "deleted"]\n',
     );
   });
 

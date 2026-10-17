@@ -7,7 +7,7 @@ import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -113,7 +113,7 @@ describe('a team, created through the resource API (e2e)', () => {
     await fixture.close();
   });
 
-  it('opens bare, with none of the lines or the welcome a team made at sign-up gets', async () => {
+  it('is created bare, with none of the lines or the welcome a team made at sign-up gets', async () => {
     const made = await create(fixture.valid);
     const recorded = await app
       .get<DrizzleDatabase>(DRIZZLE)
@@ -196,7 +196,7 @@ describe('a team, created through the resource API (e2e)', () => {
     let next = 0;
 
     await app.get(DrizzleLineRepository).add(
-      Line.open({
+      Line.create({
         by: attributedIn(),
         workspaceId: WorkspaceId.of(workspaceId),
         teamId: TeamId.of(teamId),
@@ -261,9 +261,9 @@ describe('a team, created through the resource API (e2e)', () => {
     }
   };
 
-  const abandon = (teamId: string) =>
+  const deleteTeam = (teamId: string) =>
     delivered({
-      kind: TEAM_DISBANDED,
+      kind: TEAM_DELETED,
       workspaceId,
       teamId,
       key: 'core',
@@ -285,41 +285,41 @@ describe('a team, created through the resource API (e2e)', () => {
       ]),
     );
 
-    await abandon(teamId);
+    await deleteTeam(teamId);
   });
 
-  it('abandons, in every context, whatever reached a team as it disbanded', async () => {
+  it('deletes, in every context, whatever reached a team as it was deleted', async () => {
     const teamId = randomUUID();
 
     await addEveryDependent(teamId);
-    await abandon(teamId);
+    await deleteTeam(teamId);
 
     expect(
       app
         .get(EventSubscribers)
-        .listeningTo(TEAM_DISBANDED)
+        .listeningTo(TEAM_DELETED)
         .map((each) => each.name)
         .sort(),
     ).toEqual([
-      'configuration.abandon-harness-profiles-of-disbanded-team',
-      'configuration.abandon-skills-of-disbanded-team',
-      'integrations.abandon-integrations-of-disbanded-team',
-      'integrations.forget-connections-of-disbanded-team',
-      'outcomes.forget-alerts-of-disbanded-team',
-      'outcomes.forget-chats-of-disbanded-team',
-      'outcomes.forget-config-pull-requests-of-disbanded-team',
-      'outcomes.forget-deliveries-of-disbanded-team',
-      'outcomes.forget-failures-of-disbanded-team',
-      'outcomes.forget-judgings-and-scores-of-disbanded-team',
-      'outcomes.forget-pull-requests-of-disbanded-team',
-      'outcomes.forget-runs-of-disbanded-team',
-      'outcomes.forget-touches-of-disbanded-team',
-      'replays.abandon-config-pull-requests-of-disbanded-team',
-      'replays.abandon-replay-checks-of-disbanded-team',
-      'replays.abandon-replays-of-disbanded-team',
-      'replays.abandon-searches-of-disbanded-team',
-      'work.abandon-lines-of-disbanded-team',
-      'work.forget-notices-of-disbanded-team',
+      'configuration.delete-harness-profiles-of-deleted-team',
+      'configuration.delete-skills-of-deleted-team',
+      'integrations.delete-connections-of-deleted-team',
+      'integrations.delete-integrations-of-deleted-team',
+      'outcomes.delete-alerts-of-deleted-team',
+      'outcomes.delete-chats-of-deleted-team',
+      'outcomes.delete-config-pull-requests-of-deleted-team',
+      'outcomes.delete-deliveries-of-deleted-team',
+      'outcomes.delete-failures-of-deleted-team',
+      'outcomes.delete-judgings-and-scores-of-deleted-team',
+      'outcomes.delete-pull-requests-of-deleted-team',
+      'outcomes.delete-runs-of-deleted-team',
+      'outcomes.delete-touches-of-deleted-team',
+      'replays.delete-config-pull-requests-of-deleted-team',
+      'replays.delete-replay-checks-of-deleted-team',
+      'replays.delete-replays-of-deleted-team',
+      'replays.delete-searches-of-deleted-team',
+      'work.delete-lines-of-deleted-team',
+      'work.delete-notices-of-deleted-team',
     ]);
     expect(await dependentsOf(teamId)).toEqual([]);
   });

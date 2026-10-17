@@ -43,81 +43,79 @@ describe('PullRequestRecord', () => {
     expect(reviewed.reviewTasks).toEqual([TaskId.of('task_2')]);
   });
 
-  it('outlives GitHub forgetting it only where a task owns or reviewed it', () => {
+  it('outlives GitHub purging it only where a task owns or reviewed it', () => {
     const people = noted().seenAs(seenOf());
 
-    expect(people.forgottenByGitHub(SEEN_AT)).toBeNull();
-    expect(people.assignOwner(OWNER).forgottenByGitHub(SEEN_AT)).not.toBeNull();
+    expect(people.purgedByGitHub(SEEN_AT)).toBeNull();
+    expect(people.assignOwner(OWNER).purgedByGitHub(SEEN_AT)).not.toBeNull();
     expect(
-      people.recordReview(TaskId.of('task_2')).forgottenByGitHub(SEEN_AT),
+      people.recordReview(TaskId.of('task_2')).purgedByGitHub(SEEN_AT),
     ).not.toBeNull();
   });
 
-  it('hears GitHub anew from its first version once GitHub forgot it and recorded it again later', () => {
+  it('hears GitHub anew from its first version once GitHub purged it and recorded it again later', () => {
     const kept = noted()
       .assignOwner(OWNER)
       .seenAs(seenOf({ version: 6 }))
-      .forgottenByGitHub(SEEN_AT);
+      .purgedByGitHub(SEEN_AT);
     const back = kept?.seenAs(
       seenOf({ title: 'Back', version: 1, updatedAt: LATER }),
     );
 
-    expect(kept?.githubForgotAt).toEqual(SEEN_AT);
+    expect(kept?.githubPurgedAt).toEqual(SEEN_AT);
     expect(back?.seen?.title).toBe('Back');
-    expect(back?.githubForgotAt).toBeNull();
+    expect(back?.githubPurgedAt).toBeNull();
   });
 
-  it('turns away what GitHub said no later than when it forgot the pull request', () => {
+  it('turns away what GitHub said no later than when it purged the pull request', () => {
     const kept = noted()
       .assignOwner(OWNER)
       .seenAs(seenOf({ version: 6 }))
-      .forgottenByGitHub(SEEN_AT);
+      .purgedByGitHub(SEEN_AT);
 
     expect(
       kept?.seenAs(seenOf({ title: 'Stale', version: 7, updatedAt: SEEN_AT })),
     ).toBe(kept);
   });
 
-  it('ignores GitHub forgetting an older record of a pull request it has heard of since', () => {
+  it('ignores GitHub purging an older record of a pull request it has heard of since', () => {
     const owned = noted()
       .assignOwner(OWNER)
       .seenAs(seenOf({ updatedAt: LATER }));
     const people = noted().seenAs(seenOf({ updatedAt: LATER }));
 
-    expect(owned.forgottenByGitHub(SEEN_AT)).toBe(owned);
-    expect(people.forgottenByGitHub(SEEN_AT)).toBe(people);
+    expect(owned.purgedByGitHub(SEEN_AT)).toBe(owned);
+    expect(people.purgedByGitHub(SEEN_AT)).toBe(people);
   });
 
-  it('keeps the latest time GitHub forgot it', () => {
-    const kept = noted().assignOwner(OWNER).forgottenByGitHub(LATER);
+  it('keeps the latest time GitHub purged it', () => {
+    const kept = noted().assignOwner(OWNER).purgedByGitHub(LATER);
 
-    expect(kept?.forgottenByGitHub(SEEN_AT)).toBe(kept);
-    expect(kept?.forgottenByGitHub(LATER)).toBe(kept);
+    expect(kept?.purgedByGitHub(SEEN_AT)).toBe(kept);
+    expect(kept?.purgedByGitHub(LATER)).toBe(kept);
   });
 
-  it('lets go of a task, and of itself once nothing refers to it and GitHub forgot it', () => {
+  it('lets go of a task, and of itself once nothing refers to it and GitHub purged it', () => {
     const owned = noted().assignOwner(OWNER).seenAs(seenOf());
-    const forgotten = owned.forgottenByGitHub(SEEN_AT);
+    const purged = owned.purgedByGitHub(SEEN_AT);
     const unseen = noted().recordReview(TaskId.of('task_2'));
 
     expect(owned.withoutTask(OWNER.taskId)?.owner).toBeNull();
     expect(owned.withoutTask(OWNER.taskId)?.seen).not.toBeNull();
     expect(owned.withoutTask(TaskId.of('task_9'))).toBe(owned);
-    expect(forgotten?.withoutTask(OWNER.taskId)).toBeNull();
+    expect(purged?.withoutTask(OWNER.taskId)).toBeNull();
     expect(unseen.withoutTask(TaskId.of('task_2'))).toBeNull();
     expect(
-      forgotten?.recordReview(TaskId.of('task_2')).withoutTask(OWNER.taskId)
+      purged?.recordReview(TaskId.of('task_2')).withoutTask(OWNER.taskId)
         ?.reviewTasks,
     ).toEqual([TaskId.of('task_2')]);
   });
 
-  it('lets go of a disbanded team, and of itself once GitHub forgot it', () => {
+  it('lets go of a deleted team, and of itself once GitHub purged it', () => {
     const owned = noted().assignOwner(OWNER).seenAs(seenOf());
 
     expect(owned.withoutTeam(OWNER.teamId)?.owner).toBeNull();
     expect(owned.withoutTeam(TeamId.of('team_2'))).toBe(owned);
-    expect(
-      owned.forgottenByGitHub(SEEN_AT)?.withoutTeam(OWNER.teamId),
-    ).toBeNull();
+    expect(owned.purgedByGitHub(SEEN_AT)?.withoutTeam(OWNER.teamId)).toBeNull();
   });
 });

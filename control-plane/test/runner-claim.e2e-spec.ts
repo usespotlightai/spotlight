@@ -284,9 +284,9 @@ describe('claiming a check reserved for a provisioned runner', () => {
     ).toBe(stackId);
   });
 });
-describe('forgetting the checks of a deleted task', () => {
+describe('deleting the checks of a deleted task', () => {
   const dispatched: DomainEvent[] = [];
-  const forgetting = () =>
+  const deleting = () =>
     new DrizzleStackCheckRepository(new DrizzleContext(db), {
       dispatch: async (events) => {
         dispatched.push(...events);
@@ -306,7 +306,7 @@ describe('forgetting the checks of a deleted task', () => {
     });
 
   it('finds every check of the task and removes each, and releases its reserved runner', async () => {
-    const repository = forgetting();
+    const repository = deleting();
     const task = TaskId.of(randomUUID());
     const runner = RunnerId.of(randomUUID());
     const reserved = begun(task).reservedFor(runner, PoolId.of('pool_1'), NOW);
@@ -324,7 +324,7 @@ describe('forgetting the checks of a deleted task', () => {
     expect(check.stackId).toEqual(reserved.stackId);
     expect(check.taskId).toEqual(task);
 
-    await repository.remove(check.forgotten(NOW));
+    await repository.remove(check.delete(NOW));
 
     await expect(repository.ofTask(task)).resolves.toEqual([]);
     await expect(repository.find(other.stackId, false)).resolves.not.toBeNull();
@@ -334,7 +334,7 @@ describe('forgetting the checks of a deleted task', () => {
   });
 
   it('does not remove a check that changed since it was read', async () => {
-    const repository = forgetting();
+    const repository = deleting();
     const task = TaskId.of(randomUUID());
     await repository.add(begun(task));
     const [stale] = await repository.ofTask(task);
@@ -345,7 +345,7 @@ describe('forgetting the checks of a deleted task', () => {
       stale.reservedFor(RunnerId.of(randomUUID()), PoolId.of('pool_1'), NOW),
     );
 
-    await expect(repository.remove(stale.forgotten(NOW))).rejects.toThrow(
+    await expect(repository.remove(stale.delete(NOW))).rejects.toThrow(
       StackCheckVersionConflictError,
     );
   });

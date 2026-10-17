@@ -182,7 +182,7 @@ export const aSet = (count = 0, id = 'set_1'): ReplaySet =>
         NOW,
         false,
       ),
-    ReplaySet.open({
+    ReplaySet.create({
       id: ReplaySetId.of(id),
       station: STATION,
       name: ReplaySetName.of('Queue fixes'),

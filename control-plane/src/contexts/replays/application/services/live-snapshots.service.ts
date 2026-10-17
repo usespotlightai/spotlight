@@ -75,7 +75,7 @@ export class LiveSnapshots {
 
     try {
       await this.transaction.inTransaction(() =>
-        this.candidates.save(live.abandon()),
+        this.candidates.save(live.cascadeDelete()),
       );
     } catch (error) {
       this.logger.warn(

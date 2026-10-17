@@ -40,5 +40,5 @@ export interface ReviewOutboxPort {
 
   failuresFor(taskId: TaskId): Promise<ReadonlyMap<string, string>>;
 
-  forgetTask(taskId: TaskId): Promise<void>;
+  deleteTask(taskId: TaskId): Promise<void>;
 }

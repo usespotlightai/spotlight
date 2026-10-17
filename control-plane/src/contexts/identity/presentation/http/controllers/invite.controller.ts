@@ -3,8 +3,8 @@ import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-
 import { ResendInviteCommand } from '@identity/application/commands/resend-invite.command';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
 import type {
-  InviteOfferDto,
   InviteOutcomesDto,
+  InvitePreviewDto,
   JoinedWorkspaceDto,
   WorkspaceInviteDto,
 } from '@identity/application/dto/invite.dto';
@@ -12,8 +12,8 @@ import { ListWorkspaceInvitesQuery } from '@identity/application/queries/list-wo
 import { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
 import { InviteToWorkspaceRequestDto } from '@identity/presentation/http/dto/invite.request.dto';
 import {
-  InviteOfferResponseDto,
   InviteOutcomesResponseDto,
+  InvitePreviewResponseDto,
   JoinedWorkspaceResponseDto,
   WorkspaceInviteResponseDto,
 } from '@identity/presentation/http/dto/invite.response.dto';
@@ -89,7 +89,7 @@ export class WorkspaceInviteController {
     operationId: 'inviteToWorkspace',
     summary: 'Invite people to this workspace by email, with a role and teams',
     description:
-      'One invitation per address. An address with an open or run-out invitation is sent it again with a fresh link, and an address already in the workspace is reported and sent nothing.',
+      'One invitation per address. Spotlight resends a pending or run-out invitation with a fresh link. Spotlight reports an address that is already in the workspace and sends it nothing.',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
   @ApiOkResponse({ type: InviteOutcomesResponseDto })
@@ -130,7 +130,7 @@ export class WorkspaceInviteController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'resendInvite',
-    summary: 'Send an invitation again, with a fresh link and two more weeks',
+    summary: 'Resend an invitation, with a fresh link and two more weeks',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
   @ApiParam({ name: 'inviteId' })
@@ -192,22 +192,22 @@ export class InviteController {
   @AllowAnonymous()
   @ApiOperation({
     operationId: 'readInvite',
-    summary: 'Read what an invitation link offers',
+    summary: 'Read the preview of an invitation',
   })
   @ApiParam({ name: 'token' })
-  @ApiOkResponse({ type: InviteOfferResponseDto })
+  @ApiOkResponse({ type: InvitePreviewResponseDto })
   @ApiNotFoundResponse({ description: 'No invitation by that link' })
-  async read(@Param('token') token: string): Promise<InviteOfferResponseDto> {
-    const offer = await this.queryBus.execute<
+  async read(@Param('token') token: string): Promise<InvitePreviewResponseDto> {
+    const preview = await this.queryBus.execute<
       ReadInviteQuery,
-      InviteOfferDto | null
+      InvitePreviewDto | null
     >(new ReadInviteQuery(token));
 
-    if (!offer) {
+    if (!preview) {
       throw new NotFoundException();
     }
 
-    return offer;
+    return preview;
   }
 
   @Post(':token/accept')

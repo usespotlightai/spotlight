@@ -18,9 +18,9 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-check-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -56,7 +56,7 @@ const archiveStore: WorkspaceArchiveStorePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 let readToken: string;
 let planToken: string;
 let stranger: string;
@@ -214,11 +214,11 @@ const anOriginal = async (): Promise<string> => {
   return runId;
 };
 
-const openSet = async (name: string, runs: readonly string[]) => {
-  const opened = await owner()
+const createSet = async (name: string, runs: readonly string[]) => {
+  const created = await owner()
     .post(`${stationPath()}/replay-sets`, { name })
     .expect(201);
-  const setId = opened.body.id as string;
+  const setId = created.body.id as string;
 
   for (const runId of runs) {
     await owner()
@@ -321,7 +321,7 @@ beforeAll(async () => {
       .useValue(attachmentStore),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `checks-${randomUUID().slice(0, 8)}`,
@@ -420,17 +420,17 @@ beforeAll(async () => {
   readToken = await tokenWith(['read']);
   planToken = await tokenWith(['plan']);
   originals = [await anOriginal(), await anOriginal(), await anOriginal()];
-  guardingSet = await openSet('Queue fixes', originals);
+  guardingSet = await createSet('Queue fixes', originals);
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 
 describe('a replay set guarding a station’s changes', () => {
   it('is flagged by one who may plan, one set per station, and shows as such', async () => {
-    const other = await openSet('Flaky', [originals[0] as string]);
+    const other = await createSet('Flaky', [originals[0] as string]);
 
     await bearing(readToken)
       .post(`${teamPath()}/replay-sets/${guardingSet}/guards-changes`, {}, null)
@@ -825,7 +825,7 @@ describe('a replay check', () => {
   });
 
   it('compares checks started together against the one baseline that comes, and wants a new one once the live station is scored differently', async () => {
-    const race = await openSet('Race', [
+    const race = await createSet('Race', [
       originals[0] as string,
       originals[2] as string,
     ]);
@@ -957,7 +957,7 @@ describe('a replay check', () => {
   });
 
   it('goes with the set it guards when the set is deleted', async () => {
-    const doomed = await openSet('Doomed', [originals[1] as string]);
+    const doomed = await createSet('Doomed', [originals[1] as string]);
     await bearing(planToken)
       .delete(`${teamPath()}/replay-sets/${guardingSet}/guards-changes`)
       .expect(204);

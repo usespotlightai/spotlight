@@ -59,13 +59,13 @@ const setUp = (
   const kept = {
     add: vi.fn(async () => {}),
     withToken: vi.fn(async () => grant),
-    forgetExpiringBefore: vi.fn(async () => {}),
+    purgeExpiringBefore: vi.fn(async () => {}),
   } satisfies HookCallbackGrantRepository;
   const clock = { now: () => now, sleep: async () => {} };
   const callbacks = new HookCallbackGrants(
     kept,
     {
-      mint: () => ({ token: 'token', hash: HASH.value }),
+      issue: () => ({ token: 'token', hash: HASH.value }),
       hash: () => HASH.value,
     },
     clock,

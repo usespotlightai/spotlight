@@ -1,7 +1,7 @@
+import { DeleteCandidateCommand } from '@replays/application/commands/delete-candidate.command';
+import { DeleteCandidateHandler } from '@replays/application/commands/handlers/delete-candidate.handler';
 import { ProposeCandidateHandler } from '@replays/application/commands/handlers/propose-candidate.handler';
-import { WithdrawCandidateHandler } from '@replays/application/commands/handlers/withdraw-candidate.handler';
 import { ProposeCandidateCommand } from '@replays/application/commands/propose-candidate.command';
-import { WithdrawCandidateCommand } from '@replays/application/commands/withdraw-candidate.command';
 import {
   ACTOR,
   CLOCK,
@@ -11,8 +11,8 @@ import {
   peopleWho,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
-import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
 import { CandidateNameTakenError } from '@replays/domain/exceptions/candidate-name-taken.error';
 import { aReplay, candidateOf } from '@replays/domain/replays.fake-spec';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
@@ -46,13 +46,17 @@ const propose = (definition: unknown, mayPlan: boolean | null = true) =>
     new ProposeCandidateCommand('line_1', 'build', ACTOR, 'key-1', definition),
   );
 
-const withdraw = (id: string, version = 0, mayPlan: boolean | null = true) =>
-  new WithdrawCandidateHandler(
+const deleteCandidate = (
+  id: string,
+  version = 0,
+  mayPlan: boolean | null = true,
+) =>
+  new DeleteCandidateHandler(
     peopleWho(mayPlan),
     memory.candidateRepository,
     memory.replayRepository,
     TRANSACTION,
-  ).execute(new WithdrawCandidateCommand(id, ACTOR, version));
+  ).execute(new DeleteCandidateCommand(id, ACTOR, version));
 
 beforeEach(() => {
   memory = new InMemoryReplays();
@@ -120,45 +124,45 @@ describe('ProposeCandidateHandler', () => {
   });
 });
 
-describe('WithdrawCandidateHandler', () => {
+describe('DeleteCandidateHandler', () => {
   beforeEach(async () => {
     await memory.candidateRepository.add(candidateOf('proposed'));
     await memory.candidateRepository.add(candidateOf('live'));
     memory.events.length = 0;
   });
 
-  it('withdraws a proposed candidate none of whose replays runs, recording it', async () => {
-    expect(await withdraw('candidate_proposed')).toEqual({
+  it('deletes a proposed candidate none of whose replays runs, recording it', async () => {
+    expect(await deleteCandidate('candidate_proposed')).toEqual({
       outcome: 'deleted',
     });
     expect(memory.candidates.has('candidate_proposed')).toBe(false);
-    expect(memory.events[0]).toBeInstanceOf(CandidateWithdrawn);
+    expect(memory.events[0]).toBeInstanceOf(CandidateDeleted);
   });
 
   it('keeps a candidate a replay is running, and the live config Spotlight replays', async () => {
     await memory.replayRepository.add(aReplay({ count: 1 }));
 
-    expect(await withdraw('candidate_proposed')).toMatchObject({
+    expect(await deleteCandidate('candidate_proposed')).toMatchObject({
       outcome: 'in-use',
     });
-    expect(await withdraw('candidate_live')).toMatchObject({
+    expect(await deleteCandidate('candidate_live')).toMatchObject({
       outcome: 'in-use',
     });
   });
 
   it('rejects a version it is not at, naming the one it is', async () => {
-    expect(await withdraw('candidate_proposed', 3)).toEqual({
+    expect(await deleteCandidate('candidate_proposed', 3)).toEqual({
       outcome: 'version-conflict',
       currentVersion: 0,
     });
   });
 
   it('denies one who may not plan, and finds nothing for one who cannot see it', async () => {
-    expect(await withdraw('candidate_proposed', 0, false)).toEqual({
+    expect(await deleteCandidate('candidate_proposed', 0, false)).toEqual({
       outcome: 'forbidden',
       act: 'plan',
     });
-    expect(await withdraw('candidate_proposed', 0, null)).toBeNull();
-    expect(await withdraw('candidate_elsewhere')).toBeNull();
+    expect(await deleteCandidate('candidate_proposed', 0, null)).toBeNull();
+    expect(await deleteCandidate('candidate_elsewhere')).toBeNull();
   });
 });

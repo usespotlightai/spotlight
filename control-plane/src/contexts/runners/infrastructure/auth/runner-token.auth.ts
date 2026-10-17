@@ -6,9 +6,9 @@ import {
 } from '@shared-kernel/application/ports/clock.port';
 import type { RunnerIdentityPort } from '@shared-kernel/application/ports/runner-identity.port';
 import {
-  TOKEN_MINT,
-  type TokenMintPort,
-} from '@shared-kernel/application/ports/token-mint.port';
+  TOKEN_ISSUER,
+  type TokenIssuer,
+} from '@shared-kernel/application/ports/token-issuer.port';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
@@ -16,7 +16,7 @@ import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 export class RunnerTokenAuth implements RunnerIdentityPort {
   constructor(
     private readonly runners: DrizzleRunnerRepository,
-    @Inject(TOKEN_MINT) private readonly tokens: TokenMintPort,
+    @Inject(TOKEN_ISSUER) private readonly tokens: TokenIssuer,
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 

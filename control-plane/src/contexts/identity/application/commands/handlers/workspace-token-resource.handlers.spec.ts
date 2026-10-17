@@ -10,7 +10,7 @@ import {
   transaction,
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
-import { TokenMint } from '@platform/tokens/token-mint.service';
+import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentClaim } from '@shared-kernel/application/ports/idempotent-creates.port';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
@@ -37,7 +37,7 @@ const issuing = (
       throw over.throwing;
     }
   });
-  const mint = new TokenMint();
+  const issuer = new RandomTokenIssuer();
   const keys = creates();
 
   if (over.claim) {
@@ -50,14 +50,14 @@ const issuing = (
     { add } as unknown as WorkspaceTokenRepository,
     keys,
     { generate: () => 'token_new' },
-    mint,
+    issuer,
     { now: () => NOW, sleep: async () => {} },
     transaction,
   );
 
   return {
     add,
-    mint,
+    issuer,
     issue: (definition: unknown) =>
       handler.execute(
         new CreateWorkspaceTokenCommand(
@@ -72,7 +72,7 @@ const issuing = (
 
 describe('CreateWorkspaceTokenHandler', () => {
   it('answers the token once, keeping only its hash', async () => {
-    const { issue, add, mint } = issuing();
+    const { issue, add, issuer } = issuing();
     const issued = await issue(CI);
 
     expect(issued?.created).toMatchObject({
@@ -83,7 +83,7 @@ describe('CreateWorkspaceTokenHandler', () => {
 
     const [kept] = add.mock.calls[0] as [WorkspaceToken];
 
-    expect(kept.hash.value).toBe(mint.hash(issued?.token ?? ''));
+    expect(kept.hash.value).toBe(issuer.hash(issued?.token ?? ''));
     expect(kept.issuedBy).toEqual(OWNER);
   });
 

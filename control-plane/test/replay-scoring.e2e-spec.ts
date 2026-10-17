@@ -10,7 +10,7 @@ import {
   type JudgeAsk,
   type JudgePort,
 } from '@outcomes/application/ports/judge.port';
-import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
@@ -45,7 +45,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-scoring-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -138,7 +138,7 @@ const judge: JudgePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
@@ -403,7 +403,7 @@ beforeAll(async () => {
       .useValue(judge),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `scoring-${randomUUID().slice(0, 8)}`,
@@ -507,10 +507,10 @@ describe('a replay at a station that checks and judges', () => {
   it('drafts each replay’s change, checks it with the candidate’s own check, judges it against the change people accepted, and puts the task that regressed first', async () => {
     const first = await anOriginal(true);
     const second = await anOriginal(false);
-    const opened = await owner()
+    const created = await owner()
       .post(`${stationPath()}/replay-sets`, { name: 'Scored' })
       .expect(201);
-    const setId = opened.body.id as string;
+    const setId = created.body.id as string;
     for (const each of [first, second]) {
       await owner()
         .post(`${teamPath()}/replay-sets/${setId}/entries`, {
@@ -784,7 +784,7 @@ describe('a replay at a station that checks and judges', () => {
         .where(inArray(schema.changeJudging.runId, replayRuns)),
     ).toHaveLength(4);
     await app
-      .get(ForgetOutcomes)
+      .get(DeleteOutcomes)
       .judgingsAndScoresOfTeam(team.workspaceId, team.teamId);
     expect(
       await db

@@ -13,7 +13,7 @@ export interface WorkspaceInviteRepository {
 
   withToken(hash: TokenHash): Promise<WorkspaceInvite | null>;
 
-  openTo(
+  notEndedTo(
     workspaceId: WorkspaceId,
     email: EmailAddress,
   ): Promise<WorkspaceInvite | null>;

@@ -54,7 +54,7 @@ export const aPullPool = (
     tokenVersion?: number;
   } = {},
 ): RunnerPool =>
-  RunnerPool.define({
+  RunnerPool.create({
     id: input.id ?? POOL_ID,
     workspaceId: POOL_WORKSPACE,
     key: PoolKey.of('ephemeral'),
@@ -80,7 +80,7 @@ export const aPushPool = (
     egressTraffic?: EgressTraffic;
   } = {},
 ): RunnerPool =>
-  RunnerPool.define({
+  RunnerPool.create({
     id: POOL_ID,
     workspaceId: POOL_WORKSPACE,
     key: PoolKey.of('sandboxes'),
@@ -98,7 +98,7 @@ export const aPushPool = (
   });
 
 export const aTrust = (input: { labels?: string[] } = {}): RunnerTrust =>
-  RunnerTrust.define({
+  RunnerTrust.create({
     id: TRUST_ID,
     workspaceId: POOL_WORKSPACE,
     key: TrustKey.of('cluster'),

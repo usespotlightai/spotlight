@@ -104,9 +104,9 @@ import { CheckAccess } from '@change-review/application/services/check-access.se
 import { ClaimChangeStackCheck } from '@change-review/application/services/claim-change-stack-check.service';
 import { DecisionAccess } from '@change-review/application/services/decision-access.service';
 import { DecisionsForBriefing } from '@change-review/application/services/decisions-for-briefing.service';
+import { DeleteTaskAcrossAggregates } from '@change-review/application/services/delete-task-across-aggregates.service';
 import { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
 import { ExpireWaitingChecks } from '@change-review/application/services/expire-waiting-checks.service';
-import { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import { ProvisionChangeStackChecks } from '@change-review/application/services/provision-change-stack-checks.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import { RecheckReplayChanges } from '@change-review/application/services/recheck-replay-changes.service';
@@ -591,7 +591,7 @@ const services: Provider[] = [
       new ChangeStackReactions(announcer),
   },
   {
-    provide: ForgetTaskAcrossAggregates,
+    provide: DeleteTaskAcrossAggregates,
     inject: [
       REVIEW_OUTBOX,
       DrizzleReviewCommentRepository,
@@ -612,7 +612,7 @@ const services: Provider[] = [
       transaction: TransactionPort,
       clock: ClockPort,
     ) =>
-      new ForgetTaskAcrossAggregates(
+      new DeleteTaskAcrossAggregates(
         outbox,
         comments,
         reviews,
@@ -816,7 +816,7 @@ const published: Provider[] = [
       EventSubscribers,
       ChangeStackReactions,
       CHANGE_STACK_ANNOUNCER,
-      ForgetTaskAcrossAggregates,
+      DeleteTaskAcrossAggregates,
       DrizzleReviewCommentRepository,
       REVIEW_OUTBOX,
       ID_GENERATOR,
@@ -835,7 +835,7 @@ const published: Provider[] = [
       subscribers: EventSubscribers,
       reactions: ChangeStackReactions,
       announcer: ChangeStackAnnouncerPort,
-      forgetting: ForgetTaskAcrossAggregates,
+      deleting: DeleteTaskAcrossAggregates,
       comments: DrizzleReviewCommentRepository,
       outbox: ReviewOutboxPort,
       ids: IdGeneratorPort,
@@ -854,7 +854,7 @@ const published: Provider[] = [
         changeReviewSubscribers(
           reactions,
           announcer,
-          forgetting,
+          deleting,
           new ReviewReactions(comments, outbox, ids, clock),
           receiving,
           signalling,

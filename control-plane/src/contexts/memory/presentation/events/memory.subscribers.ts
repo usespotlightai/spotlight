@@ -1,6 +1,6 @@
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { AskForMemories } from '@memory/application/services/ask-for-memories.service';
-import type { ForgetMemoryDraft } from '@memory/application/services/forget-memory-draft.service';
+import type { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
 import type { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
@@ -28,7 +28,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 
 export const memorySubscribers = (
   asking: AskForMemories,
-  forgetting: ForgetMemoryDraft,
+  deleting: DeleteMemoryDraft,
   reactions: MemoryReactions,
   noting: NoteMemoryUses,
 ): readonly DomainEventSubscriber[] => [
@@ -84,8 +84,8 @@ export const memorySubscribers = (
         : Promise.resolve(),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'memory.forget-draft-of-deleted-task',
+    'memory.delete-draft-of-deleted-task',
     [TASK_DELETED],
-    (event) => forgetting.forget(TaskId.of(event.taskId)),
+    (event) => deleting.deleteForTask(TaskId.of(event.taskId)),
   ),
 ];

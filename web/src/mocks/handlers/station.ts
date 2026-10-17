@@ -2,8 +2,8 @@ import type { RequestHandler } from 'msw';
 import type {
   CandidateResponseDto,
   ConfigPullRequestResponseDto,
+  CreateReplaySetRequestDto,
   EstimateSearchRequestDto,
-  OpenReplaySetRequestDto,
   RenameReplaySetRequestDto,
   ReplayStartedResponseDto,
   SearchEstimateResponseDto,
@@ -214,7 +214,7 @@ export const stationHandlers: RequestHandler[] = [
 
   api.post(`${STATION}/replay-sets`, async ({ params, request }) => {
     const { lineId, stationId } = placeOf(params);
-    const { name } = (await request.json()) as OpenReplaySetRequestDto;
+    const { name } = (await request.json()) as CreateReplaySetRequestDto;
     const id = uniqueId(`set_${slugOf(name)}`, (taken) =>
       Boolean(setSpec(taken)),
     );

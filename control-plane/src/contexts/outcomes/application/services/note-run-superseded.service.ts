@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -10,7 +10,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export class NoteRunSuperseded {
   constructor(
     private readonly records: RunRecordRepository,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -21,11 +21,11 @@ export class NoteRunSuperseded {
     taskId: TaskId,
   ): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(workspaceId, taskId);
+      await this.deletions.lockDeletion(workspaceId, taskId);
       const existing = await this.records.of(runId);
 
       if (!existing) {
-        if (await this.forgotten.forgot(workspaceId, taskId)) {
+        if (await this.deletions.isDeleted(workspaceId, taskId)) {
           return;
         }
 

@@ -162,18 +162,18 @@ describe('inviting people to a workspace (e2e)', () => {
       .expect(422);
   });
 
-  it('shows anybody with the link what it offers', async () => {
-    const offer = await http()
+  it('shows anybody with the link the preview of the invitation', async () => {
+    const preview = await http()
       .get(`/api/invites/${tokenFor(emailOf(ada))}`)
       .expect(200);
 
-    expect(offer.body).toEqual({
+    expect(preview.body).toEqual({
       email: emailOf(ada),
       workspaceName: workspaceId,
       invitedBy: 'Ada',
       role: 'admin',
       teamNames: expect.arrayContaining([workspaceId, 'Mobile']),
-      status: 'open',
+      status: 'pending',
     });
   });
 
@@ -395,23 +395,23 @@ describe('inviting people to a workspace (e2e)', () => {
   });
 
   it('leaves a run-out invitation off the list of those still waiting', async () => {
-    const lapsed = `${randomUUID()}@example.com`;
+    const expired = `${randomUUID()}@example.com`;
     await as(seat.owner)
-      .post(invites, { emails: [lapsed], role: 'member', teamIds: [] })
+      .post(invites, { emails: [expired], role: 'member', teamIds: [] })
       .expect(200);
     const listed = async () =>
       (await as(seat.owner).get(invites).expect(200)).body.map(
         (each: { email: string }) => each.email,
       );
 
-    expect(await listed()).toContain(lapsed);
+    expect(await listed()).toContain(expired);
 
     await db
       .update(schema.workspaceInvite)
       .set({ expiresAt: new Date(Date.now() - 1000) })
-      .where(eq(schema.workspaceInvite.email, lapsed));
+      .where(eq(schema.workspaceInvite.email, expired));
 
-    expect(await listed()).not.toContain(lapsed);
+    expect(await listed()).not.toContain(expired);
   });
 
   it('puts nobody on a team by a workspace token', async () => {

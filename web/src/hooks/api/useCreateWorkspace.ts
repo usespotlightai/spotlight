@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { workspaceQuery } from '@/hooks/api/useWorkspace';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
-import { openWorkspace } from '@/lib/api';
+import { createWorkspaceWithTeam } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 
 export type CreateWorkspaceInput = {
@@ -16,7 +16,7 @@ export function useCreateWorkspace() {
   return useMutation({
     mutationKey: ['workspaces', 'create'],
     mutationFn: async ({ name, slug, teamName }: CreateWorkspaceInput) => {
-      const { data, error, response } = await openWorkspace({
+      const { data, error, response } = await createWorkspaceWithTeam({
         body: { name, slug, teamName },
       });
 

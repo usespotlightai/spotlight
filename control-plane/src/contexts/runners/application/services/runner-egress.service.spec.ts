@@ -20,7 +20,7 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -58,7 +58,7 @@ const egressOf = (
     } as unknown as RunnerRepository,
     {
       hash: (token: string) => (HASHES[token] ?? 'f').repeat(64),
-    } as TokenMintPort,
+    } as TokenIssuer,
     {
       find: async () => given.egress ?? null,
       findByTokenHash: async (hash: TokenHash) =>
@@ -126,13 +126,13 @@ describe('RunnerEgress', () => {
       ).resolves.toEqual({ egressId: 'spotlight' });
     });
 
-    it('knows an egress of an open workspace by its token', async () => {
+    it('knows an egress of a workspace that is not deleted by its token', async () => {
       await expect(
         egressOf(null, { egress: anEgress() }).sharedWith('shared-token'),
       ).resolves.toEqual({ egressId: EGRESS_ID.value });
     });
 
-    it('knows no egress without a token, by an unknown one, without a platform egress, or in a closed workspace', async () => {
+    it('knows no egress without a token, by an unknown one, without a platform egress, or in a deleted workspace', async () => {
       await expect(egressOf(null).sharedWith(undefined)).resolves.toBeNull();
       await expect(egressOf(null).sharedWith('other')).resolves.toBeNull();
       await expect(
@@ -145,7 +145,7 @@ describe('RunnerEgress', () => {
       ).resolves.toBeNull();
       await expect(
         egressOf(null, {
-          egress: anEgress().retire([], attributedIn()),
+          egress: anEgress().delete([], attributedIn()),
         }).sharedWith('shared-token'),
       ).resolves.toBeNull();
     });

@@ -2,11 +2,10 @@ import type {
   Hook,
   HookOnFailure,
 } from '@integrations/domain/entities/hook.entity';
-import { HookDefined } from '@integrations/domain/events/hook-defined.event';
-import { HookRedefined } from '@integrations/domain/events/hook-redefined.event';
-import { HookRetired } from '@integrations/domain/events/hook-retired.event';
+import { HookCreated } from '@integrations/domain/events/hook-created.event';
+import { HookDeleted } from '@integrations/domain/events/hook-deleted.event';
+import { HookUpdated } from '@integrations/domain/events/hook-updated.event';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
-import { HookKeyFixedError } from '@integrations/domain/exceptions/hook-key-fixed.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
@@ -15,6 +14,7 @@ import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -44,7 +44,7 @@ interface Props {
 }
 
 interface State extends Props {
-  readonly retired: boolean;
+  readonly deleted: boolean;
   readonly givenSecret: HookSigningSecret | null;
 }
 
@@ -152,7 +152,7 @@ export class HookDefinition extends EventRecorder {
     super();
   }
 
-  static define(
+  static create(
     input: Compiled & {
       id: HookDefinitionId;
       workspaceId: WorkspaceId;
@@ -164,7 +164,7 @@ export class HookDefinition extends EventRecorder {
   ): HookDefinition {
     guardAllowed(input.hook, input.allowances);
 
-    const defined = new HookDefinition({
+    const created = new HookDefinition({
       id: input.id,
       workspaceId: input.workspaceId,
       teamId: input.teamId,
@@ -174,19 +174,19 @@ export class HookDefinition extends EventRecorder {
       tools: input.hook.tools,
       ...signingFor(input.hook, input.secret, null),
       version: 0,
-      retired: false,
+      deleted: false,
     });
 
-    defined.record(
-      new HookDefined(
-        defined.id,
-        defined.teamId,
-        defined.key,
-        ConfigurationChange.created(defined.whatChanged, input.by),
+    created.record(
+      new HookCreated(
+        created.id,
+        created.teamId,
+        created.key,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(input: Props): HookDefinition {
@@ -197,7 +197,7 @@ export class HookDefinition extends EventRecorder {
       );
     }
 
-    return new HookDefinition({ ...input, retired: false, givenSecret: null });
+    return new HookDefinition({ ...input, deleted: false, givenSecret: null });
   }
 
   assertVersion(version: number): void {
@@ -206,7 +206,7 @@ export class HookDefinition extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     compiled: Compiled,
     secret: SecretGiven,
     allowances: HookAllowances,
@@ -215,23 +215,26 @@ export class HookDefinition extends EventRecorder {
     this.guardLive();
 
     if (!compiled.hook.key.equals(this.key)) {
-      throw new HookKeyFixedError(
-        this.key.value,
-        `cannot change its key to ${compiled.hook.key.value}`,
+      const because = `cannot change its key to ${compiled.hook.key.value}`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Hook ${this.key.value} ${because}.`,
       );
     }
 
     guardAllowed(compiled.hook, allowances);
 
-    const redefined = this.with({
+    const updated = this.with({
       event: compiled.hook.event,
       document: compiled.document,
       tools: compiled.hook.tools,
       ...signingFor(compiled.hook, secret, this.signing),
     });
 
-    redefined.record(
-      new HookRedefined(
+    updated.record(
+      new HookUpdated(
         this.id,
         this.teamId,
         this.key,
@@ -239,21 +242,21 @@ export class HookDefinition extends EventRecorder {
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  retire(by: Attribution): HookDefinition {
+  delete(by: Attribution): HookDefinition {
     this.guardLive();
 
-    const retired = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    retired.record(this.retiredBy(by));
+    deleted.record(this.deletedBy(by));
 
-    return retired;
+    return deleted;
   }
 
-  abandon(by: Attribution): HookDefinition {
-    return this.retire(by);
+  cascadeDelete(by: Attribution): HookDefinition {
+    return this.delete(by);
   }
 
   get id(): HookDefinitionId {
@@ -306,12 +309,12 @@ export class HookDefinition extends EventRecorder {
     return this.state.version === 0;
   }
 
-  get isRetired(): boolean {
-    return this.state.retired;
+  get isDeleted(): boolean {
+    return this.state.deleted;
   }
 
-  private retiredBy(by: Attribution): HookRetired {
-    return new HookRetired(
+  private deletedBy(by: Attribution): HookDeleted {
+    return new HookDeleted(
       this.id,
       this.teamId,
       this.key,
@@ -336,10 +339,10 @@ export class HookDefinition extends EventRecorder {
   }
 
   private guardLive(): void {
-    if (this.isRetired) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'hook definition',
-        'was changed after it was retired',
+        'was changed after it was deleted',
       );
     }
   }

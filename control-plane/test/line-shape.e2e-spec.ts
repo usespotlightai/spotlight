@@ -49,7 +49,7 @@ const reactionsOf = (line: Line) =>
     }))
     .sort((a, b) => a.happening.localeCompare(b.happening));
 
-describe('a line, defined and read back (e2e)', () => {
+describe('a line, created and read back (e2e)', () => {
   let app: INestApplication;
   let lines: DrizzleLineRepository;
   let db: DrizzleDatabase;
@@ -76,7 +76,7 @@ describe('a line, defined and read back (e2e)', () => {
   });
 
   it('keeps every station, its ways out and what it waits for, as its definition says', async () => {
-    const defined = await commands.execute<
+    const result = await commands.execute<
       CreateLineCommand,
       ResourceCreated | null
     >(
@@ -88,13 +88,13 @@ describe('a line, defined and read back (e2e)', () => {
       ),
     );
 
-    if (defined?.outcome !== 'created') {
-      throw new Error(JSON.stringify(defined));
+    if (result?.outcome !== 'created') {
+      throw new Error(JSON.stringify(result));
     }
 
-    const read = (await lines.find(LineId.of(defined.id))) as Line;
+    const read = (await lines.find(LineId.of(result.id))) as Line;
     let next = 0;
-    const opened = Line.open({
+    const created = Line.create({
       by: attributedIn(),
       workspaceId: WorkspaceId.of(workspaceId),
       teamId: TeamId.of(workspaceId),
@@ -102,8 +102,8 @@ describe('a line, defined and read back (e2e)', () => {
       newId: () => `${workspaceId}_${++next}`,
     });
 
-    expect(shapeOf(read)).toEqual(shapeOf(opened));
-    expect(reactionsOf(read)).toEqual(reactionsOf(opened));
+    expect(shapeOf(read)).toEqual(shapeOf(created));
+    expect(reactionsOf(read)).toEqual(reactionsOf(created));
     expect(reactionsOf(read)).not.toHaveLength(0);
     expect(read.stations.map((each) => each.name.value)).toEqual(
       BUILT_IN.stations.map((each) => each.name.value),

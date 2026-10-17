@@ -20,9 +20,9 @@ import {
   type TeamCreatedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-created.integration-event';
 import {
-  TEAM_DISBANDED,
-  type TeamDisbandedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
   WORKSPACE_CONNECTED,
   type WorkspaceConnectedIntegrationEvent,
@@ -36,8 +36,8 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
-import type { AbandonTeamLines } from '@work/application/events/handlers/abandon-team-lines.handler';
 import type { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
+import type { DeleteTeamLines } from '@work/application/events/handlers/delete-team-lines.handler';
 import type { DigestRun } from '@work/application/events/handlers/digest-run.handler';
 import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
@@ -118,7 +118,7 @@ export const workSubscribers = (reactions: {
   detachedRuns: CancelDetachedRun;
   chatRuns: EnqueueChatRun;
   setup: ReconcileSetup;
-  abandoning: AbandonTeamLines;
+  deleting: DeleteTeamLines;
   runGrants: RunGrantsPort;
   runTokens: RunTokensPort;
   runners: RunnerLeases;
@@ -197,15 +197,15 @@ export const workSubscribers = (reactions: {
     ['run.reservation-dropped'],
     (event) => reactions.runners.reservationDropped(event.runner.value),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'work.abandon-lines-of-disbanded-team',
-    [TEAM_DISBANDED],
-    (event) => reactions.abandoning.of(TeamId.of(event.teamId)),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'work.delete-lines-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => reactions.deleting.deleteForTeam(TeamId.of(event.teamId)),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'work.forget-notices-of-disbanded-team',
-    [TEAM_DISBANDED],
-    (event) => reactions.notices.forgetTeam(TeamId.of(event.teamId)),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'work.delete-notices-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => reactions.notices.deleteForTeam(TeamId.of(event.teamId)),
   ),
   ...reactingToOutcomes('work.hand-over', reactions.handOver),
   ...reactingToOutcomes('work.chat-outcomes', reactions.chatOutcomes),

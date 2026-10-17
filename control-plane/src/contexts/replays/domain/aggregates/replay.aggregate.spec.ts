@@ -127,7 +127,7 @@ describe('Replay', () => {
 
     it('replays a candidate only at the set’s station', () => {
       const elsewhere = { ...STATION, stationId: 'station_ship' };
-      const set = ReplaySet.open({
+      const set = ReplaySet.create({
         id: ReplaySetId.of('set_2'),
         station: elsewhere,
         name: ReplaySetName.of('Ship'),
@@ -443,20 +443,20 @@ describe('Replay', () => {
     }
   });
 
-  describe('abandoning', () => {
+  describe('deleting', () => {
     it('cancels its runs in flight unless it was stopped already', () => {
       const underway = reserved(aReplay({ count: 2 }), 1);
-      const abandoned = underway.abandon();
+      const deleted = underway.delete();
 
-      expect(abandoned.isAbandoned).toBe(true);
-      expect(abandoned.pullEvents()).toEqual([
+      expect(deleted.isDeleted).toBe(true);
+      expect(deleted.pullEvents()).toEqual([
         new ReplayStopped(underway.id, underway.workspaceId, [run(0)]),
-        new ReplayEnded(underway.id, underway.workspaceId, null, 'abandoned'),
+        new ReplayEnded(underway.id, underway.workspaceId, null, 'deleted'),
       ]);
 
       const stopped = underway.stop(NOW, BY);
       stopped.pullEvents();
-      expect(stopped.abandon().pullEvents()).toEqual([]);
+      expect(stopped.delete().pullEvents()).toEqual([]);
     });
   });
 
@@ -908,10 +908,10 @@ describe('Replay', () => {
         new ReplayEnded(replay.id, replay.workspaceId, SEARCH, 'finished'),
       ]);
       expect(() => replay.stop(NOW, BY)).toThrow(ReplayEndedError);
-      expect(endedEvents(replay.abandon())).toEqual([]);
+      expect(endedEvents(replay.delete())).toEqual([]);
     });
 
-    it('says it went over budget once, and not again when stopped or abandoned after', () => {
+    it('says it went over budget once, and not again when stopped or deleted after', () => {
       let replay = reserved(aReplay({ count: 3, ceiling: 1 }), 2).confirm(
         run(1),
         FINGERPRINT,
@@ -925,7 +925,7 @@ describe('Replay', () => {
 
       replay = ranToEnd(replay, run(1), 'completed', 1);
       expect(endedEvents(replay)).toEqual([]);
-      expect(endedEvents(replay.abandon())).toEqual([]);
+      expect(endedEvents(replay.delete())).toEqual([]);
     });
 
     it('says it was stopped once, though its stopped runs end later', () => {
@@ -939,14 +939,14 @@ describe('Replay', () => {
 
       replay = ranToEnd(replay, run(0), 'completed', 1);
       expect(endedEvents(replay)).toEqual([]);
-      expect(endedEvents(replay.abandon())).toEqual([]);
+      expect(endedEvents(replay.delete())).toEqual([]);
     });
 
-    it('says it was abandoned when abandoned while dispatching', () => {
+    it('says it was deleted when deleted while dispatching', () => {
       const replay = aReplay();
 
-      expect(endedEvents(replay.abandon())).toEqual([
-        new ReplayEnded(replay.id, replay.workspaceId, null, 'abandoned'),
+      expect(endedEvents(replay.delete())).toEqual([
+        new ReplayEnded(replay.id, replay.workspaceId, null, 'deleted'),
       ]);
     });
   });

@@ -24,6 +24,6 @@ export class WorkspaceRegistration {
       throw new WorkspaceSlugTakenError(input.slug.value);
     }
 
-    return Workspace.open(input);
+    return Workspace.create(input);
   }
 }

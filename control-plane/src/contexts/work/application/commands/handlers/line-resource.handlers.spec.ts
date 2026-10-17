@@ -20,7 +20,7 @@ import type { StationTalliesPort } from '@work/application/ports/station-tallies
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
-import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
+import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
@@ -48,7 +48,7 @@ const DELIVERY = {
 
 const lineAt = (version: number): Line => {
   let next = 0;
-  const opened = Line.open({
+  const created = Line.create({
     by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
@@ -57,13 +57,13 @@ const lineAt = (version: number): Line => {
   });
 
   return Line.rehydrate({
-    id: opened.id,
-    workspaceId: opened.workspaceId,
-    teamId: opened.teamId,
-    key: opened.key,
-    name: opened.name,
-    stations: opened.stations,
-    reactions: opened.reactions,
+    id: created.id,
+    workspaceId: created.workspaceId,
+    teamId: created.teamId,
+    key: created.key,
+    name: created.name,
+    stations: created.stations,
+    reactions: created.reactions,
     version,
   });
 };
@@ -132,7 +132,7 @@ const lines = (existing: Line | null, thenAt: Line | null = existing) => {
   return {
     find,
     save: vi.fn(async (saved: Line) => {
-      if (saved.isRetired && !thenAt) {
+      if (saved.isDeleted && !thenAt) {
         return;
       }
       find.mockResolvedValue(thenAt);
@@ -145,7 +145,7 @@ const lines = (existing: Line | null, thenAt: Line | null = existing) => {
 
 describe('CreateLineHandler', () => {
   const creating = (over: { administers?: boolean; throwing?: Error } = {}) => {
-    const open = vi.fn(async () => {
+    const apply = vi.fn(async () => {
       if (over.throwing) {
         throw over.throwing;
       }
@@ -156,7 +156,7 @@ describe('CreateLineHandler', () => {
       access(over.administers),
       teams,
       new LineCompiler(),
-      { open } as unknown as ApplyLines,
+      { create: apply } as unknown as ApplyLines,
       creates(),
       transaction,
       catalog,
@@ -172,34 +172,34 @@ describe('CreateLineHandler', () => {
             definition,
           ),
         ),
-      open,
+      apply,
     };
   };
 
-  it('opens the line its definition compiles to', async () => {
-    const { create, open } = creating();
+  it('creates the line its definition compiles to', async () => {
+    const { create, apply } = creating();
 
     expect(await create(DELIVERY)).toMatchObject({ outcome: 'created' });
-    expect(open).toHaveBeenCalledWith(
+    expect(apply).toHaveBeenCalledWith(
       expect.objectContaining({ key: 'core' }),
       expect.objectContaining({ key: LineKey.of('delivery') }),
       attributedIn('ws_1', actorFor('user_1')),
     );
   });
 
-  it('says what is wrong with a definition, and opens nothing', async () => {
-    const { create, open } = creating();
+  it('says what is wrong with a definition, and creates nothing', async () => {
+    const { create, apply } = creating();
     const rejected = await create({ ...DELIVERY, stations: [] });
 
     expect(
       rejected?.outcome === 'invalid' &&
         rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['stations']);
-    expect(open).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
   });
 
   it('denies a catalog item the workspace’s plan does not include, pointing at where the station names it', async () => {
-    const { create, open } = creating();
+    const { create, apply } = creating();
     const rejected = await create(
       giving(['pull-request', 'catalog.web-search@1.1.0']),
     );
@@ -216,7 +216,7 @@ describe('CreateLineHandler', () => {
       rejected?.outcome === 'invalid' &&
         rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['stations.1.tools.1']);
-    expect(open).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
   });
 
   it('denies a catalog skill at the skill, where a tool it brings is not included', async () => {
@@ -235,7 +235,7 @@ describe('CreateLineHandler', () => {
   it('says a key the team already has is taken', async () => {
     expect(
       await creating({
-        throwing: new LineAlreadyOpenedError('delivery'),
+        throwing: new LineAlreadyExistsError('delivery'),
       }).create(DELIVERY),
     ).toEqual({ outcome: 'taken', address: 'core/delivery' });
   });
@@ -381,14 +381,14 @@ describe('DeleteLineHandler', () => {
     };
   };
 
-  it('retires a line that has no tasks', async () => {
+  it('deletes a line that has no tasks', async () => {
     const { remove, kept } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((kept.save.mock.calls[0] as [Line])[0].isRetired).toBe(true);
+    expect((kept.save.mock.calls[0] as [Line])[0].isDeleted).toBe(true);
   });
 
-  it('will not retire a line while a task is on it', async () => {
+  it('will not delete a line while a task is on it', async () => {
     const { remove, kept, existing } = deleting();
     const [, working] = existing.stations;
     const busy = deleting({ [working?.key.value ?? '']: 1 });

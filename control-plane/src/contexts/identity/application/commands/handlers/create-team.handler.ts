@@ -3,7 +3,7 @@ import type { IdentityDefinitionsPort } from '@identity/application/ports/identi
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
-import { TeamAlreadyDefinedError } from '@identity/domain/exceptions/team-already-defined.error';
+import { TeamAlreadyExistsError } from '@identity/domain/exceptions/team-already-exists.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import {
   forbiddenTo,
@@ -70,22 +70,22 @@ export class CreateTeamHandler
       try {
         return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
-            const defined = Team.define({
+            const created = Team.create({
               id: TeamId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               key: compiled.key,
               name: compiled.name,
-              openedBy: principal.userId,
+              createdBy: principal.userId,
               by: Attribution.of(command.actor, permissions.workspaceId),
             });
 
-            await this.teams.add(defined);
+            await this.teams.add(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof TeamAlreadyDefinedError) {
+        if (error instanceof TeamAlreadyExistsError) {
           return { outcome: 'taken', address: compiled.key.value };
         }
 

@@ -40,7 +40,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-health-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -144,7 +144,7 @@ const judge: JudgePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
@@ -319,11 +319,11 @@ const anOriginal = async (): Promise<Original> => {
   return { taskId, runId };
 };
 
-const openSet = async (name: string, originals: readonly Original[]) => {
-  const opened = await owner()
+const createSet = async (name: string, originals: readonly Original[]) => {
+  const created = await owner()
     .post(`${stationPath()}/replay-sets`, { name })
     .expect(201);
-  const setId = opened.body.id as string;
+  const setId = created.body.id as string;
 
   for (const each of originals) {
     await owner()
@@ -602,7 +602,7 @@ beforeAll(async () => {
       .useValue(judge),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `health-${randomUUID().slice(0, 8)}`,
@@ -702,7 +702,7 @@ beforeAll(async () => {
   for (let made = 0; made < 5; made += 1) {
     originals.push(await anOriginal());
   }
-  setId = await openSet('Probed', originals);
+  setId = await createSet('Probed', originals);
 }, 60_000);
 
 afterAll(async () => {

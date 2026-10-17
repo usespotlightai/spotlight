@@ -36,7 +36,7 @@ export function ReplaySetHeading({
         )
       }
     >
-      {runs === 1 ? '1 run' : `${runs} runs`} · opened {since(set.createdAt)}
+      {runs === 1 ? '1 run' : `${runs} runs`} · created {since(set.createdAt)}
     </StationItemHeading>
   );
 }

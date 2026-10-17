@@ -87,7 +87,7 @@ export function useStartSearchForm({
     setEffort('');
   }, start.reset);
 
-  const forget = () => {
+  const reset = () => {
     setChosenSet('');
     setInputs(FIRST_BUDGET);
     setChosenHarness('');
@@ -146,7 +146,7 @@ export function useStartSearchForm({
     chooseHarness,
     chooseModel: andReset(setModel, start.reset),
     chooseEffort: andReset(setEffort, start.reset),
-    forget,
+    reset,
     submit,
   };
 }

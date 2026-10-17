@@ -90,7 +90,7 @@ describe('WorkspaceMembers on the mock API', () => {
     ).toBeInTheDocument();
   });
 
-  it('says an invite was sent again', async () => {
+  it('says an invite was resent', async () => {
     await opened();
 
     await actOnInvite('Resend invite');
@@ -101,10 +101,10 @@ describe('WorkspaceMembers on the mock API', () => {
         undefined,
         WAIT,
       ),
-    ).toHaveTextContent('Sent again');
+    ).toHaveTextContent('Resent');
   });
 
-  it('says why an invite accepted meanwhile could not be sent again, and drops it from the list', async () => {
+  it('says why an invite accepted meanwhile could not be resent, and drops it from the list', async () => {
     await opened();
     await acceptInvite({
       path: { token: 'invite_platform' },

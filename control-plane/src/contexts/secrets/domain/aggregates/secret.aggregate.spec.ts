@@ -1,7 +1,6 @@
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
-import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fixed.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
@@ -12,6 +11,7 @@ import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { BY, definition, NOW } from '@secrets/secrets.fakes.fake-spec';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -23,7 +23,7 @@ const LATER = new Date('2026-09-24T12:00:00.000Z');
 const AWS = SecretSource.awsSecretsManager({ secretId: 'linear-api-key' });
 
 const set = (over: Parameters<typeof definition>[0] = {}) =>
-  Secret.set(definition(over), {
+  Secret.create(definition(over), {
     id: SecretId.of('secret_1'),
     workspaceId: WORKSPACE,
     by: BY,
@@ -68,7 +68,7 @@ const recorded = (secret: Secret) =>
 
 describe('Secret', () => {
   describe('set', () => {
-    it('keeps the value it was given, and records who set it, its value version and hosts', () => {
+    it('keeps the value it was given, and records who created it, its value version and hosts', () => {
       const secret = set();
 
       expect(secret.keeping?.revealed()).toBe('lin_api_1');
@@ -76,7 +76,7 @@ describe('Secret', () => {
         ConfigurationChange.created(
           LINEAR,
           BY,
-          SecretChangeDetail.set(1, ['api.linear.app']),
+          SecretChangeDetail.created(1, ['api.linear.app']),
         ),
       ]);
       expect(recorded(set())).toEqual([
@@ -113,23 +113,23 @@ describe('Secret', () => {
     });
   });
 
-  describe('redefined', () => {
+  describe('updated', () => {
     it('keeps its old value while valueWoVersion does not change, whatever value is sent', () => {
-      const redefined = kept().redefinedAs(
+      const updated = kept().update(
         definition({ value: 'lin_api_ignored' }),
         BY,
         LATER,
       );
 
-      expect(redefined.keeping).toBeNull();
-      expect(redefined.rotatedAt).toEqual(NOW);
-      expect(recorded(redefined)).toEqual([
+      expect(updated.keeping).toBeNull();
+      expect(updated.rotatedAt).toEqual(NOW);
+      expect(recorded(updated)).toEqual([
         ['secret', 'LINEAR_API_KEY', 'updated', BY, {}],
       ]);
     });
 
     it('rotates to the value sent when valueWoVersion changes', () => {
-      const rotated = kept().redefinedAs(
+      const rotated = kept().update(
         definition({ value: 'lin_api_2', valueVersion: 2 }),
         BY,
         LATER,
@@ -145,16 +145,12 @@ describe('Secret', () => {
 
     it('rejects a new valueWoVersion without the value of that version', () => {
       expect(() =>
-        kept().redefinedAs(
-          definition({ value: null, valueVersion: 2 }),
-          BY,
-          LATER,
-        ),
+        kept().update(definition({ value: null, valueVersion: 2 }), BY, LATER),
       ).toThrow(/required when valueWoVersion changes/);
     });
 
     it('records where it is bound once its bindings change', () => {
-      const rebound = kept().redefinedAs(
+      const rebound = kept().update(
         definition({ bindings: [{ host: 'uploads.linear.app' }] }),
         BY,
         LATER,
@@ -171,20 +167,20 @@ describe('Secret', () => {
       ]);
     });
 
-    it('forgets the value it kept once AWS Secrets Manager keeps it', () => {
-      const moved = kept().redefinedAs(
+    it('deletes the value it kept once AWS Secrets Manager keeps it', () => {
+      const moved = kept().update(
         definition({ source: AWS, value: null }),
         BY,
         LATER,
       );
 
-      expect(moved.forgetsValue).toBe(true);
+      expect(moved.deletesValue).toBe(true);
       expect(moved.keeping).toBeNull();
     });
 
     it('needs a value once Spotlight is to keep it again', () => {
       expect(() =>
-        kept({ source: AWS, value: null }).redefinedAs(
+        kept({ source: AWS, value: null }).update(
           definition({ value: null }),
           BY,
           LATER,
@@ -194,8 +190,8 @@ describe('Secret', () => {
 
     it('keeps its name for life', () => {
       expect(() =>
-        kept().redefinedAs(definition({ name: 'LINEAR_TOKEN' }), BY, LATER),
-      ).toThrow(SecretNameFixedError);
+        kept().update(definition({ name: 'LINEAR_TOKEN' }), BY, LATER),
+      ).toThrow(ImmutableFieldError);
     });
 
     it('rejects a change to a version no longer current', () => {
@@ -205,37 +201,37 @@ describe('Secret', () => {
   });
 
   describe('deleted', () => {
-    it('forgets the value Spotlight kept, and records who deleted it', () => {
-      const deleted = kept().deleted(SecretUses.none(), BY);
+    it('deletes the value Spotlight kept, and records who deleted it', () => {
+      const deleted = kept().delete(SecretUses.none(), BY);
 
       expect(deleted.isDeleted).toBe(true);
-      expect(deleted.forgetsValue).toBe(true);
+      expect(deleted.deletesValue).toBe(true);
       expect(changes(deleted)).toEqual([
         ConfigurationChange.deleted(LINEAR, BY),
       ]);
     });
 
     it('is changed no more once deleted', () => {
-      const deleted = kept().deleted(SecretUses.none(), BY);
+      const deleted = kept().delete(SecretUses.none(), BY);
 
-      expect(() => deleted.deleted(SecretUses.none(), BY)).toThrow(
+      expect(() => deleted.delete(SecretUses.none(), BY)).toThrow(
         /after it was deleted/,
       );
     });
 
     it('is not deleted while an integration still uses it', () => {
       expect(() =>
-        kept().deleted(SecretUses.of(['integration core/linear']), BY),
+        kept().delete(SecretUses.of(['integration core/linear']), BY),
       ).toThrow(SecretInUseError);
     });
 
-    it('is abandoned with its workspace, whatever still names it', () => {
+    it('is deleted with its workspace, whatever still names it', () => {
       const spotlight = Attribution.spotlight(WORKSPACE);
-      const abandoned = kept().abandon(spotlight);
+      const deleted = kept().cascadeDelete(spotlight);
 
-      expect(abandoned.isDeleted).toBe(true);
-      expect(abandoned.forgetsValue).toBe(true);
-      expect(changes(abandoned)).toEqual([
+      expect(deleted.isDeleted).toBe(true);
+      expect(deleted.deletesValue).toBe(true);
+      expect(changes(deleted)).toEqual([
         ConfigurationChange.deleted(LINEAR, spotlight),
       ]);
     });

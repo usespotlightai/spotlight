@@ -16,9 +16,9 @@ import { EstimateSearchQuery } from '@replays/application/queries/estimate-searc
 import { EstimateSearchHandler } from '@replays/application/queries/handlers/estimate-search.handler';
 import { ReadSearchHandler } from '@replays/application/queries/handlers/read-search.handler';
 import { ReadSearchQuery } from '@replays/application/queries/read-search.query';
-import { AbandonSearches } from '@replays/application/services/abandon-searches.service';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { CancelSearch } from '@replays/application/services/cancel-search.service';
+import { DeleteSearches } from '@replays/application/services/delete-searches.service';
 import { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
@@ -42,7 +42,7 @@ import { SearchSights } from '@replays/application/services/search-sights.servic
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
-import { SearchAbandonmentDue } from '@replays/domain/events/search-abandonment-due.event';
+import { SearchDeletionDue } from '@replays/domain/events/search-deletion-due.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
 import { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
@@ -166,8 +166,8 @@ const holdingOut = () =>
 const cancelling = () =>
   new CancelSearch(memory.replayRepository, work, CLOCK, TRANSACTION);
 
-const abandoning = () =>
-  new AbandonSearches(memory.searchRepository, work, CLOCK, TRANSACTION);
+const deleting = () =>
+  new DeleteSearches(memory.searchRepository, work, CLOCK, TRANSACTION);
 
 const delivered = async (): Promise<void> => {
   for (
@@ -1003,21 +1003,24 @@ describe('SearchSights', () => {
   });
 });
 
-describe('AbandonSearches', () => {
-  it('abandons every search of a disbanded team, and cancels its active run', async () => {
+describe('DeleteSearches', () => {
+  it('deletes every search of a deleted team, and cancels its active run', async () => {
     await seeded();
     const run = activeRun();
 
-    const due = await abandoning().ofTeam(STATION.teamId, STATION.workspaceId);
+    const due = await deleting().deleteForTeam(
+      STATION.teamId,
+      STATION.workspaceId,
+    );
 
     expect(due).toEqual([
-      new SearchAbandonmentDue(theSearch().id, STATION.workspaceId),
+      new SearchDeletionDue(theSearch().id, STATION.workspaceId),
     ]);
     expect(
-      await abandoning().ofTeam(TeamId.of('team_2'), STATION.workspaceId),
+      await deleting().deleteForTeam(TeamId.of('team_2'), STATION.workspaceId),
     ).toEqual([]);
 
-    await abandoning().search((due[0] as SearchAbandonmentDue).searchId);
+    await deleting().search((due[0] as SearchDeletionDue).searchId);
 
     expect(memory.searches.size).toBe(0);
     expect(work.cancelledSearchRuns).toEqual([run]);
@@ -1026,7 +1029,7 @@ describe('AbandonSearches', () => {
   it('ends the search of a set whose station left its line', async () => {
     await seeded();
 
-    await abandoning().stationGone(theSearch().setId);
+    await deleting().stationGone(theSearch().setId);
 
     expect(theSearch().ending).toBe('station-gone');
   });
@@ -1234,7 +1237,7 @@ describe('AdvanceSearches', () => {
 
     await progress().reconcile(theSearch(), []);
 
-    expect(theSearch().proposals[0]?.replay.end).toBe('abandoned');
+    expect(theSearch().proposals[0]?.replay.end).toBe('deleted');
   });
 
   it('counts a search replay whose row is gone as ended with nothing spent', async () => {
@@ -1249,7 +1252,7 @@ describe('AdvanceSearches', () => {
 
     await advancing().processDue();
 
-    expect(theSearch().proposals[0]?.replay.end).toBe('abandoned');
+    expect(theSearch().proposals[0]?.replay.end).toBe('deleted');
     expect(theSearch().proposals[0]?.replay.spent?.amount).toBe(0);
   });
 

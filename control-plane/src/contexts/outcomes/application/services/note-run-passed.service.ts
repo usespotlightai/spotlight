@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import { StationPass } from '@outcomes/domain/value-objects/station-pass.vo';
@@ -18,7 +18,7 @@ export interface TaskPassedHeard {
 export class NoteRunPassed {
   constructor(
     private readonly records: RunRecordRepository,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -29,12 +29,12 @@ export class NoteRunPassed {
     const taskId = TaskId.of(heard.taskId);
 
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(workspaceId, taskId);
+      await this.deletions.lockDeletion(workspaceId, taskId);
       const runId = RunId.of(heard.runId);
       const existing = await this.records.of(runId);
 
       if (!existing) {
-        if (!(await this.forgotten.forgot(workspaceId, taskId))) {
+        if (!(await this.deletions.isDeleted(workspaceId, taskId))) {
           await this.records.add(
             RunRecord.heardOf(runId, workspaceId, taskId).passTo(pass),
           );

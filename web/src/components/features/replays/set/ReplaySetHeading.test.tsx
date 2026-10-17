@@ -74,7 +74,7 @@ describe('ReplaySetHeading and ReplaySetActions', () => {
     expect(
       screen.getByRole('heading', { name: 'Queue fixes' }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/^0 runs · opened /)).toBeInTheDocument();
+    expect(screen.getByText(/^0 runs · created /)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rename' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
   });

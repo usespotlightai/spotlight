@@ -196,10 +196,10 @@ import {
   GrantWorkspaceArchiveCommand,
   SealWorkspaceArchiveCommand,
 } from '@work/application/commands/workspace-archive.commands';
-import { AbandonTeamLines } from '@work/application/events/handlers/abandon-team-lines.handler';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
 import { CreateTaskFromProposal } from '@work/application/events/handlers/create-task-from-proposal.handler';
+import { DeleteTeamLines } from '@work/application/events/handlers/delete-team-lines.handler';
 import { DigestRun } from '@work/application/events/handlers/digest-run.handler';
 import { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
@@ -512,8 +512,6 @@ import { DispatchSearch } from '@work/application/services/dispatch-search.servi
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
-import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
-import { ForgetRunConnections } from '@work/application/services/forget-run-connections.service';
 import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
@@ -532,6 +530,8 @@ import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import { ProvisionWork } from '@work/application/services/provision-work.service';
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
+import { PurgeHeardHappenings } from '@work/application/services/purge-heard-happenings.service';
+import { PurgeRunConnections } from '@work/application/services/purge-run-connections.service';
 import { RaiseTask } from '@work/application/services/raise-task';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
@@ -883,17 +883,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: ForgetHeardHappenings,
+    provide: PurgeHeardHappenings,
     inject: [HEARD_HAPPENINGS, CLOCK],
     useFactory: (heard: HeardHappeningsPort, clock: ClockPort) =>
-      new ForgetHeardHappenings(heard, clock),
+      new PurgeHeardHappenings(heard, clock),
   },
 
   {
     provide: HeardHappeningsWorker,
-    inject: [ForgetHeardHappenings, LOGGER],
-    useFactory: (forgetting: ForgetHeardHappenings, logger: LoggerPort) =>
-      new HeardHappeningsWorker(forgetting, logger),
+    inject: [PurgeHeardHappenings, LOGGER],
+    useFactory: (purging: PurgeHeardHappenings, logger: LoggerPort) =>
+      new HeardHappeningsWorker(purging, logger),
   },
 
   {
@@ -1707,7 +1707,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           detachedRuns: new CancelDetachedRun(runs, clock),
           chatRuns: new EnqueueChatRun(chats, runs, chatDispatch),
           setup,
-          abandoning: new AbandonTeamLines(lines, tallies, transaction, logger),
+          deleting: new DeleteTeamLines(lines, tallies, transaction, logger),
           runGrants,
           runTokens,
           runners: ending,
@@ -2375,17 +2375,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: RUN_CONNECTIONS, useClass: DrizzleRunConnections },
 
   {
-    provide: ForgetRunConnections,
+    provide: PurgeRunConnections,
     inject: [RUN_CONNECTIONS, CLOCK],
     useFactory: (connections: RunConnectionsPort, clock: ClockPort) =>
-      new ForgetRunConnections(connections, clock),
+      new PurgeRunConnections(connections, clock),
   },
 
   {
     provide: RunConnectionsWorker,
-    inject: [ForgetRunConnections, LOGGER],
-    useFactory: (forgetting: ForgetRunConnections, logger: LoggerPort) =>
-      new RunConnectionsWorker(forgetting, logger),
+    inject: [PurgeRunConnections, LOGGER],
+    useFactory: (purging: PurgeRunConnections, logger: LoggerPort) =>
+      new RunConnectionsWorker(purging, logger),
   },
 
   ...bindCommandHandler(FetchRunSecretsCommand, FetchRunSecretsHandler, [

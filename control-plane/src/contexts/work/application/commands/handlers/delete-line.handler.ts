@@ -53,7 +53,7 @@ export class DeleteLineHandler
         );
 
         await this.lines.save(
-          existing.retire(
+          existing.delete(
             tasks,
             Attribution.of(command.actor, existing.workspaceId),
           ),

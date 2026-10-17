@@ -1,4 +1,4 @@
-import { OpenReplaySetAction } from '@/components/features/replays/station/OpenReplaySetAction';
+import { CreateReplaySetAction } from '@/components/features/replays/station/CreateReplaySetAction';
 import { ReplaySets } from '@/components/features/replays/station/ReplaySets';
 import { StationSearches } from '@/components/features/searches/station/StationSearches';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
@@ -74,7 +74,7 @@ export function StationImproveTab({
             footer
           >
             <ReplaySets at={at} />
-            <OpenReplaySetAction at={at} />
+            <CreateReplaySetAction at={at} />
           </ImproveCard>
 
           <ImproveCard

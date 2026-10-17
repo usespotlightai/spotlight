@@ -5,7 +5,7 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { Egress } from '@runners/domain/aggregates/egress.aggregate';
-import { EgressAlreadyDefinedError } from '@runners/domain/exceptions/egress-already-defined.error';
+import { EgressAlreadyExistsError } from '@runners/domain/exceptions/egress-already-exists.error';
 import { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
@@ -43,7 +43,7 @@ const toEgress = (row: Row): Egress =>
 
 const domainErrorOf = (error: unknown, key: string): unknown => {
   if (violates(error, UNIQUE_VIOLATION, 'egress_workspace_key')) {
-    return new EgressAlreadyDefinedError(key);
+    return new EgressAlreadyExistsError(key);
   }
 
   if (violates(error, UNIQUE_VIOLATION, 'egress_token_hash')) {
@@ -84,7 +84,7 @@ export class DrizzleEgressRepository implements EgressRepository {
         eq(egress.id, saved.id.value),
         eq(egress.version, saved.version),
       );
-      const stored = !saved.isRetired
+      const stored = !saved.isDeleted
         ? await this.context.db
             .update(egress)
             .set({ ...written(saved), version: saved.version + 1 })
@@ -114,7 +114,7 @@ export class DrizzleEgressRepository implements EgressRepository {
     return this.one(eq(egress.id, id.value), 'share');
   }
 
-  findToRetire(id: EgressId): Promise<Egress | null> {
+  findToDelete(id: EgressId): Promise<Egress | null> {
     return this.one(eq(egress.id, id.value), 'update');
   }
 

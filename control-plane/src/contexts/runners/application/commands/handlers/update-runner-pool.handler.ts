@@ -10,7 +10,6 @@ import { recordPoolTokenUse } from '@runners/application/services/record-pool-to
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
 import { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
-import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
@@ -22,8 +21,9 @@ import {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
 export class UpdateRunnerPoolHandler
@@ -37,7 +37,7 @@ export class UpdateRunnerPoolHandler
     private readonly secrets: ProvisionSecretsPort,
     private readonly egresses: EgressRepository,
     private readonly platform: PlatformEgressSettings | null,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -71,7 +71,7 @@ export class UpdateRunnerPoolHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const redefined = existing.redefinedAs(
+      const updated = existing.update(
         compiled,
         await givenAccess(compiled.access, existing, this.tokens, this.secrets),
         Attribution.of(command.actor, permissions.workspaceId),
@@ -87,11 +87,11 @@ export class UpdateRunnerPoolHandler
           );
         }
 
-        await this.pools.save(redefined);
+        await this.pools.save(updated);
         await recordPoolTokenUse(
           this.usedTokens,
           this.pools,
-          redefined,
+          updated,
           existing,
         );
       });
@@ -107,7 +107,7 @@ export class UpdateRunnerPoolHandler
       }
 
       if (
-        error instanceof RunnerPoolFixedError ||
+        error instanceof ImmutableFieldError ||
         error instanceof PoolTokenInUseError ||
         error instanceof PoolTokenAlreadyUsedError ||
         error instanceof InvalidRunnerPoolError

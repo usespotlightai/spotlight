@@ -1,5 +1,5 @@
 import type {
-  InviteOffer,
+  InvitePreview,
   InviteReaderPort,
   InviteSummary,
 } from '@identity/application/ports/invite-reader.port';
@@ -24,7 +24,7 @@ import { and, asc, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
 export class DrizzleInviteReader implements InviteReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async openInWorkspace(
+  async pendingInWorkspace(
     workspaceId: WorkspaceId,
     now: Date,
   ): Promise<readonly InviteSummary[]> {
@@ -71,7 +71,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
     }));
   }
 
-  async withToken(hash: TokenHash, now: Date): Promise<InviteOffer | null> {
+  async withToken(hash: TokenHash, now: Date): Promise<InvitePreview | null> {
     const [found] = await this.db
       .select({
         id: workspaceInvite.id,

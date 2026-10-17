@@ -6,9 +6,9 @@ import { provisioningQuery } from '@/hooks/api/useOnboarding';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type { WorkspaceResponseDto } from '@/lib/api';
 import {
-  forgetOpenedHere,
-  markOpenedHere,
-  wasOpenedHere,
+  clearCreatedHere,
+  markCreatedHere,
+  wasCreatedHere,
 } from '@/lib/provisioning';
 
 const NO_TEAMS: WorkspaceResponseDto['teams'] = [];
@@ -19,8 +19,8 @@ export function useSettingUp(
 ): boolean {
   const queryClient = useQueryClient();
   const teams = workspace?.teams ?? NO_TEAMS;
-  const openingTeam = workspace?.provisioning === 'pending';
-  const waiting = openingTeam || wasOpenedHere(slug);
+  const creatingTeam = workspace?.provisioning === 'pending';
+  const waiting = creatingTeam || wasCreatedHere(slug);
   const onboardings = useQueries({
     queries: teams.map((team) => ({
       ...provisioningQuery(team.id),
@@ -28,7 +28,7 @@ export function useSettingUp(
     })),
   });
   const settingUp =
-    openingTeam ||
+    creatingTeam ||
     (waiting &&
       onboardings.some(
         (each) => each.data?.provisioning === 'pending' || each.isPending,
@@ -36,14 +36,14 @@ export function useSettingUp(
   const wasSettingUp = useRef(settingUp);
 
   useEffect(() => {
-    if (openingTeam && slug !== undefined) {
-      markOpenedHere(slug);
+    if (creatingTeam && slug !== undefined) {
+      markCreatedHere(slug);
     }
-  }, [openingTeam, slug]);
+  }, [creatingTeam, slug]);
 
   useEffect(() => {
     if (wasSettingUp.current && !settingUp) {
-      forgetOpenedHere(slug);
+      clearCreatedHere(slug);
       void queryClient.invalidateQueries({
         queryKey: workspaceKeys.detail(slug),
       });

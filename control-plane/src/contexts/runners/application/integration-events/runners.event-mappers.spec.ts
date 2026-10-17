@@ -26,12 +26,12 @@ const WAY_IN_OPENED = [
 ];
 
 describe('RUNNERS_EVENT_MAPPERS', () => {
-  it('publishes a defined pool as a way in opened to its workspace, whether it pulls or provisions', () => {
+  it('publishes a created pool as a way in opened to its workspace, whether it pulls or provisions', () => {
     expect(published(aPullPool().pullEvents())).toEqual(WAY_IN_OPENED);
     expect(published(aPushPool().pullEvents())).toEqual(WAY_IN_OPENED);
   });
 
-  it('publishes a defined trust as a way in opened to its workspace', () => {
+  it('publishes a created trust as a way in opened to its workspace', () => {
     expect(published(aTrust().pullEvents())).toEqual(WAY_IN_OPENED);
   });
 
@@ -63,20 +63,20 @@ describe('RUNNERS_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes nothing when a pool is retired or a trust withdrawn', () => {
-    const retired = aPullPool();
-    retired.pullEvents();
-    const withdrawn = aTrust();
-    withdrawn.pullEvents();
+  it('publishes nothing when a pool or a trust is deleted', () => {
+    const pool = aPullPool();
+    pool.pullEvents();
+    const trust = aTrust();
+    trust.pullEvents();
 
     const ended = [
-      ...retired.retire(attributedIn()).pullEvents(),
-      ...withdrawn.withdraw(attributedIn()).pullEvents(),
+      ...pool.delete(attributedIn()).pullEvents(),
+      ...trust.delete(attributedIn()).pullEvents(),
     ];
 
     expect(ended.map((event) => event.kind)).toEqual([
-      'runner-pool.retired',
-      'runner-trust.withdrawn',
+      'runner-pool.deleted',
+      'runner-trust.deleted',
     ]);
     expect(published(ended)).toEqual([]);
   });

@@ -26,15 +26,15 @@ import {
   ConventionalApiController,
 } from '@platform/http/resources/conventional-api';
 import { AddReplaySetEntryCommand } from '@replays/application/commands/add-replay-set-entry.command';
+import { CreateReplaySetCommand } from '@replays/application/commands/create-replay-set.command';
 import { DeleteReplaySetCommand } from '@replays/application/commands/delete-replay-set.command';
 import { GuardChangesCommand } from '@replays/application/commands/guard-changes.command';
-import { OpenReplaySetCommand } from '@replays/application/commands/open-replay-set.command';
 import { RemoveReplaySetEntryCommand } from '@replays/application/commands/remove-replay-set-entry.command';
 import { RenameReplaySetCommand } from '@replays/application/commands/rename-replay-set.command';
 import type {
   SetChanged,
+  SetCreated,
   SetDeleted,
-  SetOpened,
 } from '@replays/application/dto/replay-outcomes.dto';
 import type {
   ReplayableRunDto,
@@ -52,10 +52,10 @@ import {
 } from '@replays/presentation/http/controllers/requests';
 import {
   AddReplaySetEntryRequestDto,
-  OpenReplaySetRequestDto,
+  CreateReplaySetRequestDto,
   RenameReplaySetRequestDto,
   ReplayableRunResponseDto,
-  ReplaySetOpenedResponseDto,
+  ReplaySetCreatedResponseDto,
   ReplaySetResponseDto,
   SuggestedRunResponseDto,
 } from '@replays/presentation/http/dto/replay-sets.response.dto';
@@ -187,29 +187,29 @@ export class ReplaySetsController {
 
   @Post(`${STATION}/replay-sets`)
   @ApiOperation({
-    operationId: 'openReplaySet',
-    summary: 'Open an empty replay set at the station',
+    operationId: 'createReplaySet',
+    summary: 'Create an empty replay set at the station',
   })
   @ApiParam({ name: 'lineId', type: String })
   @ApiParam({ name: 'stationId', type: String })
-  @ApiBody({ type: OpenReplaySetRequestDto })
-  @ApiCreatedResponse({ type: ReplaySetOpenedResponseDto })
+  @ApiBody({ type: CreateReplaySetRequestDto })
+  @ApiCreatedResponse({ type: ReplaySetCreatedResponseDto })
   @ApiProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, 'No name it takes')
   @ApiProblemResponse(
     HttpStatus.FORBIDDEN,
     'A caller who may read the team but not plan',
   )
-  async open(
+  async create(
     @Param('teamId') teamId: string,
     @Param('lineId') lineId: string,
     @Param('stationId') stationId: string,
     @Body() body: unknown,
     @CurrentPrincipal() principal: Principal,
-  ): Promise<ReplaySetOpenedResponseDto> {
-    const opened = allowed(
+  ): Promise<ReplaySetCreatedResponseDto> {
+    const created = allowed(
       SET,
-      await this.commandBus.execute<OpenReplaySetCommand, SetOpened>(
-        new OpenReplaySetCommand(
+      await this.commandBus.execute<CreateReplaySetCommand, SetCreated>(
+        new CreateReplaySetCommand(
           teamId,
           lineId,
           stationId,
@@ -219,7 +219,7 @@ export class ReplaySetsController {
       ),
     );
 
-    return new ReplaySetOpenedResponseDto(opened.id);
+    return new ReplaySetCreatedResponseDto(created.id);
   }
 
   @Patch('replay-sets/:setId')

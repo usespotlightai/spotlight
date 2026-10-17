@@ -95,7 +95,7 @@ export class DrizzleLearnedOutputs implements LearnedOutputRepository {
     }
   }
 
-  async forgetSource(teamId: TeamId, source: SourceKey): Promise<void> {
+  async deleteForSource(teamId: TeamId, source: SourceKey): Promise<void> {
     await this.context.db
       .delete(learnedOutput)
       .where(
@@ -106,7 +106,7 @@ export class DrizzleLearnedOutputs implements LearnedOutputRepository {
       );
   }
 
-  async forgetTeam(teamId: TeamId): Promise<void> {
+  async deleteForTeam(teamId: TeamId): Promise<void> {
     await this.context.db
       .delete(learnedOutput)
       .where(eq(learnedOutput.teamId, teamId.value));

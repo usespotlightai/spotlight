@@ -3,7 +3,7 @@ import type {
   ListedServersPort,
 } from '@integrations/application/ports/listed-servers.port';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
-import { IntegrationAlreadyDefinedError } from '@integrations/domain/exceptions/integration-already-defined.error';
+import { IntegrationAlreadyExistsError } from '@integrations/domain/exceptions/integration-already-exists.error';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -151,7 +151,7 @@ export class DrizzleIntegrationDefinitions
         });
       } catch (error) {
         if (collided(error)) {
-          throw new IntegrationAlreadyDefinedError(definition.source.value);
+          throw new IntegrationAlreadyExistsError(definition.source.value);
         }
 
         throw error;
@@ -160,7 +160,7 @@ export class DrizzleIntegrationDefinitions
       return;
     }
 
-    const touched = definition.isRetired
+    const touched = definition.isDeleted
       ? await this.context.db
           .delete(integrationDefinition)
           .where(inPlace(definition))

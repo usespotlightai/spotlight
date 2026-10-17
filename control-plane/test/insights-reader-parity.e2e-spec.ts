@@ -644,7 +644,7 @@ beforeAll(async () => {
           ) {
             failed = failed.raise(
               FailureOccurrence.of({
-                stationId: chance(0.1) ? 'retired' : station.stationId,
+                stationId: chance(0.1) ? 'deleted_station' : station.stationId,
                 runId: null,
                 source: pick(['run', 'hook:deploy']),
                 code: pick(['exited', 'timed-out', 'refused']),
@@ -894,11 +894,11 @@ beforeAll(async () => {
     );
     await deliveries.add(
       TaskDelivery.open({
-        taskId: TaskId.of('task_abandoned'),
+        taskId: TaskId.of('task_left_open'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
         pullRequest: PullRequestUrl.of(
-          'https://github.com/acme/api/pull/abandoned',
+          'https://github.com/acme/api/pull/left-open',
         ),
         at: ago(300 * DAY),
       }),
@@ -958,7 +958,7 @@ describe('the insights reader against the team history', () => {
       period,
     );
 
-    expect(stations.map((each) => each.stationId)).toContain('retired');
+    expect(stations.map((each) => each.stationId)).toContain('deleted_station');
     expect(stations.map((each) => each.stationId)).not.toContain(
       'elsewhere_only',
     );
@@ -1169,7 +1169,7 @@ describe('the insights reader against the team history', () => {
     expect(deliveries.some((each) => each.taskOpenedAt !== null)).toBe(true);
     expect(deliveries.map((each) => each.taskId)).toContain('task_stale');
     expect(deliveries.map((each) => each.taskId)).not.toContain(
-      'task_abandoned',
+      'task_left_open',
     );
   });
 
@@ -2282,14 +2282,14 @@ describe('how the memory counts leave out what did not run', () => {
       await records.add(
         ended('recalling', 'failed', 3).recordMemories('recalled', ['mem_one']),
       );
-      await records.add(ended('forgetful', 'completed', 4));
+      await records.add(ended('without_memories', 'completed', 4));
       await records.add(
         ended('long_ago', 'completed', 24 * 30).recordMemories('briefed', [
           'mem_old',
         ]),
       );
       await deliveries.add(delivered('remembered', 'merged'));
-      await deliveries.add(delivered('forgetful', 'open'));
+      await deliveries.add(delivered('without_memories', 'open'));
     });
   });
 

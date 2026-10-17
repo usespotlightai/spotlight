@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import type { TaskFailuresRepository } from '@outcomes/domain/repositories/task-failures.repository';
 import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
@@ -22,7 +22,7 @@ export interface TaskFailedHeard {
 export class NoteTaskFailed {
   constructor(
     private readonly failures: TaskFailuresRepository,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -41,11 +41,11 @@ export class NoteTaskFailed {
     const teamId = TeamId.of(heard.teamId);
 
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
+      await this.deletions.lockDeletion(workspaceId, taskId, teamId);
       const existing = await this.failures.of(taskId);
 
       if (!existing) {
-        if (!(await this.forgotten.forgot(workspaceId, taskId, teamId))) {
+        if (!(await this.deletions.isDeleted(workspaceId, taskId, teamId))) {
           await this.failures.add(
             TaskFailures.heardOf(taskId, workspaceId, teamId).raise(occurrence),
           );

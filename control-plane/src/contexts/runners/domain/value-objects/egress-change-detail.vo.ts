@@ -6,7 +6,7 @@ import type {
 export class EgressChangeDetail implements ChangeDetail {
   private constructor(readonly rekeyed: boolean) {}
 
-  static redefined(moved: { rekeyed: boolean }): EgressChangeDetail {
+  static updated(moved: { rekeyed: boolean }): EgressChangeDetail {
     return new EgressChangeDetail(moved.rekeyed);
   }
 

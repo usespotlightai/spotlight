@@ -92,7 +92,7 @@ export const hostStatus = (host: Host): string => {
 
 export const through = (way: AdmittedThroughResponseDto): string => {
   const kind = way.kind === 'pool' ? 'Pool' : 'Trust';
-  return way.key === null ? `${kind} no longer defined` : `${kind} ${way.key}`;
+  return way.key === null ? `${kind} deleted` : `${kind} ${way.key}`;
 };
 
 export const heartbeatAt = (host: Host): string =>
@@ -185,7 +185,7 @@ export const poolInFilter = (filter: RunnerFilter, pool: PushPool): boolean =>
     pool.runners.some((runner) => runner.currentRun !== null));
 
 export const poolName = (way: AdmittedThroughResponseDto): string =>
-  way.key ?? 'No longer defined';
+  way.key ?? 'Deleted';
 
 export const PUSH_POOL = 'Push pool';
 

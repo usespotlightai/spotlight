@@ -32,7 +32,7 @@ const WAIT_AGAIN_MS = 2_000;
 
 const BEFORE_BUDGET_MS = 60_000;
 
-const FORGOTTEN_AT_ONCE = 500;
+const PURGE_BATCH = 500;
 
 export interface Happened {
   readonly on: HookEventName;
@@ -262,17 +262,15 @@ export class FireHooks {
     return worked;
   }
 
-  async forgetFinished(): Promise<number> {
+  async purgeFinished(): Promise<number> {
     const now = this.clock.now();
     const finished = await this.firings.finishedBefore(
-      HookFiring.finishedForgettablyBefore(now),
-      FORGOTTEN_AT_ONCE,
+      HookFiring.retentionCutoff(now),
+      PURGE_BATCH,
     );
 
     for (const firing of finished) {
-      await unlessVersionConflict(() =>
-        this.firings.save(firing.forgotten(now)),
-      );
+      await unlessVersionConflict(() => this.firings.save(firing.purge(now)));
     }
 
     return finished.length;

@@ -1,7 +1,7 @@
-import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
+import { deletionsInMemory } from '@outcomes/application/ports/deletions.fake-spec';
 import { pendingReviewsInMemory } from '@outcomes/application/ports/pending-reviews.fake-spec';
 import { stationConfigPullRequestsInMemory } from '@outcomes/application/ports/station-config-pull-requests.fake-spec';
-import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
 import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
@@ -55,7 +55,7 @@ const delivering = () => {
       new NotePullRequestOpened(
         deliveries,
         pendingReviewsInMemory(),
-        forgottenInMemory(),
+        deletionsInMemory(),
         inTransaction,
         CLOCK,
       ).opened({
@@ -133,14 +133,14 @@ const repositoriesInMemory = () => ({
   watches: new StationWatchesInMemory(),
   reviews: pendingReviewsInMemory(),
   configPullRequests: stationConfigPullRequestsInMemory(),
-  forgotten: forgottenInMemory(),
+  deletions: deletionsInMemory(),
 });
 
 const reviewing = (repositories: ReturnType<typeof repositoriesInMemory>) =>
   new NotePullRequestReviewed(
     repositories.deliveries,
     repositories.reviews,
-    repositories.forgotten,
+    repositories.deletions,
     inTransaction,
     CLOCK,
   );
@@ -149,7 +149,7 @@ const opening = (repositories: ReturnType<typeof repositoriesInMemory>) =>
   new NotePullRequestOpened(
     repositories.deliveries,
     repositories.reviews,
-    repositories.forgotten,
+    repositories.deletions,
     inTransaction,
     CLOCK,
   );
@@ -239,7 +239,7 @@ describe('keeping a review heard before its task’s pull request', () => {
     await opening(repositories).opened(OPENING);
     await repositories.reviews.add(WORKSPACE, { pullRequest: PULL, at: AT });
 
-    await new ForgetOutcomes(repositories, inTransaction).deliveryOfTask(
+    await new DeleteOutcomes(repositories, inTransaction).deliveryOfTask(
       WORKSPACE,
       TASK,
     );
@@ -247,12 +247,12 @@ describe('keeping a review heard before its task’s pull request', () => {
     expect(repositories.reviews.stored.size).toBe(0);
   });
 
-  it('lets go of the pending reviews of a disbanded team’s pull requests', async () => {
+  it('lets go of the pending reviews of a deleted team’s pull requests', async () => {
     const repositories = repositoriesInMemory();
     await opening(repositories).opened(OPENING);
     await repositories.reviews.add(WORKSPACE, { pullRequest: PULL, at: AT });
 
-    await new ForgetOutcomes(repositories, inTransaction).deliveriesOfTeam(
+    await new DeleteOutcomes(repositories, inTransaction).deliveriesOfTeam(
       WORKSPACE,
       TEAM,
     );
@@ -262,10 +262,10 @@ describe('keeping a review heard before its task’s pull request', () => {
   });
 });
 
-describe('noting what a disbanded team did, however late it is heard of', () => {
-  it('records no pull request, failure or review of a team once it is disbanded', async () => {
+describe('noting what a deleted team did, however late it is heard of', () => {
+  it('records no pull request, failure or review of a team once it is deleted', async () => {
     const repositories = repositoriesInMemory();
-    await new ForgetOutcomes(repositories, inTransaction).runsOfTeam(
+    await new DeleteOutcomes(repositories, inTransaction).runsOfTeam(
       WORKSPACE,
       TEAM,
     );
@@ -273,7 +273,7 @@ describe('noting what a disbanded team did, however late it is heard of', () => 
     await opening(repositories).opened(OPENING);
     await new NoteTaskFailed(
       repositories.failures,
-      repositories.forgotten,
+      repositories.deletions,
       inTransaction,
     ).failed({
       taskId: TASK.value,
@@ -291,25 +291,25 @@ describe('noting what a disbanded team did, however late it is heard of', () => 
     expect(repositories.failures.stored.size).toBe(0);
   });
 
-  it('locks the task and its team before it checks whether they were forgotten', async () => {
+  it('locks the task and its team before it checks whether they were deleted', async () => {
     const repositories = repositoriesInMemory();
 
     await opening(repositories).opened(OPENING);
 
-    expect(repositories.forgotten.locks).toEqual([
+    expect(repositories.deletions.locks).toEqual([
       `${WORKSPACE.value} ${TEAM.value} ${TASK.value}`,
     ]);
   });
 });
 
-describe('forgetting outcomes', () => {
-  it('forgets a deleted task’s runs and its delivery', async () => {
+describe('deleting outcomes', () => {
+  it('deletes the runs and the delivery of a deleted task', async () => {
     const records = new RunRecordsInMemory();
     const noted = delivering();
     await records.add(endedRecord('run_1'));
     await records.add(endedRecord('run_2', { taskId: 'task_2' }));
     await noted.opened();
-    const forgetting = new ForgetOutcomes(
+    const deleting = new DeleteOutcomes(
       {
         records,
         deliveries: noted.deliveries,
@@ -325,20 +325,20 @@ describe('forgetting outcomes', () => {
         watches: new StationWatchesInMemory(),
         reviews: pendingReviewsInMemory(),
         configPullRequests: stationConfigPullRequestsInMemory(),
-        forgotten: forgottenInMemory(),
+        deletions: deletionsInMemory(),
       },
       inTransaction,
     );
 
-    await forgetting.runsOfTask(WORKSPACE, TASK);
-    await forgetting.deliveryOfTask(WORKSPACE, TASK);
+    await deleting.runsOfTask(WORKSPACE, TASK);
+    await deleting.deliveryOfTask(WORKSPACE, TASK);
 
     expect(await records.of(RunId.of('run_1'))).toBeNull();
     expect(await records.of(RunId.of('run_2'))).not.toBeNull();
     expect(await noted.state()).toBeNull();
   });
 
-  it('forgets what it heard of a deleted task’s runs before they ended', async () => {
+  it('deletes what it heard of a deleted task’s runs before they ended', async () => {
     const records = new RunRecordsInMemory();
     await records.add(
       RunRecord.heardOf(RunId.of('run_1'), WORKSPACE, TASK).recordCheck(
@@ -347,7 +347,7 @@ describe('forgetting outcomes', () => {
       ),
     );
 
-    await new ForgetOutcomes(
+    await new DeleteOutcomes(
       {
         records,
         deliveries: new TaskDeliveriesInMemory(),
@@ -363,7 +363,7 @@ describe('forgetting outcomes', () => {
         watches: new StationWatchesInMemory(),
         reviews: pendingReviewsInMemory(),
         configPullRequests: stationConfigPullRequestsInMemory(),
-        forgotten: forgottenInMemory(),
+        deletions: deletionsInMemory(),
       },
       inTransaction,
     ).runsOfTask(WORKSPACE, TASK);
@@ -371,12 +371,12 @@ describe('forgetting outcomes', () => {
     expect(records.stored.size).toBe(0);
   });
 
-  it('forgets everything of a closed workspace', async () => {
+  it('deletes everything of a deleted workspace', async () => {
     const records = new RunRecordsInMemory();
     const noted = delivering();
     await records.add(endedRecord('run_1'));
     await noted.opened();
-    const forgetting = new ForgetOutcomes(
+    const deleting = new DeleteOutcomes(
       {
         records,
         deliveries: noted.deliveries,
@@ -392,13 +392,13 @@ describe('forgetting outcomes', () => {
         watches: new StationWatchesInMemory(),
         reviews: pendingReviewsInMemory(),
         configPullRequests: stationConfigPullRequestsInMemory(),
-        forgotten: forgottenInMemory(),
+        deletions: deletionsInMemory(),
       },
       inTransaction,
     );
 
-    await forgetting.runsOfWorkspace(WORKSPACE);
-    await forgetting.deliveriesOfWorkspace(WORKSPACE);
+    await deleting.runsOfWorkspace(WORKSPACE);
+    await deleting.deliveriesOfWorkspace(WORKSPACE);
 
     expect(records.stored.size).toBe(0);
     expect(noted.deliveries.stored.size).toBe(0);

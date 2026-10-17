@@ -8,7 +8,7 @@ export const egressTokenUsedBy = (
   egress: Egress,
   before: Egress | null,
 ): TokenHash | null => {
-  const current = egress.isRetired ? null : egress.tokenHash;
+  const current = egress.isDeleted ? null : egress.tokenHash;
 
   return current && !before?.tokenHash.equals(current) ? current : null;
 };

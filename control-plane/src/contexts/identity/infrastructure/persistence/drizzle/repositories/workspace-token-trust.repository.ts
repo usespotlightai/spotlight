@@ -1,6 +1,6 @@
 import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
-import { TokenTrustAlreadyDefinedError } from '@identity/domain/exceptions/token-trust-already-defined.error';
+import { TokenTrustAlreadyExistsError } from '@identity/domain/exceptions/token-trust-already-exists.error';
 import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
@@ -40,7 +40,7 @@ const toTrust = (row: Row): WorkspaceTokenTrust =>
     }),
     scopes: TokenScopes.named(row.scopes),
     lifetime: TokenLifetime.ofMinutes(row.lifetimeMinutes),
-    definedBy: UserId.of(row.definedBy),
+    createdBy: UserId.of(row.createdBy),
     version: row.version,
   });
 
@@ -71,7 +71,7 @@ export class DrizzleWorkspaceTokenTrustRepository
           workspaceId: added.workspaceId.value,
           key: added.key.value,
           ...termsOf(added),
-          definedBy: added.definedBy.value,
+          createdBy: added.createdBy.value,
           version: added.version,
         });
       } catch (error) {
@@ -82,7 +82,7 @@ export class DrizzleWorkspaceTokenTrustRepository
             'workspace_token_trust_workspace_key',
           )
         ) {
-          throw new TokenTrustAlreadyDefinedError(added.key.value);
+          throw new TokenTrustAlreadyExistsError(added.key.value);
         }
 
         if (codeOf(error) === FOREIGN_KEY_VIOLATION) {
@@ -102,7 +102,7 @@ export class DrizzleWorkspaceTokenTrustRepository
         eq(workspaceTokenTrust.id, saved.id.value),
         eq(workspaceTokenTrust.version, saved.version),
       );
-      const written = saved.isWithdrawn
+      const written = saved.isDeleted
         ? await this.context.db
             .delete(workspaceTokenTrust)
             .where(matching)

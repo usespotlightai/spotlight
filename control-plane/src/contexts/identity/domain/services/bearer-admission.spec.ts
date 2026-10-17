@@ -36,11 +36,11 @@ const trustAt = (version: number) =>
     }),
     scopes: TokenScopes.named(['configure']),
     lifetime: TokenLifetime.ofMinutes(15),
-    definedBy: UserId.of('admin_1'),
+    createdBy: UserId.of('admin_1'),
     version,
   });
 
-const MINTED = trustAt(1).mintFor(
+const ISSUED_BY_TRUST = trustAt(1).issueFor(
   { issuer: ISSUER, subject: MAIN, audiences: ['spotlight'], named: {} },
   {
     id: WorkspaceTokenId.of('token_1'),
@@ -77,7 +77,7 @@ const FOR_RUN = WorkspaceToken.forRun({
 });
 
 describe('BearerAdmission', () => {
-  it('admits a token minted for a run until it ends or is revoked, needing no trust', () => {
+  it('admits a token issued for a run until it ends or is revoked, needing no trust', () => {
     expect(BearerAdmission.admits(FOR_RUN, null, NOW)).toBe(true);
     expect(BearerAdmission.admits(FOR_RUN, null, LATER)).toBe(false);
     expect(
@@ -92,20 +92,24 @@ describe('BearerAdmission', () => {
     ).toBe(false);
   });
 
-  it('admits a minted token only while its trust is the same as when the token was minted', () => {
-    expect(BearerAdmission.admits(MINTED, trustAt(1), NOW)).toBe(true);
-    expect(BearerAdmission.admits(MINTED, trustAt(2), NOW)).toBe(false);
-    expect(BearerAdmission.admits(MINTED, null, NOW)).toBe(false);
+  it('admits a token issued by a trust only while the trust is the same as when it issued the token', () => {
+    expect(BearerAdmission.admits(ISSUED_BY_TRUST, trustAt(1), NOW)).toBe(true);
+    expect(BearerAdmission.admits(ISSUED_BY_TRUST, trustAt(2), NOW)).toBe(
+      false,
+    );
+    expect(BearerAdmission.admits(ISSUED_BY_TRUST, null, NOW)).toBe(false);
     expect(
       BearerAdmission.admits(
-        MINTED,
-        trustAt(1).withdraw(Grantor.unlimited, attributedIn('ws_1')),
+        ISSUED_BY_TRUST,
+        trustAt(1).delete(Grantor.unlimited, attributedIn('ws_1')),
         NOW,
       ),
     ).toBe(false);
   });
 
   it('admits no token once it has expired, whatever its trust', () => {
-    expect(BearerAdmission.admits(MINTED, trustAt(1), LATER)).toBe(false);
+    expect(BearerAdmission.admits(ISSUED_BY_TRUST, trustAt(1), LATER)).toBe(
+      false,
+    );
   });
 });

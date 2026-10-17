@@ -31,7 +31,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 const quiet = { dispatch: async () => {} };
@@ -79,7 +79,7 @@ const file = (id = randomUUID()) =>
 
 describe('a line that drops a station', () => {
   const withReview = async () => {
-    const team = await openTeam(db, tasks, `review-${randomUUID()}`);
+    const team = await createTeam(db, tasks, `review-${randomUUID()}`);
     const reviewId = StationId.of(randomUUID());
     const [backlog, completed] = team.line.stations;
     const closing = Station.of({
@@ -166,7 +166,11 @@ describe('a line that drops a station', () => {
 
 describe('a mark that one task has and another task claims', () => {
   it('rejects a claim that skips the task with the mark', async () => {
-    const { line, stationId } = await openTeam(db, tasks, `m-${randomUUID()}`);
+    const { line, stationId } = await createTeam(
+      db,
+      tasks,
+      `m-${randomUUID()}`,
+    );
     const thread = Mark.of('slack.thread', randomUUID());
 
     await tasks.add(added(line, stationId, { marks: [thread] }));
@@ -177,7 +181,7 @@ describe('a mark that one task has and another task claims', () => {
   });
 
   it('passes to the newest claim through the task that had the mark', async () => {
-    const { line, stationId, workspaceId } = await openTeam(
+    const { line, stationId, workspaceId } = await createTeam(
       db,
       tasks,
       `n-${randomUUID()}`,
@@ -205,7 +209,11 @@ describe('a mark that one task has and another task claims', () => {
 
 describe('a file handed over twice', () => {
   it('stays with the task it was first given to', async () => {
-    const { line, stationId } = await openTeam(db, tasks, `a-${randomUUID()}`);
+    const { line, stationId } = await createTeam(
+      db,
+      tasks,
+      `a-${randomUUID()}`,
+    );
     const given = file();
     const first = added(line, stationId, { attachments: [given] });
     await tasks.add(first);
@@ -219,7 +227,7 @@ describe('a file handed over twice', () => {
   });
 
   it('lets its holder be written again', async () => {
-    const { line, stationId, owner } = await openTeam(
+    const { line, stationId, owner } = await createTeam(
       db,
       tasks,
       `b-${randomUUID()}`,
@@ -233,7 +241,7 @@ describe('a file handed over twice', () => {
   });
 
   it('cannot be given to a chat once a task has it', async () => {
-    const { line, stationId, workspaceId, teamId, owner } = await openTeam(
+    const { line, stationId, workspaceId, teamId, owner } = await createTeam(
       db,
       tasks,
       `c-${randomUUID()}`,
@@ -260,7 +268,7 @@ describe('a file handed over twice', () => {
 
 describe('a chat dispatched to a run', () => {
   it('remembers the run that acknowledged each message, until the message is unacknowledged', async () => {
-    const { workspaceId, teamId, owner } = await openTeam(
+    const { workspaceId, teamId, owner } = await createTeam(
       db,
       tasks,
       `h-${randomUUID()}`,

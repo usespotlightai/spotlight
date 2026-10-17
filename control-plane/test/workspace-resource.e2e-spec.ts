@@ -187,7 +187,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
     });
   });
 
-  it('will not be closed under a team even past the check before writing', async () => {
+  it('will not be deleted under a team even past the check before writing', async () => {
     const made = await as(fixture.admin).create(fixture.valid);
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const workspaces = app.get(DrizzleWorkspaceRepository);
@@ -203,7 +203,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
 
     await expect(
       workspaces.save(
-        existing?.close(
+        existing?.delete(
           [],
           [],
           [],

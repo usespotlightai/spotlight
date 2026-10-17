@@ -97,7 +97,7 @@ export class InMemoryHostConnections implements HostConnectionRepository {
     );
   }
 
-  async forgetTeam(teamId: TeamId): Promise<void> {
+  async deleteForTeam(teamId: TeamId): Promise<void> {
     for (const [key, each] of this.#stored) {
       if (each.teamId.equals(teamId)) {
         this.#stored.delete(key);

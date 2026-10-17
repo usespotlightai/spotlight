@@ -215,7 +215,7 @@ class InMemoryRegistrations implements OAuth2ClientRegistrationRepository {
     this.stored = registration;
   }
 
-  async forgetTeam(): Promise<void> {
+  async deleteForTeam(): Promise<void> {
     this.stored = null;
   }
 }

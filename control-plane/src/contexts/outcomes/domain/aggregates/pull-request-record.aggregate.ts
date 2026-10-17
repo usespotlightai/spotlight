@@ -58,7 +58,7 @@ export class PullRequestRecord {
     readonly seen: SeenPullRequest | null,
     readonly owner: PullRequestOwner | null,
     readonly reviewTasks: readonly TaskId[],
-    readonly githubForgotAt: Date | null,
+    readonly githubPurgedAt: Date | null,
     readonly version: number,
   ) {}
 
@@ -83,7 +83,7 @@ export class PullRequestRecord {
     seen: SeenPullRequest | null;
     owner: PullRequestOwner | null;
     reviewTasks: readonly TaskId[];
-    githubForgotAt: Date | null;
+    githubPurgedAt: Date | null;
     version: number;
   }): PullRequestRecord {
     return new PullRequestRecord(
@@ -92,7 +92,7 @@ export class PullRequestRecord {
       input.seen,
       input.owner,
       input.reviewTasks,
-      input.githubForgotAt,
+      input.githubPurgedAt,
       input.version,
     );
   }
@@ -103,15 +103,15 @@ export class PullRequestRecord {
 
   get isEmpty(): boolean {
     return (
-      (this.seen === null || this.githubForgotAt !== null) &&
+      (this.seen === null || this.githubPurgedAt !== null) &&
       !this.outlivesGitHub
     );
   }
 
   seenAs(seen: SeenPullRequest): PullRequestRecord {
-    if (this.githubForgotAt) {
-      return seen.updatedAt.getTime() > this.githubForgotAt.getTime()
-        ? this.with({ seen, githubForgotAt: null })
+    if (this.githubPurgedAt) {
+      return seen.updatedAt.getTime() > this.githubPurgedAt.getTime()
+        ? this.with({ seen, githubPurgedAt: null })
         : this;
     }
 
@@ -141,10 +141,10 @@ export class PullRequestRecord {
     return this.with({ reviewTasks: [...this.reviewTasks, taskId] });
   }
 
-  forgottenByGitHub(updatedAt: Date): PullRequestRecord | null {
+  purgedByGitHub(updatedAt: Date): PullRequestRecord | null {
     if (
       this.seen &&
-      !this.githubForgotAt &&
+      !this.githubPurgedAt &&
       this.seen.updatedAt.getTime() > updatedAt.getTime()
     ) {
       return this;
@@ -154,10 +154,10 @@ export class PullRequestRecord {
       return null;
     }
 
-    return this.githubForgotAt &&
-      this.githubForgotAt.getTime() >= updatedAt.getTime()
+    return this.githubPurgedAt &&
+      this.githubPurgedAt.getTime() >= updatedAt.getTime()
       ? this
-      : this.with({ githubForgotAt: updatedAt });
+      : this.with({ githubPurgedAt: updatedAt });
   }
 
   withoutTask(taskId: TaskId): PullRequestRecord | null {
@@ -191,7 +191,7 @@ export class PullRequestRecord {
       seen: SeenPullRequest | null;
       owner: PullRequestOwner | null;
       reviewTasks: readonly TaskId[];
-      githubForgotAt: Date | null;
+      githubPurgedAt: Date | null;
     }>,
   ): PullRequestRecord {
     return new PullRequestRecord(
@@ -200,9 +200,9 @@ export class PullRequestRecord {
       change.seen !== undefined ? change.seen : this.seen,
       change.owner !== undefined ? change.owner : this.owner,
       change.reviewTasks ?? this.reviewTasks,
-      change.githubForgotAt !== undefined
-        ? change.githubForgotAt
-        : this.githubForgotAt,
+      change.githubPurgedAt !== undefined
+        ? change.githubPurgedAt
+        : this.githubPurgedAt,
       this.version,
     );
   }

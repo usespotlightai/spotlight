@@ -116,7 +116,7 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
     );
   }
 
-  async forgetTask(taskId: TaskId): Promise<void> {
+  async deleteTask(taskId: TaskId): Promise<void> {
     await this.context.db
       .delete(reviewSync)
       .where(eq(reviewSync.taskId, taskId.value));

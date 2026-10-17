@@ -173,14 +173,14 @@ describe('a hook, created through the resource API (e2e)', () => {
           fixture.collection.split('/')[4] ?? '',
         ),
       );
-    const withdrawn = await served(app)
+    const removed = await served(app)
       .put(`/api/resources/integrations/${integration?.id}`)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${integration?.version}"`)
       .send({ ...GRAFANA, tools: {} });
 
-    expect(withdrawn.status).toBe(409);
-    expect(withdrawn.body.detail).toMatch(/used by the hook grafana-reads/);
+    expect(removed.status).toBe(409);
+    expect(removed.body.detail).toMatch(/used by the hook grafana-reads/);
   });
 
   it('rejects a request to a host this Spotlight does not call', async () => {

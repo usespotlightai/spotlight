@@ -32,7 +32,7 @@ class InMemoryNotices implements NoticeRepository {
         each.isFor(addressee) && each.form === form && each.subject === subject,
     ) ?? null;
 
-  forgetTeam = async (teamId: TeamId) => {
+  deleteForTeam = async (teamId: TeamId) => {
     for (const [id, each] of this.stored) {
       if (each.teamId.equals(teamId)) {
         this.stored.delete(id);
@@ -106,7 +106,7 @@ describe('Notices', () => {
     ).rejects.toThrow('Notice form must be one of');
   });
 
-  it('forgets the notices of a disbanded team, and only those', async () => {
+  it('deletes the notices of a deleted team, and only those', async () => {
     const memory = new InMemoryNotices();
     const notices = noticesOver(memory);
 
@@ -116,7 +116,7 @@ describe('Notices', () => {
       teamId: TeamId.of('team_2'),
       subject: 'replay-search search_9 iteration 3',
     });
-    await notices.forgetTeam(TeamId.of('team_1'));
+    await notices.deleteForTeam(TeamId.of('team_1'));
 
     expect(
       [...memory.stored.values()].map((each) => each.teamId.value),

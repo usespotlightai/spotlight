@@ -1,4 +1,4 @@
-import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event';
+import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceSlugRegistry } from '@identity/domain/repositories/workspace.repository';
 import { WorkspaceRegistration } from '@identity/domain/services/workspace-registration';
@@ -33,11 +33,11 @@ describe('WorkspaceRegistration', () => {
     expect(workspace.slug.value).toBe('acme-inc');
   });
 
-  it('says the workspace opened, naming the first team it should have', async () => {
+  it('says the workspace was created, naming the first team it should have', async () => {
     const workspace = await register(registry(false), 'Payments');
 
     expect(workspace.pullEvents()).toEqual([
-      new WorkspaceOpened(
+      new WorkspaceCreated(
         WorkspaceId.of('ws_1'),
         UserId.of('user_1'),
         { id: TeamId.of('team_1'), name: TeamName.of('Payments') },

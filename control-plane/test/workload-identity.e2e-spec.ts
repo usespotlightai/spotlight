@@ -19,7 +19,7 @@ import {
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -139,7 +139,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     await db
       .delete(schema.idempotentCreate)
       .where(eq(schema.idempotentCreate.scope, `person:${owner}`));
-    await forgetRunnersOf(db, workspaceId);
+    await deleteRunnersOf(db, workspaceId);
     await unseat();
   });
 
@@ -237,7 +237,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     ).toBe(401);
   });
 
-  it('does not accept anyone through a trust once it is withdrawn, and forgets the hosts that came in by it', async () => {
+  it('does not accept anyone through a trust once it is deleted, and deletes the hosts that came in by it', async () => {
     const trust = await trusted();
     await queue(['vpc-internal']);
     await heartbeat(trust.id, await workload()).expect(200);
@@ -253,7 +253,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     await eventually(async () => (await hostRow()) === null);
   });
 
-  it('does not accept anyone into a workspace that has closed', async () => {
+  it('does not accept anyone into a workspace that is deleted', async () => {
     const trust = await trusted();
 
     await unseat();

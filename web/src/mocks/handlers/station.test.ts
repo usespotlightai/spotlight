@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addReplaySetEntry,
+  createReplaySet,
   listReplayableRuns,
   listReplayCandidates,
   listReplaySetChecks,
@@ -10,7 +11,6 @@ import {
   listSearches,
   listStationOutcomes,
   listTeamReplaySets,
-  openReplaySet,
   pickSearchCandidate,
   readReplay,
   readReplayedCandidates,
@@ -229,24 +229,24 @@ describe('the mock station', () => {
     );
   });
 
-  it('opens a set, adds a run and replays it', async () => {
-    const { data: opened } = await openReplaySet({
+  it('creates a set, adds a run and replays it', async () => {
+    const { data: created } = await createReplaySet({
       path: IMPLEMENTATION,
       body: { name: 'Refund fixes' },
       throwOnError: true,
     });
     await addReplaySetEntry({
-      path: { teamId: PLATFORM_ID, setId: opened.id },
+      path: { teamId: PLATFORM_ID, setId: created.id },
       body: { runId: 'run_refunds_2' },
       throwOnError: true,
     });
     const { data: replay } = await startReplay({
-      path: { teamId: PLATFORM_ID, setId: opened.id },
+      path: { teamId: PLATFORM_ID, setId: created.id },
       body: { candidate: 'live', ceiling: { amount: 5, currency: 'USD' } },
       throwOnError: true,
     });
     const { data: replays } = await listReplays({
-      path: { teamId: PLATFORM_ID, setId: opened.id },
+      path: { teamId: PLATFORM_ID, setId: created.id },
       throwOnError: true,
     });
 

@@ -136,9 +136,9 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import {
-  TOKEN_MINT,
-  type TokenMintPort,
-} from '@shared-kernel/application/ports/token-mint.port';
+  TOKEN_ISSUER,
+  type TokenIssuer,
+} from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
   HOOK_TRACES,
@@ -175,12 +175,12 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: HookCallbackGrants,
-    inject: [HOOK_CALLBACK_GRANTS, TOKEN_MINT, CLOCK],
+    inject: [HOOK_CALLBACK_GRANTS, TOKEN_ISSUER, CLOCK],
     useFactory: (
       grants: HookCallbackGrantRepository,
-      mint: TokenMintPort,
+      issuer: TokenIssuer,
       clock: ClockPort,
-    ) => new HookCallbackGrants(grants, mint, clock),
+    ) => new HookCallbackGrants(grants, issuer, clock),
   },
 
   {

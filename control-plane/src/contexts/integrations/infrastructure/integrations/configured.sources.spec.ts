@@ -145,7 +145,7 @@ describe('ConfiguredSources', () => {
         raw: Buffer.from('{}'),
       }),
     ).rejects.toThrow(
-      'Secret LINEAR_WEBHOOK_SECRET not found. Please define it first.',
+      'Secret LINEAR_WEBHOOK_SECRET not found. Please create it first.',
     );
   });
 

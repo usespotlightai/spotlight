@@ -28,8 +28,8 @@ vi.mock('@/hooks/api/useReplays', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useOpenReplaySet', () => ({
-  useOpenReplaySet: () => ({
+vi.mock('@/hooks/api/useCreateReplaySet', () => ({
+  useCreateReplaySet: () => ({
     mutate: vi.fn(),
     isPending: false,
     reset: vi.fn(),
@@ -129,7 +129,7 @@ describe('ReplaySets', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers to open the first set where there is none', () => {
+  it('offers to create the first set where there is none', () => {
     sets.mockReturnValue([]);
 
     renderSets();

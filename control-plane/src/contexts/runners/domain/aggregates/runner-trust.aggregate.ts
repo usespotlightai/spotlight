@@ -1,7 +1,6 @@
-import { RunnerTrustDefined } from '@runners/domain/events/runner-trust-defined.event';
-import { RunnerTrustRedefined } from '@runners/domain/events/runner-trust-redefined.event';
-import { RunnerTrustWithdrawn } from '@runners/domain/events/runner-trust-withdrawn.event';
-import { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
+import { RunnerTrustCreated } from '@runners/domain/events/runner-trust-created.event';
+import { RunnerTrustDeleted } from '@runners/domain/events/runner-trust-deleted.event';
+import { RunnerTrustUpdated } from '@runners/domain/events/runner-trust-updated.event';
 import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
 import type { PoolCapacity } from '@runners/domain/value-objects/pool-capacity';
@@ -10,6 +9,7 @@ import type { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-i
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import type { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -30,19 +30,19 @@ export class RunnerTrust extends EventRecorder {
     readonly workload: TrustedWorkload,
     readonly labels: RunnerLabels,
     readonly version: number,
-    readonly isWithdrawn: boolean,
+    readonly isDeleted: boolean,
   ) {
     super();
   }
 
-  static define(
+  static create(
     input: TrustDefinition & {
       id: RunnerTrustId;
       workspaceId: WorkspaceId;
       by: Attribution;
     },
   ): RunnerTrust {
-    const defined = new RunnerTrust(
+    const created = new RunnerTrust(
       input.id,
       input.workspaceId,
       input.key,
@@ -52,16 +52,16 @@ export class RunnerTrust extends EventRecorder {
       false,
     );
 
-    defined.record(
-      new RunnerTrustDefined(
-        defined.id,
-        defined.workspaceId,
-        defined.key,
-        ConfigurationChange.created(defined.whatChanged, input.by),
+    created.record(
+      new RunnerTrustCreated(
+        created.id,
+        created.workspaceId,
+        created.key,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(
@@ -90,11 +90,11 @@ export class RunnerTrust extends EventRecorder {
   }
 
   admits(claims: WorkloadClaims): boolean {
-    return !this.isWithdrawn && this.workload.admits(claims);
+    return !this.isDeleted && this.workload.admits(claims);
   }
 
   capacity(mode: PoolMode): Exclude<PoolCapacity, 'full'> {
-    return this.isWithdrawn || mode !== 'pull' ? 'gone' : 'open';
+    return this.isDeleted || mode !== 'pull' ? 'gone' : 'open';
   }
 
   assertVersion(version: number): void {
@@ -103,23 +103,26 @@ export class RunnerTrust extends EventRecorder {
     }
   }
 
-  redefinedAs(definition: TrustDefinition, by: Attribution): RunnerTrust {
+  update(definition: TrustDefinition, by: Attribution): RunnerTrust {
     this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
-      throw new RunnerTrustKeyFixedError(
-        this.key.value,
-        `can't change its key to ${definition.key.value}. Please replace the trust instead`,
+      const because = `can't change its key to ${definition.key.value}. Please replace the trust instead`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Runner trust ${this.key.value} ${because}.`,
       );
     }
 
-    const redefined = this.with({
+    const updated = this.with({
       workload: definition.workload,
       labels: definition.labels,
     });
 
-    redefined.record(
-      new RunnerTrustRedefined(
+    updated.record(
+      new RunnerTrustUpdated(
         this.id,
         this.workspaceId,
         this.key,
@@ -127,16 +130,16 @@ export class RunnerTrust extends EventRecorder {
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  withdraw(by: Attribution): RunnerTrust {
+  delete(by: Attribution): RunnerTrust {
     this.assertNotDeleted();
 
-    const withdrawn = this.with({ withdrawn: true });
+    const deleted = this.with({ deleted: true });
 
-    withdrawn.record(
-      new RunnerTrustWithdrawn(
+    deleted.record(
+      new RunnerTrustDeleted(
         this.id,
         this.workspaceId,
         this.key,
@@ -144,7 +147,7 @@ export class RunnerTrust extends EventRecorder {
       ),
     );
 
-    return withdrawn;
+    return deleted;
   }
 
   private get whatChanged() {
@@ -156,10 +159,10 @@ export class RunnerTrust extends EventRecorder {
   }
 
   private assertNotDeleted(): void {
-    if (this.isWithdrawn) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'runner trust',
-        'was changed after it was withdrawn',
+        'was changed after it was deleted',
       );
     }
   }
@@ -167,7 +170,7 @@ export class RunnerTrust extends EventRecorder {
   private with(part: {
     workload?: TrustedWorkload;
     labels?: RunnerLabels;
-    withdrawn?: boolean;
+    deleted?: boolean;
   }): RunnerTrust {
     const next = new RunnerTrust(
       this.id,
@@ -176,7 +179,7 @@ export class RunnerTrust extends EventRecorder {
       part.workload ?? this.workload,
       part.labels ?? this.labels,
       this.version,
-      part.withdrawn ?? this.isWithdrawn,
+      part.deleted ?? this.isDeleted,
     );
 
     next.inheritEvents(this);

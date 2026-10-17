@@ -79,7 +79,7 @@ type Server struct {
 func Serve(options []string, noteLimit int, reply ReviewCommentReplier) (*Server, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
-		return nil, fmt.Errorf("mint a handover token: %w", err)
+		return nil, fmt.Errorf("issue a handover token: %w", err)
 	}
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")

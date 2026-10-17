@@ -4,7 +4,7 @@ import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo
 
 export const TeamAccess = {
   admits(team: Team, workspace: Workspace, principal: Principal): boolean {
-    if (team.isDisbanded || !team.workspaceId.equals(workspace.id)) {
+    if (team.isDeleted || !team.workspaceId.equals(workspace.id)) {
       return false;
     }
 

@@ -96,7 +96,7 @@ describe('AskChangeJudging', () => {
     );
   });
 
-  it('is forgotten with the team it was asked for', async () => {
+  it('is deleted with the team it was asked for', async () => {
     const { judgings, service } = asking();
 
     await service.ask(ASK);

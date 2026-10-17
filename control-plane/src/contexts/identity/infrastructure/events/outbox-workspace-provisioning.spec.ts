@@ -17,7 +17,7 @@ const provisioning = (pending: number, deadLettered: number) => {
 };
 
 describe('OutboxWorkspaceProvisioning', () => {
-  it('reads as done once the first team is open', async () => {
+  it('reads as done once the first team exists', async () => {
     await expect(provisioning(0, 0).read).resolves.toBe('done');
   });
 

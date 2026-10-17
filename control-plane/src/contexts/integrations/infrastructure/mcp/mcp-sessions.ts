@@ -297,11 +297,11 @@ export class McpSessions implements OnModuleDestroy {
 
     idle.push(session);
     this.#idle.set(pool, idle);
-    session.idle = setTimeout(() => this.forget(pool, session), this.idleMs);
+    session.idle = setTimeout(() => this.evict(pool, session), this.idleMs);
     session.idle.unref();
   }
 
-  private forget(pool: string, session: Session): void {
+  private evict(pool: string, session: Session): void {
     const idle = this.#idle.get(pool) ?? [];
     const at = idle.indexOf(session);
 

@@ -1,4 +1,4 @@
-import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
+import { deletionsInMemory } from '@outcomes/application/ports/deletions.fake-spec';
 import type { EndedRun, WorkPort } from '@outcomes/application/ports/work.port';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
@@ -39,7 +39,7 @@ const workOfTeam = (teamId: string): WorkPort => ({
 
 const acting = async (...runs: Ended[]) => {
   const records = new RunRecordsInMemory();
-  const forgotten = forgottenInMemory();
+  const deletions = deletionsInMemory();
 
   for (const [runId, hour, change] of runs) {
     await records.add(endedRecord(runId, { endedAt: at(hour), ...change }));
@@ -48,13 +48,13 @@ const acting = async (...runs: Ended[]) => {
   const service = new NotePersonAct(
     workOfTeam('team_1'),
     records,
-    forgotten,
+    deletions,
     inTransaction,
   );
 
   return {
     records,
-    forgotten,
+    deletions,
     acted: (
       act: string,
       hour: number,
@@ -216,9 +216,9 @@ describe('noting what a person did after a run', () => {
     );
   });
 
-  it('keeps no act on a run of a team that was forgotten', async () => {
+  it('keeps no act on a run of a team that was deleted', async () => {
     const noted = await acting();
-    await noted.forgotten.forgetTeam(WORKSPACE, TeamId.of('team_1'));
+    await noted.deletions.deleteTeam(WORKSPACE, TeamId.of('team_1'));
 
     await noted.acted('refused', 11, 'run_7', {
       tool: 'create_issue',
@@ -226,7 +226,7 @@ describe('noting what a person did after a run', () => {
     });
 
     expect(noted.records.stored.size).toBe(0);
-    expect(noted.forgotten.locks).toEqual(['ws_1 team_1 task_1']);
+    expect(noted.deletions.locks).toEqual(['ws_1 team_1 task_1']);
   });
 
   it('ignores an act that names no run when the task has no ended run', async () => {
@@ -251,7 +251,7 @@ describe('noting how a run’s change was checked', () => {
     const records = new RunRecordsInMemory();
     await records.add(endedRecord('run_1'));
 
-    await new NoteChangeChecked(records, forgottenInMemory(), inTransaction, {
+    await new NoteChangeChecked(records, deletionsInMemory(), inTransaction, {
       now: () => HEARD_AT,
       sleep: async () => {},
     }).checked(RunId.of('run_1'), WORKSPACE, null, false);
@@ -262,7 +262,7 @@ describe('noting how a run’s change was checked', () => {
   it('keeps a verdict heard before the run was heard to end', async () => {
     const records = new RunRecordsInMemory();
 
-    await new NoteChangeChecked(records, forgottenInMemory(), inTransaction, {
+    await new NoteChangeChecked(records, deletionsInMemory(), inTransaction, {
       now: () => HEARD_AT,
       sleep: async () => {},
     }).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), null);
@@ -295,20 +295,20 @@ describe('noting how a run used its tools', () => {
     skillsRead: ['grafana'],
   });
 
-  it('keeps no tool use of a run of a team that was forgotten', async () => {
+  it('keeps no tool use of a run of a team that was deleted', async () => {
     const records = new RunRecordsInMemory();
-    const forgotten = forgottenInMemory();
-    await forgotten.forgetTeam(WORKSPACE, TeamId.of('team_1'));
+    const deletions = deletionsInMemory();
+    await deletions.deleteTeam(WORKSPACE, TeamId.of('team_1'));
 
     await new NoteRunDigested(
       workOfTeam('team_1'),
       records,
-      forgotten,
+      deletions,
       inTransaction,
     ).digested(digest('run_7'));
 
     expect(records.stored.size).toBe(0);
-    expect(forgotten.locks).toEqual(['ws_1 team_1 task_1']);
+    expect(deletions.locks).toEqual(['ws_1 team_1 task_1']);
   });
 
   it('keeps the tool use of a run heard before it ended', async () => {
@@ -317,7 +317,7 @@ describe('noting how a run used its tools', () => {
     await new NoteRunDigested(
       workOfTeam('team_1'),
       records,
-      forgottenInMemory(),
+      deletionsInMemory(),
       inTransaction,
     ).digested(digest('run_7'));
 

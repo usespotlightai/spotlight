@@ -81,23 +81,23 @@ export class NetworkCalls implements NetworkCallsPort {
     return expired;
   }
 
-  async forgetCompleted(): Promise<number> {
+  async purgeCompleted(): Promise<number> {
     const now = this.clock.now();
-    let forgotten = 0;
+    let purged = 0;
 
     for (const call of await this.calls.completedBy(
-      NetworkCall.completedForgettablyBy(now),
+      NetworkCall.retentionCutoff(now),
       MAX_AT_ONCE,
     )) {
       if (
-        call.isForgettableAt(now) &&
-        (await this.saveIfChanged(call, call.forgotten(now)))
+        call.isPastRetention(now) &&
+        (await this.saveIfChanged(call, call.purge(now)))
       ) {
-        forgotten += 1;
+        purged += 1;
       }
     }
 
-    return forgotten;
+    return purged;
   }
 
   private async found(callId: string): Promise<NetworkCall> {

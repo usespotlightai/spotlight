@@ -277,7 +277,7 @@ export class RenewCheckLeaseResponseDto {
   @ApiProperty({
     example: false,
     description:
-      'Whether the runner should stop checking: the check was forgotten ' +
+      'Whether the runner should stop checking: the check was deleted ' +
       'with its task, ended, or waited too long to be recorded',
   })
   readonly stop: boolean;

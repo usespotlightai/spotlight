@@ -1,11 +1,10 @@
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
-import { IntegrationDefined } from '@integrations/domain/events/integration-defined.event';
-import { IntegrationRedefined } from '@integrations/domain/events/integration-redefined.event';
+import { IntegrationCreated } from '@integrations/domain/events/integration-created.event';
+import { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
 import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
-import { IntegrationRetired } from '@integrations/domain/events/integration-retired.event';
+import { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
-import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
@@ -18,6 +17,7 @@ import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { SourceReading } from '@integrations/domain/value-objects/source-reading.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -107,8 +107,8 @@ const GIVEN = ToolUses.of([
 ]);
 
 describe('IntegrationDefinition', () => {
-  it('is defined for the host its compiled integration names, and says so', () => {
-    const defined = IntegrationDefinition.define({
+  it('is created for the host its compiled integration names, and says so', () => {
+    const created = IntegrationDefinition.create({
       ...compiled('linear', { offers: ['comment'] }),
       id: ID,
       teamId: TEAM,
@@ -116,11 +116,11 @@ describe('IntegrationDefinition', () => {
       by: BY,
     });
 
-    expect(defined.source).toEqual(SourceKey.of('linear'));
-    expect(defined.offers).toEqual(['linear.comment']);
-    expect(defined.isNew).toBe(true);
-    expect(defined.pullEvents()).toEqual([
-      new IntegrationDefined(
+    expect(created.source).toEqual(SourceKey.of('linear'));
+    expect(created.offers).toEqual(['linear.comment']);
+    expect(created.isNew).toBe(true);
+    expect(created.pullEvents()).toEqual([
+      new IntegrationCreated(
         ID,
         TEAM,
         SourceKey.of('linear'),
@@ -132,7 +132,7 @@ describe('IntegrationDefinition', () => {
 
   it('rejects a definition compiled for another host', () => {
     expect(() =>
-      IntegrationDefinition.define({
+      IntegrationDefinition.create({
         ...compiled('linear', { named: 'slack' }),
         id: ID,
         teamId: TEAM,
@@ -143,19 +143,19 @@ describe('IntegrationDefinition', () => {
   });
 
   it('takes a new definition of its own host, keeping its id and version', () => {
-    const redefined = rehydrated().redefinedAs(
+    const updated = rehydrated().update(
       compiled('linear', { offers: ['comment'] }),
       null,
       ToolUses.none(),
       BY,
     );
 
-    expect(redefined.id).toEqual(ID);
-    expect(redefined.version).toBe(3);
-    expect(redefined.offers).toEqual(['linear.comment']);
-    expect(redefined.document.hasValue('name', 'Linear')).toBe(true);
-    expect(redefined.pullEvents()).toEqual([
-      new IntegrationRedefined(
+    expect(updated.id).toEqual(ID);
+    expect(updated.version).toBe(3);
+    expect(updated.offers).toEqual(['linear.comment']);
+    expect(updated.document.hasValue('name', 'Linear')).toBe(true);
+    expect(updated.pullEvents()).toEqual([
+      new IntegrationUpdated(
         ID,
         TEAM,
         SourceKey.of('linear'),
@@ -165,17 +165,17 @@ describe('IntegrationDefinition', () => {
     ]);
   });
 
-  it('keeps the host it was defined for, pointing at the field that tried to move it', () => {
+  it('keeps the host it was created for, pointing at the field that tried to move it', () => {
     const moved = () =>
-      rehydrated().redefinedAs(compiled('slack'), null, ToolUses.none(), BY);
+      rehydrated().update(compiled('slack'), null, ToolUses.none(), BY);
 
-    expect(moved).toThrow(IntegrationHostFixedError);
+    expect(moved).toThrow(ImmutableFieldError);
     expect(moved).toThrow(expect.objectContaining({ field: 'integration' }));
   });
 
   it('will not stop offering a tool a station gives', () => {
     expect(() =>
-      rehydrated(['linear.comment']).redefinedAs(
+      rehydrated(['linear.comment']).update(
         compiled('linear'),
         null,
         GIVEN,
@@ -183,7 +183,7 @@ describe('IntegrationDefinition', () => {
       ),
     ).toThrow(IntegrationToolsInUseError);
     expect(() =>
-      rehydrated(['linear.comment']).redefinedAs(
+      rehydrated(['linear.comment']).update(
         compiled('linear', { offers: ['comment'] }),
         null,
         GIVEN,
@@ -192,16 +192,16 @@ describe('IntegrationDefinition', () => {
     ).not.toThrow();
   });
 
-  it('is retired only once no station gives what it offers', () => {
-    expect(() => rehydrated(['linear.comment']).retire(GIVEN, BY)).toThrow(
+  it('is deleted only once no station gives what it offers', () => {
+    expect(() => rehydrated(['linear.comment']).delete(GIVEN, BY)).toThrow(
       /linear.comment \(used by the station delivery\/implementation\)/,
     );
 
-    const retired = rehydrated(['linear.comment']).retire(ToolUses.none(), BY);
+    const deleted = rehydrated(['linear.comment']).delete(ToolUses.none(), BY);
 
-    expect(retired.isRetired).toBe(true);
-    expect(retired.pullEvents()).toEqual([
-      new IntegrationRetired(
+    expect(deleted.isDeleted).toBe(true);
+    expect(deleted.pullEvents()).toEqual([
+      new IntegrationDeleted(
         ID,
         TEAM,
         SourceKey.of('linear'),
@@ -211,13 +211,13 @@ describe('IntegrationDefinition', () => {
     ]);
   });
 
-  it('changes nothing once retired', () => {
-    const retired = rehydrated().retire(ToolUses.none(), BY);
+  it('changes nothing once deleted', () => {
+    const deleted = rehydrated().delete(ToolUses.none(), BY);
 
     expect(() =>
-      retired.redefinedAs(compiled('linear'), null, ToolUses.none(), BY),
+      deleted.update(compiled('linear'), null, ToolUses.none(), BY),
     ).toThrow(InconsistentStateError);
-    expect(() => retired.retire(ToolUses.none(), BY)).toThrow(
+    expect(() => deleted.delete(ToolUses.none(), BY)).toThrow(
       InconsistentStateError,
     );
   });
@@ -245,7 +245,7 @@ describe('IntegrationDefinition', () => {
   });
 
   it('keeps the reading of the description it names, and the tools generated from it', () => {
-    const defined = IntegrationDefinition.define({
+    const created = IntegrationDefinition.create({
       ...compiled('linear', {
         offers: ['comment'],
         generated: ['issue-create'],
@@ -256,15 +256,15 @@ describe('IntegrationDefinition', () => {
       by: BY,
     });
 
-    expect(defined.offers).toEqual(['linear.comment', 'linear.issue-create']);
-    expect(defined.reading?.hash).toEqual(HASH);
+    expect(created.offers).toEqual(['linear.comment', 'linear.issue-create']);
+    expect(created.reading?.hash).toEqual(HASH);
   });
 
-  it('will not be defined without a reading of the description it names', () => {
+  it('will not be created without a reading of the description it names', () => {
     const naming = compiled('linear', { described: true });
 
     expect(() =>
-      IntegrationDefinition.define({
+      IntegrationDefinition.create({
         ...naming,
         id: ID,
         teamId: TEAM,
@@ -273,7 +273,7 @@ describe('IntegrationDefinition', () => {
       }),
     ).toThrow(/was not given a reading of it/);
     expect(() =>
-      IntegrationDefinition.define({
+      IntegrationDefinition.create({
         ...compiled('linear'),
         id: ID,
         teamId: TEAM,
@@ -285,7 +285,7 @@ describe('IntegrationDefinition', () => {
 
   it('rejects tools generated from another reading than the one it keeps', () => {
     expect(() =>
-      IntegrationDefinition.define({
+      IntegrationDefinition.create({
         ...compiled('linear', {
           generated: ['issue-create'],
           from: OTHER_HASH,
@@ -299,7 +299,7 @@ describe('IntegrationDefinition', () => {
   });
 
   it('keeps a description that could not be read, offering nothing from it', () => {
-    const defined = IntegrationDefinition.define({
+    const created = IntegrationDefinition.create({
       ...compiled('linear', { described: true }),
       id: ID,
       teamId: TEAM,
@@ -307,8 +307,8 @@ describe('IntegrationDefinition', () => {
       by: BY,
     });
 
-    expect(defined.offers).toEqual([]);
-    expect(defined.reading?.problem).toMatch(/401/);
+    expect(created.offers).toEqual([]);
+    expect(created.reading?.problem).toMatch(/401/);
   });
 
   it('is reread from upstream, stranding the tools upstream no longer offers', () => {
@@ -394,12 +394,12 @@ describe('IntegrationDefinition', () => {
     ).toThrow(/other than the one it keeps/);
   });
 
-  it('is abandoned with its team, whatever its tools are given to', () => {
-    const abandoned = rehydrated(['linear.comment']).abandon(BY);
+  it('is deleted with its team, whatever its tools are given to', () => {
+    const deleted = rehydrated(['linear.comment']).cascadeDelete(BY);
 
-    expect(abandoned.isRetired).toBe(true);
-    expect(abandoned.pullEvents()).toEqual([
-      new IntegrationRetired(
+    expect(deleted.isDeleted).toBe(true);
+    expect(deleted.pullEvents()).toEqual([
+      new IntegrationDeleted(
         ID,
         TEAM,
         SourceKey.of('linear'),

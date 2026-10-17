@@ -2,8 +2,6 @@ import type { UpdateWorkspaceTokenCommand } from '@identity/application/commands
 import type { IdentityDefinitionsPort } from '@identity/application/ports/identity-definitions.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { IdentityProblems } from '@identity/application/rendering/identity-problems';
-import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
-import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
 import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import {
@@ -13,6 +11,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
@@ -59,7 +58,7 @@ export class UpdateWorkspaceTokenHandler
 
       await this.transaction.inTransaction(() =>
         this.tokens.save(
-          existing.redescribe(
+          existing.update(
             compiled.terms,
             Attribution.of(command.actor, existing.workspaceId),
           ),
@@ -76,10 +75,7 @@ export class UpdateWorkspaceTokenHandler
           : null;
       }
 
-      if (
-        error instanceof WorkspaceTokenTermsFixedError ||
-        error instanceof MintedTokenFixedError
-      ) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
           problems: [IdentityProblems.tokenInvalid(error)],

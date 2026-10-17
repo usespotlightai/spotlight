@@ -1,10 +1,6 @@
 import type { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
 import type { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
-import type { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
-import type { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
-import type { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
-import type { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
-import type { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
+import type { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -17,27 +13,19 @@ export const WORKSPACE_TOKEN = 'workspace-token';
 export const WORKSPACE_TOKEN_TRUST = 'workspace-token-trust';
 
 export const IdentityProblems = {
-  slugFixed(error: WorkspaceSlugFixedError): ConfigurationProblem {
+  immutableField(
+    path: string,
+    error: ImmutableFieldError,
+  ): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: WORKSPACE,
-      at: FieldPath.of([error.field]),
-      reason: error.because,
-    });
-  },
-
-  keyFixed(error: TeamKeyFixedError): ConfigurationProblem {
-    return ConfigurationProblem.of({
-      path: TEAM,
+      path,
       at: FieldPath.of([error.field]),
       reason: error.because,
     });
   },
 
   tokenInvalid(
-    error:
-      | InvalidWorkspaceTokenError
-      | WorkspaceTokenTermsFixedError
-      | MintedTokenFixedError,
+    error: InvalidWorkspaceTokenError | ImmutableFieldError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: WORKSPACE_TOKEN,
@@ -47,7 +35,7 @@ export const IdentityProblems = {
   },
 
   trustInvalid(
-    error: InvalidTokenTrustError | TokenTrustKeyFixedError,
+    error: InvalidTokenTrustError | ImmutableFieldError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: WORKSPACE_TOKEN_TRUST,

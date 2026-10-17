@@ -71,16 +71,16 @@ const seated = async (app: INestApplication): Promise<Seated> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
   const workspaceId = `candidates-${randomUUID().slice(0, 8)}`;
   const seat = await seatTeam(db, workspaceId);
-  const opened = await served(app)
+  const created = await served(app)
     .post(`/api/resources/teams/${workspaceId}/lines`)
     .set(TEST_USER_HEADER, seat.owner)
     .set('Idempotency-Key', randomUUID())
     .send(DELIVERY);
 
-  expect(opened.status).toBe(201);
+  expect(created.status).toBe(201);
 
-  const lineId = opened.body.id as string;
-  const live = (opened.body.definition.stations as { key: string }[]).find(
+  const lineId = created.body.id as string;
+  const live = (created.body.definition.stations as { key: string }[]).find(
     (each) => each.key === 'build',
   ) as Block;
   const tokenWith = async (scopes: readonly string[]) => {
@@ -443,7 +443,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     expect(kept.body.type).toBe('urn:spotlight:problem:in-use');
   });
 
-  it('is not withdrawn while a replay of it is running, and is once it has ended', async () => {
+  it('is not deleted while a replay of it is running, and is once it has ended', async () => {
     const made = await proposed('Running', 'Build it, running.');
     const replayId = randomUUID();
 
@@ -483,7 +483,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     ).toBe(204);
   });
 
-  it('records each proposal and withdrawal in the configuration audit, naming the token and its client', async () => {
+  it('records each proposal and deletion in the configuration audit, naming the token and its client', async () => {
     const planner = await fixture.tokenWith(['plan']);
     const made = await bearing(planner).post(
       fixture.collection,

@@ -13,8 +13,8 @@ import {
   listed,
 } from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import { DeleteCandidateCommand } from '@replays/application/commands/delete-candidate.command';
 import { ProposeCandidateCommand } from '@replays/application/commands/propose-candidate.command';
-import { WithdrawCandidateCommand } from '@replays/application/commands/withdraw-candidate.command';
 import type { CandidateResourceDto } from '@replays/application/dto/replays.dto';
 import { ImportCandidateQuery } from '@replays/application/queries/import-candidate.query';
 import { ListCandidatesQuery } from '@replays/application/queries/list-candidates.query';
@@ -125,7 +125,7 @@ export class ReplayCandidateResourceController {
 
   @CandidateResource.Delete(
     'replay-candidates/:id',
-    'Withdraw a proposed candidate no replay is running; replays that ran it keep their results',
+    'Delete a proposed candidate no replay is running; replays that ran it keep their results',
   )
   @ID
   async delete(
@@ -136,9 +136,9 @@ export class ReplayCandidateResourceController {
     answerDeleted(
       KIND,
       await this.commandBus.execute<
-        WithdrawCandidateCommand,
+        DeleteCandidateCommand,
         ResourceDeleted | null
-      >(new WithdrawCandidateCommand(id, actor, version)),
+      >(new DeleteCandidateCommand(id, actor, version)),
     );
   }
 

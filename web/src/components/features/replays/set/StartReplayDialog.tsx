@@ -66,7 +66,7 @@ export function StartReplayDialog({
   const problem = typeof ceiling === 'string' ? ceiling : null;
   const repeatsProblem = typeof repeats === 'string' ? repeats : null;
 
-  const forget = () => {
+  const reset = () => {
     setCandidate(LIVE);
     setAmount('');
     setCurrency(USUAL_CURRENCY);
@@ -106,7 +106,7 @@ export function StartReplayDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(open) => !open && forget()}
+      onOpenChangeComplete={(open) => !open && reset()}
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

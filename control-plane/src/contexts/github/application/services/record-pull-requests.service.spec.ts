@@ -1,4 +1,4 @@
-import { PullRequestsNotForgottenError } from '@github/application/errors/pull-requests-not-forgotten.error';
+import { PullRequestsNotPurgedError } from '@github/application/errors/pull-requests-not-purged.error';
 import { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import {
@@ -355,7 +355,7 @@ describe('RecordPullRequests', () => {
     expect(pullRequests.rows.get(urlOf(7).value)?.revertedBy).toEqual(urlOf(9));
   });
 
-  it('forgets pull requests past retention, and keeps the rest', async () => {
+  it('purges pull requests past retention, and keeps the rest', async () => {
     const { service, pullRequests } = recording();
     await service.described(
       FROM,
@@ -385,7 +385,7 @@ describe('RecordPullRequests', () => {
     expect(
       pullRequests.dispatched[pullRequests.dispatched.length - 1],
     ).toMatchObject({
-      kind: 'pull-request.forgotten',
+      kind: 'pull-request.purged',
       pullRequest: urlOf(7).value,
     });
   });
@@ -405,7 +405,7 @@ describe('RecordPullRequests', () => {
     expect(pullRequests.rows.size).toBe(0);
   });
 
-  it('forgets every pull request of a workspace whose GitHub App was uninstalled', async () => {
+  it('purges every pull request of a workspace whose GitHub App was uninstalled', async () => {
     const { service, pullRequests } = recording();
     await service.described(FROM, factsOf(7));
     await service.described(FROM, factsOf(8));
@@ -414,12 +414,12 @@ describe('RecordPullRequests', () => {
     expect(pullRequests.rows.size).toBe(0);
     expect(
       pullRequests.dispatched.filter(
-        (each) => each.kind === 'pull-request.forgotten',
+        (each) => each.kind === 'pull-request.purged',
       ),
     ).toHaveLength(2);
   });
 
-  it('keeps forgetting the rest where one pull request cannot be forgotten', async () => {
+  it('keeps purging the rest where one pull request cannot be purged', async () => {
     const { service, pullRequests } = recording();
     await service.described(
       FROM,
@@ -478,7 +478,7 @@ describe('RecordPullRequests', () => {
 
     expect(pullRequests.rows.get(urlOf(7).value)?.reviewRounds).toBe(0);
   });
-  it("fails forgetting a removed installation's pull requests where one could not be forgotten, after forgetting the rest", async () => {
+  it("fails purging a removed installation's pull requests where one could not be purged, after purging the rest", async () => {
     const { service, pullRequests } = recording();
     await service.described(FROM, factsOf(7));
     await service.described(FROM, factsOf(8));
@@ -492,12 +492,12 @@ describe('RecordPullRequests', () => {
     });
 
     await expect(service.uninstalled(WORKSPACE)).rejects.toBeInstanceOf(
-      PullRequestsNotForgottenError,
+      PullRequestsNotPurgedError,
     );
     expect([...pullRequests.rows.keys()]).toEqual([urlOf(7).value]);
   });
 
-  it('forgets past retention beyond a full batch that could not be forgotten', async () => {
+  it('purges past retention beyond a full batch that could not be purged', async () => {
     const pullRequests = new PullRequestsInMemory();
     const { service } = recordingAt(NOW, pullRequests);
     for (let number = 1; number <= 201; number += 1) {
@@ -535,11 +535,11 @@ describe('RecordPullRequests', () => {
     expect(pullRequests.rows.size).toBe(0);
   });
 
-  it("lets go of a closed workspace's installation before forgetting its pull requests", async () => {
+  it("lets go of a deleted workspace's installation before deleting its pull requests", async () => {
     const { service, pullRequests, connections } = recording();
     await service.described(FROM, factsOf(7));
 
-    await service.workspaceClosed(WORKSPACE);
+    await service.workspaceDeleted(WORKSPACE);
 
     expect(connections.connection.isConnected).toBe(false);
     expect(connections.dispatched.map((each) => each.kind)).toEqual([

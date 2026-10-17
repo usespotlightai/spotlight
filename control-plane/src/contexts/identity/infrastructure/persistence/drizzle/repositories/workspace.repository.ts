@@ -98,8 +98,8 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
 
   private async stored(saved: Workspace): Promise<void> {
     await this.context.inTransaction(async () => {
-      if (saved.isClosed) {
-        await this.closed(saved);
+      if (saved.isDeleted) {
+        await this.deleted(saved);
         return;
       }
 
@@ -126,7 +126,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
     });
   }
 
-  private async closed(saved: Workspace): Promise<void> {
+  private async deleted(saved: Workspace): Promise<void> {
     const removed = await this.context.db
       .delete(workspace)
       .where(

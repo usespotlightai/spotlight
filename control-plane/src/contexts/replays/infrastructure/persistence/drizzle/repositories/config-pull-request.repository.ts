@@ -191,7 +191,7 @@ export class DrizzleConfigPullRequestRepository
         eq(configPullRequest.id, saved.id.value),
         eq(configPullRequest.version, saved.version),
       );
-      const written = saved.isAbandoned
+      const written = saved.isDeleted
         ? await this.context.db
             .delete(configPullRequest)
             .where(at)

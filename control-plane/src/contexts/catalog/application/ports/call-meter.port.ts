@@ -5,5 +5,5 @@ export const CALL_METER = Symbol('CALL_METER');
 
 export interface CallMeterPort {
   record(call: MeteredCall): Promise<void>;
-  forget(workspaceId: WorkspaceId): Promise<void>;
+  deleteForWorkspace(workspaceId: WorkspaceId): Promise<void>;
 }

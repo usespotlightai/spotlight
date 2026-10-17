@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import type {
   StationConfigPullRequest,
   StationConfigPullRequestsPort,
@@ -8,7 +8,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 export class NoteConfigPullRequestOpened {
   constructor(
     private readonly pullRequests: StationConfigPullRequestsPort,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -16,9 +16,9 @@ export class NoteConfigPullRequestOpened {
     return this.transaction.inTransaction(async () => {
       const { workspaceId, teamId } = pullRequest;
 
-      await this.forgotten.lockForgetting(workspaceId, null, teamId);
+      await this.deletions.lockDeletion(workspaceId, null, teamId);
 
-      if (await this.forgotten.forgot(workspaceId, null, teamId)) {
+      if (await this.deletions.isDeleted(workspaceId, null, teamId)) {
         return;
       }
 

@@ -37,11 +37,11 @@ const MAX_BODY = 1_000;
 const MAX_REASON = 500;
 const TITLE_LENGTH = 60;
 
-let minted = 0;
+let idCount = 0;
 
-const mint = (prefix: string): string => {
-  minted += 1;
-  return `${prefix}_${Date.now().toString(36)}${minted}`;
+const nextId = (prefix: string): string => {
+  idCount += 1;
+  return `${prefix}_${Date.now().toString(36)}${idCount}`;
 };
 
 const now = (): string => new Date().toISOString();
@@ -156,7 +156,7 @@ const placedFrom = (
 };
 
 const writtenBySam = (placed: Placed): MemoryRecord => ({
-  id: mint('memory'),
+  id: nextId('memory'),
   handle: nextHandle(),
   source: 'person',
   status: 'active',
@@ -314,7 +314,7 @@ const memoryHandlers = [
           .find((memory) => memory.handle === asked.supersedes)?.id ?? null)
       : null;
     const remembered: ProposedMemoryResponseDto = {
-      id: mint('memory'),
+      id: nextId('memory'),
       kind: asked.kind,
       body: asked.body.trim(),
       source: 'run',
@@ -466,7 +466,7 @@ const chatHandlers = [
     const at = now();
     const record: ChatRecord = {
       chat: {
-        id: mint('chat'),
+        id: nextId('chat'),
         title: titleOf(asked.body, improving, traces),
         harness: asked.harness,
         model: asked.model ?? null,
@@ -540,7 +540,7 @@ const chatHandlers = [
         return problem(409, 'Sorry, that proposal was already decided.');
       }
 
-      const taskId = mint('task');
+      const taskId = nextId('task');
       world().tasks[teamId] = [
         ...(world().tasks[teamId] ?? []),
         {

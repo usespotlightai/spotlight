@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
@@ -21,7 +21,7 @@ export class NoteRunMemories {
   constructor(
     private readonly work: WorkPort,
     private readonly records: RunRecordRepository,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -36,11 +36,11 @@ export class NoteRunMemories {
     const teamId = run ? TeamId.of(run.teamId) : null;
 
     await this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
+      await this.deletions.lockDeletion(workspaceId, taskId, teamId);
       const runId = RunId.of(heard.runId);
       const existing = await this.records.of(runId);
 
-      if (await this.forgotten.forgot(workspaceId, taskId, teamId)) {
+      if (await this.deletions.isDeleted(workspaceId, taskId, teamId)) {
         if (existing) {
           await this.records.removeForTask(taskId);
         }

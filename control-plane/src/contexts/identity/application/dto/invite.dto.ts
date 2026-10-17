@@ -5,7 +5,7 @@ import type { InvitableRoleName } from '@identity/domain/value-objects/invite-te
 
 export type InviteOutcome =
   | 'invited'
-  | 'sent-again'
+  | 'resent'
   | 'already-a-member'
   | 'not-sent';
 
@@ -28,7 +28,7 @@ export interface WorkspaceInviteDto {
   readonly expiresAt: string;
 }
 
-export interface InviteOfferDto {
+export interface InvitePreviewDto {
   readonly email: string;
   readonly workspaceName: string;
   readonly invitedBy: string | null;

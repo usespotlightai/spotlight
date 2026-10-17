@@ -4,7 +4,7 @@ import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-de
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
-import { WorkspaceRunnersAlreadyDeclaredError } from '@runners/domain/exceptions/workspace-runners-already-declared.error';
+import { WorkspaceRunnersAlreadyExistError } from '@runners/domain/exceptions/workspace-runners-already-exist.error';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
 import {
@@ -73,7 +73,7 @@ export class CreateWorkspaceRunnersHandler
       try {
         return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
-            const declared = WorkspaceRunners.declare({
+            const created = WorkspaceRunners.create({
               id: WorkspaceRunnersId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               by: Attribution.of(command.actor, permissions.workspaceId),
@@ -81,13 +81,13 @@ export class CreateWorkspaceRunnersHandler
               pools: compiled.pools,
             });
 
-            await this.declarations.add(declared);
+            await this.declarations.add(created);
 
-            return declared.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof WorkspaceRunnersAlreadyDeclaredError) {
+        if (error instanceof WorkspaceRunnersAlreadyExistError) {
           return { outcome: 'taken', address: permissions.slug };
         }
 

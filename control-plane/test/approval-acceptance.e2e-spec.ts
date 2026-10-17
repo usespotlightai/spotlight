@@ -24,7 +24,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const MINUTE = 60_000;
 const NOW = Date.now();
@@ -57,7 +57,7 @@ const RUNS = {
 type RunName = keyof typeof RUNS;
 
 let app: INestApplication;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 const runIds = new Map<RunName, RunId>();
 
 const runOf = (name: RunName): RunId => {
@@ -78,7 +78,7 @@ const insights = (tab: string, query = 'period=7d') =>
 beforeAll(async () => {
   app = await openApp();
   const db: DrizzleDatabase = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `approvals-${randomUUID().slice(0, 8)}`,

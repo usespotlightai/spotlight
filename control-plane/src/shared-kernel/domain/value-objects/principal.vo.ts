@@ -26,7 +26,7 @@ export class TokenPrincipal {
     readonly workspaceId: WorkspaceId,
     readonly scopes: TokenScopes,
     readonly userId: UserId,
-    readonly mintedThrough: WorkspaceTokenTrustId | null,
+    readonly issuedByTrustId: WorkspaceTokenTrustId | null,
   ) {}
 
   static of(input: {
@@ -34,14 +34,14 @@ export class TokenPrincipal {
     workspaceId: WorkspaceId;
     scopes: TokenScopes;
     issuedBy: UserId;
-    mintedThrough?: WorkspaceTokenTrustId | null;
+    issuedByTrustId?: WorkspaceTokenTrustId | null;
   }): TokenPrincipal {
     return new TokenPrincipal(
       input.tokenId,
       input.workspaceId,
       input.scopes,
       input.issuedBy,
-      input.mintedThrough ?? null,
+      input.issuedByTrustId ?? null,
     );
   }
 

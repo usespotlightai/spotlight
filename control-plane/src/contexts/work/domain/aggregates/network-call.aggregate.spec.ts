@@ -132,7 +132,7 @@ describe('NetworkCall', () => {
     ).toThrow(NotThisHostsCallError);
   });
 
-  it('forgets what it sent once answered, keeping where it went', () => {
+  it('discards what it sent once answered, keeping where it went', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
       .answerWith(HOST, OK, later(2_000));
@@ -143,7 +143,7 @@ describe('NetworkCall', () => {
     expect(answered.request.url).toBe('http://audit.internal:8080/hooks');
   });
 
-  it('forgets what it would have sent once it expires, and is never claimed again', () => {
+  it('discards what it would have sent once it expires, and is never claimed again', () => {
     const expired = queued().expire(later(15_000));
 
     expect(expired.progress).toEqual({ kind: 'expired', at: later(15_000) });
@@ -155,7 +155,7 @@ describe('NetworkCall', () => {
     );
   });
 
-  it('is cancelled by whoever waited for it, forgetting what it would have sent', () => {
+  it('is cancelled by whoever waited for it, discarding what it would have sent', () => {
     const cancelled = queued()
       .claimedBy(HOST, later(1_000))
       .cancel(later(5_000));
@@ -171,22 +171,22 @@ describe('NetworkCall', () => {
     );
   });
 
-  it('is kept a week after it completes, then forgotten', () => {
+  it('is kept a week after it completes, then purged', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
       .answerWith(HOST, OK, later(2_000));
     const week = 7 * 24 * 60 * 60_000;
 
-    expect(answered.isForgettableAt(later(2_000 + week - 1))).toBe(false);
-    expect(() => answered.forgotten(later(2_000 + week - 1))).toThrow(
+    expect(answered.isPastRetention(later(2_000 + week - 1))).toBe(false);
+    expect(() => answered.purge(later(2_000 + week - 1))).toThrow(
       InvalidNetworkCallTransitionError,
     );
-    expect(answered.forgotten(later(2_000 + week)).isDiscarded).toBe(true);
-    expect(NetworkCall.completedForgettablyBy(later(week))).toEqual(NOW);
+    expect(answered.purge(later(2_000 + week)).isDiscarded).toBe(true);
+    expect(NetworkCall.retentionCutoff(later(week))).toEqual(NOW);
   });
 
-  it('is never forgotten while it waits', () => {
-    expect(queued().isForgettableAt(later(30 * 24 * 60 * 60_000))).toBe(false);
+  it('is never purged while it waits', () => {
+    expect(queued().isPastRetention(later(30 * 24 * 60 * 60_000))).toBe(false);
   });
 
   it('stays answered when cancelled after its answer came', () => {

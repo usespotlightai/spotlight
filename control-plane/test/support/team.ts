@@ -99,7 +99,7 @@ export const listSetUp = async (
   return { stationId: StationId.of(stationId), line, list };
 };
 
-export const openTeam = async (
+export const createTeam = async (
   db: DrizzleDatabase,
   tasks: DrizzleTaskRepository,
   slug: string,

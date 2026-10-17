@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
-import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { eq, inArray } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +12,7 @@ import {
   app,
   BUILD,
   bearing,
+  createSet,
   DELIVERY,
   db,
   delivered,
@@ -24,7 +25,6 @@ import {
   leasedSearchRun,
   liveBlock,
   openSearchFlow,
-  openSet,
   owner,
   POLISH,
   proposing,
@@ -43,7 +43,7 @@ openSearchFlow();
 
 describe('a search for a better station config, when it stalls or loses its station', () => {
   it('looks into why once two iterations in a row came to nothing, takes a cause for each failing searched task and none for a held-out one, ends stalled and tells who started it', async () => {
-    const setId = await openSet('Stalling', fiveTasks);
+    const setId = await createSet('Stalling', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 4,
       perIteration: 1,
@@ -220,7 +220,7 @@ describe('a search for a better station config, when it stalls or loses its stat
   }, 120_000);
 
   it('searches on once looking into why it stalled finds a cause the config can fix, telling no one', async () => {
-    const setId = await openSet('Stalling again', fiveTasks);
+    const setId = await createSet('Stalling again', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 4,
       perIteration: 1,
@@ -291,7 +291,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     for (let each = 0; each < 5; each += 1) {
       originals.push(await anOriginal(POLISH));
     }
-    const setId = await openSet('Polished', originals, POLISH);
+    const setId = await createSet('Polished', originals, POLISH);
     const { id, seedReplayId } = await startSearch(
       setId,
       { iterations: 1, perIteration: 1, ceiling: 20 },
@@ -323,8 +323,8 @@ describe('a search for a better station config, when it stalls or loses its stat
     expect(await replayEnded(seedReplayId)).not.toBe('running');
   }, 120_000);
 
-  it('is abandoned with its team, cancelling its active agent run', async () => {
-    const setId = await openSet('Disbanded', fiveTasks);
+  it('is deleted with its team, cancelling its active agent run', async () => {
+    const setId = await createSet('Deleted', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 2,
       perIteration: 1,
@@ -341,7 +341,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     const [agentRun] = await searchRunsOf(id);
 
     await delivered({
-      kind: TEAM_DISBANDED,
+      kind: TEAM_DELETED,
       workspaceId: team.workspaceId.value,
       teamId: team.teamId.value,
       key: 'core',

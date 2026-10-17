@@ -51,7 +51,7 @@ export class DeleteTeamHandler
 
       await this.transaction.inTransaction(() =>
         this.teams.save(
-          existing.disband(
+          existing.delete(
             remaining,
             Attribution.of(command.actor, existing.workspaceId),
           ),

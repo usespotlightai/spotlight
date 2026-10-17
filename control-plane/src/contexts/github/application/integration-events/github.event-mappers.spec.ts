@@ -1,6 +1,6 @@
 import { GITHUB_EVENT_MAPPERS } from '@github/application/integration-events/github.event-mappers';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
-import { PullRequestForgotten } from '@github/domain/events/pull-request-forgotten.event';
+import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
@@ -213,10 +213,10 @@ describe('GITHUB_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a forgotten pull request with when GitHub last changed it', () => {
+  it('publishes a purged pull request with when GitHub last changed it', () => {
     expect(
       published(
-        new PullRequestForgotten(
+        new PullRequestPurged(
           WorkspaceId.of('ws_1'),
           'https://github.com/acme/api/pull/7',
           new Date('2026-03-01T10:00:00Z'),
@@ -224,7 +224,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'github.pull-request-forgotten.v1',
+        kind: 'github.pull-request-purged.v1',
         workspaceId: 'ws_1',
         pullRequest: 'https://github.com/acme/api/pull/7',
         updatedAt: '2026-03-01T10:00:00.000Z',

@@ -41,7 +41,7 @@ import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -85,7 +85,7 @@ const running = (
   const logged: unknown[] = [];
   const saved: Runner[] = [];
   const called: ProvisionCall[] = [];
-  let minted = 0;
+  let issued = 0;
   const service = new Runners(
     {
       findForStart: vi.fn(async () => pool),
@@ -133,12 +133,12 @@ const running = (
       platformEgress: given.platform ?? null,
     },
     {
-      mint: () =>
-        minted++ % 2 === 0
+      issue: () =>
+        issued++ % 2 === 0
           ? { token: 'one-run-token', hash: 'c'.repeat(64) }
           : { token: 'egress-token', hash: 'e'.repeat(64) },
       hash: () => 'c'.repeat(64),
-    } as TokenMintPort,
+    } as TokenIssuer,
     { generate: () => 'pooled_9' } as IdGeneratorPort,
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
@@ -333,7 +333,7 @@ describe('Runners', () => {
       expect(added).toHaveLength(1);
     });
 
-    it('starts none for a trust that is gone or withdrawn', async () => {
+    it('starts none for a trust that is gone or deleted', async () => {
       await expect(
         running(null, {
           trust: null,
@@ -342,7 +342,7 @@ describe('Runners', () => {
       ).resolves.toEqual({ outcome: 'gone' });
       await expect(
         running(null, {
-          trust: aTrust().withdraw(attributedIn()),
+          trust: aTrust().delete(attributedIn()),
           host: aHost({ through: aTrust() }),
         }).service.start(THROUGH_TRUST, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'gone' });

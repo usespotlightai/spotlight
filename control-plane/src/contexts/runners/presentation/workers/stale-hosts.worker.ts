@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import type { PruneStaleHosts } from '@runners/application/services/prune-stale-hosts.service';
+import type { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
 const EVERY_MS = 10 * 60_000;
@@ -11,7 +11,7 @@ export class StaleHostsWorker implements OnModuleDestroy {
   #stopped = false;
 
   constructor(
-    private readonly pruning: PruneStaleHosts,
+    private readonly purging: PurgeStaleHosts,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -26,16 +26,16 @@ export class StaleHostsWorker implements OnModuleDestroy {
       return;
     }
 
-    this.#ticking = this.prune();
+    this.#ticking = this.purge();
     await this.#ticking;
     this.#ticking = null;
   }
 
-  private async prune(): Promise<void> {
+  private async purge(): Promise<void> {
     try {
-      await this.pruning.pruneStale();
+      await this.purging.purgeStale();
     } catch (error) {
-      this.logger.error({ err: error }, this.pruning.name);
+      this.logger.error({ err: error }, this.purging.name);
     }
   }
 }

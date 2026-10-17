@@ -52,9 +52,9 @@ let memories: DrizzleMemoryRepository;
 let rejections: DrizzleRejectedMemories;
 let next = 0;
 
-const opened = () => {
+const newDraft = () => {
   next += 1;
-  return MemoryDraft.open({
+  return MemoryDraft.create({
     id: MemoryDraftId.of(`draft_${next}`),
     taskId: TaskId.of(`task_${next}`),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -113,7 +113,7 @@ afterAll(async () => {
 
 describe('storing a task’s memory draft', () => {
   it('keeps what a run proposed, where it applies and what it rests on', async () => {
-    const draft = opened().asked(FIRST, NOW);
+    const draft = newDraft().asked(FIRST, NOW);
     await drafts.add(draft);
 
     await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
@@ -140,7 +140,7 @@ describe('storing a task’s memory draft', () => {
   });
 
   it('replaces what an earlier run proposed with what the latest proposed', async () => {
-    const draft = opened().asked(FIRST, NOW);
+    const draft = newDraft().asked(FIRST, NOW);
     await drafts.add(draft);
     await drafts.save(
       drafting(await stored(draft), FIRST, [
@@ -168,7 +168,7 @@ describe('storing a task’s memory draft', () => {
   });
 
   it('keeps a failure that allows no other attempt, and the draft it ended', async () => {
-    const draft = opened().asked(FIRST, NOW);
+    const draft = newDraft().asked(FIRST, NOW);
     await drafts.add(draft);
     const leased = (await stored(draft)).leaseJob(NOW);
     await drafts.save(leased);
@@ -186,7 +186,7 @@ describe('storing a task’s memory draft', () => {
   });
 
   it('does not write over a draft that changed since it was read', async () => {
-    const draft = opened().asked(FIRST, NOW);
+    const draft = newDraft().asked(FIRST, NOW);
     await drafts.add(draft);
     const read = await stored(draft);
     await drafts.save(read.leaseJob(NOW));
@@ -198,8 +198,8 @@ describe('storing a task’s memory draft', () => {
 
   it('hands out the oldest draft that is due, and none that is waiting', async () => {
     await database.db.execute(sql`delete from memory_draft`);
-    const waiting = opened().asked(FIRST, NOW);
-    const due = opened().asked(SECOND, LATER);
+    const waiting = newDraft().asked(FIRST, NOW);
+    const due = newDraft().asked(SECOND, LATER);
     await drafts.add(waiting);
     await drafts.add(due);
     await drafts.save(
@@ -217,8 +217,8 @@ describe('storing a task’s memory draft', () => {
     expect(handed?.id.equals(due.id)).toBe(true);
   });
 
-  it('forgets the draft of a deleted task, and its proposals with it', async () => {
-    const draft = opened().asked(FIRST, NOW);
+  it('deletes the draft of a deleted task, and its proposals with it', async () => {
+    const draft = newDraft().asked(FIRST, NOW);
     await drafts.add(draft);
     await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
 
@@ -278,7 +278,7 @@ describe('reading what the team already knows', () => {
   });
 
   it('reads the proposals people turned down lately, in reach', async () => {
-    const draft = opened().asked(FIRST, NOW);
+    const draft = newDraft().asked(FIRST, NOW);
     await drafts.add(draft);
     await drafts.save(
       drafting(await stored(draft), FIRST, [

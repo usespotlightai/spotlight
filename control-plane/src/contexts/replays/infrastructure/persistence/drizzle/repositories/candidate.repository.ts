@@ -184,7 +184,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
   }
 
   async save(saved: Candidate): Promise<void> {
-    if (!saved.isAbandoned) {
+    if (!saved.isDeleted) {
       return;
     }
 

@@ -45,7 +45,7 @@ const reading = (checked: string | null, visible = true) => {
       { attempt: 2, connection: connection('registry.npmjs.org') },
     ],
     errorsIn: async () => [],
-    forgetBefore: async () => 0,
+    purgeBefore: async () => 0,
   } satisfies RunConnectionsPort;
 
   return {

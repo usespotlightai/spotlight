@@ -36,7 +36,7 @@ const setUp = async () => {
   );
 
   await secrets.save(
-    Secret.set(definition(), {
+    Secret.create(definition(), {
       id: SecretId.of('secret_linear'),
       workspaceId: WORKSPACE,
       by: BY,
@@ -44,7 +44,7 @@ const setUp = async () => {
     }),
   );
   await secrets.save(
-    Secret.set(
+    Secret.create(
       definition({
         name: 'SENTRY_TOKEN',
         source: SecretSource.awsSecretsManager({ secretId: 'sentry-token' }),
@@ -108,7 +108,7 @@ describe('SecretInjection', () => {
     it('rejects two secrets injected in one header for one host', async () => {
       const { injection, secrets } = await setUp();
       await secrets.save(
-        Secret.set(definition({ name: 'LINEAR_OTHER' }), {
+        Secret.create(definition({ name: 'LINEAR_OTHER' }), {
           id: SecretId.of('secret_other'),
           workspaceId: WORKSPACE,
           by: BY,
@@ -168,7 +168,7 @@ describe('SecretInjection', () => {
       const existing = (await secrets.withId(
         SecretId.of('secret_linear'),
       )) as Secret;
-      const rotated = existing.redefinedAs(
+      const rotated = existing.update(
         definition({ value: 'lin_api_2', valueVersion: 2 }),
         BY,
         NOW,
@@ -418,7 +418,7 @@ describe('SecretInjection', () => {
         SecretId.of('secret_linear'),
       )) as Secret;
       await secrets.save(
-        existing.redefinedAs(
+        existing.update(
           definition({ bindings: [{ host: 'uploads.linear.app' }] }),
           BY,
           NOW,

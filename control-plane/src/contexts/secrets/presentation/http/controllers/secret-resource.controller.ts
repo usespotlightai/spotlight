@@ -122,7 +122,7 @@ export class SecretResourceController {
 
   @SecretResource.Create(
     'workspaces/:workspaceId/secrets',
-    'Set a secret in a workspace; only workspace admins and tokens with the secrets scope may',
+    'Create a secret in a workspace; only workspace admins and tokens with the secrets scope may',
   )
   @WORKSPACE
   @DEFINITION

@@ -13,7 +13,7 @@ import { DecisionsDiscarded } from '@change-review/domain/events/decisions-disca
 import { DecisionsMerged } from '@change-review/domain/events/decisions-merged.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
-import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
+import { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
 import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
 import { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
@@ -67,7 +67,7 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   ChangeStackCompleted,
   ChangeStackReady,
   CheckReservationDropped,
-  LeasedCheckForgotten,
+  LeasedCheckDeleted,
   LayersFailedCheck,
   ReviewCommentNotPosted,
   ReviewCommentPlaced,

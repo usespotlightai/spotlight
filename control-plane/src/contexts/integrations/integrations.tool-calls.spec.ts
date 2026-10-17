@@ -300,7 +300,7 @@ describe('IntegrationToolCalls', () => {
       const { comment, fetch } = injectingAction({});
 
       await expect(comment()).rejects.toThrow(
-        'Secret LINEAR_API_KEY not found. Please define it first.',
+        'Secret LINEAR_API_KEY not found. Please create it first.',
       );
       expect(fetch).not.toHaveBeenCalled();
     });

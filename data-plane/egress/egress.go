@@ -102,7 +102,7 @@ func run() error {
 	}
 
 	injector := inject.From(ctx, fetched, config.HarnessKeys, inject.Limits{Hosts: allowed, SecretAllow: config.SecretAllow}, key, externalSecretReader(ctx), log)
-	defer injector.Forget()
+	defer injector.Wipe()
 
 	if err := injector.ForControlPlane(fetched.SpotlightAPI, controlPlane, fetched.RunID, key); err != nil {
 		log.Warn("could not keep the run's Spotlight token", "error", err)

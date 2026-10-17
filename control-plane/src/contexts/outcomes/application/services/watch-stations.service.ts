@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import {
@@ -28,10 +28,10 @@ export interface WatchRepositories {
   readonly records: RunRecordRepository;
   readonly deliveries: TaskDeliveryRepository;
   readonly watches: StationWatchRepository;
-  readonly forgotten: ForgottenPort;
+  readonly deletions: DeletionsPort;
 }
 
-export interface LineRedefined {
+export interface LineChanged {
   readonly lineId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -95,7 +95,7 @@ export class WatchStations {
     }
   }
 
-  async lineRedefined(event: LineRedefined): Promise<void> {
+  async lineChanged(event: LineChanged): Promise<void> {
     for (const stationId of event.stationIds) {
       await this.watch({
         workspaceId: WorkspaceId.of(event.workspaceId),
@@ -111,13 +111,11 @@ export class WatchStations {
     const rules = (await this.work.alertsAt(station.stationId)) ?? [];
 
     await this.transaction.inTransaction(async () => {
-      await this.repositories.forgotten.lockForgetting(
-        workspaceId,
-        null,
-        teamId,
-      );
+      await this.repositories.deletions.lockDeletion(workspaceId, null, teamId);
 
-      if (await this.repositories.forgotten.forgot(workspaceId, null, teamId)) {
+      if (
+        await this.repositories.deletions.isDeleted(workspaceId, null, teamId)
+      ) {
         return;
       }
 
@@ -141,7 +139,7 @@ export class WatchStations {
       const deliveries = await this.repositories.deliveries.forTasks(
         records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
       );
-      const readings = await this.unforgotten(
+      const readings = await this.notDeleted(
         station,
         rules.map((rule) => ({
           rule,
@@ -163,7 +161,7 @@ export class WatchStations {
     });
   }
 
-  private async unforgotten(
+  private async notDeleted(
     station: WatchedStation,
     readings: readonly RuleReading[],
   ): Promise<readonly RuleReading[]> {
@@ -174,30 +172,30 @@ export class WatchStations {
         ),
       ),
     ].sort();
-    const forgotten = new Set<string>();
+    const deleted = new Set<string>();
 
     for (const task of tasks) {
       const taskId = TaskId.of(task);
 
-      await this.repositories.forgotten.lockForgetting(
+      await this.repositories.deletions.lockDeletion(
         station.workspaceId,
         taskId,
         station.teamId,
       );
 
       if (
-        await this.repositories.forgotten.forgot(
+        await this.repositories.deletions.isDeleted(
           station.workspaceId,
           taskId,
           station.teamId,
         )
       ) {
-        forgotten.add(task);
+        deleted.add(task);
       }
     }
 
     return readings.map((each) =>
-      each.reading && forgotten.has(each.reading.taskId.value)
+      each.reading && deleted.has(each.reading.taskId.value)
         ? { rule: each.rule, reading: null }
         : each,
     );

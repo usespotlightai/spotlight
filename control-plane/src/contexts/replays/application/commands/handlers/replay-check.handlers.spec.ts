@@ -138,7 +138,7 @@ class InMemoryChecks implements ReplayCheckRepository {
   };
 
   save = async (check: ReplayCheck) => {
-    if (check.isAbandoned) {
+    if (check.isDeleted) {
       this.stored.delete(check.id.value);
     } else {
       this.stored.set(check.id.value, check);
@@ -492,7 +492,7 @@ describe('StartReplayCheckHandler', () => {
     memory.sets.clear();
     memory.sets.set(
       'set_2',
-      ReplaySet.open({
+      ReplaySet.create({
         id: ReplaySetId.of('set_2'),
         station: STATION,
         name: ReplaySetName.of('Unguarded'),
@@ -730,7 +730,7 @@ describe('GuardChangesHandler', () => {
 
   it('rejects a second set guarding the same station', async () => {
     guarding();
-    const other = ReplaySet.open({
+    const other = ReplaySet.create({
       id: ReplaySetId.of('set_2'),
       station: STATION,
       name: ReplaySetName.of('Other'),

@@ -30,7 +30,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-replay-insights-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -90,7 +90,7 @@ const judge: JudgePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
@@ -195,15 +195,15 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
   return { taskId, runId };
 };
 
-const openSet = async (
+const createSet = async (
   name: string,
   originals: readonly Original[],
   stationId = BUILD,
 ): Promise<string> => {
-  const opened = await owner()
+  const created = await owner()
     .post(`${stationPath(stationId)}/replay-sets`, { name })
     .expect(201);
-  const setId = opened.body.id as string;
+  const setId = created.body.id as string;
 
   for (const each of originals) {
     await owner()
@@ -540,7 +540,7 @@ beforeAll(async () => {
       .useValue(judge),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `replay-insights-${randomUUID().slice(0, 8)}`,
@@ -696,7 +696,7 @@ interface Replayed {
 
 describe('replayed candidates beside live runs', () => {
   it('shows a searched candidate with the scores its search page shows, beside the baseline its replay page names', async () => {
-    const setId = await openSet('Replayed', fiveTasks);
+    const setId = await createSet('Replayed', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 1,
       perIteration: 1,
@@ -779,7 +779,7 @@ describe('replayed candidates beside live runs', () => {
   }, 120_000);
 
   it('shows a proposed candidate with the numbers its replay page shows', async () => {
-    const setId = await openSet('Proposed', fiveTasks);
+    const setId = await createSet('Proposed', fiveTasks);
     const created = await http()
       .post(`/api/resources/lines/${DELIVERY}/stations/build/replay-candidates`)
       .set(TEST_USER_HEADER, team.owner.value)
@@ -918,7 +918,7 @@ describe('replayed candidates beside live runs', () => {
     await db
       .insert(schema.teamMember)
       .values({ teamId: team.teamId.value, userId: member });
-    const others = await openTeam(
+    const others = await createTeam(
       db,
       app.get(DrizzleTaskRepository),
       `replay-others-${randomUUID().slice(0, 8)}`,

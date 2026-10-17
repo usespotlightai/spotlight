@@ -94,7 +94,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     return Promise.all(rows.map((row) => this.rehydrate(row)));
   }
 
-  async forgetTeam(teamId: TeamId): Promise<void> {
+  async deleteForTeam(teamId: TeamId): Promise<void> {
     await this.context.db
       .delete(hostConnection)
       .where(eq(hostConnection.teamId, teamId.value));

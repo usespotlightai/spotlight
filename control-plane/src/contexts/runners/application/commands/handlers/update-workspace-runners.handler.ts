@@ -58,7 +58,7 @@ export class UpdateWorkspaceRunnersHandler
 
       await this.transaction.inTransaction(() =>
         this.declarations.save(
-          existing.redeclaredAs(
+          existing.update(
             compiled,
             Attribution.of(command.actor, permissions.workspaceId),
           ),

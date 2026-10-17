@@ -10,8 +10,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
-import { LineRedefined } from '@work/domain/events/line-redefined.event';
-import { LineRetired } from '@work/domain/events/line-retired.event';
+import { LineDeleted } from '@work/domain/events/line-deleted.event';
+import { LineUpdated } from '@work/domain/events/line-updated.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { ReplayDigested } from '@work/domain/events/replay-digested.event';
@@ -64,14 +64,14 @@ const SUBJECT = RunSubject.task(
 );
 
 describe('WORK_EVENT_MAPPERS', () => {
-  it('publishes which stations a redefined or retired line had and has', () => {
+  it('publishes which stations an updated or deleted line had and has', () => {
     const change = ConfigurationChange.updated(
       { resource: 'line', id: 'line_1', key: 'default' },
       attributedIn(),
     );
     const stations = [StationId.of('station_1'), StationId.of('station_2')];
-    const redefined = {
-      kind: 'work.line-redefined.v1',
+    const lineChanged = {
+      kind: 'work.line-changed.v1',
       lineId: 'line_1',
       workspaceId: 'ws_1',
       teamId: 'team_1',
@@ -80,7 +80,7 @@ describe('WORK_EVENT_MAPPERS', () => {
 
     expect(
       published(
-        new LineRedefined(
+        new LineUpdated(
           LineId.of('line_1'),
           WORKSPACE,
           TeamId.of('team_1'),
@@ -89,10 +89,10 @@ describe('WORK_EVENT_MAPPERS', () => {
           stations,
         ),
       ),
-    ).toEqual([redefined]);
+    ).toEqual([lineChanged]);
     expect(
       published(
-        new LineRetired(
+        new LineDeleted(
           LineId.of('line_1'),
           WORKSPACE,
           TeamId.of('team_1'),
@@ -101,7 +101,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           stations,
         ),
       ),
-    ).toEqual([redefined]);
+    ).toEqual([lineChanged]);
   });
 
   it('publishes a task opening, on which team and line, by whom and when', () => {

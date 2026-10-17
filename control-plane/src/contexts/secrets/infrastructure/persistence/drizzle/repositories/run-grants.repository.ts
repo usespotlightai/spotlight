@@ -63,7 +63,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   async save(grants: RunGrants): Promise<void> {
     await this.context.inTransaction(async () => {
       if (grants.isDiscarded) {
-        await this.forgotten(grants);
+        await this.deleted(grants);
       } else {
         await this.stored(grants);
         await this.grantsStored(grants);
@@ -106,8 +106,8 @@ export class DrizzleRunGrants implements RunGrantsRepository {
     );
   }
 
-  private async forgotten(grants: RunGrants): Promise<void> {
-    const forgotten = await this.context.db
+  private async deleted(grants: RunGrants): Promise<void> {
+    const rows = await this.context.db
       .delete(runGrants)
       .where(
         and(
@@ -117,7 +117,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
       )
       .returning({ runId: runGrants.runId });
 
-    if (forgotten.length === 0) {
+    if (rows.length === 0) {
       throw new RunGrantsVersionConflictError(grants.runId.value);
     }
   }

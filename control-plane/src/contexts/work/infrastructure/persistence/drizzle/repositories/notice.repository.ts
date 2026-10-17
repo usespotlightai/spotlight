@@ -99,7 +99,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     return row ? toNotice(row) : null;
   }
 
-  async forgetTeam(teamId: TeamId): Promise<void> {
+  async deleteForTeam(teamId: TeamId): Promise<void> {
     await this.context.db.delete(notice).where(eq(notice.teamId, teamId.value));
   }
 }

@@ -1,6 +1,6 @@
-import { WorkspaceRunnersDeclared } from '@runners/domain/events/workspace-runners-declared.event';
-import { WorkspaceRunnersDropped } from '@runners/domain/events/workspace-runners-dropped.event';
-import { WorkspaceRunnersRedeclared } from '@runners/domain/events/workspace-runners-redeclared.event';
+import { WorkspaceRunnersCreated } from '@runners/domain/events/workspace-runners-created.event';
+import { WorkspaceRunnersDeleted } from '@runners/domain/events/workspace-runners-deleted.event';
+import { WorkspaceRunnersUpdated } from '@runners/domain/events/workspace-runners-updated.event';
 import { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
 import { WorkspaceRunnersVersionConflictError } from '@runners/domain/exceptions/workspace-runners-version-conflict.error';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
@@ -44,12 +44,12 @@ export class WorkspaceRunners extends EventRecorder {
     readonly trusts: readonly TrustKey[],
     readonly pools: readonly PoolKey[],
     readonly version: number,
-    readonly isDropped: boolean,
+    readonly isDeleted: boolean,
   ) {
     super();
   }
 
-  static declare(
+  static create(
     input: Declaration & {
       id: WorkspaceRunnersId;
       workspaceId: WorkspaceId;
@@ -58,7 +58,7 @@ export class WorkspaceRunners extends EventRecorder {
   ): WorkspaceRunners {
     rejectRepeats(input);
 
-    const declared = new WorkspaceRunners(
+    const created = new WorkspaceRunners(
       input.id,
       input.workspaceId,
       input.trusts,
@@ -67,15 +67,15 @@ export class WorkspaceRunners extends EventRecorder {
       false,
     );
 
-    declared.record(
-      new WorkspaceRunnersDeclared(
+    created.record(
+      new WorkspaceRunnersCreated(
         input.id,
         input.workspaceId,
-        ConfigurationChange.created(declared.whatChanged, input.by),
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return declared;
+    return created;
   }
 
   static rehydrate(
@@ -108,40 +108,40 @@ export class WorkspaceRunners extends EventRecorder {
     }
   }
 
-  redeclaredAs(declaration: Declaration, by: Attribution): WorkspaceRunners {
+  update(declaration: Declaration, by: Attribution): WorkspaceRunners {
     this.assertNotDeleted();
     rejectRepeats(declaration);
 
-    const redeclared = this.with({
+    const updated = this.with({
       trusts: declaration.trusts,
       pools: declaration.pools,
     });
 
-    redeclared.record(
-      new WorkspaceRunnersRedeclared(
+    updated.record(
+      new WorkspaceRunnersUpdated(
         this.id,
         this.workspaceId,
         ConfigurationChange.updated(this.whatChanged, by),
       ),
     );
 
-    return redeclared;
+    return updated;
   }
 
-  drop(by: Attribution): WorkspaceRunners {
+  delete(by: Attribution): WorkspaceRunners {
     this.assertNotDeleted();
 
-    const dropped = this.with({ dropped: true });
+    const deleted = this.with({ deleted: true });
 
-    dropped.record(
-      new WorkspaceRunnersDropped(
+    deleted.record(
+      new WorkspaceRunnersDeleted(
         this.id,
         this.workspaceId,
         ConfigurationChange.deleted(this.whatChanged, by),
       ),
     );
 
-    return dropped;
+    return deleted;
   }
 
   private get whatChanged() {
@@ -153,10 +153,10 @@ export class WorkspaceRunners extends EventRecorder {
   }
 
   private assertNotDeleted(): void {
-    if (this.isDropped) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'workspace runners',
-        'were changed after they were dropped',
+        'were changed after they were deleted',
       );
     }
   }
@@ -164,7 +164,7 @@ export class WorkspaceRunners extends EventRecorder {
   private with(part: {
     trusts?: readonly TrustKey[];
     pools?: readonly PoolKey[];
-    dropped?: boolean;
+    deleted?: boolean;
   }): WorkspaceRunners {
     const next = new WorkspaceRunners(
       this.id,
@@ -172,7 +172,7 @@ export class WorkspaceRunners extends EventRecorder {
       part.trusts ?? this.trusts,
       part.pools ?? this.pools,
       this.version,
-      part.dropped ?? this.isDropped,
+      part.deleted ?? this.isDeleted,
     );
 
     next.inheritEvents(this);

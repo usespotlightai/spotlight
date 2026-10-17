@@ -14,7 +14,7 @@ import { useCreateWorkspace } from '@/hooks/api/useCreateWorkspace';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { inboxPath } from '@/lib/inbox';
-import { markOpenedHere } from '@/lib/provisioning';
+import { markCreatedHere } from '@/lib/provisioning';
 import { sanitizeSlug, slugify } from '@/lib/slug';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 
@@ -62,7 +62,7 @@ export function CreateWorkspace() {
       { name: name.trim(), slug: slugify(slug), teamName: teamName.trim() },
       {
         onSuccess: (workspace) => {
-          markOpenedHere(workspace.slug);
+          markCreatedHere(workspace.slug);
           void navigate(inboxPath(workspace.slug), { replace: true });
         },
       },

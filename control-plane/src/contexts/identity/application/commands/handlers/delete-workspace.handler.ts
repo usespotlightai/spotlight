@@ -54,14 +54,14 @@ export class DeleteWorkspaceHandler
         const teams = await this.resources.teamKeysIn(id);
         const tokens = await this.resources.tokenNamesIn(id);
         const trusts = await this.resources.tokenTrustKeysIn(id);
-        const minting = await this.resources.mintingTrustKeysIn(id);
+        const issuing = await this.resources.issuingTrustKeysIn(id);
 
         await this.workspaces.save(
-          existing.close(
+          existing.delete(
             teams.map((each) => TeamKey.of(each)),
             tokens.map((each) => TokenName.of(each)),
             trusts.map((each) => TokenTrustKey.of(each)),
-            minting.map((each) => TokenTrustKey.of(each)),
+            issuing.map((each) => TokenTrustKey.of(each)),
             remaining,
             Attribution.of(command.actor, id),
           ),

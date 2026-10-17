@@ -10,6 +10,7 @@ import {
   CONFIG,
   CONFIG_FILE,
   CONFIG_LINE,
+  createSet,
   drained,
   endedSearchRun,
   fiveTasks,
@@ -18,7 +19,6 @@ import {
   leasedSearchRun,
   liveBlock,
   openSearchFlow,
-  openSet,
   owner,
   PROMPT_FILE,
   proposing,
@@ -41,7 +41,7 @@ openSearchFlow();
 
 describe('a search for a better station config, ranking and picking its candidates', () => {
   it('looks for the same success at less cost on a set its live config saturates, ranking the cheapest candidate that succeeds as often first and leaving out a cheaper one that succeeds less', async () => {
-    const setId = await openSet('Saturated', tenTasks);
+    const setId = await createSet('Saturated', tenTasks);
     const live = (
       await owner()
         .post(`${teamPath()}/replay-sets/${setId}/replays`, {
@@ -165,7 +165,7 @@ describe('a search for a better station config, ranking and picking its candidat
   }, 120_000);
 
   it('opens one pull request in the line’s config repository for a picked candidate, records why one failed, and tries again when picked again', async () => {
-    const setId = await openSet('Picked', fiveTasks);
+    const setId = await createSet('Picked', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 1,
       perIteration: 1,

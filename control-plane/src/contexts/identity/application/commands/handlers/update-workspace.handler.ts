@@ -1,7 +1,9 @@
 import type { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
 import type { IdentityDefinitionsPort } from '@identity/application/ports/identity-definitions.port';
-import { IdentityProblems } from '@identity/application/rendering/identity-problems';
-import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
+import {
+  IdentityProblems,
+  WORKSPACE,
+} from '@identity/application/rendering/identity-problems';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import {
@@ -11,6 +13,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -51,7 +54,7 @@ export class UpdateWorkspaceHandler
 
       await this.transaction.inTransaction(() =>
         this.workspaces.save(
-          existing.redefinedAs(compiled, Attribution.of(command.actor, id)),
+          existing.update(compiled, Attribution.of(command.actor, id)),
         ),
       );
 
@@ -65,10 +68,10 @@ export class UpdateWorkspaceHandler
           : null;
       }
 
-      if (error instanceof WorkspaceSlugFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [IdentityProblems.slugFixed(error)],
+          problems: [IdentityProblems.immutableField(WORKSPACE, error)],
         };
       }
 

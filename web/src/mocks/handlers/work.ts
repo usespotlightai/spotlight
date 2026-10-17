@@ -34,11 +34,11 @@ const UPLOAD_PATH = '/attachment-uploads/:attachmentId';
 
 const uploads = perWorld((): Record<string, AttachmentResponseDto> => ({}));
 
-let minted = 0;
+let idCount = 0;
 
-const mint = (prefix: string) => {
-  minted += 1;
-  return `${prefix}_${Date.now().toString(36)}${minted}`;
+const nextId = (prefix: string) => {
+  idCount += 1;
+  return `${prefix}_${Date.now().toString(36)}${idCount}`;
 };
 
 const attachmentsOf = (ids: readonly string[] = []) =>
@@ -63,7 +63,7 @@ const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
   const now = new Date().toISOString();
   world().runs[taskId] = [
     {
-      id: mint('run'),
+      id: nextId('run'),
       state: 'queued',
       attempt: 1,
       exitCode: null,
@@ -108,7 +108,7 @@ export const workHandlers: RequestHandler[] = [
 
       const body = (await request.json()) as AddTaskRequestDto;
       const task: TaskResponseDto = {
-        id: mint('task'),
+        id: nextId('task'),
         stationId,
         revision: 0,
         title: body.title,
@@ -291,7 +291,7 @@ export const workHandlers: RequestHandler[] = [
     }
 
     const body = (await request.json()) as GrantAttachmentUploadRequestDto;
-    const id = mint('attachment');
+    const id = nextId('attachment');
     const contentType = body.contentType ?? 'application/octet-stream';
 
     uploads()[id] = { id, name: body.name, contentType, size: body.size };

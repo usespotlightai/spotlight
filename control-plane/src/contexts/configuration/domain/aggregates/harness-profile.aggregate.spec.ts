@@ -1,15 +1,15 @@
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
-import { HarnessProfileDefined } from '@configuration/domain/events/harness-profile-defined.event';
-import { HarnessProfileRedefined } from '@configuration/domain/events/harness-profile-redefined.event';
-import { HarnessProfileRetired } from '@configuration/domain/events/harness-profile-retired.event';
+import { HarnessProfileCreated } from '@configuration/domain/events/harness-profile-created.event';
+import { HarnessProfileDeleted } from '@configuration/domain/events/harness-profile-deleted.event';
+import { HarnessProfileUpdated } from '@configuration/domain/events/harness-profile-updated.event';
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
-import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -55,8 +55,8 @@ const NAMED = StationUses.of([
 ]);
 
 describe('HarnessProfile', () => {
-  it('is defined for a team under its key, and says so', () => {
-    const defined = HarnessProfile.define({
+  it('is created for a team under its key, and says so', () => {
+    const created = HarnessProfile.create({
       ...read(),
       id: ID,
       teamId: TEAM,
@@ -64,9 +64,9 @@ describe('HarnessProfile', () => {
       existingSecrets: [],
     });
 
-    expect(defined.isNew).toBe(true);
-    expect(defined.pullEvents()).toEqual([
-      new HarnessProfileDefined(
+    expect(created.isNew).toBe(true);
+    expect(created.pullEvents()).toEqual([
+      new HarnessProfileCreated(
         ID,
         TEAM,
         ProfileKey.of('careful'),
@@ -82,15 +82,15 @@ describe('HarnessProfile', () => {
   });
 
   it('takes new settings, and says so', () => {
-    const redefined = kept().redefinedAs(
+    const updated = kept().update(
       read('careful', ['execute(git push *)']),
       BY,
       [],
     );
 
-    expect(redefined.settings.permissions.ask).toEqual(['execute(git push *)']);
-    expect(redefined.pullEvents()).toEqual([
-      new HarnessProfileRedefined(
+    expect(updated.settings.permissions.ask).toEqual(['execute(git push *)']);
+    expect(updated.pullEvents()).toEqual([
+      new HarnessProfileUpdated(
         ID,
         TEAM,
         ProfileKey.of('careful'),
@@ -100,42 +100,42 @@ describe('HarnessProfile', () => {
   });
 
   it('keeps its key for its whole life', () => {
-    expect(() => kept().redefinedAs(read('bold'), BY, [])).toThrow(
-      HarnessProfileKeyFixedError,
+    expect(() => kept().update(read('bold'), BY, [])).toThrow(
+      ImmutableFieldError,
     );
   });
 
-  it('will not retire while a station names it', () => {
-    expect(() => kept().retire(NAMED, BY)).toThrow(HarnessProfileInUseError);
-    expect(() => kept().retire(NAMED, BY)).toThrow(/delivery\/implementation/);
+  it('will not be deleted while a station names it', () => {
+    expect(() => kept().delete(NAMED, BY)).toThrow(HarnessProfileInUseError);
+    expect(() => kept().delete(NAMED, BY)).toThrow(/delivery\/implementation/);
   });
 
-  it('retires when no station names it, and cannot change after', () => {
-    const retired = kept().retire(
+  it('is deleted when no station names it, and cannot change after', () => {
+    const deleted = kept().delete(
       StationUses.of([{ name: 'bold', by: 'delivery/implementation' }]),
       BY,
     );
 
-    expect(retired.isRetired).toBe(true);
-    expect(retired.pullEvents()).toEqual([
-      new HarnessProfileRetired(
+    expect(deleted.isDeleted).toBe(true);
+    expect(deleted.pullEvents()).toEqual([
+      new HarnessProfileDeleted(
         ID,
         TEAM,
         ProfileKey.of('careful'),
         ConfigurationChange.deleted(CAREFUL, BY),
       ),
     ]);
-    expect(() => retired.redefinedAs(read(), BY, [])).toThrow(
+    expect(() => deleted.update(read(), BY, [])).toThrow(
       InconsistentStateError,
     );
   });
 
-  it('is abandoned with its team, whoever still names it', () => {
-    const abandoned = kept().abandon(BY);
+  it('is deleted with its team, whoever still names it', () => {
+    const deleted = kept().cascadeDelete(BY);
 
-    expect(abandoned.isRetired).toBe(true);
-    expect(abandoned.pullEvents()).toEqual([
-      new HarnessProfileRetired(
+    expect(deleted.isDeleted).toBe(true);
+    expect(deleted.pullEvents()).toEqual([
+      new HarnessProfileDeleted(
         ID,
         TEAM,
         ProfileKey.of('careful'),
@@ -163,7 +163,7 @@ describe('HarnessProfile', () => {
     const existing = [SecretName.of('LINEAR_API_KEY')];
 
     expect(() =>
-      HarnessProfile.define({
+      HarnessProfile.create({
         ...referring,
         id: ID,
         teamId: TEAM,
@@ -171,12 +171,10 @@ describe('HarnessProfile', () => {
         existingSecrets: [],
       }),
     ).toThrow(MissingSecretsError);
-    expect(() => kept().redefinedAs(referring, BY, [])).toThrow(
-      MissingSecretsError,
-    );
+    expect(() => kept().update(referring, BY, [])).toThrow(MissingSecretsError);
     expect(
       kept()
-        .redefinedAs(referring, BY, existing)
+        .update(referring, BY, existing)
         .settings.uses(existing[0] as SecretName),
     ).toBe(true);
   });

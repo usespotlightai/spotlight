@@ -1,6 +1,6 @@
 import type { RunnerHostStartedServing } from '@runners/domain/events/runner-host-started-serving.event';
-import type { RunnerPoolDefined } from '@runners/domain/events/runner-pool-defined.event';
-import type { RunnerTrustDefined } from '@runners/domain/events/runner-trust-defined.event';
+import type { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
+import type { RunnerTrustCreated } from '@runners/domain/events/runner-trust-created.event';
 import {
   RUNNER_HOST_STARTED_SERVING,
   type RunnerHostStartedServingIntegrationEvent,
@@ -12,15 +12,15 @@ import {
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const RUNNERS_EVENT_MAPPERS = [
-  mapping<RunnerPoolDefined>(
-    'runner-pool.defined',
+  mapping<RunnerPoolCreated>(
+    'runner-pool.created',
     (event): RunnerWayInOpenedIntegrationEvent => ({
       kind: RUNNER_WAY_IN_OPENED,
       workspaceId: event.workspaceId.value,
     }),
   ),
-  mapping<RunnerTrustDefined>(
-    'runner-trust.defined',
+  mapping<RunnerTrustCreated>(
+    'runner-trust.created',
     (event): RunnerWayInOpenedIntegrationEvent => ({
       kind: RUNNER_WAY_IN_OPENED,
       workspaceId: event.workspaceId.value,

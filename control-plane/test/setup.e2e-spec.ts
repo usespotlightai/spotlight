@@ -25,7 +25,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
-import { openTeam as opening } from './support/team';
+import { createTeam as createTeamIn } from './support/team';
 
 const access = (db: DrizzleDatabase) =>
   new WorkspaceAccess(
@@ -51,7 +51,7 @@ let database: TestDatabase;
 let db: DrizzleDatabase;
 let tasks: DrizzleTaskRepository;
 
-const openTeam = (slug: string) => opening(db, tasks, slug);
+const createTeam = (slug: string) => createTeamIn(db, tasks, slug);
 
 beforeAll(async () => {
   database = await openDatabase('setup');
@@ -67,7 +67,7 @@ afterAll(async () => {
 
 describe('the open setup lists of a team', () => {
   it('finds a team’s own', async () => {
-    const { teamId, list } = await openTeam('acme');
+    const { teamId, list } = await createTeam('acme');
 
     const open = await tasks.settingUpFor(teamId);
 
@@ -82,8 +82,8 @@ describe('the open setup lists of a team', () => {
   });
 
   it('finds every open one', async () => {
-    const mine = await openTeam('borden');
-    const theirs = await openTeam('cutter');
+    const mine = await createTeam('borden');
+    const theirs = await createTeam('cutter');
 
     const open = await tasks.settingUp();
 
@@ -93,7 +93,7 @@ describe('the open setup lists of a team', () => {
   });
 
   it('leaves a closed one out', async () => {
-    const { teamId, list } = await openTeam('fallon');
+    const { teamId, list } = await createTeam('fallon');
 
     const newNote = setupDoneNote(list.notes, DONE, NOW);
     const gone = list.closeConversation(newNote as NonNullable<typeof newNote>);
@@ -108,8 +108,8 @@ describe('the open setup lists of a team', () => {
   });
 
   it('keeps to the workspace it is asked about', async () => {
-    const mine = await openTeam('hendricks');
-    const theirs = await openTeam('sarah');
+    const mine = await createTeam('hendricks');
+    const theirs = await createTeam('sarah');
 
     const open = await tasks.settingUpIn(mine.workspaceId);
 
@@ -120,7 +120,7 @@ describe('the open setup lists of a team', () => {
   });
 
   it('keeps one somebody answered', async () => {
-    const { teamId, list } = await openTeam('root');
+    const { teamId, list } = await createTeam('root');
 
     await tasks.save(
       list.answer(NotePosition.of(0), {
@@ -135,7 +135,7 @@ describe('the open setup lists of a team', () => {
   });
 
   it('leaves out a task that never had a list', async () => {
-    const { workspaceId, teamId, stationId, list } = await openTeam('angier');
+    const { workspaceId, teamId, stationId, list } = await createTeam('angier');
 
     await db.insert(schema.task).values({
       id: randomUUID(),
@@ -170,10 +170,10 @@ describe('the inbox item of a setup list', () => {
         ),
       );
 
-  let waiting: Awaited<ReturnType<typeof openTeam>>;
+  let waiting: Awaited<ReturnType<typeof createTeam>>;
 
   beforeAll(async () => {
-    waiting = await openTeam('nolan');
+    waiting = await createTeam('nolan');
   });
 
   it('stays unresolved while a step is still to be taken', async () => {

@@ -221,7 +221,7 @@ describe('ClaimChangeStackCheck', () => {
       };
     };
 
-    it('forgets the check so it no longer heads the queue', async () => {
+    it('deletes the check so it no longer heads the queue', async () => {
       const { service, removed, saved } = orphaned(waitingCheck());
 
       await expect(
@@ -231,7 +231,7 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved).toEqual([]);
     });
 
-    it('releases the runner reserved for it as it forgets it', async () => {
+    it('releases the runner reserved for it as it deletes it', async () => {
       const { service, removed } = orphaned(reservedFor(RUNNER));
 
       await expect(
@@ -388,7 +388,7 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved).toEqual([]);
     });
 
-    it('tells the runner to stop once the check was forgotten with its task', async () => {
+    it('tells the runner to stop once the check was deleted with its task', async () => {
       const { service, saved } = renewing(null);
 
       await expect(

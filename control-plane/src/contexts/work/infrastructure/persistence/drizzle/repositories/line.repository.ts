@@ -18,7 +18,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
+import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
@@ -191,7 +191,7 @@ export class DrizzleLineRepository implements LineRepository {
       });
     } catch (error) {
       if (violates(error, UNIQUE_VIOLATION, 'line_team_key')) {
-        throw new LineAlreadyOpenedError(added.key.value);
+        throw new LineAlreadyExistsError(added.key.value);
       }
 
       throw roleTakenOr(error, added);
@@ -209,7 +209,7 @@ export class DrizzleLineRepository implements LineRepository {
   }
 
   private async stored(saved: Line): Promise<void> {
-    if (saved.isRetired) {
+    if (saved.isDeleted) {
       await this.removed(saved);
       return;
     }
@@ -289,22 +289,22 @@ export class DrizzleLineRepository implements LineRepository {
     await this.writeWays(saved);
   }
 
-  private async removed(retired: Line): Promise<void> {
+  private async removed(deleted: Line): Promise<void> {
     try {
       const removed = await this.context.db
         .delete(line)
         .where(
-          and(eq(line.id, retired.id.value), eq(line.version, retired.version)),
+          and(eq(line.id, deleted.id.value), eq(line.version, deleted.version)),
         )
         .returning({ id: line.id });
 
       if (removed.length === 0) {
-        throw new LineVersionConflictError(retired.id.value);
+        throw new LineVersionConflictError(deleted.id.value);
       }
     } catch (error) {
       if (violates(error, RESTRICT_VIOLATION, 'task_station_id')) {
         throw new StrandedWorkError(
-          retired.stations.map((each) => each.id.value),
+          deleted.stations.map((each) => each.id.value),
         );
       }
 

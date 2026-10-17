@@ -1,11 +1,10 @@
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { TeamCreated } from '@identity/domain/events/team-created.event';
-import { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
-import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
+import { TeamDeleted } from '@identity/domain/events/team-deleted.event';
+import { TeamUpdated } from '@identity/domain/events/team-updated.event';
 import { AlreadyOnTheTeamError } from '@identity/domain/exceptions/already-on-the-team.error';
 import { NotInTheWorkspaceError } from '@identity/domain/exceptions/not-in-the-workspace.error';
-import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
@@ -14,6 +13,7 @@ import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -41,43 +41,45 @@ const acme = (id = WORKSPACE) =>
 
 const CORE = { resource: 'team' as const, id: 'team_1', key: 'core' };
 
-const open = (name = 'Platform') => {
+const createdAtSignUp = (name = 'Platform') => {
   let next = 0;
 
-  return Team.open({
+  return Team.createAtSignUp({
     workspaceId: WORKSPACE,
     name: TeamName.of(name),
-    openedBy: OWNER,
+    createdBy: OWNER,
     id: TeamId.of(`team_${++next}`),
     by: BY,
   });
 };
 
 describe('Team', () => {
-  it('starts with whoever opened it as its owner', () => {
-    expect(open().members).toEqual([OWNER]);
+  it('starts with whoever created it as its owner', () => {
+    expect(createdAtSignUp().members).toEqual([OWNER]);
   });
 
-  it('belongs to the workspace it was opened in', () => {
-    expect(open().workspaceId).toEqual(WORKSPACE);
+  it('belongs to the workspace it was created in', () => {
+    expect(createdAtSignUp().workspaceId).toEqual(WORKSPACE);
   });
 
   it('takes a key from its name where nobody wrote one', () => {
-    expect(open('Platform Engineering').key.value).toBe('platform-engineering');
+    expect(createdAtSignUp('Platform Engineering').key.value).toBe(
+      'platform-engineering',
+    );
     expect(
-      Team.open({
+      Team.createAtSignUp({
         workspaceId: WORKSPACE,
         name: TeamName.of('Platform'),
         key: TeamKey.of('core'),
-        openedBy: OWNER,
+        createdBy: OWNER,
         id: TeamId.of('team_1'),
         by: BY,
       }).key.value,
     ).toBe('core');
   });
 
-  it('says it was opened', () => {
-    const [raised, ...rest] = open().pullEvents();
+  it('says it was created at sign-up', () => {
+    const [raised, ...rest] = createdAtSignUp().pullEvents();
 
     expect(rest).toHaveLength(0);
     expect(raised).toBeInstanceOf(TeamCreated);
@@ -87,7 +89,7 @@ describe('Team', () => {
   it('says nothing of the sort once it has been read back', () => {
     expect(
       Team.rehydrate({
-        id: open().id,
+        id: createdAtSignUp().id,
         workspaceId: WORKSPACE,
         key: TeamKey.of('platform'),
         name: TeamName.of('Platform'),
@@ -98,12 +100,12 @@ describe('Team', () => {
   });
 
   it('says who is on it', () => {
-    expect(open().hasMember(OWNER)).toBe(true);
-    expect(open().hasMember(UserId.of('stranger'))).toBe(false);
+    expect(createdAtSignUp().hasMember(OWNER)).toBe(true);
+    expect(createdAtSignUp().hasMember(UserId.of('stranger'))).toBe(false);
   });
 
   it('takes somebody on once, and says so', () => {
-    const joined = open().join(SECOND, acme()).join(SECOND, acme());
+    const joined = createdAtSignUp().join(SECOND, acme()).join(SECOND, acme());
 
     expect(joined.members).toEqual([OWNER, SECOND]);
     expect(joined.pullEvents().map((each) => each.kind)).toEqual([
@@ -113,16 +115,16 @@ describe('Team', () => {
   });
 
   it('takes on only somebody already in its workspace', () => {
-    expect(() => open().join(UserId.of('stranger'), acme())).toThrow(
+    expect(() => createdAtSignUp().join(UserId.of('stranger'), acme())).toThrow(
       NotInTheWorkspaceError,
     );
-    expect(() => open().join(SECOND, acme(WorkspaceId.of('ws_2')))).toThrow(
-      TeamOutsideWorkspaceError,
-    );
+    expect(() =>
+      createdAtSignUp().join(SECOND, acme(WorkspaceId.of('ws_2'))),
+    ).toThrow(TeamOutsideWorkspaceError);
   });
 
   it('does not add somebody already on it', () => {
-    const joined = open().addMember(SECOND, acme());
+    const joined = createdAtSignUp().addMember(SECOND, acme());
 
     expect(joined.hasMember(SECOND)).toBe(true);
     expect(() => joined.addMember(SECOND, acme())).toThrow(
@@ -158,19 +160,19 @@ describe('Team', () => {
   });
 
   it('is the same team as another that has its identity', () => {
-    const opened = open();
+    const created = createdAtSignUp();
 
-    expect(opened.equals(opened.rename(TeamName.of('Renamed')))).toBe(true);
+    expect(created.equals(created.rename(TeamName.of('Renamed')))).toBe(true);
   });
 
   describe('as a resource', () => {
-    const defined = () =>
-      Team.define({
+    const created = () =>
+      Team.create({
         id: TeamId.of('team_1'),
         workspaceId: WORKSPACE,
         key: TeamKey.of('core'),
         name: TeamName.of('Core'),
-        openedBy: OWNER,
+        createdBy: OWNER,
         by: BY,
       });
 
@@ -185,7 +187,7 @@ describe('Team', () => {
       });
 
     it('says it was created through configuration, which opens no lines for it', () => {
-      expect(defined().pullEvents()).toEqual([
+      expect(created().pullEvents()).toEqual([
         new TeamCreated(
           WORKSPACE,
           TeamId.of('team_1'),
@@ -196,8 +198,8 @@ describe('Team', () => {
       ]);
     });
 
-    it('starts with whoever defined it as a member', () => {
-      expect(defined().members).toEqual([OWNER]);
+    it('starts with whoever created it as a member', () => {
+      expect(created().members).toEqual([OWNER]);
     });
 
     it('rejects a change made against another version', () => {
@@ -206,14 +208,14 @@ describe('Team', () => {
     });
 
     it('takes a new name, and says so', () => {
-      const renamed = kept().redefinedAs(
+      const renamed = kept().update(
         { key: TeamKey.of('core'), name: TeamName.of('Core platform') },
         BY,
       );
 
       expect(renamed.name.value).toBe('Core platform');
       expect(renamed.pullEvents()).toEqual([
-        new TeamRedefined(
+        new TeamUpdated(
           WORKSPACE,
           TeamId.of('team_1'),
           TeamKey.of('core'),
@@ -224,30 +226,30 @@ describe('Team', () => {
 
     it('keeps its key for its whole life', () => {
       expect(() =>
-        kept().redefinedAs(
+        kept().update(
           { key: TeamKey.of('platform'), name: TeamName.of('Core') },
           BY,
         ),
-      ).toThrow(TeamKeyFixedError);
+      ).toThrow(ImmutableFieldError);
     });
 
-    it('disbands only once it has nothing', () => {
+    it('is deleted only once it has nothing', () => {
       expect(() =>
-        kept().disband(Dependents.of(['line delivery', 'skill grafana']), BY),
+        kept().delete(Dependents.of(['line delivery', 'skill grafana']), BY),
       ).toThrow(/It still has: line delivery, skill grafana/);
 
-      const disbanded = kept().disband(Dependents.none(), BY);
+      const deleted = kept().delete(Dependents.none(), BY);
 
-      expect(disbanded.isDisbanded).toBe(true);
-      expect(disbanded.pullEvents()).toEqual([
-        new TeamDisbanded(
+      expect(deleted.isDeleted).toBe(true);
+      expect(deleted.pullEvents()).toEqual([
+        new TeamDeleted(
           WORKSPACE,
           TeamId.of('team_1'),
           TeamKey.of('core'),
           ConfigurationChange.deleted(CORE, BY),
         ),
       ]);
-      expect(() => disbanded.disband(Dependents.none(), BY)).toThrow(
+      expect(() => deleted.delete(Dependents.none(), BY)).toThrow(
         InconsistentStateError,
       );
     });

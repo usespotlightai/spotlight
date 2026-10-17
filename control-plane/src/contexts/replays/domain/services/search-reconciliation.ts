@@ -44,7 +44,7 @@ const withReplays = (
       return unended && known.some((each) => each.equals(replayId))
         ? reconciled.recordReplayEnd(
             replayId,
-            'abandoned',
+            'deleted',
             {
               spent: Spend.none(reconciled.budget.ceiling.currency),
               unpriced: 0,

@@ -57,7 +57,7 @@ const inScoringOrder = (fields: readonly ScoringField[]): ScoringField[] =>
 export class ReplayCheck extends EventRecorder {
   private constructor(
     private readonly state: State,
-    readonly isAbandoned = false,
+    readonly isDeleted = false,
   ) {
     super();
   }
@@ -203,7 +203,7 @@ export class ReplayCheck extends EventRecorder {
 
   private withBaseline(baseline: BaselineStatus): ReplayCheck {
     return this.state.baseline === 'awaiting'
-      ? new ReplayCheck({ ...this.state, baseline }, this.isAbandoned)
+      ? new ReplayCheck({ ...this.state, baseline }, this.isDeleted)
       : this;
   }
 
@@ -223,7 +223,7 @@ export class ReplayCheck extends EventRecorder {
     );
   }
 
-  abandon(): ReplayCheck {
+  delete(): ReplayCheck {
     return new ReplayCheck(this.state, true);
   }
 }

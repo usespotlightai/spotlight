@@ -1,6 +1,6 @@
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
-import { SecretAlreadyDefinedError } from '@secrets/domain/exceptions/secret-already-defined.error';
+import { SecretAlreadyExistsError } from '@secrets/domain/exceptions/secret-already-exists.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
@@ -121,7 +121,7 @@ export class DrizzleSecrets implements SecretRepository {
         });
       } catch (error) {
         if (collided(error)) {
-          throw new SecretAlreadyDefinedError(record.name.value);
+          throw new SecretAlreadyExistsError(record.name.value);
         }
 
         throw error;
@@ -149,8 +149,8 @@ export class DrizzleSecrets implements SecretRepository {
   private async applyValueChange(record: Secret): Promise<void> {
     if (record.keeping) {
       await this.values.keep(record, record.keeping);
-    } else if (record.forgetsValue) {
-      await this.values.forget(record);
+    } else if (record.deletesValue) {
+      await this.values.delete(record);
     }
   }
 

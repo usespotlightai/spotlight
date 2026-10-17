@@ -15,7 +15,7 @@ import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/read
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const access = (db: DrizzleDatabase) =>
   new WorkspaceAccess(
@@ -60,7 +60,7 @@ afterAll(async () => {
 
 describe('the tasks the board reads for a team', () => {
   it('leaves the setup list out but keeps ordinary work', async () => {
-    const { owner, teamId, stationId, line } = await openTeam(
+    const { owner, teamId, stationId, line } = await createTeam(
       db,
       tasks,
       `board-${randomUUID()}`,

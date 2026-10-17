@@ -326,7 +326,7 @@ describe('Search', () => {
       expect(over.iterations).toEqual([]);
     });
 
-    it.each(['stopped', 'abandoned'] as const)(
+    it.each(['stopped', 'deleted'] as const)(
       'ends, its seed failed, when its seed replay ended %s',
       (end) => {
         const failed = aSearch().recordReplayEnd(
@@ -995,7 +995,7 @@ describe('Search', () => {
       );
     });
 
-    it('searches on, its stall forgotten, once it finds a cause the config can fix', () => {
+    it('searches on, its stall cleared, once it finds a cause the config can fix', () => {
       const search = stalledAgain(aBudget({ iterations: 7 }));
       const reflection = search
         .recordCause(run(3), given(search, 0, 'config'), later(4))
@@ -1446,8 +1446,8 @@ describe('Search', () => {
       expect(noted.spent.amount).toBe(6);
     });
 
-    it('is abandoned with its team', () => {
-      expect(searching().abandon().isAbandoned).toBe(true);
+    it('is deleted with its team', () => {
+      expect(searching().delete().isDeleted).toBe(true);
     });
   });
 

@@ -108,7 +108,7 @@ export class HarnessProfileResourceController {
 
   @HarnessProfileResource.Create(
     'teams/:teamId/harness-profiles',
-    'Define a harness profile for a team',
+    'Create a harness profile for a team',
   )
   @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
   @DEFINITION

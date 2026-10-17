@@ -5,7 +5,7 @@ import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-de
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { recordEgressTokenUse } from '@runners/application/services/record-egress-token-use';
 import { Egress } from '@runners/domain/aggregates/egress.aggregate';
-import { EgressAlreadyDefinedError } from '@runners/domain/exceptions/egress-already-defined.error';
+import { EgressAlreadyExistsError } from '@runners/domain/exceptions/egress-already-exists.error';
 import { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-token-already-used.error';
 import { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
@@ -20,7 +20,7 @@ import type {
   IdempotentCreate,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createdOnce } from '@shared-kernel/application/services/created-once';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -38,7 +38,7 @@ export class CreateEgressHandler
     private readonly usedTokens: UsedEgressTokensRepository,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -70,7 +70,7 @@ export class CreateEgressHandler
 
       const issued = compiled.token
         ? { token: null, hash: this.tokens.hash(compiled.token.revealed()) }
-        : this.tokens.mint();
+        : this.tokens.issue();
 
       const create: IdempotentCreate = {
         by: command.actor.principal.toString(),
@@ -88,7 +88,7 @@ export class CreateEgressHandler
       try {
         const created = await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
-            const defined = Egress.define({
+            const egress = Egress.create({
               id: EgressId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               by: Attribution.of(command.actor, permissions.workspaceId),
@@ -100,15 +100,15 @@ export class CreateEgressHandler
               },
             });
 
-            await this.egresses.add(defined);
+            await this.egresses.add(egress);
             await recordEgressTokenUse(
               this.usedTokens,
               this.egresses,
-              defined,
+              egress,
               null,
             );
 
-            return defined.id.value;
+            return egress.id.value;
           }),
         );
 
@@ -120,7 +120,7 @@ export class CreateEgressHandler
               : null,
         };
       } catch (error) {
-        if (error instanceof EgressAlreadyDefinedError) {
+        if (error instanceof EgressAlreadyExistsError) {
           return {
             created: { outcome: 'taken', address: compiled.key.value },
             token: null,

@@ -151,20 +151,20 @@ func (e *exchanging) token(renewed bool) (string, error) {
 		return "", fmt.Errorf("the workspace token trust %s did not admit the OIDC token: %s", e.trust, problemOf(response.StatusCode, body))
 	}
 
-	var minted struct {
+	var issued struct {
 		Token     string `json:"token"`
 		ExpiresAt string `json:"expiresAt"`
 	}
-	if err := json.Unmarshal(body, &minted); err != nil || minted.Token == "" {
+	if err := json.Unmarshal(body, &issued); err != nil || issued.Token == "" {
 		return "", errors.New("Spotlight answered the exchange with no token this can read")
 	}
 
-	expiresAt, err := time.Parse(time.RFC3339, minted.ExpiresAt)
+	expiresAt, err := time.Parse(time.RFC3339, issued.ExpiresAt)
 	if err != nil {
-		return "", fmt.Errorf("the minted token's expiry %q is not a time", minted.ExpiresAt)
+		return "", fmt.Errorf("the issued token's expiry %q is not a time", issued.ExpiresAt)
 	}
 
-	e.cached = minted.Token
+	e.cached = issued.Token
 	e.renewAt = renewalOf(expiresAt, e.now())
 
 	return e.cached, nil

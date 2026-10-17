@@ -79,7 +79,7 @@ describe('useAttachments', () => {
     expect(result.current.attachments).toHaveLength(1);
   });
 
-  it('forgets a file removed while it was still going up', async () => {
+  it('clears a file removed while it was still going up', async () => {
     let land: (granted: { id: string }) => void = () => {};
     uploaded.mockReturnValue(
       new Promise((resolve) => {

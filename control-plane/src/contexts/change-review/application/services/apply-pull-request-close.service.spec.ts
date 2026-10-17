@@ -113,7 +113,7 @@ describe('applying a pull request close to the decisions of its task', () => {
     expect(stored()?.decisions).toHaveLength(1);
   });
 
-  it('forgets them when it closes unmerged', async () => {
+  it('deletes them when it closes unmerged', async () => {
     const { service, stored } = applying();
 
     await service.closed({ ...MERGED, merge: null });

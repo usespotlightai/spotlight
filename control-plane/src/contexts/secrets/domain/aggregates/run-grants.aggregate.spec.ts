@@ -168,20 +168,20 @@ describe('RunGrants', () => {
     );
   });
 
-  it('is forgotten a week after its run ends, and not before', () => {
+  it('is purged a week after its run ends, and not before', () => {
     const ended = begun().grant(FIRST, [grant()]).end(ENDED_AT);
 
-    expect(begun().isForgettableAt(endedAfter(WEEK * 52))).toBe(false);
-    expect(ended.isForgettableAt(endedAfter(WEEK - 1))).toBe(false);
+    expect(begun().isPastRetention(endedAfter(WEEK * 52))).toBe(false);
+    expect(ended.isPastRetention(endedAfter(WEEK - 1))).toBe(false);
     expect(() => ended.purge(endedAfter(WEEK - 1))).toThrow(
       InconsistentStateError,
     );
     expect(ended.purge(endedAfter(WEEK)).isDiscarded).toBe(true);
-    expect(RunGrants.endedForgettablyBy(endedAfter(WEEK))).toEqual(ENDED_AT);
+    expect(RunGrants.retentionCutoff(endedAfter(WEEK))).toEqual(ENDED_AT);
   });
 
-  it('is forgotten at once when its workspace is abandoned, ended or not', () => {
-    expect(begun().grant(FIRST, [grant()]).abandon().isDiscarded).toBe(true);
+  it('is deleted at once when its workspace is deleted, ended or not', () => {
+    expect(begun().grant(FIRST, [grant()]).delete().isDiscarded).toBe(true);
   });
 
   it('is kept only at a version it could have been saved at, never granted past its lease', () => {

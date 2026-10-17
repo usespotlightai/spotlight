@@ -27,7 +27,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 interface Written {
   readonly id: string;
@@ -37,7 +37,7 @@ interface Written {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 const DELIVERY = randomUUID();
 const DOCS = randomUUID();
 const BUILD = randomUUID();
@@ -103,7 +103,7 @@ const place = (over: Partial<BriefingPlace> = {}): BriefingPlace => ({
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `briefing-${randomUUID().slice(0, 8)}`,
@@ -251,7 +251,7 @@ describe('briefing runs with what the team remembers', () => {
   it('never briefs a memory still waiting on a person', async () => {
     const runId = RunId.of(randomUUID());
     await app.get(DrizzleMemoryDraftRepository).add(
-      MemoryDraft.open({
+      MemoryDraft.create({
         id: MemoryDraftId.of(randomUUID()),
         taskId: team.list.id,
         workspaceId: team.workspaceId,

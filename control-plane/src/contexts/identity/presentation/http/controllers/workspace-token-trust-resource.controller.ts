@@ -138,7 +138,7 @@ export class WorkspaceTokenTrustResourceController {
 
   @WorkspaceTokenTrustResource.Update(
     'token-trusts/:id',
-    'Change which workloads a token trust admits, or what the tokens it mints may do; tokens minted with scopes it no longer grants stop admitting their bearers',
+    'Change which workloads a token trust admits, or what the tokens it issues may do; tokens issued with scopes it no longer grants stop admitting their bearers',
   )
   @ID
   @DEFINITION
@@ -160,7 +160,7 @@ export class WorkspaceTokenTrustResourceController {
 
   @WorkspaceTokenTrustResource.Delete(
     'token-trusts/:id',
-    'Stop trusting a workload; every token the trust minted admits nobody from this moment',
+    'Delete a token trust; every token that the trust issued admits nobody from this moment',
   )
   @ID
   async delete(

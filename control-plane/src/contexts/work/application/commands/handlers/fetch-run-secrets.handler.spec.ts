@@ -87,7 +87,7 @@ const fetching = (
 ) => {
   const asked: RunSecretFetch[] = [];
   const lost: string[] = [];
-  const minted: RunTokenWanted[] = [];
+  const issued: RunTokenWanted[] = [];
   const revoked: string[] = [];
   const found = [run, after];
   const egress: RunnerEgressPort = {
@@ -121,8 +121,8 @@ const fetching = (
     { hosts: () => ['storage.example.com'] },
     { find: async () => CHAT } as unknown as ChatRepository,
     {
-      mintFor: async (wanted) => {
-        minted.push(wanted);
+      issueFor: async (wanted) => {
+        issued.push(wanted);
         return { id: 'token_1', token: 'run-token' };
       },
       revoke: async (workspaceId, tokenId) => {
@@ -139,7 +139,7 @@ const fetching = (
   const handler = new FetchRunSecretsHandler(egress, fetches, clock);
   const through = new FetchSharedRunSecretsHandler(egress, fetches, clock);
 
-  return { handler, through, asked, lost, minted, revoked };
+  return { handler, through, asked, lost, issued, revoked };
 };
 
 const LEASED_RUN: EgressFor = {
@@ -261,8 +261,8 @@ describe('FetchRunSecretsHandler', () => {
     }
   });
 
-  it('mints a plan token for a run that reaches Spotlight’s API, as whoever started its chat, sealed to egress', async () => {
-    const { handler, minted } = fetching(
+  it('issues a plan token for a run that reaches Spotlight’s API, as whoever started its chat, sealed to egress', async () => {
+    const { handler, issued } = fetching(
       LEASED_RUN,
       leasedRun('ws_1', RUNNER, { spotlightApi: true, injectedSecrets: [] }),
     );
@@ -276,7 +276,7 @@ describe('FetchRunSecretsHandler', () => {
       runId: 'run_1',
       spotlightApi: { sealed: 'sealed(spotlight-api=run-token)' },
     });
-    expect(minted).toEqual([
+    expect(issued).toEqual([
       {
         workspaceId: 'ws_1',
         runId: 'run_1',
@@ -288,12 +288,12 @@ describe('FetchRunSecretsHandler', () => {
     ]);
   });
 
-  it('revokes the earlier token of the lease before it mints another', async () => {
+  it('revokes the earlier token of the lease before it issues another', async () => {
     const reaching = leasedRun('ws_1', RUNNER, {
       spotlightApi: true,
       injectedSecrets: [],
     });
-    const { handler, revoked, minted } = fetching(
+    const { handler, revoked, issued } = fetching(
       LEASED_RUN,
       reaching,
       reaching,
@@ -304,21 +304,21 @@ describe('FetchRunSecretsHandler', () => {
     );
 
     expect(revoked).toEqual(['ws_1/run_1#1']);
-    expect(minted).toHaveLength(1);
+    expect(issued).toHaveLength(1);
   });
 
-  it('mints no token for a run that does not reach Spotlight’s API', async () => {
-    const { handler, minted } = fetching(LEASED_RUN);
+  it('issues no token for a run that does not reach Spotlight’s API', async () => {
+    const { handler, issued } = fetching(LEASED_RUN);
 
     await expect(
       handler.execute(
         new FetchRunSecretsCommand('egress-token', 'recipient-key'),
       ),
     ).resolves.toMatchObject({ spotlightApi: null });
-    expect(minted).toEqual([]);
+    expect(issued).toEqual([]);
   });
 
-  it('revokes the token it minted when the run is cancelled while it fetches', async () => {
+  it('revokes the token it issued when the run is cancelled while it fetches', async () => {
     const reaching = () =>
       leasedRun('ws_1', RUNNER, { spotlightApi: true, injectedSecrets: [] });
     const expired = reaching().expireLease(reaching().leaseExpiresAt as Date);

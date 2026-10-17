@@ -3,7 +3,7 @@ import type { HarnessProfileCompilerPort } from '@configuration/application/port
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
-import { HarnessProfileAlreadyDefinedError } from '@configuration/domain/exceptions/harness-profile-already-defined.error';
+import { HarnessProfileAlreadyExistsError } from '@configuration/domain/exceptions/harness-profile-already-exists.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
@@ -82,7 +82,7 @@ export class CreateHarnessProfileHandler
       try {
         return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
-            const defined = HarnessProfile.define({
+            const created = HarnessProfile.create({
               key: compiled.key,
               settings: compiled.settings,
               id: HarnessProfileId.of(this.ids.generate()),
@@ -91,9 +91,9 @@ export class CreateHarnessProfileHandler
               existingSecrets: await this.secrets.ofTeam(team.id),
             });
 
-            await this.profiles.save(defined);
+            await this.profiles.save(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
@@ -104,7 +104,7 @@ export class CreateHarnessProfileHandler
           };
         }
 
-        if (error instanceof HarnessProfileAlreadyDefinedError) {
+        if (error instanceof HarnessProfileAlreadyExistsError) {
           return {
             outcome: 'taken',
             address: TeamAddress.of(team.key, compiled.key.value).toString(),

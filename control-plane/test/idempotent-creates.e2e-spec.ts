@@ -132,7 +132,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
     ).toEqual({ kind: 'reused' });
   });
 
-  it('forgets a key a day after it was used', async () => {
+  it('purges a key a day after it was used', async () => {
     const made = create();
 
     await context.inTransaction(async () => {

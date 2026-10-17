@@ -204,7 +204,7 @@ export type ProblemResponseDto = {
   /**
    * The permission the caller lacks, when the request is forbidden: one its role in the workspace, or its token’s scopes, do not grant
    */
-  permission?: 'configure' | 'manage-secrets' | 'manage-runners' | 'manage-token-trusts' | 'administer' | 'open-workspaces' | 'plan';
+  permission?: 'configure' | 'manage-secrets' | 'manage-runners' | 'manage-token-trusts' | 'administer' | 'create-workspaces' | 'plan';
 };
 
 export type LineResourceResponseDto = {
@@ -707,7 +707,7 @@ export type RenewLeaseResponseDto = {
 
 export type RenewCheckLeaseResponseDto = {
   /**
-   * Whether the runner should stop checking: the check was forgotten with its task, ended, or waited too long to be recorded
+   * Whether the runner should stop checking: the check was deleted with its task, ended, or waited too long to be recorded
    */
   stop: boolean;
 };
@@ -1169,7 +1169,7 @@ export type CheckActiveRunsRequestDto = {
 
 export type EgressActiveRunsResponseDto = {
   /**
-   * The proxy credentials whose runner still leases its work, or has no work yet. Egress forgets every other run
+   * The proxy credentials whose runner still leases its work, or has no work yet. Egress evicts the secrets of every other run
    */
   active: Array<string>;
 };
@@ -2313,7 +2313,7 @@ export type SetupChatResponseDto = {
 
 export type OnboardingResponseDto = {
   /**
-   * Whether Spotlight has opened the first lines and the setup task of the team. The value is failed after Spotlight stopped its attempts.
+   * Whether Spotlight has created the first lines and opened the setup task of the team. The value is failed after Spotlight stopped its attempts.
    */
   provisioning: 'pending' | 'done' | 'failed';
   /**
@@ -2471,11 +2471,11 @@ export type WorkspaceTokenTrustResourceResponseDto = {
    */
   warnings: Array<FieldErrorResponseDto>;
   /**
-   * The workspace the tokens it mints act in
+   * The workspace the tokens it issues act in
    */
   workspaceId: string;
   /**
-   * Names the trust within its workspace, and every token it mints; fixed for its life
+   * Names the trust within its workspace, and every token it issues; fixed for its life
    */
   key: string;
   /**
@@ -2497,17 +2497,17 @@ export type WorkspaceTokenTrustResourceResponseDto = {
     [key: string]: string;
   };
   /**
-   * The scopes every token it mints is given
+   * The scopes every token it issues is given
    */
   scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
   /**
-   * How many minutes a token it mints admits its bearer
+   * How many minutes a token it issues admits its bearer
    */
   lifetimeMinutes: number;
   /**
-   * The person who defined the trust, or who issued the token that did; the tokens it mints act on their behalf
+   * The person who created the trust, or who issued the token that did; the tokens it issues act on their behalf
    */
-  definedBy: string;
+  createdBy: string;
 };
 
 export type WorkspaceTokenTrustResourceListResponseDto = {
@@ -2528,7 +2528,7 @@ export type ExchangeWorkloadTokenRequestDto = {
   token: string;
 };
 
-export type MintedTokenResponseDto = {
+export type IssuedTokenResponseDto = {
   /**
    * The token to send as Authorization: Bearer until it expires; answered this once, and kept only as a hash
    */
@@ -2549,7 +2549,7 @@ export type CreateWorkspaceRequestDto = {
    */
   slug: string;
   /**
-   * Names the team the workspace opens with. A workspace with no team has nowhere to put work.
+   * Names the team the workspace starts with. A workspace with no team has nowhere to put work.
    */
   teamName: string;
 };
@@ -2583,7 +2583,7 @@ export type WorkspaceResponseDto = {
    */
   role: 'owner' | 'admin' | 'member';
   /**
-   * Whether Spotlight has opened the first team of the workspace. The value is failed after Spotlight stopped its attempts.
+   * Whether Spotlight has created the first team of the workspace. The value is failed after Spotlight stopped its attempts.
    */
   provisioning: 'pending' | 'done' | 'failed';
 };
@@ -2634,7 +2634,7 @@ export type ChangedByResponseDto = {
   userId: string | null;
   tokenId: string | null;
   /**
-   * For a token minted through a workspace token trust, that trust; the person is then whoever defined the trust
+   * For a token issued by a workspace token trust, that trust; the person is then whoever created the trust
    */
   trust: string | null;
 };
@@ -2729,9 +2729,9 @@ export type InviteToWorkspaceRequestDto = {
 export type InviteOutcomeResponseDto = {
   email: string;
   /**
-   * What came of the address: a new invitation, an open one sent again with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent, which sending again may still deliver.
+   * What came of the address: a new invitation, a pending one resent with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent. Resend it to try again.
    */
-  outcome: 'invited' | 'sent-again' | 'already-a-member' | 'not-sent';
+  outcome: 'invited' | 'resent' | 'already-a-member' | 'not-sent';
 };
 
 export type InviteOutcomesResponseDto = {
@@ -2741,7 +2741,7 @@ export type InviteOutcomesResponseDto = {
   outcomes: Array<InviteOutcomeResponseDto>;
 };
 
-export type InviteOfferResponseDto = {
+export type InvitePreviewResponseDto = {
   /**
    * The address it was sent to, which is who may accept it.
    */
@@ -2762,7 +2762,7 @@ export type InviteOfferResponseDto = {
   /**
    * Whether it is still worth following.
    */
-  status: 'open' | 'accepted' | 'revoked' | 'expired';
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
 };
 
 export type JoinedWorkspaceResponseDto = {
@@ -7457,11 +7457,11 @@ export type SuggestedRunResponseDto = {
   outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
 };
 
-export type OpenReplaySetRequestDto = {
+export type CreateReplaySetRequestDto = {
   name: string;
 };
 
-export type ReplaySetOpenedResponseDto = {
+export type ReplaySetCreatedResponseDto = {
   id: string;
 };
 
@@ -13020,13 +13020,13 @@ export type ExchangeWorkloadTokenData = {
 
 export type ExchangeWorkloadTokenErrors = {
   /**
-   * Spotlight did not accept the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace
+   * Spotlight did not accept the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a deleted workspace
    */
   401: unknown;
 };
 
 export type ExchangeWorkloadTokenResponses = {
-  200: MintedTokenResponseDto;
+  200: IssuedTokenResponseDto;
 };
 
 export type ExchangeWorkloadTokenResponse = ExchangeWorkloadTokenResponses[keyof ExchangeWorkloadTokenResponses];
@@ -13051,14 +13051,14 @@ export type ListMemberWorkspacesResponses = {
 
 export type ListMemberWorkspacesResponse = ListMemberWorkspacesResponses[keyof ListMemberWorkspacesResponses];
 
-export type OpenWorkspaceData = {
+export type CreateWorkspaceWithTeamData = {
   body: CreateWorkspaceRequestDto;
   path?: never;
   query?: never;
   url: '/workspaces';
 };
 
-export type OpenWorkspaceErrors = {
+export type CreateWorkspaceWithTeamErrors = {
   /**
    * No valid session
    */
@@ -13073,11 +13073,11 @@ export type OpenWorkspaceErrors = {
   422: unknown;
 };
 
-export type OpenWorkspaceResponses = {
+export type CreateWorkspaceWithTeamResponses = {
   201: CreatedWorkspaceResponseDto;
 };
 
-export type OpenWorkspaceResponse = OpenWorkspaceResponses[keyof OpenWorkspaceResponses];
+export type CreateWorkspaceWithTeamResponse = CreateWorkspaceWithTeamResponses[keyof CreateWorkspaceWithTeamResponses];
 
 export type GetWorkspaceData = {
   body?: never;
@@ -13417,7 +13417,7 @@ export type ReadInviteErrors = {
 };
 
 export type ReadInviteResponses = {
-  200: InviteOfferResponseDto;
+  200: InvitePreviewResponseDto;
 };
 
 export type ReadInviteResponse = ReadInviteResponses[keyof ReadInviteResponses];
@@ -19236,8 +19236,8 @@ export type ListReplaySetsResponses = {
 
 export type ListReplaySetsResponse = ListReplaySetsResponses[keyof ListReplaySetsResponses];
 
-export type OpenReplaySetData = {
-  body: OpenReplaySetRequestDto;
+export type CreateReplaySetData = {
+  body: CreateReplaySetRequestDto;
   headers?: {
     /**
      * The API version the client was written against; every response names the version it was answered in
@@ -19257,7 +19257,7 @@ export type OpenReplaySetData = {
   url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-sets';
 };
 
-export type OpenReplaySetErrors = {
+export type CreateReplaySetErrors = {
   /**
    * Malformed, or asking for an API version this server does not serve
    */
@@ -19280,13 +19280,13 @@ export type OpenReplaySetErrors = {
   422: ProblemResponseDto;
 };
 
-export type OpenReplaySetError = OpenReplaySetErrors[keyof OpenReplaySetErrors];
+export type CreateReplaySetError = CreateReplaySetErrors[keyof CreateReplaySetErrors];
 
-export type OpenReplaySetResponses = {
-  201: ReplaySetOpenedResponseDto;
+export type CreateReplaySetResponses = {
+  201: ReplaySetCreatedResponseDto;
 };
 
-export type OpenReplaySetResponse = OpenReplaySetResponses[keyof OpenReplaySetResponses];
+export type CreateReplaySetResponse = CreateReplaySetResponses[keyof CreateReplaySetResponses];
 
 export type ListTeamReplaySetsData = {
   body?: never;

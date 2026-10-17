@@ -40,7 +40,7 @@ export class StartWantedBaseline {
           event.repeats,
         )
       ) {
-        await this.candidates.save(candidate.abandon());
+        await this.candidates.save(candidate.cascadeDelete());
         return;
       }
 

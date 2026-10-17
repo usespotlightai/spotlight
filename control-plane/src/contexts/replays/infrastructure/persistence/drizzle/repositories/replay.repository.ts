@@ -594,7 +594,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
         eq(replay.id, saved.id.value),
         eq(replay.version, saved.version),
       );
-      const written = saved.isAbandoned
+      const written = saved.isDeleted
         ? await this.context.db
             .delete(replay)
             .where(at)
@@ -609,7 +609,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
         throw new ReplayVersionConflictError(saved.id.value);
       }
 
-      if (!saved.isAbandoned) {
+      if (!saved.isDeleted) {
         await this.writeEntries(saved);
       }
       await this.events.dispatch(saved.pullEvents());

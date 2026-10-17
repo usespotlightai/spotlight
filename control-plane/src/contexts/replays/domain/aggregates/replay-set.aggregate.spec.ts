@@ -112,14 +112,14 @@ describe('ReplaySet', () => {
   });
 
   it('is not deleted while a replay of it is underway', () => {
-    expect(() => aSet(1).deleted(true)).toThrow(ReplaySetUnderwayError);
+    expect(() => aSet(1).delete(true)).toThrow(ReplaySetUnderwayError);
   });
 
   it('is deleted once nothing of it is underway, saying so', () => {
     const set = aSet(1);
     set.pullEvents();
 
-    const deleted = set.deleted(false);
+    const deleted = set.delete(false);
 
     expect(deleted.isDeleted).toBe(true);
     expect(deleted.pullEvents()).toEqual([
@@ -141,7 +141,7 @@ describe('ReplaySet', () => {
     expect(() => left.withEntry(replayable('run_9'), NOW, false)).toThrow(
       ReplaySetStationGoneError,
     );
-    expect(left.deleted(false).isDeleted).toBe(true);
+    expect(left.delete(false).isDeleted).toBe(true);
   });
 
   it('names itself as the holder of the archives its runs started from', () => {
@@ -176,13 +176,13 @@ describe('ReplaySet', () => {
       expect(() => set.withoutEntry(RunId.of('original_0'), true)).toThrow(
         ReplaySetUnderwayError,
       );
-      expect(() => set.deleted(true)).toThrow(ReplaySetUnderwayError);
+      expect(() => set.delete(true)).toThrow(ReplaySetUnderwayError);
     });
   });
 
   describe('checking changes', () => {
     const atStation = (id: string) =>
-      ReplaySet.open({
+      ReplaySet.create({
         id: ReplaySetId.of(id),
         station: STATION,
         name: ReplaySetName.of(id),
@@ -202,7 +202,7 @@ describe('ReplaySet', () => {
 
     it('rejects while another set at its station checks them', () => {
       const other = atStation('set_b').guardingChanges([], BY);
-      const elsewhere = ReplaySet.open({
+      const elsewhere = ReplaySet.create({
         id: ReplaySetId.of('set_c'),
         station: { ...STATION, stationId: 'station_ship' },
         name: ReplaySetName.of('Ship'),

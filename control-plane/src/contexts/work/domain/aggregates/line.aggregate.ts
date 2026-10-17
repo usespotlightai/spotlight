@@ -1,4 +1,5 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -11,16 +12,15 @@ import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-plac
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Station } from '@work/domain/entities/station.entity';
-import { LineOpened } from '@work/domain/events/line-opened.event';
-import { LineRedefined } from '@work/domain/events/line-redefined.event';
+import { LineCreated } from '@work/domain/events/line-created.event';
+import { LineDeleted } from '@work/domain/events/line-deleted.event';
 import { LineRepositoriesChanged } from '@work/domain/events/line-repositories-changed.event';
-import { LineRetired } from '@work/domain/events/line-retired.event';
+import { LineUpdated } from '@work/domain/events/line-updated.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
-import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import { UnknownHappeningError } from '@work/domain/exceptions/unknown-happening.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -98,12 +98,12 @@ export class Line extends EventRecorder {
     readonly replayCheck: ReplayCheckPolicy | null,
     readonly source: ConfigSource | null,
     readonly version: number,
-    readonly isRetired = false,
+    readonly isDeleted = false,
   ) {
     super();
   }
 
-  static open(input: {
+  static create(input: {
     workspaceId: WorkspaceId;
     teamId: TeamId;
     line: LineOpening;
@@ -125,7 +125,7 @@ export class Line extends EventRecorder {
       return ids[found] as StationId;
     };
 
-    return Line.layOut({
+    return Line.createFromLayout({
       id: LineId.of(input.newId()),
       workspaceId: input.workspaceId,
       teamId: input.teamId,
@@ -161,20 +161,22 @@ export class Line extends EventRecorder {
     });
   }
 
-  static layOut(input: LineIdentity & LineLayout & { by: Attribution }): Line {
-    const opened = Line.build(input, input, 0);
+  static createFromLayout(
+    input: LineIdentity & LineLayout & { by: Attribution },
+  ): Line {
+    const created = Line.build(input, input, 0);
 
-    opened.record(
-      new LineOpened(
-        opened.id,
-        opened.workspaceId,
-        opened.teamId,
-        opened.key,
-        ConfigurationChange.created(opened.whatChanged, input.by),
+    created.record(
+      new LineCreated(
+        created.id,
+        created.workspaceId,
+        created.teamId,
+        created.key,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return opened;
+    return created;
   }
 
   static rehydrate(
@@ -261,18 +263,21 @@ export class Line extends EventRecorder {
     }
   }
 
-  relaidAs(layout: LineLayout, by: Attribution): Line {
+  update(layout: LineLayout, by: Attribution): Line {
     if (!layout.key.equals(this.key)) {
-      throw new LineKeyFixedError(
-        this.key.value,
-        `cannot change to ${layout.key.value}. Please create a new line instead`,
+      const because = `cannot change to ${layout.key.value}. Please create a new line instead`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Key of line ${this.key.value} ${because}.`,
       );
     }
 
-    const relaid = this.changed(layout);
+    const updated = this.changed(layout);
 
-    relaid.record(
-      new LineRedefined(
+    updated.record(
+      new LineUpdated(
         this.id,
         this.workspaceId,
         this.teamId,
@@ -280,7 +285,7 @@ export class Line extends EventRecorder {
         ConfigurationChange.updated(this.whatChanged, by),
         [
           ...new Map(
-            [...this.stations, ...relaid.stations].map((each) => [
+            [...this.stations, ...updated.stations].map((each) => [
               each.id.value,
               each.id,
             ]),
@@ -289,10 +294,10 @@ export class Line extends EventRecorder {
       ),
     );
 
-    return relaid;
+    return updated;
   }
 
-  retire(taskCounts: TaskCounts, by: Attribution): Line {
+  delete(taskCounts: TaskCounts, by: Attribution): Line {
     const stranded = this.stations
       .map((each) => ({
         key: each.key.value,
@@ -305,7 +310,7 @@ export class Line extends EventRecorder {
       throw new LineInUseError(this.key.value, stranded);
     }
 
-    const retired = new Line(
+    const deleted = new Line(
       this.id,
       this.workspaceId,
       this.teamId,
@@ -323,9 +328,9 @@ export class Line extends EventRecorder {
       true,
     );
 
-    retired.inheritEvents(this);
-    retired.record(
-      new LineRetired(
+    deleted.inheritEvents(this);
+    deleted.record(
+      new LineDeleted(
         this.id,
         this.workspaceId,
         this.teamId,
@@ -335,12 +340,15 @@ export class Line extends EventRecorder {
       ),
     );
 
-    return retired;
+    return deleted;
   }
 
   private changed(part: Partial<LineLayout>): Line {
-    if (this.isRetired) {
-      throw new InconsistentStateError('line', 'was changed after it retired');
+    if (this.isDeleted) {
+      throw new InconsistentStateError(
+        'line',
+        'was changed after it was deleted',
+      );
     }
 
     const next = Line.build(

@@ -1,5 +1,5 @@
 import type { RereadIntegrationSourceHandler } from '@integrations/application/commands/handlers/reread-integration-source.handler';
-import type { AbandonTeamIntegrations } from '@integrations/application/services/abandon-team-integrations.service';
+import type { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
 import type { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
@@ -24,7 +24,7 @@ const connected = (holder: ConnectionHolder) =>
 const rereadOn = async (holder: ConnectionHolder) => {
   const execute = vi.fn(async () => undefined);
   const subscriber = integrationsSubscribers(
-    {} as AbandonTeamIntegrations,
+    {} as DeleteTeamIntegrations,
     {} as HookedHappenings,
     { execute } as unknown as RereadIntegrationSourceHandler,
     new InMemoryLearnedOutputs(),

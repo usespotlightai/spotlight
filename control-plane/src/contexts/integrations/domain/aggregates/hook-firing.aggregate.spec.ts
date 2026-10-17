@@ -366,21 +366,21 @@ describe('HookFiring', () => {
     });
   });
 
-  describe('being forgotten', () => {
-    it('is forgotten thirty days after it finishes', () => {
+  describe('being purged', () => {
+    it('is purged thirty days after it finishes', () => {
       const done = kept(working().worked(NOW));
       const month = later(30 * 24 * 60 * 60_000);
 
-      expect(done.isForgettableAt(later(1))).toBe(false);
-      expect(() => done.forgotten(later(1))).toThrow(
+      expect(done.isPastRetention(later(1))).toBe(false);
+      expect(() => done.purge(later(1))).toThrow(
         InvalidHookFiringTransitionError,
       );
-      expect(done.forgotten(month).isDiscarded).toBe(true);
-      expect(HookFiring.finishedForgettablyBefore(month)).toEqual(NOW);
+      expect(done.purge(month).isDiscarded).toBe(true);
+      expect(HookFiring.retentionCutoff(month)).toEqual(NOW);
     });
 
-    it('is never forgotten while it is pending', () => {
-      expect(kept(fired()).isForgettableAt(later(365 * 24 * 60 * 60_000))).toBe(
+    it('is never purged while it is pending', () => {
+      expect(kept(fired()).isPastRetention(later(365 * 24 * 60 * 60_000))).toBe(
         false,
       );
     });

@@ -456,7 +456,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     ]);
   });
 
-  it('never lets a token manage tokens, open a workspace or read the audit', async () => {
+  it('never lets a token manage tokens, create a workspace or read the audit', async () => {
     const configure = as(tokens.configure);
 
     expect(
@@ -480,7 +480,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     ).toMatchObject({
       ...FORBIDDEN_PROBLEM,
       detail:
-        'A workspace token cannot open a workspace. Only a person can create one.',
+        'A workspace token cannot create a workspace. Only a person can create one.',
     });
     expect(
       (
@@ -564,18 +564,18 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     expect((await as('made-up').get(workspace)).status).toBe(401);
   });
 
-  it('keeps its workspace open until every token is revoked', async () => {
+  it('keeps its workspace from being deleted until every token is revoked', async () => {
     await db
       .delete(schema.team)
       .where(eq(schema.team.workspaceId, seat.workspaceId));
 
     const workspace = `/api/resources/workspaces/${seat.workspaceId}`;
-    const close = () =>
+    const deleteWorkspace = () =>
       http()
         .delete(workspace)
         .set(TEST_USER_HEADER, seat.owner)
         .set('If-Match', '"0"');
-    const rejected = await close();
+    const rejected = await deleteWorkspace();
 
     expect(rejected.status).toBe(409);
     expect(rejected.body.detail).toContain(
@@ -586,10 +586,10 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       await revoke(token);
     }
 
-    expect((await close()).status).toBe(204);
+    expect((await deleteWorkspace()).status).toBe(204);
   });
 
-  it('never lets a configure token close its workspace, even one that has nothing but that token', async () => {
+  it('never lets a configure token delete its workspace, even one that has nothing but that token', async () => {
     await db
       .delete(schema.team)
       .where(eq(schema.team.workspaceId, seat.workspaceId));

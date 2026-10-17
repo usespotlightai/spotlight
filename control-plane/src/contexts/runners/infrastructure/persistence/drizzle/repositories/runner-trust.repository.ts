@@ -5,7 +5,7 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { RunnerTrustAlreadyDefinedError } from '@runners/domain/exceptions/runner-trust-already-defined.error';
+import { RunnerTrustAlreadyExistsError } from '@runners/domain/exceptions/runner-trust-already-exists.error';
 import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -63,7 +63,7 @@ export class DrizzleRunnerTrustRepository implements RunnerTrustRepository {
         });
       } catch (error) {
         if (violates(error, UNIQUE_VIOLATION, 'runner_trust_workspace_key')) {
-          throw new RunnerTrustAlreadyDefinedError(added.key.value);
+          throw new RunnerTrustAlreadyExistsError(added.key.value);
         }
 
         throw error;
@@ -79,7 +79,7 @@ export class DrizzleRunnerTrustRepository implements RunnerTrustRepository {
         eq(runnerTrust.id, saved.id.value),
         eq(runnerTrust.version, saved.version),
       );
-      const written = saved.isWithdrawn
+      const written = saved.isDeleted
         ? await this.context.db
             .delete(runnerTrust)
             .where(matching)

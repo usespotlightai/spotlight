@@ -16,7 +16,7 @@ export class CreateWorkspaceRequestDto {
     example: 'Platform',
     maxLength: 100,
     description:
-      'Names the team the workspace opens with. A workspace with no team has nowhere to put work.',
+      'Names the team the workspace starts with. A workspace with no team has nowhere to put work.',
   })
   readonly teamName!: string;
 }

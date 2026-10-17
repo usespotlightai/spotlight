@@ -9,13 +9,13 @@ export interface RunTokenWanted {
   readonly expiresAt: Date;
 }
 
-export interface MintedRunToken {
+export interface IssuedRunToken {
   readonly id: string;
   readonly token: string;
 }
 
 export interface RunTokensPort {
-  mintFor(wanted: RunTokenWanted): Promise<MintedRunToken>;
+  issueFor(wanted: RunTokenWanted): Promise<IssuedRunToken>;
 
   revoke(workspaceId: string, tokenId: string): Promise<void>;
 

@@ -51,7 +51,7 @@ export class AskForMemories {
       }
 
       await this.drafts.add(
-        MemoryDraft.open({
+        MemoryDraft.create({
           id: MemoryDraftId.of(this.ids.generate()),
           taskId,
           workspaceId: task.workspaceId,

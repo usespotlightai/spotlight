@@ -166,7 +166,7 @@ describe('InviteDialog', () => {
     invite.mockImplementation((_, { onSuccess }) =>
       onSuccess([
         { email: 'ada@example.com', outcome: 'invited' },
-        { email: 'grace@example.com', outcome: 'sent-again' },
+        { email: 'grace@example.com', outcome: 'resent' },
         { email: 'sam@example.com', outcome: 'already-a-member' },
         { email: 'alan@example.com', outcome: 'not-sent' },
       ]),
@@ -185,7 +185,7 @@ describe('InviteDialog', () => {
 
     expect(
       within(dialog).getByRole('heading', {
-        name: '1 invited · 1 sent again · 1 already in the workspace · 1 not sent',
+        name: '1 invited · 1 resent · 1 already in the workspace · 1 not sent',
       }),
     ).toBeInTheDocument();
     expect(
@@ -194,7 +194,7 @@ describe('InviteDialog', () => {
         .map((each) => each.textContent),
     ).toEqual([
       'ada@example.comInvited',
-      'grace@example.comSent again',
+      'grace@example.comResent',
       'sam@example.comAlready a member',
       'alan@example.comNot sent. Please resend it from Pending invites.',
     ]);

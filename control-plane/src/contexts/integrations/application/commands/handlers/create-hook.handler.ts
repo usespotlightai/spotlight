@@ -6,7 +6,7 @@ import { HookProblems } from '@integrations/application/rendering/hook-problems'
 import type { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
 import { secretGiven } from '@integrations/application/services/signing-secrets';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
-import { HookAlreadyDefinedError } from '@integrations/domain/exceptions/hook-already-defined.error';
+import { HookAlreadyExistsError } from '@integrations/domain/exceptions/hook-already-exists.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo';
@@ -82,7 +82,7 @@ export class CreateHookHandler
       try {
         return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
-            const defined = HookDefinition.define({
+            const created = HookDefinition.create({
               ...compiled,
               id: HookDefinitionId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
@@ -92,13 +92,13 @@ export class CreateHookHandler
               by: Attribution.of(command.actor, permissions.workspaceId),
             });
 
-            await this.definitions.save(defined);
+            await this.definitions.save(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof HookAlreadyDefinedError) {
+        if (error instanceof HookAlreadyExistsError) {
           return { outcome: 'taken', address: address.toString() };
         }
 

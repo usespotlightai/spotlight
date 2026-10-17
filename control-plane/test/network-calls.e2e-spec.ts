@@ -226,7 +226,7 @@ describe('DrizzleNetworkCallRepository', () => {
     expect((await calls.find(expired.id))?.stateAt(NOW)).toBe('expired');
   });
 
-  it('keeps a cancelled call as cancelled, and forgets completed calls a week on', async () => {
+  it('keeps a cancelled call as cancelled, and purges completed calls a week on', async () => {
     const waited = await queued();
     await calls.save(waited.cancel(later(1_000)));
 
@@ -239,7 +239,7 @@ describe('DrizzleNetworkCallRepository', () => {
     const [completed] = await calls.completedBy(later(1_000), 10);
     expect(completed?.id).toEqual(waited.id);
 
-    await calls.save((completed as NetworkCall).forgotten(later(1_000 + week)));
+    await calls.save((completed as NetworkCall).purge(later(1_000 + week)));
 
     expect(await calls.find(waited.id)).toBeNull();
   });

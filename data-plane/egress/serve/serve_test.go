@@ -468,10 +468,10 @@ func TestLimitsOpenConnectionsForEachWorkspace(t *testing.T) {
 	}
 }
 
-func TestForgetsARunThatIsNoLongerActive(t *testing.T) {
+func TestEvictsARunThatIsNoLongerActive(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.forward(t, "one", "mcp.example.com:443", "/", standIn())
-	forgotten := r.egress.runs["one"]
+	evicted := r.egress.runs["one"]
 
 	r.control.active["one"] = false
 	r.egress.checkActiveRuns(context.Background())
@@ -479,7 +479,7 @@ func TestForgetsARunThatIsNoLongerActive(t *testing.T) {
 	if _, ok := r.egress.runs["one"]; ok {
 		t.Fatal("still keeps the run")
 	}
-	if forgotten.injector.InjectsFor("mcp.example.com") {
+	if evicted.injector.InjectsFor("mcp.example.com") {
 		t.Error("still injects the run's secret")
 	}
 }
@@ -498,7 +498,7 @@ func pendingRecords(t *testing.T, e *Egress, want int) {
 	t.Fatalf("has no %d pending records", want)
 }
 
-func TestSendsTheRecordsOfARunBeforeItForgetsTheRun(t *testing.T) {
+func TestSendsTheRecordsOfARunBeforeItEvictsTheRun(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.forward(t, "one", "mcp.example.com:443", "/", standIn())
 	pendingRecords(t, r.egress, 1)
@@ -531,7 +531,7 @@ func TestCountsTheHeadsAndBodiesOfAForwardedRequest(t *testing.T) {
 	}
 }
 
-func TestForgetsARunAfterTwoMinutesWithoutUse(t *testing.T) {
+func TestEvictsARunAfterTwoMinutesWithoutUse(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.forward(t, "one", "mcp.example.com:443", "/", standIn())
 	r.forward(t, "two", "", protocol.EgressBoundPath, nil)
@@ -854,7 +854,7 @@ func TestEachRunInjectsItsOwnValueForTheSameHost(t *testing.T) {
 	}
 }
 
-func TestHandsBackTheStandInWhenTheRunIsForgottenDuringARequest(t *testing.T) {
+func TestHandsBackTheStandInWhenTheRunIsEvictedDuringARequest(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.forward(t, "one", "", protocol.EgressBoundPath, nil)
 
@@ -880,18 +880,18 @@ func TestHandsBackTheStandInWhenTheRunIsForgottenDuringARequest(t *testing.T) {
 	}
 }
 
-func TestForgetsOnlyTheRunItWasAskedToForget(t *testing.T) {
+func TestEvictsOnlyTheRunItWasAskedToEvict(t *testing.T) {
 	r := rigged(t, Settings{})
 	admittedAlready(r.egress, "one")
 	before := r.egress.runs["one"]
-	r.egress.forget(t.Context(), []*run{before}, "test")
+	r.egress.evict(t.Context(), []*run{before}, "test")
 	admittedAlready(r.egress, "one")
 	again := r.egress.runs["one"]
 
-	r.egress.forget(t.Context(), []*run{before}, "test")
+	r.egress.evict(t.Context(), []*run{before}, "test")
 
 	if r.egress.runs["one"] != again {
-		t.Error("forgot the run admitted again")
+		t.Error("evicted the run admitted again")
 	}
 }
 

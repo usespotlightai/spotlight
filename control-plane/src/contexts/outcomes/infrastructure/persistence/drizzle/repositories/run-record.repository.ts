@@ -529,7 +529,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
           ),
         );
 
-      await this.facts.forgetRuns({
+      await this.facts.deleteRuns({
         kind: 'team',
         workspaceId: workspaceId.value,
         teamId: teamId.value,
@@ -543,7 +543,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
         .delete(runRecord)
         .where(eq(runRecord.workspaceId, workspaceId.value));
 
-      await this.facts.forgetRuns({
+      await this.facts.deleteRuns({
         kind: 'workspace',
         workspaceId: workspaceId.value,
       });

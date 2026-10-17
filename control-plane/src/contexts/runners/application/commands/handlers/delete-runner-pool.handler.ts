@@ -47,7 +47,7 @@ export class DeleteRunnerPoolHandler
 
       await this.transaction.inTransaction(() =>
         this.pools.save(
-          existing.retire(
+          existing.delete(
             Attribution.of(command.actor, permissions.workspaceId),
           ),
         ),

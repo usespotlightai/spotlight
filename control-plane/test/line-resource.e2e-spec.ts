@@ -207,7 +207,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(again.body.definition).toEqual(read.body.definition);
   });
 
-  it('keeps a station remembering its runs, and forgets it once told to stop', async () => {
+  it('keeps a station remembering its runs, and clears it once told to stop', async () => {
     const remembering = (memories: boolean) => ({
       ...DELIVERY,
       stations: DELIVERY.stations.map((each, at) =>
@@ -228,14 +228,14 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(stopped.body.definition.stations[1].memories).toBe(false);
   });
 
-  it('keeps a station’s judge and its alerts as written, in their order, and forgets them once left out', async () => {
+  it('keeps a station’s judge and its alerts as written, in their order, and clears them once left out', async () => {
     const made = await create(judged(JUDGE, ALERTS));
     const again = await change(
       made.body.id,
       made.body.version,
       judged(JUDGE, ALERTS),
     );
-    const dropped = await change(
+    const cleared = await change(
       made.body.id,
       again.body.version,
       judged(undefined, []),
@@ -248,9 +248,9 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(made.body.definition.stations[0].alerts).toEqual([]);
     expect(again.status).toBe(200);
     expect(again.body.definition).toEqual(made.body.definition);
-    expect(dropped.status).toBe(200);
-    expect(dropped.body.definition.stations[1]).not.toHaveProperty('judge');
-    expect(dropped.body.definition.stations[1].alerts).toEqual([]);
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.definition.stations[1]).not.toHaveProperty('judge');
+    expect(cleared.body.definition.stations[1].alerts).toEqual([]);
   });
 
   it('rejects a wrong alert at its field, an alert repeating one before it, a rubric whose scale it cannot read, and a judge or alerts where nothing runs', async () => {
@@ -368,12 +368,12 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
-  it('keeps the threshold a planned change is checked against, filling in what it leaves out, and forgets it once left out', async () => {
+  it('keeps the threshold a planned change is checked against, filling in what it leaves out, and clears it once left out', async () => {
     const made = await create({
       ...DELIVERY,
       replayCheck: { maxRegressions: 1, currency: 'eur' },
     });
-    const dropped = await change(made.body.id, made.body.version, DELIVERY);
+    const cleared = await change(made.body.id, made.body.version, DELIVERY);
 
     expect(made.status).toBe(201);
     expect(made.body.definition.replayCheck).toEqual({
@@ -382,8 +382,8 @@ describe('a line, created through the resource API (e2e)', () => {
       currency: 'EUR',
       minGain: 0.05,
     });
-    expect(dropped.status).toBe(200);
-    expect(dropped.body.definition).not.toHaveProperty('replayCheck');
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.definition).not.toHaveProperty('replayCheck');
   });
 
   it('rejects a threshold setting at its field', async () => {
@@ -419,7 +419,7 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
-  it('keeps where the line’s Terraform lives, shows it on the team’s lines, and forgets it once set to null', async () => {
+  it('keeps where the line’s Terraform lives, shows it on the team’s lines, and clears it once set to null', async () => {
     const source = {
       repository: 'acme/platform',
       path: 'teams/core/delivery.tf',
@@ -429,7 +429,7 @@ describe('a line, created through the resource API (e2e)', () => {
     const listed = await served(app)
       .get(`/api/teams/${teamId}/lines`)
       .set(TEST_USER_HEADER, fixture.admin);
-    const dropped = await change(made.body.id, made.body.version, {
+    const cleared = await change(made.body.id, made.body.version, {
       ...DELIVERY,
       source: null,
     });
@@ -441,8 +441,8 @@ describe('a line, created through the resource API (e2e)', () => {
         (each) => each.id === made.body.id,
       )?.source,
     ).toEqual(source);
-    expect(dropped.status).toBe(200);
-    expect(dropped.body.definition).not.toHaveProperty('source');
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.definition).not.toHaveProperty('source');
   });
 
   it('rejects a source setting at its field', async () => {
@@ -528,7 +528,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
     await putTaskAt(made.body.id, going);
 
-    const dropped = await change(made.body.id, made.body.version, {
+    const cleared = await change(made.body.id, made.body.version, {
       ...DELIVERY,
       stations: DELIVERY.stations
         .filter((each) => each.key !== going)
@@ -540,7 +540,7 @@ describe('a line, created through the resource API (e2e)', () => {
     });
     const deleted = await remove(made.body.id, made.body.version);
 
-    for (const rejected of [dropped, deleted]) {
+    for (const rejected of [cleared, deleted]) {
       expect(rejected.status).toBe(409);
       expect(rejected.body).toMatchObject({
         type: 'urn:spotlight:problem:in-use',
@@ -554,8 +554,8 @@ describe('a line, created through the resource API (e2e)', () => {
     const teamId = fixture.workspaceId;
     const opening = BUILT_IN_LINES.find((each) => each.role) as LineOpening;
     let next = 0;
-    const opened = (key: string) =>
-      Line.open({
+    const newLine = (key: string) =>
+      Line.create({
         by: attributedIn(),
         workspaceId: WorkspaceId.of(teamId),
         teamId: TeamId.of(teamId),
@@ -563,9 +563,9 @@ describe('a line, created through the resource API (e2e)', () => {
         newId: () => `${teamId}-${key}-${++next}`,
       });
 
-    await lines.add(opened('first'));
+    await lines.add(newLine('first'));
 
-    await expect(lines.add(opened('second'))).rejects.toThrow(
+    await expect(lines.add(newLine('second'))).rejects.toThrow(
       LineRoleTakenError,
     );
   });

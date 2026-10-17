@@ -1,4 +1,4 @@
-import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
+import { deletionsInMemory } from '@outcomes/application/ports/deletions.fake-spec';
 import type { EndedRun, WorkPort } from '@outcomes/application/ports/work.port';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
@@ -50,7 +50,7 @@ const noting = (runs: readonly EndedRun[]) => {
     error: () => {},
   };
   const records = new RunRecordsInMemory();
-  const forgotten = forgottenInMemory();
+  const deletions = deletionsInMemory();
   const work: WorkPort = {
     endedRun: async (runId) =>
       runs.find((each) => each.runId === runId) ?? null,
@@ -62,10 +62,10 @@ const noting = (runs: readonly EndedRun[]) => {
 
   return {
     records,
-    forgotten,
+    deletions,
     warned,
-    service: new NoteRunEnded(work, records, forgotten, inTransaction, logger),
-    superseding: new NoteRunSuperseded(records, forgotten, inTransaction, {
+    service: new NoteRunEnded(work, records, deletions, inTransaction, logger),
+    superseding: new NoteRunSuperseded(records, deletions, inTransaction, {
       now: () => HEARD_AT,
       sleep: async () => {},
     }),
@@ -75,7 +75,7 @@ const noting = (runs: readonly EndedRun[]) => {
       stopped = false,
       asked = false,
     ) =>
-      new NoteRunEnded(work, records, forgotten, inTransaction, logger).ended({
+      new NoteRunEnded(work, records, deletions, inTransaction, logger).ended({
         runId,
         outcome,
         stopped,
@@ -217,10 +217,10 @@ describe('noting that a run ended', () => {
     expect(record?.hasEnded).toBe(false);
   });
 
-  it('records nothing of a run whose team was disbanded, and lets go of what it heard of the run before', async () => {
+  it('records nothing of a run whose team was deleted, and lets go of what it heard of the run before', async () => {
     const noted = noting([endedRun('run_1')]);
     await noted.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
-    await noted.forgotten.forgetTeam(WORKSPACE, TeamId.of('team_1'));
+    await noted.deletions.deleteTeam(WORKSPACE, TeamId.of('team_1'));
 
     await noted.ended('run_1');
 

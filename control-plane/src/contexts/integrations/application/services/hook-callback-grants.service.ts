@@ -1,7 +1,7 @@
 import { HookCallbackGrant } from '@integrations/domain/aggregates/hook-callback-grant.aggregate';
 import type { HookCallbackGrantRepository } from '@integrations/domain/repositories/hook-callback-grant.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,17 +16,15 @@ export interface CallbackHolder {
 export class HookCallbackGrants {
   constructor(
     private readonly grants: HookCallbackGrantRepository,
-    private readonly mint: TokenMintPort,
+    private readonly issuer: TokenIssuer,
     private readonly clock: ClockPort,
   ) {}
 
   async issued(holder: CallbackHolder): Promise<string> {
-    const { token, hash } = this.mint.mint();
+    const { token, hash } = this.issuer.issue();
     const now = this.clock.now();
 
-    await this.grants.forgetExpiringBefore(
-      HookCallbackGrant.expiredBefore(now),
-    );
+    await this.grants.purgeExpiringBefore(HookCallbackGrant.expiredBefore(now));
     await this.grants.add(
       HookCallbackGrant.issueFor(
         {
@@ -44,7 +42,7 @@ export class HookCallbackGrants {
 
   async findByToken(token: string): Promise<HookCallbackGrant | null> {
     const grant = await this.grants.withToken(
-      TokenHash.of(this.mint.hash(token)),
+      TokenHash.of(this.issuer.hash(token)),
     );
 
     return grant?.isValidAt(this.clock.now()) ? grant : null;

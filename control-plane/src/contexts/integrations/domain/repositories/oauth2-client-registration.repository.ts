@@ -14,5 +14,5 @@ export interface OAuth2ClientRegistrationRepository {
 
   save(registration: OAuth2ClientRegistration): Promise<void>;
 
-  forgetTeam(teamId: TeamId): Promise<void>;
+  deleteForTeam(teamId: TeamId): Promise<void>;
 }

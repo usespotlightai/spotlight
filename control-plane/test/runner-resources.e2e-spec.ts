@@ -17,7 +17,7 @@ import {
   conformsAsResource,
   type ResourceFixture,
 } from './support/resource-conformance';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -62,7 +62,7 @@ const seated =
               `person:${seat.member}`,
             ]),
           );
-        await forgetRunnersOf(db, workspaceId);
+        await deleteRunnersOf(db, workspaceId);
         await seat.unseat();
       },
     };
@@ -127,7 +127,7 @@ conformsAsResource({
   }),
 });
 
-describe('runner trusts, pools and what the workspace declares of them (e2e)', () => {
+describe('runner trusts, pools and the workspace runners (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
   let workspaceId: string;
@@ -179,7 +179,7 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, workspaceId));
-    await forgetRunnersOf(db, workspaceId);
+    await deleteRunnersOf(db, workspaceId);
     await unseat();
   });
 
@@ -233,15 +233,15 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
       `/api/resources/workspaces/${workspaceId}/runner-pools`,
       { key: 'ephemeral' },
     );
-    const declared = await terraform.post(
+    const created = await terraform.post(
       `/api/resources/workspaces/${workspaceId}/workspace-runners`,
       { trusts: ['production'], pools: ['ephemeral'] },
     );
 
-    expect([trust.status, pool.status, declared.status]).toEqual([
+    expect([trust.status, pool.status, created.status]).toEqual([
       201, 201, 201,
     ]);
-    expect(declared.body.warnings).toEqual([]);
+    expect(created.body.warnings).toEqual([]);
     expect(
       (
         await terraform.put(
@@ -268,7 +268,7 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
       subject: SUBJECT,
     });
     const pool = await asOwner('runner-pools', { key: 'ephemeral' });
-    const declared = await asOwner('workspace-runners', {
+    const created = await asOwner('workspace-runners', {
       trusts: ['production'],
     });
     const configure = as(await tokenWith(['configure']));
@@ -312,13 +312,13 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
         pool.body.version,
       ),
       await configure.put(
-        `/api/resources/workspace-runners/${declared.body.id}`,
-        declared.body.version,
+        `/api/resources/workspace-runners/${created.body.id}`,
+        created.body.version,
         { trusts: [] },
       ),
       await configure.delete(
-        `/api/resources/workspace-runners/${declared.body.id}`,
-        declared.body.version,
+        `/api/resources/workspace-runners/${created.body.id}`,
+        created.body.version,
       ),
     ];
 
@@ -468,7 +468,7 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     ]);
   });
 
-  it('keeps the workspace from closing while it has trusts, pools or a declaration', async () => {
+  it('keeps the workspace from being deleted while it has trusts, pools or workspace runners', async () => {
     await asOwner('runner-trusts', {
       key: 'production',
       issuer: ISSUER,
@@ -505,19 +505,19 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     }).expect(201);
     await asOwner('runner-pools', { key: 'ephemeral' }).expect(201);
 
-    const declared = await asOwner('workspace-runners', {
+    const created = await asOwner('workspace-runners', {
       trusts: ['production', 'staging'],
       pools: ['sandboxes', 'ephemeral'],
     });
 
-    expect(declared.status).toBe(201);
-    expect(declared.body).toMatchObject({
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({
       trusts: ['production', 'staging'],
       pools: ['sandboxes', 'ephemeral'],
     });
-    expect(declared.body).not.toHaveProperty('runners');
-    expect(declared.body).not.toHaveProperty('drift');
-    expect(declared.body.warnings).toEqual([
+    expect(created.body).not.toHaveProperty('runners');
+    expect(created.body).not.toHaveProperty('drift');
+    expect(created.body.warnings).toEqual([
       expect.objectContaining({ path: 'trusts[1]', severity: 'warning' }),
       expect.objectContaining({ path: 'pools[0]', severity: 'warning' }),
     ]);

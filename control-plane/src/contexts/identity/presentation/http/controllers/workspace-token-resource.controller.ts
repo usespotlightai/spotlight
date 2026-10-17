@@ -169,7 +169,7 @@ export class WorkspaceTokenResourceController {
 
   @WorkspaceTokenResource.Update(
     'tokens/:id',
-    'Describe a workspace token anew; its name, scopes and expiry stay as issued',
+    "Update a workspace token's description; its name, scopes and expiry stay as issued",
   )
   @ID
   @DEFINITION

@@ -33,8 +33,8 @@ const workspace = (role: WorkspaceRole) =>
     version: 0,
   });
 
-const offered = (workspaceId = 'ws_1') =>
-  WorkspaceInvite.offer({
+const created = (workspaceId = 'ws_1') =>
+  WorkspaceInvite.create({
     id: InviteId.of('invite_1'),
     workspaceId: WorkspaceId.of(workspaceId),
     email: EmailAddress.of('ada@example.com'),
@@ -54,7 +54,7 @@ const revoking = (
       findBySlug: async () => workspace(over.role ?? WorkspaceRole.admin),
     } as unknown as WorkspaceRepository),
     {
-      find: async () => (over.invite === undefined ? offered() : over.invite),
+      find: async () => (over.invite === undefined ? created() : over.invite),
       save,
     } as unknown as WorkspaceInviteRepository,
     { now: () => NOW } as ClockPort,
@@ -72,14 +72,14 @@ describe('RevokeInviteHandler', () => {
     await expect(handler.execute(revoke)).resolves.toBe(true);
     expect(save.mock.calls[0]?.[0]).toMatchObject({ revokedAt: NOW });
     expect(save.mock.calls[0]?.[0].pullEvents()).toMatchObject([
-      { kind: 'workspace-invite.offered' },
+      { kind: 'workspace-invite.created' },
       { kind: 'workspace-invite.revoked', by: LEON },
     ]);
   });
 
   it('writes and records nothing for an invite already taken back', async () => {
     const taken = WorkspaceInvite.rehydrate({
-      ...offered().revoke(UserId.of('user_owner'), NOW),
+      ...created().revoke(UserId.of('user_owner'), NOW),
       version: 2,
     });
     const { handler, save } = revoking({ invite: taken });
@@ -103,7 +103,7 @@ describe('RevokeInviteHandler', () => {
   });
 
   it('is nothing to an invite of another workspace', async () => {
-    const { handler, save } = revoking({ invite: offered('ws_2') });
+    const { handler, save } = revoking({ invite: created('ws_2') });
 
     await expect(handler.execute(revoke)).resolves.toBe(false);
     expect(save).not.toHaveBeenCalled();

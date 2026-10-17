@@ -1,29 +1,29 @@
 import { TeamCreated } from '@identity/domain/events/team-created.event';
-import { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
+import { TeamDeleted } from '@identity/domain/events/team-deleted.event';
 import { TeamMemberJoined } from '@identity/domain/events/team-member-joined.event';
-import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
-import { WorkspaceClosed } from '@identity/domain/events/workspace-closed.event';
+import { TeamUpdated } from '@identity/domain/events/team-updated.event';
+import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
+import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invite-accepted.event';
-import { WorkspaceInviteOffered } from '@identity/domain/events/workspace-invite-offered.event';
+import { WorkspaceInviteCreated } from '@identity/domain/events/workspace-invite-created.event';
 import { WorkspaceInviteRevoked } from '@identity/domain/events/workspace-invite-revoked.event';
 import { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
 import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
-import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event';
-import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
+import { WorkspaceTokenExpired } from '@identity/domain/events/workspace-token-expired.event';
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
-import { WorkspaceTokenLapsed } from '@identity/domain/events/workspace-token-lapsed.event';
-import { WorkspaceTokenRedescribed } from '@identity/domain/events/workspace-token-redescribed.event';
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
-import { WorkspaceTokenTrustDefined } from '@identity/domain/events/workspace-token-trust-defined.event';
-import { WorkspaceTokenTrustRedefined } from '@identity/domain/events/workspace-token-trust-redefined.event';
-import { WorkspaceTokenTrustWithdrawn } from '@identity/domain/events/workspace-token-trust-withdrawn.event';
+import { WorkspaceTokenTrustCreated } from '@identity/domain/events/workspace-token-trust-created.event';
+import { WorkspaceTokenTrustDeleted } from '@identity/domain/events/workspace-token-trust-deleted.event';
+import { WorkspaceTokenTrustUpdated } from '@identity/domain/events/workspace-token-trust-updated.event';
+import { WorkspaceTokenUpdated } from '@identity/domain/events/workspace-token-updated.event';
+import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
-import { MintedTokenDetail } from '@identity/domain/value-objects/minted-token-detail.vo';
+import { IssuedTokenDetail } from '@identity/domain/value-objects/issued-token-detail.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import { RunTokenDetail } from '@identity/domain/value-objects/run-token-detail.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
@@ -44,7 +44,7 @@ export const IDENTITY_PAYLOAD_TYPES = [
   Grantor,
   InviteId,
   InviteTerms,
-  MintedTokenDetail,
+  IssuedTokenDetail,
   RunTokenDetail,
   Dependents,
   TeamKey,
@@ -58,22 +58,22 @@ export const IDENTITY_PAYLOAD_TYPES = [
   WorkspaceRole,
   WorkspaceSlug,
   TeamCreated,
-  TeamDisbanded,
+  TeamDeleted,
   TeamMemberJoined,
-  TeamRedefined,
-  WorkspaceClosed,
+  TeamUpdated,
+  WorkspaceDeleted,
   WorkspaceInviteAccepted,
-  WorkspaceInviteOffered,
+  WorkspaceInviteCreated,
   WorkspaceInviteRevoked,
   WorkspaceMemberJoined,
   WorkspaceMemberRoleChanged,
-  WorkspaceOpened,
-  WorkspaceRedefined,
+  WorkspaceCreated,
+  WorkspaceUpdated,
   WorkspaceTokenIssued,
-  WorkspaceTokenLapsed,
-  WorkspaceTokenRedescribed,
+  WorkspaceTokenExpired,
+  WorkspaceTokenUpdated,
   WorkspaceTokenRevoked,
-  WorkspaceTokenTrustDefined,
-  WorkspaceTokenTrustRedefined,
-  WorkspaceTokenTrustWithdrawn,
+  WorkspaceTokenTrustCreated,
+  WorkspaceTokenTrustUpdated,
+  WorkspaceTokenTrustDeleted,
 ] as const;

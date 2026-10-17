@@ -20,7 +20,7 @@ import type { LineCompilerPort } from '@work/application/ports/line-compiler.por
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
 import { lineRejection } from '@work/application/services/line-rejections';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
-import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
+import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
 
 export class CreateLineHandler
   implements CommandHandlerPort<CreateLineCommand, ResourceCreated | null>
@@ -88,7 +88,7 @@ export class CreateLineHandler
             create,
             async () =>
               (
-                await this.applying.open(
+                await this.applying.create(
                   team,
                   compiled.line,
                   Attribution.of(command.actor, team.workspaceId),
@@ -97,7 +97,7 @@ export class CreateLineHandler
           ),
         );
       } catch (error) {
-        if (error instanceof LineAlreadyOpenedError) {
+        if (error instanceof LineAlreadyExistsError) {
           return {
             outcome: 'taken',
             address: TeamAddress.of(team.key, key).toString(),

@@ -56,7 +56,7 @@ export class DeleteSecretHandler
 
       await this.transaction.inTransaction(() =>
         this.secrets.save(
-          existing.deleted(
+          existing.delete(
             uses,
             Attribution.of(command.actor, existing.workspaceId),
           ),

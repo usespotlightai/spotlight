@@ -99,7 +99,7 @@ export class DrizzlePersonToolPolicies implements PersonToolPolicyRepository {
     }
   }
 
-  async forgetTeam(teamId: TeamId): Promise<void> {
+  async deleteForTeam(teamId: TeamId): Promise<void> {
     await this.context.db
       .delete(personToolPolicy)
       .where(eq(personToolPolicy.teamId, teamId.value));

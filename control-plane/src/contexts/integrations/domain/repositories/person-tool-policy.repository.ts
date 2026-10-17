@@ -19,5 +19,5 @@ export interface PersonToolPolicyRepository {
 
   save(policy: PersonToolPolicy): Promise<void>;
 
-  forgetTeam(teamId: TeamId): Promise<void>;
+  deleteForTeam(teamId: TeamId): Promise<void>;
 }

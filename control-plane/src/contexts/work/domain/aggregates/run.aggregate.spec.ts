@@ -151,7 +151,7 @@ describe('Run', () => {
     ).toEqual(noon);
   });
 
-  it('forgets its start when it goes back on the queue, so a run that never starts again has none', () => {
+  it('clears its start when it goes back on the queue, so a run that never starts again has none', () => {
     const image = RunnerImage.of(
       `ghcr.io/acme/widgets@sha256:${'e'.repeat(64)}`,
     );
@@ -1195,7 +1195,7 @@ describe('Run', () => {
       ).toThrow(/runs in ghcr.io\/acme\/widgets:main/);
     });
 
-    it('forgets the image once it goes back on the queue', () => {
+    it('clears the image once it goes back on the queue', () => {
       const started = claimed().startedIn(runner(), pinned, noon);
 
       expect(

@@ -82,7 +82,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     const opening = BUILT_IN_LINES.find((each) =>
       each.role?.equals(LineRole.REVIEW),
     );
-    const line = Line.open({
+    const line = Line.create({
       by: attributedIn(),
       workspaceId: WorkspaceId.of(workspaceId),
       teamId: TeamId.of(workspaceId),

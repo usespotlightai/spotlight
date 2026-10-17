@@ -3,8 +3,8 @@ import type { UpdateIntegrationCommand } from '@integrations/application/command
 import { IntegrationProblems } from '@integrations/application/rendering/integration-problems';
 import type { IntegrationSources } from '@integrations/application/services/integration-sources.service';
 import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
+import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
-import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
@@ -15,6 +15,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
 export class UpdateIntegrationHandler
@@ -34,8 +35,11 @@ export class UpdateIntegrationHandler
   ): Promise<ResourceUpdated | null> {
     const id = IntegrationDefinitionId.of(command.integrationId);
 
+    let loaded: IntegrationDefinition | null = null;
+
     try {
       const existing = await this.definitions.withId(id);
+      loaded = existing;
       const permissions = existing
         ? await this.access.permissionsOnTeam(
             existing.teamId.value,
@@ -67,7 +71,7 @@ export class UpdateIntegrationHandler
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          existing.redefinedAs(
+          existing.update(
             compiled,
             reading,
             given,
@@ -86,10 +90,15 @@ export class UpdateIntegrationHandler
           : null;
       }
 
-      if (error instanceof IntegrationHostFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [IntegrationProblems.hostFixed(error)],
+          problems: [
+            IntegrationProblems.immutableField(
+              loaded?.source.value ?? '',
+              error,
+            ),
+          ],
         };
       }
 

@@ -1,10 +1,10 @@
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
 import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -18,8 +18,8 @@ const SUBJECT = 'system:serviceaccount:spotlight:runner';
 const workload = (subject = SUBJECT) =>
   TrustedWorkload.of({ issuer: ISSUER, subject, audience: 'spotlight' });
 
-const defined = () =>
-  RunnerTrust.define({
+const created = () =>
+  RunnerTrust.create({
     id: RunnerTrustId.of('trust_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     key: TrustKey.of('production'),
@@ -29,7 +29,7 @@ const defined = () =>
   });
 
 const persisted = () => {
-  const trust = defined();
+  const trust = created();
   trust.pullEvents();
   return trust;
 };
@@ -38,8 +38,8 @@ const kinds = (trust: RunnerTrust) =>
   trust.pullEvents().map((each) => each.kind);
 
 describe('RunnerTrust', () => {
-  it('says it was defined', () => {
-    expect(kinds(defined())).toEqual(['runner-trust.defined']);
+  it('says it was created', () => {
+    expect(kinds(created())).toEqual(['runner-trust.created']);
   });
 
   it('admits a token from its issuer, for its subject and audience', () => {
@@ -82,29 +82,29 @@ describe('RunnerTrust', () => {
     ).toBe(false);
   });
 
-  it('admits nothing once withdrawn, and says it was withdrawn', () => {
-    const withdrawn = persisted().withdraw(BY);
+  it('admits nothing once deleted, and says it was deleted', () => {
+    const deleted = persisted().delete(BY);
 
     expect(
-      withdrawn.admits({
+      deleted.admits({
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['spotlight'],
         named: {},
       }),
     ).toBe(false);
-    expect(kinds(withdrawn)).toEqual(['runner-trust.withdrawn']);
-    expect(() => withdrawn.withdraw(BY)).toThrow(InconsistentStateError);
+    expect(kinds(deleted)).toEqual(['runner-trust.deleted']);
+    expect(() => deleted.delete(BY)).toThrow(InconsistentStateError);
   });
 
-  it('lets runners start through it only by pulling, and only while it is not withdrawn', () => {
+  it('lets runners start through it only by pulling, and only while it is not deleted', () => {
     expect(persisted().capacity('pull')).toBe('open');
     expect(persisted().capacity('push')).toBe('gone');
-    expect(persisted().withdraw(BY).capacity('pull')).toBe('gone');
+    expect(persisted().delete(BY).capacity('pull')).toBe('gone');
   });
 
   it('takes another workload and labels under the same key', () => {
-    const redefined = persisted().redefinedAs(
+    const updated = persisted().update(
       {
         key: TrustKey.of('production'),
         workload: workload('system:serviceaccount:spotlight:other'),
@@ -113,15 +113,15 @@ describe('RunnerTrust', () => {
       BY,
     );
 
-    expect(redefined.workload.subject).toBe(
+    expect(updated.workload.subject).toBe(
       'system:serviceaccount:spotlight:other',
     );
-    expect(kinds(redefined)).toEqual(['runner-trust.redefined']);
+    expect(kinds(updated)).toEqual(['runner-trust.updated']);
   });
 
   it('keeps its key for its whole life', () => {
     expect(() =>
-      persisted().redefinedAs(
+      persisted().update(
         {
           key: TrustKey.of('staging'),
           workload: workload(),
@@ -129,7 +129,7 @@ describe('RunnerTrust', () => {
         },
         BY,
       ),
-    ).toThrow(RunnerTrustKeyFixedError);
+    ).toThrow(ImmutableFieldError);
   });
 
   it('rejects a change to a version no longer current', () => {

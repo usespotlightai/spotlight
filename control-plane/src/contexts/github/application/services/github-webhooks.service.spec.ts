@@ -187,7 +187,7 @@ describe('GitHubWebhooks', () => {
       ]);
     });
 
-    it('leaves forgetting the pull requests of a removed installation to the disconnection it says', async () => {
+    it('leaves purging the pull requests of a removed installation to the disconnection it says', async () => {
       const { service, recording } = hooks({
         installation: '158876513',
         heard: [{ kind: 'installation-removed' }],

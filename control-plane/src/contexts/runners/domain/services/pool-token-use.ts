@@ -8,7 +8,7 @@ export const poolTokenUsedBy = (
   pool: RunnerPool,
   before: RunnerPool | null,
 ): TokenHash | null => {
-  const current = pool.isRetired ? null : pool.tokenHash;
+  const current = pool.isDeleted ? null : pool.tokenHash;
 
   return current && !before?.tokenHash?.equals(current) ? current : null;
 };

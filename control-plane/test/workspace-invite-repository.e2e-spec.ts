@@ -27,14 +27,14 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
   const recorded: DomainEvent[] = [];
   let sequence = 0;
 
-  const offered = (
+  const newInvite = (
     email = 'ada@example.com',
     teams = ['team_1', 'team_2'],
     invitedBy = 'user_leon',
   ) => {
     sequence += 1;
 
-    return WorkspaceInvite.offer({
+    return WorkspaceInvite.create({
       id: InviteId.of(`invite_${sequence}`),
       workspaceId: ACME,
       email: EmailAddress.of(email),
@@ -94,7 +94,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
   });
 
   it('keeps an invite with its role and teams, at its first version', async () => {
-    const invite = offered();
+    const invite = newInvite();
     await invites.add(invite);
 
     const read = await readBack(invite);
@@ -106,40 +106,40 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
       'team_2',
     ]);
     expect(recorded.map((each) => each.kind)).toEqual([
-      'workspace-invite.offered',
+      'workspace-invite.created',
     ]);
     expect((await invites.withToken(invite.tokenHash))?.id.value).toBe(
       invite.id.value,
     );
   });
 
-  it('finds the open invite to an address, however it was written', async () => {
-    const invite = offered('Ada@Example.com');
+  it('finds the pending invite to an address, however it was written', async () => {
+    const invite = newInvite('Ada@Example.com');
     await invites.add(invite);
 
     expect(
-      (await invites.openTo(ACME, EmailAddress.of('ADA@example.com')))?.id
+      (await invites.notEndedTo(ACME, EmailAddress.of('ADA@example.com')))?.id
         .value,
     ).toBe(invite.id.value);
   });
 
-  it('finds no open invite to an address whose invites were all accepted or revoked', async () => {
-    const taken = offered();
+  it('finds no pending invite to an address whose invites were all accepted or revoked', async () => {
+    const taken = newInvite();
     await invites.add(taken);
     await invites.save(accepted(await readBack(taken)));
-    const withdrawn = offered();
-    await invites.add(withdrawn);
+    const revoked = newInvite();
+    await invites.add(revoked);
     await invites.save(
-      (await readBack(withdrawn)).revoke(UserId.of('user_leon'), NOW),
+      (await readBack(revoked)).revoke(UserId.of('user_leon'), NOW),
     );
 
     expect(
-      await invites.openTo(ACME, EmailAddress.of('ada@example.com')),
+      await invites.notEndedTo(ACME, EmailAddress.of('ada@example.com')),
     ).toBeNull();
   });
 
-  it('reads back an invite accepted by an account since deleted, and opens a new one beside it', async () => {
-    const invite = offered();
+  it('reads back an invite accepted by an account since deleted, and creates a new one beside it', async () => {
+    const invite = newInvite();
     await invites.add(invite);
     await invites.save(accepted(await readBack(invite), 'user_gone'));
     await database.db
@@ -151,13 +151,13 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     expect(read?.statusAt(NOW)).toBe('accepted');
     expect(read?.acceptedBy).toBeNull();
     expect(
-      await invites.openTo(ACME, EmailAddress.of('ada@example.com')),
+      await invites.notEndedTo(ACME, EmailAddress.of('ada@example.com')),
     ).toBeNull();
-    await expect(invites.add(offered())).resolves.toBeUndefined();
+    await expect(invites.add(newInvite())).resolves.toBeUndefined();
   });
 
   it('keeps an invite whose inviter’s account was deleted, with nobody as its inviter', async () => {
-    const invite = offered('ada@example.com', [], 'user_left');
+    const invite = newInvite('ada@example.com', [], 'user_left');
     await invites.add(invite);
     await database.db
       .delete(schema.user)
@@ -166,11 +166,11 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     const read = await readBack(invite);
 
     expect(read.invitedBy).toBeNull();
-    expect(read.statusAt(NOW)).toBe('open');
+    expect(read.statusAt(NOW)).toBe('pending');
   });
 
   it('leaves the team links alone on a save that keeps the terms', async () => {
-    const invite = offered();
+    const invite = newInvite();
     await invites.add(invite);
     await database.db
       .delete(schema.workspaceInviteTeam)
@@ -185,27 +185,27 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     ).toEqual(['team_1']);
   });
 
-  it('rejects a second open invite to the same address', async () => {
-    await invites.add(offered());
+  it('rejects a second pending invite to the same address', async () => {
+    await invites.add(newInvite());
 
-    await expect(invites.add(offered())).rejects.toThrow(AlreadyInvitedError);
+    await expect(invites.add(newInvite())).rejects.toThrow(AlreadyInvitedError);
   });
 
-  it('opens a new invite once the last one was revoked', async () => {
-    const first = offered();
+  it('creates a new invite once the last one was revoked', async () => {
+    const first = newInvite();
     await invites.add(first);
     await invites.save(
       (await readBack(first)).revoke(UserId.of('user_leon'), NOW),
     );
 
-    await expect(invites.add(offered())).resolves.toBeUndefined();
+    await expect(invites.add(newInvite())).resolves.toBeUndefined();
   });
 
-  it('forgets a team deleted since the invite was sent', async () => {
+  it('leaves out a team deleted since the invite was sent', async () => {
     await database.db
       .insert(schema.team)
       .values({ id: 'team_3', workspaceId: 'ws_1', key: 'gone', name: 'Gone' });
-    const invite = offered('ada@example.com', ['team_1', 'team_3']);
+    const invite = newInvite('ada@example.com', ['team_1', 'team_3']);
     await invites.add(invite);
 
     await database.db.delete(schema.team).where(eq(schema.team.id, 'team_3'));
@@ -216,7 +216,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
   });
 
   it('rejects a revoke read before the invite was accepted, and records nothing for it', async () => {
-    const invite = offered();
+    const invite = newInvite();
     await invites.add(invite);
     recorded.length = 0;
     const acceptor = await readBack(invite);
@@ -240,8 +240,8 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     ]);
   });
 
-  it('keeps the new link and terms of an invite sent again', async () => {
-    const invite = offered();
+  it('keeps the new link and terms of an invite resent', async () => {
+    const invite = newInvite();
     await invites.add(invite);
 
     await invites.save(

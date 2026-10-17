@@ -293,7 +293,7 @@ describe('FireHooks.before', () => {
 
   it('treats a step that throws as failed, blocking only when the hook blocks', async () => {
     const throwing = () => {
-      throw new Error('the callback token could not be minted');
+      throw new Error('the callback token could not be issued');
     };
     const blocking = setUp([hookNamed('dba', ['ask'], true)], throwing);
     const continuing = setUp([hookNamed('audit', ['ask'])], throwing);
@@ -302,7 +302,7 @@ describe('FireHooks.before', () => {
       blocking.hooked.before(TASK, 'tool.using', EVENT),
     ).resolves.toEqual(
       HookVerdict.denied(
-        'Hook dba failed at step ask and blocks on failure. Reason: the callback token could not be minted',
+        'Hook dba failed at step ask and blocks on failure. Reason: the callback token could not be issued',
       ),
     );
     await expect(
@@ -1017,8 +1017,8 @@ describe('FireHooks.workOne, guarding against loops', () => {
   });
 });
 
-describe('FireHooks.forgetFinished', () => {
-  it('forgets each firing finished a month ago', async () => {
+describe('FireHooks.purgeFinished', () => {
+  it('purges each firing that finished a month ago', async () => {
     const finished = HookFiring.rehydrate({
       ...stateOf(stored()),
       progress: { kind: 'done', at: new Date(NOW.getTime() - 31 * 86_400_000) },
@@ -1028,7 +1028,7 @@ describe('FireHooks.forgetFinished', () => {
     });
     vi.mocked(firings.finishedBefore).mockResolvedValueOnce([finished]);
 
-    await expect(hooked.forgetFinished()).resolves.toBe(1);
+    await expect(hooked.purgeFinished()).resolves.toBe(1);
 
     expect(firings.finishedBefore).toHaveBeenCalledWith(
       new Date(NOW.getTime() - 30 * 86_400_000),

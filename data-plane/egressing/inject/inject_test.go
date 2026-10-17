@@ -171,14 +171,14 @@ func TestKeepsNothingItCouldNotReadOrInjectAndSaysWhyWithoutTheValue(t *testing.
 	}
 }
 
-func TestForgetsEveryValueItKept(t *testing.T) {
+func TestWipesEveryValueItKept(t *testing.T) {
 	injector, _ := injectorWithSecrets(t)
 	value := injector.byHost["mcp.linear.app"][0].value
 
-	injector.Forget()
+	injector.Wipe()
 
 	if injector.InjectsFor("mcp.linear.app") || len(injector.Hosts()) != 0 {
-		t.Error("still injects a secret after forgetting")
+		t.Error("still injects a secret after the wipe")
 	}
 	if strings.Trim(string(value), "\x00") != "" {
 		t.Errorf("the value is still in memory: %q", value)

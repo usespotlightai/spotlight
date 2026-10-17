@@ -53,7 +53,7 @@ export class DeleteHarnessProfileHandler
 
       await this.transaction.inTransaction(() =>
         this.profiles.save(
-          existing.retire(
+          existing.delete(
             named,
             Attribution.of(command.actor, permissions.workspaceId),
           ),

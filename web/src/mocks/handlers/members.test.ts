@@ -73,7 +73,7 @@ describe('the mock members', () => {
     );
 
     expect(data.outcomes.map((each) => each.outcome)).toEqual([
-      'sent-again',
+      'resent',
       'already-a-member',
       'invited',
     ]);
@@ -144,7 +144,7 @@ describe('the mock members', () => {
   });
 
   it('reads an invite link and accepts it once', async () => {
-    const { data: offer } = await readInvite({
+    const { data: preview } = await readInvite({
       path: { token: 'invite_platform' },
       throwOnError: true,
     });
@@ -154,11 +154,11 @@ describe('the mock members', () => {
     });
     const again = await acceptInvite({ path: { token: 'invite_platform' } });
 
-    expect(offer).toMatchObject({
+    expect(preview).toMatchObject({
       workspaceName: 'Acme',
       role: 'member',
       teamNames: ['Platform'],
-      status: 'open',
+      status: 'pending',
     });
     expect(joined).toEqual({ workspaceSlug: SLUG });
     expect(again.response?.status).toBe(409);
@@ -193,7 +193,7 @@ describe('the mock members', () => {
     );
   });
 
-  it('answers a revoked invite sent again with a conflict, and revoking it again with nothing', async () => {
+  it('answers a revoked invite resent with a conflict, and revoking it again with nothing', async () => {
     const at = { path: { slug: SLUG, inviteId: 'invite_jordan' } };
     await revokeInvite({ ...at, throwOnError: true });
 

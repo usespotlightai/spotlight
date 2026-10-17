@@ -20,7 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOUR = 60 * 60_000;
 
@@ -28,7 +28,7 @@ const ago = (hours: number) => new Date(Date.now() - hours * HOUR);
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const remembered = async (
   change: Partial<typeof schema.memory.$inferInsert>,
@@ -103,7 +103,7 @@ const used = (runId: string, way: MemoryUse, memory: string) =>
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `memory-${randomUUID().slice(0, 8)}`,

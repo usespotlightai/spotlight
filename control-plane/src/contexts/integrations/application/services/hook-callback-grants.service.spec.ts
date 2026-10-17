@@ -14,11 +14,11 @@ const setUp = () => {
       added.push(grant);
     }),
     withToken: vi.fn(async () => null),
-    forgetExpiringBefore: vi.fn(async () => {}),
+    purgeExpiringBefore: vi.fn(async () => {}),
   } satisfies HookCallbackGrantRepository;
   const grants = new HookCallbackGrants(
     kept,
-    { mint: () => ({ token: 'token', hash: HASH }), hash: () => HASH },
+    { issue: () => ({ token: 'token', hash: HASH }), hash: () => HASH },
     { now: () => NOW, sleep: async () => {} },
   );
 
@@ -26,7 +26,7 @@ const setUp = () => {
 };
 
 describe('HookCallbackGrants', () => {
-  it('issues a grant from the clock and forgets those expired by then', async () => {
+  it('issues a grant from the clock and purges those expired by then', async () => {
     const { grants, kept, added } = setUp();
 
     const token = await grants.issued({
@@ -37,7 +37,7 @@ describe('HookCallbackGrants', () => {
     });
 
     expect(token).toBe('token');
-    expect(kept.forgetExpiringBefore).toHaveBeenCalledWith(NOW);
+    expect(kept.purgeExpiringBefore).toHaveBeenCalledWith(NOW);
     expect(added[0]?.expiresAt).toEqual(new Date(NOW.getTime() + 15 * 60_000));
   });
 });

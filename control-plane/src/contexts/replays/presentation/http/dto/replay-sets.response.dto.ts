@@ -318,7 +318,7 @@ export class SuggestedRunResponseDto extends ReplayableRunResponseDto {
   }
 }
 
-export class OpenReplaySetRequestDto {
+export class CreateReplaySetRequestDto {
   @ApiProperty({ example: 'Queue fixes', minLength: 1, maxLength: 100 })
   readonly name!: string;
 }
@@ -340,7 +340,7 @@ export class AddReplaySetEntryRequestDto {
   readonly runId!: string;
 }
 
-export class ReplaySetOpenedResponseDto {
+export class ReplaySetCreatedResponseDto {
   @ApiProperty()
   readonly id: string;
 

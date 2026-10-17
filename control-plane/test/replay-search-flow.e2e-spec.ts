@@ -22,6 +22,7 @@ import {
   bearing,
   budgetOf,
   claimed,
+  createSet,
   db,
   drained,
   endedSearchRun,
@@ -33,7 +34,6 @@ import {
   leasedSearchRun,
   liveBlock,
   openSearchFlow,
-  openSet,
   originalsOf,
   owner,
   proposing,
@@ -55,7 +55,7 @@ openSearchFlow();
 
 describe('a search for a better station config', () => {
   it('estimates what it would start, spend and take, as its budget allots it, writing nothing', async () => {
-    const setId = await openSet('Estimated', tenTasks);
+    const setId = await createSet('Estimated', tenTasks);
     const budget = { iterations: 2, perIteration: 2, ceiling: 40 };
 
     const estimate = (
@@ -193,7 +193,7 @@ describe('a search for a better station config', () => {
   }, 120_000);
 
   it('replays the live config first, then runs its agent, takes its candidates only on the searched tasks, shows it no held-out task, holds out its frontier, and finishes', async () => {
-    const setId = await openSet('Searched', tenTasks);
+    const setId = await createSet('Searched', tenTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 2,
       perIteration: 2,
@@ -539,7 +539,7 @@ describe('a search for a better station config', () => {
   }, 120_000);
 
   it('ends when its seed spends past its ceiling, and when a person stops it', async () => {
-    const setId = await openSet('Capped', fiveTasks);
+    const setId = await createSet('Capped', fiveTasks);
     const capped = await startSearch(setId, {
       iterations: 1,
       perIteration: 1,

@@ -1,8 +1,7 @@
-import { RunnerPoolDefined } from '@runners/domain/events/runner-pool-defined.event';
-import { RunnerPoolRedefined } from '@runners/domain/events/runner-pool-redefined.event';
-import { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.event';
+import { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
+import { RunnerPoolDeleted } from '@runners/domain/events/runner-pool-deleted.event';
+import { RunnerPoolUpdated } from '@runners/domain/events/runner-pool-updated.event';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
-import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
@@ -21,6 +20,7 @@ import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.v
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
 import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -65,12 +65,12 @@ export class RunnerPool extends EventRecorder {
     readonly maxRuns: MaxRuns | null,
     readonly access: PoolAccess,
     readonly version: number,
-    readonly isRetired: boolean,
+    readonly isDeleted: boolean,
   ) {
     super();
   }
 
-  static define(
+  static create(
     input: PoolDefinition & {
       id: RunnerPoolId;
       workspaceId: WorkspaceId;
@@ -79,7 +79,7 @@ export class RunnerPool extends EventRecorder {
     },
   ): RunnerPool {
     const access = RunnerPool.firstAccess(input.access);
-    const defined = new RunnerPool(
+    const created = new RunnerPool(
       input.id,
       input.workspaceId,
       input.key,
@@ -90,20 +90,20 @@ export class RunnerPool extends EventRecorder {
       false,
     );
 
-    defined.record(
-      new RunnerPoolDefined(
-        defined.id,
-        defined.workspaceId,
-        defined.key,
+    created.record(
+      new RunnerPoolCreated(
+        created.id,
+        created.workspaceId,
+        created.key,
         ConfigurationChange.created(
-          defined.whatChanged,
+          created.whatChanged,
           input.by,
-          RunnerPoolChangeDetail.defined(defined.mode),
+          RunnerPoolChangeDetail.created(created.mode),
         ),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(
@@ -138,7 +138,7 @@ export class RunnerPool extends EventRecorder {
       if (!given.tokenHash) {
         throw new InconsistentStateError(
           'runner pool',
-          'was defined to pull with no token to claim with',
+          'was created to pull with no token to claim with',
         );
       }
 
@@ -186,15 +186,15 @@ export class RunnerPool extends EventRecorder {
   }
 
   goesOutThrough(egress: EgressReference): boolean {
-    return !this.isRetired && (this.provision?.goesOutThrough(egress) ?? false);
+    return !this.isDeleted && (this.provision?.goesOutThrough(egress) ?? false);
   }
 
   hasRoomFor(running: number): boolean {
-    return !this.isRetired && (this.maxRuns?.allows(running) ?? true);
+    return !this.isDeleted && (this.maxRuns?.allows(running) ?? true);
   }
 
   roomFor(running: number): number | null {
-    if (this.isRetired) {
+    if (this.isDeleted) {
       return 0;
     }
 
@@ -202,7 +202,7 @@ export class RunnerPool extends EventRecorder {
   }
 
   capacity(mode: PoolMode, running: number): PoolCapacity {
-    if (this.isRetired || mode !== this.mode) {
+    if (this.isDeleted || mode !== this.mode) {
       return 'gone';
     }
 
@@ -215,7 +215,7 @@ export class RunnerPool extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     definition: PoolDefinition,
     given: GivenAccess,
     by: Attribution,
@@ -223,18 +223,22 @@ export class RunnerPool extends EventRecorder {
     this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
-      throw new RunnerPoolFixedError(
-        this.key.value,
+      const because = `can't change its key to ${definition.key.value}. Please replace the pool instead`;
+
+      throw new ImmutableFieldError(
         'key',
-        `can't change its key to ${definition.key.value}. Please replace the pool instead`,
+        because,
+        `Runner pool ${this.key.value} ${because}.`,
       );
     }
 
     if (given.mode !== this.mode) {
-      throw new RunnerPoolFixedError(
-        this.key.value,
+      const because = `can't change from ${this.mode === 'push' ? 'provisioning' : 'being pulled from'} to ${given.mode === 'push' ? 'provisioning' : 'being pulled from'}. Please replace the pool instead`;
+
+      throw new ImmutableFieldError(
         'provision',
-        `can't change from ${this.mode === 'push' ? 'provisioning' : 'being pulled from'} to ${given.mode === 'push' ? 'provisioning' : 'being pulled from'}. Please replace the pool instead`,
+        because,
+        `Runner pool ${this.key.value} ${because}.`,
       );
     }
 
@@ -243,41 +247,41 @@ export class RunnerPool extends EventRecorder {
       access.mode === 'pull' &&
       this.access.mode === 'pull' &&
       !access.tokenHash.equals(this.access.tokenHash);
-    const redefined = this.with({
+    const updated = this.with({
       labels: definition.labels,
       maxRuns: definition.maxRuns,
       access,
     });
 
-    redefined.record(
-      new RunnerPoolRedefined(
+    updated.record(
+      new RunnerPoolUpdated(
         this.id,
         this.workspaceId,
         this.key,
         ConfigurationChange.updated(
           this.whatChanged,
           by,
-          RunnerPoolChangeDetail.redefined(this.mode, {
+          RunnerPoolChangeDetail.updated(this.mode, {
             rekeyed,
             secretRotated: given.mode === 'push' && given.secret !== null,
             egressMoved:
-              !sameEgress(this.egress, redefined.egress) ||
-              !this.egressTraffic.equals(redefined.egressTraffic),
+              !sameEgress(this.egress, updated.egress) ||
+              !this.egressTraffic.equals(updated.egressTraffic),
           }),
         ),
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  retire(by: Attribution): RunnerPool {
+  delete(by: Attribution): RunnerPool {
     this.assertNotDeleted();
 
-    const retired = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    retired.record(
-      new RunnerPoolRetired(
+    deleted.record(
+      new RunnerPoolDeleted(
         this.id,
         this.workspaceId,
         this.key,
@@ -285,7 +289,7 @@ export class RunnerPool extends EventRecorder {
       ),
     );
 
-    return retired;
+    return deleted;
   }
 
   private nextAccess(given: GivenAccess): PoolAccess {
@@ -335,10 +339,10 @@ export class RunnerPool extends EventRecorder {
   }
 
   private assertNotDeleted(): void {
-    if (this.isRetired) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'runner pool',
-        'was changed after it was retired',
+        'was changed after it was deleted',
       );
     }
   }
@@ -347,7 +351,7 @@ export class RunnerPool extends EventRecorder {
     labels?: RunnerLabels;
     maxRuns?: MaxRuns | null;
     access?: PoolAccess;
-    retired?: boolean;
+    deleted?: boolean;
   }): RunnerPool {
     const next = new RunnerPool(
       this.id,
@@ -357,7 +361,7 @@ export class RunnerPool extends EventRecorder {
       part.maxRuns !== undefined ? part.maxRuns : this.maxRuns,
       part.access ?? this.access,
       this.version,
-      part.retired ?? this.isRetired,
+      part.deleted ?? this.isDeleted,
     );
 
     next.inheritEvents(this);

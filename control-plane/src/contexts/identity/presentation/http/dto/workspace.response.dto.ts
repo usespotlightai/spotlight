@@ -65,7 +65,7 @@ export class WorkspaceResponseDto {
 
   @ApiProperty({
     description:
-      'Whether Spotlight has opened the first team of the workspace. The value is failed after Spotlight stopped its attempts.',
+      'Whether Spotlight has created the first team of the workspace. The value is failed after Spotlight stopped its attempts.',
     enum: PROVISIONINGS,
     example: 'done',
   })

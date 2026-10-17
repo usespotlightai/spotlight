@@ -18,7 +18,7 @@ import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
 import {
-  type ClosedInvite,
+  type EndedInvite,
   INVITE_DAYS,
   membersWorld,
   type WorkspacePerson,
@@ -31,14 +31,14 @@ const ofWorkspace = (slug: unknown) => slug === world().workspace.slug;
 
 const administers = () => scenario().account !== 'member';
 
-const CLOSED_BECAUSE: Record<ClosedInvite | 'expired', string> = {
+const NOT_PENDING_BECAUSE: Record<EndedInvite | 'expired', string> = {
   accepted: 'This invite has already been accepted.',
   revoked: 'This invite has been revoked.',
   expired: 'This invite has expired. Please ask for a new one.',
 };
 
-const closedInvite = (inviteId: unknown) =>
-  membersWorld().closed[String(inviteId)];
+const endedInvite = (inviteId: unknown) =>
+  membersWorld().ended[String(inviteId)];
 
 const pendingInvite = (inviteId: unknown) =>
   membersWorld().invites.find((each) => each.id === inviteId);
@@ -113,7 +113,7 @@ const inviter = () => ({
   image: SIGNED_IN.image,
 });
 
-const offeredFor = (
+const createdFor = (
   email: string,
   terms: InviteToWorkspaceRequestDto,
 ): WorkspaceInviteResponseDto => ({
@@ -128,7 +128,7 @@ const offeredFor = (
   expiresAt: daysAgo(-INVITE_DAYS),
 });
 
-const sentAgain = (invite: WorkspaceInviteResponseDto) => {
+const resend = (invite: WorkspaceInviteResponseDto) => {
   invite.invitedAt = daysAgo(0);
   invite.expiresAt = daysAgo(-INVITE_DAYS);
   invite.invitedBy = inviter();
@@ -149,16 +149,16 @@ const inviteOne = (
 
   const pending = store.invites.find((each) => sameAddress(each.email, email));
   if (pending) {
-    sentAgain(pending);
+    resend(pending);
   } else {
-    store.invites.unshift(offeredFor(email, terms));
+    store.invites.unshift(createdFor(email, terms));
   }
 
   if (bounces(email)) {
     return 'not-sent';
   }
 
-  return pending ? 'sent-again' : 'invited';
+  return pending ? 'resent' : 'invited';
 };
 
 const inviteHandlers = [
@@ -223,9 +223,9 @@ const inviteHandlers = [
       return notFound();
     }
 
-    const closed = closedInvite(params.inviteId);
-    if (closed) {
-      return problem(409, CLOSED_BECAUSE[closed]);
+    const ended = endedInvite(params.inviteId);
+    if (ended) {
+      return problem(409, NOT_PENDING_BECAUSE[ended]);
     }
 
     const invite = pendingInvite(params.inviteId);
@@ -233,7 +233,7 @@ const inviteHandlers = [
       return notFound();
     }
 
-    sentAgain(invite);
+    resend(invite);
     return json(invite);
   }),
 
@@ -243,11 +243,11 @@ const inviteHandlers = [
     }
 
     const store = membersWorld();
-    const closed = closedInvite(params.inviteId);
-    if (closed === 'accepted') {
-      return problem(409, CLOSED_BECAUSE.accepted);
+    const ended = endedInvite(params.inviteId);
+    if (ended === 'accepted') {
+      return problem(409, NOT_PENDING_BECAUSE.accepted);
     }
-    if (closed === 'revoked') {
+    if (ended === 'revoked') {
       return noContent();
     }
     if (!pendingInvite(params.inviteId)) {
@@ -255,31 +255,31 @@ const inviteHandlers = [
     }
 
     store.invites = store.invites.filter((each) => each.id !== params.inviteId);
-    store.closed[String(params.inviteId)] = 'revoked';
+    store.ended[String(params.inviteId)] = 'revoked';
     return noContent();
   }),
 
   api.get('/invites/:token', ({ params }) => {
-    const found = membersWorld().offers.find(
+    const found = membersWorld().previews.find(
       (each) => each.token === params.token,
     );
     if (!found) {
       return notFound();
     }
 
-    const { token: _token, ...offer } = found;
-    return json(offer);
+    const { token: _token, ...preview } = found;
+    return json(preview);
   }),
 
   api.post('/invites/:token/accept', ({ params }) => {
-    const found = membersWorld().offers.find(
+    const found = membersWorld().previews.find(
       (each) => each.token === params.token,
     );
     if (!found) {
       return notFound();
     }
-    if (found.status !== 'open') {
-      return problem(409, CLOSED_BECAUSE[found.status]);
+    if (found.status !== 'pending') {
+      return problem(409, NOT_PENDING_BECAUSE[found.status]);
     }
 
     const store = membersWorld();
@@ -289,7 +289,7 @@ const inviteHandlers = [
     found.status = 'accepted';
     if (pending) {
       store.invites = store.invites.filter((each) => each !== pending);
-      store.closed[pending.id] = 'accepted';
+      store.ended[pending.id] = 'accepted';
     }
     return json({ workspaceSlug: world().workspace.slug });
   }),

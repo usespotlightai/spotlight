@@ -1,6 +1,6 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
+import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
-import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
 import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
@@ -66,7 +66,7 @@ interface Proposal {
 export class Candidate extends EventRecorder {
   private constructor(
     private readonly state: State,
-    readonly isAbandoned = false,
+    readonly isDeleted = false,
   ) {
     super();
   }
@@ -346,7 +346,7 @@ export class Candidate extends EventRecorder {
     }
   }
 
-  withdraw(underway: boolean, by: Attribution): Candidate {
+  delete(underway: boolean, by: Attribution): Candidate {
     if (this.isLive) {
       throw new CandidateIsLiveError(this.id.value);
     }
@@ -360,7 +360,7 @@ export class Candidate extends EventRecorder {
     return this.gone(by);
   }
 
-  abandon(): Candidate {
+  cascadeDelete(): Candidate {
     return this.isProposed
       ? this.gone(Attribution.spotlight(this.workspaceId))
       : new Candidate(this.state, true);
@@ -374,7 +374,7 @@ export class Candidate extends EventRecorder {
     const gone = new Candidate(this.state, true);
 
     gone.record(
-      new CandidateWithdrawn(
+      new CandidateDeleted(
         this.id,
         this.teamId,
         ConfigurationChange.deleted(this.whatChanged, by),

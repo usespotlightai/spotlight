@@ -93,8 +93,7 @@ import { AskChangeJudging } from '@outcomes/application/services/ask-change-judg
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { AskPairJudging } from '@outcomes/application/services/ask-pair-judging.service';
 import { CheckRunFacts } from '@outcomes/application/services/check-run-facts.service';
-import { DropExpiredTombstones } from '@outcomes/application/services/drop-expired-tombstones.service';
-import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
@@ -113,6 +112,7 @@ import { NoteRunSuperseded } from '@outcomes/application/services/note-run-super
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
+import { PurgeExpiredTombstones } from '@outcomes/application/services/purge-expired-tombstones.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
 import { RunAcceptance } from '@outcomes/application/services/run-acceptance.service';
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
@@ -135,7 +135,7 @@ import { People } from '@outcomes/infrastructure/acl/people.adapter';
 import { Work } from '@outcomes/infrastructure/acl/work.adapter';
 import { OpenRouterJudge } from '@outcomes/infrastructure/judging/openrouter-judge';
 import { OpenRouterPairJudge } from '@outcomes/infrastructure/judging/openrouter-pair-judge';
-import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
+import { DrizzleDeletions } from '@outcomes/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
 import { DrizzleStationConfigPullRequests } from '@outcomes/infrastructure/persistence/drizzle/ledgers/station-config-pull-requests.ledger';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
@@ -277,7 +277,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   DrizzleTaskChangeShapeRepository,
   DrizzleStationWatchRepository,
   DrizzleFirstSeen,
-  DrizzleForgotten,
+  DrizzleDeletions,
   DrizzlePendingReviews,
   DrizzleStationConfigPullRequests,
   { provide: FIRST_SEEN, useExisting: DrizzleFirstSeen },
@@ -370,7 +370,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       DrizzleRunRecordRepository,
       DrizzleTaskDeliveryRepository,
       DrizzleStationWatchRepository,
-      DrizzleForgotten,
+      DrizzleDeletions,
       TRANSACTION,
       ID_GENERATOR,
       CLOCK,
@@ -380,14 +380,14 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       records: DrizzleRunRecordRepository,
       deliveries: DrizzleTaskDeliveryRepository,
       watches: DrizzleStationWatchRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
     ) =>
       new WatchStations(
         work,
-        { records, deliveries, watches, forgotten },
+        { records, deliveries, watches, deletions },
         transaction,
         ids,
         clock,
@@ -486,7 +486,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       EVIDENCE,
       JUDGE,
       DrizzleJudgingRepository,
-      DrizzleForgotten,
+      DrizzleDeletions,
       TRANSACTION,
       CLOCK,
     ],
@@ -495,7 +495,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       evidence: EvidencePort,
       judge: JudgePort,
       judgings: DrizzleJudgingRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
       clock: ClockPort,
     ) =>
@@ -504,7 +504,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
         evidence,
         judge,
         judgings,
-        forgotten,
+        deletions,
         transaction,
         clock,
       ),
@@ -626,10 +626,10 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
-    provide: DropExpiredTombstones,
-    inject: [DrizzleForgotten, CLOCK],
-    useFactory: (forgotten: DrizzleForgotten, clock: ClockPort) =>
-      new DropExpiredTombstones(forgotten, clock),
+    provide: PurgeExpiredTombstones,
+    inject: [DrizzleDeletions, CLOCK],
+    useFactory: (deletions: DrizzleDeletions, clock: ClockPort) =>
+      new PurgeExpiredTombstones(deletions, clock),
   },
   {
     provide: CheckRunFacts,
@@ -643,7 +643,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       WorkJudgings,
       WorkChangeJudgings,
       WorkPairJudgings,
-      DropExpiredTombstones,
+      PurgeExpiredTombstones,
       CheckRunFacts,
       LOGGER,
     ],
@@ -651,7 +651,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       judgings: WorkJudgings,
       changes: WorkChangeJudgings,
       pairs: WorkPairJudgings,
-      tombstones: DropExpiredTombstones,
+      tombstones: PurgeExpiredTombstones,
       facts: CheckRunFacts,
       logger: LoggerPort,
     ) =>
@@ -685,68 +685,68 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     inject: [
       WORK,
       DrizzleRunRecordRepository,
-      DrizzleForgotten,
+      DrizzleDeletions,
       TRANSACTION,
       LOGGER,
     ],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
       logger: LoggerPort,
-    ) => new NoteRunEnded(work, records, forgotten, transaction, logger),
+    ) => new NoteRunEnded(work, records, deletions, transaction, logger),
   },
   {
     provide: NoteRunSuperseded,
-    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION, CLOCK],
+    inject: [DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION, CLOCK],
     useFactory: (
       records: DrizzleRunRecordRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new NoteRunSuperseded(records, forgotten, transaction, clock),
+    ) => new NoteRunSuperseded(records, deletions, transaction, clock),
   },
   {
     provide: NoteChangeChecked,
-    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION, CLOCK],
+    inject: [DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION, CLOCK],
     useFactory: (
       records: DrizzleRunRecordRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new NoteChangeChecked(records, forgotten, transaction, clock),
+    ) => new NoteChangeChecked(records, deletions, transaction, clock),
   },
   {
     provide: NotePersonAct,
-    inject: [WORK, DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [WORK, DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NotePersonAct(work, records, forgotten, transaction),
+    ) => new NotePersonAct(work, records, deletions, transaction),
   },
   {
     provide: NotePullRequestOpened,
     inject: [
       DrizzleTaskDeliveryRepository,
       DrizzlePendingReviews,
-      DrizzleForgotten,
+      DrizzleDeletions,
       TRANSACTION,
       CLOCK,
     ],
     useFactory: (
       deliveries: DrizzleTaskDeliveryRepository,
       reviews: DrizzlePendingReviews,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
       clock: ClockPort,
     ) =>
       new NotePullRequestOpened(
         deliveries,
         reviews,
-        forgotten,
+        deletions,
         transaction,
         clock,
       ),
@@ -761,119 +761,119 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: NoteRunDigested,
-    inject: [WORK, DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [WORK, DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NoteRunDigested(work, records, forgotten, transaction),
+    ) => new NoteRunDigested(work, records, deletions, transaction),
   },
   {
     provide: NoteRunMemories,
-    inject: [WORK, DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [WORK, DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NoteRunMemories(work, records, forgotten, transaction),
+    ) => new NoteRunMemories(work, records, deletions, transaction),
   },
   {
     provide: NoteRunPassed,
-    inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NoteRunPassed(records, forgotten, transaction),
+    ) => new NoteRunPassed(records, deletions, transaction),
   },
   {
     provide: NotePullRequestReviewed,
     inject: [
       DrizzleTaskDeliveryRepository,
       DrizzlePendingReviews,
-      DrizzleForgotten,
+      DrizzleDeletions,
       TRANSACTION,
       CLOCK,
     ],
     useFactory: (
       deliveries: DrizzleTaskDeliveryRepository,
       reviews: DrizzlePendingReviews,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
       clock: ClockPort,
     ) =>
       new NotePullRequestReviewed(
         deliveries,
         reviews,
-        forgotten,
+        deletions,
         transaction,
         clock,
       ),
   },
   {
     provide: NoteTaskFailed,
-    inject: [DrizzleTaskFailuresRepository, DrizzleForgotten, TRANSACTION],
+    inject: [DrizzleTaskFailuresRepository, DrizzleDeletions, TRANSACTION],
     useFactory: (
       failures: DrizzleTaskFailuresRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NoteTaskFailed(failures, forgotten, transaction),
+    ) => new NoteTaskFailed(failures, deletions, transaction),
   },
   {
     provide: NoteTaskTouch,
-    inject: [DrizzleTaskTouchesRepository, DrizzleForgotten, TRANSACTION],
+    inject: [DrizzleTaskTouchesRepository, DrizzleDeletions, TRANSACTION],
     useFactory: (
       touches: DrizzleTaskTouchesRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NoteTaskTouch(touches, forgotten, transaction),
+    ) => new NoteTaskTouch(touches, deletions, transaction),
   },
   {
     provide: NoteChatStarted,
-    inject: [DrizzleChatRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [DrizzleChatRecordRepository, DrizzleDeletions, TRANSACTION],
     useFactory: (
       chats: DrizzleChatRecordRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NoteChatStarted(chats, forgotten, transaction),
+    ) => new NoteChatStarted(chats, deletions, transaction),
   },
   {
     provide: NoteConfigPullRequestOpened,
-    inject: [DrizzleStationConfigPullRequests, DrizzleForgotten, TRANSACTION],
+    inject: [DrizzleStationConfigPullRequests, DrizzleDeletions, TRANSACTION],
     useFactory: (
       pullRequests: DrizzleStationConfigPullRequests,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NoteConfigPullRequestOpened(pullRequests, forgotten, transaction),
+    ) => new NoteConfigPullRequestOpened(pullRequests, deletions, transaction),
   },
   {
     provide: NotePullRequestRecords,
-    inject: [DrizzlePullRequestRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [DrizzlePullRequestRecordRepository, DrizzleDeletions, TRANSACTION],
     useFactory: (
       records: DrizzlePullRequestRecordRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NotePullRequestRecords(records, forgotten, transaction),
+    ) => new NotePullRequestRecords(records, deletions, transaction),
   },
   {
     provide: NoteChangeShaped,
     inject: [
       WORK,
       DrizzleTaskChangeShapeRepository,
-      DrizzleForgotten,
+      DrizzleDeletions,
       TRANSACTION,
     ],
     useFactory: (
       work: WorkPort,
       shapes: DrizzleTaskChangeShapeRepository,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
-    ) => new NoteChangeShaped(work, shapes, forgotten, transaction),
+    ) => new NoteChangeShaped(work, shapes, deletions, transaction),
   },
   {
-    provide: ForgetOutcomes,
+    provide: DeleteOutcomes,
     inject: [
       DrizzleRunRecordRepository,
       DrizzleTaskDeliveryRepository,
@@ -889,7 +889,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       DrizzleStationWatchRepository,
       DrizzlePendingReviews,
       DrizzleStationConfigPullRequests,
-      DrizzleForgotten,
+      DrizzleDeletions,
       TRANSACTION,
     ],
     useFactory: (
@@ -907,10 +907,10 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       watches: DrizzleStationWatchRepository,
       reviews: DrizzlePendingReviews,
       configPullRequests: DrizzleStationConfigPullRequests,
-      forgotten: DrizzleForgotten,
+      deletions: DrizzleDeletions,
       transaction: TransactionPort,
     ) =>
-      new ForgetOutcomes(
+      new DeleteOutcomes(
         {
           records,
           deliveries,
@@ -926,7 +926,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           watches,
           reviews,
           configPullRequests,
-          forgotten,
+          deletions,
         },
         transaction,
       ),
@@ -943,7 +943,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       NotePersonAct,
       NotePullRequestOpened,
       NotePullRequestClosed,
-      ForgetOutcomes,
+      DeleteOutcomes,
       AskForJudging,
       RecordJudgeScore,
       GradeAsides,
@@ -970,7 +970,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       acting: NotePersonAct,
       opening: NotePullRequestOpened,
       closing: NotePullRequestClosed,
-      forgetting: ForgetOutcomes,
+      deleting: DeleteOutcomes,
       judging: AskForJudging,
       scoring: RecordJudgeScore,
       grading: GradeAsides,
@@ -997,7 +997,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           acting,
           opening,
           closing,
-          forgetting,
+          deleting,
           judging,
           scoring,
           grading,

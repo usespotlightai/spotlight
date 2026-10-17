@@ -142,7 +142,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     });
   });
 
-  it('forgets finished firings once they are old, and nothing still pending', async () => {
+  it('purges finished firings once they are old, and nothing still pending', async () => {
     await firings.add(firing('occurrence_3'));
     await firings.add(firing('occurrence_4'));
     const finished = await claimed();
@@ -156,7 +156,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     expect(old.map((each) => each.id)).toEqual([finished.id]);
 
     for (const each of old) {
-      await firings.save(each.forgotten(at(31 * 86_400)));
+      await firings.save(each.purge(at(31 * 86_400)));
     }
 
     const left = await db

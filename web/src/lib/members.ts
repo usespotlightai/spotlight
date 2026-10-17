@@ -72,14 +72,14 @@ export const parseEmails = (text: string): ParsedEmails => {
 
 export const OUTCOME_LABELS: Record<InviteOutcome['outcome'], string> = {
   invited: 'Invited',
-  'sent-again': 'Sent again',
+  resent: 'Resent',
   'already-a-member': 'Already a member',
   'not-sent': 'Not sent. Please resend it from Pending invites.',
 };
 
 const OUTCOME_COUNTS: readonly [InviteOutcome['outcome'], string][] = [
   ['invited', 'invited'],
-  ['sent-again', 'sent again'],
+  ['resent', 'resent'],
   ['already-a-member', 'already in the workspace'],
   ['not-sent', 'not sent'],
 ];

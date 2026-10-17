@@ -167,13 +167,13 @@ describe('RunnerPools', () => {
       await expect(pools.roomIn(POOL_ID.value, NOW)).resolves.toBeNull();
     });
 
-    it('is none for a pool that is gone or retired', async () => {
+    it('is none for a pool that is gone or deleted', async () => {
       await expect(
         pooling(null, { pool: null }).pools.roomIn(POOL_ID.value, NOW),
       ).resolves.toBe(0);
       await expect(
         pooling(null, {
-          pool: aPullPool().retire(attributedIn()),
+          pool: aPullPool().delete(attributedIn()),
         }).pools.roomIn(POOL_ID.value, NOW),
       ).resolves.toBe(0);
     });

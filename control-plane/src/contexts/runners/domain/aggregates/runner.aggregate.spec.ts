@@ -174,13 +174,13 @@ describe('Runner', () => {
     expect(aRunner({ host: null }).hostId).toBeNull();
   });
 
-  it('is not started for a pool that is retired, a trust that is withdrawn, nor with no time to claim', () => {
+  it('is not started for a pool that is deleted, a trust that is deleted, nor with no time to claim', () => {
     expect(() =>
-      aRunner({ through: aPullPool().retire(attributedIn()) }),
+      aRunner({ through: aPullPool().delete(attributedIn()) }),
     ).toThrow(InconsistentStateError);
-    expect(() =>
-      aRunner({ through: aTrust().withdraw(attributedIn()) }),
-    ).toThrow(InconsistentStateError);
+    expect(() => aRunner({ through: aTrust().delete(attributedIn()) })).toThrow(
+      InconsistentStateError,
+    );
     expect(() => aRunner({ claimWithinMs: 0 })).toThrow(InconsistentStateError);
   });
 

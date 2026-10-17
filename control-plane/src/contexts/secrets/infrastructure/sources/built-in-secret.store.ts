@@ -71,7 +71,7 @@ export class BuiltInSecretStore implements SecretSourcePort {
     }
   }
 
-  async forget(secret: SecretReference): Promise<void> {
+  async delete(secret: SecretReference): Promise<void> {
     await this.context.db
       .delete(secretValue)
       .where(eq(secretValue.secretId, secret.id.value));

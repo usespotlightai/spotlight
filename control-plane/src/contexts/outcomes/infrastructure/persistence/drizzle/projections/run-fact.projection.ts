@@ -38,7 +38,7 @@ export type RunFactOwner =
     }
   | { readonly kind: 'workspace'; readonly workspaceId: string };
 
-export type ForgottenTasks =
+export type DeletedTasks =
   | { readonly kind: 'workspace'; readonly workspaceId: string }
   | {
       readonly kind: 'tasks';
@@ -204,22 +204,22 @@ export class DrizzleRunFactProjection implements RunFactsPort {
     });
   }
 
-  async forgetRuns(owner: RunFactOwner): Promise<void> {
+  async deleteRuns(owner: RunFactOwner): Promise<void> {
     await this.context.inTransaction(async () => {
       await this.lock('exclusive', [workspaceKey(owner.workspaceId)]);
       await this.dropStale(owner);
     });
   }
 
-  async forgetOpenings(forgotten: ForgottenTasks): Promise<void> {
-    await this.forgetOfTasks(forgotten, {
+  async deleteOpenings(deleted: DeletedTasks): Promise<void> {
+    await this.deleteForTasks(deleted, {
       openedBy: null,
       taskOpenedAt: null,
     });
   }
 
-  async forgetDeliveries(forgotten: ForgottenTasks): Promise<void> {
-    await this.forgetOfTasks(forgotten, {
+  async deleteDeliveries(deleted: DeletedTasks): Promise<void> {
+    await this.deleteForTasks(deleted, {
       pullRequest: null,
       deliveryState: null,
       deliveryOpenedAt: null,
@@ -298,31 +298,28 @@ export class DrizzleRunFactProjection implements RunFactsPort {
     return { checked: counted?.checked ?? 0, repaired };
   }
 
-  private async forgetOfTasks(
-    forgotten: ForgottenTasks,
+  private async deleteForTasks(
+    deleted: DeletedTasks,
     cleared: Partial<typeof runFact.$inferInsert>,
   ): Promise<void> {
-    const inWorkspace = eq(runFact.workspaceId, forgotten.workspaceId);
+    const inWorkspace = eq(runFact.workspaceId, deleted.workspaceId);
 
     await this.context.inTransaction(async () => {
-      await this.lock('exclusive', [workspaceKey(forgotten.workspaceId)]);
+      await this.lock('exclusive', [workspaceKey(deleted.workspaceId)]);
 
-      if (forgotten.kind === 'workspace') {
+      if (deleted.kind === 'workspace') {
         await this.context.db.update(runFact).set(cleared).where(inWorkspace);
         return;
       }
 
-      for (let at = 0; at < forgotten.taskIds.length; at += AT_ONCE) {
+      for (let at = 0; at < deleted.taskIds.length; at += AT_ONCE) {
         await this.context.db
           .update(runFact)
           .set(cleared)
           .where(
             and(
               inWorkspace,
-              inArray(
-                runFact.taskId,
-                forgotten.taskIds.slice(at, at + AT_ONCE),
-              ),
+              inArray(runFact.taskId, deleted.taskIds.slice(at, at + AT_ONCE)),
             ),
           );
       }

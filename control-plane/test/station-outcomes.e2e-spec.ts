@@ -7,7 +7,7 @@ import { ListStationOutcomesHandler } from '@outcomes/application/queries/handle
 import { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
 import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
-import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
@@ -32,7 +32,7 @@ import { WatchStations } from '@outcomes/application/services/watch-stations.ser
 import { RunRecordVersionConflictError } from '@outcomes/domain/exceptions/run-record-version-conflict.error';
 import { lastConfigRunsFrom } from '@outcomes/domain/outcomes.fake-spec';
 import type { StretchBound } from '@outcomes/domain/services/config-stretches';
-import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
+import { DrizzleDeletions } from '@outcomes/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
 import { DrizzleStationConfigPullRequests } from '@outcomes/infrastructure/persistence/drizzle/ledgers/station-config-pull-requests.ledger';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
@@ -60,8 +60,8 @@ import { RUN_DIGESTED } from '@shared-kernel/application/integration-events/run-
 import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
-import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
-import { WORKSPACE_CLOSED } from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
+import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -167,7 +167,7 @@ let deliveries: DrizzleTaskDeliveryRepository;
 let subscribers: readonly DomainEventSubscriber[];
 let listing: ListStationOutcomesHandler;
 let context: DrizzleContext;
-let forgotten: DrizzleForgotten;
+let deletions: DrizzleDeletions;
 let chats: DrizzleChatRecordRepository;
 let configPullRequests: DrizzleStationConfigPullRequests;
 
@@ -293,27 +293,27 @@ beforeAll(async () => {
   const watches = new DrizzleStationWatchRepository(context, quiet);
   const reviews = new DrizzlePendingReviews(context);
   configPullRequests = new DrizzleStationConfigPullRequests(context);
-  forgotten = new DrizzleForgotten(context);
+  deletions = new DrizzleDeletions(context);
   subscribers = outcomesSubscribers({
-    ending: new NoteRunEnded(work, records, forgotten, context, QUIET),
-    superseding: new NoteRunSuperseded(records, forgotten, context, {
+    ending: new NoteRunEnded(work, records, deletions, context, QUIET),
+    superseding: new NoteRunSuperseded(records, deletions, context, {
       now: () => HEARD_AT,
       sleep: async () => {},
     }),
-    checking: new NoteChangeChecked(records, forgotten, context, {
+    checking: new NoteChangeChecked(records, deletions, context, {
       now: () => HEARD_AT,
       sleep: async () => {},
     }),
-    acting: new NotePersonAct(work, records, forgotten, context),
+    acting: new NotePersonAct(work, records, deletions, context),
     opening: new NotePullRequestOpened(
       deliveries,
       reviews,
-      forgotten,
+      deletions,
       context,
       { now: () => new Date(), sleep: async () => {} },
     ),
     closing: new NotePullRequestClosed(deliveries, context),
-    forgetting: new ForgetOutcomes(
+    deleting: new DeleteOutcomes(
       {
         records,
         deliveries,
@@ -329,7 +329,7 @@ beforeAll(async () => {
         watches,
         reviews,
         configPullRequests,
-        forgotten,
+        deletions,
       },
       context,
     ),
@@ -350,7 +350,7 @@ beforeAll(async () => {
         }),
       },
       judgings,
-      forgotten,
+      deletions,
       context,
       { now: () => new Date(), sleep: async () => {} },
     ),
@@ -361,24 +361,24 @@ beforeAll(async () => {
       ask: async () => {},
       resolve: async () => {},
     }),
-    digesting: new NoteRunDigested(work, records, forgotten, context),
-    remembering: new NoteRunMemories(work, records, forgotten, context),
-    passing: new NoteRunPassed(records, forgotten, context),
+    digesting: new NoteRunDigested(work, records, deletions, context),
+    remembering: new NoteRunMemories(work, records, deletions, context),
+    passing: new NoteRunPassed(records, deletions, context),
     reviewing: new NotePullRequestReviewed(
       deliveries,
       reviews,
-      forgotten,
+      deletions,
       context,
       { now: () => new Date(), sleep: async () => {} },
     ),
-    failing: new NoteTaskFailed(failures, forgotten, context),
-    touching: new NoteTaskTouch(touches, forgotten, context),
-    chatting: new NoteChatStarted(chats, forgotten, context),
-    recording: new NotePullRequestRecords(pullRequests, forgotten, context),
-    shaping: new NoteChangeShaped(work, shapes, forgotten, context),
+    failing: new NoteTaskFailed(failures, deletions, context),
+    touching: new NoteTaskTouch(touches, deletions, context),
+    chatting: new NoteChatStarted(chats, deletions, context),
+    recording: new NotePullRequestRecords(pullRequests, deletions, context),
+    shaping: new NoteChangeShaped(work, shapes, deletions, context),
     watching: new WatchStations(
       work,
-      { records, deliveries, watches, forgotten },
+      { records, deliveries, watches, deletions },
       context,
       { generate: () => 'alert_1' },
       { now: () => new Date(), sleep: async () => {} },
@@ -392,7 +392,7 @@ beforeAll(async () => {
     ),
     openingConfigPullRequests: new NoteConfigPullRequestOpened(
       configPullRequests,
-      forgotten,
+      deletions,
       context,
     ),
   });
@@ -731,7 +731,7 @@ describe('how a station’s runs turned out', () => {
     ).rejects.toBeInstanceOf(RunRecordVersionConflictError);
   });
 
-  it('forgets a deleted task’s runs and delivery', async () => {
+  it('deletes the runs and delivery of a deleted task', async () => {
     const deleted = {
       kind: TASK_DELETED,
       taskId: 'task_1',
@@ -750,8 +750,8 @@ describe('how a station’s runs turned out', () => {
     });
     expect(await records.of(RunId.of('run_9'))).not.toBeNull();
 
-    await deliver('outcomes.forget-runs-of-deleted-task', deleted);
-    await deliver('outcomes.forget-delivery-of-deleted-task', deleted);
+    await deliver('outcomes.delete-runs-of-deleted-task', deleted);
+    await deliver('outcomes.delete-delivery-of-deleted-task', deleted);
 
     expect(await records.of(RunId.of('run_1'))).toBeNull();
     expect(await records.of(RunId.of('run_9'))).toBeNull();
@@ -783,24 +783,24 @@ describe('how a station’s runs turned out', () => {
     expect(await deliveries.forTask(TaskId.of('task_1'))).toBeNull();
   });
 
-  it('records nothing of a task heard of while its forgetting is under way, once the forgetting commits', async () => {
+  it('records nothing of a task heard of while its deletion is under way, once the deletion commits', async () => {
     let locked: () => void = () => {};
     let release: () => void = () => {};
-    const forgettingLocked = new Promise<void>((resolve) => {
+    const deletionLocked = new Promise<void>((resolve) => {
       locked = resolve;
     });
     const released = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const forgetting = context.inTransaction(async () => {
-      await forgotten.forgetTask(
+    const deletion = context.inTransaction(async () => {
+      await deletions.deleteTask(
         WorkspaceId.of(WORKSPACE),
         TaskId.of('task_9'),
       );
       locked();
       await released;
     });
-    await forgettingLocked;
+    await deletionLocked;
 
     const noting = deliver('outcomes.record-next-person-act', {
       kind: TASK_ACTED_ON,
@@ -814,15 +814,15 @@ describe('how a station’s runs turned out', () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 200));
     release();
-    await forgetting;
+    await deletion;
     await noting;
 
     expect(await records.of(RunId.of('run_90'))).toBeNull();
   });
 
-  it('records nothing more of a disbanded team, however late it is heard of', async () => {
-    await deliver('outcomes.forget-chats-of-disbanded-team', {
-      kind: TEAM_DISBANDED,
+  it('records nothing more of a deleted team, however late it is heard of', async () => {
+    await deliver('outcomes.delete-chats-of-deleted-team', {
+      kind: TEAM_DELETED,
       workspaceId: WORKSPACE,
       teamId: 'team_gone',
       key: 'gone',
@@ -840,48 +840,48 @@ describe('how a station’s runs turned out', () => {
     expect(await chats.of('chat_gone')).toBeNull();
   });
 
-  it('keeps no config pull request of a disbanded team heard of late', async () => {
-    endedRun('run_disbanded', {
-      teamId: 'team_disbanded',
-      taskId: 'task_disbanded',
+  it('keeps no config pull request of a deleted team heard of late', async () => {
+    endedRun('run_deleted', {
+      teamId: 'team_deleted',
+      taskId: 'task_deleted',
       fingerprint: OPUS,
       startedAt: at(16),
       endedAt: at(17),
     });
-    await runEnded('run_disbanded');
+    await runEnded('run_deleted');
 
-    await deliver('outcomes.forget-config-pull-requests-of-disbanded-team', {
-      kind: TEAM_DISBANDED,
+    await deliver('outcomes.delete-config-pull-requests-of-deleted-team', {
+      kind: TEAM_DELETED,
       workspaceId: WORKSPACE,
-      teamId: 'team_disbanded',
-      key: 'disbanded',
+      teamId: 'team_deleted',
+      key: 'deleted',
     });
-    await configPullRequestOpened(WORKSPACE, 'team_disbanded', '51');
+    await configPullRequestOpened(WORKSPACE, 'team_deleted', '51');
 
-    const outcomes = await listAt(WORKSPACE, 'team_disbanded');
+    const outcomes = await listAt(WORKSPACE, 'team_deleted');
 
     expect(outcomes.groups.map((group) => group.pullRequest)).toEqual([null]);
   });
 
-  it('keeps no config pull request of a closed workspace heard of late', async () => {
-    endedRun('run_closed', {
-      workspaceId: 'ws_closed',
-      teamId: 'team_closed',
-      taskId: 'task_closed',
+  it('keeps no config pull request of a deleted workspace heard of late', async () => {
+    endedRun('run_deleted_ws', {
+      workspaceId: 'ws_deleted',
+      teamId: 'team_deleted_ws',
+      taskId: 'task_deleted_ws',
       fingerprint: OPUS,
       startedAt: at(16),
       endedAt: at(17),
     });
-    await runEnded('run_closed', { workspaceId: 'ws_closed' });
+    await runEnded('run_deleted_ws', { workspaceId: 'ws_deleted' });
 
-    await deliver('outcomes.forget-config-pull-requests-of-closed-workspace', {
-      kind: WORKSPACE_CLOSED,
-      workspaceId: 'ws_closed',
-      slug: 'closed',
+    await deliver('outcomes.delete-config-pull-requests-of-deleted-workspace', {
+      kind: WORKSPACE_DELETED,
+      workspaceId: 'ws_deleted',
+      slug: 'deleted',
     });
-    await configPullRequestOpened('ws_closed', 'team_closed', '52');
+    await configPullRequestOpened('ws_deleted', 'team_deleted_ws', '52');
 
-    const outcomes = await listAt('ws_closed', 'team_closed');
+    const outcomes = await listAt('ws_deleted', 'team_deleted_ws');
 
     expect(outcomes.groups.map((group) => group.pullRequest)).toEqual([null]);
   });
@@ -920,7 +920,7 @@ describe('the config runs a station’s runs make', () => {
     runs: readonly Planned[],
     teamId = 'team_1',
   ) => {
-    const noting = new NoteRunEnded(work, stretches, forgotten, context, QUIET);
+    const noting = new NoteRunEnded(work, stretches, deletions, context, QUIET);
 
     for (const run of runs) {
       endedRun(run.runId, {

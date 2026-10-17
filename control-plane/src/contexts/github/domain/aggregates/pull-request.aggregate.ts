@@ -1,4 +1,4 @@
-import { PullRequestForgotten } from '@github/domain/events/pull-request-forgotten.event';
+import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import {
   PullRequestRecorded,
   type RecordedPullRequest,
@@ -361,7 +361,7 @@ export class PullRequest extends EventRecorder {
     return verdicts.length + (after.length > 0 ? 1 : 0);
   }
 
-  forgettableAt(now: Date): boolean {
+  isPastRetention(now: Date): boolean {
     return pastRetention(this.kept, now);
   }
 
@@ -527,17 +527,17 @@ export class PullRequest extends EventRecorder {
     return this.changed({ ...this.kept, revertedBy: revert });
   }
 
-  forgotten(): PullRequest {
-    const forgotten = this.succeeded(this.kept, notRecorded);
-    forgotten.record(
-      new PullRequestForgotten(
+  purge(): PullRequest {
+    const purged = this.succeeded(this.kept, notRecorded);
+    purged.record(
+      new PullRequestPurged(
         this.workspaceId,
         this.url.value,
         this.kept.updatedAt,
       ),
     );
 
-    return forgotten;
+    return purged;
   }
 
   private newerThanKept(updatedAt: Date | null): boolean {

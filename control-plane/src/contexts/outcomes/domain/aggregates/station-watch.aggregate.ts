@@ -224,21 +224,19 @@ export class StationWatch extends EventRecorder {
   }
 
   withoutTask(taskId: TaskId): StationWatch {
-    const forgotten = this.crossings.filter((each) =>
-      each.taskId.equals(taskId),
-    );
+    const removed = this.crossings.filter((each) => each.taskId.equals(taskId));
 
-    if (forgotten.length === 0) {
+    if (removed.length === 0) {
       return this;
     }
 
-    const gone = new Set(forgotten.map((each) => each.id.value));
+    const gone = new Set(removed.map((each) => each.id.value));
     const next = new StationWatch(
       this.station,
       this.crossings.filter((each) => !gone.has(each.id.value)),
       this.version,
       new Set([...this.touched].filter((each) => !gone.has(each))),
-      [...this.dropped, ...forgotten.map((each) => each.id)],
+      [...this.dropped, ...removed.map((each) => each.id)],
     );
 
     next.inheritEvents(this);

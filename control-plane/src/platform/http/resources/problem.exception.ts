@@ -54,9 +54,9 @@ const FORBIDDEN_TEXTS: Readonly<Record<ForbiddenAct, ForbiddenText>> = {
     `Not allowed to administer the ${kind}`,
     `Only workspace admins can do this. A token can never administer a ${kind}.`,
   ],
-  'open-workspaces': () => [
-    'Not allowed to open a workspace',
-    'A workspace token cannot open a workspace. Only a person can create one.',
+  'create-workspaces': () => [
+    'Not allowed to create a workspace',
+    'A workspace token cannot create a workspace. Only a person can create one.',
   ],
   plan: () => [
     'Not allowed to plan',

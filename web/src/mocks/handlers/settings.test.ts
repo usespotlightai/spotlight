@@ -165,7 +165,7 @@ describe('the mock settings', () => {
     );
   });
 
-  it('forgets only my own account when I disconnect, leaving the team’s', async () => {
+  it('deletes only my own account when I disconnect, leaving the team’s', async () => {
     await disconnectMine({
       path: { teamId: PLATFORM_ID, source: 'linear' },
       throwOnError: true,

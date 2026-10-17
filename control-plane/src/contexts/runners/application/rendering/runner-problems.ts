@@ -1,4 +1,3 @@
-import type { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
 import type { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-token-already-used.error';
 import type { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import type { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
@@ -6,8 +5,7 @@ import type { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-
 import type { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
 import type { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
 import type { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
-import type { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
-import type { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
+import type { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -20,7 +18,7 @@ export const WORKSPACE_RUNNERS = 'workspace-runners';
 export const EGRESS = 'egress';
 
 export const RunnerProblems = {
-  keyFixed(error: RunnerTrustKeyFixedError): ConfigurationProblem {
+  immutableField(error: ImmutableFieldError): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: RUNNER_TRUST,
       at: FieldPath.of([error.field]),
@@ -30,7 +28,7 @@ export const RunnerProblems = {
 
   poolInvalid(
     error:
-      | RunnerPoolFixedError
+      | ImmutableFieldError
       | PoolTokenInUseError
       | PoolTokenAlreadyUsedError
       | InvalidRunnerPoolError,
@@ -44,7 +42,7 @@ export const RunnerProblems = {
 
   egressInvalid(
     error:
-      | EgressKeyFixedError
+      | ImmutableFieldError
       | EgressTokenInUseError
       | EgressTokenAlreadyUsedError
       | InvalidEgressError,

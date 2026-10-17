@@ -1,8 +1,7 @@
-import { EgressDefined } from '@runners/domain/events/egress-defined.event';
-import { EgressRedefined } from '@runners/domain/events/egress-redefined.event';
-import { EgressRetired } from '@runners/domain/events/egress-retired.event';
+import { EgressCreated } from '@runners/domain/events/egress-created.event';
+import { EgressDeleted } from '@runners/domain/events/egress-deleted.event';
+import { EgressUpdated } from '@runners/domain/events/egress-updated.event';
 import { EgressInUseError } from '@runners/domain/exceptions/egress-in-use.error';
-import { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
 import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import { EgressChangeDetail } from '@runners/domain/value-objects/egress-change-detail.vo';
@@ -11,6 +10,7 @@ import type { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
 import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -36,12 +36,12 @@ export class Egress extends EventRecorder {
     readonly tokenHash: TokenHash,
     readonly tokenVersion: number | null,
     readonly version: number,
-    readonly isRetired: boolean,
+    readonly isDeleted: boolean,
   ) {
     super();
   }
 
-  static define(
+  static create(
     input: EgressDefinition & {
       id: EgressId;
       workspaceId: WorkspaceId;
@@ -52,11 +52,11 @@ export class Egress extends EventRecorder {
     if (!input.token.tokenHash) {
       throw new InconsistentStateError(
         'egress',
-        'was defined with no token to call Spotlight with',
+        'was created with no token to call Spotlight with',
       );
     }
 
-    const defined = new Egress(
+    const created = new Egress(
       input.id,
       input.workspaceId,
       input.key,
@@ -67,16 +67,16 @@ export class Egress extends EventRecorder {
       false,
     );
 
-    defined.record(
-      new EgressDefined(
-        defined.id,
-        defined.workspaceId,
-        defined.key,
-        ConfigurationChange.created(defined.whatChanged, input.by),
+    created.record(
+      new EgressCreated(
+        created.id,
+        created.workspaceId,
+        created.key,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(
@@ -117,7 +117,7 @@ export class Egress extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     definition: EgressDefinition,
     given: GivenEgressToken,
     by: Attribution,
@@ -125,9 +125,12 @@ export class Egress extends EventRecorder {
     this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
-      throw new EgressKeyFixedError(
-        this.key.value,
-        `can't change its key to ${definition.key.value}. Please replace the egress instead`,
+      const because = `can't change its key to ${definition.key.value}. Please replace the egress instead`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Egress ${this.key.value} ${because}.`,
       );
     }
 
@@ -139,31 +142,31 @@ export class Egress extends EventRecorder {
     }
 
     const tokenHash = given.tokenHash ?? this.tokenHash;
-    const redefined = this.with({
+    const updated = this.with({
       url: definition.url,
       tokenHash,
       tokenVersion: given.tokenVersion,
     });
 
-    redefined.record(
-      new EgressRedefined(
+    updated.record(
+      new EgressUpdated(
         this.id,
         this.workspaceId,
         this.key,
         ConfigurationChange.updated(
           this.whatChanged,
           by,
-          EgressChangeDetail.redefined({
+          EgressChangeDetail.updated({
             rekeyed: !tokenHash.equals(this.tokenHash),
           }),
         ),
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  retire(namedBy: readonly PoolKey[], by: Attribution): Egress {
+  delete(namedBy: readonly PoolKey[], by: Attribution): Egress {
     this.assertNotDeleted();
 
     if (namedBy.length > 0) {
@@ -173,10 +176,10 @@ export class Egress extends EventRecorder {
       );
     }
 
-    const retired = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    retired.record(
-      new EgressRetired(
+    deleted.record(
+      new EgressDeleted(
         this.id,
         this.workspaceId,
         this.key,
@@ -184,7 +187,7 @@ export class Egress extends EventRecorder {
       ),
     );
 
-    return retired;
+    return deleted;
   }
 
   private get whatChanged() {
@@ -196,10 +199,10 @@ export class Egress extends EventRecorder {
   }
 
   private assertNotDeleted(): void {
-    if (this.isRetired) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'egress',
-        'was changed after it was retired',
+        'was changed after it was deleted',
       );
     }
   }
@@ -208,7 +211,7 @@ export class Egress extends EventRecorder {
     url?: EgressUrl;
     tokenHash?: TokenHash;
     tokenVersion?: number | null;
-    retired?: boolean;
+    deleted?: boolean;
   }): Egress {
     const next = new Egress(
       this.id,
@@ -218,7 +221,7 @@ export class Egress extends EventRecorder {
       part.tokenHash ?? this.tokenHash,
       part.tokenVersion !== undefined ? part.tokenVersion : this.tokenVersion,
       this.version,
-      part.retired ?? this.isRetired,
+      part.deleted ?? this.isDeleted,
     );
 
     next.inheritEvents(this);

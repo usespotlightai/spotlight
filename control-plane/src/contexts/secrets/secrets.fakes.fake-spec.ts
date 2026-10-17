@@ -9,7 +9,7 @@ import {
   type SecretDefinition,
 } from '@secrets/domain/aggregates/secret.aggregate';
 import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
-import { SecretAlreadyDefinedError } from '@secrets/domain/exceptions/secret-already-defined.error';
+import { SecretAlreadyExistsError } from '@secrets/domain/exceptions/secret-already-exists.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import { UnreadableSecretError } from '@secrets/domain/exceptions/unreadable-secret.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
@@ -180,7 +180,7 @@ export class InMemorySecrets implements SecretRepository {
 
     if (secret.isNew) {
       if ((await this.named(secret.workspaceId, secret.name)) !== null) {
-        throw new SecretAlreadyDefinedError(secret.name.value);
+        throw new SecretAlreadyExistsError(secret.name.value);
       }
     } else if (!kept || kept.version !== secret.version) {
       throw new SecretVersionConflictError(secret.name.value);
@@ -190,8 +190,8 @@ export class InMemorySecrets implements SecretRepository {
 
     if (secret.keeping) {
       await this.values.keep(secret, secret.keeping);
-    } else if (secret.forgetsValue) {
-      await this.values.forget(secret);
+    } else if (secret.deletesValue) {
+      await this.values.delete(secret);
     }
 
     if (secret.isDeleted) {
@@ -303,7 +303,7 @@ export class InMemoryStore implements SecretSourcePort {
     return SecretValue.of(stored);
   }
 
-  async forget(secret: SecretReference): Promise<void> {
+  async delete(secret: SecretReference): Promise<void> {
     this.#values.delete(secret.id.value);
   }
 

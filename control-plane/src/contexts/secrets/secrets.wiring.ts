@@ -43,8 +43,8 @@ import { ReadSecretHandler } from '@secrets/application/queries/handlers/read-se
 import { ImportSecretQuery } from '@secrets/application/queries/import-secret.query';
 import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
-import { AbandonWorkspaceSecrets } from '@secrets/application/services/abandon-workspace-secrets.service';
-import { ForgetRunGrants } from '@secrets/application/services/forget-run-grants.service';
+import { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
+import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
 import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
 import { RunSecretFetches } from '@secrets/application/services/run-secret-fetches.service';
@@ -78,7 +78,7 @@ import { AwsSecretsManagerSource } from '@secrets/infrastructure/sources/aws-sec
 import { BuiltInSecretStore } from '@secrets/infrastructure/sources/built-in-secret.store';
 import { secretsSubscribers } from '@secrets/presentation/events/secrets.subscribers';
 import { SecretResourceController } from '@secrets/presentation/http/controllers/secret-resource.controller';
-import { ForgottenRunGrantsWorker } from '@secrets/presentation/workers/forgotten-run-grants.worker';
+import { PurgeRunGrantsWorker } from '@secrets/presentation/workers/purge-run-grants.worker';
 import {
   CLOCK,
   type ClockPort,
@@ -123,20 +123,20 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
       new RunGrantsUnitOfWork(grants),
   },
   {
-    provide: ForgetRunGrants,
+    provide: PurgeRunGrants,
     inject: [RUN_GRANTS_REPOSITORY, RunGrantsUnitOfWork, CLOCK, LOGGER],
     useFactory: (
       grants: RunGrantsRepository,
       unitOfWork: RunGrantsUnitOfWork,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new ForgetRunGrants(grants, unitOfWork, clock, logger),
+    ) => new PurgeRunGrants(grants, unitOfWork, clock, logger),
   },
   {
-    provide: ForgottenRunGrantsWorker,
-    inject: [ForgetRunGrants, LOGGER],
-    useFactory: (forgetting: ForgetRunGrants, logger: LoggerPort) =>
-      new ForgottenRunGrantsWorker(forgetting, logger),
+    provide: PurgeRunGrantsWorker,
+    inject: [PurgeRunGrants, LOGGER],
+    useFactory: (purging: PurgeRunGrants, logger: LoggerPort) =>
+      new PurgeRunGrantsWorker(purging, logger),
   },
   DrizzleSecretResources,
   { provide: SECRET_RESOURCES, useExisting: DrizzleSecretResources },
@@ -230,7 +230,7 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
       EventSubscribers,
       SECRETS,
       WorkspaceKeys,
-      ForgetRunGrants,
+      PurgeRunGrants,
       TRANSACTION,
     ],
     useFactory: (
@@ -238,13 +238,13 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
       subscribers: EventSubscribers,
       secrets: SecretRepository,
       keys: WorkspaceKeys,
-      runGrants: ForgetRunGrants,
+      runGrants: PurgeRunGrants,
       transaction: TransactionPort,
     ) => {
       types.register('secrets', SECRETS_PAYLOAD_TYPES);
       subscribers.register(
         secretsSubscribers({
-          abandoning: new AbandonWorkspaceSecrets(secrets, transaction),
+          deleting: new DeleteWorkspaceSecrets(secrets, transaction),
           keys,
           runGrants,
         }),

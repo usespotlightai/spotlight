@@ -809,7 +809,7 @@ func TestTakesUpTheSessionItWasGiven(t *testing.T) {
 	}
 }
 
-func TestOpensAFreshSessionWhenTheHarnessHasForgotten(t *testing.T) {
+func TestOpensAFreshSessionWhenTheHarnessHasNoSuchSession(t *testing.T) {
 	written := run(t, harness(t, `output = sessionId;`, "end_turn"), func(o *runOptions) {
 		o.continuity = protocol.Continuity{SessionID: "session_long_gone"}
 	})

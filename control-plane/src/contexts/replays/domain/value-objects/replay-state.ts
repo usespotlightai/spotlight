@@ -12,7 +12,7 @@ export const REPLAY_ENDS = [
   'finished',
   'stopped',
   'over-budget',
-  'abandoned',
+  'deleted',
 ] as const;
 
 export type ReplayEnd = (typeof REPLAY_ENDS)[number];

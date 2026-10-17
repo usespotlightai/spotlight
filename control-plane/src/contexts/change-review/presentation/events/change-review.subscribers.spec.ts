@@ -4,13 +4,13 @@ import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import type { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
-import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
+import type { DeleteTaskAcrossAggregates } from '@change-review/application/services/delete-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
-import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
+import { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
@@ -48,7 +48,7 @@ const hearing = () => {
   const subscriber = changeReviewSubscribers(
     {} as unknown as ChangeStackReactions,
     {} as unknown as ChangeStackAnnouncerPort,
-    {} as unknown as ForgetTaskAcrossAggregates,
+    {} as unknown as DeleteTaskAcrossAggregates,
     {} as unknown as ReviewReactions,
     { receive } as unknown as ReceiveReviewComment,
     {} as unknown as SignalReviewing,
@@ -117,7 +117,7 @@ describe('change review hearing a run begin and end', () => {
     const subscribers = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as ChangeStackAnnouncerPort,
-      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       { began, ended } as unknown as SignalReviewing,
@@ -190,7 +190,7 @@ describe('change review hearing a run end', () => {
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as ChangeStackAnnouncerPort,
-      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -237,7 +237,7 @@ describe('change review hearing a pull request close', () => {
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as ChangeStackAnnouncerPort,
-      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -276,7 +276,7 @@ describe('change review hearing a stack’s check end', () => {
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as ChangeStackAnnouncerPort,
-      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -325,13 +325,13 @@ describe('change review hearing a stack’s check end', () => {
   });
 });
 
-describe('change review hearing a check forgotten while a runner leased it', () => {
+describe('change review hearing that a check was deleted while a runner leased it', () => {
   it('releases the runner that was checking it', async () => {
     const released = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as ChangeStackAnnouncerPort,
-      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -341,15 +341,15 @@ describe('change review hearing a check forgotten while a runner leased it', () 
       {} as never,
       { released } as unknown as CheckRunnersPort,
     ).find(
-      (each) => each.name === 'change-review.release-runner-of-forgotten-check',
+      (each) => each.name === 'change-review.release-runner-of-deleted-check',
     );
 
     if (!subscriber) {
-      throw new Error('nobody releases the runner of a forgotten check');
+      throw new Error('nobody releases the runner of a deleted check');
     }
 
     await subscriber.handle(
-      new LeasedCheckForgotten(ChangeStackId.of('stack_1')),
+      new LeasedCheckDeleted(ChangeStackId.of('stack_1')),
     );
 
     expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
@@ -362,7 +362,7 @@ describe('change review hearing a check drop the runner reserved for it', () => 
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as ChangeStackAnnouncerPort,
-      {} as unknown as ForgetTaskAcrossAggregates,
+      {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,

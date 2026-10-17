@@ -55,7 +55,7 @@ export const reconcileLine = (input: {
 
   return {
     ok: true,
-    line: input.existing.relaidAs(
+    line: input.existing.update(
       assemble(
         input.plan,
         (key) => existingByKey.get(key)?.id ?? null,
@@ -66,13 +66,13 @@ export const reconcileLine = (input: {
   };
 };
 
-export const openLine = (input: {
+export const createLine = (input: {
   identity: LineIdentity;
   plan: LinePlan;
   newId: () => string;
   by: Attribution;
 }): Line =>
-  Line.layOut({
+  Line.createFromLayout({
     ...input.identity,
     by: input.by,
     ...assemble(input.plan, () => null, input.newId),
