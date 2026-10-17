@@ -48,7 +48,7 @@ describe('FilesLoader', () => {
     expect(asked.map((each) => each.value)).toEqual(['file_1']);
   });
 
-  it('refuses an id that names anywhere but a file', async () => {
+  it('rejects an id that names anywhere but a file', async () => {
     const files = store();
 
     await expect(

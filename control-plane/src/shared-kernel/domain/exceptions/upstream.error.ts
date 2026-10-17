@@ -1,5 +1,5 @@
-export class UpstreamRefusedError extends Error {
-  readonly violation = 'refused' as const;
+export class UpstreamError extends Error {
+  readonly violation = 'upstream-error' as const;
 
   constructor(
     asking: string,
@@ -8,6 +8,6 @@ export class UpstreamRefusedError extends Error {
     readonly retryable = true,
   ) {
     super(`${asking}: ${reason}`);
-    this.name = 'UpstreamRefusedError';
+    this.name = 'UpstreamError';
   }
 }

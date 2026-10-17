@@ -215,7 +215,7 @@ export class Runners implements RunnersPort {
     await this.letGo(request.runnerId, at).catch((error: unknown) => {
       this.logger.error(
         { err: error, runner: request.runnerId.value },
-        'Letting go of a runner its provision call refused',
+        'Letting go of a runner whose provision call failed',
       );
     });
 

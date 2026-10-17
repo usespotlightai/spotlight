@@ -226,7 +226,7 @@ describe('SayToRunHandler', () => {
     expect(dispatched).toEqual([]);
   });
 
-  it('refuses anyone the task is not assigned to, starting nothing', async () => {
+  it('rejects anyone the task is not assigned to, starting nothing', async () => {
     await expect(
       saying(finished(), 'Rename it.', 'someone_else'),
     ).rejects.toMatchObject({ kind: 'not-found' });

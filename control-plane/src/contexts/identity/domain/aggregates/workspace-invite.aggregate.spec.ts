@@ -99,7 +99,7 @@ describe('WorkspaceInvite', () => {
     ]);
   });
 
-  it('refuses somebody signed in as anybody else', () => {
+  it('rejects somebody signed in as anybody else', () => {
     expect(() => acceptedBy(offered(), 'someone@example.com')).toThrow(
       /sent to ada@example.com/,
     );
@@ -169,7 +169,7 @@ describe('WorkspaceInvite', () => {
     ]);
   });
 
-  it('refuses to be sent again once accepted or revoked', () => {
+  it('is not sent again once accepted or revoked', () => {
     expect(() => sentAgain(acceptedBy(offered()))).toThrow(InviteClosedError);
     expect(() => sentAgain(offered().revoke(asker, LATER))).toThrow(
       InviteClosedError,
@@ -182,7 +182,7 @@ describe('WorkspaceInvite', () => {
     expect(acceptedBy(offered()).isClosedAt(LATER)).toBe(true);
   });
 
-  it('refuses to rehydrate as both accepted and revoked', () => {
+  it('does not rehydrate as both accepted and revoked', () => {
     expect(() =>
       kept({ acceptedAt: LATER, acceptedBy: ada, revokedAt: LATER }),
     ).toThrow(/both accepted and revoked/);
@@ -199,13 +199,13 @@ describe('WorkspaceInvite', () => {
     expect(kept({ invitedBy: null }).statusAt(NOW)).toBe('open');
   });
 
-  it('refuses to rehydrate as accepted by somebody at no time', () => {
+  it('does not rehydrate as accepted by somebody at no time', () => {
     expect(() => kept({ acceptedBy: ada })).toThrow(
       /accepted by somebody at no time/,
     );
   });
 
-  it('refuses to rehydrate as kept without ever being written', () => {
+  it('does not rehydrate as kept without ever being written', () => {
     expect(() => kept({ version: 0 })).toThrow(/without ever being written/);
   });
 

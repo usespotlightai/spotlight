@@ -29,7 +29,7 @@ describe('RunConnection', () => {
     });
   });
 
-  it('refuses a host, port, count, outcome or time it cannot keep', () => {
+  it('rejects a host, port, count, outcome or time it cannot keep', () => {
     for (const wrong of [
       { host: '' },
       { host: 'a'.repeat(254) },
@@ -62,7 +62,7 @@ describe('RunConnection', () => {
     ).toBe('timed-out');
   });
 
-  it('refuses a status or a reason that does not fit its outcome', () => {
+  it('rejects a status or a reason that does not fit its outcome', () => {
     for (const wrong of [
       { outcome: 'passthrough', status: 401 },
       { outcome: 'blocked', status: 403 },
@@ -78,7 +78,7 @@ describe('RunConnection', () => {
     }
   });
 
-  it('has an error when it was blocked or failed, or when the host refused or failed an injected request', () => {
+  it('has an error when it was blocked or failed, or when the host answered an injected request with an auth failure or a server error', () => {
     const error = (part: Partial<typeof parts>) =>
       RunConnection.of({ ...parts, ...part }).error;
 

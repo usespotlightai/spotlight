@@ -141,7 +141,7 @@ process.stdin.on("data", (chunk) => {
              params: { path: "echo.txt", content: msg.result.content.toUpperCase() } });
     }
     if (msg.id === 901 && msg.error) {
-      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "refused" } });
+      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "rejected" } });
     }
     if (msg.id === 902) send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "end_turn" } });
   }
@@ -164,7 +164,7 @@ process.stdin.on("data", (chunk) => {
       send({ jsonrpc: "2.0", id: 903, method: "fs/read_text_file", params: { path: "../outside.txt" } });
     }
     if (msg.id === 903) {
-      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: msg.error ? "refused" : "leaked" } });
+      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: msg.error ? "rejected" : "leaked" } });
     }
   }
 });
@@ -260,7 +260,7 @@ func TestReadsAndWritesWithinTheWorkspace(t *testing.T) {
 	}
 }
 
-func TestRefusesAPathOutsideTheWorkspace(t *testing.T) {
+func TestRejectsAPathOutsideTheWorkspace(t *testing.T) {
 	client, root := start(t, reachingOut, nil)
 	if err := os.WriteFile(filepath.Join(filepath.Dir(root), "outside.txt"), []byte("secret"), 0o644); err != nil {
 		t.Fatal(err)
@@ -273,12 +273,12 @@ func TestRefusesAPathOutsideTheWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
-	if result.StopReason != "refused" {
+	if result.StopReason != "rejected" {
 		t.Errorf("the agent got outside the workspace: %q", result.StopReason)
 	}
 }
 
-const refusing = `
+const failingLoads = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "";
 process.stdin.on("data", (chunk) => {
@@ -297,8 +297,8 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-func TestForgottenTellsAMissingSessionFromAnyOtherRefusal(t *testing.T) {
-	client, _ := start(t, refusing, nil)
+func TestForgottenTellsAMissingSessionFromAnyOtherError(t *testing.T) {
+	client, _ := start(t, failingLoads, nil)
 
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
@@ -308,9 +308,9 @@ func TestForgottenTellsAMissingSessionFromAnyOtherRefusal(t *testing.T) {
 		t.Errorf("a missing session did not read as forgotten: %v", missing)
 	}
 
-	other := client.Resume(ctx, "refused")
+	other := client.Resume(ctx, "other")
 	if other == nil || acp.Forgotten(other) {
-		t.Errorf("an unrelated refusal read as forgotten: %v", other)
+		t.Errorf("an unrelated error read as forgotten: %v", other)
 	}
 }
 

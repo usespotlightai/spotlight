@@ -18,7 +18,6 @@ import {
   formatPairTally,
   formatPerRepeat,
   formatReason,
-  formatRefusal,
   formatRepeats,
   formatReplayable,
   formatRunState,
@@ -28,6 +27,7 @@ import {
   formatUncompared,
   formatUnpricedCalls,
   formatUnpricedRuns,
+  formatUnreplayableReason,
   healthReadingsOf,
   healthReplayOf,
   type SetHealth,
@@ -66,13 +66,15 @@ describe('replay words', () => {
   });
 
   it('says why a run cannot be replayed in plain words', () => {
-    expect(formatRefusal('archive-gone')).toBe(
+    expect(formatUnreplayableReason('archive-gone')).toBe(
       'Starting workspace is no longer kept',
     );
-    expect(formatRefusal('unchecked')).toBe('Couldn’t be checked just now');
+    expect(formatUnreplayableReason('unchecked')).toBe(
+      'Couldn’t be checked just now',
+    );
   });
 
-  it('says a run with no refusal can be replayed', () => {
+  it('says a run with no unreplayable reason can be replayed', () => {
     expect(formatReplayable(null)).toBe('Can be replayed');
     expect(formatReplayable('task-gone')).toBe('Task was deleted');
   });
@@ -85,7 +87,7 @@ describe('replay words', () => {
     expect(stateNote('finished')).toBeNull();
   });
 
-  it('turns a refusal named as a reason’s detail into words', () => {
+  it('turns an unreplayable reason named as a reason’s detail into words', () => {
     expect(formatReason(reason('unreplayable', 'task-gone'))).toBe(
       'Couldn’t be replayed or started: task was deleted',
     );

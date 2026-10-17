@@ -1,6 +1,6 @@
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequestReactions } from '@github/infrastructure/github/github-pull-request-reactions';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -81,11 +81,9 @@ describe('GitHubPullRequestReactions', () => {
     await expect(reactions.withdraw(ON, 'eyes')).resolves.toBeUndefined();
   });
 
-  it('says so where GitHub refuses the reaction', async () => {
+  it('says so where GitHub answers the reaction with an error', async () => {
     const { reactions } = reacting(() => ({ status: 403, body: {} }));
 
-    await expect(reactions.react(ON, 'eyes')).rejects.toThrow(
-      UpstreamRefusedError,
-    );
+    await expect(reactions.react(ON, 'eyes')).rejects.toThrow(UpstreamError);
   });
 });

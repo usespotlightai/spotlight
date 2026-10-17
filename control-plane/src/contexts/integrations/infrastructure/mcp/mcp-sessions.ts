@@ -1,9 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import {
-  McpAuthorizationRefused,
-  McpQuestionRefused,
-  refusedAuthorization,
+  isUnauthorized,
+  McpQuestionUnsupportedError,
+  McpUnauthorizedError,
   sessionGone,
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import { cappedReply } from '@integrations/infrastructure/outbound/capped-body';
@@ -27,7 +27,7 @@ import {
   InjectedSecrets,
   type InjectionRequest,
 } from '@secrets/application/contracts/injected-secrets.contract';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -103,7 +103,7 @@ export class McpSessions implements OnModuleDestroy {
         reply,
         MAX_ANSWER_BYTES,
         () =>
-          new UpstreamRefusedError(
+          new UpstreamError(
             `reading what ${new URL(url.toString()).host} answered`,
             `it is larger than the ${MAX_ANSWER_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
           ),
@@ -168,9 +168,7 @@ export class McpSessions implements OnModuleDestroy {
 
       return tools;
     } catch (error) {
-      throw refusedAuthorization(error)
-        ? new McpAuthorizationRefused(server)
-        : error;
+      throw isUnauthorized(error) ? new McpUnauthorizedError(server) : error;
     } finally {
       if (session) {
         await this.closed(session);
@@ -193,7 +191,7 @@ export class McpSessions implements OnModuleDestroy {
       );
     } catch (error) {
       if (!sessionGone(error)) {
-        throw this.refused(server, error);
+        throw this.unauthorizedOr(server, error);
       }
 
       try {
@@ -204,7 +202,7 @@ export class McpSessions implements OnModuleDestroy {
           args,
         );
       } catch (again) {
-        throw this.refused(server, again);
+        throw this.unauthorizedOr(server, again);
       }
     }
   }
@@ -260,14 +258,14 @@ export class McpSessions implements OnModuleDestroy {
       kept = true;
 
       if (result.isError && session.asked) {
-        throw new McpQuestionRefused();
+        throw new McpQuestionUnsupportedError();
       }
 
       return result;
     } catch (error) {
       kept = error instanceof McpError;
 
-      throw session.asked ? new McpQuestionRefused() : error;
+      throw session.asked ? new McpQuestionUnsupportedError() : error;
     } finally {
       this.#busy.delete(session);
 
@@ -358,10 +356,8 @@ export class McpSessions implements OnModuleDestroy {
     await session.client.close().catch(() => {});
   }
 
-  private refused(server: string, error: unknown): unknown {
-    return refusedAuthorization(error)
-      ? new McpAuthorizationRefused(server)
-      : error;
+  private unauthorizedOr(server: string, error: unknown): unknown {
+    return isUnauthorized(error) ? new McpUnauthorizedError(server) : error;
   }
 
   private async inject(

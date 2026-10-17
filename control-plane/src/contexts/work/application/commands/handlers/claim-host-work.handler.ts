@@ -42,7 +42,7 @@ export class ClaimHostWorkHandler
       const admitted = await this.admissions.admit(command.credential);
 
       if (!admitted) {
-        return { outcome: 'refused' };
+        return { outcome: 'unauthorized' };
       }
 
       const until = this.polls.deadline();
@@ -66,7 +66,7 @@ export class ClaimHostWorkHandler
       if (started.outcome !== 'started') {
         return started.outcome === 'stranger' || started.outcome === 'unoffered'
           ? { outcome: started.outcome }
-          : { outcome: 'refused' };
+          : { outcome: 'unauthorized' };
       }
 
       let work: ClaimedWorkDto | null = null;

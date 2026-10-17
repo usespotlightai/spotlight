@@ -3,7 +3,7 @@ import {
   drawn,
   filesIn,
   type PendingAttachment,
-  refused,
+  sizeProblem,
 } from '@/lib/attachment';
 import { uploadAttachment } from '@/lib/upload-attachment';
 
@@ -24,7 +24,7 @@ export function useAttachments(slug: string) {
     const added = files.map((file) => {
       counted.current += 1;
 
-      const problem = refused(file);
+      const problem = sizeProblem(file);
 
       const pending: PendingAttachment = {
         key: String(counted.current),

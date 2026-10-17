@@ -36,14 +36,14 @@ describe('TaskFailure', () => {
     ).toBe(1);
   });
 
-  it('refuses a failure that says nothing of what went wrong, or of which hook', () => {
+  it('rejects a failure that says nothing of what went wrong, or of which hook', () => {
     expect(() => TaskFailure.fromRun(' ')).toThrow(InvalidTaskFailureError);
     expect(() => TaskFailure.fromHook(' ', 'loop')).toThrow(
       InvalidTaskFailureError,
     );
   });
 
-  it('refuses to read back a failure from nowhere a failure comes from', () => {
+  it('does not read back a failure from nowhere a failure comes from', () => {
     expect(() =>
       TaskFailure.rehydrate({ source: 'cron', code: 'loop', occurrences: 1 }),
     ).toThrow(InconsistentStateError);

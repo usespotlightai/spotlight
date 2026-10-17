@@ -26,7 +26,7 @@ describe('Tokens', () => {
     expect(tokens.cacheRead).toBe(12);
   });
 
-  it('refuses a count that is not a whole number of tokens', () => {
+  it('rejects a count that is not a whole number of tokens', () => {
     expect(() => Tokens.of({ input: -1 })).toThrow(InvalidTokensError);
     expect(() => Tokens.of({ output: 2.5 })).toThrow(InvalidTokensError);
   });

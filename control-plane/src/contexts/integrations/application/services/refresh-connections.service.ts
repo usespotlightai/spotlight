@@ -26,8 +26,8 @@ export class RefreshConnections {
       };
 
       try {
-        if ((await this.renewal.ahead(connection)) === 'refused') {
-          this.log.warn(about, 'A host refused to renew a connection');
+        if ((await this.renewal.ahead(connection)) === 'failed') {
+          this.log.warn(about, 'A host did not renew a connection');
         }
       } catch (error) {
         this.log.warn({ err: error, ...about }, 'Renewing a host connection');

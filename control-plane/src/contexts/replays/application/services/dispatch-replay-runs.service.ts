@@ -86,7 +86,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
 
     if (!candidate) {
       return this.forgo(replay, entry, false, (fresh, now) =>
-        fresh.refused(run, 'candidate-unfit', now),
+        fresh.unreplayable(run, 'candidate-unfit', now),
       );
     }
 
@@ -104,7 +104,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
     const updated = await this.changed(replay, (fresh, now) =>
       queued.queued
         ? fresh.confirm(run, queued.fingerprint, now)
-        : fresh.refused(run, queued.refusal, now),
+        : fresh.unreplayable(run, queued.unreplayableReason, now),
     );
 
     if (queued.queued && updated && !updated.isDispatching) {

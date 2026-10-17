@@ -13,7 +13,7 @@ describe('RemarkHandle', () => {
     expect(RemarkHandle.of(' C12 ')).toEqual(NotePosition.of(12));
   });
 
-  it('refuses what names no remark', () => {
+  it('rejects what names no remark', () => {
     for (const said of ['', '3', 'c', 'cx', 'c-1', 'c3x']) {
       expect(() => RemarkHandle.of(said)).toThrow(InvalidNotePositionError);
     }

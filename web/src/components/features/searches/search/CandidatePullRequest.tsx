@@ -29,10 +29,10 @@ export function CandidatePullRequest({
     );
   }
 
-  if (opened.state === 'refused') {
+  if (opened.state === 'failed') {
     return (
       <span className="inline-flex items-center gap-1.5 text-destructive">
-        {formatPullRequestCell('refused')}
+        {formatPullRequestCell('failed')}
         {opened.reason && (
           <NotedWarning
             tone="destructive"

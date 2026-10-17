@@ -1,9 +1,9 @@
 import type {
-  CatalogRefusal,
-  CatalogRefusalReason,
+  CatalogDenial,
+  CatalogDenialReason,
 } from '@catalog/application/contracts/catalog.contract';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -258,12 +258,12 @@ const using = (
     personRule?: PersonRule;
     denied?: {
       readonly when: 'before' | 'during';
-      readonly reason: CatalogRefusalReason;
+      readonly reason: CatalogDenialReason;
     };
   } = {},
 ) => {
   const called: Called[] = [];
-  const refusal = (id: string): CatalogRefusal => ({
+  const denial = (id: string): CatalogDenial => ({
     id,
     reason: over.denied?.reason ?? 'lapsed',
     because: 'denied here',
@@ -274,7 +274,7 @@ const using = (
         ? {
             tools: [],
             skills: [],
-            refused: named.tools.map(refusal),
+            denied: named.tools.map(denial),
           }
         : {
             tools: named.tools.map((id) => ({
@@ -292,11 +292,11 @@ const using = (
               ],
             })),
             skills: [],
-            refused: [],
+            denied: [],
           },
     call: async (request) => {
       if (over.denied?.when === 'during') {
-        return { kind: 'refused', refusal: refusal(request.id) };
+        return { kind: 'denied', denial: denial(request.id) };
       }
 
       called.push({
@@ -362,7 +362,7 @@ const using = (
               }
               called.push({ tool: tool.value, context, inputs });
               if (over.failing) {
-                throw new UpstreamRefusedError('using linear.comment', 'down');
+                throw new UpstreamError('using linear.comment', 'down');
               }
               return 'https://linear.app/acme/issue/ENG-12#comment-1';
             },
@@ -480,7 +480,7 @@ describe('UseToolHandler', () => {
       expect(called[0]?.inputs.values).toEqual({ query: 'queues' });
     });
 
-    it('is refused as entitlement_lapsed once the plan no longer covers it, and nothing is called', async () => {
+    it('is denied as entitlement_lapsed once the plan no longer covers it, and nothing is called', async () => {
       const { reach, called } = using(searching(), {
         denied: { when: 'before', reason: 'lapsed' },
       });
@@ -494,7 +494,7 @@ describe('UseToolHandler', () => {
       expect(called).toEqual([]);
     });
 
-    it('is refused as entitlement_lapsed when the plan lapses as it is called', async () => {
+    it('is denied as entitlement_lapsed when the plan lapses as it is called', async () => {
       const { reach } = using(searching(), {
         denied: { when: 'during', reason: 'lapsed' },
       });
@@ -506,7 +506,7 @@ describe('UseToolHandler', () => {
       });
     });
 
-    it('is refused as catalog_item_unknown, not as a lapse, once the catalog no longer has it', async () => {
+    it('is denied as catalog_item_unknown, not as a lapse, once the catalog no longer has it', async () => {
       const { reach, called } = using(searching(), {
         denied: { when: 'before', reason: 'unknown' },
       });
@@ -580,7 +580,7 @@ describe('UseToolHandler', () => {
     expect(called).toEqual([]);
   });
 
-  it('refuses what a tool does not take, and calls nothing', async () => {
+  it('rejects what a tool does not take, and calls nothing', async () => {
     const { reach, called } = using();
 
     await expect(
@@ -589,7 +589,7 @@ describe('UseToolHandler', () => {
     expect(called).toEqual([]);
   });
 
-  it('refuses a tool the run was not given', async () => {
+  it('rejects a tool the run was not given', async () => {
     const { reach, called } = using(claimed([]));
 
     await expect(reach('pull-request')).rejects.toMatchObject({
@@ -598,7 +598,7 @@ describe('UseToolHandler', () => {
     expect(called).toEqual([]);
   });
 
-  it('refuses a run that works nothing', async () => {
+  it('rejects a run that works nothing', async () => {
     const { reach, called } = using(
       claimed(['pull-request'], { subject: null }),
     );
@@ -621,7 +621,7 @@ describe('UseToolHandler', () => {
     });
   });
 
-  it('refuses where the station is on no line', async () => {
+  it('rejects where the station is on no line', async () => {
     const { reach, called } = using(claimed(), { lineAt: null });
 
     await expect(reach('pull-request')).rejects.toMatchObject({
@@ -660,7 +660,7 @@ describe('UseToolHandler', () => {
     });
   });
 
-  it('refuses a name nobody would give a tool', async () => {
+  it('rejects a name nobody would give a tool', async () => {
     const { reach } = using();
 
     await expect(reach('Pull Request')).rejects.toMatchObject({
@@ -983,14 +983,14 @@ describe('UseToolHandler', () => {
 
     await expect(
       reach('linear.comment', { body: 'Fixed.' }),
-    ).rejects.toMatchObject({ kind: 'refused' });
+    ).rejects.toMatchObject({ kind: 'upstream-error' });
     expect(called).toHaveLength(1);
     expect(
       current().notes.find((note) => note.approval)?.approval?.grants,
     ).toBe(true);
   });
 
-  it('refuses a tool the person rejected, in their own words, without asking again', async () => {
+  it('does not call a tool the person rejected, in their own words, without asking again', async () => {
     const asked = task().clearFor(
       ApprovalSubject.toolCall(
         ToolCall.of(
@@ -1140,11 +1140,11 @@ describe('UseToolHandler', () => {
       ]);
     });
 
-    it('calls nothing and tells the agent why when a hook refuses', async () => {
+    it('calls nothing and tells the agent why when a hook denies it', async () => {
       const { reach, called, hooked } = using(claimed(['linear.comment']), {
         verdict: {
-          kind: 'refused',
-          reason: 'The hook core/dba-review refused: not on a Friday.',
+          kind: 'denied',
+          reason: 'The hook core/dba-review denied the call: not on a Friday.',
         },
       });
 
@@ -1153,7 +1153,7 @@ describe('UseToolHandler', () => {
       ).rejects.toMatchObject({
         kind: 'not-allowed',
         message:
-          'A hook stopped linear.comment, so nothing was sent. The hook core/dba-review refused: not on a Friday.',
+          'A hook stopped linear.comment, so nothing was sent. The hook core/dba-review denied the call: not on a Friday.',
       });
       expect(called).toEqual([]);
       expect(hooked.after).toEqual([]);
@@ -1173,7 +1173,7 @@ describe('UseToolHandler', () => {
       expect(hooked.before).toEqual([]);
     });
 
-    it('hands a person’s approval back when a hook refuses the call it was spent on', async () => {
+    it('hands a person’s approval back when a hook denies the call it was spent on', async () => {
       const asked = task().clearFor(
         ApprovalSubject.toolCall(
           ToolCall.of(
@@ -1206,7 +1206,7 @@ describe('UseToolHandler', () => {
         claimed(['linear.comment']),
         {
           approval: NEEDS_APPROVAL,
-          verdict: { kind: 'refused', reason: 'Not today.' },
+          verdict: { kind: 'denied', reason: 'Not today.' },
           task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
         },
       );
@@ -1363,7 +1363,7 @@ describe('UseToolHandler', () => {
 
       await expect(
         reach('linear.comment', { body: 'Fixed.' }),
-      ).rejects.toMatchObject({ kind: 'refused' });
+      ).rejects.toMatchObject({ kind: 'upstream-error' });
       expect(hooked.after[0]?.moment.failed).toBe(true);
       expect(hooked.after[0]?.moment.output).toMatch(/down/);
     });
@@ -1452,7 +1452,7 @@ describe('UseToolHandler', () => {
       expect(current().notes.length).toBe(once);
     });
 
-    it('is refused, never falling back to the team, when nobody started the task', async () => {
+    it('is denied, never falling back to the team, when nobody started the task', async () => {
       const { reach, called, current } = using(claimed(['linear.comment']), {
         wants: { ...WANTED, personId: null, because: 'no-requester' },
       });
@@ -1467,7 +1467,7 @@ describe('UseToolHandler', () => {
       expect(current().awaitingReview).toBe(false);
     });
 
-    it('is refused, asking nobody, while the task already waits on someone else', async () => {
+    it('is denied, asking nobody, while the task already waits on someone else', async () => {
       const waitingOnApproval = task().clearFor(
         ApprovalSubject.toolCall(
           ToolCall.of(
@@ -1502,7 +1502,7 @@ describe('UseToolHandler', () => {
       );
     });
 
-    it('is refused when the person who started it left the team', async () => {
+    it('is denied when the person who started it left the team', async () => {
       const { reach, called } = using(claimed(['linear.comment']), {
         wants: { ...WANTED, because: 'not-a-member' },
       });

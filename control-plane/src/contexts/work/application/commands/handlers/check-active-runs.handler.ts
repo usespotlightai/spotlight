@@ -27,7 +27,7 @@ export class CheckActiveRunsHandler
       const shared = await this.egress.sharedWith(command.token);
 
       if (!shared) {
-        return { outcome: 'refused' };
+        return { outcome: 'unauthorized' };
       }
 
       if (command.proxyCredentials.length > MAX_RUNS_AT_ONCE) {

@@ -49,11 +49,11 @@ const read = (...args: Parameters<typeof compiled>) => {
   return parsed.line;
 };
 
-const refusedAt = (...args: Parameters<typeof compiled>) => {
+const invalidAt = (...args: Parameters<typeof compiled>) => {
   const parsed = compiled(...args);
 
   if (parsed.ok) {
-    throw new Error('was not refused');
+    throw new Error('was not rejected');
   }
 
   return parsed.problems.map((each) => dottedOf(each.field));
@@ -88,23 +88,23 @@ describe('the repositories a line works', () => {
     expect(line.repositories.entries[1]?.setup).toBeNull();
   });
 
-  it('refuses one that is not named owner/name', () => {
-    expect(refusedAt(['not-a-repo'])).toEqual(['repositories.0.name']);
+  it('rejects one that is not named owner/name', () => {
+    expect(invalidAt(['not-a-repo'])).toEqual(['repositories.0.name']);
   });
 
-  it('refuses an image that is no image reference, where the line names it', () => {
+  it('rejects an image that is no image reference, where the line names it', () => {
     expect(
-      refusedAt(['acme/api', { name: 'acme/web', image: 'Not An Image' }]),
+      invalidAt(['acme/api', { name: 'acme/web', image: 'Not An Image' }]),
     ).toEqual(['repositories.1.image']);
   });
 
-  it('refuses a setup of more than one line, where the line names it', () => {
+  it('rejects a setup of more than one line, where the line names it', () => {
     expect(
-      refusedAt([{ name: 'acme/api', setup: 'npm ci\nnpm run build' }]),
+      invalidAt([{ name: 'acme/api', setup: 'npm ci\nnpm run build' }]),
     ).toEqual(['repositories.0.setup']);
   });
 
-  it('refuses two repositories that share a name', () => {
+  it('rejects two repositories that share a name', () => {
     const parsed = compiled(['acme/api', 'other/api']);
 
     expect(parsed.ok).toBe(false);
@@ -113,18 +113,18 @@ describe('the repositories a line works', () => {
     }
   });
 
-  it('refuses repositories naming different images', () => {
+  it('rejects repositories naming different images', () => {
     expect(
-      refusedAt([
+      invalidAt([
         { name: 'acme/api', image: 'ghcr.io/acme/api:1' },
         { name: 'acme/web', image: 'ghcr.io/acme/web:1' },
       ]),
     ).toEqual(['repositories']);
   });
 
-  it('refuses, where a station checks its layers, a repository that does not say how its checkout is made ready', () => {
+  it('rejects, where a station checks its layers, a repository that does not say how its checkout is made ready', () => {
     expect(
-      refusedAt(
+      invalidAt(
         [{ name: 'acme/api', setup: 'npm ci' }, { name: 'acme/web' }],
         CHECKING_STATIONS,
       ),

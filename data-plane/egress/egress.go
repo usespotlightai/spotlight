@@ -231,7 +231,7 @@ func fetchedBy(ctx context.Context, fetcher SecretFetcher, recipient string, log
 			return fetched
 		}
 
-		var rejection *control.Rejection
+		var rejection *control.ResponseError
 		if errors.As(err, &rejection) && rejection.Status < http.StatusInternalServerError {
 			log.Warn("the control plane gave egress no secrets to inject", "error", err)
 			return protocol.EgressSecrets{}

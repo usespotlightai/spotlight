@@ -16,7 +16,7 @@ describe('poolCouldTake', () => {
     expect(poolCouldTake(RunnerPlacement.of(['gpu']), labels)).toBe(true);
   });
 
-  it('refuses a run placed on a label the pool does not carry', () => {
+  it('does not take a run placed on a label the pool does not carry', () => {
     expect(poolCouldTake(RunnerPlacement.of(['vpc-internal']), labels)).toBe(
       false,
     );
@@ -47,7 +47,7 @@ describe('poolCouldTake', () => {
     ).toBe(true);
   });
 
-  it('refuses a run unless every clause of its placement is met', () => {
+  it('takes a run only when every clause of its placement is met', () => {
     expect(
       poolCouldTake(
         RunnerPlacement.ofClauses([['gpu'], ['vpc-internal']]),

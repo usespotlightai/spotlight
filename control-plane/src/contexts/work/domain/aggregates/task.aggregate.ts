@@ -31,7 +31,7 @@ import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
-import { MoveRefusedError } from '@work/domain/exceptions/move-refused.error';
+import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -293,7 +293,7 @@ export class Task extends EventRecorder {
     saying: Saying,
     handMove: { mover: UserId },
   ): Task {
-    this.refuseHandMove(line, to);
+    this.assertHandMoveAllowed(line, to);
 
     const into = Task.stationOn(line, to);
     const moved = this.relocated(line, to, rank, saying, handMove).lettingGoOf(
@@ -371,7 +371,7 @@ export class Task extends EventRecorder {
     rank: TaskRank,
     ending: { saying: Saying; handover: Handover },
   ): Task {
-    this.refuseAnotherRun(by, 'make its deferred move');
+    this.assertNoOtherRun(by, 'make its deferred move');
 
     if (!this.deferredMoveTo?.equals(to)) {
       throw new InvalidTaskTransitionError(
@@ -453,7 +453,7 @@ export class Task extends EventRecorder {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
 
-    this.refuseSameStation(into.id);
+    this.assertNotAtStation(into.id);
 
     const takesOwnership =
       handMove !== null && !this.assignee && from.isBacklog && into.isWorked;
@@ -509,7 +509,7 @@ export class Task extends EventRecorder {
     at: Date,
     line: Line,
   ): Task {
-    this.refuseAnotherRun(by, 'open a pull request for it');
+    this.assertNoOtherRun(by, 'open a pull request for it');
 
     if (this.pullRequest) {
       return this;
@@ -689,11 +689,11 @@ export class Task extends EventRecorder {
     rank: TaskRank,
     saying: Saying,
   ): Task {
-    this.refuseAnotherRun(by, 'pass it on');
+    this.assertNoOtherRun(by, 'pass it on');
 
     const into = Task.stationOn(line, to);
 
-    if (line.refusalToPass(this.stationId, into) !== null) {
+    if (line.passDenial(this.stationId, into) !== null) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} cannot pass to station ${into.name.value}.`,
       );
@@ -716,7 +716,7 @@ export class Task extends EventRecorder {
   }
 
   finishHere(by: RunId, line: Line, saying: Saying): Task {
-    this.refuseAnotherRun(by, 'finish it');
+    this.assertNoOtherRun(by, 'finish it');
 
     if (!line.endsAt(this.stationId)) {
       throw new InvalidTaskTransitionError(
@@ -891,7 +891,7 @@ export class Task extends EventRecorder {
     stationId: StationId | null,
     at: NotePosition,
   ): AnswerableRemark {
-    this.refuseAnotherRun(by, 'answer a remark on it');
+    this.assertNoOtherRun(by, 'answer a remark on it');
 
     const repository = this.pullRequest?.repository ?? null;
 
@@ -962,7 +962,7 @@ export class Task extends EventRecorder {
     waiting: RunId | null,
     { overAnApproval } = { overAnApproval: false },
   ): Task {
-    this.refuseAnotherRun(by, 'put it to a person');
+    this.assertNoOtherRun(by, 'put it to a person');
 
     if (this.awaitingReview && !(overAnApproval && this.owesADecision)) {
       throw new InvalidTaskTransitionError(
@@ -1011,7 +1011,7 @@ export class Task extends EventRecorder {
     }
 
     if (by) {
-      this.refuseAnotherRun(by, 'report a failure of it');
+      this.assertNoOtherRun(by, 'report a failure of it');
     }
 
     const deferredMoveTo = by || !this.running ? null : this.deferredMoveTo;
@@ -1105,7 +1105,7 @@ export class Task extends EventRecorder {
     by: RunId,
     intent: ApprovalIntent | null,
   ): Cleared {
-    this.refuseAnotherRun(by, 'use a tool on it');
+    this.assertNoOtherRun(by, 'use a tool on it');
 
     const current = this.approvalFor(subject);
 
@@ -1156,7 +1156,7 @@ export class Task extends EventRecorder {
   }
 
   askToConnect(by: RunId, asking: Saying, ask: ConnectionAsk): AskedToConnect {
-    this.refuseAnotherRun(by, 'ask a person to connect');
+    this.assertNoOtherRun(by, 'ask a person to connect');
 
     if (this.awaitingReview) {
       const open = this.openConversation;
@@ -1339,7 +1339,7 @@ export class Task extends EventRecorder {
     return this;
   }
 
-  private refuseAnotherRun(by: RunId | null, doing: string): void {
+  private assertNoOtherRun(by: RunId | null, doing: string): void {
     const isCurrentRun = by ? this.hasCurrentRun(by) : !this.running;
 
     if (!isCurrentRun) {
@@ -1359,17 +1359,17 @@ export class Task extends EventRecorder {
     return station;
   }
 
-  private refuseHandMove(line: Line, to: StationId): void {
+  private assertHandMoveAllowed(line: Line, to: StationId): void {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
-    const refused = line.refusalToMove(from, into);
+    const denial = line.moveDenial(from, into);
 
-    if (refused) {
-      throw new MoveRefusedError(refused, from.name.value, into.name.value);
+    if (denial) {
+      throw new MoveDeniedError(denial, from.name.value, into.name.value);
     }
   }
 
-  private refuseSameStation(stationId: StationId): void {
+  private assertNotAtStation(stationId: StationId): void {
     if (this.stationId.equals(stationId)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is already at station ${stationId.value}.`,

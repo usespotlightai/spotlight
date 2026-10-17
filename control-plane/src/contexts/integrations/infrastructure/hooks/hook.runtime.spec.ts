@@ -152,10 +152,10 @@ const setUp = (
   const requests = {
     sent: vi.fn(async (request: { step: string }) => ({
       outcome: { name: request.step, status: 'done' as const, output: null },
-      refusal: null,
+      denyReason: null,
       trace: null,
     })),
-    refused: vi.fn((request: { step: string }, failure: HookFailure) => ({
+    notSent: vi.fn((request: { step: string }, failure: HookFailure) => ({
       outcome: {
         name: request.step,
         status: 'failed' as const,
@@ -163,7 +163,7 @@ const setUp = (
         reason: failure.reason,
         output: null,
       },
-      refusal: null,
+      denyReason: null,
       trace: null,
     })),
   };
@@ -261,7 +261,7 @@ describe('CompiledHookRuntime', () => {
     });
   });
 
-  it('refuses to call a tool that asks a person first', async () => {
+  it('does not call a tool that asks a person first', async () => {
     const call = vi.fn();
     const { hooked } = setUp(tool(call, { because: 'It posts publicly' }));
 
@@ -275,7 +275,7 @@ describe('CompiledHookRuntime', () => {
     });
   });
 
-  it('refuses to call a tool that acts as the person who started a task', async () => {
+  it('does not call a tool that acts as the person who started a task', async () => {
     const call = vi.fn();
     const { hooked } = setUp(
       tool(call, null, ConnectionHolderRule.requester()),

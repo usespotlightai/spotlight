@@ -202,14 +202,16 @@ describe('judging a run through OpenRouter', () => {
     expect(system).toContain('nothing is approved, moved or blocked');
   });
 
-  it('says the provider refused when it answers with an error', async () => {
+  it('says the request failed when the provider answers with an error', async () => {
     const { fetch } = answering(
       new Response(JSON.stringify({ error: { message: 'No credits' } }), {
         status: 402,
       }),
     );
 
-    await expect(judging(fetch)).rejects.toMatchObject({ kind: 'refused' });
+    await expect(judging(fetch)).rejects.toMatchObject({
+      kind: 'request-failed',
+    });
   });
 
   it('says the answer was unreadable when it does not fit the verdict’s shape', async () => {
@@ -241,7 +243,7 @@ describe('judging a run through OpenRouter', () => {
     });
   });
 
-  it('refuses without an API key', async () => {
+  it('does not judge without an API key', async () => {
     await expect(
       new OpenRouterJudge(undefined, 'some/model').judge(ASK),
     ).rejects.toBeInstanceOf(JudgingError);

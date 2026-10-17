@@ -62,7 +62,7 @@ const pulling = (
     run?: Run | null;
     check?: ClaimedCheck | null;
     starts?: RunStart;
-    tookRefuses?: boolean;
+    tookFails?: boolean;
   } = {},
 ) => {
   let now = NOW;
@@ -86,7 +86,7 @@ const pulling = (
         (answers.length > 1 ? answers.shift() : answers[0]) as StartedRunner,
     ),
     took: vi.fn(async () => {
-      if (over.tookRefuses) {
+      if (over.tookFails) {
         throw new Error('pooled_1 is spent');
       }
     }),
@@ -169,11 +169,11 @@ const pull = (bearer = 'pool-token', trust?: string) =>
   new ClaimHostWorkCommand({ bearer, trust }, HOST, IMAGE);
 
 describe('ClaimHostWorkHandler', () => {
-  it('refuses a host no pool or trust admits', async () => {
+  it('rejects a host no pool or trust admits', async () => {
     const { handler, admissions, runners } = pulling();
 
     expect(await handler.execute(pull('stolen', 'trust_1'))).toEqual({
-      outcome: 'refused',
+      outcome: 'unauthorized',
     });
     expect(admissions.admit).toHaveBeenCalledWith({
       bearer: 'stolen',
@@ -182,10 +182,10 @@ describe('ClaimHostWorkHandler', () => {
     expect(runners.start).not.toHaveBeenCalled();
   });
 
-  it('refuses once the pool or trust it pulls through is gone', async () => {
+  it('rejects once the pool or trust it pulls through is gone', async () => {
     const { handler } = pulling({ started: { outcome: 'gone' } });
 
-    expect(await handler.execute(pull())).toEqual({ outcome: 'refused' });
+    expect(await handler.execute(pull())).toEqual({ outcome: 'unauthorized' });
   });
 
   it('waits out the poll while the pool is full, then has nothing to hand out', async () => {
@@ -310,7 +310,7 @@ describe('ClaimHostWorkHandler', () => {
   it('puts the run back on the queue, uncounted, and lets the runner go, when the runner cannot take it', async () => {
     const { handler, runners, saved } = pulling({
       run: taken(),
-      tookRefuses: true,
+      tookFails: true,
     });
 
     await expect(handler.execute(pull())).rejects.toThrow('pooled_1 is spent');
@@ -324,7 +324,7 @@ describe('ClaimHostWorkHandler', () => {
   it('puts the check back, uncounted, when the runner cannot take it', async () => {
     const { handler, unclaim } = pulling({
       check: aCheck,
-      tookRefuses: true,
+      tookFails: true,
     });
 
     await expect(handler.execute(pull())).rejects.toThrow('pooled_1 is spent');
@@ -343,11 +343,11 @@ describe('ClaimHostWorkHandler', () => {
     );
   });
 
-  it('hands over no run a hook refused to start, and takes up a check instead', async () => {
+  it('hands over no run whose start a hook denied, and takes up a check instead', async () => {
     const { handler, runners, mayStart } = pulling({
       run: taken(),
       check: aCheck,
-      starts: 'refused',
+      starts: 'denied',
     });
 
     const claimed = await handler.execute(pull());
@@ -368,8 +368,8 @@ describe('ClaimHostWorkHandler', () => {
     );
   });
 
-  it('keeps polling after a hook refused to start a run', async () => {
-    const { handler, claimNext } = pulling({ run: taken(), starts: 'refused' });
+  it('keeps polling after a hook denied the start of a run', async () => {
+    const { handler, claimNext } = pulling({ run: taken(), starts: 'denied' });
 
     expect(await handler.execute(pull())).toEqual({ outcome: 'nothing' });
     expect(claimNext.mock.calls.length).toBeGreaterThan(1);

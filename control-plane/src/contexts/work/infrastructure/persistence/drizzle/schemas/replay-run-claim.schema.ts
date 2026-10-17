@@ -6,7 +6,7 @@ export const replayRunClaimed = pgEnum('replay_run_claimed', REPLAY_RUN_CLAIMS);
 export const replayRunClaim = pgTable('replay_run_claim', {
   runId: text('run_id').primaryKey(),
   claimedAs: replayRunClaimed('claimed_as').notNull(),
-  refusal: text('refusal'),
+  unreplayableReason: text('unreplayable_reason'),
   reason: text('reason'),
   claimedAt: timestamp('claimed_at').defaultNow().notNull(),
 });

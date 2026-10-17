@@ -5,7 +5,7 @@ import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { SeededCatalog } from '@catalog/infrastructure/catalog/seeded-catalog';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -68,10 +68,10 @@ describe('CatalogGivings', () => {
     expect(given.tools.map((each) => each.id)).toEqual([
       'catalog.web-search@1.1.0',
     ]);
-    expect(given.refused).toEqual([]);
+    expect(given.denied).toEqual([]);
   });
 
-  it('refuses what the plan does not include, naming the plan it needs', async () => {
+  it('denies what the plan does not include, naming the plan it needs', async () => {
     const { service } = givings(WorkspacePlan.free);
 
     const given = await service.givenTo(
@@ -82,7 +82,7 @@ describe('CatalogGivings', () => {
     expect(given.tools.map((each) => each.id)).toEqual([
       'catalog.fetch-page@1.0.0',
     ]);
-    expect(given.refused).toEqual([
+    expect(given.denied).toEqual([
       {
         id: 'catalog.web-search@1.1.0',
         reason: 'not-entitled',
@@ -131,12 +131,12 @@ describe('CatalogGivings', () => {
 
   it('meters a call the catalog service failed, as failed and not billable', async () => {
     const { service, metered } = givings(WorkspacePlan.of(Plan.team), () =>
-      Promise.reject(new UpstreamRefusedError('calling', 'down')),
+      Promise.reject(new UpstreamError('calling', 'down')),
     );
 
     await expect(
       service.call(calling('catalog.web-search@1.1.0')),
-    ).rejects.toThrow(UpstreamRefusedError);
+    ).rejects.toThrow(UpstreamError);
     expect(
       metered.map((each) => ({
         succeeded: each.succeeded,
@@ -153,8 +153,8 @@ describe('CatalogGivings', () => {
     await expect(
       service.call(calling('catalog.web-search@1.1.0')),
     ).resolves.toMatchObject({
-      kind: 'refused',
-      refusal: { reason: 'lapsed' },
+      kind: 'denied',
+      denial: { reason: 'lapsed' },
     });
     expect(called).toEqual([]);
     expect(metered).toEqual([]);
@@ -166,8 +166,8 @@ describe('CatalogGivings', () => {
     await expect(
       service.call(calling('catalog.research@1.0.0')),
     ).resolves.toMatchObject({
-      kind: 'refused',
-      refusal: { reason: 'wrong-kind' },
+      kind: 'denied',
+      denial: { reason: 'wrong-kind' },
     });
     expect(called).toEqual([]);
   });

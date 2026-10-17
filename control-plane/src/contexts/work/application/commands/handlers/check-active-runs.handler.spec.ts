@@ -53,13 +53,13 @@ describe('CheckActiveRunsHandler', () => {
     });
   });
 
-  it('refuses an unknown egress token', async () => {
+  it('rejects an unknown egress token', async () => {
     await expect(
       checker({}, []).execute(new CheckActiveRunsCommand('other', ['leased'])),
-    ).resolves.toEqual({ outcome: 'refused' });
+    ).resolves.toEqual({ outcome: 'unauthorized' });
   });
 
-  it('refuses more credentials than it allows at once, so egress sends them in batches', async () => {
+  it('rejects more credentials than it allows at once, so egress sends them in batches', async () => {
     const many = Array.from(
       { length: MAX_RUNS_AT_ONCE + 1 },
       (_, at) => `credential_${at}`,

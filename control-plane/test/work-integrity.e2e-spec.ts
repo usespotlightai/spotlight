@@ -132,7 +132,7 @@ describe('a line that drops a station', () => {
     return { whole, without, reviewId };
   };
 
-  it('refuses to drop a station that still has work, and keeps the work', async () => {
+  it('does not drop a station that still has work, and keeps the work', async () => {
     const { whole, without, reviewId } = await withReview();
     const task = added(whole, reviewId);
     await tasks.add(task);
@@ -154,7 +154,7 @@ describe('a line that drops a station', () => {
     expect(tally.get(reviewId.value)).toBe(1);
   });
 
-  it('refuses a task at a station that is gone', async () => {
+  it('rejects a task at a station that is gone', async () => {
     const { whole, without, reviewId } = await withReview();
     await new DrizzleLineRepository(context, quiet).save(without);
 
@@ -165,7 +165,7 @@ describe('a line that drops a station', () => {
 });
 
 describe('a mark that one task has and another task claims', () => {
-  it('refuses a claim that skips the task with the mark', async () => {
+  it('rejects a claim that skips the task with the mark', async () => {
     const { line, stationId } = await openTeam(db, tasks, `m-${randomUUID()}`);
     const thread = Mark.of('slack.thread', randomUUID());
 

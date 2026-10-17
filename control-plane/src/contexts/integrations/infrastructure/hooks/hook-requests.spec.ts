@@ -214,14 +214,14 @@ describe('HookRequests', () => {
     });
   });
 
-  it('reads a refusal from the answer', async () => {
+  it('reads a deny reason from the answer', async () => {
     const { requests: sending } = requests(
       async () =>
-        new Response('{"refuse":"drops a column in use"}', { status: 200 }),
+        new Response('{"deny":"drops a column in use"}', { status: 200 }),
     );
 
     await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
-      refusal: 'drops a column in use',
+      denyReason: 'drops a column in use',
     });
   });
 

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 const MEMORIES = [
   {
     kind: 'correction',
-    body: 'Never retry an upload the bucket refused with a 403.',
+    body: 'Never retry an upload the bucket rejected with a 403.',
     reach: 'station',
     repository: 'acme/api',
     paths: ['src/uploads.ts'],
@@ -102,7 +102,7 @@ describe('drafting memories through OpenRouter', () => {
     expect(system).toContain('Remember only what the repository cannot tell');
   });
 
-  it('says the provider refused when it answers with an error', async () => {
+  it('says the request failed when the provider answers with an error', async () => {
     const { fetch } = answering(
       new Response(JSON.stringify({ error: { message: 'No credits' } }), {
         status: 402,
@@ -110,18 +110,18 @@ describe('drafting memories through OpenRouter', () => {
     );
 
     await expect(drafting(fetch)).rejects.toMatchObject({
-      kind: 'refused',
+      kind: 'request-failed',
     });
   });
 
-  it('says the provider refused when it cannot be reached', async () => {
+  it('says the request failed when the provider cannot be reached', async () => {
     const { fetch } = answering(async () => {
       throw new TypeError('fetch failed');
     });
 
     await expect(drafting(fetch)).rejects.toBeInstanceOf(MemoryDraftingError);
     await expect(drafting(fetch)).rejects.toMatchObject({
-      kind: 'refused',
+      kind: 'request-failed',
     });
   });
 
@@ -139,7 +139,7 @@ describe('drafting memories through OpenRouter', () => {
     }
   });
 
-  it('refuses to draft without a key', async () => {
+  it('does not draft without a key', async () => {
     const drafter = new OpenRouterMemoryDrafter(undefined, 'some/model');
 
     expect(drafter.available).toBe(false);

@@ -29,7 +29,7 @@ import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
-const refused = (created: ResourceCreated): WorkspaceTokenCreatedDto => ({
+const rejected = (created: ResourceCreated): WorkspaceTokenCreatedDto => ({
   created,
   token: null,
 });
@@ -67,13 +67,13 @@ export class CreateWorkspaceTokenHandler
       }
 
       if (!permissions.administers) {
-        return refused(forbiddenTo('administer'));
+        return rejected(forbiddenTo('administer'));
       }
 
       const compiled = this.definitions.workspaceToken(command.definition);
 
       if (!compiled.ok) {
-        return refused({ outcome: 'invalid', problems: compiled.problems });
+        return rejected({ outcome: 'invalid', problems: compiled.problems });
       }
 
       const minted = this.mint.mint();
@@ -115,13 +115,13 @@ export class CreateWorkspaceTokenHandler
         };
       } catch (error) {
         if (error instanceof WorkspaceTokenAlreadyIssuedError) {
-          return refused({ outcome: 'taken', address: error.tokenName });
+          return rejected({ outcome: 'taken', address: error.tokenName });
         }
 
         if (error instanceof InvalidWorkspaceTokenError) {
-          return refused({
+          return rejected({
             outcome: 'invalid',
-            problems: [IdentityProblems.tokenRefused(error)],
+            problems: [IdentityProblems.tokenInvalid(error)],
           });
         }
 

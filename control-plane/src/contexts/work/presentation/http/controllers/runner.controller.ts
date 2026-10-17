@@ -510,7 +510,7 @@ export class RunnerController {
     description: 'What the agent handed the tool is not what it takes',
   })
   @ApiBadGatewayResponse({
-    description: 'The integration the tool calls refused',
+    description: 'The integration the tool calls answered with an error',
   })
   async useTool(
     @Param('runId') runId: string,

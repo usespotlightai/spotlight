@@ -32,7 +32,7 @@ export interface ReportedImage {
     readonly models: readonly string[];
     readonly version?: string;
   }[];
-  readonly refused?: string;
+  readonly unavailableReason?: string;
 }
 
 export class HostImage {
@@ -42,7 +42,7 @@ export class HostImage {
     readonly usual: boolean,
     readonly release: string | null,
     readonly harnesses: readonly InstalledHarness[],
-    readonly refused: string | null,
+    readonly unavailableReason: string | null,
   ) {}
 
   static reported(input: ReportedImage): HostImage {
@@ -65,12 +65,12 @@ export class HostImage {
       input.harnesses.map((each) =>
         InstalledHarness.reported(each.id, each.models, each.version),
       ),
-      clipped(input.refused, 500),
+      clipped(input.unavailableReason, 500),
     );
   }
 
   get isServed(): boolean {
-    return this.refused === null;
+    return this.unavailableReason === null;
   }
 
   get servesAHarness(): boolean {
@@ -87,7 +87,7 @@ export class HostImage {
       sameOrBothNone(this.digest, other.digest) &&
       this.usual === other.usual &&
       this.release === other.release &&
-      this.refused === other.refused &&
+      this.unavailableReason === other.unavailableReason &&
       this.harnesses.length === other.harnesses.length &&
       this.harnesses.every((each, at) => {
         const theirs = other.harnesses[at];

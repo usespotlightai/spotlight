@@ -98,7 +98,7 @@ describe('a run that asks a person', () => {
       );
     });
 
-    it('refuses to wait on a turn that failed or was stopped', () => {
+    it('does not wait on a turn that failed or was stopped', () => {
       expect(() =>
         claimed().paused(
           RUNNER,
@@ -112,7 +112,7 @@ describe('a run that asks a person', () => {
       ).toThrow(InvalidRunTransitionError);
     });
 
-    it('refuses to wait once a person asked it to stop', () => {
+    it('does not wait once a person asked it to stop', () => {
       expect(() =>
         claimed().requestStop(NOW).paused(RUNNER, CLEAN, ASKED, NOW),
       ).toThrow(InvalidRunTransitionError);

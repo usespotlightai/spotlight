@@ -105,7 +105,7 @@ describe('SecretInjection', () => {
       ).toEqual({ authorization: 'Bearer lin_api_1' });
     });
 
-    it('refuses two secrets injected in one header for one host', async () => {
+    it('rejects two secrets injected in one header for one host', async () => {
       const { injection, secrets } = await setUp();
       await secrets.save(
         Secret.set(definition({ name: 'LINEAR_OTHER' }), {

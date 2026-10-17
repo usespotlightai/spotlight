@@ -150,10 +150,10 @@ func proposeTo(url, token string, body []byte) ([]byte, error) {
 		return said, nil
 	}
 
-	var refused protocol.FieldErrors
+	var invalid protocol.FieldErrors
 	if response.StatusCode == http.StatusUnprocessableEntity &&
-		json.Unmarshal(said, &refused) == nil && protocol.Refuses(refused.Errors) {
-		return nil, errors.New(problemsOf(refused.Errors))
+		json.Unmarshal(said, &invalid) == nil && protocol.HasErrors(invalid.Errors) {
+		return nil, errors.New(problemsOf(invalid.Errors))
 	}
 
 	return nil, fmt.Errorf("%s", strings.TrimSpace(string(said)))
@@ -162,11 +162,11 @@ func proposeTo(url, token string, body []byte) ([]byte, error) {
 func problemsOf(found []protocol.FieldError) string {
 	var shown strings.Builder
 
-	shown.WriteString("Spotlight refused the candidate:\n")
+	shown.WriteString("Spotlight rejected the candidate:\n")
 	for _, each := range found {
 		fmt.Fprintf(&shown, "%s: %s", each.Path, flat(each.Message))
 		if each.Severity != protocol.SeverityError {
-			shown.WriteString(" (" + each.Severity + ", not why it was refused)")
+			shown.WriteString(" (" + each.Severity + ", not why it was rejected)")
 		}
 		shown.WriteString("\n")
 	}

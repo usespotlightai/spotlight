@@ -64,7 +64,7 @@ describe('ConnectionChoice', () => {
       );
     });
 
-    it('refuses a requester who is no longer on the team', () => {
+    it('denies a requester who is no longer on the team', () => {
       const chosen = ConnectionChoice.choose(integration(), {
         personId: ALICE,
         member: false,
@@ -87,12 +87,12 @@ describe('ConnectionChoice', () => {
       expect(wanted?.integrationName).toBe('Linear');
     });
 
-    it('asks the person to connect again once the host refused to renew theirs', () => {
-      const refused = connected(ALICES).renewalRefused(NOW);
+    it('asks the person to connect again once the refresh of their token failed', () => {
+      const failed = connected(ALICES).refreshFailed(NOW);
 
       expect(
-        ConnectionChoice.usable(integration(), ALICES, refused)?.because,
-      ).toBe('renewal-refused');
+        ConnectionChoice.usable(integration(), ALICES, failed)?.because,
+      ).toBe('refresh-failed');
     });
 
     it('uses a person’s connection they own', () => {

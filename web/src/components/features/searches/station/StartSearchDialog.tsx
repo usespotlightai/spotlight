@@ -101,7 +101,7 @@ export function StartSearchDialog({
             repeats={form.settled?.budget.repeats ?? 1}
             asked={form.settled !== null}
             estimating={form.estimate.isFetching}
-            refusal={form.estimateRefusal}
+            problem={form.estimateProblem}
           />
 
           {form.suggested && (

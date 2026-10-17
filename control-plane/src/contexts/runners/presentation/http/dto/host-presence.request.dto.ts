@@ -40,7 +40,7 @@ export class HostImageRequestDto {
       'Runner is on release 20260801-01. Minimum version required: 20260925-01',
     description: 'Why the host will not run it, when it will not',
   })
-  readonly refused?: string;
+  readonly unavailableReason?: string;
 }
 
 export class HostPresenceRequestDto {
@@ -86,7 +86,7 @@ export class HostPresenceRequestDto {
     type: [HostImageRequestDto],
     isArray: true,
     description:
-      'The runner images it serves or refused, each with what it found inside',
+      'The runner images it serves or cannot use, each with what it found inside',
   })
   readonly images?: HostImageRequestDto[];
 }

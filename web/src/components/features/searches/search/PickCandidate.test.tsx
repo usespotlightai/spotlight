@@ -108,12 +108,12 @@ describe('PickCandidate', () => {
     ).toHaveAttribute('href', 'https://github.com/acme/config/pull/42');
   });
 
-  it('says why a pull request was refused, with what to set by hand, and retries', () => {
+  it('says why a pull request failed, with what to set by hand, and retries', () => {
     renderPick({
       ...CANDIDATE,
       pullRequest: {
         id: 'p',
-        state: 'refused',
+        state: 'failed',
         url: null,
         reason: {
           code: 'computed-attribute',
@@ -125,10 +125,10 @@ describe('PickCandidate', () => {
       },
     });
 
-    const refusal = screen.getByText(
+    const reason = screen.getByText(
       'Attribute is computed in Terraform. Please set it by hand.',
     );
-    expect(refusal).toBeInTheDocument();
+    expect(reason).toBeInTheDocument();
     expect(screen.getByText('effort comes from a local')).toBeInTheDocument();
     expect(screen.getByText('local.effort')).toBeInTheDocument();
     expect(screen.getByText('medium')).toBeInTheDocument();

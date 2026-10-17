@@ -58,7 +58,7 @@ describe('scoredLive', () => {
     });
   });
 
-  it('leaves what is not a station block for examining to refuse', () => {
+  it('leaves what is not a station block for examining to reject', () => {
     expect(scoredLive('nonsense', LIVE)).toEqual({
       block: 'nonsense',
       keptLive: [],

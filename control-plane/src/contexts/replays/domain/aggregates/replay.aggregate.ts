@@ -29,7 +29,6 @@ import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.v
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import {
   isValidRepeatCount,
   MAX_REPEATS,
@@ -45,6 +44,7 @@ import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -831,8 +831,8 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.forgone(), at);
   }
 
-  refused(run: RunId, refusal: ReplayRefusal, at: Date): Replay {
-    return this.changing(run, (entry) => entry.refused(refusal), at);
+  unreplayable(run: RunId, reason: UnreplayableReason, at: Date): Replay {
+    return this.changing(run, (entry) => entry.unreplayable(reason), at);
   }
 
   recordRunEnd(run: RunId, runEnd: RunEnd): Replay {

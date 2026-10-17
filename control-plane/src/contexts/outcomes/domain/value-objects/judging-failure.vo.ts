@@ -11,7 +11,7 @@ const ONCE_MORE = Retry.backoff({
 
 export const JUDGING_FAILURES = {
   'no-evidence': Retry.never(),
-  refused: AGAIN,
+  'request-failed': AGAIN,
   unreadable: ONCE_MORE,
   ungrounded: ONCE_MORE,
   errored: AGAIN,

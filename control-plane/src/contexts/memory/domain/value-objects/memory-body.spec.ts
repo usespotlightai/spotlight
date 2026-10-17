@@ -10,7 +10,7 @@ describe('MemoryBody', () => {
     ).toBe(true);
   });
 
-  it('refuses saying nothing, or too much', () => {
+  it('rejects saying nothing, or too much', () => {
     expect(() => MemoryBody.of('   ')).toThrow(InvalidMemoryError);
     expect(() => MemoryBody.of('x'.repeat(1_001))).toThrow(InvalidMemoryError);
   });

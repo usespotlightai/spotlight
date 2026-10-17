@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 describe('ProvisionFailure', () => {
   it.each([
     ['unreachable', true],
-    ['refused', true],
+    ['http-error', true],
     ['lapsed', true],
     ['not-allowed', false],
     ['unusable', false],
@@ -23,7 +23,7 @@ describe('ProvisionFailure', () => {
         'harness-missing',
         'lapsed',
         'not-allowed',
-        'refused',
+        'http-error',
         'unreachable',
         'unusable',
       ].sort(),
@@ -36,18 +36,18 @@ describe('ProvisionFailure', () => {
     ).toBe('unreachable: connection refused');
   });
 
-  it('refuses a kind it does not know', () => {
+  it('rejects a kind it does not know', () => {
     expect(() => ProvisionFailure.of('exploded', 'boom')).toThrow(
       InconsistentStateError,
     );
   });
 
   it('trims its detail and keeps no more than a thousand characters of it', () => {
-    expect(ProvisionFailure.of('refused', '  no room  ').detail).toBe(
+    expect(ProvisionFailure.of('http-error', '  no room  ').detail).toBe(
       'no room',
     );
     expect(
-      ProvisionFailure.of('refused', 'x'.repeat(1_500)).detail,
+      ProvisionFailure.of('http-error', 'x'.repeat(1_500)).detail,
     ).toHaveLength(1_000);
   });
 
@@ -71,12 +71,12 @@ describe('ProvisionFailure', () => {
 
   it('equals another of the same kind and detail', () => {
     expect(
-      ProvisionFailure.of('refused', 'full').equals(
-        ProvisionFailure.of('refused', 'full'),
+      ProvisionFailure.of('http-error', 'full').equals(
+        ProvisionFailure.of('http-error', 'full'),
       ),
     ).toBe(true);
     expect(
-      ProvisionFailure.of('refused', 'full').equals(
+      ProvisionFailure.of('http-error', 'full').equals(
         ProvisionFailure.of('unreachable', 'full'),
       ),
     ).toBe(false);

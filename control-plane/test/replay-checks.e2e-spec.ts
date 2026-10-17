@@ -442,10 +442,10 @@ describe('a replay set guarding a station’s changes', () => {
       .post(`${teamPath()}/replay-sets/${guardingSet}/guards-changes`, {}, null)
       .expect(204);
 
-    const refused = await bearing(planToken)
+    const rejected = await bearing(planToken)
       .post(`${teamPath()}/replay-sets/${other}/guards-changes`, {}, null)
       .expect(409);
-    expect(refused.body.detail).toContain('already guards config changes');
+    expect(rejected.body.detail).toContain('already guards config changes');
 
     const sets = (
       await bearing(readToken).get(`${stationPath()}/replay-sets`).expect(200)
@@ -486,20 +486,20 @@ describe('a replay set guarding a station’s changes', () => {
 });
 
 describe('a replay check', () => {
-  it('is refused, saying why, when no set guards the station', async () => {
-    const refused = await bearing(planToken)
+  it('fails, saying why, when no set guards the station', async () => {
+    const rejected = await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(planned()))
       .expect(409);
 
-    expect(refused.headers['content-type']).toContain(
+    expect(rejected.headers['content-type']).toContain(
       'application/problem+json',
     );
-    expect(refused.body.detail).toContain(
+    expect(rejected.body.detail).toContain(
       'No replay set guards config changes of station build.',
     );
   });
 
-  it('is refused when the line has no replay_check', async () => {
+  it('fails when the line has no replay_check', async () => {
     await bearing(planToken)
       .post(`${teamPath()}/replay-sets/${guardingSet}/guards-changes`, {}, null)
       .expect(204);
@@ -509,11 +509,11 @@ describe('a replay check', () => {
       .where(eq(schema.line.id, DELIVERY));
 
     try {
-      const refused = await bearing(planToken)
+      const rejected = await bearing(planToken)
         .post(`${teamPath()}/replay-checks`, checkBody(planned()))
         .expect(409);
 
-      expect(refused.body.detail).toContain('has no replay_check block');
+      expect(rejected.body.detail).toContain('has no replay_check block');
     } finally {
       await db
         .update(schema.line)
@@ -522,7 +522,7 @@ describe('a replay check', () => {
     }
   });
 
-  it('names each problem of a planned station the line would not take, and refuses one that changes nothing that runs', async () => {
+  it('names each problem of a planned station the line would not take, and rejects one that changes nothing that runs', async () => {
     const invalid = await bearing(planToken)
       .post(
         `${teamPath()}/replay-checks`,
@@ -811,13 +811,13 @@ describe('a replay check', () => {
     });
     expect(candidate?.station).not.toHaveProperty('runners');
 
-    const refused = await bearing(planToken)
+    const rejected = await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, {
         ...checkBody(live),
         line: { repositories: [{ name: '' }] },
       })
       .expect(422);
-    expect(refused.body.errors[0].path).toMatch(/^line\.repositories/);
+    expect(rejected.body.errors[0].path).toMatch(/^line\.repositories/);
 
     await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody({ ...live, passesTo: [] }))

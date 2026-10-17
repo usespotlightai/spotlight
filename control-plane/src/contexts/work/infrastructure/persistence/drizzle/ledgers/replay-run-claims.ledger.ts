@@ -34,7 +34,7 @@ export class DrizzleReplayRunClaims implements ReplayRunClaimsPort {
       ? ReplayRunClaim.rehydrate({
           runId: RunId.of(claim.runId),
           claimedAs: claim.claimedAs,
-          refusal: claim.refusal,
+          unreplayableReason: claim.unreplayableReason,
           reason: claim.reason,
         })
       : first;
@@ -45,7 +45,7 @@ export class DrizzleReplayRunClaims implements ReplayRunClaimsPort {
       .update(replayRunClaim)
       .set({
         claimedAs: claim.claimedAs,
-        refusal: claim.refusal,
+        unreplayableReason: claim.unreplayableReason,
         reason: claim.reason,
       })
       .where(eq(replayRunClaim.runId, claim.runId.value));

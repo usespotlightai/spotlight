@@ -68,14 +68,14 @@ func (a Allowed) Wanted(named []string) []Wanted {
 	return wanted
 }
 
-func (a Allowed) Refused(named []string) []string {
-	var refused []string
+func (a Allowed) Disallowed(named []string) []string {
+	var disallowed []string
 	for _, image := range named {
-		if !a.Admits(image) && !slices.Contains(refused, image) {
-			refused = append(refused, image)
+		if !a.Admits(image) && !slices.Contains(disallowed, image) {
+			disallowed = append(disallowed, image)
 		}
 	}
-	return refused
+	return disallowed
 }
 
 var (
@@ -86,7 +86,7 @@ var (
 	)
 )
 
-func RunnerRefusal(release, minimum string) string {
+func RunnerTooOld(release, minimum string) string {
 	if release == "" {
 		return fmt.Sprintf("Runner doesn't report its release number. Minimum version required: %s", minimum)
 	}

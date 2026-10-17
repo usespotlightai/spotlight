@@ -5,19 +5,19 @@ import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 type StartSearchButtonProps = {
   at: ReplayedStation;
   sets: readonly ReplaySet[];
-  refusedBecause: string | null;
+  disabledBecause: string | null;
 };
 
 export function StartSearchButton({
   at,
   sets,
-  refusedBecause,
+  disabledBecause,
 }: StartSearchButtonProps) {
   return (
     <DialogButton
       label="Start a search"
       variant="outline"
-      refusedBecause={refusedBecause}
+      disabledBecause={disabledBecause}
       dialog={(open, onOpenChange) => (
         <StartSearchDialog
           at={at}

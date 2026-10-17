@@ -52,12 +52,12 @@ func TestTakesTheWorkItWasHandedAndLeavesNoCredentialBehind(t *testing.T) {
 	}
 }
 
-func TestRefusesHandedWorkWithoutACredential(t *testing.T) {
+func TestRejectsHandedWorkWithoutACredential(t *testing.T) {
 	path := handedFile(t, protocol.Handed{RunnerID: "runner_1"})
 
 	if _, err := given(context.Background(), config.Config{Handed: path}, "test", nil, quiet); err == nil ||
 		!strings.Contains(err.Error(), "credential") {
-		t.Fatalf("expected a refusal, got %v", err)
+		t.Fatalf("expected an error, got %v", err)
 	}
 }
 

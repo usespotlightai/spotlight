@@ -98,7 +98,7 @@ describe('StackProposal', () => {
     ]);
   });
 
-  it('refuses a change layer that leaves a file it touches without a note', () => {
+  it('rejects a change layer that leaves a file it touches without a note', () => {
     expect(problemsOf(proposal(NOTED.slice(0, 1)))).toEqual([
       {
         code: 'shape',
@@ -107,7 +107,7 @@ describe('StackProposal', () => {
     ]);
   });
 
-  it('refuses a note on a file the layer does not touch', () => {
+  it('rejects a note on a file the layer does not touch', () => {
     expect(
       problemsOf(
         proposal([...NOTED, { path: 'src/mail.ts', note: 'Sends it.' }]),
@@ -117,7 +117,7 @@ describe('StackProposal', () => {
     ]);
   });
 
-  it('refuses two notes on one file', () => {
+  it('rejects two notes on one file', () => {
     expect(
       problemsOf(
         proposal([
@@ -128,7 +128,7 @@ describe('StackProposal', () => {
     ).toEqual(['cohort 1, layer 1 notes src/invite.ts 2 times']);
   });
 
-  it('refuses a blank note or one too long', () => {
+  it('rejects a blank note or one too long', () => {
     expect(
       problemsOf(
         proposal([
@@ -142,7 +142,7 @@ describe('StackProposal', () => {
     ]);
   });
 
-  it('needs no notes on incidental changes, but still refuses wrong ones', () => {
+  it('needs no notes on incidental changes, but still rejects wrong ones', () => {
     expect(problemsOf(proposal([], 'incidental'))).toEqual([]);
     expect(
       problemsOf(

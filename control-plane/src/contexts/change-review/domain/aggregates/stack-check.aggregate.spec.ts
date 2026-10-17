@@ -80,7 +80,7 @@ const ANY = RunnerTerms.none();
 
 const RESERVED_UNTIL = new Date(LATER.getTime() + 5 * 60_000);
 
-const REFUSED = ProvisionFailure.of('refused', 'answered 503');
+const HTTP_ERROR = ProvisionFailure.of('http-error', 'answered 503');
 
 const OVERDUE = new Date(LATER.getTime() + WAITING_LIMIT_MS + 1);
 
@@ -187,7 +187,7 @@ const rehydrated = (over: Record<string, unknown>) =>
     ...over,
   });
 
-const failedAgain = (check: StackCheck, failure = REFUSED) => {
+const failedAgain = (check: StackCheck, failure = HTTP_ERROR) => {
   const due = check.provisioning.nextAt ?? LATER;
 
   return check
@@ -205,7 +205,7 @@ describe('StackCheck', () => {
     ).toBe('skipped');
   });
 
-  it('refuses a check command that is not one short line', () => {
+  it('rejects a check command that is not one short line', () => {
     expect(() => CheckRequest.of('npx tsc\nrm -rf /', null)).toThrow(
       InvalidChangeStackError,
     );
@@ -247,7 +247,7 @@ describe('StackCheck', () => {
     );
   });
 
-  it('refuses steps the stack does not have, a missing whole, and a second report', () => {
+  it('rejects steps the stack does not have, a missing whole, and a second report', () => {
     const check = checking();
 
     expect(() =>
@@ -299,7 +299,7 @@ describe('StackCheck', () => {
     ).toBe('No runner checked the layers in time.');
   });
 
-  it('refuses a reason it does not know', () => {
+  it('rejects a reason it does not know', () => {
     expect(() => skipOf('made-up', null)).toThrow(InvalidChangeStackError);
   });
 
@@ -383,7 +383,7 @@ describe('StackCheck', () => {
     expect(failing(again).reordering).toBe(false);
   });
 
-  it('refuses to come back in a state it could not have reached', () => {
+  it('does not come back in a state it could not have reached', () => {
     expect(() => rehydrated({ phase: 'checked' })).toThrow(
       InconsistentStateError,
     );
@@ -436,7 +436,7 @@ describe('StackCheck', () => {
       ).toBe(false);
     });
 
-    it('refuses a runner that does not answer to where it is placed', () => {
+    it('rejects a runner that does not answer to where it is placed', () => {
       const placed = StackCheck.begin({
         stackId: ChangeStackId.of('stack-1'),
         runId: RunId.of('run-1'),
@@ -541,7 +541,7 @@ describe('StackCheck', () => {
       );
     });
 
-    it('refuses once the check was recorded or skipped', () => {
+    it('is not renewed once the check was recorded or skipped', () => {
       const check = checking();
       const recorded = check.recordResult(
         RUNNER,
@@ -670,14 +670,14 @@ describe('StackCheck', () => {
       });
     });
 
-    it('refuses to renew the claim itself past the ceiling', () => {
+    it('does not renew the claim itself past the ceiling', () => {
       const claim = checking().claim;
 
       expect(() => claim.renewed(justBefore)).not.toThrow();
       expect(() => claim.renewed(ceiling)).toThrow(InvalidChangeStackError);
     });
 
-    it('refuses a claim kept with no time it was claimed', () => {
+    it('rejects a claim kept with no time it was claimed', () => {
       expect(() =>
         CheckClaim.rehydrate({
           claimedBy: RUNNER,
@@ -745,9 +745,9 @@ describe('StackCheck', () => {
     });
 
     it('says how many attempts failed and what the last one was', () => {
-      expect(unprovisioned(REFUSED, 5)).toEqual({
+      expect(unprovisioned(HTTP_ERROR, 5)).toEqual({
         code: 'unprovisioned',
-        detail: 'Attempts: 5\nLast failure: refused: answered 503',
+        detail: 'Attempts: 5\nLast failure: http-error: answered 503',
       });
     });
   });
@@ -899,7 +899,7 @@ describe('StackCheck', () => {
       expect(skipped.phase).toBe('skipped');
       expect(skipped.skippedAt(LATER)).toEqual({
         code: 'unprovisioned',
-        detail: 'Attempts: 5\nLast failure: refused: answered 503',
+        detail: 'Attempts: 5\nLast failure: http-error: answered 503',
       });
       expect(kinds(skipped)).toEqual([
         'change-stack.check-reservation-dropped',
@@ -911,9 +911,9 @@ describe('StackCheck', () => {
           wholeFailed: skipped.wholeFailed,
         }),
       ).toBe(
-        'Spotlight couldn’t provision a runner to check the layers.\n\nAttempts: 5\nLast failure: refused: answered 503',
+        'Spotlight couldn’t provision a runner to check the layers.\n\nAttempts: 5\nLast failure: http-error: answered 503',
       );
-      expect(skipped.provisionFailed(RUNNER, REFUSED, LATER)).toBe(skipped);
+      expect(skipped.provisionFailed(RUNNER, HTTP_ERROR, LATER)).toBe(skipped);
     });
 
     it('counts no failure another runner reports', () => {
@@ -923,7 +923,7 @@ describe('StackCheck', () => {
         LATER,
       );
 
-      expect(reserved.provisionFailed(OTHER, REFUSED, LATER)).toBe(reserved);
+      expect(reserved.provisionFailed(OTHER, HTTP_ERROR, LATER)).toBe(reserved);
     });
 
     it('counts no failure while a runner has its lease', () => {
@@ -941,13 +941,13 @@ describe('StackCheck', () => {
         ),
       });
 
-      expect(leased.provisionFailed(RUNNER, REFUSED, LATER)).toBe(leased);
+      expect(leased.provisionFailed(RUNNER, HTTP_ERROR, LATER)).toBe(leased);
     });
 
     it('only lets the reservation go when the pool fails it past the hour', () => {
       const failed = waiting()
         .reservedFor(RUNNER, PoolId.of('pool_burst'), LATER)
-        .provisionFailed(RUNNER, REFUSED, OVERDUE);
+        .provisionFailed(RUNNER, HTTP_ERROR, OVERDUE);
 
       expect(failed.reservation).toBeNull();
       expect(failed.provisioning.failures).toBe(0);
@@ -958,7 +958,7 @@ describe('StackCheck', () => {
     it('comes back skipped as unprovisioned', () => {
       const skip = keptSkipOf(
         'unprovisioned',
-        'Attempts: 5\nLast failure: refused: answered 503',
+        'Attempts: 5\nLast failure: http-error: answered 503',
       );
       const check = rehydrated({
         phase: 'skipped',
@@ -1035,7 +1035,7 @@ describe('StackCheck', () => {
       ]);
     });
 
-    it('refuses to settle a check that is not overdue', () => {
+    it('does not settle a check that is not overdue', () => {
       expect(() => waiting().settledOverdue(LATER)).toThrow(
         InvalidChangeStackError,
       );
@@ -1153,7 +1153,7 @@ describe('StackCheck, rechecked', () => {
     );
   });
 
-  it('refuses to come back as a recheck of a task’s change, or as one that reordered', () => {
+  it('does not come back as a recheck of a task’s change, or as one that reordered', () => {
     expect(() => rehydrated({ recheck: true })).toThrow(InconsistentStateError);
     expect(() =>
       rehydrated({ recheck: true, replay: true, rounds: 1 }),

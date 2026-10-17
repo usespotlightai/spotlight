@@ -5,7 +5,7 @@ export class RunnerReleaseResponseDto {
   @ApiProperty({
     example: '20260925-01',
     description:
-      'The oldest runner release this control plane works with; a host refuses an image whose runner is older',
+      'The oldest runner release this control plane works with; a host cannot use an image whose runner is older',
   })
   readonly minimum: string;
 

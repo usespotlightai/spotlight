@@ -20,7 +20,7 @@ export class FetchRunSecretsHandler
       const admitted = await this.egress.admit(command.token, this.clock.now());
 
       if (!admitted) {
-        return { outcome: 'refused' };
+        return { outcome: 'unauthorized' };
       }
 
       return await this.fetches.fetchFor(

@@ -34,7 +34,7 @@ describe('Admission', () => {
     ).toBe(true);
   });
 
-  it('refuses a way in that is neither a pool nor a trust', () => {
+  it('rejects a way in that is neither a pool nor a trust', () => {
     expect(() => Admission.of('runner', 'runner_1')).toThrow(
       InconsistentStateError,
     );

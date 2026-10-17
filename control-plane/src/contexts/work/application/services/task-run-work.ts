@@ -116,11 +116,10 @@ export class TaskRunWork implements RunWork {
     wanted: ConnectionWantedDto,
   ): Promise<ConnectionAsked> {
     const askable =
-      wanted.because === 'not-connected' ||
-      wanted.because === 'renewal-refused';
+      wanted.because === 'not-connected' || wanted.because === 'refresh-failed';
 
     if (!wanted.personId || !askable) {
-      return { kind: 'refused', reason: ConnectionAskedText.refusal(wanted) };
+      return { kind: 'denied', reason: ConnectionAskedText.denial(wanted) };
     }
 
     const line = await this.lines.findByStation(this.task.stationId);
@@ -148,7 +147,7 @@ export class TaskRunWork implements RunWork {
 
     if (!asked) {
       return {
-        kind: 'refused',
+        kind: 'denied',
         reason: ConnectionAskedText.busy(wanted),
       };
     }

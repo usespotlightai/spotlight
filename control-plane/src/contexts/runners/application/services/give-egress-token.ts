@@ -2,8 +2,8 @@ import type { Egress } from '@runners/domain/aggregates/egress.aggregate';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { GivenEgressTokensRepository } from '@runners/domain/repositories/given-egress-tokens.repository';
 import {
+  assertEgressTokenUnused,
   egressTokenGivenTo,
-  refuseEgressTokenGivenBefore,
 } from '@runners/domain/services/egress-token-giving';
 import { EgressTokenUsage } from '@runners/domain/value-objects/egress-token-usage.vo';
 
@@ -21,7 +21,7 @@ export const giveEgressToken = async (
 
   const holder = await egresses.findByTokenHash(token);
 
-  refuseEgressTokenGivenBefore(
+  assertEgressTokenUnused(
     EgressTokenUsage.of({
       given: await given.wasGiven(token),
       inUse: holder !== null && !holder.id.equals(egress.id),

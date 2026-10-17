@@ -19,7 +19,7 @@ import { ReviewCommentId } from '@change-review/domain/value-objects/review-comm
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 
 import type { PullRequestReviewsPort } from '@github/application/ports/pull-request-reviews.port';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -315,11 +315,11 @@ describe('SyncReviews', () => {
     ]);
   });
 
-  it('tries again later where GitHub refuses, then gives up', async () => {
+  it('tries again later where GitHub answers with an error, then gives up', async () => {
     const { review, comments } = submitted();
-    const refusing = {
+    const failing = {
       submit: vi.fn(async () => {
-        throw new UpstreamRefusedError('submit the review', 'Server Error');
+        throw new UpstreamError('submit the review', 'Server Error');
       }),
     };
 
@@ -327,7 +327,7 @@ describe('SyncReviews', () => {
       sync: { kind: 'review', subjectId: 'review_1', attempts: 1 },
       reviews: [review],
       comments,
-      github: refusing,
+      github: failing,
     });
     await early.service.syncDue();
 
@@ -352,7 +352,7 @@ describe('SyncReviews', () => {
       },
       reviews: [review],
       comments,
-      github: refusing,
+      github: failing,
     });
     await last.service.syncDue();
 
@@ -364,7 +364,7 @@ describe('SyncReviews', () => {
       expect.objectContaining({ kind: 'review.comment-not-posted' }),
     );
     expect(last.reports.report).toHaveBeenCalledExactlyOnceWith(
-      expect.any(UpstreamRefusedError),
+      expect.any(UpstreamError),
       expect.objectContaining({ source: 'Syncing reviews with GitHub' }),
     );
   });
@@ -702,7 +702,7 @@ describe('SyncReviews', () => {
       comments: [owed],
       github: {
         edit: vi.fn(async () => {
-          throw new UpstreamRefusedError('edit the review comment', '422');
+          throw new UpstreamError('edit the review comment', '422');
         }),
       },
     });

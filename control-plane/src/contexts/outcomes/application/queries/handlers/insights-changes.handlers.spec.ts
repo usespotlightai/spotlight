@@ -322,7 +322,7 @@ describe('ReadInsightsSetupsHandler', () => {
     expect(elsewhere.setups).toEqual([]);
   });
 
-  it('refuses a size it does not know', async () => {
+  it('rejects a size it does not know', async () => {
     const { scopes, reader } = await seeded();
     const handler = new ReadInsightsSetupsHandler(
       scopes,

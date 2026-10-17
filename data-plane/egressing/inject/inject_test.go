@@ -375,7 +375,7 @@ func TestHandsBackTheStandInWhereverTheHostEchoesASecret(t *testing.T) {
 	}
 
 	if !strings.Contains(logged.String(), "its location is neither a header nor a query parameter") {
-		t.Errorf("did not refuse a location that is neither: %s", logged.String())
+		t.Errorf("did not reject a location that is neither: %s", logged.String())
 	}
 }
 
@@ -420,7 +420,7 @@ func TestForControlPlaneKeepsNothingWithoutAToken(t *testing.T) {
 	}
 }
 
-func TestForControlPlaneRefusesATokenSealedForAnotherRun(t *testing.T) {
+func TestForControlPlaneRejectsATokenSealedForAnotherRun(t *testing.T) {
 	injector, _ := injectorWithSecrets(t)
 
 	if err := injector.ForControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://spotlight.example.com"), "run_2", opener{}); err == nil {
@@ -428,7 +428,7 @@ func TestForControlPlaneRefusesATokenSealedForAnotherRun(t *testing.T) {
 	}
 }
 
-func TestForControlPlaneRefusesAHeaderAnotherSecretUses(t *testing.T) {
+func TestForControlPlaneRejectsAHeaderAnotherSecretUses(t *testing.T) {
 	injector, _ := injectorWithSecrets(t)
 
 	if err := injector.ForControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://mcp.linear.app"), "run_1", opener{}); err == nil {

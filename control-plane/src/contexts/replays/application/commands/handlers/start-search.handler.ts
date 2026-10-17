@@ -6,7 +6,7 @@ import type { LiveSnapshots } from '@replays/application/services/live-snapshots
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import {
   allotmentOf,
-  SearchTermsRefusedError,
+  InvalidSearchTermsError,
   searchAgentOf,
   searchBudgetOf,
   splitOf,
@@ -151,7 +151,7 @@ export class StartSearchHandler
         warnings: searchWarningsOf(health, standard.minGain, budget.repeats),
       };
     } catch (error) {
-      if (error instanceof SearchTermsRefusedError) {
+      if (error instanceof InvalidSearchTermsError) {
         return { outcome: 'invalid', problems: error.problems };
       }
       rethrowAsApplicationError(error);

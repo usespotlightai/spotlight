@@ -1,11 +1,11 @@
 export class HookVerdict {
-  private constructor(readonly refusal: string | null) {}
+  private constructor(readonly denyReason: string | null) {}
 
   static allowed(): HookVerdict {
     return new HookVerdict(null);
   }
 
-  static refused(reason: string): HookVerdict {
+  static denied(reason: string): HookVerdict {
     return new HookVerdict(reason.trim());
   }
 
@@ -15,17 +15,17 @@ export class HookVerdict {
     blocks: boolean,
   ): HookVerdict {
     return blocks
-      ? HookVerdict.refused(
+      ? HookVerdict.denied(
           `Hook ${hook} is broken and blocks on failure. Reason: ${broken}`,
         )
       : HookVerdict.allowed();
   }
 
-  get refuses(): boolean {
-    return this.refusal !== null;
+  get denies(): boolean {
+    return this.denyReason !== null;
   }
 
   equals(other: HookVerdict): boolean {
-    return this.refusal === other.refusal;
+    return this.denyReason === other.denyReason;
   }
 }

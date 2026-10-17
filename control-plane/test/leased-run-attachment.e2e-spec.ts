@@ -163,7 +163,7 @@ describe('reading a file given to a leased chat run', () => {
     expect([...(file.body as Buffer)]).toEqual([7, 7, 7]);
   });
 
-  it('refuses another runner, and a file the run was not given', async () => {
+  it('denies another runner, and a file the run was not given', async () => {
     const leased = await claimed();
     const other = await claimed();
 
@@ -171,7 +171,7 @@ describe('reading a file given to a leased chat run', () => {
     await read(leased.token, leased.runId, other.attachmentId).expect(404);
   });
 
-  it('refuses the runner of a run that has finished', async () => {
+  it('denies the runner of a run that has finished', async () => {
     const leased = await claimed();
 
     await http()

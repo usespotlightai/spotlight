@@ -24,22 +24,22 @@ type served struct {
 
 	examining sync.Mutex
 
-	id        string
-	judged    string
-	digest    string
-	release   string
-	harnesses []protocol.HarnessReport
-	refused   string
+	id                string
+	judged            string
+	digest            string
+	release           string
+	harnesses         []protocol.HarnessReport
+	unavailableReason string
 }
 
 type examined struct {
-	image     string
-	usual     bool
-	id        string
-	digest    string
-	release   string
-	harnesses []protocol.HarnessReport
-	refused   string
+	image             string
+	usual             bool
+	id                string
+	digest            string
+	release           string
+	harnesses         []protocol.HarnessReport
+	unavailableReason string
 }
 
 func (e examined) hasHarness(harness string) bool {
@@ -56,7 +56,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 
 	h.mu.Lock()
 	h.required = required
-	h.unadmitted = h.opts.Images.Refused(required.Images)
+	h.unadmitted = h.opts.Images.Disallowed(required.Images)
 	var gone []*served
 	for image, each := range h.served {
 		if !slices.ContainsFunc(wanted, func(w images.Wanted) bool { return w.Image == image }) {
@@ -68,7 +68,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 	var fresh, stale []*served
 	for _, want := range wanted {
 		if each, ok := h.served[want.Image]; ok {
-			if each.refused != "" || each.judged != judging {
+			if each.unavailableReason != "" || each.judged != judging {
 				stale = append(stale, each)
 			}
 			continue
@@ -140,13 +140,13 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		each.id, each.digest, each.release, each.harnesses = "", "", "", nil
-		each.refused = "Image can't be pulled. Error: " + err.Error()
+		each.unavailableReason = "Image can't be pulled. Error: " + err.Error()
 		return examinedOf(each), err
 	}
 
 	h.mu.Lock()
 	judging := judgedUnder(h.required)
-	unchanged := each.id == pulled.ID && each.refused == "" && each.judged == judging
+	unchanged := each.id == pulled.ID && each.unavailableReason == "" && each.judged == judging
 	candidates := h.required.Harnesses
 	minimum := h.required.Runner.Minimum
 	h.mu.Unlock()
@@ -164,7 +164,7 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 	each.judged = judging
 	each.digest = pinned(each.image, pulled)
 	if err != nil {
-		each.refused = "Image can't be inspected. Error: " + err.Error()
+		each.unavailableReason = "Image can't be inspected. Error: " + err.Error()
 		each.harnesses, each.release = nil, ""
 		h.log.Warn("could not look inside the runner image", "image", each.image, "error", err)
 		return examinedOf(each), nil
@@ -172,9 +172,9 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 
 	each.release = report.Release
 	each.harnesses = report.Harnesses
-	each.refused = images.RunnerRefusal(report.Release, minimum)
-	if each.refused != "" {
-		h.log.Warn("refused the runner image", "image", each.image, "reason", each.refused)
+	each.unavailableReason = images.RunnerTooOld(report.Release, minimum)
+	if each.unavailableReason != "" {
+		h.log.Warn("cannot use the runner image", "image", each.image, "reason", each.unavailableReason)
 	} else {
 		h.log.Info("serving the runner image", "image", each.image, "digest", each.digest,
 			"release", each.release, "harnesses", each.harnesses)
@@ -191,13 +191,13 @@ func (h *Host) snapshot(each *served) examined {
 
 func examinedOf(each *served) examined {
 	return examined{
-		image:     each.image,
-		usual:     each.usual,
-		id:        each.id,
-		digest:    each.digest,
-		release:   each.release,
-		harnesses: slices.Clone(each.harnesses),
-		refused:   each.refused,
+		image:             each.image,
+		usual:             each.usual,
+		id:                each.id,
+		digest:            each.digest,
+		release:           each.release,
+		harnesses:         slices.Clone(each.harnesses),
+		unavailableReason: each.unavailableReason,
 	}
 }
 
@@ -295,20 +295,20 @@ func (h *Host) reportedImages() []protocol.HostImage {
 
 	reported := make([]protocol.HostImage, 0, len(h.served)+len(h.unadmitted))
 	for _, each := range h.served {
-		if each.id == "" && each.refused == "" {
+		if each.id == "" && each.unavailableReason == "" {
 			continue
 		}
 		reported = append(reported, protocol.HostImage{
-			Image:     each.image,
-			Digest:    each.digest,
-			Usual:     each.usual,
-			Release:   each.release,
-			Harnesses: slices.Clone(each.harnesses),
-			Refused:   each.refused,
+			Image:             each.image,
+			Digest:            each.digest,
+			Usual:             each.usual,
+			Release:           each.release,
+			Harnesses:         slices.Clone(each.harnesses),
+			UnavailableReason: each.unavailableReason,
 		})
 	}
 	for _, image := range h.unadmitted {
-		reported = append(reported, protocol.HostImage{Image: image, Refused: notAdmitted})
+		reported = append(reported, protocol.HostImage{Image: image, UnavailableReason: notAdmitted})
 	}
 
 	slices.SortFunc(reported, func(a, b protocol.HostImage) int {

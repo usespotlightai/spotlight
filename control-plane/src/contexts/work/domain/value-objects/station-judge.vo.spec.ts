@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const JUDGE = { rubric: 'A good run is small.\n', sample: 0.2, trust: 0.6 };
 
-const refusal = (over: Partial<typeof JUDGE>) => {
+const errorOf = (over: Partial<typeof JUDGE>) => {
   try {
     StationJudge.of({ ...JUDGE, ...over });
   } catch (error) {
@@ -43,8 +43,8 @@ describe('StationJudge', () => {
     ['trust', { trust: 2 }],
     ['rubric', { rubric: 'scores: 1-10\nHow well?' }],
     ['rubric', { rubric: 'scores: constructor\nHow well?' }],
-  ] as const)('refuses a %s out of bounds, naming it', (field, over) => {
-    const error = refusal(over);
+  ] as const)('rejects a %s out of bounds, naming it', (field, over) => {
+    const error = errorOf(over);
 
     expect(error).toBeInstanceOf(InvalidStationJudgeError);
     expect((error as InvalidStationJudgeError).field).toBe(field);
@@ -102,7 +102,7 @@ describe('StationJudge', () => {
     ['claims', { claims: ['   '] }],
     ['passShare', { claims: ['A claim.'], passShare: 1.5 }],
     ['passShare', { passShare: 0.5 }],
-  ] as const)('refuses a %s it cannot judge by, naming it', (field, over) => {
+  ] as const)('rejects a %s it cannot judge by, naming it', (field, over) => {
     let error: unknown;
 
     try {

@@ -69,7 +69,7 @@ describe('RecordRunImageHandler', () => {
     expect(save.mock.calls[0]?.[0].ranIn?.value).toBe(PINNED);
   });
 
-  it('refuses a runner it does not know, as not found', async () => {
+  it('rejects a runner it does not know, as not found', async () => {
     const { handler, save } = recording({ known: false });
 
     await expect(
@@ -78,7 +78,7 @@ describe('RecordRunImageHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses a run there is none of, as not found', async () => {
+  it('rejects a run there is none of, as not found', async () => {
     const { handler, save } = recording({ run: null });
 
     await expect(
@@ -87,7 +87,7 @@ describe('RecordRunImageHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses a runner that does not lease the run', async () => {
+  it('rejects a runner that does not lease the run', async () => {
     const { handler, save } = recording();
 
     await expect(
@@ -96,7 +96,7 @@ describe('RecordRunImageHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses an image that is not named by its digest, or not an image at all', async () => {
+  it('rejects an image that is not named by its digest, or not an image at all', async () => {
     const { handler, save } = recording();
 
     await expect(

@@ -4,7 +4,7 @@ export const UNJUDGED_BECAUSE = [
   'unavailable',
   'unreadable-rubric',
   'no-evidence',
-  'refused',
+  'request-failed',
   'unreadable',
   'ungrounded',
   'errored',

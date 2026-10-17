@@ -14,7 +14,7 @@ import {
 } from '@github/infrastructure/github/github.rest';
 import { Inject, Injectable } from '@nestjs/common';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -175,7 +175,7 @@ export class GitHubPullRequests implements PullRequestPort {
     );
 
     if (!opened.html_url) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'GitHub would not open the pull request',
         'The answer had no pull request URL',
       );

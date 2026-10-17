@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { formatTitle, type ReplayableRun } from '@/lib/replay';
-import { formatRefusal, formatRunState } from '@/lib/replay-words';
+import { formatRunState, formatUnreplayableReason } from '@/lib/replay-words';
 import { since } from '@/lib/since';
 
 type ReplayableRunRowProps = {
@@ -31,9 +31,9 @@ export function ReplayableRunRow({
           <span>{formatRunState(run.state)}</span>
           {note && <span>· {note}</span>}
           <span>· ended {since(run.endedAt)}</span>
-          {run.refusal && (
+          {run.unreplayableReason && (
             <span className="text-destructive">
-              · {formatRefusal(run.refusal)}
+              · {formatUnreplayableReason(run.unreplayableReason)}
             </span>
           )}
         </span>
@@ -43,7 +43,7 @@ export function ReplayableRunRow({
         <span className="shrink-0 text-muted-foreground text-xs">
           In the set
         </span>
-      ) : run.refusal ? (
+      ) : run.unreplayableReason ? (
         <span className="shrink-0 text-muted-foreground text-xs">
           Can’t be replayed
         </span>

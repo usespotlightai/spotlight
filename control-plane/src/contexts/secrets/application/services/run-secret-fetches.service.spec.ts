@@ -193,7 +193,7 @@ describe('RunSecretFetches', () => {
     ]);
   });
 
-  it('refuses a recipient it cannot seal to before granting anything, whatever secrets the run injects', async () => {
+  it('rejects a recipient it cannot seal to before granting anything, whatever secrets the run injects', async () => {
     const { fetches, grants } = await setUp();
 
     await expect(
@@ -206,7 +206,7 @@ describe('RunSecretFetches', () => {
     expect(grants.all).toEqual([]);
   });
 
-  it('pins the recipient it first sealed to, answering the same recipient again and refusing any other', async () => {
+  it('pins the recipient it first sealed to, answering the same recipient again and rejecting any other', async () => {
     const { fetches, grants } = await setUp();
     const fetching = { ...FETCHING, injectedSecrets: ['LINEAR_API_KEY'] };
 
@@ -240,7 +240,7 @@ describe('RunSecretFetches', () => {
     );
   });
 
-  it('lets the grants of a lost lease go, refusing that attempt but fetching the next', async () => {
+  it('lets the grants of a lost lease go, rejecting that attempt but fetching the next', async () => {
     const { fetches, grants } = await setUp();
     const fetching = { ...FETCHING, injectedSecrets: ['LINEAR_API_KEY'] };
     const endings = new RunGrantEndings(

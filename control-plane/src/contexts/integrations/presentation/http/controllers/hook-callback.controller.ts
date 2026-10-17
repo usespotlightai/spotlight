@@ -30,12 +30,12 @@ import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { HOOK_CALLBACKS } from '@platform/http/routes';
 
-const REFUSED =
+const UNAUTHORIZED =
   'The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.';
 
 @ApiTags('hooks')
 @ApiBearerAuth()
-@ApiUnauthorizedResponse({ description: REFUSED })
+@ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
 @Controller(HOOK_CALLBACKS)
 export class HookCallbackController {
@@ -59,7 +59,7 @@ export class HookCallbackController {
     >(new CallbackTaskQuery(bearerIn(authorization) ?? ''));
 
     if (!task) {
-      throw new UnauthorizedException(REFUSED);
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     return new CallbackTaskResponseDto(task);
@@ -101,8 +101,8 @@ export class HookCallbackController {
       );
     }
 
-    if (noted === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (noted === 'rejected') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
   }
 }

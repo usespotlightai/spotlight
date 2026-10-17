@@ -58,7 +58,7 @@ describe('the pull requests a line reviews', () => {
     expect(read('').reviews).toBeNull();
   });
 
-  it('refuses reviews on a line whose role is not review', () => {
+  it('rejects reviews on a line whose role is not review', () => {
     const line = compiled('reviews:\n  start: opened\n', 'delivery');
 
     expect(line).toMatchObject({
@@ -67,7 +67,7 @@ describe('the pull requests a line reviews', () => {
     });
   });
 
-  it('refuses a review that starts on anything else', () => {
+  it('rejects a review that starts on anything else', () => {
     const line = compiled('reviews:\n  start: pushed\n');
 
     expect(line).toMatchObject({
@@ -76,7 +76,7 @@ describe('the pull requests a line reviews', () => {
     });
   });
 
-  it('refuses a mention that is not a handle', () => {
+  it('rejects a mention that is not a handle', () => {
     const line = compiled('reviews:\n  mention: spotlight\n');
 
     expect(line).toMatchObject({

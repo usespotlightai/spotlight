@@ -57,13 +57,13 @@ describe('AwsSecretsManagerSource', () => {
       SecretString: 'lin_api_1',
     }));
 
-    const refused = source.read(reference('token'));
+    const reading = source.read(reference('token'));
 
-    await expect(refused).rejects.toThrow(UnreadableSecretError);
-    await expect(refused).rejects.not.toThrow(/lin_api_1/);
+    await expect(reading).rejects.toThrow(UnreadableSecretError);
+    await expect(reading).rejects.not.toThrow(/lin_api_1/);
   });
 
-  it('turns a refusal from AWS into one of its own', async () => {
+  it('turns an AWS error into one of its own', async () => {
     const { source } = setUp(async () => {
       throw Object.assign(new Error('denied'), {
         name: 'AccessDeniedException',

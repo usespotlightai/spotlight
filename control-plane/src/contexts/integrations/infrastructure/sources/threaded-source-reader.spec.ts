@@ -106,7 +106,7 @@ describe('ThreadedSourceReader', () => {
       });
 
     const reaching = (renewed: string | null) => {
-      const refused = vi.fn(async () =>
+      const unauthorized = vi.fn(async () =>
         renewed ? AccessToken.of(renewed) : null,
       );
       const reach: Reach = {
@@ -114,12 +114,12 @@ describe('ThreadedSourceReader', () => {
           token: AccessToken.of('lin-old'),
           holder: ConnectionHolder.team(),
           handle: null,
-          refused,
+          unauthorized,
         },
         credentials: credentialsFor(),
       };
 
-      return { reach, refused };
+      return { reach, unauthorized };
     };
 
     const connectionsSent = (fetching: SourceFetch) =>
@@ -140,7 +140,7 @@ describe('ThreadedSourceReader', () => {
       expect(connectionsSent(fetching)).toEqual([null, 'lin-old']);
     }, 30_000);
 
-    it('renews it once when the host refuses it, and reads with the new token', async () => {
+    it('renews it once when the host does not accept it, and reads with the new token', async () => {
       const fetching = {
         text: vi
           .fn()
@@ -151,7 +151,7 @@ describe('ThreadedSourceReader', () => {
           )
           .mockResolvedValueOnce(LINEAR_SDL),
       } as unknown as SourceFetch;
-      const { reach, refused } = reaching('lin-new');
+      const { reach, unauthorized } = reaching('lin-new');
 
       const read = await new ThreadedSourceReader(fetching).read(
         graphql(true),
@@ -159,7 +159,7 @@ describe('ThreadedSourceReader', () => {
       );
 
       expect(read.kind).toBe('read');
-      expect(refused).toHaveBeenCalledOnce();
+      expect(unauthorized).toHaveBeenCalledOnce();
       expect(connectionsSent(fetching)).toEqual(['lin-old', 'lin-new']);
     }, 30_000);
 

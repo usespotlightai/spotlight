@@ -104,7 +104,7 @@ describe('GitHubPullRequests', () => {
       });
     });
 
-    it('carries GitHub’s refusal where nothing is open for the branch after all', async () => {
+    it('carries GitHub’s error where nothing is open for the branch after all', async () => {
       repository({ open: false, taken: true });
 
       await expect(
@@ -205,7 +205,7 @@ describe('GitHubPullRequests', () => {
       expect(asked('/repos/acme/api/pulls/9/files')).toHaveLength(2);
     });
 
-    it('refuses a link that names no pull request', async () => {
+    it('rejects a link that names no pull request', async () => {
       changing({});
 
       await expect(
@@ -217,7 +217,7 @@ describe('GitHubPullRequests', () => {
       ).rejects.toThrow(/is not a GitHub pull request/);
     });
 
-    it('carries GitHub’s refusal', async () => {
+    it('carries GitHub’s error', async () => {
       changing({});
 
       await expect(

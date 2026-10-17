@@ -15,7 +15,7 @@ describe('Opening', () => {
   });
 
   it.each([{ onto: 'Delivery Line' }, { onto: 'delivery', at: 'code review' }])(
-    'refuses %o, which is not named in words',
+    'rejects %o, which is not named in words',
     (input) => {
       expect(() => Opening.of(input)).toThrow(InvalidIdentifierError);
     },

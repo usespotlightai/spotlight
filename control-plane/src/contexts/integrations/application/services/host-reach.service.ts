@@ -124,8 +124,8 @@ export class HostReach {
       token: connection.accessToken,
       holder: connection.holder,
       handle: connection.handle,
-      refused: (token) =>
-        this.renewal.afterRefusal(
+      unauthorized: (token) =>
+        this.renewal.afterUnauthorized(
           connection.teamId,
           connection.source,
           connection.holder,

@@ -113,18 +113,18 @@ describe('RecordEgressConnectionsHandler', () => {
     ]);
   });
 
-  it('refuses an unknown egress token', async () => {
+  it('rejects an unknown egress token', async () => {
     const { handler, kept } = recording();
 
     await expect(
       handler.execute(
         new RecordEgressConnectionsCommand('other', [record('leased')]),
       ),
-    ).resolves.toEqual({ outcome: 'refused' });
+    ).resolves.toEqual({ outcome: 'unauthorized' });
     expect(kept).toEqual([]);
   });
 
-  it('refuses more records than it allows at once', async () => {
+  it('rejects more records than it allows at once', async () => {
     const { handler, kept } = recording();
 
     await expect(

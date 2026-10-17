@@ -16,7 +16,7 @@ import {
 import { signedBy } from '@github/infrastructure/github/spotlight-signature';
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 interface Posted {
   readonly id: number;
@@ -57,7 +57,7 @@ const FILES_PER_PAGE = 100;
 
 const MAX_FILE_PAGES = 30;
 
-class UnheardError extends UpstreamRefusedError {}
+class UnheardError extends UpstreamError {}
 
 const heard = async <T>(response: Response, asking: string): Promise<T> => {
   if (UNHEARD.has(response.status)) {

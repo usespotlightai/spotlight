@@ -298,22 +298,22 @@ describe('comparedWith', () => {
   });
 
   it('calls no task a regression that the candidate could not replay or start, where its baseline passed', () => {
-    const refused = aReplay({
+    const unreplayable = aReplay({
       id: 'candidate',
       count: 1,
       ceiling: 100,
       candidate: candidateOf('proposed', 'candidate_candidate'),
     })
       .reserving(1, runIds())
-      .refused(run(0), 'candidate-unfit', NOW);
+      .unreplayable(run(0), 'candidate-unfit', NOW);
     const compared = comparedWith(
-      refused,
+      unreplayable,
       ran('baseline', ['passed'], [1], true),
     );
 
     expect(compared[0]?.candidateSuccess).toBeNull();
     expect(compared[0]?.regressed).toBe(false);
-    expect(totalsOf(refused).unscored).toBe(1);
+    expect(totalsOf(unreplayable).unscored).toBe(1);
   });
 
   it('compares only the runs it is given, when given some', () => {

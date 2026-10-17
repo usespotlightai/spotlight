@@ -151,7 +151,7 @@ describe('the Slack webhook runtime', () => {
       expect(await runtime().verifies(delivered(mention))).toBe(true);
     });
 
-    it('refuses one signed with another secret', async () => {
+    it('rejects one signed with another secret', async () => {
       expect(await runtime().verifies(delivered(mention, NOW, 'wrong'))).toBe(
         false,
       );
@@ -163,7 +163,7 @@ describe('the Slack webhook runtime', () => {
       );
     });
 
-    it('refuses a replay outside the freshness window', async () => {
+    it('rejects a replay outside the freshness window', async () => {
       expect(await runtime().verifies(delivered(mention, NOW - 301))).toBe(
         false,
       );
@@ -319,7 +319,7 @@ webhook:
       expect(read?.opens?.assignEmail).toBe('dev@acme.test');
     });
 
-    it('opens unassigned where the lookup is refused', async () => {
+    it('opens unassigned where the lookup fails', async () => {
       const { runtime } = looking(null, false);
 
       const [read] = await runtime.read({

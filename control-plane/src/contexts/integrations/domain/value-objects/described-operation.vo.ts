@@ -79,7 +79,7 @@ export class DescribedOperation {
     writes: boolean;
     call: OperationCall;
   }): DescribedOperation {
-    const refuse = (because: string) =>
+    const invalid = (because: string) =>
       new InvalidIntegrationPartError(
         `operation ${JSON.stringify(input.upstream)}`,
         because,
@@ -87,32 +87,34 @@ export class DescribedOperation {
     const description = input.description.trim();
 
     if (!isSlug(input.name)) {
-      throw refuse(
+      throw invalid(
         'is not named in lowercase words joined by dashes, as in create-issue',
       );
     }
 
     if (description === '') {
-      throw refuse('says nothing about what it does');
+      throw invalid('says nothing about what it does');
     }
 
     const names = input.inputs.map((each) => each.name);
 
     for (const name of names) {
       if (!OPERATION_INPUT.test(name) || name === WHOLE_CALL_INPUT) {
-        throw refuse(`takes ${JSON.stringify(name)}, which a tool cannot take`);
+        throw invalid(
+          `takes ${JSON.stringify(name)}, which a tool cannot take`,
+        );
       }
     }
 
     if (new Set(names).size !== names.length) {
-      throw refuse('takes one input twice');
+      throw invalid('takes one input twice');
     }
 
     const call = input.call;
 
     if (call.kind === 'http') {
       if (!call.path.startsWith('/')) {
-        throw refuse('calls a path that does not begin with /');
+        throw invalid('calls a path that does not begin with /');
       }
 
       const passed = [
@@ -121,14 +123,14 @@ export class DescribedOperation {
       ];
 
       if (passed.some((each) => !names.includes(each))) {
-        throw refuse('sends an input it does not take');
+        throw invalid('sends an input it does not take');
       }
     } else if (call.kind === 'graphql') {
       if (call.variables.some((each) => !names.includes(each))) {
-        throw refuse('sends a variable it does not take');
+        throw invalid('sends a variable it does not take');
       }
     } else if (call.tool.trim() === '') {
-      throw refuse('calls an MCP tool it does not name');
+      throw invalid('calls an MCP tool it does not name');
     }
 
     return new DescribedOperation(

@@ -10,11 +10,11 @@ describe('TraceAccess', () => {
     expect(TraceAccess.sameTeam(one, TeamId.of('team_1'))).toBe(true);
   });
 
-  it('refuses a trace of another team', () => {
+  it('denies a trace of another team', () => {
     expect(TraceAccess.sameTeam(one, two)).toBe(false);
   });
 
-  it('refuses when either team is unknown', () => {
+  it('denies access when either team is unknown', () => {
     expect(TraceAccess.sameTeam(one, null)).toBe(false);
     expect(TraceAccess.sameTeam(null, one)).toBe(false);
   });

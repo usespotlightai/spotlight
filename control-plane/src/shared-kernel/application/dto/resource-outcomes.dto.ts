@@ -18,7 +18,7 @@ export const forbiddenTo = (act: ForbiddenAct): Forbidden => ({
   act,
 });
 
-export type Refused =
+export type Rejected =
   | { readonly outcome: 'version-conflict'; readonly currentVersion: number }
   | { readonly outcome: 'in-use'; readonly reason: string }
   | Forbidden;
@@ -37,6 +37,6 @@ export type ResourceCreated =
 export type ResourceUpdated =
   | { readonly outcome: 'updated'; readonly id: string }
   | Invalid
-  | Refused;
+  | Rejected;
 
-export type ResourceDeleted = { readonly outcome: 'deleted' } | Refused;
+export type ResourceDeleted = { readonly outcome: 'deleted' } | Rejected;

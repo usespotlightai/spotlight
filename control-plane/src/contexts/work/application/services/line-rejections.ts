@@ -1,6 +1,6 @@
 import type {
   Invalid,
-  Refused,
+  Rejected,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { LineProblems } from '@work/application/rendering/line-problems';
@@ -11,10 +11,10 @@ import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error'
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
 import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
 
-export const lineRefusal = (
+export const lineRejection = (
   key: string,
   error: unknown,
-): Invalid | Extract<Refused, { outcome: 'in-use' }> | null => {
+): Invalid | Extract<Rejected, { outcome: 'in-use' }> | null => {
   if (error instanceof LineInUseError || error instanceof StrandedWorkError) {
     return { outcome: 'in-use', reason: error.message };
   }

@@ -18,7 +18,7 @@ describe('ProfileSettings', () => {
     expect(settings.native).toEqual({ 'claude-code': { env: { DEBUG: '1' } } });
   });
 
-  it('refuses a change to its native settings at any depth', () => {
+  it('rejects a change to its native settings at any depth', () => {
     const settings = written({
       'claude-code': { env: { DEBUG: '1' }, hooks: [{ run: 'lint' }] },
     });

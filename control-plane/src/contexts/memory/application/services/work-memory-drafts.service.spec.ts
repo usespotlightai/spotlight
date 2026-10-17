@@ -114,7 +114,7 @@ const REJECTED: readonly KnownMemory[] = [
 
 const REMEMBERED: ProposedMemory = {
   kind: 'correction',
-  body: 'Never retry an upload the bucket refused with a 403.',
+  body: 'Never retry an upload the bucket rejected with a 403.',
   reach: 'station',
   repository: 'acme/api',
   paths: ['src/uploads.ts'],
@@ -219,7 +219,7 @@ describe('drafting what a run should leave the team remembering', () => {
     const [proposal] = worked.stored().proposals;
     expect(worked.stored().owesWork).toBe(false);
     expect(proposal?.body.value).toBe(
-      'Never retry an upload the bucket refused with a 403.',
+      'Never retry an upload the bucket rejected with a 403.',
     );
     expect(proposal?.source).toBe('person');
     expect(proposal?.supersedes?.value).toBe('memory_old');
@@ -305,10 +305,10 @@ describe('drafting what a run should leave the team remembering', () => {
     expect(worked.stored().proposals).toEqual([]);
   });
 
-  it('tries again later when the model provider refuses', async () => {
+  it('tries again later when the request to the model provider fails', async () => {
     const worked = working({
       answer: async () => {
-        throw new MemoryDraftingError('refused', '503');
+        throw new MemoryDraftingError('request-failed', '503');
       },
     });
 

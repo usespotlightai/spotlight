@@ -55,7 +55,7 @@ describe('DeleteEgressHandler', () => {
     expect(saved[0]?.isRetired).toBe(true);
   });
 
-  it('refuses to retire an egress that a runner pool names, and says which', async () => {
+  it('does not retire an egress that a runner pool names, and says which', async () => {
     const { handler, saved } = deleting([
       aPushPool({ egress: EgressReference.to(EGRESS_ID) }),
     ]);

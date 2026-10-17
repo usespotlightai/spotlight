@@ -446,17 +446,17 @@ describe('StartSearchHandler', () => {
     expect(told.outcome === 'started' && told.objective).toBe('success');
   });
 
-  it('refuses a second search of the station, a harness no runner starts, a set elsewhere, and a caller who may not plan', async () => {
+  it('rejects a second search of the station, a harness no runner starts, a set elsewhere, and denies a caller who may not plan', async () => {
     await start();
 
     await expect(start()).rejects.toMatchObject({ kind: 'conflict' });
 
-    work.refusingAgent = { field: 'harness', reason: 'is unknown' };
+    work.invalidAgent = { field: 'harness', reason: 'is unknown' };
     expect(await start()).toMatchObject({
       outcome: 'invalid',
       problems: [expect.objectContaining({ reason: 'is unknown' })],
     });
-    work.refusingAgent = null;
+    work.invalidAgent = null;
 
     await expect(start({ setId: 'set_elsewhere' })).rejects.toMatchObject({
       kind: 'not-found',
@@ -470,21 +470,21 @@ describe('StartSearchHandler', () => {
     ).toHaveLength(1);
   });
 
-  it('refuses a set with too few tasks to hold some out, and lets go of the live snapshot it took', async () => {
+  it('rejects a set with too few tasks to hold some out, and lets go of the live snapshot it took', async () => {
     memory.sets.clear();
     await memory.setRepository.add(aSet(4));
 
-    const refused = await start();
+    const rejected = await start();
 
     expect(
-      refused.outcome === 'invalid' &&
-        refused.problems.map((each) => each.field.rendered),
+      rejected.outcome === 'invalid' &&
+        rejected.problems.map((each) => each.field.rendered),
     ).toEqual(['setId']);
     expect(memory.candidates.size).toBe(0);
   });
 
-  it('names the field of each term it refuses', async () => {
-    const refused = await starting().execute(
+  it('names the field of each term it rejects', async () => {
+    const rejected = await starting().execute(
       new StartSearchCommand(
         'team_1',
         STATION.lineId,
@@ -504,8 +504,8 @@ describe('StartSearchHandler', () => {
     );
 
     expect(
-      refused.outcome === 'invalid' &&
-        refused.problems.map((each) => each.field.rendered),
+      rejected.outcome === 'invalid' &&
+        rejected.problems.map((each) => each.field.rendered),
     ).toEqual(['agent.harness', 'agent.model', 'agent.effort']);
 
     const budget = await start({
@@ -587,7 +587,7 @@ describe('a search’s iterations', () => {
   });
 
   it('counts an iteration that could not start as failed, and stalls after two without looking into why when only one iteration is left', async () => {
-    work.refusingSearch = 'no runner can start claude-code';
+    work.searchProblem = 'no runner can start claude-code';
 
     await seeded({ ...BUDGET, iterations: 3 });
 
@@ -661,7 +661,7 @@ describe('a stalled search looking into why', () => {
         runId,
         taskId: null,
         stationId: null,
-        refusal: null,
+        unreplayableReason: null,
         reason: null,
         title: runId.equals(searchedAt(0).runId) ? 'Drain the queue' : null,
         state: null,
@@ -796,7 +796,7 @@ describe('ProposeSearchCandidateHandler', () => {
     const again = await propose(run, 'firmer');
 
     if (proposed.outcome !== 'proposed') {
-      throw new Error('the proposal was refused');
+      throw new Error('the proposal was rejected');
     }
 
     const replay = memory.replays.get(proposed.replayId);
@@ -818,21 +818,21 @@ describe('ProposeSearchCandidateHandler', () => {
     expect(theSearch().proposals).toHaveLength(1);
   });
 
-  it('refuses a bad name, no hypothesis and a change a search may not make, as problems, counting the attempt', async () => {
+  it('rejects a bad name, no hypothesis and a change a search may not make, as problems, counting the attempt', async () => {
     await seeded();
     const run = activeRun();
 
-    const refused = await propose(
+    const rejected = await propose(
       run,
       'Not A Slug',
       { ...SEED_BLOCK, check: 'npm test' },
       '',
     );
 
-    expect(refused.outcome).toBe('invalid');
+    expect(rejected.outcome).toBe('invalid');
     expect(
-      refused.outcome === 'invalid' &&
-        refused.problems.map((each) => each.field.rendered),
+      rejected.outcome === 'invalid' &&
+        rejected.problems.map((each) => each.field.rendered),
     ).toEqual(['name', 'hypothesis', 'station.check']);
     expect(theSearch().iterations[0]?.attempts).toBe(1);
     expect(theSearch().proposals).toHaveLength(0);
@@ -840,7 +840,7 @@ describe('ProposeSearchCandidateHandler', () => {
     expect((await propose(run, 'seed')).outcome).toBe('invalid');
   });
 
-  it('refuses a proposal past the iteration’s candidates, and one from a run that is no longer the active run of the search', async () => {
+  it('rejects a proposal past the iteration’s candidates, and one from a run that is no longer the active run of the search', async () => {
     await seeded();
     const run = activeRun();
 
@@ -871,7 +871,7 @@ describe('a search running its course', () => {
     const weak = await propose(first, 'weak');
 
     if (strong.outcome !== 'proposed' || weak.outcome !== 'proposed') {
-      throw new Error('the proposals were refused');
+      throw new Error('the proposals were rejected');
     }
 
     await runEnds(first);
@@ -956,7 +956,7 @@ describe('SearchSights', () => {
     const proposed = await propose(run, 'firmer');
 
     if (proposed.outcome !== 'proposed') {
-      throw new Error('the proposal was refused');
+      throw new Error('the proposal was rejected');
     }
 
     await replayed(proposed.replayId, () => true);
@@ -1055,7 +1055,7 @@ describe('EstimateSearchHandler', () => {
     );
 
     if ('problems' in answered) {
-      throw new Error('the estimate was refused');
+      throw new Error('the estimate was rejected');
     }
 
     const estimate = answered;
@@ -1135,7 +1135,7 @@ describe('AdvanceSearches', () => {
     const proposed = await propose(first, 'firmer');
 
     if (proposed.outcome !== 'proposed') {
-      throw new Error('the proposal was refused');
+      throw new Error('the proposal was rejected');
     }
 
     const replay = memory.replays.get(proposed.replayId);
@@ -1220,7 +1220,7 @@ describe('AdvanceSearches', () => {
     const proposed = await propose(run, 'firmer');
 
     if (proposed.outcome !== 'proposed') {
-      throw new Error('the proposal was refused');
+      throw new Error('the proposal was rejected');
     }
 
     await progress().reconcile(seen, []);
@@ -1242,7 +1242,7 @@ describe('AdvanceSearches', () => {
     const proposed = await propose(activeRun(), 'firmer');
 
     if (proposed.outcome !== 'proposed') {
-      throw new Error('the proposal was refused');
+      throw new Error('the proposal was rejected');
     }
 
     memory.replays.delete(proposed.replayId);
@@ -1258,7 +1258,7 @@ describe('AdvanceSearches', () => {
     const proposed = await propose(activeRun(), 'firmer');
 
     if (proposed.outcome !== 'proposed') {
-      throw new Error('the proposal was refused');
+      throw new Error('the proposal was rejected');
     }
 
     await new StopSearchHandler(

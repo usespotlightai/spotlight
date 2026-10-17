@@ -16,21 +16,21 @@ describe('GitHubWebhookSignature', () => {
     expect(signing.signs(body, signed(body))).toBe(true);
   });
 
-  it('refuses a body that changed after it was signed', () => {
+  it('rejects a body that changed after it was signed', () => {
     expect(
       signing.signs(Buffer.from('{"action":"opened"}'), signed(body)),
     ).toBe(false);
   });
 
-  it('refuses a signature made with another secret', () => {
+  it('rejects a signature made with another secret', () => {
     expect(signing.signs(body, signed(body, 'someone else’s'))).toBe(false);
   });
 
-  it('refuses a delivery that carries no signature at all', () => {
+  it('rejects a delivery that carries no signature at all', () => {
     expect(signing.signs(body, undefined)).toBe(false);
   });
 
-  it('refuses everything where no secret was ever set', () => {
+  it('rejects everything where no secret was ever set', () => {
     const unset = new GitHubWebhookSignature({
       GITHUB_WEBHOOK_SECRET: '',
     } as never);
@@ -38,7 +38,7 @@ describe('GitHubWebhookSignature', () => {
     expect(unset.signs(body, signed(body, ''))).toBe(false);
   });
 
-  it('refuses a signature in an algorithm it does not know', () => {
+  it('rejects a signature in an algorithm it does not know', () => {
     expect(signing.signs(body, 'sha1=deadbeef')).toBe(false);
   });
 });

@@ -3,17 +3,17 @@ import type {
   CatalogKind,
 } from '@catalog/domain/entities/catalog-item.entity';
 import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
-import { catalogRefused } from '@catalog/domain/services/catalog-consistency';
+import { catalogProblem } from '@catalog/domain/services/catalog-consistency';
 import type { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import type { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class SeededCatalog implements CatalogRepository {
   constructor(private readonly items: readonly CatalogItem[]) {
-    const refused = catalogRefused(items);
+    const problem = catalogProblem(items);
 
-    if (refused) {
-      throw new InconsistentStateError('catalog', refused);
+    if (problem) {
+      throw new InconsistentStateError('catalog', problem);
     }
   }
 

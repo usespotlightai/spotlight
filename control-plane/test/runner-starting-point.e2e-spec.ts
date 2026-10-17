@@ -239,7 +239,7 @@ describe('a runner saying where its run started', () => {
     expect(row?.startedFromAttempt).toBe(1);
   });
 
-  it('refuses a second report on the same attempt that says it started elsewhere', async () => {
+  it('rejects a second report on the same attempt that says it started elsewhere', async () => {
     const leased = await aLeasedTaskRun();
 
     await report(leased, atApi()).expect(204);
@@ -249,20 +249,20 @@ describe('a runner saying where its run started', () => {
     }).expect(409);
   });
 
-  it('refuses a report from an attempt the run is not on', async () => {
+  it('rejects a report from an attempt the run is not on', async () => {
     const leased = await aLeasedTaskRun();
 
     await report(leased, atApi(2)).expect(409);
     expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 
-  it('refuses a run that works a chat', async () => {
+  it('rejects a run that works a chat', async () => {
     const leased = await aLeasedChatRun();
 
     await report(leased, { ...atApi(), checkouts: [] }).expect(409);
   });
 
-  it('refuses a runner that does not have a lease on the run', async () => {
+  it('denies a runner that does not have a lease on the run', async () => {
     const leased = await aLeasedTaskRun();
     const other = await aLeasedTaskRun();
 
@@ -275,7 +275,7 @@ describe('a runner saying where its run started', () => {
     await report(leased, atApi(), randomUUID()).expect(404);
   });
 
-  it('refuses an archive the run could not have restored', async () => {
+  it('rejects an archive the run could not have restored', async () => {
     const leased = await aLeasedTaskRun();
     const other = await aLeasedTaskRun();
     const unsealed = await anArchiveOf(leased.taskId as string, false);
@@ -287,7 +287,7 @@ describe('a runner saying where its run started', () => {
     expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 
-  it('refuses checkouts other than the ones the run was given, and a body it cannot read', async () => {
+  it('rejects checkouts other than the ones the run was given, and a body it cannot read', async () => {
     const leased = await aLeasedTaskRun();
 
     for (const body of [

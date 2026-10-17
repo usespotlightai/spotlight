@@ -119,7 +119,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
     expect(await second).toEqual({ kind: 'fresh' });
   });
 
-  it('refuses the key for a different request', async () => {
+  it('rejects the key for a different request', async () => {
     const made = create();
 
     await context.inTransaction(async () => {

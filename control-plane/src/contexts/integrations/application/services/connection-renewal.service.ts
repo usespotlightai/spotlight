@@ -36,11 +36,11 @@ export class ConnectionRenewal {
     private readonly wait: Wait = waiting,
   ) {}
 
-  async afterRefusal(
+  async afterUnauthorized(
     teamId: TeamId,
     source: SourceKey,
     holder: ConnectionHolder,
-    refused: AccessToken,
+    unauthorizedToken: AccessToken,
   ): Promise<AccessToken | null> {
     for (let round = 0; round <= WATCHES; round++) {
       const found = await this.connections.of(teamId, source, holder);
@@ -49,7 +49,7 @@ export class ConnectionRenewal {
         return null;
       }
 
-      if (!found.refusedToken(refused)) {
+      if (!found.hasToken(unauthorizedToken)) {
         return found.accessToken;
       }
 
@@ -155,9 +155,9 @@ export class ConnectionRenewal {
       );
     }
 
-    if (renewed.kind === 'refused') {
+    if (renewed.kind === 'failed') {
       await this.settle(claimed, refreshToken, (current) =>
-        current.renewalRefused(at),
+        current.refreshFailed(at),
       );
     }
 

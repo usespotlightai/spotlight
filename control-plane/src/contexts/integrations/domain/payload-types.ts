@@ -4,7 +4,7 @@ import { HookRedefined } from '@integrations/domain/events/hook-redefined.event'
 import { HookRetired } from '@integrations/domain/events/hook-retired.event';
 import { HostConnected } from '@integrations/domain/events/host-connected.event';
 import { HostDisconnected } from '@integrations/domain/events/host-disconnected.event';
-import { HostRenewalRefused } from '@integrations/domain/events/host-renewal-refused.event';
+import { HostRefreshFailed } from '@integrations/domain/events/host-refresh-failed.event';
 import { IntegrationAbandonmentDue } from '@integrations/domain/events/integration-abandonment-due.event';
 import { IntegrationDefined } from '@integrations/domain/events/integration-defined.event';
 import { IntegrationRedefined } from '@integrations/domain/events/integration-redefined.event';
@@ -98,7 +98,7 @@ export const INTEGRATIONS_PAYLOAD_TYPES = [
   HookRetired,
   HostConnected,
   HostDisconnected,
-  HostRenewalRefused,
+  HostRefreshFailed,
   IntegrationAbandonmentDue,
   IntegrationDefined,
   IntegrationRedefined,

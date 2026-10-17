@@ -15,7 +15,7 @@ import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOON = new Date('2026-09-24T12:00:00.000Z');
-const REFUSED = ProvisionFailure.of('refused', 'the pool is draining');
+const HTTP_ERROR = ProvisionFailure.of('http-error', 'the pool is draining');
 
 const waiting = () =>
   Run.enqueue({
@@ -70,7 +70,7 @@ describe('ProvisionFailures', () => {
     const failed = await failures.failed(
       RunId.of('run_1'),
       POOLED,
-      REFUSED,
+      HTTP_ERROR,
       NOON,
     );
 
@@ -82,13 +82,13 @@ describe('ProvisionFailures', () => {
   it('journals the failure under the run’s current attempt, before anything the runner says', async () => {
     const { failures, append } = failing(reserved());
 
-    await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON);
+    await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
 
     expect(append).toHaveBeenCalledWith(RunAttempt.of(RunId.of('run_1'), 1), [
       {
         seq: -1,
         type: 'provision.failed',
-        message: 'Provisioning failed · refused',
+        message: 'Provisioning failed · http-error',
         data: Buffer.from('the pool is draining', 'utf8').toString('base64'),
         at: NOON,
       },
@@ -98,7 +98,7 @@ describe('ProvisionFailures', () => {
   it('numbers each further failure further back', async () => {
     const { failures, append } = failing(
       reserved()
-        .provisionFailed(POOLED, REFUSED, NOON)
+        .provisionFailed(POOLED, HTTP_ERROR, NOON)
         .reservedFor(
           POOLED,
           PoolId.of('pool_1'),
@@ -106,7 +106,7 @@ describe('ProvisionFailures', () => {
         ),
     );
 
-    await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON);
+    await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
 
     expect(append).toHaveBeenCalledWith(expect.anything(), [
       expect.objectContaining({ seq: -2 }),
@@ -116,7 +116,7 @@ describe('ProvisionFailures', () => {
   it('shows the failure to anyone watching the run', async () => {
     const { failures, publish } = failing(reserved());
 
-    await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON);
+    await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
 
     expect(publish).toHaveBeenCalledWith('run_1', [
       expect.objectContaining({
@@ -132,7 +132,7 @@ describe('ProvisionFailures', () => {
     const { failures, runs } = failing(reserved(), 1);
 
     expect(
-      await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON),
+      await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON),
     ).not.toBeNull();
     expect(runs.save).toHaveBeenCalledTimes(2);
   });
@@ -143,7 +143,7 @@ describe('ProvisionFailures', () => {
     );
 
     expect(
-      await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON),
+      await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON),
     ).toBeNull();
     expect(runs.save).not.toHaveBeenCalled();
     expect(append).not.toHaveBeenCalled();
@@ -157,7 +157,7 @@ describe('ProvisionFailures', () => {
       await failures.failed(
         RunId.of('run_1'),
         RunnerId.of('pooled_2'),
-        REFUSED,
+        HTTP_ERROR,
         NOON,
       ),
     ).toBeNull();

@@ -144,7 +144,7 @@ describe('Task connection asks', () => {
     ).toBe(false);
   });
 
-  it('refuses an ask from a run that is not its current run', () => {
+  it('rejects an ask from a run that is not its current run', () => {
     expect(() =>
       working().askToConnect(RunId.of('run_2'), asking, ask()),
     ).toThrow(InvalidTaskTransitionError);

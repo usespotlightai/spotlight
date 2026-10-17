@@ -54,7 +54,7 @@ export class RunnerSearchCandidatesController {
     summary:
       'Propose a candidate from inside a search’s agent run; Spotlight replays it on the search’s searched tasks',
     description:
-      'Proposing the same name again from the same run answers with the candidate it proposed. A refused proposal does not count as one of the iteration’s candidates, but the run may only try so often.',
+      'Proposing the same name again from the same run answers with the candidate it proposed. A rejected proposal does not count as one of the iteration’s candidates, but the run may only try so often.',
   })
   @ApiBody({ type: ProposeSearchCandidateRequestDto })
   @ApiCreatedResponse({ type: SearchCandidateProposedResponseDto })
@@ -68,7 +68,7 @@ export class RunnerSearchCandidatesController {
   )
   @ApiProblemResponse(
     HttpStatus.UNPROCESSABLE_ENTITY,
-    'A name that is no slug, no hypothesis, or a station block the line refuses or that changes what a search may not; errors name each problem’s path',
+    'A name that is no slug, no hypothesis, or a station block the line rejects or that changes what a search may not; errors name each problem’s path',
   )
   async propose(
     @Param('runId') runId: string,

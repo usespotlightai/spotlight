@@ -21,9 +21,9 @@ const (
 	CallPollTimeout = 25 * time.Second
 )
 
-var ErrRefused = errors.New("the control plane refused the credential")
+var ErrUnauthorized = errors.New("the control plane did not accept the credential")
 
-type Rejection struct {
+type ResponseError struct {
 	Status  int
 	Reason  string
 	Message string
@@ -31,9 +31,9 @@ type Rejection struct {
 	Err     error
 }
 
-func (r *Rejection) Error() string { return r.Err.Error() }
+func (r *ResponseError) Error() string { return r.Err.Error() }
 
-func (r *Rejection) Refusal() bool {
+func (r *ResponseError) IsClientError() bool {
 	switch r.Status {
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity:
 		return true
@@ -42,31 +42,33 @@ func (r *Rejection) Refusal() bool {
 	return false
 }
 
-func (r *Rejection) Refused() (string, bool) {
-	if !r.Refusal() {
+func (r *ResponseError) ClientErrorMessage() (string, bool) {
+	if !r.IsClientError() {
 		return "", false
 	}
 
 	return r.Message, r.Message != ""
 }
 
-func (r *Rejection) Unfit() ([]protocol.FieldError, bool) {
-	return r.Errors, r.Status == http.StatusUnprocessableEntity && protocol.Refuses(r.Errors)
+func (r *ResponseError) InvalidFields() ([]protocol.FieldError, bool) {
+	return r.Errors, r.Status == http.StatusUnprocessableEntity && protocol.HasErrors(r.Errors)
 }
 
-func (r *Rejection) Unwrap() error { return r.Err }
+func (r *ResponseError) Unwrap() error { return r.Err }
 
-func (r *Rejection) Gone() bool { return r.Status == http.StatusNotFound }
+func (r *ResponseError) IsNotFound() bool { return r.Status == http.StatusNotFound }
 
-func (r *Rejection) Lost() bool { return r.Gone() || errors.Is(r.Err, ErrRefused) }
+func (r *ResponseError) RunNoLongerLeased() bool {
+	return r.IsNotFound() || errors.Is(r.Err, ErrUnauthorized)
+}
 
 func CheckLeaseLost(err error) bool {
-	var rejection *Rejection
-	return errors.As(err, &rejection) && rejection.Refusal() && rejection.Status != http.StatusConflict
+	var rejection *ResponseError
+	return errors.As(err, &rejection) && rejection.IsClientError() && rejection.Status != http.StatusConflict
 }
 
-func Rejected(err error, reason string) bool {
-	var rejection *Rejection
+func HasReason(err error, reason string) bool {
+	var rejection *ResponseError
 	return errors.As(err, &rejection) && rejection.Reason == reason
 }
 
@@ -209,8 +211,8 @@ func (c *Client) History(
 	path := fmt.Sprintf("/api/runs/%s/history?%s", url.PathEscape(runID), query.Encode())
 
 	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
-		var rejection *Rejection
-		if errors.As(err, &rejection) && rejection.Gone() {
+		var rejection *ResponseError
+		if errors.As(err, &rejection) && rejection.IsNotFound() {
 			rejection.Message = unknownStation(asked)
 		}
 		return nil, fmt.Errorf("read the history of %s: %w", asked.Station, err)
@@ -287,13 +289,13 @@ func (c *Client) ProposeCandidate(
 	path := fmt.Sprintf("/api/runs/%s/search-candidates", url.PathEscape(runID))
 
 	if err := c.do(ctx, http.MethodPost, path, proposal, &out); err != nil {
-		var rejection *Rejection
+		var rejection *ResponseError
 		if errors.As(err, &rejection) {
 			switch {
 			case rejection.Message != "":
 			case rejection.Status == http.StatusConflict:
 				rejection.Message = "this iteration has proposed all the candidates it may, or this run is no longer the active run of the search"
-			case rejection.Gone():
+			case rejection.IsNotFound():
 				rejection.Message = "this run is no longer the active run of the search"
 			}
 		}
@@ -310,13 +312,13 @@ func (c *Client) RecordCause(
 	path := fmt.Sprintf("/api/runs/%s/search-causes", url.PathEscape(runID))
 
 	if err := c.do(ctx, http.MethodPost, path, record, &out); err != nil {
-		var rejection *Rejection
+		var rejection *ResponseError
 		if errors.As(err, &rejection) {
 			switch {
 			case rejection.Message != "":
 			case rejection.Status == http.StatusConflict:
 				rejection.Message = "this run proposes candidates; only a run looking into why a search stalled records causes"
-			case rejection.Gone():
+			case rejection.IsNotFound():
 				rejection.Message = "this run is no longer the active run of the search, or the task is none it looks into"
 			}
 		}
@@ -482,7 +484,7 @@ func (c *Client) Attachment(
 	defer response.Body.Close()
 
 	if response.StatusCode >= 300 {
-		return fmt.Errorf("fetch an attachment: %w", refused(http.MethodGet, path, response))
+		return fmt.Errorf("fetch an attachment: %w", statusError(http.MethodGet, path, response))
 	}
 
 	if _, err := io.Copy(into, response.Body); err != nil {
@@ -727,7 +729,7 @@ func rejection(method, path string, response *http.Response) error {
 
 	err := fmt.Errorf("%s %s: %s: %s", method, path, response.Status, strings.TrimSpace(string(detail)))
 	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
-		err = fmt.Errorf("%w: %w", ErrRefused, err)
+		err = fmt.Errorf("%w: %w", ErrUnauthorized, err)
 	}
 
 	message := messageOf(said.Message)
@@ -735,7 +737,7 @@ func rejection(method, path string, response *http.Response) error {
 		message = said.Detail
 	}
 
-	return &Rejection{
+	return &ResponseError{
 		Status: response.StatusCode, Reason: said.Reason, Message: message, Errors: said.Errors, Err: err,
 	}
 }
@@ -754,7 +756,7 @@ func messageOf(raw json.RawMessage) string {
 	return ""
 }
 
-func refused(method, path string, response *http.Response) error {
+func statusError(method, path string, response *http.Response) error {
 	detail, _ := io.ReadAll(io.LimitReader(response.Body, 1024))
 	return fmt.Errorf(
 		"%s %s: %s: %s",

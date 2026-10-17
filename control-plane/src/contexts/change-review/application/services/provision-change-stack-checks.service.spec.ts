@@ -22,7 +22,7 @@ const RUNNER = RunnerId.of('pooled_1');
 
 const OTHER = RunnerId.of('pooled_2');
 
-const REFUSED = ProvisionFailure.of('refused', 'answered 503');
+const HTTP_ERROR = ProvisionFailure.of('http-error', 'answered 503');
 
 const waiting = (stack: string, placement: string[] = []) =>
   StackCheck.begin({
@@ -42,11 +42,11 @@ const provisioning = (
   listed: readonly StackCheck[] = checks,
 ) => {
   const stored = new Map(checks.map((each) => [each.stackId.value, each]));
-  let refusing = conflicts;
+  let conflicting = conflicts;
   const find = vi.fn(async (id: ChangeStackId) => stored.get(id.value) ?? null);
   const save = vi.fn(async (check: StackCheck) => {
-    if (refusing > 0) {
-      refusing -= 1;
+    if (conflicting > 0) {
+      conflicting -= 1;
       throw new StackCheckVersionConflictError(check.stackId.value);
     }
     stored.set(check.stackId.value, check);
@@ -72,7 +72,7 @@ describe('ProvisionChangeStackChecks', () => {
   it('offers only the checks still waiting for a runner to be provisioned', async () => {
     const backedOff = waiting('stack_3')
       .reservedFor(RUNNER, PoolId.of('pool_burst'), NOW)
-      .provisionFailed(RUNNER, REFUSED, NOW);
+      .provisionFailed(RUNNER, HTTP_ERROR, NOW);
     const { service, awaitingProvision } = provisioning([
       waiting('stack_1', ['gpu']),
       waiting('stack_2').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
@@ -183,7 +183,7 @@ describe('ProvisionChangeStackChecks', () => {
       1,
     );
 
-    await service.failed('stack_1', RUNNER, REFUSED, NOW);
+    await service.failed('stack_1', RUNNER, HTTP_ERROR, NOW);
 
     expect(check('stack_1').reservation).toBeNull();
     expect(check('stack_1').provisioning.failures).toBe(1);
@@ -197,7 +197,7 @@ describe('ProvisionChangeStackChecks', () => {
     );
 
     await expect(
-      service.failed('stack_1', RUNNER, REFUSED, NOW),
+      service.failed('stack_1', RUNNER, HTTP_ERROR, NOW),
     ).rejects.toThrow(StackCheckVersionConflictError);
     expect(find).toHaveBeenCalledTimes(3);
   });
@@ -209,7 +209,7 @@ describe('ProvisionChangeStackChecks', () => {
         .skip(OTHER, skipOf('no-room', null), NOW),
     ]);
 
-    await service.failed('stack_1', RUNNER, REFUSED, NOW);
+    await service.failed('stack_1', RUNNER, HTTP_ERROR, NOW);
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -219,7 +219,7 @@ describe('ProvisionChangeStackChecks', () => {
       waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
     ]);
 
-    await service.failed('stack_1', OTHER, REFUSED, NOW);
+    await service.failed('stack_1', OTHER, HTTP_ERROR, NOW);
 
     expect(save).not.toHaveBeenCalled();
     expect(check('stack_1').provisioning.failures).toBe(0);

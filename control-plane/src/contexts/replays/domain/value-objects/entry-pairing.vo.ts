@@ -9,7 +9,7 @@ export const UNPAIRED_BECAUSE = [
   'unavailable',
   'unreadable-rubric',
   'no-evidence',
-  'refused',
+  'request-failed',
   'unreadable',
   'ungrounded',
   'errored',

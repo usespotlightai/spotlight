@@ -2,7 +2,7 @@ import { BASELINE_STATUSES } from '@replays/domain/value-objects/baseline-status
 import { CANDIDATE_KINDS } from '@replays/domain/value-objects/candidate-kind';
 import type { WantedValue } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import {
-  CONFIG_PULL_REQUEST_REFUSALS,
+  CONFIG_PULL_REQUEST_ERRORS,
   CONFIG_PULL_REQUEST_STATES,
 } from '@replays/domain/value-objects/config-pull-request-state';
 import { REFLECTION_OUTCOMES } from '@replays/domain/value-objects/reflection-outcome';
@@ -328,7 +328,7 @@ export const replayEntry = pgTable(
     queued: boolean('queued').notNull().default(false),
     fingerprint: text('fingerprint'),
     queueAttempts: integer('queue_attempts').notNull().default(0),
-    refusal: text('refusal'),
+    unreplayableReason: text('unreplayable_reason'),
     notRun: boolean('not_run').notNull().default(false),
     outcome: replayRunOutcome('outcome'),
     failure: text('failure'),
@@ -503,9 +503,9 @@ export const configPullRequestState = pgEnum(
   CONFIG_PULL_REQUEST_STATES,
 );
 
-export const configPullRequestRefusal = pgEnum(
-  'config_pull_request_refusal',
-  CONFIG_PULL_REQUEST_REFUSALS,
+export const configPullRequestError = pgEnum(
+  'config_pull_request_error',
+  CONFIG_PULL_REQUEST_ERRORS,
 );
 
 export const configPullRequest = pgTable(
@@ -525,11 +525,11 @@ export const configPullRequest = pgTable(
     branch: text('branch').notNull(),
     state: configPullRequestState('state').notNull(),
     url: text('url'),
-    refusal: configPullRequestRefusal('refusal'),
-    refusalMessage: text('refusal_message'),
-    refusalAttribute: text('refusal_attribute'),
-    refusalExpression: text('refusal_expression'),
-    refusalWanted: jsonb('refusal_wanted').$type<WantedValue>(),
+    errorCode: configPullRequestError('error_code'),
+    errorMessage: text('error_message'),
+    errorAttribute: text('error_attribute'),
+    errorExpression: text('error_expression'),
+    errorWanted: jsonb('error_wanted').$type<WantedValue>(),
     attempts: integer('attempts').notNull(),
     tries: integer('tries').notNull(),
     lastCommit: text('last_commit'),

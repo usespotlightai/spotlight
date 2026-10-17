@@ -19,7 +19,7 @@ const MAP_KEYS = new Set(['string', 'int', 'uint', 'bool']);
 const LIST = /^list<\s*(.+)\s*>$/;
 const MAP = /^map<\s*([^,<>]+?)\s*,\s*(.+)\s*>$/;
 
-export const refusalOfType = (
+export const typeProblem = (
   written: string,
   known: ReadonlySet<string>,
 ): string | null => {
@@ -31,13 +31,13 @@ export const refusalOfType = (
 
   const list = LIST.exec(type);
   if (list) {
-    return refusalOfType(list[1] as string, known);
+    return typeProblem(list[1] as string, known);
   }
 
   const map = MAP.exec(type);
   if (map) {
     return MAP_KEYS.has(map[1] as string)
-      ? refusalOfType(map[2] as string, known)
+      ? typeProblem(map[2] as string, known)
       : `keys a map by ${map[1]}. A map key must be string, int, uint or bool`;
   }
 
@@ -64,17 +64,17 @@ const namesIn = (hint: Hint, into: Set<string>): Set<string> => {
   return into;
 };
 
-export const refusedHints = (
+export const hintProblems = (
   shape: Shape,
   at: FieldPath,
   known: ReadonlySet<string>,
 ): { at: FieldPath; reason: string }[] =>
   Object.entries(shape).flatMap(([field, hint]) => {
     if (typeof hint !== 'string') {
-      return refusedHints(hint, at.to(field), known);
+      return hintProblems(hint, at.to(field), known);
     }
 
-    const reason = refusalOfType(hint, known);
+    const reason = typeProblem(hint, known);
     return reason ? [{ at: at.to(field), reason }] : [];
   });
 

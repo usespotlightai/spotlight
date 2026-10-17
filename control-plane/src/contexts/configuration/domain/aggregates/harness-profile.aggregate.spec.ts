@@ -75,7 +75,7 @@ describe('HarnessProfile', () => {
     ]);
   });
 
-  it('refuses a change made against another version', () => {
+  it('rejects a change made against another version', () => {
     expect(() => kept(3).assertVersion(2)).toThrow(
       HarnessProfileVersionConflictError,
     );

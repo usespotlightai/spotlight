@@ -32,7 +32,7 @@ export const hostConnection = pgTable(
     expiresAt: timestamp('expires_at'),
     scopes: text('scopes').notNull().default(''),
     handle: text('handle'),
-    renewalRefusedAt: timestamp('renewal_refused_at'),
+    refreshFailedAt: timestamp('refresh_failed_at'),
     renewalClaimedUntil: timestamp('renewal_claimed_until'),
     version: integer('version').notNull().default(1),
     connectedAt: timestamp('connected_at').notNull().defaultNow(),

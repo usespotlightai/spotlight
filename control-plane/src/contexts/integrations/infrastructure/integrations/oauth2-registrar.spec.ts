@@ -1,4 +1,4 @@
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { describe, expect, it, vi } from 'vitest';
@@ -47,12 +47,12 @@ describe('OAuth2Registrar', () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it('refuses an endpoint the deployment did not allow', async () => {
+  it('blocks an endpoint the deployment did not allow', async () => {
     const { fetch, registrar } = registering(Response.json({}));
 
     await expect(
       registrar.register('https://elsewhere.example/register', CALLBACK),
-    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(fetch).not.toHaveBeenCalled();
   });
 });

@@ -410,7 +410,7 @@ type pool struct {
 	claims   int
 	taken    bool
 	work     chan protocol.Handed
-	refuse   chan struct{}
+	revoke   chan struct{}
 	offered  chan protocol.HostClaim
 	named    []string
 	minimum  string
@@ -421,18 +421,18 @@ type pool struct {
 	left     bool
 
 	calls       chan protocol.HostCall
-	refuseCalls chan struct{}
+	revokeCalls chan struct{}
 	answers     map[string]protocol.HostCallAnswer
 }
 
 func newPool() *pool {
 	return &pool{
 		work:    make(chan protocol.Handed, 8),
-		refuse:  make(chan struct{}),
+		revoke:  make(chan struct{}),
 		offered: make(chan protocol.HostClaim, 256),
 
 		calls:       make(chan protocol.HostCall, 8),
-		refuseCalls: make(chan struct{}),
+		revokeCalls: make(chan struct{}),
 		answers:     map[string]protocol.HostCallAnswer{},
 		worker: &worker{
 			images:    map[string]string{},
@@ -481,7 +481,7 @@ func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.H
 
 	if unoffer {
 		return nil, fmt.Errorf("claim: %w",
-			&control.Rejection{Status: 409, Reason: "image-unreported", Err: errors.New("unreported")})
+			&control.ResponseError{Status: 409, Reason: "image-unreported", Err: errors.New("unreported")})
 	}
 
 	select {
@@ -501,8 +501,8 @@ func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.H
 	select {
 	case handed := <-p.work:
 		return &handed, nil
-	case <-p.refuse:
-		return nil, fmt.Errorf("claim: %w", control.ErrRefused)
+	case <-p.revoke:
+		return nil, fmt.Errorf("claim: %w", control.ErrUnauthorized)
 	case <-time.After(20 * time.Millisecond):
 		return nil, nil
 	case <-ctx.Done():
@@ -514,8 +514,8 @@ func (p *pool) ClaimCall(ctx context.Context) (*protocol.HostCall, error) {
 	select {
 	case call := <-p.calls:
 		return &call, nil
-	case <-p.refuseCalls:
-		return nil, fmt.Errorf("claim a call: %w", control.ErrRefused)
+	case <-p.revokeCalls:
+		return nil, fmt.Errorf("claim a call: %w", control.ErrUnauthorized)
 	case <-time.After(20 * time.Millisecond):
 		return nil, nil
 	case <-ctx.Done():
@@ -542,7 +542,7 @@ func (p *pool) Present(_ context.Context, presence protocol.HostPresence) (proto
 	defer p.mu.Unlock()
 	if p.taken {
 		return protocol.HeartbeatResponse{}, fmt.Errorf("report presence: %w",
-			&control.Rejection{Status: 409, Reason: "host-taken", Err: errors.New("taken")})
+			&control.ResponseError{Status: 409, Reason: "host-taken", Err: errors.New("taken")})
 	}
 	p.presence = append(p.presence, presence)
 	return protocol.HeartbeatResponse{Workspace: "workspace_1"}, nil
@@ -869,13 +869,13 @@ func TestReportsAnImageBeforeClaimingForIt(t *testing.T) {
 	}
 }
 
-func TestAHostWhoseCredentialIsRefusedStops(t *testing.T) {
+func TestAHostWhoseCredentialIsUnauthorizedStops(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	_, stopped := serving(t, options(t), engine, pool)
 
-	close(pool.refuse)
+	close(pool.revoke)
 
-	if err := stopped(); !errors.Is(err, control.ErrRefused) {
+	if err := stopped(); !errors.Is(err, control.ErrUnauthorized) {
 		t.Fatalf("stopped with %v", err)
 	}
 }
@@ -982,7 +982,7 @@ func TestAHostWhoseIDServesAnotherWayInStops(t *testing.T) {
 	pool.taken = true
 	_, stopped := serving(t, options(t), engine, pool)
 
-	if err := stopped(); !control.Rejected(err, "host-taken") {
+	if err := stopped(); !control.HasReason(err, "host-taken") {
 		t.Fatalf("stopped with %v", err)
 	}
 	if engine.wasDestroyed("someone_elses") {
@@ -1008,7 +1008,7 @@ func TestKeepsWaitingOnASandboxItLostSightOf(t *testing.T) {
 	eventually(t, "destroyed once it finished", func() bool { return engine.wasDestroyed(id) })
 }
 
-func TestARefusedCredentialStopsClaimingButLetsRunningSandboxesFinish(t *testing.T) {
+func TestAnUnauthorizedCredentialStopsClaimingButLetsRunningSandboxesFinish(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
 	opts.Capacity = 2
@@ -1018,18 +1018,18 @@ func TestARefusedCredentialStopsClaimingButLetsRunningSandboxesFinish(t *testing
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 	id := engine.workSandboxes()[0]
 
-	close(pool.refuse)
+	close(pool.revoke)
 	time.Sleep(300 * time.Millisecond)
 
 	engine.mu.Lock()
 	stoppedEarly := slices.Contains(engine.stopped, id)
 	engine.mu.Unlock()
 	if stoppedEarly || engine.wasDestroyed(id) {
-		t.Fatal("a refused credential stopped a sandbox running on its own")
+		t.Fatal("an unauthorized credential stopped a sandbox running on its own")
 	}
 
 	engine.finish(id)
-	if err := stopped(); !errors.Is(err, control.ErrRefused) {
+	if err := stopped(); !errors.Is(err, control.ErrUnauthorized) {
 		t.Fatalf("stopped with %v", err)
 	}
 	if !engine.wasDestroyed(id) {
@@ -1038,8 +1038,8 @@ func TestARefusedCredentialStopsClaimingButLetsRunningSandboxesFinish(t *testing
 }
 
 func TestATransientConflictDoesNotStopTheHost(t *testing.T) {
-	err := fmt.Errorf("claim: %w", &control.Rejection{Status: 409, Err: errors.New("the runner changed")})
-	if control.Rejected(err, "host-taken") || errors.Is(err, control.ErrRefused) {
+	err := fmt.Errorf("claim: %w", &control.ResponseError{Status: 409, Err: errors.New("the runner changed")})
+	if control.HasReason(err, "host-taken") || errors.Is(err, control.ErrUnauthorized) {
 		t.Fatal("a plain conflict read as final")
 	}
 }
@@ -1122,7 +1122,7 @@ func TestGivesUpACheckWhenThereIsNoImageAtAll(t *testing.T) {
 
 	eventually(t, "the image served", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && each.Refused == ""
+		return ok && each.UnavailableReason == ""
 	})
 
 	engine.set(func(e *fakeEngine) {
@@ -1146,9 +1146,9 @@ func TestGivesUpACheckWhenThereIsNoImageAtAll(t *testing.T) {
 	if checked.Skipped == nil || checked.Skipped.Code != protocol.SkipNoImage {
 		t.Errorf("checked %+v", checked)
 	}
-	eventually(t, "the image refused until it can be pulled", func() bool {
+	eventually(t, "the image unavailable until it can be pulled", func() bool {
 		each, _ := pool.reported("runner:1")
-		return strings.Contains(each.Refused, "can't be pulled")
+		return strings.Contains(each.UnavailableReason, "can't be pulled")
 	})
 }
 
@@ -1188,9 +1188,9 @@ func TestServesTheImagesLinesNameThatItsAllowListAdmits(t *testing.T) {
 	if seen["ghcr.io/someone-else/runner:main"] {
 		t.Error("claimed for an image its allow-list does not admit")
 	}
-	eventually(t, "the refusal reported", func() bool {
+	eventually(t, "the unavailable reason reported", func() bool {
 		each, ok := pool.reported("ghcr.io/someone-else/runner:main")
-		return ok && strings.Contains(each.Refused, "doesn't admit")
+		return ok && strings.Contains(each.UnavailableReason, "doesn't admit")
 	})
 }
 
@@ -1224,14 +1224,14 @@ func TestStopsServingAnImageNoLineNamesAnyMore(t *testing.T) {
 	}
 }
 
-func TestRefusesAnImageWhoseRunnerIsTooOld(t *testing.T) {
+func TestAnImageWhoseRunnerIsTooOldIsUnavailable(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.release = "20260101-01"
 	serving(t, options(t), engine, pool)
 
-	eventually(t, "the refusal reported", func() bool {
+	eventually(t, "the unavailable reason reported", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && strings.Contains(each.Refused, "Minimum version required: "+leastRelease)
+		return ok && strings.Contains(each.UnavailableReason, "Minimum version required: "+leastRelease)
 	})
 
 	time.Sleep(100 * time.Millisecond)
@@ -1240,20 +1240,20 @@ func TestRefusesAnImageWhoseRunnerIsTooOld(t *testing.T) {
 	}
 }
 
-func TestAnImageItCannotLookInsideIsRefusedAndTheHostKeepsServing(t *testing.T) {
+func TestAnImageItCannotLookInsideIsUnavailableAndTheHostKeepsServing(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.failProbe = true
 	serving(t, options(t), engine, pool)
 
-	eventually(t, "the refusal reported", func() bool {
+	eventually(t, "the unavailable reason reported", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && strings.Contains(each.Refused, "can't be inspected")
+		return ok && strings.Contains(each.UnavailableReason, "can't be inspected")
 	})
 
 	engine.set(func(e *fakeEngine) { e.failProbe = false })
 	eventually(t, "served once it can look inside", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && each.Refused == "" && len(each.Harnesses) == 1
+		return ok && each.UnavailableReason == "" && len(each.Harnesses) == 1
 	})
 
 	engine.mu.Lock()
@@ -1319,8 +1319,8 @@ func TestKeepsTheCheckLeasedWhileItPullsAndStarts(t *testing.T) {
 func TestStartsNoSandboxForACheckItNoLongerLeasesWhileItPulls(t *testing.T) {
 	for name, gone := range map[string]func(w *worker){
 		"told to stop": func(w *worker) { w.checksGone = true },
-		"refused": func(w *worker) {
-			w.checkLost = &control.Rejection{Status: http.StatusNotFound, Err: errors.New("404 Not Found")}
+		"not found": func(w *worker) {
+			w.checkLost = &control.ResponseError{Status: http.StatusNotFound, Err: errors.New("404 Not Found")}
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -1390,13 +1390,13 @@ func TestJudgesAnImageAgainWhenTheControlPlaneNeedsANewerRunner(t *testing.T) {
 
 	eventually(t, "the image served", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && each.Refused == ""
+		return ok && each.UnavailableReason == ""
 	})
 
 	pool.need("20261001-01")
-	eventually(t, "the image refused as too old", func() bool {
+	eventually(t, "the image unavailable as too old", func() bool {
 		each, _ := pool.reported("runner:1")
-		return strings.Contains(each.Refused, "Minimum version required: 20261001-01")
+		return strings.Contains(each.UnavailableReason, "Minimum version required: 20261001-01")
 	})
 }
 
@@ -1762,13 +1762,13 @@ func TestAnswersACallWhoseEgressNeverAnswers(t *testing.T) {
 	eventually(t, "the call's egress destroyed", func() bool { return engine.wasDestroyed(id) })
 }
 
-func TestAHostWhoseCallsAreRefusedStops(t *testing.T) {
+func TestAHostWhoseCallClaimsAreUnauthorizedStops(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	_, stopped := serving(t, options(t), engine, pool)
 
-	close(pool.refuseCalls)
+	close(pool.revokeCalls)
 
-	if err := stopped(); !errors.Is(err, control.ErrRefused) {
+	if err := stopped(); !errors.Is(err, control.ErrUnauthorized) {
 		t.Fatalf("stopped with %v", err)
 	}
 }

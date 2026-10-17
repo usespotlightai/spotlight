@@ -195,17 +195,17 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
       ),
     ).toMatchObject({ tools: ['linear.comment'], skills: ['grafana'] });
 
-    const refusals = await Promise.all([
+    const rejections = await Promise.all([
       api().delete(`workspaces/${workspace.id}`, workspace.version),
       api().delete(`teams/${team.id}`, team.version),
       api().delete(`skills/${skill.id}`, skill.version),
       api().delete(`integrations/${integration.id}`, integration.version),
     ]);
 
-    expect(refusals.map((each) => [each.status, each.body.type])).toEqual(
-      refusals.map(() => [409, 'urn:spotlight:problem:in-use']),
+    expect(rejections.map((each) => [each.status, each.body.type])).toEqual(
+      rejections.map(() => [409, 'urn:spotlight:problem:in-use']),
     );
-    expect(refusals[1]?.body.detail).toMatch(
+    expect(rejections[1]?.body.detail).toMatch(
       /line delivery, skill grafana, integration linear|integration linear, line delivery, skill grafana/,
     );
 

@@ -2,7 +2,7 @@ import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.er
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { describe, expect, it } from 'vitest';
 
-const refusedAt = (inputs: Parameters<typeof SecretBindings.of>[0]) => {
+const invalidAt = (inputs: Parameters<typeof SecretBindings.of>[0]) => {
   try {
     SecretBindings.of(inputs);
   } catch (error) {
@@ -38,18 +38,18 @@ describe('SecretBindings', () => {
     });
   });
 
-  it('refuses a query location with no parameter, or one no URL can spell plainly', () => {
+  it('rejects a query location with no parameter, or one no URL can spell plainly', () => {
     for (const name of [undefined, '', 'api key', 'key=1', 'k&x', 'ключ']) {
       expect(
-        refusedAt([{ host: 'maps.googleapis.com', location: 'query', name }]),
+        invalidAt([{ host: 'maps.googleapis.com', location: 'query', name }]),
         String(name),
       ).toEqual(['bindings', 0, 'name']);
     }
   });
 
-  it('refuses a location that is neither a header nor a query parameter', () => {
+  it('rejects a location that is neither a header nor a query parameter', () => {
     expect(
-      refusedAt([{ host: 'api.linear.app', location: 'cookie', name: 'k' }]),
+      invalidAt([{ host: 'api.linear.app', location: 'cookie', name: 'k' }]),
     ).toEqual(['bindings', 0, 'location']);
   });
 
@@ -64,7 +64,7 @@ describe('SecretBindings', () => {
     expect(bindings.forUrl(new URL('https://linear.app/'))).toBeNull();
   });
 
-  it('refuses a host written as a URL, with a port, or as a pattern', () => {
+  it('rejects a host written as a URL, with a port, or as a pattern', () => {
     for (const host of [
       'https://api.linear.app',
       'api.linear.app:443',
@@ -73,13 +73,13 @@ describe('SecretBindings', () => {
       'localhost',
       '',
     ]) {
-      expect(refusedAt([{ host }]), host).toEqual(['bindings', 0, 'host']);
+      expect(invalidAt([{ host }]), host).toEqual(['bindings', 0, 'host']);
     }
   });
 
-  it('refuses a header that is not one, or that frames the request', () => {
+  it('rejects a header that is not one, or that frames the request', () => {
     for (const name of ['x api key', 'host', 'Content-Length', 'x-\nkey']) {
-      expect(refusedAt([{ host: 'api.linear.app', name }]), name).toEqual([
+      expect(invalidAt([{ host: 'api.linear.app', name }]), name).toEqual([
         'bindings',
         0,
         'name',
@@ -87,15 +87,15 @@ describe('SecretBindings', () => {
     }
   });
 
-  it('refuses a prefix that could break the header', () => {
+  it('rejects a prefix that could break the header', () => {
     expect(
-      refusedAt([{ host: 'api.linear.app', prefix: 'Bearer\r\nx-evil: ' }]),
+      invalidAt([{ host: 'api.linear.app', prefix: 'Bearer\r\nx-evil: ' }]),
     ).toEqual(['bindings', 0, 'prefix']);
   });
 
   it('binds each host once', () => {
     expect(
-      refusedAt([{ host: 'api.linear.app' }, { host: 'API.linear.app' }]),
+      invalidAt([{ host: 'api.linear.app' }, { host: 'API.linear.app' }]),
     ).toEqual(['bindings', 1, 'host']);
   });
 

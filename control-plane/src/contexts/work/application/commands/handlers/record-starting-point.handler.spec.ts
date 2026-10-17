@@ -85,7 +85,7 @@ const told = (
   );
 
 describe('RecordStartingPointHandler', () => {
-  it('refuses a runner it does not know', async () => {
+  it('rejects a runner it does not know', async () => {
     const { record } = await setUp(undefined, false);
 
     await expect(record.execute(told(null))).rejects.toMatchObject({
@@ -93,7 +93,7 @@ describe('RecordStartingPointHandler', () => {
     });
   });
 
-  it('refuses a report from an attempt the run is no longer on', async () => {
+  it('rejects a report from an attempt the run is no longer on', async () => {
     const { record } = await setUp();
 
     await expect(
@@ -101,19 +101,19 @@ describe('RecordStartingPointHandler', () => {
     ).rejects.toMatchObject({ kind: 'conflict' });
   });
 
-  it('refuses a body that names no list of checkouts, too many, or no attempt', async () => {
+  it('rejects a body that names no list of checkouts, too many, or no attempt', async () => {
     const { record } = await setUp();
     const many = Array.from({ length: 101 }, (_, at) => ({
       path: `repo_${at}`,
       commit: COMMIT,
     }));
 
-    for (const refused of [
+    for (const invalid of [
       told(null, null),
       told(null, many),
       told(null, AT_API, 'runner_1', Number.NaN),
     ]) {
-      await expect(record.execute(refused)).rejects.toMatchObject({
+      await expect(record.execute(invalid)).rejects.toMatchObject({
         kind: 'invalid',
       });
     }
@@ -138,7 +138,7 @@ describe('RecordStartingPointHandler', () => {
     expect(stored.get('run_1')?.startedFrom?.archive).toBeNull();
   });
 
-  it('refuses an archive the run could not have restored', async () => {
+  it('rejects an archive the run could not have restored', async () => {
     const { archives, record } = await setUp();
     await archives.add(
       WorkspaceArchive.grant({
@@ -164,7 +164,7 @@ describe('RecordStartingPointHandler', () => {
     }
   });
 
-  it('refuses a commit that is not a full SHA', async () => {
+  it('rejects a commit that is not a full SHA', async () => {
     const { record } = await setUp();
 
     await expect(
@@ -172,7 +172,7 @@ describe('RecordStartingPointHandler', () => {
     ).rejects.toBeInstanceOf(ApplicationError);
   });
 
-  it('refuses checkouts other than the ones the run was given', async () => {
+  it('rejects checkouts other than the ones the run was given', async () => {
     const { record } = await setUp();
 
     await expect(
@@ -180,7 +180,7 @@ describe('RecordStartingPointHandler', () => {
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
-  it('refuses a runner that does not lease the run, before looking at the archive', async () => {
+  it('rejects a runner that does not lease the run, before looking at the archive', async () => {
     const { record } = await setUp();
 
     await expect(
@@ -188,7 +188,7 @@ describe('RecordStartingPointHandler', () => {
     ).rejects.toMatchObject({ kind: 'conflict' });
   });
 
-  it('refuses a run that works no task', async () => {
+  it('rejects a run that works no task', async () => {
     const { record } = await setUp(
       aLeasedRun({ carriesOn: false, checkouts: ['api'] }),
     );

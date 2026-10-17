@@ -130,7 +130,7 @@ describe('IntegrationDefinition', () => {
     ]);
   });
 
-  it('refuses a definition compiled for another host', () => {
+  it('rejects a definition compiled for another host', () => {
     expect(() =>
       IntegrationDefinition.define({
         ...compiled('linear', { named: 'slack' }),
@@ -222,7 +222,7 @@ describe('IntegrationDefinition', () => {
     );
   });
 
-  it('refuses a change based on a version that is no longer current', () => {
+  it('rejects a change based on a version that is no longer current', () => {
     expect(() => rehydrated([], 3).assertVersion(3)).not.toThrow();
     expect(() => rehydrated([], 3).assertVersion(2)).toThrow(
       IntegrationDefinitionVersionConflictError,
@@ -283,7 +283,7 @@ describe('IntegrationDefinition', () => {
     ).toThrow(/does not name/);
   });
 
-  it('refuses tools generated from another reading than the one it keeps', () => {
+  it('rejects tools generated from another reading than the one it keeps', () => {
     expect(() =>
       IntegrationDefinition.define({
         ...compiled('linear', {

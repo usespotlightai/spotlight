@@ -1,7 +1,7 @@
 import {
+  hintProblems,
   orderedTypes,
-  refusalOfType,
-  refusedHints,
+  typeProblem,
 } from '@integrations/infrastructure/integrations/hints';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
@@ -19,21 +19,21 @@ describe('a hinted type', () => {
       'map<string, Issue>',
       'map<string, list<User>>',
     ]) {
-      expect(refusalOfType(type, known)).toBeNull();
+      expect(typeProblem(type, known)).toBeNull();
     }
   });
 
-  it('is refused where a check does not know it, saying what it would', () => {
-    expect(refusalOfType('strng', known)).toMatch(/write string, int/);
-    expect(refusalOfType('list<Isue>', known)).toMatch(/not a type/);
-    expect(refusalOfType('map<double, string>', known)).toMatch(
+  it('is rejected where a check does not know it, saying what it would', () => {
+    expect(typeProblem('strng', known)).toMatch(/write string, int/);
+    expect(typeProblem('list<Isue>', known)).toMatch(/not a type/);
+    expect(typeProblem('map<double, string>', known)).toMatch(
       /map key must be string/,
     );
   });
 
-  it('is refused where it is written, however deep', () => {
+  it('is rejected where it is written, however deep', () => {
     expect(
-      refusedHints(
+      hintProblems(
         { data: { issue: 'Isue', title: 'string' } },
         FieldPath.of(['webhook', 'shape']),
         known,

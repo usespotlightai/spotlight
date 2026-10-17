@@ -47,9 +47,9 @@ const bucketWith = (keys: readonly string[], failing: Error[] = []) => {
       }
       throw notThere();
     }
-    const refused = failing.shift();
-    if (refused) {
-      throw refused;
+    const failure = failing.shift();
+    if (failure) {
+      throw failure;
     }
     return {};
   });
@@ -98,7 +98,7 @@ describe('S3AttachmentStore', () => {
       ]);
     });
 
-    it('refuses an id nothing was uploaded for', async () => {
+    it('rejects an id nothing was uploaded for', async () => {
       const { store } = bucketWith([]);
 
       await expect(
@@ -155,7 +155,7 @@ describe('S3AttachmentStore', () => {
       ]);
     });
 
-    it('refuses an upload that is neither pending nor kept', async () => {
+    it('rejects an upload that is neither pending nor kept', async () => {
       const { store } = bucketWith([]);
 
       await expect(store.taken(WORKSPACE, [FILE])).rejects.toThrow(
@@ -163,14 +163,14 @@ describe('S3AttachmentStore', () => {
       );
     });
 
-    it('shrugs at a pending copy that is already gone, but not at a refused delete', async () => {
+    it('shrugs at a pending copy that is already gone, but not at a failed delete', async () => {
       const gone = bucketWith([PENDING], [notThere()]);
       await expect(
         gone.store.taken(WORKSPACE, [FILE]),
       ).resolves.toBeUndefined();
 
-      const refused = bucketWith([PENDING], [new Error('AccessDenied')]);
-      await expect(refused.store.taken(WORKSPACE, [FILE])).rejects.toThrow(
+      const denied = bucketWith([PENDING], [new Error('AccessDenied')]);
+      await expect(denied.store.taken(WORKSPACE, [FILE])).rejects.toThrow(
         'AccessDenied',
       );
     });

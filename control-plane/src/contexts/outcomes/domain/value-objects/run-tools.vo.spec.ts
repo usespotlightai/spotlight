@@ -21,7 +21,7 @@ describe('RunTools', () => {
     expect(tools.read('our-migrations')).toBe(false);
   });
 
-  it('refuses calls it cannot account for', () => {
+  it('rejects calls it cannot account for', () => {
     for (const wrong of [
       {
         ...linear,
@@ -47,7 +47,7 @@ describe('RunTools', () => {
     }
   });
 
-  it('refuses a server counted twice or a skill without a name', () => {
+  it('rejects a server counted twice or a skill without a name', () => {
     expect(() =>
       RunTools.of({ servers: [linear, linear], skillsRead: [] }),
     ).toThrow(InvalidOutcomeError);

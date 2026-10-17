@@ -94,13 +94,13 @@ func TestCandidatePrintsTheProblemsSpotlightFound(t *testing.T) {
 		strings.NewReader(`{"check":"npm test"}`), out)
 
 	if err == nil {
-		t.Fatal("a refused candidate passed")
+		t.Fatal("a rejected candidate passed")
 	}
 	for _, want := range []string{
-		"Spotlight refused the candidate:\n",
+		"Spotlight rejected the candidate:\n",
 		"\nstation.check: a search may not change the check\n",
 		"\nstation.effort: effort is one of low, medium, high\n",
-		"\nstation.prompt: the prompt is long (warning, not why it was refused)\n",
+		"\nstation.prompt: the prompt is long (warning, not why it was rejected)\n",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("said %q, missing %q", err, want)
@@ -111,7 +111,7 @@ func TestCandidatePrintsTheProblemsSpotlightFound(t *testing.T) {
 	}
 }
 
-func TestCandidateCarriesARefusalWithoutProblems(t *testing.T) {
+func TestCandidateCarriesAnErrorWithoutProblems(t *testing.T) {
 	proposer(t, 422, "this iteration has proposed all the candidates it may\n")
 
 	err := run([]string{"candidate", "--name", "terse", "--hypothesis", "x", "-"},
@@ -122,7 +122,7 @@ func TestCandidateCarriesARefusalWithoutProblems(t *testing.T) {
 	}
 }
 
-func TestCandidateRefusesMisuseBeforeAskingSpotlight(t *testing.T) {
+func TestCandidateRejectsMisuseBeforeAskingSpotlight(t *testing.T) {
 	asked := proposer(t, 200, proposedTerse)
 
 	for _, args := range [][]string{

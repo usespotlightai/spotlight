@@ -7,10 +7,10 @@ import {
 } from '@/components/ui/tooltip';
 import type { HostImageResponseDto } from '@/lib/api';
 
-export function RefusedImagesPill({
-  refused,
+export function UnavailableImagesPill({
+  unavailable,
 }: {
-  refused: readonly HostImageResponseDto[];
+  unavailable: readonly HostImageResponseDto[];
 }) {
   return (
     <Tooltip>
@@ -25,15 +25,15 @@ export function RefusedImagesPill({
         <Pill
           className={`${COMPACT_PILL} border-destructive/30 text-destructive`}
         >
-          {refused.length} refused
+          {unavailable.length} unavailable
         </Pill>
       </TooltipTrigger>
       <TooltipContent className="flex max-w-80 flex-col gap-1">
-        {refused.map((image) => (
+        {unavailable.map((image) => (
           <span key={image.image} className="break-words">
             <span className="font-medium">{image.image}</span>
             <br />
-            {image.refused}
+            {image.unavailableReason}
           </span>
         ))}
       </TooltipContent>

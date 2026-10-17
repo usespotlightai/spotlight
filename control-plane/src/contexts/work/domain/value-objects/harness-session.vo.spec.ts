@@ -20,7 +20,7 @@ describe('HarnessSession', () => {
     expect(() => HarnessSession.of('  ')).toThrow(InvalidHarnessSessionError);
   });
 
-  it('refuses a name no harness would have given', () => {
+  it('rejects a name no harness would have given', () => {
     expect(() => HarnessSession.of('x'.repeat(201))).toThrow(
       InvalidHarnessSessionError,
     );

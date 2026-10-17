@@ -283,7 +283,7 @@ export class SearchIteration {
     });
   }
 
-  refused(): SearchIteration {
+  rejected(): SearchIteration {
     return this.with({ attempts: this.state.attempts + 1 });
   }
 

@@ -385,7 +385,7 @@ func replays(run protocol.Run) bool {
 }
 
 func keptFromReplays(what string) error {
-	return &declare.Refusal{Because: "a replay may not " + what + ": it has no effect outside Spotlight"}
+	return &declare.Error{Because: "a replay may not " + what + ": it has no effect outside Spotlight"}
 }
 
 func searches(run protocol.Run) bool {
@@ -393,7 +393,7 @@ func searches(run protocol.Run) bool {
 }
 
 func keptFromSearches(what string) error {
-	return &declare.Refusal{Because: "a search may not " + what + ": it studies the station's history and proposes station configs, nothing more"}
+	return &declare.Error{Because: "a search may not " + what + ": it studies the station's history and proposes station configs, nothing more"}
 }
 
 func (o Options) heartbeat() time.Duration {
@@ -862,7 +862,7 @@ func checkedOutPaths(dir string, checkouts []protocol.Checkout, asked []string) 
 	for _, raw := range asked {
 		found, ok := checkedOutPath(roots, checkouts, raw)
 		if !ok {
-			return nil, &declare.Refusal{Because: fmt.Sprintf(
+			return nil, &declare.Error{Because: fmt.Sprintf(
 				"%s is outside the repositories this run checked out; name a path inside %s",
 				raw, checkoutDirs(dir, checkouts),
 			)}

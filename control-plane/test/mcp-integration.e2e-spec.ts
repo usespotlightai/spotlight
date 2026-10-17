@@ -492,7 +492,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     ).toEqual([{ tool: 'delete_issue', args: { id: 'ENG-2' } }]);
   });
 
-  it('lets a tool.using hook refuse a call to the server', async () => {
+  it('lets a tool.using hook deny a call to the server', async () => {
     const hooked = await asOwner.post(
       `/api/resources/teams/${team.teamId.value}/hooks`,
       {
@@ -516,13 +516,13 @@ describe('an integration naming a remote MCP server (e2e)', () => {
       const { runId, token } = await aClaimedRun();
       const searched = tracker.called.length;
 
-      const refused = await runner(token)
+      const denied = await runner(token)
         .post(`/api/runs/${runId}/tools/tracker.search-issues`, {
           query: 'stuck',
         })
         .expect(403);
 
-      expect(refused.body.detail ?? refused.body.message).toMatch(
+      expect(denied.body.detail ?? denied.body.message).toMatch(
         /searches-need-policy/,
       );
       expect(tracker.called.slice(searched)).toEqual([
@@ -535,14 +535,14 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     }
   });
 
-  it('refuses a call the server asks a question in the middle of', async () => {
+  it('fails a call the server asks a question in the middle of', async () => {
     const { runId, token } = await aClaimedRun();
 
-    const refused = await runner(token)
+    const failed = await runner(token)
       .post(`/api/runs/${runId}/tools/tracker.ask-first`, {})
       .expect(502);
 
-    expect(JSON.stringify(refused.body)).toMatch(
+    expect(JSON.stringify(failed.body)).toMatch(
       /asked a question in the middle of the call/,
     );
   });

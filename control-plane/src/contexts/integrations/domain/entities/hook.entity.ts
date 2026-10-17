@@ -38,7 +38,7 @@ interface Described {
 }
 
 export interface StepEnded {
-  readonly refusal: string | null;
+  readonly denyReason: string | null;
   readonly failedBecause: string | null;
 }
 
@@ -217,10 +217,7 @@ export class Hook {
     );
   }
 
-  refusalToCall(
-    named: ToolName,
-    offered: OfferedTool | null,
-  ): HookFailure | null {
+  callDenial(named: ToolName, offered: OfferedTool | null): HookFailure | null {
     if (offered === null || offered.tool !== named.value) {
       return HookFailure.of(
         'not-allowed',
@@ -238,7 +235,7 @@ export class Hook {
     return null;
   }
 
-  refusalToRequest(step: string, url: URL): HookFailure | null {
+  requestDenial(step: string, url: URL): HookFailure | null {
     const fromNetwork = this.described.steps.some(
       (each) =>
         each.name === step && each.kind === 'request' && each.fromNetwork,
@@ -255,9 +252,9 @@ export class Hook {
   verdictOn(step: string, ended: StepEnded): HookVerdict | null {
     const hook = this.described.key.value;
 
-    if (ended.refusal !== null) {
-      return HookVerdict.refused(
-        `Hook ${hook} refused. Reason: ${ended.refusal}`,
+    if (ended.denyReason !== null) {
+      return HookVerdict.denied(
+        `Hook ${hook} denied the event. Reason: ${ended.denyReason}`,
       );
     }
 
@@ -266,7 +263,7 @@ export class Hook {
     }
 
     return this.blocks
-      ? HookVerdict.refused(
+      ? HookVerdict.denied(
           `Hook ${hook} failed at step ${step} and blocks on failure. Reason: ${ended.failedBecause}`,
         )
       : HookVerdict.allowed();

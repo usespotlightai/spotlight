@@ -5,7 +5,7 @@ import type {
 } from '@github/application/ports/pull-request-reactions.port';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 const API = 'https://api.github.com';
 
@@ -32,7 +32,7 @@ export class GitHubPullRequestReactions implements PullRequestReactionsPort {
     });
 
     if (!response.ok && response.status !== GONE) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'taking a reaction back from a pull request',
         `GitHub answered ${response.status}`,
       );
@@ -61,7 +61,7 @@ export class GitHubPullRequestReactions implements PullRequestReactionsPort {
     });
 
     if (!response.ok) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'reacting to a pull request',
         `GitHub answered ${response.status}`,
       );

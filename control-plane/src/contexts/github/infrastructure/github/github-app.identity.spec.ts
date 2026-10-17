@@ -51,7 +51,7 @@ describe('GitHubAppIdentity', () => {
     expect(fetching).toHaveBeenCalledTimes(1);
   });
 
-  it('answers null where GitHub refuses', async () => {
+  it('answers null where GitHub answers with an error', async () => {
     vi.stubGlobal('fetch', answering({}, false));
 
     await expect(new GitHubAppIdentity(env).installUrl()).resolves.toBeNull();

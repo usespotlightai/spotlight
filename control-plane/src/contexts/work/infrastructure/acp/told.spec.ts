@@ -451,7 +451,7 @@ describe('Told', () => {
         told.take({
           type: 'provision.failed',
           at: clock(at),
-          message: 'Provisioning failed · refused',
+          message: 'Provisioning failed · http-error',
           data: null,
         });
       }

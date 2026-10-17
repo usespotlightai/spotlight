@@ -145,7 +145,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     expect(row?.signingSecret).toEqual(expect.any(String));
   });
 
-  it('refuses a tool no integration of the team offers, pointing at it', async () => {
+  it('rejects a tool no integration of the team offers, pointing at it', async () => {
     const made = await create({
       ...GRAFANA_READS,
       match: { tools: ['grafana.dashboard'] },
@@ -183,7 +183,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     expect(withdrawn.body.detail).toMatch(/used by the hook grafana-reads/);
   });
 
-  it('refuses a request to a host this Spotlight does not call', async () => {
+  it('rejects a request to a host this Spotlight does not call', async () => {
     const made = await create({
       ...GRAFANA_READS,
       steps: [
@@ -200,7 +200,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('refuses to block an event that has already happened', async () => {
+  it('rejects a hook that blocks an event that has already happened', async () => {
     const made = await create({ ...GRAFANA_READS, failure: 'block' });
 
     expect(made.status).toBe(422);
@@ -209,7 +209,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('refuses OIDC signing where no key signs hook tokens', async () => {
+  it('rejects OIDC signing where no key signs hook tokens', async () => {
     const made = await create({
       ...GRAFANA_READS,
       signing: { oidc: { audience: 'https://audit.example.com' } },

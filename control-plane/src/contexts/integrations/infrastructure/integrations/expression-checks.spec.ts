@@ -113,7 +113,7 @@ const checked = (
   return answered.check;
 };
 
-const refused = (
+const problemsOf = (
   position: string,
   expression: string,
   definition: unknown = LINEAR,
@@ -144,7 +144,7 @@ describe('checking an expression where a definition contains it', () => {
     });
   });
 
-  it('refuses a when that does not return a bool', () => {
+  it('rejects a when that does not return a bool', () => {
     expect(checked(WHEN, ' "Issue" ').errors).toEqual([
       {
         message: 'must return a bool, not a string',
@@ -230,9 +230,9 @@ describe('checking an expression where a definition contains it', () => {
 });
 
 describe('a definition that is not valid', () => {
-  it('is refused with every error it contains, where it contains it', () => {
+  it('is rejected with every error it contains, where it contains it', () => {
     expect(
-      refused(WHEN, 'true', {
+      problemsOf(WHEN, 'true', {
         ...LINEAR,
         webhook: {
           ...LINEAR.webhook,
@@ -261,9 +261,9 @@ describe('a definition that is not valid', () => {
     ]);
   });
 
-  it('is refused where the definition compiles but not whole', () => {
+  it('is rejected where the definition compiles but not whole', () => {
     expect(
-      refused(THREAD, 'ask.body', {
+      problemsOf(THREAD, 'ask.body', {
         ...LINEAR,
         on: { 'task.opened': { ...LINEAR.on['task.opened'], do: 'missing' } },
       }).map((each) => each.at),
@@ -274,15 +274,15 @@ describe('a definition that is not valid', () => {
     expect(checked(THREAD, 'ask.body').errors).toEqual([]);
   });
 
-  it('refuses something that is not a definition at all', () => {
-    expect(refused(WHEN, 'true', 'linear').map((each) => each.at)).toEqual([
+  it('rejects something that is not a definition at all', () => {
+    expect(problemsOf(WHEN, 'true', 'linear').map((each) => each.at)).toEqual([
       '',
     ]);
   });
 });
 
 describe('a position that names no expression', () => {
-  it('is refused where the definition contains none there', () => {
+  it('is rejected where the definition contains none there', () => {
     for (const position of [
       'integration.webhook.events[0].raise.happening',
       'integration.webhook.events[7].when',
@@ -292,7 +292,7 @@ describe('a position that names no expression', () => {
     }
   });
 
-  it('is refused where it is not an integration’s', () => {
+  it('is rejected where it is not an integration’s', () => {
     expect(outcomeOf('line.stations[0].check')).toBe('no-such-resource');
     expect(outcomeOf('integration')).toBe('no-such-resource');
   });

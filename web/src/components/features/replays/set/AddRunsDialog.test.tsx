@@ -23,7 +23,7 @@ const RECENT: ReplayableRun[] = [
     title: 'Split the invoice job',
     state: 'completed',
     endedAt: '2026-10-02T09:00:00.000Z',
-    refusal: null,
+    unreplayableReason: null,
     reason: null,
   },
 ];
@@ -67,7 +67,7 @@ const SUGGESTION: SuggestedRun = {
   title: 'Retry refunds on timeout',
   state: 'completed',
   endedAt: '2026-10-02T09:00:00.000Z',
-  refusal: null,
+  unreplayableReason: null,
   reason: null,
   outcome: 'accepted',
 };

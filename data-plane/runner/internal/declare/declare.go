@@ -37,20 +37,20 @@ type Proposer func(ctx context.Context, proposal protocol.CandidateProposal) (js
 
 type CauseRecorder func(ctx context.Context, record protocol.CauseRecord) (json.RawMessage, error)
 
-type Refusal struct {
+type Error struct {
 	Because string
 }
 
-func (r *Refusal) Error() string { return r.Because }
+func (e *Error) Error() string { return e.Because }
 
-func (r *Refusal) Refused() (string, bool) { return r.Because, true }
+func (e *Error) ClientErrorMessage() (string, bool) { return e.Because, true }
 
-type refusing interface {
-	Refused() (string, bool)
+type messageError interface {
+	ClientErrorMessage() (string, bool)
 }
 
 type unfit interface {
-	Unfit() ([]protocol.FieldError, bool)
+	InvalidFields() ([]protocol.FieldError, bool)
 }
 
 type Server struct {
@@ -164,7 +164,7 @@ func (s *Server) Close() error {
 
 func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if request.Header.Get("Authorization") != "Bearer "+s.token {
-		refuse(writer, http.StatusUnauthorized, "not this run's token")
+		fail(writer, http.StatusUnauthorized, "not this run's token")
 		return
 	}
 
@@ -174,12 +174,12 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	if request.Method != http.MethodPost {
-		refuse(writer, http.StatusMethodNotAllowed, "post a handover")
+		fail(writer, http.StatusMethodNotAllowed, "post a handover")
 		return
 	}
 
 	if path.Clean(request.URL.Path) == strings.TrimSuffix(protocol.HandoverToolsPath, "/") {
-		refuse(writer, http.StatusNotFound, "name the tool: post to "+protocol.HandoverToolsPath+"<name>")
+		fail(writer, http.StatusNotFound, "name the tool: post to "+protocol.HandoverToolsPath+"<name>")
 		return
 	}
 
@@ -225,13 +225,13 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	var spoken protocol.Outcome
 	if err := json.NewDecoder(request.Body).Decode(&spoken); err != nil {
-		refuse(writer, http.StatusBadRequest, "unreadable handover")
+		fail(writer, http.StatusBadRequest, "unreadable handover")
 		return
 	}
 
 	next, allowed := s.option(spoken.Next)
 	if !allowed {
-		refuse(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
+		fail(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
 			"%q is not one of: %s",
 			spoken.Next, strings.Join(s.options, ", "),
 		))
@@ -240,7 +240,7 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	if written := noteLength(spoken.Note); s.noteLimit > 0 && written > s.noteLimit {
-		refuse(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
+		fail(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
 			"your note is %d characters and the limit is %d: say it shorter and hand over again",
 			written, s.noteLimit,
 		))
@@ -259,7 +259,7 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 func (s *Server) tool(writer http.ResponseWriter, request *http.Request, name string) {
 	if s.use == nil || !slices.Contains(s.granted, name) {
-		refuse(writer, http.StatusForbidden, fmt.Sprintf(
+		fail(writer, http.StatusForbidden, fmt.Sprintf(
 			"this run was not given %q; it was given: %s", name, given(s.granted),
 		))
 
@@ -268,13 +268,13 @@ func (s *Server) tool(writer http.ResponseWriter, request *http.Request, name st
 
 	input, err := io.ReadAll(io.LimitReader(request.Body, maxInput+1))
 	if err != nil || len(input) > maxInput || !json.Valid(input) {
-		refuse(writer, http.StatusBadRequest, "unreadable input: hand the tool JSON")
+		fail(writer, http.StatusBadRequest, "unreadable input: hand the tool JSON")
 		return
 	}
 
 	answer, err := s.use(request.Context(), name, input)
 	if err != nil {
-		refuse(writer, http.StatusBadGateway, err.Error())
+		fail(writer, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -307,36 +307,36 @@ func given(tools []string) string {
 
 func (s *Server) remark(writer http.ResponseWriter, request *http.Request) {
 	if s.answer == nil {
-		refuse(writer, http.StatusNotImplemented, "this run cannot answer one")
+		fail(writer, http.StatusNotImplemented, "this run cannot answer one")
 		return
 	}
 
 	var said protocol.Remark
 	if err := json.NewDecoder(request.Body).Decode(&said); err != nil {
-		refuse(writer, http.StatusBadRequest, "unreadable answer")
+		fail(writer, http.StatusBadRequest, "unreadable answer")
 		return
 	}
 
 	if strings.TrimSpace(said.Handle) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "say which remark")
+		fail(writer, http.StatusUnprocessableEntity, "say which remark")
 		return
 	}
 
 	if strings.TrimSpace(said.Body) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "say something back")
+		fail(writer, http.StatusUnprocessableEntity, "say something back")
 		return
 	}
 
 	if err := s.answer(request.Context(), said); err != nil {
-		var refused refusing
-		if errors.As(err, &refused) {
-			if because, ok := refused.Refused(); ok {
-				refuse(writer, http.StatusUnprocessableEntity, because)
+		var rejected messageError
+		if errors.As(err, &rejected) {
+			if because, ok := rejected.ClientErrorMessage(); ok {
+				fail(writer, http.StatusUnprocessableEntity, because)
 				return
 			}
 		}
 
-		refuse(writer, http.StatusBadGateway, err.Error())
+		fail(writer, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -345,24 +345,24 @@ func (s *Server) remark(writer http.ResponseWriter, request *http.Request) {
 
 func (s *Server) traceOf(writer http.ResponseWriter, request *http.Request) {
 	if s.trace == nil {
-		refuse(writer, http.StatusNotImplemented, "this run cannot read a trace")
+		fail(writer, http.StatusNotImplemented, "this run cannot read a trace")
 		return
 	}
 
 	var asked protocol.TraceRequest
 	if err := json.NewDecoder(request.Body).Decode(&asked); err != nil {
-		refuse(writer, http.StatusBadRequest, "unreadable trace request")
+		fail(writer, http.StatusBadRequest, "unreadable trace request")
 		return
 	}
 
 	if strings.TrimSpace(asked.Task) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "say which task")
+		fail(writer, http.StatusUnprocessableEntity, "say which task")
 		return
 	}
 
 	trace, err := s.trace(request.Context(), asked.Task)
 	if err != nil {
-		refuse(writer, http.StatusBadGateway, err.Error())
+		fail(writer, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -373,18 +373,18 @@ func (s *Server) traceOf(writer http.ResponseWriter, request *http.Request) {
 
 func (s *Server) historyOf(writer http.ResponseWriter, request *http.Request) {
 	if s.history == nil {
-		refuse(writer, http.StatusNotImplemented, "this run cannot read a station's history")
+		fail(writer, http.StatusNotImplemented, "this run cannot read a station's history")
 		return
 	}
 
 	var asked protocol.HistoryRequest
 	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&asked); err != nil {
-		refuse(writer, http.StatusBadRequest, "unreadable history request")
+		fail(writer, http.StatusBadRequest, "unreadable history request")
 		return
 	}
 
 	if strings.TrimSpace(asked.Station) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "say which station")
+		fail(writer, http.StatusUnprocessableEntity, "say which station")
 		return
 	}
 
@@ -393,18 +393,18 @@ func (s *Server) historyOf(writer http.ResponseWriter, request *http.Request) {
 
 func (s *Server) recalled(writer http.ResponseWriter, request *http.Request) {
 	if s.recall == nil {
-		refuse(writer, http.StatusNotImplemented, "this run cannot recall what its team remembers")
+		fail(writer, http.StatusNotImplemented, "this run cannot recall what its team remembers")
 		return
 	}
 
 	var asked protocol.RecallRequest
 	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&asked); err != nil {
-		refuse(writer, http.StatusBadRequest, "unreadable recall")
+		fail(writer, http.StatusBadRequest, "unreadable recall")
 		return
 	}
 
 	if strings.TrimSpace(asked.Words) == "" && strings.TrimSpace(asked.Handle) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "say what to look for, or which memory, like M-12")
+		fail(writer, http.StatusUnprocessableEntity, "say what to look for, or which memory, like M-12")
 		return
 	}
 
@@ -413,18 +413,18 @@ func (s *Server) recalled(writer http.ResponseWriter, request *http.Request) {
 
 func (s *Server) remembered(writer http.ResponseWriter, request *http.Request) {
 	if s.remember == nil {
-		refuse(writer, http.StatusNotImplemented, "this run cannot propose a memory")
+		fail(writer, http.StatusNotImplemented, "this run cannot propose a memory")
 		return
 	}
 
 	var remembered protocol.Remembering
 	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&remembered); err != nil {
-		refuse(writer, http.StatusBadRequest, "unreadable memory")
+		fail(writer, http.StatusBadRequest, "unreadable memory")
 		return
 	}
 
 	if strings.TrimSpace(remembered.Kind) == "" || strings.TrimSpace(remembered.Body) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "say what kind of memory it is, and what to remember")
+		fail(writer, http.StatusUnprocessableEntity, "say what kind of memory it is, and what to remember")
 		return
 	}
 
@@ -433,30 +433,30 @@ func (s *Server) remembered(writer http.ResponseWriter, request *http.Request) {
 
 func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {
 	if s.propose == nil {
-		refuse(writer, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")
+		fail(writer, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")
 		return
 	}
 
 	var proposal protocol.CandidateProposal
 	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&proposal); err != nil {
-		refuse(writer, http.StatusBadRequest, "unreadable candidate")
+		fail(writer, http.StatusBadRequest, "unreadable candidate")
 		return
 	}
 
 	if !protocol.IsCandidateName(proposal.Name) {
-		refuse(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
+		fail(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
 			"%q cannot name a candidate: a name is a slug of lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters", proposal.Name,
 		))
 		return
 	}
 
 	if strings.TrimSpace(proposal.Hypothesis) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "say what you expect the candidate to change")
+		fail(writer, http.StatusUnprocessableEntity, "say what you expect the candidate to change")
 		return
 	}
 
 	if !jsonObject(proposal.Station) {
-		refuse(writer, http.StatusUnprocessableEntity, "the station block is a JSON object, as the line resource contains a station")
+		fail(writer, http.StatusUnprocessableEntity, "the station block is a JSON object, as the line resource contains a station")
 		return
 	}
 
@@ -464,7 +464,7 @@ func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {
 
 	var found unfit
 	if err != nil && errors.As(err, &found) {
-		if errs, ok := found.Unfit(); ok {
+		if errs, ok := found.InvalidFields(); ok {
 			writer.Header().Set("Content-Type", "application/problem+json")
 			writer.WriteHeader(http.StatusUnprocessableEntity)
 			_ = json.NewEncoder(writer).Encode(protocol.FieldErrors{Errors: errs})
@@ -477,30 +477,30 @@ func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {
 
 func (s *Server) caused(writer http.ResponseWriter, request *http.Request) {
 	if s.cause == nil {
-		refuse(writer, http.StatusNotImplemented, "this run cannot record a cause: only a search's runs do")
+		fail(writer, http.StatusNotImplemented, "this run cannot record a cause: only a search's runs do")
 		return
 	}
 
 	var record protocol.CauseRecord
 	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&record); err != nil {
-		refuse(writer, http.StatusBadRequest, "unreadable cause")
+		fail(writer, http.StatusBadRequest, "unreadable cause")
 		return
 	}
 
 	if strings.TrimSpace(record.TaskID) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "name the task the cause is for")
+		fail(writer, http.StatusUnprocessableEntity, "name the task the cause is for")
 		return
 	}
 
 	if !protocol.IsSearchCause(record.Cause) {
-		refuse(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
+		fail(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
 			"%q is no cause: a cause is one of %s", record.Cause, strings.Join(protocol.SearchCauses, ", "),
 		))
 		return
 	}
 
 	if strings.TrimSpace(record.Evidence) == "" {
-		refuse(writer, http.StatusUnprocessableEntity, "say what in the runs shows the cause")
+		fail(writer, http.StatusUnprocessableEntity, "say what in the runs shows the cause")
 		return
 	}
 
@@ -515,15 +515,15 @@ func jsonObject(raw json.RawMessage) bool {
 func (s *Server) answered(writer http.ResponseWriter, asking func() (json.RawMessage, error)) {
 	answer, err := asking()
 	if err != nil {
-		var refused refusing
-		if errors.As(err, &refused) {
-			if because, ok := refused.Refused(); ok {
-				refuse(writer, http.StatusUnprocessableEntity, because)
+		var rejected messageError
+		if errors.As(err, &rejected) {
+			if because, ok := rejected.ClientErrorMessage(); ok {
+				fail(writer, http.StatusUnprocessableEntity, because)
 				return
 			}
 		}
 
-		refuse(writer, http.StatusBadGateway, err.Error())
+		fail(writer, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -546,7 +546,7 @@ func noteLength(note string) int {
 	return len(utf16.Encode([]rune(strings.TrimSpace(note))))
 }
 
-func refuse(writer http.ResponseWriter, status int, because string) {
+func fail(writer http.ResponseWriter, status int, because string) {
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(status)
 	_, _ = writer.Write([]byte(because + "\n"))

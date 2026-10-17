@@ -30,7 +30,7 @@ export type StepOutcome = HookStepOutcome;
 
 export interface StepTaken {
   readonly outcome: StepOutcome;
-  readonly refusal: string | null;
+  readonly denyReason: string | null;
   readonly trace: HookCall | null;
 }
 

@@ -17,7 +17,7 @@ type memoryChannel struct {
 	remembered []protocol.Remembering
 }
 
-func remembering(t *testing.T, refusing error) *memoryChannel {
+func remembering(t *testing.T, rejecting error) *memoryChannel {
 	t.Helper()
 
 	server, err := serveHandover([]string{"spec"}, nil)
@@ -52,8 +52,8 @@ func remembering(t *testing.T, refusing error) *memoryChannel {
 			return json.Marshal([]protocol.RecalledMemory{memory})
 		},
 		func(asked protocol.Remembering) (json.RawMessage, error) {
-			if refusing != nil {
-				return nil, refusing
+			if rejecting != nil {
+				return nil, rejecting
 			}
 			seen.remembered = append(seen.remembered, asked)
 			return json.Marshal(protocol.ProposedMemory{
@@ -157,7 +157,7 @@ func TestRememberProposesWithAbsolutePaths(t *testing.T) {
 	}
 }
 
-func TestRememberShowsWhySpotlightRefusedIt(t *testing.T) {
+func TestRememberShowsWhySpotlightRejectedIt(t *testing.T) {
 	remembering(t, errors.New("A memory is one of rationale, rejected-approach, failure, environment, preference, correction, not gossip"))
 
 	err := run([]string{"remember", "--kind", "gossip", "--body", "Something."}, strings.NewReader(""), new(bytes.Buffer))

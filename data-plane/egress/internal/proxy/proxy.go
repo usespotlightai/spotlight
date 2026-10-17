@@ -108,7 +108,7 @@ func (p *Proxy) connect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !p.allowed.Admits(host) {
-		p.refuse(w, r, host)
+		p.block(w, r, host)
 		return
 	}
 
@@ -120,8 +120,8 @@ func (p *Proxy) connect(w http.ResponseWriter, r *http.Request) {
 	p.tunnel(w, r, host, target)
 }
 
-func (p *Proxy) refuse(w http.ResponseWriter, r *http.Request, host string) {
-	p.log.Warn("refused a request to a host the sandbox may not reach", "host", host, "method", r.Method)
+func (p *Proxy) block(w http.ResponseWriter, r *http.Request, host string) {
+	p.log.Warn("blocked a request to a host the sandbox may not reach", "host", host, "method", r.Method)
 	http.Error(w, fmt.Sprintf("Egress doesn't let this sandbox reach %s.", host), http.StatusForbidden)
 }
 
@@ -208,7 +208,7 @@ func (p *Proxy) injectingTo(host, target string) http.Handler {
 func (p *Proxy) forward(w http.ResponseWriter, r *http.Request) {
 	host := r.URL.Hostname()
 	if !p.allowed.Admits(host) {
-		p.refuse(w, r, host)
+		p.block(w, r, host)
 		return
 	}
 

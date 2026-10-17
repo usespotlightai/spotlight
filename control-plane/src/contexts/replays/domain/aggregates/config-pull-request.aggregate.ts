@@ -115,16 +115,16 @@ export class ConfigPullRequest extends EventRecorder {
         'has a pull request link when, and only when, it opened',
       );
     }
-    if ((current === 'refused') !== (reason !== null)) {
+    if ((current === 'failed') !== (reason !== null)) {
       throw new InconsistentStateError(
         AGGREGATE,
-        'says why when, and only when, it was refused',
+        'says why when, and only when, it failed',
       );
     }
-    if (current !== 'refused' && (repository === null || path === null)) {
+    if (current !== 'failed' && (repository === null || path === null)) {
       throw new InconsistentStateError(
         AGGREGATE,
-        'knows the repository and file it opens against unless it was refused',
+        'knows the repository and file it opens against unless it failed',
       );
     }
     if ((current === 'opening') !== (state.dueAt !== null)) {
@@ -163,7 +163,7 @@ export class ConfigPullRequest extends EventRecorder {
     return {
       repository: source?.repository.value ?? null,
       path: source?.path ?? null,
-      state: source ? 'opening' : 'refused',
+      state: source ? 'opening' : 'failed',
       url: null,
       reason: source ? null : ConfigPullRequestReason.noSource(lineKey),
       attempts,
@@ -258,7 +258,7 @@ export class ConfigPullRequest extends EventRecorder {
   }
 
   get isRetryable(): boolean {
-    return this.state.state === 'refused';
+    return this.state.state === 'failed';
   }
 
   isOpening(attempt: number): boolean {
@@ -284,7 +284,7 @@ export class ConfigPullRequest extends EventRecorder {
     if (!this.isRetryable) {
       throw new InconsistentStateError(
         AGGREGATE,
-        `is ${this.state.state}, and only a refused one is tried again`,
+        `is ${this.state.state}, and only a failed one is tried again`,
       );
     }
 
@@ -338,10 +338,10 @@ export class ConfigPullRequest extends EventRecorder {
     return opened;
   }
 
-  refused(reason: ConfigPullRequestReason, at: Date): ConfigPullRequest {
+  failed(reason: ConfigPullRequestReason, at: Date): ConfigPullRequest {
     this.mustBeOpening();
 
-    return this.with({ state: 'refused', reason, dueAt: null, updatedAt: at });
+    return this.with({ state: 'failed', reason, dueAt: null, updatedAt: at });
   }
 
   tried(message: string, at: Date): ConfigPullRequest {
@@ -350,8 +350,8 @@ export class ConfigPullRequest extends EventRecorder {
     const tries = this.state.tries + 1;
 
     return tries >= MAX_TRIES
-      ? this.with({ tries }).refused(
-          ConfigPullRequestReason.of({ code: 'github-refused', message }),
+      ? this.with({ tries }).failed(
+          ConfigPullRequestReason.of({ code: 'github-error', message }),
           at,
         )
       : this.with({

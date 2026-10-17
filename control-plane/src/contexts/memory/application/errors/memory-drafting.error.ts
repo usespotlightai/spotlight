@@ -1,4 +1,4 @@
-export type MemoryDraftingErrorKind = 'refused' | 'unreadable';
+export type MemoryDraftingErrorKind = 'request-failed' | 'unreadable';
 
 export class MemoryDraftingError extends Error {
   constructor(

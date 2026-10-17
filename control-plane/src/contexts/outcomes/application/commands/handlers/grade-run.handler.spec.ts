@@ -141,7 +141,7 @@ describe('GradeRunHandler', () => {
     expect(scores.grades).toHaveLength(2);
   });
 
-  it('grades a claims judge claim by claim, naming the claims to grade, and refuses a single value or the wrong number of claims', async () => {
+  it('grades a claims judge claim by claim, naming the claims to grade, and rejects a single value or the wrong number of claims', async () => {
     const run = await grading(null, CLAIMS_JUDGE);
 
     const scores = await run.gradeClaims([true, false]);
@@ -217,7 +217,7 @@ describe('GradeRunHandler', () => {
     expect((await run.grade(false)).kind).toBe('yes-no');
   });
 
-  it('refuses a missing grade', async () => {
+  it('rejects a missing grade', async () => {
     const run = await grading();
 
     await expect(run.grade(null)).rejects.toMatchObject({

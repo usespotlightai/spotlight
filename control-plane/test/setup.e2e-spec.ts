@@ -308,7 +308,7 @@ describe('whether a workspace is ready to run', () => {
 
     await hosted(workspace, {
       images: [
-        { ...SERVING, refused: 'pull access denied' },
+        { ...SERVING, unavailableReason: 'pull access denied' },
         {
           ...SERVING,
           image: 'ghcr.io/acme/bare:1',

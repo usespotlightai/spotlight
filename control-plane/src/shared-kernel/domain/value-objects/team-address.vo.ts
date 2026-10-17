@@ -3,7 +3,7 @@ import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const SEPARATOR = '/';
 
-const refused = (): never => {
+const invalid = (): never => {
   throw new InvalidIdentifierError(
     'address',
     'must be a team key and a key, such as core/delivery',
@@ -21,7 +21,7 @@ export class TeamAddress {
   static of(teamKey: string, key: string): TeamAddress {
     return isSlug(teamKey) && isSlug(key)
       ? new TeamAddress(teamKey, key)
-      : refused();
+      : invalid();
   }
 
   static parse(text: string): TeamAddress {
@@ -29,7 +29,7 @@ export class TeamAddress {
 
     return teamKey && key && rest.length === 0
       ? TeamAddress.of(teamKey, key)
-      : refused();
+      : invalid();
   }
 
   equals(other: TeamAddress): boolean {

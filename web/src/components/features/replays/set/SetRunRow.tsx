@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import { NotedWarning } from '@/components/shared/NotedWarning';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
@@ -7,7 +8,6 @@ import {
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
-import { RefusalTooltip } from '@/components/shared/RefusalTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { useRemoveReplaySetEntry } from '@/hooks/api/useRemoveReplaySetEntry';
@@ -45,11 +45,11 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
         >
           {title}
         </TrailLink>
-        {entry.refusal && (
+        {entry.unreplayableReason && (
           <NotedWarning
             tone="destructive"
-            label={formatReplayable(entry.refusal)}
-            note={formatReplayable(entry.refusal)}
+            label={formatReplayable(entry.unreplayableReason)}
+            note={formatReplayable(entry.unreplayableReason)}
             className="relative z-10"
           />
         )}
@@ -61,7 +61,7 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
         {entry.endedAt ? since(entry.endedAt) : '–'}
       </NestedCell>
       <span className="relative z-10 flex h-4 items-center justify-end">
-        <RefusalTooltip reason={frozen ? RUNS_FROZEN_BY_SEARCH : null}>
+        <DisabledReasonTooltip reason={frozen ? RUNS_FROZEN_BY_SEARCH : null}>
           {(describedBy) => (
             <Button
               type="button"
@@ -78,7 +78,7 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
               <X aria-hidden />
             </Button>
           )}
-        </RefusalTooltip>
+        </DisabledReasonTooltip>
       </span>
     </li>
   );

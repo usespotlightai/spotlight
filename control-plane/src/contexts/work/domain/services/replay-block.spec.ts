@@ -31,7 +31,7 @@ describe('replayBlockOf', () => {
     [{ ...REPLAYABLE, briefed: false }, 'no-briefing'],
     [{ ...REPLAYABLE, taskExists: false }, 'task-gone'],
     [{ ...REPLAYABLE, archive: 'gone' as const }, 'archive-gone'],
-  ])('refuses %o as %s', (facts, refusal) => {
-    expect(replayBlockOf(facts)?.refusal).toBe(refusal);
+  ])('finds %o unreplayable as %s', (facts, unreplayableReason) => {
+    expect(replayBlockOf(facts)?.unreplayableReason).toBe(unreplayableReason);
   });
 });

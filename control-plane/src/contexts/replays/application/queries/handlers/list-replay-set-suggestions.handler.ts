@@ -44,7 +44,9 @@ export class ListReplaySetSuggestionsHandler
             MAX_SUGGESTED_FROM,
           )
         ).flatMap((each) =>
-          each.refusal === null && each.taskId && !set.includes(each.runId)
+          each.unreplayableReason === null &&
+          each.taskId &&
+          !set.includes(each.runId)
             ? [{ ...each, task: each.taskId.value }]
             : [],
         ),
@@ -68,7 +70,7 @@ export class ListReplaySetSuggestionsHandler
         title: run.title,
         state: run.state,
         endedAt: run.endedAt.toISOString(),
-        refusal: run.refusal,
+        unreplayableReason: run.unreplayableReason,
         reason: run.reason,
         outcome,
       }));

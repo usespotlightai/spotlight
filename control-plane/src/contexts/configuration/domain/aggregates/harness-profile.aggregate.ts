@@ -34,7 +34,7 @@ export interface ReadProfile {
   readonly settings: ProfileSettings;
 }
 
-const refuseMissing = (
+const rejectMissing = (
   read: ReadProfile,
   existing: readonly SecretName[],
 ): void => {
@@ -58,7 +58,7 @@ export class HarnessProfile extends EventRecorder {
       existingSecrets: readonly SecretName[];
     },
   ): HarnessProfile {
-    refuseMissing(input, input.existingSecrets);
+    rejectMissing(input, input.existingSecrets);
 
     const defined = new HarnessProfile({
       id: input.id,
@@ -112,7 +112,7 @@ export class HarnessProfile extends EventRecorder {
       );
     }
 
-    refuseMissing(read, existingSecrets);
+    rejectMissing(read, existingSecrets);
 
     const redefined = this.with({ settings: read.settings });
 

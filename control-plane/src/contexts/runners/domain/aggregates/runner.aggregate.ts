@@ -257,13 +257,13 @@ export class Runner extends EventRecorder {
   }
 
   register(installed: readonly InstalledHarness[], at: Date): Runner {
-    this.refuseEnded();
+    this.assertNotEnded();
 
     return this.with({ installed: [...installed], lastSeenAt: at });
   }
 
   seen(at: Date): Runner {
-    this.refuseEnded();
+    this.assertNotEnded();
 
     return this.with({ lastSeenAt: at });
   }
@@ -303,7 +303,7 @@ export class Runner extends EventRecorder {
     return this.state.work === null ? this.letGo(at) : this;
   }
 
-  private refuseEnded(): void {
+  private assertNotEnded(): void {
     if (this.hasEnded) {
       throw new RunnerSpentError(this.state.id.value);
     }

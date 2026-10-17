@@ -47,19 +47,19 @@ describe('JoseWorkloadTokens', () => {
     });
   });
 
-  it('refuses a token signed with any other key', async () => {
+  it('rejects a token signed with any other key', async () => {
     const token = await platform.forge({ sub: SUBJECT, aud: 'spotlight' });
 
     await expect(tokens.verify(token, expected())).resolves.toBeNull();
   });
 
-  it('refuses a token issued for another audience', async () => {
+  it('rejects a token issued for another audience', async () => {
     const token = await platform.issue({ sub: SUBJECT, aud: 'vault' });
 
     await expect(tokens.verify(token, expected())).resolves.toBeNull();
   });
 
-  it('refuses a token that has expired', async () => {
+  it('rejects a token that has expired', async () => {
     const token = await platform.issue(
       { sub: SUBJECT, aud: 'spotlight' },
       '-5m',
@@ -68,7 +68,7 @@ describe('JoseWorkloadTokens', () => {
     await expect(tokens.verify(token, expected())).resolves.toBeNull();
   });
 
-  it('refuses a token when the issuer cannot be discovered', async () => {
+  it('rejects a token when the issuer cannot be discovered', async () => {
     const token = await platform.issue({ sub: SUBJECT, aud: 'spotlight' });
 
     await expect(
@@ -79,7 +79,7 @@ describe('JoseWorkloadTokens', () => {
     ).resolves.toBeNull();
   });
 
-  it('refuses what is not a token at all', async () => {
+  it('rejects what is not a token at all', async () => {
     await expect(tokens.verify('nonsense', expected())).resolves.toBeNull();
   });
 });

@@ -31,7 +31,7 @@ func TestCarriesAHistoryRequestToSpotlight(t *testing.T) {
 	}
 }
 
-func TestRefusesAHistoryOfNoStation(t *testing.T) {
+func TestRejectsAHistoryOfNoStation(t *testing.T) {
 	server := serve(t)
 	server.Histories(func(context.Context, protocol.HistoryRequest) (json.RawMessage, error) {
 		t.Error("asked Spotlight anyway")
@@ -45,10 +45,10 @@ func TestRefusesAHistoryOfNoStation(t *testing.T) {
 	}
 }
 
-func TestSaysPlainlyWhySpotlightRefusedAHistory(t *testing.T) {
+func TestSaysPlainlyWhySpotlightRejectedAHistory(t *testing.T) {
 	server := serve(t)
 	server.Histories(func(context.Context, protocol.HistoryRequest) (json.RawMessage, error) {
-		return nil, refusedUpstream{message: "Several lines have a station by that key; name one with --line: a, b"}
+		return nil, rejectedUpstream{message: "Several lines have a station by that key; name one with --line: a, b"}
 	})
 
 	status, body := postTo(t, server, protocol.HandoverHistoryPath, server.Token(), `{"station":"review"}`)

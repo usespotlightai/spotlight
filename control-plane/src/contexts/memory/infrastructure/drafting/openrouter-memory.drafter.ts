@@ -10,7 +10,7 @@ import {
   askForJson,
   type Fetch,
   JsonShape,
-  OpenRouterRefusedError,
+  OpenRouterRequestError,
   OpenRouterUnansweredError,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
@@ -124,7 +124,10 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
 
   async draft(ask: MemoryDraftAsk): Promise<readonly ProposedMemory[]> {
     if (!this.apiKey) {
-      throw new MemoryDraftingError('refused', 'no OpenRouter API key is set');
+      throw new MemoryDraftingError(
+        'request-failed',
+        'no OpenRouter API key is set',
+      );
     }
 
     try {
@@ -142,8 +145,8 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
 
       return memories;
     } catch (error) {
-      if (error instanceof OpenRouterRefusedError) {
-        throw new MemoryDraftingError('refused', error.message);
+      if (error instanceof OpenRouterRequestError) {
+        throw new MemoryDraftingError('request-failed', error.message);
       }
       if (error instanceof OpenRouterUnansweredError) {
         throw new MemoryDraftingError('unreadable', error.message);

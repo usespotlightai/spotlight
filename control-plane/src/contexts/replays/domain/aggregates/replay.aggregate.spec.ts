@@ -137,7 +137,7 @@ describe('Replay', () => {
           runId: RunId.of('original_0'),
           taskId: TaskId.of('task_0'),
           stationId: 'station_ship',
-          refusal: null,
+          unreplayableReason: null,
           reason: null,
         },
         NOW,
@@ -213,15 +213,15 @@ describe('Replay', () => {
       expect(replay.occupying).toHaveLength(1);
     });
 
-    it('settles an entry Work refused to queue, saying why', () => {
-      const replay = reserved(aReplay({ count: 2 }), 1).refused(
+    it('settles an entry Work could not queue, saying why', () => {
+      const replay = reserved(aReplay({ count: 2 }), 1).unreplayable(
         run(0),
         'archive-gone',
         NOW,
       );
 
       expect(replay.entries[0]?.ending).toBe('unreplayable');
-      expect(replay.entries[0]?.refusal).toBe('archive-gone');
+      expect(replay.entries[0]?.unreplayableReason).toBe('archive-gone');
       expect(replay.occupying).toEqual([]);
     });
 
@@ -363,7 +363,7 @@ describe('Replay', () => {
       expect(replay.answerTo(RunId.of('original_1'))).toBeNull();
     });
 
-    it('is refused against a replay that is unfinished, partial or part of a search', () => {
+    it('is rejected against a replay that is unfinished, partial or part of a search', () => {
       for (const against of [
         aReplay({ id: 'replay_live', candidate: candidateOf('live') }),
         finishedLive({ among: [RunId.of('original_0')] }),
@@ -373,7 +373,7 @@ describe('Replay', () => {
       }
     });
 
-    it('is refused against a replay it cannot be read beside: another config, other repeats or another ceiling', () => {
+    it('is rejected against a replay it cannot be read beside: another config, other repeats or another ceiling', () => {
       const against = finishedLive();
 
       for (const more of [
@@ -403,7 +403,7 @@ describe('Replay', () => {
       }
     });
 
-    it('is refused side by side, in a search, beside chosen runs, or without the answer', () => {
+    it('is rejected side by side, in a search, beside chosen runs, or without the answer', () => {
       const against = finishedLive();
 
       for (const more of [
@@ -481,7 +481,7 @@ describe('Replay', () => {
       expect(replay.occupying).toHaveLength(1);
 
       replay = replay.gaveUp(run(0), NOW);
-      expect(replay.entries[0]?.refusal).toBe('dispatch-failed');
+      expect(replay.entries[0]?.unreplayableReason).toBe('dispatch-failed');
       expect(replay.occupying).toEqual([]);
     });
   });
@@ -965,7 +965,7 @@ describe('Replay', () => {
       ['none', []],
       ['one its set never contained', ['original_0', 'elsewhere']],
       ['one twice', ['original_0', 'original_0']],
-    ])('refuses to replay %s', (_, among) => {
+    ])('does not replay %s', (_, among) => {
       expect(() =>
         aReplay({ count: 3, among: among.map((each) => RunId.of(each)) }),
       ).toThrow(InvalidReplayError);

@@ -50,10 +50,10 @@ import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo'
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 
-class CheckRefusedError extends Error {
+class CheckRejectedError extends Error {
   constructor(readonly problems: readonly ConfigurationProblem[]) {
     super('Planned station is invalid.');
-    this.name = 'CheckRefusedError';
+    this.name = 'CheckRejectedError';
   }
 }
 
@@ -168,7 +168,7 @@ export class StartReplayCheckHandler
           ? { outcome: 'reused', id: created.id }
           : created;
       } catch (error) {
-        if (error instanceof CheckRefusedError) {
+        if (error instanceof CheckRejectedError) {
           return { outcome: 'invalid', problems: error.problems };
         }
         if (error instanceof NothingToReplayError) {
@@ -226,7 +226,7 @@ export class StartReplayCheckHandler
       throw new UnknownStationError(station.key);
     }
     if (!examined.ok) {
-      throw new CheckRefusedError(examined.problems);
+      throw new CheckRejectedError(examined.problems);
     }
     if (examined.digests.runsAs(examined.liveDigests)) {
       throw new NothingToReplayError(scored.keptLive);

@@ -176,9 +176,9 @@ describe('hook callbacks', () => {
     ]);
   });
 
-  it('refuses an empty or overlong note, and an unknown token', async () => {
+  it('rejects an empty or overlong note, and an unknown token', async () => {
     const { noting } = setUp(HOLDER);
-    const refused = setUp(null);
+    const rejected = setUp(null);
 
     await expect(
       noting.execute(new NoteByCallbackCommand('token', '   ', null)),
@@ -189,7 +189,7 @@ describe('hook callbacks', () => {
       ),
     ).resolves.toBe('empty');
     await expect(
-      refused.noting.execute(new NoteByCallbackCommand('token', 'Hi', null)),
-    ).resolves.toBe('refused');
+      rejected.noting.execute(new NoteByCallbackCommand('token', 'Hi', null)),
+    ).resolves.toBe('rejected');
   });
 });

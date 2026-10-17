@@ -3,11 +3,11 @@ import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('HarnessName', () => {
-  it('refuses a name that names nothing', () => {
+  it('rejects a name that names nothing', () => {
     expect(() => HarnessName.of('   ')).toThrow(InvalidHarnessNameError);
   });
 
-  it('refuses a name too long to read', () => {
+  it('rejects a name too long to read', () => {
     expect(() => HarnessName.of('a'.repeat(101))).toThrow(
       InvalidHarnessNameError,
     );

@@ -76,7 +76,7 @@ describe('OpenReplaySetHandler', () => {
     expect([...memory.sets.values()][0]?.name.value).toBe('Queue fixes');
   });
 
-  it('refuses one who may read the team but not plan', async () => {
+  it('denies one who may read the team but not plan', async () => {
     expect(
       await opening(false).execute(
         new OpenReplaySetCommand(
@@ -154,7 +154,7 @@ describe('AddReplaySetEntryHandler', () => {
       runId: RunId.of('run_1'),
       taskId: TaskId.of('task_1'),
       stationId: STATION.stationId,
-      refusal: null,
+      unreplayableReason: null,
       reason: null,
     });
 
@@ -173,12 +173,12 @@ describe('AddReplaySetEntryHandler', () => {
     ]);
   });
 
-  it('refuses a run Work cannot replay, or knows nothing of', async () => {
+  it('rejects a run Work cannot replay, or knows nothing of', async () => {
     work.replayables.set('run_1', {
       runId: RunId.of('run_1'),
       taskId: TaskId.of('task_1'),
       stationId: STATION.stationId,
-      refusal: 'archive-gone',
+      unreplayableReason: 'archive-gone',
       reason: 'the archive is gone',
     });
 
@@ -228,7 +228,7 @@ describe('DeleteReplaySetHandler', () => {
       TRANSACTION,
     );
 
-  it('refuses while a replay of the set is underway', async () => {
+  it('rejects while a replay of the set is underway', async () => {
     await memory.setRepository.add(aSet(1));
     await memory.replayRepository.add(aReplay({ count: 1 }));
 

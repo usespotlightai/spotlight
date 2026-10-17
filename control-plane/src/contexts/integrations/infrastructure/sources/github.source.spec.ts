@@ -1,7 +1,7 @@
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
 import { GitHubSource } from '@integrations/infrastructure/sources/github.source';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   PULL_REQUEST_MARK,
@@ -144,12 +144,12 @@ describe('GitHubSource', () => {
     });
   });
 
-  it('refuses activity it should have understood and could not', async () => {
+  it('fails on activity it should have understood and could not', async () => {
     await expect(
       sourceOver([{ ...MERGED, branch: null, pullRequest: null }]).source.read(
         DELIVERED,
       ),
-    ).rejects.toThrow(UpstreamRefusedError);
+    ).rejects.toThrow(UpstreamError);
   });
 
   it('asks for a review of a pull request opened, found by the review it wants', async () => {
@@ -289,10 +289,10 @@ describe('GitHubSource', () => {
     expect(read[1]?.happening).toBe('github.pull_request.merged');
   });
 
-  it('refuses a pull request opened that it cannot name', async () => {
+  it('rejects a pull request opened that it cannot name', async () => {
     await expect(
       sourceOver([{ ...OPENED, pullRequest: null }]).source.read(DELIVERED),
-    ).rejects.toThrow(UpstreamRefusedError);
+    ).rejects.toThrow(UpstreamError);
   });
 
   it('says nothing where GitHub heard no activity', async () => {

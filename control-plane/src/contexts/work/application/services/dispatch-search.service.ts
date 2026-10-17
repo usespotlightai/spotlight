@@ -8,7 +8,7 @@ import { TRACE_PARENT_VAR } from '@work/application/contracts/run-spec.contract'
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type {
   SearchAgent,
-  SearchAgentRefusal,
+  SearchAgentProblem,
   SearchDispatched,
   SearchDispatchPort,
   SearchOrder,
@@ -64,7 +64,7 @@ export class DispatchSearch implements SearchDispatchPort {
     private readonly clock: ClockPort,
   ) {}
 
-  refusalOf(agent: SearchAgent): SearchAgentRefusal | null {
+  problemOf(agent: SearchAgent): SearchAgentProblem | null {
     const known = this.launch.catalogue().map((each) => each.id);
 
     if (!known.includes(agent.harness)) {

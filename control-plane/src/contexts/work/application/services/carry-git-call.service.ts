@@ -56,7 +56,7 @@ export class CarryGitCall implements GitGatewayPort {
     const leased = await this.works
       .leasedBy(runId, runnerId)
       .then((worked) => ({ worked }))
-      .catch((refused: unknown) => ({ refused }));
+      .catch((error: unknown) => ({ error }));
 
     if ('worked' in leased) {
       const { work } = leased.worked;
@@ -78,7 +78,7 @@ export class CarryGitCall implements GitGatewayPort {
         this.clock.now(),
       ))
     ) {
-      throw leased.refused;
+      throw leased.error;
     }
 
     return this.works.repositoryForCheck(RunId.of(runId), repo);

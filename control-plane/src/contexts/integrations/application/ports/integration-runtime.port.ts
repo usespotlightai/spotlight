@@ -51,7 +51,7 @@ export interface ActiveConnection {
   readonly token: AccessToken;
   readonly holder: ConnectionHolder;
   readonly handle: string | null;
-  refused(token: AccessToken): Promise<AccessToken | null>;
+  unauthorized(token: AccessToken): Promise<AccessToken | null>;
 }
 
 export interface Reach {
@@ -59,7 +59,7 @@ export interface Reach {
   readonly credentials: Credentials;
 }
 
-export interface HostRefusal {
+export interface HostError {
   readonly status: number;
   readonly said: string;
 }
@@ -78,11 +78,11 @@ export type Polled =
       readonly cursor: string | null;
       readonly happenings: readonly Happened[];
     }
-  | { readonly kind: 'refused'; readonly refusal: HostRefusal };
+  | { readonly kind: 'failed'; readonly error: HostError };
 
 export type Acted =
   | { readonly kind: 'done' }
-  | { readonly kind: 'refused'; readonly refusal: HostRefusal }
+  | { readonly kind: 'failed'; readonly error: HostError }
   | { readonly kind: 'nothing-to-do' };
 
 export interface TaskPayload {
@@ -98,14 +98,14 @@ export type Posted =
   | { readonly kind: 'posted'; readonly marks: readonly TaskMark[] }
   | { readonly kind: 'unaddressed' }
   | {
-      readonly kind: 'refused';
-      readonly refusal: HostRefusal;
+      readonly kind: 'failed';
+      readonly error: HostError;
       readonly target: Readonly<Record<string, string>>;
     };
 
 export type Renewed =
   | { readonly kind: 'renewed'; readonly grant: HostGrant }
-  | { readonly kind: 'refused' }
+  | { readonly kind: 'failed' }
   | { readonly kind: 'unrenewable' };
 
 export interface ReachableTool {

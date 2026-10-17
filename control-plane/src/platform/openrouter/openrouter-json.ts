@@ -8,10 +8,10 @@ const UNSUPPORTED = new Set(['$schema', 'minimum', 'maximum']);
 
 export type Fetch = typeof globalThis.fetch;
 
-export class OpenRouterRefusedError extends Error {
+export class OpenRouterRequestError extends Error {
   constructor(reason: string) {
-    super(`OpenRouter refused the request. Response: ${reason}`);
-    this.name = 'OpenRouterRefusedError';
+    super(`The OpenRouter request failed. Response: ${reason}`);
+    this.name = 'OpenRouterRequestError';
   }
 }
 
@@ -134,7 +134,7 @@ export const askForJson = async <T>(ask: {
       }),
     })
     .catch((error: unknown) => {
-      throw new OpenRouterRefusedError(
+      throw new OpenRouterRequestError(
         error instanceof Error ? error.message : String(error),
       );
     });
@@ -142,7 +142,7 @@ export const askForJson = async <T>(ask: {
   const answered = (await response.json().catch(() => ({}))) as Completion;
 
   if (!response.ok) {
-    throw new OpenRouterRefusedError(
+    throw new OpenRouterRequestError(
       `${response.status} ${answered.error?.message ?? response.statusText}`,
     );
   }

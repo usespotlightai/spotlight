@@ -67,7 +67,7 @@ export class ChatRunWork implements RunWork {
     wanted: ConnectionWantedDto,
   ): Promise<ConnectionAsked> {
     return {
-      kind: 'refused',
+      kind: 'denied',
       reason: `${wanted.integration} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`,
     };
   }

@@ -52,9 +52,9 @@ type Egress struct {
 
 	admits *limits
 
-	mu      sync.Mutex
-	runs    map[string]*run
-	refused map[string]refusal
+	mu         sync.Mutex
+	runs       map[string]*run
+	rejections map[string]rejection
 
 	tunnelling sync.Mutex
 	tunnels    map[net.Conn]bool
@@ -73,19 +73,19 @@ func New(settings Settings, control ControlPlane, reader func() (inject.Reader, 
 	}
 
 	return &Egress{
-		settings: settings,
-		control:  control,
-		key:      key,
-		reader:   reader,
-		limits:   newLimits(settings.Rate, settings.Connections, time.Now),
-		records:  &records{control: control, log: log},
-		log:      log,
-		now:      time.Now,
-		dial:     dial,
-		admits:   newLimits(admitRate, 0, time.Now),
-		runs:     map[string]*run{},
-		refused:  map[string]refusal{},
-		tunnels:  map[net.Conn]bool{},
+		settings:   settings,
+		control:    control,
+		key:        key,
+		reader:     reader,
+		limits:     newLimits(settings.Rate, settings.Connections, time.Now),
+		records:    &records{control: control, log: log},
+		log:        log,
+		now:        time.Now,
+		dial:       dial,
+		admits:     newLimits(admitRate, 0, time.Now),
+		runs:       map[string]*run{},
+		rejections: map[string]rejection{},
+		tunnels:    map[net.Conn]bool{},
 	}, nil
 }
 
@@ -176,7 +176,7 @@ func (e *Egress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, errAdmitsTooFast):
 		http.Error(w, "Sorry, egress admits too many sandboxes at once. Please try again in a second.", http.StatusTooManyRequests)
 		return
-	case refused(err):
+	case isRejected(err):
 		w.Header().Set("Proxy-Authenticate", `Basic realm="spotlight egress"`)
 		http.Error(w, "Egress does not know this sandbox.", http.StatusProxyAuthRequired)
 		return
@@ -189,9 +189,9 @@ func (e *Egress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer e.leave(found)
 
 	if !e.forControlPlane(r, found) {
-		release, refusal := e.limits.take(found.workspace)
-		if refusal != "" {
-			http.Error(w, refusal, http.StatusTooManyRequests)
+		release, reason := e.limits.take(found.workspace)
+		if reason != "" {
+			http.Error(w, reason, http.StatusTooManyRequests)
 			return
 		}
 		defer release()
@@ -328,7 +328,7 @@ func (e *Egress) connect(w http.ResponseWriter, r *http.Request, found *run) {
 	admits, named := found.admits(host, port)
 	if !admits {
 		e.record(found, host, port, started, protocol.EgressConnection{Outcome: protocol.ConnectionBlocked, Reason: protocol.ReasonNotAllowed})
-		e.log.Warn("refused a tunnel to a host the run may not reach", "host", host)
+		e.log.Warn("blocked a tunnel to a host the run may not reach", "host", host)
 		http.Error(w, fmt.Sprintf("Egress does not let this sandbox reach %s.", host), http.StatusForbidden)
 		return
 	}
@@ -452,8 +452,8 @@ func (e *Egress) record(found *run, host, port string, started time.Time, record
 }
 
 func unreached(err error) protocol.EgressConnection {
-	if refusal := (*guard.Refusal)(nil); errors.As(err, &refusal) {
-		return protocol.EgressConnection{Outcome: protocol.ConnectionBlocked, Reason: protocol.ReasonAddressRefused}
+	if blocked := (*guard.Blocked)(nil); errors.As(err, &blocked) {
+		return protocol.EgressConnection{Outcome: protocol.ConnectionBlocked, Reason: protocol.ReasonPrivateAddress}
 	}
 	return protocol.EgressConnection{Outcome: protocol.ConnectionFailed, Reason: reasonOf(err)}
 }

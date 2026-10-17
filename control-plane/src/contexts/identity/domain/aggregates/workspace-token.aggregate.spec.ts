@@ -140,7 +140,7 @@ describe('WorkspaceToken', () => {
     );
   });
 
-  it('refuses a change made against another version', () => {
+  it('rejects a change made against another version', () => {
     expect(() => kept(2).assertVersion(1)).toThrow(
       WorkspaceTokenVersionConflictError,
     );

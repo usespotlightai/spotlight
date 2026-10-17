@@ -41,7 +41,7 @@ const toEgress = (row: Row): Egress =>
     version: row.version,
   });
 
-const refusedAs = (error: unknown, key: string): unknown => {
+const domainErrorOf = (error: unknown, key: string): unknown => {
   if (violates(error, UNIQUE_VIOLATION, 'egress_workspace_key')) {
     return new EgressAlreadyDefinedError(key);
   }
@@ -71,7 +71,7 @@ export class DrizzleEgressRepository implements EgressRepository {
           version: added.version,
         });
       } catch (error) {
-        throw refusedAs(error, added.key.value);
+        throw domainErrorOf(error, added.key.value);
       }
 
       await this.events.dispatch(added.pullEvents());
@@ -91,7 +91,7 @@ export class DrizzleEgressRepository implements EgressRepository {
             .where(matching)
             .returning({ id: egress.id })
             .catch((error: unknown) => {
-              throw refusedAs(error, saved.key.value);
+              throw domainErrorOf(error, saved.key.value);
             })
         : await this.context.db
             .delete(egress)

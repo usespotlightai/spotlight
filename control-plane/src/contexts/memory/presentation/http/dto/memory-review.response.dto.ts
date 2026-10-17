@@ -79,7 +79,7 @@ export class MemoryGroundNoteResponseDto {
   })
   readonly author: MemoryPersonResponseDto | null;
 
-  @ApiProperty({ example: 'Never retry an upload refused with a 403.' })
+  @ApiProperty({ example: 'Never retry an upload rejected with a 403.' })
   readonly text: string;
 
   constructor(note: MemoryGroundNoteDto) {
@@ -115,7 +115,7 @@ export class ProposedMemoryResponseDto {
   readonly kind: string;
 
   @ApiProperty({
-    example: 'Never retry an upload the bucket refused with a 403.',
+    example: 'Never retry an upload the bucket rejected with a 403.',
   })
   readonly body: string;
 
@@ -235,7 +235,7 @@ export class ApprovedMemoryRequestDto {
   readonly id!: string;
 
   @ApiPropertyOptional({
-    example: 'Never retry an upload the bucket refused with a 403 or 404.',
+    example: 'Never retry an upload the bucket rejected with a 403 or 404.',
     description: 'The memory as it should be, where it was edited',
   })
   readonly body?: string;

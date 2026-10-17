@@ -22,14 +22,14 @@ describe('ConfigHome', () => {
     ).toBe('infra/spotlight');
   });
 
-  it('refuses a repository that is not owner/name', () => {
+  it('rejects a repository that is not owner/name', () => {
     expect(() =>
       ConfigHome.of({ repository: 'infra', folder: 'spotlight' }),
     ).toThrow(InvalidConfigHomeError);
   });
 
   it.each(['', '..', 'a/../b', 'with space', 'a\\b'])(
-    'refuses the folder %j',
+    'rejects the folder %j',
     (folder) => {
       expect(() => ConfigHome.of({ repository: 'acme/infra', folder })).toThrow(
         InvalidConfigHomeError,

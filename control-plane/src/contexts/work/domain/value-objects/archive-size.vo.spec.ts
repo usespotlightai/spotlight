@@ -9,7 +9,7 @@ describe('ArchiveSize', () => {
   });
 
   it.each([0, -1, 1.5, Number.NaN, 2 * 1024 ** 3 + 1])(
-    'refuses %s',
+    'rejects %s',
     (bytes) => {
       expect(() => ArchiveSize.of(bytes)).toThrow(InvalidWorkspaceArchiveError);
     },

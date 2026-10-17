@@ -3450,7 +3450,7 @@
                 "paths": {
                   "supertest": {
                     "importNames": ["default"],
-                    "message": "Call the app through served(app) from test/support/app, which refuses an app that openApp did not serve on 127.0.0.1."
+                    "message": "Call the app through served(app) from test/support/app, which rejects an app that openApp did not serve on 127.0.0.1."
                   }
                 }
               }

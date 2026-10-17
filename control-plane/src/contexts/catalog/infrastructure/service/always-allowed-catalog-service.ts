@@ -4,7 +4,7 @@ import type {
   CatalogServicePort,
 } from '@catalog/application/ports/catalog-service.port';
 import type { CatalogTool } from '@catalog/domain/entities/catalog-item.entity';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -51,7 +51,7 @@ export class AlwaysAllowedCatalogService implements CatalogServicePort {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
     } catch (error) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         asking,
         error instanceof Error ? error.message : String(error),
       );
@@ -62,10 +62,7 @@ export class AlwaysAllowedCatalogService implements CatalogServicePort {
     } | null;
 
     if (!reply.ok || !answered || !('output' in answered)) {
-      throw new UpstreamRefusedError(
-        asking,
-        `the catalog answered ${reply.status}`,
-      );
+      throw new UpstreamError(asking, `the catalog answered ${reply.status}`);
     }
 
     return answered.output;

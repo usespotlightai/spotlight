@@ -71,7 +71,7 @@ describe('Review', () => {
     ]);
   });
 
-  it('refuses drafts that another review already contains, so a second submit posts nothing twice', () => {
+  it('rejects drafts that another review already contains, so a second submit posts nothing twice', () => {
     const claimed = draftBy(ADA).submittedIn(ReviewId.of('review_0'));
 
     expect(() => submit({ drafts: [claimed] })).toThrow(InvalidReviewError);
@@ -87,7 +87,7 @@ describe('Review', () => {
     expect(submit({ verdict: 'approve' }).verdict).toBe('approve');
   });
 
-  it('refuses a comment or request for changes that says nothing', () => {
+  it('rejects a comment or request for changes that says nothing', () => {
     expect(() => submit({ verdict: 'comment' })).toThrow(InvalidReviewError);
     expect(() => submit({ verdict: 'request-changes' })).toThrow(
       InvalidReviewError,
@@ -97,7 +97,7 @@ describe('Review', () => {
     );
   });
 
-  it('refuses someone else’s drafts, or another task’s', () => {
+  it('rejects someone else’s drafts, or another task’s', () => {
     expect(() => submit({ drafts: [draftBy(BOB)] })).toThrow(
       InvalidReviewError,
     );
@@ -106,7 +106,7 @@ describe('Review', () => {
     ).toThrow(InvalidReviewError);
   });
 
-  it('refuses a verdict GitHub has no word for', () => {
+  it('rejects a verdict GitHub has no word for', () => {
     expect(() => submit({ verdict: 'reject', body: 'No' })).toThrow(
       InvalidReviewError,
     );

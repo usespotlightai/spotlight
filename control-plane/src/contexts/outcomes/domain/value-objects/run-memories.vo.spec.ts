@@ -21,7 +21,7 @@ describe('RunMemories', () => {
     expect(RunMemories.NONE.used).toBe(false);
   });
 
-  it('refuses a memory with no name', () => {
+  it('rejects a memory with no name', () => {
     expect(() => RunMemories.NONE.with('recalled', [' '])).toThrow(
       InvalidOutcomeError,
     );

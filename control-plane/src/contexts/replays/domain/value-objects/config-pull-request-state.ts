@@ -1,13 +1,13 @@
 export const CONFIG_PULL_REQUEST_STATES = [
   'opening',
   'opened',
-  'refused',
+  'failed',
 ] as const;
 
 export type ConfigPullRequestState =
   (typeof CONFIG_PULL_REQUEST_STATES)[number];
 
-export const CONFIG_PULL_REQUEST_REFUSALS = [
+export const CONFIG_PULL_REQUEST_ERRORS = [
   'no-source',
   'repository-unreachable',
   'file-missing',
@@ -15,12 +15,12 @@ export const CONFIG_PULL_REQUEST_REFUSALS = [
   'block-not-found',
   'blocks-ambiguous',
   'computed-attribute',
-  'drifted',
+  'base-changed',
   'edit-failed',
   'branch-taken',
   'file-unwritable',
-  'github-refused',
+  'github-error',
 ] as const;
 
-export type ConfigPullRequestRefusal =
-  (typeof CONFIG_PULL_REQUEST_REFUSALS)[number];
+export type ConfigPullRequestError =
+  (typeof CONFIG_PULL_REQUEST_ERRORS)[number];

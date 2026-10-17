@@ -65,7 +65,7 @@ const ITERATION_STATES: Record<IterationState, string> = {
 const PULL_REQUEST_STATES: Record<PullRequestState, string> = {
   opening: 'Opening a pull request…',
   opened: 'Pull request opened',
-  refused: 'No pull request opened',
+  failed: 'No pull request opened',
 };
 
 const REASONS: Record<ReasonCode, string> = {
@@ -78,12 +78,12 @@ const REASONS: Record<ReasonCode, string> = {
   'blocks-ambiguous': 'Station’s block appears more than once',
   'computed-attribute':
     'Attribute is computed in Terraform. Please set it by hand.',
-  drifted: 'File changed since the search began',
+  'base-changed': 'File changed since the search began',
   'edit-failed':
     'Edited file wouldn’t parse as Terraform. Please make the change by hand.',
   'branch-taken': 'Pull request branch already exists',
   'file-unwritable': 'File couldn’t be written to its repository',
-  'github-refused': 'GitHub refused the change',
+  'github-error': 'GitHub answered with an error',
 };
 
 const CHECK_VERDICTS: Record<CheckVerdict, string> = {
@@ -370,7 +370,7 @@ export const candidateGainNote = (
 const PULL_REQUEST_CELLS: Record<PullRequestState, string> = {
   opening: 'Opening…',
   opened: 'Opened',
-  refused: 'Not opened',
+  failed: 'Not opened',
 };
 
 export const formatPullRequestCell = (state: PullRequestState): string =>

@@ -36,7 +36,7 @@ func Main(args []string, version string) int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "spotlight host:", err)
 		if serve.Final(err) {
-			return install.RefusedExit
+			return install.StopExit
 		}
 		return 1
 	}

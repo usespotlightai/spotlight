@@ -82,7 +82,7 @@ export class UpdateWorkspaceTokenHandler
       ) {
         return {
           outcome: 'invalid',
-          problems: [IdentityProblems.tokenRefused(error)],
+          problems: [IdentityProblems.tokenInvalid(error)],
         };
       }
 

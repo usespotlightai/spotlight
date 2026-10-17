@@ -123,8 +123,8 @@ func (a *api) call(method, path string, body any, headers map[string]string, int
 
 	err := a.attempt(method, path, written, headers, into, false)
 
-	var refused *answered
-	if a.renews && errors.As(err, &refused) && refused.status == http.StatusUnauthorized {
+	var answer *answered
+	if a.renews && errors.As(err, &answer) && answer.status == http.StatusUnauthorized {
 		err = a.attempt(method, path, written, headers, into, true)
 	}
 
@@ -168,9 +168,9 @@ func (a *api) attempt(method, path string, written []byte, headers map[string]st
 	}
 
 	if response.StatusCode >= http.StatusMultipleChoices {
-		refused := &answered{status: response.StatusCode}
-		_ = json.Unmarshal(read, &refused.said)
-		return refused
+		failed := &answered{status: response.StatusCode}
+		_ = json.Unmarshal(read, &failed.said)
+		return failed
 	}
 
 	if into == nil || len(bytes.TrimSpace(read)) == 0 {
@@ -189,9 +189,9 @@ func transient(err error) bool {
 		return false
 	}
 
-	var refused *answered
-	if errors.As(err, &refused) {
-		return refused.status >= http.StatusInternalServerError
+	var answer *answered
+	if errors.As(err, &answer) {
+		return answer.status >= http.StatusInternalServerError
 	}
 
 	return true

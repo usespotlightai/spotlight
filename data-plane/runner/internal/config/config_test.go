@@ -61,7 +61,7 @@ func TestLoadTakesAPushPoolsOneRunCredential(t *testing.T) {
 	}
 }
 
-func TestLoadRefusesBothWaysToBeGivenWork(t *testing.T) {
+func TestLoadRejectsBothWaysToBeGivenWork(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
 
@@ -121,13 +121,13 @@ func TestLoadReadsHowLongToWaitWarmForAnAnswer(t *testing.T) {
 	}
 }
 
-func TestLoadRefusesAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
+func TestLoadRejectsAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
 	for _, raw := range []string{"soon", "90", "-1s"} {
 		setRequired(t)
 		t.Setenv("SPOTLIGHT_ANSWER_WAIT", raw)
 
 		if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_ANSWER_WAIT") {
-			t.Errorf("%q: expected a refusal, got %v", raw, err)
+			t.Errorf("%q: expected an error, got %v", raw, err)
 		}
 	}
 }
@@ -151,7 +151,7 @@ func TestLoadTakesThePushPoolsEgress(t *testing.T) {
 	}
 }
 
-func TestLoadRefusesATrafficSettingItDoesNotKnow(t *testing.T) {
+func TestLoadRejectsATrafficSettingItDoesNotKnow(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_HANDED", "")
 	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
@@ -178,7 +178,7 @@ func TestLoadLeavesEgressToTheHostThatHandedTheWork(t *testing.T) {
 	}
 }
 
-func TestLoadRefusesAnEgressWithoutItsCredential(t *testing.T) {
+func TestLoadRejectsAnEgressWithoutItsCredential(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_HANDED", "")
 	t.Setenv("SPOTLIGHT_TOKEN", "one-run")

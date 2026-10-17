@@ -5,7 +5,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const EGRESS_FIELD = 'provision.egress';
 
-export const refuseUnfitEgress = (
+export const validateEgress = (
   reference: EgressReference | null,
   input: {
     readonly workspaceId: WorkspaceId;

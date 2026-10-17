@@ -177,7 +177,7 @@ export class CompleteRunHandler
       note: declared.note,
     });
 
-    return verdict.kind === 'refused'
+    return verdict.kind === 'denied'
       ? declared.sentToReview(verdict.reason)
       : declared;
   }

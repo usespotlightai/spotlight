@@ -143,7 +143,7 @@ describe('Secret', () => {
       ]);
     });
 
-    it('refuses a new valueWoVersion without the value of that version', () => {
+    it('rejects a new valueWoVersion without the value of that version', () => {
       expect(() =>
         kept().redefinedAs(
           definition({ value: null, valueVersion: 2 }),
@@ -198,7 +198,7 @@ describe('Secret', () => {
       ).toThrow(SecretNameFixedError);
     });
 
-    it('refuses a change to a version no longer current', () => {
+    it('rejects a change to a version no longer current', () => {
       expect(() => kept().assertVersion(0)).toThrow(SecretVersionConflictError);
       expect(() => kept().assertVersion(1)).not.toThrow();
     });
@@ -360,7 +360,7 @@ describe('Secret', () => {
       );
     });
 
-    it('refuses a value it cannot inject in a header', () => {
+    it('rejects a value it cannot inject in a header', () => {
       expect(() => kept().injectable(SecretValue.of('one\ntwo'))).toThrow(
         SecretNotInjectableError,
       );

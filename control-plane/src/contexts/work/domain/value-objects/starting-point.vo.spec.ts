@@ -16,13 +16,13 @@ describe('StartedCheckout', () => {
     expect(checkout(' api ').parts).toEqual({ path: 'api', commit: COMMIT });
   });
 
-  it('refuses a short, upper-case or missing commit', () => {
+  it('rejects a short, upper-case or missing commit', () => {
     for (const commit of [COMMIT.slice(0, 12), COMMIT.toUpperCase(), '']) {
       expect(() => checkout('api', commit)).toThrow(InvalidStartingPointError);
     }
   });
 
-  it('refuses a checkout with no path', () => {
+  it('rejects a checkout with no path', () => {
     expect(() => checkout('  ')).toThrow(InvalidStartingPointError);
   });
 });
@@ -43,7 +43,7 @@ describe('StartingPoint', () => {
     ]);
   });
 
-  it('refuses the same checkout named twice', () => {
+  it('rejects the same checkout named twice', () => {
     expect(() => point(checkout('api'), checkout('api'))).toThrow(
       InvalidStartingPointError,
     );

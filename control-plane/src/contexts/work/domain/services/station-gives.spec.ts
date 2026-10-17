@@ -129,7 +129,7 @@ describe('what a station gives', () => {
     expect(renamed.tools).toEqual([Tool.of('pull-request')]);
   });
 
-  it('is refused the same way where a line file describes it', () => {
+  it('is rejected the same way where a line file describes it', () => {
     expect(() => planned({ skills: ['frontend', 'frontend'] })).toThrow(
       InvalidLinePlanError,
     );
@@ -141,8 +141,8 @@ describe('what a station gives', () => {
     );
   });
 
-  it('is refused at the station that gives it, and at what it gives', () => {
-    const refusedFor = (given: Parameters<typeof planned>[0]) => {
+  it('is rejected at the station that gives it, and at what it gives', () => {
+    const errorFor = (given: Parameters<typeof planned>[0]) => {
       try {
         planned(given);
       } catch (error) {
@@ -154,10 +154,10 @@ describe('what a station gives', () => {
       [{ skills: ['frontend', 'frontend'] }, 'skills'],
       [{ tools: ['pull-request', 'pull-request'] }, 'tools'],
     ] as const) {
-      const refused = refusedFor(given);
+      const error = errorFor(given);
 
-      expect(refused).toBeInstanceOf(InvalidLinePlanError);
-      expect((refused as InvalidLinePlanError).part).toEqual({
+      expect(error).toBeInstanceOf(InvalidLinePlanError);
+      expect((error as InvalidLinePlanError).part).toEqual({
         of: 'station',
         station: 'implementation',
         field,

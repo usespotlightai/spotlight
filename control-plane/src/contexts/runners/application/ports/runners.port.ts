@@ -34,7 +34,7 @@ export interface ProvisionRequest {
 
 type ProvisionFailureKind =
   | 'unreachable'
-  | 'refused'
+  | 'http-error'
   | 'not-allowed'
   | 'unusable';
 

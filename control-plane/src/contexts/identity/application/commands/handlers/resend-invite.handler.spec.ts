@@ -156,7 +156,7 @@ describe('ResendInviteHandler', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses an invite that was taken back, and sends nothing', async () => {
+  it('rejects an invite that was taken back, and sends nothing', async () => {
     const { handler, save, send } = resending({
       invite: sentInvite({ revoked: true }),
     });

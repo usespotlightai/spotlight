@@ -1,7 +1,7 @@
 import type { ToolOutput } from '@integrations/application/ports/integration-runtime.port';
 import { asJson } from '@integrations/infrastructure/integrations/templating';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 const MAX_SAID = 500;
 
@@ -27,7 +27,7 @@ const saidIn = (result: CallToolResult): string =>
 
 export const mcpOutput = (result: CallToolResult, tool: string): ToolOutput => {
   if (result.isError) {
-    throw new UpstreamRefusedError(
+    throw new UpstreamError(
       `using ${tool}`,
       `the MCP server answered with an error: ${saidIn(result)}`,
       null,

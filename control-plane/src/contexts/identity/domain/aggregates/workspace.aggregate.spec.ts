@@ -99,7 +99,7 @@ describe('Workspace', () => {
       ).toBe(true);
     });
 
-    it('refuses a member who is neither owner nor admin, and a stranger', () => {
+    it('denies a member who is neither owner nor admin, and a stranger', () => {
       expect(
         withMember(WorkspaceRole.member).administeredBy(UserId.of('user_2')),
       ).toBe(false);
@@ -271,19 +271,19 @@ describe('Workspace', () => {
       ).toBe(WorkspaceRole.admin);
     });
 
-    it('refuses an admin reaching an owner', () => {
+    it('denies an admin reaching an owner', () => {
       expect(() =>
         staff().changeRole(OWNER, WorkspaceRole.member, ADMIN),
       ).toThrow(NotYoursToGiveError);
     });
 
-    it('refuses an admin handing out a rank they do not have', () => {
+    it('denies an admin handing out a rank they do not have', () => {
       expect(() =>
         staff().changeRole(MEMBER, WorkspaceRole.owner, ADMIN),
       ).toThrow(/cannot give a role above your own/);
     });
 
-    it('refuses an admin reaching another admin', () => {
+    it('denies an admin reaching another admin', () => {
       const two = staffed(
         { id: OWNER, role: WorkspaceRole.owner },
         { id: ADMIN, role: WorkspaceRole.admin },
@@ -295,25 +295,25 @@ describe('Workspace', () => {
       );
     });
 
-    it('refuses an admin changing their own', () => {
+    it('denies an admin changing their own', () => {
       expect(() =>
         staff().changeRole(ADMIN, WorkspaceRole.member, ADMIN),
       ).toThrow(/cannot change your own role/);
     });
 
-    it('refuses a plain member setting anybody’s', () => {
+    it('denies a plain member setting anybody’s', () => {
       expect(() =>
         staff().changeRole(ADMIN, WorkspaceRole.member, MEMBER),
       ).toThrow(/Only an owner or an admin/);
     });
 
-    it('refuses somebody who is not of the workspace at all', () => {
+    it('denies somebody who is not of the workspace at all', () => {
       expect(() =>
         staff().changeRole(MEMBER, WorkspaceRole.admin, UserId.of('stranger')),
       ).toThrow(/Only an owner or an admin/);
     });
 
-    it('refuses a role for somebody who is not of the workspace', () => {
+    it('denies a role for somebody who is not of the workspace', () => {
       expect(() =>
         staff().changeRole(UserId.of('stranger'), WorkspaceRole.admin, OWNER),
       ).toThrow(/not a member of this workspace/);
@@ -353,7 +353,7 @@ describe('Workspace', () => {
       ).toEqual([]);
     });
 
-    it('offers what it would allow, and nothing it would refuse', () => {
+    it('offers what it would allow, and nothing it would deny', () => {
       const workspace = staff();
 
       expect(workspace.rolesGivableTo(MEMBER, OWNER)).toEqual([
@@ -410,7 +410,7 @@ describe('Workspace', () => {
       ]);
     });
 
-    it('refuses a change made against another version', () => {
+    it('rejects a change made against another version', () => {
       expect(() => kept(3).assertVersion(2)).toThrow(
         WorkspaceVersionConflictError,
       );

@@ -389,10 +389,10 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       bindings: [{ host: 'attacker.example' }],
     };
 
-    const refused = await as(tokens.configure).post(secrets, linear);
+    const forbidden = await as(tokens.configure).post(secrets, linear);
 
-    expect(refused.status).toBe(403);
-    expect(refused.body).toMatchObject({
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body).toMatchObject({
       ...FORBIDDEN_PROBLEM,
       title: 'Not allowed to change the secret',
       permission: 'manage-secrets',
@@ -440,15 +440,15 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     ]);
   });
 
-  it('refuses scopes that name no rung of the ladder, or name one twice', async () => {
-    const refused = await http()
+  it('rejects scopes that name no rung of the ladder, or name one twice', async () => {
+    const rejected = await http()
       .post(`/api/resources/workspaces/${seat.workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'vault', scopes: ['secrets'] });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({
         path: 'scopes',
         message: expect.stringContaining('need one of them'),
@@ -575,10 +575,10 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
         .delete(workspace)
         .set(TEST_USER_HEADER, seat.owner)
         .set('If-Match', '"0"');
-    const refused = await close();
+    const rejected = await close();
 
-    expect(refused.status).toBe(409);
-    expect(refused.body.detail).toContain(
+    expect(rejected.status).toBe(409);
+    expect(rejected.body.detail).toContain(
       'token configure, token configure-secrets, token plan, token read',
     );
 
@@ -599,10 +599,10 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     }
 
     const workspace = `/api/resources/workspaces/${seat.workspaceId}`;
-    const refused = await as(tokens.configure).delete(workspace, 0);
+    const forbidden = await as(tokens.configure).delete(workspace, 0);
 
-    expect(refused.status).toBe(403);
-    expect(refused.body).toMatchObject({
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body).toMatchObject({
       ...FORBIDDEN_PROBLEM,
       detail: expect.stringContaining('A token can never administer'),
     });

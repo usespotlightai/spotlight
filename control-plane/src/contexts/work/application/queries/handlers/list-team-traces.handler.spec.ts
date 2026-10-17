@@ -143,7 +143,7 @@ describe('ListTeamTracesHandler', () => {
     });
   });
 
-  it('refuses a range it does not know', async () => {
+  it('rejects a range it does not know', async () => {
     await expect(
       handler([]).execute(new ListTeamTracesQuery('team_1', 'user_1', '2y')),
     ).rejects.toThrow(ApplicationError);

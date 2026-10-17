@@ -555,8 +555,8 @@ describe('a deferred move and what ends the run (e2e)', () => {
         taskId: task.id.value,
         stationKey: 'implementation',
         hook: 'core/notify',
-        code: 'refused',
-        saying: 'The hook refused the run.',
+        code: 'rejected',
+        saying: 'The hook rejected the run.',
         heardAs: randomUUID(),
       }),
     ).resolves.toBe('reported');
@@ -564,7 +564,7 @@ describe('a deferred move and what ends the run (e2e)', () => {
     const moved = await found(task.id);
     expect(moved.stationId).toEqual(stationKeyed('code-review').id);
     expect(moved.awaitingReview).toBe(false);
-    expect(moved.notes[moved.notes.length - 1]?.failure?.code).toBe('refused');
+    expect(moved.notes[moved.notes.length - 1]?.failure?.code).toBe('rejected');
     expect(moved.currentRunId).not.toBeNull();
     expect(moved.currentRunId).not.toEqual(runId);
     await eventually(async () => (await runOf(runId)).hasEnded);

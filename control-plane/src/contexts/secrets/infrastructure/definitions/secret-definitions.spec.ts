@@ -58,7 +58,7 @@ describe('SecretDefinitions', () => {
     ).toEqual(['source.secretId']);
   });
 
-  it('never repeats a value it refuses', () => {
+  it('never repeats a value it rejects', () => {
     const read = definitions.secret({
       name: 'LINEAR_API_KEY',
       valueWo: 'x'.repeat(70_000),

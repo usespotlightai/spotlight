@@ -132,7 +132,7 @@ export const servedBy = (
 ): NamedHarness[] =>
   namedHarnesses(
     host.images
-      .filter((image) => !image.refused)
+      .filter((image) => !image.unavailableReason)
       .flatMap((image) => image.harnesses)
       .filter(
         (each, at, all) =>

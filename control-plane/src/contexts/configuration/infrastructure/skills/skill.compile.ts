@@ -10,7 +10,7 @@ import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skil
 import { SkillKeyReservedError } from '@configuration/domain/exceptions/skill-key-reserved.error';
 import {
   SkillFiles,
-  skillFileRefusal,
+  skillFileProblem,
 } from '@configuration/domain/value-objects/skill-files.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
@@ -21,10 +21,10 @@ import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 import { z } from 'zod';
 
 const filePath = z.string().superRefine((path, context) => {
-  const refused = skillFileRefusal(path);
+  const problem = skillFileProblem(path);
 
-  if (refused) {
-    context.addIssue({ code: 'custom', message: refused });
+  if (problem) {
+    context.addIssue({ code: 'custom', message: problem });
   }
 });
 
@@ -41,13 +41,13 @@ export const compileSkill = (input: unknown): ParsedSkill => {
   }
 
   const { key, files } = read.data;
-  const refused = (at: FieldPath, reason: string): ParsedSkill => ({
+  const invalid = (at: FieldPath, reason: string): ParsedSkill => ({
     ok: false,
     problems: [ConfigurationProblem.of({ path: skillAt(key), at, reason })],
   });
 
   if (!(SKILL_FILE in files)) {
-    return refused(
+    return invalid(
       FieldPath.of(['files']),
       `has no ${SKILL_FILE}. Spotlight reads each skill from its ${SKILL_FILE}`,
     );
@@ -63,11 +63,11 @@ export const compileSkill = (input: unknown): ParsedSkill => {
     };
   } catch (error) {
     if (error instanceof SkillKeyReservedError) {
-      return refused(FieldPath.of([error.field]), error.because);
+      return invalid(FieldPath.of([error.field]), error.because);
     }
 
     if (error instanceof InvalidSkillError) {
-      return refused(FieldPath.of(['files', SKILL_FILE]), error.because);
+      return invalid(FieldPath.of(['files', SKILL_FILE]), error.because);
     }
 
     throw error;

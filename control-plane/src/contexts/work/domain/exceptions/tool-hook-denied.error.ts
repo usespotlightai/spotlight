@@ -1,4 +1,4 @@
-export class ToolHookRefusedError extends Error {
+export class ToolHookDeniedError extends Error {
   readonly violation = 'not-allowed' as const;
 
   constructor(tool: string, reason: string) {
@@ -7,6 +7,6 @@ export class ToolHookRefusedError extends Error {
         .filter(Boolean)
         .join(' '),
     );
-    this.name = 'ToolHookRefusedError';
+    this.name = 'ToolHookDeniedError';
   }
 }

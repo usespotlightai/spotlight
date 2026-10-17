@@ -28,7 +28,7 @@ describe('ConfigurationFile', () => {
     ).toBe(false);
   });
 
-  it('refuses a path that is not within the repository', () => {
+  it('rejects a path that is not within the repository', () => {
     for (const path of [
       '/etc/passwd',
       '../secrets.yml',

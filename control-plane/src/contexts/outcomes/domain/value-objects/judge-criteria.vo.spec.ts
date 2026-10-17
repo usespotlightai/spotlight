@@ -40,7 +40,7 @@ describe('JudgeCriteria', () => {
     [{ rubric: null, claims: Array.from({ length: 21 }, () => 'A claim.') }],
     [{ rubric: null, claims: ['A claim.'], passShare: 1.2 }],
     [{ rubric: 'scores: stars\nGood?' }],
-  ])('refuses a judge it cannot judge by', (input) => {
+  ])('rejects a judge it cannot judge by', (input) => {
     expect(() => JudgeCriteria.of(input)).toThrow(InvalidScoreError);
     expect(JudgeCriteria.readable(input)).toBeNull();
   });

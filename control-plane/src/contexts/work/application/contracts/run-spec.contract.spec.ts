@@ -102,7 +102,7 @@ describe('RunSpecContract wire', () => {
     );
   });
 
-  it('round-trips a search to an empty search block, and refuses one that is no object', () => {
+  it('round-trips a search to an empty search block, and rejects one that is no object', () => {
     const searching = parts({
       handover: { options: [], noteLimit: 0 },
       continuity: { key: 'search-run_1' },
@@ -128,7 +128,7 @@ describe('RunSpecContract wire', () => {
     expect(RunSpecContract.from(parts()).value).toEqual(parts());
   });
 
-  it('refuses what is not a spec as a stored run that no longer reads', () => {
+  it('rejects what is not a spec as a stored run that no longer reads', () => {
     for (const raw of [
       null,
       undefined,
@@ -192,7 +192,7 @@ describe('RunSpecContract.ordered', () => {
     expect(spec.value.continuity).toEqual({ key: '' });
   });
 
-  it('refuses what is not a spec at all', () => {
+  it('rejects what is not a spec at all', () => {
     for (const raw of [null, undefined, 'a spec', 7]) {
       expect(() => RunSpecContract.ordered(raw, command)).toThrow(
         InvalidRunSpecError,
@@ -251,7 +251,7 @@ describe('RunSpecContract.checkoutFoldersIn', () => {
     expect(RunSpecContract.checkoutFoldersIn(null)).toEqual([]);
   });
 
-  it('refuses checkouts that are not what a run stores', () => {
+  it('rejects checkouts that are not what a run stores', () => {
     expect(() => RunSpecContract.checkoutFoldersIn([{ path: 'api' }])).toThrow(
       InvalidRunSpecError,
     );

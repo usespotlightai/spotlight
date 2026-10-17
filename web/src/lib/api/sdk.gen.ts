@@ -2439,7 +2439,7 @@ export const readSearch = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Pick a candidate of a search: Spotlight opens a pull request that changes the station in the line’s Terraform, in the repository its source names
  *
- * Spotlight never applies the change itself. It edits the station block of the line’s spotlight_line resource (and a prompt file read with file()), commits to its own branch and opens the pull request; until then the pull request is opening. Picking it again answers the same one, unless it was refused, which tries again.
+ * Spotlight never applies the change itself. It edits the station block of the line’s spotlight_line resource (and a prompt file read with file()), commits to its own branch and opens the pull request; until then the pull request is opening. Picking it again answers the same one, unless it failed, which tries again.
  */
 export const pickSearchCandidate = <ThrowOnError extends boolean = false>(options: Options<PickSearchCandidateData, ThrowOnError>): RequestResult<PickSearchCandidateResponses, PickSearchCandidateErrors, ThrowOnError> => (options.client ?? client).post<PickSearchCandidateResponses, PickSearchCandidateErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
@@ -2490,7 +2490,7 @@ export const readReplayCheck = <ThrowOnError extends boolean = false>(options: O
 /**
  * Propose a candidate from inside a search’s agent run; Spotlight replays it on the search’s searched tasks
  *
- * Proposing the same name again from the same run answers with the candidate it proposed. A refused proposal does not count as one of the iteration’s candidates, but the run may only try so often.
+ * Proposing the same name again from the same run answers with the candidate it proposed. A rejected proposal does not count as one of the iteration’s candidates, but the run may only try so often.
  */
 export const proposeSearchCandidate = <ThrowOnError extends boolean = false>(options: Options<ProposeSearchCandidateData, ThrowOnError>): RequestResult<ProposeSearchCandidateResponses, ProposeSearchCandidateErrors, ThrowOnError> => (options.client ?? client).post<ProposeSearchCandidateResponses, ProposeSearchCandidateErrors, ThrowOnError>({
   url: '/runs/{runId}/search-candidates',
@@ -2516,7 +2516,7 @@ export const recordSearchCause = <ThrowOnError extends boolean = false>(options:
 });
 
 /**
- * Read the pull request a picked search candidate opens in the line’s config repository: opening, opened with its link, or refused and why
+ * Read the pull request a picked search candidate opens in the line’s config repository: opening, opened with its link, or failed and why
  */
 export const readConfigPullRequest = <ThrowOnError extends boolean = false>(options: Options<ReadConfigPullRequestData, ThrowOnError>): RequestResult<ReadConfigPullRequestResponses, ReadConfigPullRequestErrors, ThrowOnError> => (options.client ?? client).get<ReadConfigPullRequestResponses, ReadConfigPullRequestErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],

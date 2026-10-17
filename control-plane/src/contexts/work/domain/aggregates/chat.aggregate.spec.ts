@@ -215,7 +215,7 @@ describe('Chat', () => {
     ).toThrow(InvalidChatMessageError);
   });
 
-  it('refuses to open with nothing at all', () => {
+  it('does not open with nothing at all', () => {
     expect(() => started('   ')).toThrow(InvalidChatMessageError);
   });
 
@@ -569,7 +569,7 @@ describe('Chat', () => {
       expect(started().pushableNamed('api')).toBeNull();
     });
 
-    it('refuses a branch named like a task’s, before anything is opened', () => {
+    it('rejects a branch named like a task’s, before anything is opened', () => {
       expect(() =>
         settingUp().mayOpenSetupFrom(
           RunId.of('run_1'),
@@ -606,7 +606,7 @@ describe('Chat', () => {
       expect(opened.setup?.pullRequest?.equals(URL)).toBe(true);
     });
 
-    it('refuses a pull request in another repository', () => {
+    it('rejects a pull request in another repository', () => {
       expect(() =>
         settingUp().openSetup(
           RunId.of('run_1'),
@@ -617,13 +617,13 @@ describe('Chat', () => {
       ).toThrow(InvalidChatTransitionError);
     });
 
-    it('refuses a run that no longer works the chat', () => {
+    it('rejects a run that no longer works the chat', () => {
       expect(() =>
         settingUp().openSetup(RunId.of('run_2'), BRANCH, URL, LATER),
       ).toThrow(InvalidChatTransitionError);
     });
 
-    it('refuses a chat that sets nothing up', () => {
+    it('rejects a chat that sets nothing up', () => {
       expect(() =>
         started()
           .handedTo(RunId.of('run_1'), NOW)

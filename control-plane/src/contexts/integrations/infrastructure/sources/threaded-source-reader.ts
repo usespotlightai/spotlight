@@ -6,7 +6,7 @@ import type {
   SourceRead,
   SourceReaderPort,
 } from '@integrations/application/ports/source-reader.port';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
@@ -94,7 +94,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
         return { kind: 'unread', problem: error.because };
       }
 
-      if (error instanceof OutboundRefusedError) {
+      if (error instanceof EgressBlockedError) {
         return {
           kind: 'unread',
           problem: `could not be read: ${error.message}`,
@@ -119,7 +119,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
         throw error;
       }
 
-      const renewed = await connection.refused(connection.token);
+      const renewed = await connection.unauthorized(connection.token);
 
       if (!renewed) {
         throw error;

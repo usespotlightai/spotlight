@@ -295,7 +295,7 @@ const tracing = {
     `trace:${searchId.value}:${runId.value}`,
 };
 
-let catalogGiving: CatalogGiving = { tools: [], skills: [], refused: [] };
+let catalogGiving: CatalogGiving = { tools: [], skills: [], denied: [] };
 let catalogAsked: CatalogNamed[] = [];
 
 const catalog = new StationCatalog({
@@ -380,7 +380,7 @@ describe('DispatchTask', () => {
     touchedOnTask = [];
     queued = [];
     kept = [];
-    catalogGiving = { tools: [], skills: [], refused: [] };
+    catalogGiving = { tools: [], skills: [], denied: [] };
     catalogAsked = [];
   });
 
@@ -408,7 +408,7 @@ describe('DispatchTask', () => {
     });
 
     it('names a catalog tool without its version, and pins the version in the run', async () => {
-      catalogGiving = { tools: [WEB_SEARCH], skills: [], refused: [] };
+      catalogGiving = { tools: [WEB_SEARCH], skills: [], denied: [] };
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
@@ -428,7 +428,7 @@ describe('DispatchTask', () => {
             tools: [WEB_SEARCH.id],
           },
         ],
-        refused: [],
+        denied: [],
       };
 
       await dispatch(
@@ -445,7 +445,7 @@ describe('DispatchTask', () => {
       catalogGiving = {
         tools: [],
         skills: [],
-        refused: [
+        denied: [
           {
             id: WEB_SEARCH.id,
             reason: 'lapsed',
@@ -477,7 +477,7 @@ describe('DispatchTask', () => {
       catalogGiving = {
         tools: [],
         skills: [],
-        refused: [{ id: WEB_SEARCH.id, reason, because: 'denied here' }],
+        denied: [{ id: WEB_SEARCH.id, reason, because: 'denied here' }],
       };
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
@@ -489,7 +489,7 @@ describe('DispatchTask', () => {
       catalogGiving = {
         tools: [],
         skills: [],
-        refused: [
+        denied: [
           { id: WEB_SEARCH.id, reason: 'lapsed', because: 'lapsed here' },
           {
             id: 'catalog.research@9.0.0',

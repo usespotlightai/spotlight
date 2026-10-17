@@ -45,7 +45,7 @@ describe('LocalKeyManagement', () => {
     ).rejects.toThrow(DecryptionFailedError);
   });
 
-  it('refuses a deployment key that is not thirty-two bytes', () => {
+  it('rejects a deployment key that is not thirty-two bytes', () => {
     expect(() => new LocalKeyManagement('short')).toThrow(/32 bytes/);
   });
 });

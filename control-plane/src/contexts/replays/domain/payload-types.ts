@@ -14,10 +14,10 @@ import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wante
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
 import { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
 import { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
-import { ReplayPairingRefused } from '@replays/domain/events/replay-pairing-refused.event';
+import { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
 import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
 import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
-import { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
+import { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import { ReplaySetAbandonmentDue } from '@replays/domain/events/replay-set-abandonment-due.event';
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
@@ -98,7 +98,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplayEntryConcluded,
   ReplayPairingDue,
   ReplayPairJudgingWanted,
-  ReplayPairingRefused,
+  ReplayPairingFailed,
   JudgeVerdict,
   ModelSpent,
   ReplayEntry,
@@ -132,7 +132,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplayOverBudget,
   ReplayRecheckUnavailable,
   ReplayRecheckWanted,
-  ReplayRejudgingRefused,
+  ReplayRejudgingFailed,
   ReplayRejudgingWanted,
   ReplayStackRecheckWanted,
   ReplayBaselineWanted,

@@ -322,7 +322,7 @@ describe('recalling what the team remembers from inside a run', () => {
     expect((read.body as Recalled).superseded?.handle).toMatch(/^M-\d+$/);
   });
 
-  it('knows no memory of another team by its handle, and refuses what is not a handle', async () => {
+  it('knows no memory of another team by its handle, and rejects what is not a handle', async () => {
     const theirs = await writing(other.teamId.value, other.owner.value, {
       body: 'Ours alone.',
     });
@@ -438,7 +438,7 @@ describe('remembering from inside a run', () => {
     expect((again.body as Proposed).id).toBe((first.body as Proposed).id);
   });
 
-  it('refuses a kind or a path it cannot take, saying what would work', async () => {
+  it('rejects a kind or a path it cannot take, saying what would work', async () => {
     const gossip = await remember({ kind: 'gossip', body: 'Something.' });
     const elsewhere = await remember({
       body: 'Something.',
@@ -552,11 +552,11 @@ describe('the team’s memory laid out in the run’s workspace', () => {
   });
 
   it('answers only the runner with the lease on the run', async () => {
-    const refused = await http()
+    const missing = await http()
       .get(`/api/runs/${randomUUID()}/memory-files`)
       .set('Authorization', `Bearer ${token}`);
 
-    expect(refused.status).toBe(404);
+    expect(missing.status).toBe(404);
   });
 
   it('counts a memory file the run read as recalled once the run ends', async () => {

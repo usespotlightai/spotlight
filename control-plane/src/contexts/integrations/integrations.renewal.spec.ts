@@ -109,7 +109,7 @@ class FakeLinear {
   tokenCalls = 0;
   apiCalls = 0;
   registrations = 0;
-  refusesEverything = false;
+  answersUnauthorized = false;
   readonly challenges = new Map<string, string>();
   readonly verifiers: string[] = [];
   whileRenewing: () => void = () => {};
@@ -136,7 +136,7 @@ class FakeLinear {
       this.apiCalls++;
       const authorization = new Headers(init?.headers).get('authorization');
 
-      return !this.refusesEverything &&
+      return !this.answersUnauthorized &&
         authorization === `Bearer ${this.access}`
         ? asJson({ url: `https://linear.app/acme/issue/ENG-12#${this.access}` })
         : asJson({ error: 'not authenticated' }, 401);
@@ -389,7 +389,7 @@ const settingUp = ({
         expiresAt: new Date('2026-10-05T11:00:00.000Z'),
         scopes: [],
         handle: '@alice',
-        renewalRefusedAt: null,
+        refreshFailedAt: null,
         renewalClaim: null,
         version: 1,
       }),
@@ -433,8 +433,8 @@ const settingUp = ({
   };
 };
 
-describe('OAuth that recovers from a refused token', () => {
-  it('renews a token the host refused, then sends the call once more, and keeps the rotated tokens', async () => {
+describe('OAuth that recovers from a token the host does not accept', () => {
+  it('renews a token the host did not accept, then sends the call once more, and keeps the rotated tokens', async () => {
     const { linear, connectedAs, storedConnection, comment } = settingUp();
     connectedAs('at-1');
     linear.revoke();
@@ -465,10 +465,10 @@ describe('OAuth that recovers from a refused token', () => {
     expect((await storedConnection())?.accessToken.value).toBe('at-2');
   });
 
-  it('sends a call refused again after renewal no third time', async () => {
+  it('does not send a third time a call that fails with 401 again after renewal', async () => {
     const { linear, connectedAs, comment } = settingUp();
     connectedAs('at-1');
-    linear.refusesEverything = true;
+    linear.answersUnauthorized = true;
 
     await expect(comment()).rejects.toThrow(/answered 401/);
 
@@ -476,7 +476,7 @@ describe('OAuth that recovers from a refused token', () => {
     expect(linear.tokenCalls).toBe(1);
   });
 
-  it('renews once for two calls refused at the same time, and both go through', async () => {
+  it('renews once for two calls that fail with 401 at the same time, and both go through', async () => {
     const { linear, connectedAs, comment } = settingUp();
     connectedAs('at-1');
     linear.revoke();
@@ -519,7 +519,7 @@ describe('OAuth that recovers from a refused token', () => {
     expect(linear.tokenCalls).toBe(2);
   });
 
-  it('marks the connection refused when the host will not renew it, and asks the person to connect again', async () => {
+  it('marks the refresh failed when the host will not renew the connection, and asks the person to connect again', async () => {
     const { linear, connectedAs, storedConnection, comment, tools } =
       settingUp();
     connectedAs('at-1', 'rt-stale');
@@ -527,7 +527,7 @@ describe('OAuth that recovers from a refused token', () => {
 
     await expect(comment()).rejects.toThrow(/answered 401/);
 
-    expect((await storedConnection())?.renewalRefusedAt).toEqual(NOW);
+    expect((await storedConnection())?.refreshFailedAt).toEqual(NOW);
     expect(
       (
         await tools.reach(
@@ -541,7 +541,7 @@ describe('OAuth that recovers from a refused token', () => {
       source: 'linear',
       integration: 'Linear',
       personId: ALICE.value,
-      because: 'renewal-refused',
+      because: 'refresh-failed',
     });
   });
 

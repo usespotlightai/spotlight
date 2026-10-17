@@ -6,12 +6,12 @@ import {
   formatChecks,
   formatGainVerdict,
   formatReason,
-  formatRefusal,
   formatResult,
   formatState,
   formatTurnedOut,
   formatUncompared,
   formatUnpaired,
+  formatUnreplayableReason,
 } from '@/lib/replay-words';
 
 type Schema = {
@@ -71,9 +71,12 @@ describe('replay words cover every code the API can answer', () => {
         skip,
       );
     }
-    for (const refusal of codesOf('ReplayEntryResponseDto', 'refusal')) {
-      worded(formatReason(reason('unreplayable', refusal)), refusal);
-      worded(formatRefusal(refusal as never), refusal);
+    for (const code of codesOf(
+      'ReplayEntryResponseDto',
+      'unreplayableReason',
+    )) {
+      worded(formatReason(reason('unreplayable', code)), code);
+      worded(formatUnreplayableReason(code as never), code);
     }
     for (const failure of codesOf('ReplayEntryResponseDto', 'failure')) {
       worded(formatReason(reason('run-failed', failure)), failure);

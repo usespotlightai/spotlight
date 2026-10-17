@@ -86,7 +86,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       .where(
         and(
           isNotNull(hostConnection.refreshToken),
-          isNull(hostConnection.renewalRefusedAt),
+          isNull(hostConnection.refreshFailedAt),
           lt(hostConnection.expiresAt, horizon),
         ),
       );
@@ -117,7 +117,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       expiresAt: connection.expiresAt,
       scopes: connection.scopes.join(' '),
       handle: connection.handle,
-      renewalRefusedAt: connection.renewalRefusedAt,
+      refreshFailedAt: connection.refreshFailedAt,
       renewalClaimedUntil: connection.renewalClaim?.until ?? null,
     };
 
@@ -206,7 +206,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       expiresAt: row.expiresAt,
       scopes: row.scopes ? row.scopes.split(' ') : [],
       handle: row.handle,
-      renewalRefusedAt: row.renewalRefusedAt,
+      refreshFailedAt: row.refreshFailedAt,
       renewalClaim: row.renewalClaimedUntil
         ? RenewalClaim.until(row.renewalClaimedUntil)
         : null,

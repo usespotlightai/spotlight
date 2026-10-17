@@ -3,7 +3,7 @@ export const ERROR_KINDS = [
   'invalid',
   'not-allowed',
   'not-found',
-  'refused',
+  'upstream-error',
 ] as const;
 
 export type ErrorKind = (typeof ERROR_KINDS)[number];

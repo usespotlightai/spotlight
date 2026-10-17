@@ -97,7 +97,7 @@ export const newestFirst = (replays: readonly Replay[]): Replay[] =>
     other.startedAt.localeCompare(one.startedAt),
   );
 
-export const startRefusal = (set: ReplaySet): string | null => {
+export const startProblem = (set: ReplaySet): string | null => {
   if (set.stationGone) {
     return STATION_GONE_FROM_LINE;
   }

@@ -126,7 +126,7 @@ const (
 
 const (
 	ReasonNotAllowed     = "not-allowed"
-	ReasonAddressRefused = "address-refused"
+	ReasonPrivateAddress = "private-address"
 	ReasonNotBound       = "not-bound"
 	ReasonNoSuchHost     = "no-such-host"
 	ReasonTimedOut       = "timed-out"

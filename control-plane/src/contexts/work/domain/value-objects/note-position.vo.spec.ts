@@ -7,11 +7,11 @@ describe('NotePosition', () => {
     expect(NotePosition.of(3).value).toBe(3);
   });
 
-  it('refuses a place before the start', () => {
+  it('rejects a place before the start', () => {
     expect(() => NotePosition.of(-1)).toThrow(InvalidNotePositionError);
   });
 
-  it('refuses a place between two notes', () => {
+  it('rejects a place between two notes', () => {
     expect(() => NotePosition.of(1.5)).toThrow(InvalidNotePositionError);
   });
 

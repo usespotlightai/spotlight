@@ -142,7 +142,7 @@ describe('ReadInboxItem', () => {
     );
   });
 
-  it('refuses a task that is not there', async () => {
+  it('rejects a task that is not there', async () => {
     await expect(read(null).done).rejects.toThrow(ApplicationError);
   });
 });

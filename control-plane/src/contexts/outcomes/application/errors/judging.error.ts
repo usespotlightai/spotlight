@@ -1,6 +1,6 @@
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
-export type JudgingErrorKind = 'refused' | 'unreadable';
+export type JudgingErrorKind = 'request-failed' | 'unreadable';
 
 export class JudgingError extends Error {
   constructor(

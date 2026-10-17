@@ -88,7 +88,7 @@ describe('PendingMessagesHandler', () => {
     ).resolves.toHaveLength(1);
   });
 
-  it('refuses a runner that does not lease the run', async () => {
+  it('rejects a runner that does not lease the run', async () => {
     await expect(
       reading().execute(new PendingMessagesQuery('run_1', 'runner_2')),
     ).rejects.toMatchObject({ kind: 'not-found' });

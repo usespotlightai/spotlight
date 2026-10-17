@@ -59,7 +59,7 @@ describe('Hook', () => {
     expect(Hook.DEFAULTS).toEqual({ failure: 'continue', timeoutSeconds: 10 });
   });
 
-  it('refuses a plain http request unless it is sent from the team’s network', () => {
+  it('denies a plain http request unless it is sent from the team’s network', () => {
     expect(() =>
       Hook.of({
         key: HookKey.of('dba'),
@@ -82,11 +82,11 @@ describe('Hook', () => {
 
   describe('calling a tool', () => {
     it('may call a tool the team offers without asking anyone', () => {
-      expect(hook().refusalToCall(COMMENT, offered())).toBeNull();
+      expect(hook().callDenial(COMMENT, offered())).toBeNull();
     });
 
     it('may not call a tool no integration offers now', () => {
-      expect(hook().refusalToCall(COMMENT, null)).toMatchObject({
+      expect(hook().callDenial(COMMENT, null)).toMatchObject({
         code: 'not-allowed',
         reason:
           'names linear.comment, which no integration of the team offers now',
@@ -98,7 +98,7 @@ describe('Hook', () => {
         ApprovalNeeded.of({ because: 'it writes to customers' }, 'comment'),
       );
 
-      expect(hook().refusalToCall(COMMENT, asking)).toMatchObject({
+      expect(hook().callDenial(COMMENT, asking)).toMatchObject({
         code: 'not-allowed',
         reason:
           "calls linear.comment, which needs a person's approval before each call. A hook cannot give that approval",
@@ -109,13 +109,13 @@ describe('Hook', () => {
   describe('making a request', () => {
     it('may send over https', () => {
       expect(
-        hook().refusalToRequest('ask', new URL('https://dba.acme.dev')),
+        hook().requestDenial('ask', new URL('https://dba.acme.dev')),
       ).toBeNull();
     });
 
     it('may not send in the clear from Spotlight, once its url is written out', () => {
       expect(
-        hook().refusalToRequest('ask', new URL('http://dba.acme.dev')),
+        hook().requestDenial('ask', new URL('http://dba.acme.dev')),
       ).toMatchObject({
         code: 'not-allowed',
         reason: 'sends to http://dba.acme.dev, which is not https',
@@ -124,7 +124,7 @@ describe('Hook', () => {
 
     it('may send in the clear from the team’s own network', () => {
       expect(
-        hook().refusalToRequest('audit', new URL('http://audit.internal')),
+        hook().requestDenial('audit', new URL('http://audit.internal')),
       ).toBeNull();
     });
   });
@@ -132,31 +132,34 @@ describe('Hook', () => {
   describe('judging an event before it happens', () => {
     it('lets the next step go on after a step that did its work', () => {
       expect(
-        hook('block').verdictOn('ask', { refusal: null, failedBecause: null }),
+        hook('block').verdictOn('ask', {
+          denyReason: null,
+          failedBecause: null,
+        }),
       ).toBeNull();
     });
 
-    it('refuses what an endpoint refused', () => {
+    it('denies what an endpoint denied', () => {
       expect(
         hook().verdictOn('ask', {
-          refusal: 'the migration drops a column',
+          denyReason: 'the migration drops a column',
           failedBecause: null,
         }),
       ).toEqual(
-        HookVerdict.refused(
-          'Hook dba refused. Reason: the migration drops a column',
+        HookVerdict.denied(
+          'Hook dba denied the event. Reason: the migration drops a column',
         ),
       );
     });
 
-    it('refuses the event when a step fails and the hook blocks on failure', () => {
+    it('denies the event when a step fails and the hook blocks on failure', () => {
       expect(
         hook('block').verdictOn('ask', {
-          refusal: null,
+          denyReason: null,
           failedBecause: 'was answered 503',
         }),
       ).toEqual(
-        HookVerdict.refused(
+        HookVerdict.denied(
           'Hook dba failed at step ask and blocks on failure. Reason: was answered 503',
         ),
       );
@@ -165,7 +168,7 @@ describe('Hook', () => {
     it('lets the event go on when a step fails and the hook continues', () => {
       expect(
         hook('continue').verdictOn('ask', {
-          refusal: null,
+          denyReason: null,
           failedBecause: 'was answered 503',
         }),
       ).toEqual(HookVerdict.allowed());

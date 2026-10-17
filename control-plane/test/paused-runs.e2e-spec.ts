@@ -661,13 +661,13 @@ describe('a message in a run chat', () => {
       .send({ stationId: BACKLOG, revision: 0 })
       .expect(200);
 
-    const refused = await http()
+    const rejected = await http()
       .post(`/api/teams/${team.teamId.value}/runs/${runId}/say`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ body: 'Drain it after all.' })
       .expect(409);
 
-    expect(refused.body.message).toContain('has moved on from that station');
+    expect(rejected.body.message).toContain('has moved on from that station');
     expect((await taskRow(taskId))?.currentRunId).toBeNull();
   });
 });

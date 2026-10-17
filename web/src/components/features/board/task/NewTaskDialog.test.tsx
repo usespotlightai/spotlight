@@ -63,7 +63,7 @@ describe('NewTaskDialog', () => {
     expect(heading).toHaveTextContent('New task');
   });
 
-  it('refuses to create a task with no title', () => {
+  it('does not create a task with no title', () => {
     renderDialog();
 
     expect(create()).toBeDisabled();

@@ -136,7 +136,7 @@ describe('graphqlOperations', () => {
     );
   });
 
-  it('refuses what is not a GraphQL schema', () => {
+  it('rejects what is not a GraphQL schema', () => {
     expect(() => read('type {')).toThrow(/not a GraphQL schema/);
   });
 });

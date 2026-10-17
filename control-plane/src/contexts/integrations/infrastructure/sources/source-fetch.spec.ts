@@ -190,7 +190,7 @@ describe('SourceFetch', () => {
     );
   });
 
-  it('refuses a host the deployment does not allow before asking it anything', async () => {
+  it('blocks a host the deployment does not allow before asking it anything', async () => {
     const { fetching, fetch } = answering();
 
     await expect(
@@ -210,7 +210,7 @@ describe('SourceFetch', () => {
     );
   });
 
-  it('says a host refused the credentials apart from any other refusal', async () => {
+  it('says a host did not accept the credentials, apart from any other error', async () => {
     const { fetching } = answering(new Response('nope', { status: 401 }));
 
     await expect(fetching.text(GET, injection())).rejects.toBeInstanceOf(

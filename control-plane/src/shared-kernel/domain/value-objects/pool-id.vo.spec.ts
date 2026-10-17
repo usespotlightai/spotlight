@@ -3,7 +3,7 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('PoolId', () => {
-  it('refuses to name no pool', () => {
+  it('rejects a pool id that names no pool', () => {
     expect(() => PoolId.of('  ')).toThrow(InvalidIdentifierError);
   });
 

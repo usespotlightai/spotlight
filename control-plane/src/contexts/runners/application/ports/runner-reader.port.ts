@@ -27,7 +27,7 @@ interface HostImageSummary {
   readonly usual: boolean;
   readonly release: string | null;
   readonly harnesses: readonly HostHarnessSummary[];
-  readonly refused: string | null;
+  readonly unavailableReason: string | null;
 }
 
 export interface HostSummary {

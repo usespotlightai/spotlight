@@ -26,7 +26,7 @@ import { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
 import type { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
-import { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
+import { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import type { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
 import type { ReplayStackRecheckWanted } from '@replays/domain/events/replay-stack-recheck-wanted.event';
@@ -160,14 +160,16 @@ describe('DispatchReplayRuns', () => {
     ]);
   });
 
-  it('settles an entry Work refuses to queue, and moves on to the next', async () => {
+  it('settles an entry Work cannot queue, and moves on to the next', async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
-    work.refusing = { queued: false, refusal: 'archive-gone' };
+    work.unqueued = { queued: false, unreplayableReason: 'archive-gone' };
 
     await dispatching().workDue();
 
     expect(
-      memory.replays.get('replay_1')?.entries.map((each) => each.refusal),
+      memory.replays
+        .get('replay_1')
+        ?.entries.map((each) => each.unreplayableReason),
     ).toEqual(['archive-gone', 'archive-gone']);
     expect(memory.replays.get('replay_1')?.current).toBe('finished');
   });
@@ -262,7 +264,7 @@ describe('DispatchReplayRuns when Work fails', () => {
 
     expect(work.forgone.map((each) => each.keep)).toEqual([true, true]);
     const [first, second] = memory.replays.get('replay_1')?.entries ?? [];
-    expect(first?.refusal).toBe('dispatch-failed');
+    expect(first?.unreplayableReason).toBe('dispatch-failed');
     expect(second?.queued).toBe(true);
     expect(memory.replays.get('replay_1')?.occupying).toHaveLength(1);
   });
@@ -278,7 +280,7 @@ describe('DispatchReplayRuns without the candidate', () => {
 
     const replay = memory.replays.get('replay_1');
     expect(work.forgone.map((each) => each.keep)).toEqual([false]);
-    expect(replay?.entries[0]?.refusal).toBe('candidate-unfit');
+    expect(replay?.entries[0]?.unreplayableReason).toBe('candidate-unfit');
     expect(replay?.occupying).toEqual([]);
   });
 });
@@ -685,11 +687,11 @@ describe('scoring a replayed task', () => {
     await completed(run);
     await judging().failed(
       run,
-      'refused',
+      'request-failed',
       ModelSpent.of([Spend.of(0.01, 'USD')], 0),
     );
 
-    expect(entry()?.judging?.unjudged).toBe('refused');
+    expect(entry()?.judging?.unjudged).toBe('request-failed');
     expect(entry()?.succeeded).toBeNull();
   });
 });
@@ -779,18 +781,18 @@ describe('probing a set', () => {
     outcomes.againAnswer = 'unavailable';
 
     const [first] = wanted<ReplayRejudgingWanted>('replay.rejudging-wanted');
-    const [refused] = await new AskForReplayRejudging(outcomes).wanted(
+    const [failed] = await new AskForReplayRejudging(outcomes).wanted(
       first as ReplayRejudgingWanted,
     );
 
-    expect(refused).toBeInstanceOf(ReplayRejudgingRefused);
+    expect(failed).toBeInstanceOf(ReplayRejudgingFailed);
     expect(entries()[0]?.secondJudging?.pending).toBe(true);
 
     await new NoteReplayJudged(
       memory.replayRepository,
       TRANSACTION,
       CLOCK,
-    ).rejudgingRefused(refused as ReplayRejudgingRefused);
+    ).rejudgingAskFailed(failed as ReplayRejudgingFailed);
 
     expect(entries()[0]?.secondJudging?.unjudged).toBe('unavailable');
     expect(entries()[1]?.secondJudging?.pending).toBe(true);
@@ -818,14 +820,14 @@ describe('probing a set', () => {
     });
     await judging.rejudgingFailed(
       'probe_run_1',
-      'refused',
+      'request-failed',
       ModelSpent.of([], 0),
     );
 
     const replay = memory.replays.get('replay_probe');
 
     expect(entries().map((each) => each.judgeAgreed)).toEqual([false, null]);
-    expect(entries()[1]?.secondJudging?.unjudged).toBe('refused');
+    expect(entries()[1]?.secondJudging?.unjudged).toBe('request-failed');
     expect(entries()[0]?.succeeded).toBe(true);
     expect(replay?.spent.amount).toBeCloseTo(2);
     expect(replay?.charged.amount).toBeCloseTo(2.02);

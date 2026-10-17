@@ -2,8 +2,8 @@ import type { ConnectionWantedDto } from '@work/application/ports/integration-to
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 
 const unmet = (wanted: ConnectionWantedDto): string =>
-  wanted.because === 'renewal-refused'
-    ? `${wanted.integration} refused to renew your connection, so it has to be made again`
+  wanted.because === 'refresh-failed'
+    ? `${wanted.integration} could not renew your connection, so it has to be made again`
     : `you haven’t connected ${wanted.integration} yet`;
 
 export const ConnectionAsked = {
@@ -18,14 +18,14 @@ export const ConnectionAsked = {
     return `this task is already waiting on someone, so nobody can be asked to connect ${wanted.integration} until they answer`;
   },
 
-  refusal(wanted: ConnectionWantedDto): string {
+  denial(wanted: ConnectionWantedDto): string {
     switch (wanted.because) {
       case 'no-requester':
         return `nobody started this task, so there is nobody whose ${wanted.integration} connection it could act with`;
       case 'not-a-member':
         return `the person who started this task is no longer on the team, so it cannot act with their ${wanted.integration} connection`;
-      case 'renewal-refused':
-        return `${wanted.integration} refused to renew the connection of the person who started this task`;
+      case 'refresh-failed':
+        return `${wanted.integration} could not renew the connection of the person who started this task`;
       case 'not-connected':
         return `the person who started this task hasn’t connected ${wanted.integration}`;
     }

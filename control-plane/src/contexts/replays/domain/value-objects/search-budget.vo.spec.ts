@@ -48,7 +48,7 @@ const everyBudget = function* () {
   }
 };
 
-const allottedOrRefused = (budget: SearchBudget, split: HeldOutSplit) => {
+const allottedOrRejected = (budget: SearchBudget, split: HeldOutSplit) => {
   try {
     return budget.allot(split);
   } catch (error) {
@@ -66,7 +66,7 @@ describe('SearchBudget', () => {
       MAX_CONCURRENCY,
     );
 
-    for (const refused of [
+    for (const invalid of [
       { iterations: 0 },
       { iterations: MAX_ITERATIONS + 1 },
       { iterations: 1.5 },
@@ -76,7 +76,7 @@ describe('SearchBudget', () => {
       { repeats: 6 },
       { repeats: 1.5 },
     ]) {
-      expect(() => aBudget(refused)).toThrow(InvalidSearchError);
+      expect(() => aBudget(invalid)).toThrow(InvalidSearchError);
     }
     expect(() =>
       SearchBudget.of({
@@ -128,7 +128,7 @@ describe('SearchBudget', () => {
     let checked = 0;
 
     for (const { budget, split } of everyBudget()) {
-      const allotted = allottedOrRefused(budget, split);
+      const allotted = allottedOrRejected(budget, split);
 
       if (!allotted) {
         continue;
@@ -164,7 +164,7 @@ describe('SearchBudget', () => {
 
   it('runs every iteration it was given when each replay overshoots by no more than its margin', () => {
     for (const { budget, split } of everyBudget()) {
-      const allotted = allottedOrRefused(budget, split);
+      const allotted = allottedOrRejected(budget, split);
 
       if (!allotted) {
         continue;
@@ -199,7 +199,7 @@ describe('SearchBudget', () => {
     expect(budget.allowsIteration(overspent, split)).toBe(false);
   });
 
-  it('refuses a ceiling too low to give each replay run a cent', () => {
+  it('rejects a ceiling too low to give each replay run a cent', () => {
     expect(() =>
       aBudget({ iterations: 10, perIteration: 5, ceiling: 1 }).allot(
         splitOf(50),

@@ -25,7 +25,7 @@ const readFolder = (
 ): Read => {
   const within = `${SKILLS_UNDER}/${name}/`;
   const main = files.find((each) => each.path === `${within}${SKILL_FILE}`);
-  const refused = (reason: string): Read => ({
+  const invalid = (reason: string): Read => ({
     problem: ConfigurationProblem.of({
       path: main?.path ?? (files[0] as ConfigurationFile).path,
       at: FieldPath.root(),
@@ -46,12 +46,12 @@ const readFolder = (
     };
   } catch (error) {
     if (error instanceof InvalidIdentifierError) {
-      return refused(
+      return invalid(
         `is defined in a folder named ${JSON.stringify(name)}. Please name the folder in lowercase words joined by dashes, as in our-migrations`,
       );
     }
     if (error instanceof InvalidSkillError) {
-      return refused(error.message);
+      return invalid(error.message);
     }
     throw error;
   }

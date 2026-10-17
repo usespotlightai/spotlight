@@ -5,7 +5,7 @@ import type {
 } from '@github/application/ports/pull-request-comments.port';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 const API = 'https://api.github.com';
 
@@ -56,7 +56,7 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
         });
 
     if (!response.ok) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'commenting on a pull request',
         `GitHub answered ${response.status}`,
       );
@@ -83,7 +83,7 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
     );
 
     if (!response.ok && response.status !== 404) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'withdrawing a comment from a pull request',
         `GitHub answered ${response.status}`,
       );
@@ -103,7 +103,7 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
       );
 
       if (!response.ok) {
-        throw new UpstreamRefusedError(
+        throw new UpstreamError(
           'reading a pull request’s comments',
           `GitHub answered ${response.status}`,
         );

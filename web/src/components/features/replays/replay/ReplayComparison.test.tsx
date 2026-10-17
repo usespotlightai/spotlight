@@ -13,7 +13,7 @@ const entry = (over: Partial<ReplayEntry> = {}): ReplayEntry => ({
   fingerprint: null,
   phase: 'settled',
   ending: 'completed',
-  refusal: null,
+  unreplayableReason: null,
   failure: null,
   next: null,
   ms: 60_000,

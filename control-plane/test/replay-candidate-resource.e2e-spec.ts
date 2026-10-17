@@ -226,15 +226,15 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     await fixture.close();
   });
 
-  it('is proposed by a token that may plan, refused to one that may only read, and unseen from another workspace', async () => {
+  it('is proposed by a token that may plan, forbidden to one that may only read, and unseen from another workspace', async () => {
     const planner = await fixture.tokenWith(['plan']);
     const reader = await fixture.tokenWith(['read']);
     const body = proposal(fixture.live, 'Planned', 'Build it, planned.');
 
-    const refused = await bearing(reader).post(fixture.collection, body);
+    const forbidden = await bearing(reader).post(fixture.collection, body);
 
-    expect(refused.status).toBe(403);
-    expect(refused.body).toMatchObject({
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body).toMatchObject({
       type: 'urn:spotlight:problem:forbidden',
       permission: 'plan',
     });
@@ -304,8 +304,8 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     });
   });
 
-  it('refuses what the line resource would, field by field under station, and a candidate with no name', async () => {
-    const refused = async (body: object) => {
+  it('rejects what the line resource would, field by field under station, and a candidate with no name', async () => {
+    const rejectedPaths = async (body: object) => {
       const answer = await owner().post(fixture.collection, body);
 
       expect(answer.status).toBe(422);
@@ -315,7 +315,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     };
 
     expect(
-      await refused({
+      await rejectedPaths({
         name: 'Blank judge',
         station: {
           ...fixture.live,
@@ -324,7 +324,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       }),
     ).toContain('station.judge.rubric');
     expect(
-      await refused({
+      await rejectedPaths({
         name: 'Unreadable judge',
         station: {
           ...fixture.live,
@@ -337,22 +337,24 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       }),
     ).toContain('station.judge.rubric');
     expect(
-      await refused({
+      await rejectedPaths({
         name: 'Elsewhere',
         station: { ...fixture.live, key: 'ship' },
       }),
     ).toContain('station.key');
     expect(
-      await refused({
+      await rejectedPaths({
         name: 'Nowhere',
         station: { ...fixture.live, passesTo: ['nowhere'] },
       }),
     ).toContain('station.passesTo');
-    expect(await refused({ station: fixture.live })).toEqual(['name']);
+    expect(await rejectedPaths({ station: fixture.live })).toEqual(['name']);
     for (const name of ['Live config, 2026-10-02', ' Padded', 'a/b']) {
-      expect(await refused({ name, station: fixture.live })).toEqual(['name']);
+      expect(await rejectedPaths({ name, station: fixture.live })).toEqual([
+        'name',
+      ]);
     }
-    expect(await refused({ name: 'Blockless' })).toContain('station');
+    expect(await rejectedPaths({ name: 'Blockless' })).toContain('station');
 
     expect(
       (
@@ -364,7 +366,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     ).toBe(404);
   });
 
-  it('lists and imports only proposed candidates, of one station when asked, and refuses a station or address that is none', async () => {
+  it('lists and imports only proposed candidates, of one station when asked, and rejects a station or address that is none', async () => {
     const made = await proposed('Listed', 'Build it, listed.');
     const live = randomUUID();
 
@@ -413,10 +415,10 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       'team/delivery/build',
       'team/delivery/build/a/b',
     ]) {
-      const refused = await owner().get(fixture.importing(malformed));
+      const rejected = await owner().get(fixture.importing(malformed));
 
-      expect(refused.status).toBe(422);
-      expect(refused.headers['content-type']).toContain(
+      expect(rejected.status).toBe(422);
+      expect(rejected.headers['content-type']).toContain(
         'application/problem+json',
       );
     }
@@ -464,10 +466,10 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       startedAt: new Date(),
     });
 
-    const refused = await owner().delete(fixture.item(made.id), made.version);
+    const rejected = await owner().delete(fixture.item(made.id), made.version);
 
-    expect(refused.status).toBe(409);
-    expect(refused.body).toMatchObject({
+    expect(rejected.status).toBe(409);
+    expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
     });
 

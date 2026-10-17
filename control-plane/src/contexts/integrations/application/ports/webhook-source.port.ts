@@ -22,7 +22,7 @@ export interface HappeningDeclaration {
   readonly spoken: boolean;
 }
 
-// Throw UpstreamRefusedError for a recognised delivery that cannot be placed yet, so the host resends it.
+// Throw UpstreamError for a recognised delivery that cannot be placed yet, so the host resends it.
 export interface WebhookSourcePort {
   readonly key: string;
 

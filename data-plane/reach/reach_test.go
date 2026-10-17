@@ -52,7 +52,7 @@ func TestAddsTheHostsEveryRunMustReach(t *testing.T) {
 	}
 }
 
-func TestRefusesWhatIsNotAHostOrAPattern(t *testing.T) {
+func TestRejectsWhatIsNotAHostOrAPattern(t *testing.T) {
 	for _, entry := range []string{"*", "*.com", "api.*.com", "https://api.example.com", "api.example.com:443", "a b"} {
 		if _, err := Parse([]string{entry}); err == nil {
 			t.Errorf("%q was taken", entry)

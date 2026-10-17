@@ -2,7 +2,7 @@ import type { Reach } from '@integrations/application/ports/integration-runtime.
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
-import { McpAuthorizationRefused } from '@integrations/infrastructure/mcp/mcp-failures';
+import { McpUnauthorizedError } from '@integrations/infrastructure/mcp/mcp-failures';
 import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { McpSourceReader } from '@integrations/infrastructure/sources/mcp/mcp-source-reader';
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -21,7 +21,7 @@ const REACH: Reach = {
     token: AccessToken.of('the-token'),
     holder: ConnectionHolder.team(),
     handle: null,
-    refused: async () => null,
+    unauthorized: async () => null,
   },
   credentials: { injectedFor: vi.fn() },
 };
@@ -85,11 +85,11 @@ describe('McpSourceReader', () => {
     });
   });
 
-  it('renews the team’s connection once when the server refuses it, and lists with the new token', async () => {
-    const refused = vi.fn(async () => AccessToken.of('fresh'));
+  it('renews the team’s connection once when the server does not accept it, and lists with the new token', async () => {
+    const unauthorized = vi.fn(async () => AccessToken.of('fresh'));
     const tools = vi
       .fn()
-      .mockRejectedValueOnce(new McpAuthorizationRefused(SOURCE.url ?? ''))
+      .mockRejectedValueOnce(new McpUnauthorizedError(SOURCE.url ?? ''))
       .mockResolvedValueOnce([tool('one')]);
     const read = await new McpSourceReader({
       tools,
@@ -99,12 +99,12 @@ describe('McpSourceReader', () => {
         token: AccessToken.of('stale'),
         holder: ConnectionHolder.team(),
         handle: null,
-        refused,
+        unauthorized,
       },
     });
 
     expect(read.kind).toBe('read');
-    expect(refused).toHaveBeenCalledOnce();
+    expect(unauthorized).toHaveBeenCalledOnce();
     expect(tools.mock.calls.map((call) => call[1].connection)).toEqual([
       'stale',
       'fresh',

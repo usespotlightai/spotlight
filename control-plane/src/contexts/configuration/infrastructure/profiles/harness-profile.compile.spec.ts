@@ -23,7 +23,7 @@ const DROPPED = reviewed({
 });
 
 describe('HarnessProfileCompiler', () => {
-  it('refuses a profile a harness cannot take when it is written', () => {
+  it('rejects a profile a harness cannot take when it is written', () => {
     const compiled = DROPPED.compile(DOCUMENT);
 
     expect(compiled.ok).toBe(false);
@@ -43,7 +43,7 @@ describe('HarnessProfileCompiler', () => {
     });
   });
 
-  it('refuses a shape that does not read, whichever way it is read', () => {
+  it('rejects a shape that does not read, whichever way it is read', () => {
     const shapeless = { key: 'careful', permissions: { maybe: [] } };
 
     expect(DROPPED.read(shapeless).ok).toBe(false);

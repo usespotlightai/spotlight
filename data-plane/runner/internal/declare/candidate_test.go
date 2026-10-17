@@ -93,8 +93,8 @@ func TestRelaysTheFieldErrorsSpotlightFoundWithACandidate(t *testing.T) {
 	if status != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d: %s", status, body)
 	}
-	var refused protocol.FieldErrors
-	if err := json.Unmarshal([]byte(body), &refused); err != nil {
+	var invalid protocol.FieldErrors
+	if err := json.Unmarshal([]byte(body), &invalid); err != nil {
 		t.Fatalf("body %s: %v", body, err)
 	}
 	want := []protocol.FieldError{
@@ -102,12 +102,12 @@ func TestRelaysTheFieldErrorsSpotlightFoundWithACandidate(t *testing.T) {
 		{Path: "station.effort", Message: "effort is one of low, medium, high", Severity: "error"},
 		{Path: "station.prompt", Message: "the prompt is long", Severity: "warning"},
 	}
-	if !slices.Equal(refused.Errors, want) {
-		t.Errorf("relayed %+v", refused.Errors)
+	if !slices.Equal(invalid.Errors, want) {
+		t.Errorf("relayed %+v", invalid.Errors)
 	}
 }
 
-func TestWarningsAloneAreNoFieldRefusal(t *testing.T) {
+func TestWarningsAloneAreNoFieldErrors(t *testing.T) {
 	server, _ := proposing(t, http.StatusUnprocessableEntity, `{"status":422,"title":"The candidate is not valid",
 		"detail":"station.prompt: the prompt is long",
 		"errors":[{"path":"station.prompt","message":"the prompt is long","severity":"warning"}]}`)
@@ -147,7 +147,7 @@ func TestSaysWhenTheRunIsNoLongerTheActiveRunOfTheSearch(t *testing.T) {
 	}
 }
 
-func TestRefusesACandidateWithoutANameAHypothesisOrAStationObject(t *testing.T) {
+func TestRejectsACandidateWithoutANameAHypothesisOrAStationObject(t *testing.T) {
 	server, seen := proposing(t, http.StatusCreated, `{}`)
 
 	for _, body := range []string{
@@ -184,7 +184,7 @@ func TestSaysWhenTheRunCannotProposeACandidate(t *testing.T) {
 	}
 }
 
-func TestSaysWhySpotlightRefusedAnAnswer(t *testing.T) {
+func TestSaysWhySpotlightRejectedAnAnswer(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/problem+json")
 		w.WriteHeader(http.StatusNotFound)

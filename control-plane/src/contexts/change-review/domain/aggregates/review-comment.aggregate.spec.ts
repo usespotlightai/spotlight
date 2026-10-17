@@ -34,7 +34,7 @@ const drafted = (body = 'Should this expire?') =>
   });
 
 describe('ReviewAnchor', () => {
-  it('refuses a line that is not a line, on a file with no path', () => {
+  it('rejects a line that is not a line, on a file with no path', () => {
     expect(() =>
       ReviewAnchor.onLines({ path: 'a.ts', side: 'new', line: 0 }),
     ).toThrow(InvalidReviewError);
@@ -57,7 +57,7 @@ describe('ReviewComment', () => {
     expect(comment.visibleTo(BOB)).toBe(false);
   });
 
-  it('refuses a comment that says nothing', () => {
+  it('rejects a comment that says nothing', () => {
     expect(() => drafted('   ')).toThrow(InvalidReviewError);
   });
 
@@ -240,7 +240,7 @@ describe('ReviewComment', () => {
     expect(drafted().echoes(ANCHOR, drafted().body)).toBe(false);
   });
 
-  it('refuses a reply to a draft', () => {
+  it('rejects a reply to a draft', () => {
     expect(() =>
       drafted().replied({
         id: ReviewCommentId.of('comment_2'),
@@ -362,7 +362,7 @@ describe('ReviewComment', () => {
     expect(withdrawn.sending).toBe(false);
   });
 
-  it('refuses a reply to a comment that never reached GitHub', () => {
+  it('rejects a reply to a comment that never reached GitHub', () => {
     const failed = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 42, url: 'https://github.com/c/42' })
@@ -448,7 +448,7 @@ describe('ReviewAnchor across lines', () => {
     expect(anchor.equals(ReviewAnchor.onFile('src/a.ts'))).toBe(true);
   });
 
-  it('refuses a range that starts after it ends', () => {
+  it('rejects a range that starts after it ends', () => {
     expect(() =>
       ReviewAnchor.onLines({
         path: 'src/a.ts',

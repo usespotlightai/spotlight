@@ -7,7 +7,7 @@ describe('ArchiveDigest', () => {
     expect(ArchiveDigest.of('AB'.repeat(32)).sha256).toBe('ab'.repeat(32));
   });
 
-  it.each(['', 'ab', 'g'.repeat(64), 'a'.repeat(65)])('refuses %o', (raw) => {
+  it.each(['', 'ab', 'g'.repeat(64), 'a'.repeat(65)])('rejects %o', (raw) => {
     expect(() => ArchiveDigest.of(raw)).toThrow(InvalidWorkspaceArchiveError);
   });
 });

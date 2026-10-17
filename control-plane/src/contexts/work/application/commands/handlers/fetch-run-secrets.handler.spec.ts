@@ -176,12 +176,12 @@ describe('FetchRunSecretsHandler', () => {
     ]);
   });
 
-  it('refuses a token that admits no egress', async () => {
+  it('rejects a token that admits no egress', async () => {
     const { handler, asked } = fetching(LEASED_RUN);
 
     await expect(
       handler.execute(new FetchRunSecretsCommand('other', 'recipient-key')),
-    ).resolves.toEqual({ outcome: 'refused' });
+    ).resolves.toEqual({ outcome: 'unauthorized' });
     expect(asked).toEqual([]);
   });
 
@@ -357,7 +357,7 @@ describe('FetchSharedRunSecretsHandler', () => {
     ]);
   });
 
-  it('refuses an unknown egress token, or a proxy credential that admits no runner', async () => {
+  it('rejects an unknown egress token, or a proxy credential that admits no runner', async () => {
     for (const [token, credential] of [
       ['other', 'proxy-credential'],
       ['shared-token', 'another-credential'],
@@ -373,7 +373,7 @@ describe('FetchSharedRunSecretsHandler', () => {
         through.execute(
           new FetchSharedRunSecretsCommand(token, credential, 'node-key'),
         ),
-      ).resolves.toEqual({ outcome: 'refused' });
+      ).resolves.toEqual({ outcome: 'unauthorized' });
       expect(asked).toEqual([]);
     }
   });
@@ -449,6 +449,6 @@ describe('FetchSharedRunSecretsHandler', () => {
           'node-key',
         ),
       ),
-    ).resolves.toEqual({ outcome: 'refused' });
+    ).resolves.toEqual({ outcome: 'unauthorized' });
   });
 });

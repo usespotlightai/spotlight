@@ -20,7 +20,7 @@ describe('ContinuityKey', () => {
     );
   });
 
-  it('refuses a key that names nothing', () => {
+  it('rejects a key that names nothing', () => {
     expect(() => ContinuityKey.of('  ')).toThrow();
   });
 });

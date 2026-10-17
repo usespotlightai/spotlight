@@ -30,7 +30,7 @@ if (!shared[OVERLAPS]) {
   } as Client['query'];
 }
 
-// pg@9 refuses a query while the client runs another; inside a transaction every query shares one client.
+// pg@9 rejects a query while the client runs another; inside a transaction every query shares one client.
 afterEach(() => {
   const taken = shared[OVERLAPS]?.splice(0) ?? [];
 

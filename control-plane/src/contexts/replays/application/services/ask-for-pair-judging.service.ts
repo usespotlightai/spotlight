@@ -1,7 +1,7 @@
 import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
 import { PAIR_ATTEMPTS } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
-import { ReplayPairingRefused } from '@replays/domain/events/replay-pairing-refused.event';
+import { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -35,7 +35,7 @@ export class AskForPairJudging {
     return asked === 'asked'
       ? []
       : [
-          new ReplayPairingRefused(
+          new ReplayPairingFailed(
             event.replayId,
             event.workspaceId,
             event.run,

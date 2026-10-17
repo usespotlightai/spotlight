@@ -20,12 +20,12 @@ type HostClaim struct {
 }
 
 type HostImage struct {
-	Image     string          `json:"image"`
-	Digest    string          `json:"digest,omitempty"`
-	Usual     bool            `json:"usual"`
-	Release   string          `json:"release,omitempty"`
-	Harnesses []HarnessReport `json:"harnesses"`
-	Refused   string          `json:"refused,omitempty"`
+	Image             string          `json:"image"`
+	Digest            string          `json:"digest,omitempty"`
+	Usual             bool            `json:"usual"`
+	Release           string          `json:"release,omitempty"`
+	Harnesses         []HarnessReport `json:"harnesses"`
+	UnavailableReason string          `json:"unavailableReason,omitempty"`
 }
 
 type HostPresence struct {

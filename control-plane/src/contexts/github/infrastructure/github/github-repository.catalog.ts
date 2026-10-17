@@ -7,7 +7,7 @@ import type {
   RepositorySummary,
 } from '@github/application/ports/repository-catalog.port';
 import { Inject, Injectable } from '@nestjs/common';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const API = 'https://api.github.com';
@@ -63,7 +63,7 @@ export class GitHubRepositoryCatalog implements RepositoryCatalogPort {
     );
 
     if (!response.ok) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'GitHub would not list the repositories',
         `${response.status}`,
       );

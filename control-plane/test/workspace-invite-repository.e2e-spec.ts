@@ -185,7 +185,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     ).toEqual(['team_1']);
   });
 
-  it('refuses a second open invite to the same address', async () => {
+  it('rejects a second open invite to the same address', async () => {
     await invites.add(offered());
 
     await expect(invites.add(offered())).rejects.toThrow(AlreadyInvitedError);
@@ -215,7 +215,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     ).toEqual(['team_1']);
   });
 
-  it('refuses a revoke read before the invite was accepted, and records nothing for it', async () => {
+  it('rejects a revoke read before the invite was accepted, and records nothing for it', async () => {
     const invite = offered();
     await invites.add(invite);
     recorded.length = 0;

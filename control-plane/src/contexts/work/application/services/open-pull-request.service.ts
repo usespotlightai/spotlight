@@ -9,7 +9,7 @@ import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port'
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import { takeTaskMarks } from '@work/application/services/task-marks';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { PullRequestHookRefusedError } from '@work/domain/exceptions/pull-request-hook-refused.error';
+import { PullRequestHookDeniedError } from '@work/domain/exceptions/pull-request-hook-denied.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -77,8 +77,8 @@ export class OpenPullRequest {
         ),
       });
 
-      if (verdict.kind === 'refused') {
-        throw new PullRequestHookRefusedError(verdict.reason);
+      if (verdict.kind === 'denied') {
+        throw new PullRequestHookDeniedError(verdict.reason);
       }
     }
 

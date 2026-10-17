@@ -58,14 +58,14 @@ describe('drafting decisions through OpenRouter', () => {
     expect(told).toContain('[7] said: Retrying once for now.');
   });
 
-  it('refuses to draft without a key', async () => {
+  it('does not draft without a key', async () => {
     const drafter = new OpenRouterDecisionDrafter(undefined, 'some/model');
 
     expect(drafter.available).toBe(false);
     await expect(drafter.draft(REASONED)).rejects.toThrow('No OpenRouter');
   });
 
-  it('refuses a draft the model stopped early', async () => {
+  it('rejects a draft the model stopped early', async () => {
     const { fetch } = answering(200, {
       choices: [{ finish_reason: 'length', message: { content: '{' } }],
     });

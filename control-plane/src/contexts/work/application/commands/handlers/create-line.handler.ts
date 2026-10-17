@@ -18,7 +18,7 @@ import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo
 import type { CreateLineCommand } from '@work/application/commands/create-line.command';
 import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
-import { lineRefusal } from '@work/application/services/line-refusals';
+import { lineRejection } from '@work/application/services/line-rejections';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
 import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
 
@@ -61,13 +61,13 @@ export class CreateLineHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const refused = await this.catalog.refusedIn(
+      const denied = await this.catalog.deniedIn(
         team.workspaceId,
         compiled.line,
       );
 
-      if (refused.length > 0) {
-        return { outcome: 'invalid', problems: refused };
+      if (denied.length > 0) {
+        return { outcome: 'invalid', problems: denied };
       }
 
       const key = compiled.line.key.value;
@@ -104,10 +104,10 @@ export class CreateLineHandler
           };
         }
 
-        const refused = lineRefusal(key, error);
+        const rejected = lineRejection(key, error);
 
-        if (refused?.outcome === 'invalid') {
-          return refused;
+        if (rejected?.outcome === 'invalid') {
+          return rejected;
         }
 
         throw error;

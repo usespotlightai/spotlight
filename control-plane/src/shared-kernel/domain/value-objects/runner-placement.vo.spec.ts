@@ -99,7 +99,7 @@ describe('RunnerPlacement', () => {
     expect(both.clauses).toEqual([['gpu'], ['vpc-a']]);
   });
 
-  it('refuses to honour placements asking for different images', () => {
+  it('does not honour placements asking for different images', () => {
     expect(() =>
       RunnerPlacement.every([
         RunnerPlacement.anywhere().in(widgets),
@@ -133,7 +133,7 @@ describe('RunnerPlacement', () => {
     );
   });
 
-  it('refuses a selector no label could be', () => {
+  it('rejects a selector no label could be', () => {
     for (const unlabelled of ['GPU', 'vpc internal', 'claude-code@2.1.270']) {
       expect(() => RunnerPlacement.of([unlabelled])).toThrow(
         InvalidRunnerPlacementError,
@@ -141,7 +141,7 @@ describe('RunnerPlacement', () => {
     }
   });
 
-  it('refuses an empty or repeated selector', () => {
+  it('rejects an empty or repeated selector', () => {
     expect(() => RunnerPlacement.of([' '])).toThrow(
       InvalidRunnerPlacementError,
     );
@@ -159,7 +159,7 @@ describe('RunnerTerms', () => {
     ]);
   });
 
-  it('refuses an empty term', () => {
+  it('rejects an empty term', () => {
     expect(() => answering('build-1', ' ')).toThrow(
       InvalidRunnerPlacementError,
     );

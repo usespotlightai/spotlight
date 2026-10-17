@@ -44,10 +44,10 @@ const nameOf = (written: unknown): Named => {
   }
 };
 
-class ProposalRefusedError extends Error {
+class ProposalRejectedError extends Error {
   constructor(readonly problems: readonly ConfigurationProblem[]) {
     super('Candidate proposal is invalid.');
-    this.name = 'ProposalRefusedError';
+    this.name = 'ProposalRejectedError';
   }
 }
 
@@ -125,7 +125,7 @@ export class ProposeCandidateHandler
               }
 
               if (!named.ok || !examined.ok) {
-                throw new ProposalRefusedError([
+                throw new ProposalRejectedError([
                   ...(named.ok ? [] : [CandidateProblems.name(named.reason)]),
                   ...(examined.ok ? [] : examined.problems),
                 ]);
@@ -155,7 +155,7 @@ export class ProposeCandidateHandler
         if (error instanceof CandidateNameTakenError) {
           return { outcome: 'taken', address: error.address };
         }
-        if (error instanceof ProposalRefusedError) {
+        if (error instanceof ProposalRejectedError) {
           return { outcome: 'invalid', problems: error.problems };
         }
 

@@ -74,7 +74,7 @@ describe('writing a task somebody else has written', () => {
     await expect(tasks.save(settled(one))).resolves.toBeUndefined();
   });
 
-  it('refuses the second, rather than laying it over the first', async () => {
+  it('rejects the second, rather than laying it over the first', async () => {
     const { one, other } = await opened();
 
     await tasks.save(withCurrentRun(one, RunId.of(randomUUID())));
@@ -114,7 +114,7 @@ describe('writing a task somebody else has written', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('refuses a second write from the same reading', async () => {
+  it('rejects a second write from the same reading', async () => {
     const { one } = await opened();
 
     await tasks.save(settled(one));
@@ -215,12 +215,12 @@ describe('a person moving a task by hand', () => {
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ stationId, revision: 0 });
 
-  it('refuses a move from one work station to another, saying why', async () => {
+  it('denies a move from one work station to another, saying why', async () => {
     const taskId = await taskAt(BUILD);
 
-    const refused = await moving(taskId, SHIP).expect(422);
+    const denied = await moving(taskId, SHIP).expect(422);
 
-    expect(refused.body.message).toContain('from Build to Ship');
+    expect(denied.body.message).toContain('from Build to Ship');
     expect(
       (await app.get(DrizzleTaskRepository).find(TaskId.of(taskId)))?.stationId
         .value,

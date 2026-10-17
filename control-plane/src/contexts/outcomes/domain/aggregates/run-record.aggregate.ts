@@ -188,7 +188,7 @@ export class RunRecord extends EventRecorder {
       return this;
     }
 
-    this.refuseAnotherTask(end.place.taskId);
+    this.assertSameTask(end.place.taskId);
 
     const ended = this.with({ end, taskId: end.place.taskId });
     ended.record(new RunRecordEnded(this.runId, this.workspaceId, end.place));
@@ -250,7 +250,7 @@ export class RunRecord extends EventRecorder {
     return this.handedOn ? this : this.with({ handedOn });
   }
 
-  private refuseAnotherTask(taskId: TaskId): void {
+  private assertSameTask(taskId: TaskId): void {
     if (this.taskId && !this.taskId.equals(taskId)) {
       throw new InvalidOutcomeError('must end on its own task');
     }

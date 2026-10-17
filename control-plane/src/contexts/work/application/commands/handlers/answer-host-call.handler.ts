@@ -49,7 +49,7 @@ export class AnswerHostCallHandler
       const admitted = await this.admissions.admit(command.credential);
 
       if (!admitted) {
-        return { outcome: 'refused' };
+        return { outcome: 'unauthorized' };
       }
 
       const call = await this.calls.find(NetworkCallId.of(command.callId));

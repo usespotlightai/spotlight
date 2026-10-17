@@ -23,7 +23,7 @@ describe('DefinitionDocument', () => {
     expect(Object.isFrozen(document.fields.stations)).toBe(true);
   });
 
-  it('refuses what is not a document of fields', () => {
+  it('rejects what is not a document of fields', () => {
     expect(() => DefinitionDocument.of('delivery')).toThrow(/document/);
     expect(() => DefinitionDocument.of([])).toThrow(/document/);
     expect(() => DefinitionDocument.of(null)).toThrow(/document/);

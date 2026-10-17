@@ -97,11 +97,11 @@ describe('CreateWorkspaceHandler', () => {
 
   it('says what is wrong, and opens nothing', async () => {
     const { create, kept } = creating();
-    const refused = await create({ name: 'Acme' });
+    const rejected = await create({ name: 'Acme' });
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['slug']);
     expect(kept.add).not.toHaveBeenCalled();
   });
@@ -144,14 +144,14 @@ describe('UpdateWorkspaceHandler', () => {
   });
 
   it('points at the slug when asked to move it', async () => {
-    const refused = await updating().update({
+    const rejected = await updating().update({
       name: 'Acme',
       slug: 'elsewhere',
     });
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['slug']);
   });
 
@@ -162,7 +162,7 @@ describe('UpdateWorkspaceHandler', () => {
     });
     expect(
       await updating({
-        refusing: new WorkspaceVersionConflictError('acme'),
+        throwing: new WorkspaceVersionConflictError('acme'),
         thenAt: workspaceAt(4),
       }).update(ACME),
     ).toEqual({ outcome: 'version-conflict', currentVersion: 4 });

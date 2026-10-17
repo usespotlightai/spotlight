@@ -284,23 +284,23 @@ const problemIn = (
   value: JsonValue,
   at: FieldPath,
 ): InputProblem | null => {
-  const refuse = (why: string): InputProblem => ({ at, why });
+  const invalid = (why: string): InputProblem => ({ at, why });
 
   if ('const' in node && !sameJson(node.const as JsonValue, value)) {
-    return refuse(`is not ${shown(node.const as JsonValue)}`);
+    return invalid(`is not ${shown(node.const as JsonValue)}`);
   }
 
   if (
     Array.isArray(node.enum) &&
     !node.enum.some((each) => sameJson(each, value))
   ) {
-    return refuse(`is not one of ${node.enum.map(shown).join(', ')}`);
+    return invalid(`is not one of ${node.enum.map(shown).join(', ')}`);
   }
 
   const types = typesOf(node);
 
   if (types.length > 0 && !types.some((each) => isOfType(each, value))) {
-    return refuse(
+    return invalid(
       `is not ${types.map((each) => TYPE_WORDS[each]).join(' or ')}`,
     );
   }
@@ -309,21 +309,21 @@ const problemIn = (
     const length = lengthOf(value);
 
     if (typeof node.minLength === 'number' && length < node.minLength) {
-      return refuse(`is shorter than ${node.minLength} characters`);
+      return invalid(`is shorter than ${node.minLength} characters`);
     }
 
     if (typeof node.maxLength === 'number' && length > node.maxLength) {
-      return refuse(`is longer than ${node.maxLength} characters`);
+      return invalid(`is longer than ${node.maxLength} characters`);
     }
   }
 
   if (typeof value === 'number') {
     if (typeof node.minimum === 'number' && value < node.minimum) {
-      return refuse(`is less than ${node.minimum}`);
+      return invalid(`is less than ${node.minimum}`);
     }
 
     if (typeof node.maximum === 'number' && value > node.maximum) {
-      return refuse(`is more than ${node.maximum}`);
+      return invalid(`is more than ${node.maximum}`);
     }
   }
 
@@ -346,7 +346,7 @@ const problemIn = (
     );
 
     if (typeof missing === 'string') {
-      return refuse(`needs ${missing}`);
+      return invalid(`needs ${missing}`);
     }
 
     for (const [field, each] of Object.entries(value)) {
@@ -358,7 +358,7 @@ const problemIn = (
           return found;
         }
       } else if (node.additionalProperties === false) {
-        return refuse(`takes no ${field}`);
+        return invalid(`takes no ${field}`);
       }
     }
   }
@@ -372,7 +372,7 @@ const problemIn = (
         (each) => isJsonObject(each) && problemIn(each, value, at) === null,
       )
     ) {
-      return refuse('is none of the shapes it may take');
+      return invalid('is none of the shapes it may take');
     }
   }
 

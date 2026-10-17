@@ -35,7 +35,7 @@ const closing = (line: Line, stationId: StationId): string => {
     '## When you are done',
     'Run this, from anywhere in the workspace:',
     `\`\`\`\n${HANDOVER_COMMAND} --next "…" --note "…"\n\`\`\``,
-    `\`--next\` names a station to pass the task to, by its key: ${named}. Name somewhere else and the command refuses it and tells you what would have worked, so read what it says and run it again.`,
+    `\`--next\` names a station to pass the task to, by its key: ${named}. Name somewhere else and the command rejects it and tells you what would have worked, so read what it says and run it again.`,
     `To put the task in front of a person instead of a station, use \`--next "${REVIEW}"\`. That is not a station — it is a person, whatever any station is called — and it is what to use whenever you are unsure.`,
     offered.some((each) => each.kind === 'done')
       ? `Where the work is finished and nothing follows it, use \`--next "${DONE}"\`. That closes the task at its current station: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`

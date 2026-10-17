@@ -16,7 +16,7 @@ interface HostImageDto {
   readonly usual: boolean;
   readonly release: string | null;
   readonly harnesses: readonly HostHarnessDto[];
-  readonly refused: string | null;
+  readonly unavailableReason: string | null;
 }
 
 export interface HostDto {

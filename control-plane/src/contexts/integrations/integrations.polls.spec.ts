@@ -211,7 +211,7 @@ describe('ProcessDuePolls', () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps its cursor and does not react when a host refuses', async () => {
+  it('keeps its cursor and does not react when a host answers with an error', async () => {
     const react = vi.fn(async () => undefined);
     const cursors = new FakeIntegrationCursors();
     cursors.keep(TEAM, 'linear', { cursor: 'ENG-0', ranAt: null });

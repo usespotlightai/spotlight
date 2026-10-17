@@ -123,7 +123,7 @@ describe('ChangeStack, on the check it asks for', () => {
     expect(asked.askedToReorder()).toBe(asked);
   });
 
-  it('refuses to be reordered before it is asked', () => {
+  it('is not reordered before it is asked', () => {
     expect(() => ready().reordered([cohort('All', [['h1']])], LATER)).toThrow(
       InvalidChangeStackError,
     );

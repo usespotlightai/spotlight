@@ -259,7 +259,7 @@ describe('HandOver', () => {
     expect(savedRun?.outcome?.failure?.code).toBe('superseded');
   });
 
-  it('refuses to hand over a task whose current run was given a revision it has since moved on from', async () => {
+  it('does not hand over a task whose current run was given a revision it has since moved on from', async () => {
     const runner = RunnerId.of('runner_1');
     const stale = Run.enqueue({
       id: RunId.of('run_1'),

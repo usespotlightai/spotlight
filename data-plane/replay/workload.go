@@ -71,7 +71,7 @@ func actionsToken(client *http.Client, requestURL, requestToken, audience string
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("GitHub Actions refused the OIDC token request with %d: %s; the job needs permissions: id-token: write",
+		return "", fmt.Errorf("GitHub Actions answered the OIDC token request with %d: %s; the job needs permissions: id-token: write",
 			response.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -148,7 +148,7 @@ func (e *exchanging) token(renewed bool) (string, error) {
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("the workspace token trust %s did not admit the OIDC token: %s", e.trust, refusalOf(response.StatusCode, body))
+		return "", fmt.Errorf("the workspace token trust %s did not admit the OIDC token: %s", e.trust, problemOf(response.StatusCode, body))
 	}
 
 	var minted struct {
@@ -170,7 +170,7 @@ func (e *exchanging) token(renewed bool) (string, error) {
 	return e.cached, nil
 }
 
-func refusalOf(status int, body []byte) string {
+func problemOf(status int, body []byte) string {
 	var said struct {
 		Detail  string `json:"detail"`
 		Title   string `json:"title"`

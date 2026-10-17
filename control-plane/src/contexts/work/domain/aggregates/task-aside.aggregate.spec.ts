@@ -46,7 +46,7 @@ describe('TaskAside', () => {
     ]);
   });
 
-  it('refuses a form it does not know, or nothing to be about', () => {
+  it('rejects a form it does not know, or nothing to be about', () => {
     expect(() => raised({ form: 'gossip' })).toThrow(InvalidTaskAsideError);
     expect(() => raised({ about: '  ' })).toThrow(InvalidTaskAsideError);
   });
@@ -115,13 +115,13 @@ describe('TaskAside', () => {
         version: 1,
       });
 
-    it('refuses a read before it was raised', () => {
+    it('rejects a read before it was raised', () => {
       expect(() => rehydrated([AsideRead.of({ by: ADA, at: NOW })])).toThrow(
         InconsistentStateError,
       );
     });
 
-    it('refuses two reads by one person', () => {
+    it('rejects two reads by one person', () => {
       expect(() =>
         rehydrated([
           AsideRead.of({ by: ADA, at: LATER }),

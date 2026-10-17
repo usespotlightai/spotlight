@@ -4,7 +4,7 @@ import type {
   ReachableTool,
 } from '@integrations/application/ports/integration-runtime.port';
 import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
@@ -14,8 +14,8 @@ import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integra
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import {
-  McpAuthorizationRefused,
-  McpQuestionRefused,
+  McpQuestionUnsupportedError,
+  McpUnauthorizedError,
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
@@ -107,16 +107,18 @@ const reaching = async (call: McpSessions['call']): Promise<ReachableTool> => {
 const reachAs = (
   token: string,
   renewed: string | null = null,
-): Reach & { refused: ReturnType<typeof vi.fn> } => {
-  const refused = vi.fn(async () => (renewed ? AccessToken.of(renewed) : null));
+): Reach & { unauthorized: ReturnType<typeof vi.fn> } => {
+  const unauthorized = vi.fn(async () =>
+    renewed ? AccessToken.of(renewed) : null,
+  );
 
   return {
-    refused,
+    unauthorized,
     connection: {
       token: AccessToken.of(token),
       holder: ConnectionHolder.person(UserId.of('ada')),
       handle: '@ada',
-      refused,
+      unauthorized,
     },
     credentials: { injectedFor: vi.fn() },
   };
@@ -146,23 +148,23 @@ describe('a tool an MCP server offers', () => {
     });
   });
 
-  it('renews a refused connection once and calls again, in a new session', async () => {
+  it('renews an unauthorized connection once and calls again, in a new session', async () => {
     const call = vi
       .fn()
-      .mockRejectedValueOnce(new McpAuthorizationRefused(SERVER))
+      .mockRejectedValueOnce(new McpUnauthorizedError(SERVER))
       .mockResolvedValueOnce({ content: [{ type: 'text', text: 'done' }] });
     const reach = reachAs('stale', 'fresh');
     const reached = await reaching(call);
 
     await expect(reached.call({}, reach)).resolves.toBe('done');
-    expect(reach.refused).toHaveBeenCalledTimes(1);
+    expect(reach.unauthorized).toHaveBeenCalledTimes(1);
     expect(call.mock.calls[1]?.[4]).toMatchObject({ connection: 'fresh' });
     expect(call.mock.calls[0]?.[0]).not.toBe(call.mock.calls[1]?.[0]);
   });
 
-  it('refuses when the connection cannot be renewed', async () => {
+  it('fails when the connection cannot be renewed', async () => {
     const reached = await reaching(async () => {
-      throw new McpAuthorizationRefused(SERVER);
+      throw new McpUnauthorizedError(SERVER);
     });
 
     await expect(reached.call({}, reachAs('stale'))).rejects.toThrow(
@@ -170,9 +172,9 @@ describe('a tool an MCP server offers', () => {
     );
   });
 
-  it('refuses a call the server asked a question in the middle of, typed as such', async () => {
+  it('fails a call the server asked a question in the middle of, typed as such', async () => {
     const reached = await reaching(async () => {
-      throw new McpQuestionRefused();
+      throw new McpQuestionUnsupportedError();
     });
 
     await expect(reached.call({}, reachAs('ada-token'))).rejects.toBeInstanceOf(
@@ -180,15 +182,15 @@ describe('a tool an MCP server offers', () => {
     );
   });
 
-  it('lets a refusal to reach the host through as it is', async () => {
-    const refusal = new OutboundRefusedError(
+  it('lets a blocked call to the host through as it is', async () => {
+    const blocked = new EgressBlockedError(
       'mcp.tracker.example',
       'Host is not on the allowed list.',
     );
     const reached = await reaching(async () => {
-      throw refusal;
+      throw blocked;
     });
 
-    await expect(reached.call({}, reachAs('ada-token'))).rejects.toBe(refusal);
+    await expect(reached.call({}, reachAs('ada-token'))).rejects.toBe(blocked);
   });
 });

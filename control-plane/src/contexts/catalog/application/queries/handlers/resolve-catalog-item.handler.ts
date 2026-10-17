@@ -34,13 +34,13 @@ const itemDto = (
 
 const attempted = <T>(
   read: () => T,
-  refusals: InvalidCatalogEntryError[],
+  problems: InvalidCatalogEntryError[],
 ): T | null => {
   try {
     return read();
   } catch (error) {
     if (error instanceof InvalidCatalogEntryError) {
-      refusals.push(error);
+      problems.push(error);
       return null;
     }
 
@@ -71,17 +71,17 @@ export class ResolveCatalogItemHandler
         return null;
       }
 
-      const refusals: InvalidCatalogEntryError[] = [];
-      const name = attempted(() => CatalogName.of(query.name), refusals);
+      const problems: InvalidCatalogEntryError[] = [];
+      const name = attempted(() => CatalogName.of(query.name), problems);
       const constraint = attempted(
         () => VersionConstraint.of(query.version),
-        refusals,
+        problems,
       );
 
       if (!name || !constraint) {
         return {
           outcome: 'invalid',
-          problems: refusals.map((each) =>
+          problems: problems.map((each) =>
             CatalogProblems.invalid(query.kind, each),
           ),
         };
@@ -106,7 +106,7 @@ export class ResolveCatalogItemHandler
 
       return giving.given
         ? { outcome: 'resolved', item: itemDto(giving.item, constraint) }
-        : { outcome: 'not-entitled', because: giving.refusal.because };
+        : { outcome: 'not-entitled', because: giving.denial.detail };
     } catch (error) {
       rethrowAsApplicationError(error);
     }

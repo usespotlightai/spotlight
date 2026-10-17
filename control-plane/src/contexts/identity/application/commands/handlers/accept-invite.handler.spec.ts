@@ -118,7 +118,7 @@ describe('AcceptInviteHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses somebody signed in as anybody but the person invited, naming who to sign in as', async () => {
+  it('rejects somebody signed in as anybody but the person invited, naming who to sign in as', async () => {
     const { handler, save } = accepting();
 
     await expect(
@@ -130,14 +130,14 @@ describe('AcceptInviteHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses an invite that has been taken back', async () => {
+  it('rejects an invite that has been taken back', async () => {
     const { handler, save } = accepting(sentInvite({ revoked: true }));
 
     await expect(handler.execute(accept())).rejects.toThrow(/been revoked/);
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses an invite that has run out', async () => {
+  it('rejects an invite that has run out', async () => {
     const { handler, save } = accepting(
       sentInvite({ sentAt: new Date('2026-08-01T09:00:00.000Z') }),
     );
@@ -146,7 +146,7 @@ describe('AcceptInviteHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses with a conflict where the invite was revoked while it was being accepted', async () => {
+  it('fails with a conflict where the invite was revoked while it was being accepted', async () => {
     const { handler, save, dispatched } = accepting();
     save.mockImplementationOnce(async () => {
       throw new InviteVersionConflictError('invite_1');

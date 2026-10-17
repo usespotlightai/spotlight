@@ -1,16 +1,16 @@
 import type { PullRequestReason } from '@/lib/search-words';
 import { formatPullRequestReason } from '@/lib/search-words';
 
-type PullRequestRefusalProps = {
+type PullRequestErrorProps = {
   reason: PullRequestReason;
 };
 
 const formatWanted = (wanted: PullRequestReason['wanted']): string =>
   typeof wanted === 'string' ? wanted : JSON.stringify(wanted);
 
-export function PullRequestRefusal({ reason }: PullRequestRefusalProps) {
+export function PullRequestError({ reason }: PullRequestErrorProps) {
   return (
-    <div data-slot="pull-request-refusal" className="flex flex-col gap-0.5">
+    <div data-slot="pull-request-error" className="flex flex-col gap-0.5">
       <p className="text-foreground">{formatPullRequestReason(reason)}</p>
       <p className="text-muted-foreground">{reason.message}</p>
       {reason.attribute && (

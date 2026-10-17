@@ -51,7 +51,7 @@ const image = (over: Record<string, unknown> = {}) => ({
   usual: true,
   release: '20260925-01',
   harnesses: [{ id: 'claude-code', version: '2.1.270' }],
-  refused: null,
+  unavailableReason: null,
   ...over,
 });
 
@@ -178,7 +178,7 @@ describe('Runners', () => {
     expect(screen.getByText('+1')).toBeInTheDocument();
   });
 
-  it('says a host refuses an image, and why', async () => {
+  it('says a host cannot use an image, and why', async () => {
     listing([
       host({
         images: [
@@ -188,7 +188,7 @@ describe('Runners', () => {
             usual: false,
             release: null,
             harnesses: [{ id: 'other', version: null }],
-            refused:
+            unavailableReason:
               'Runner doesn’t report its release number. Minimum version required: 20260925-01',
           }),
         ],
@@ -197,7 +197,7 @@ describe('Runners', () => {
 
     renderPage();
 
-    await userEvent.hover(screen.getByText('1 refused'));
+    await userEvent.hover(screen.getByText('1 unavailable'));
 
     expect(
       await screen.findByText(

@@ -56,7 +56,7 @@ describe('ReviewPolicy', () => {
     ).toBe(true);
   });
 
-  it('refuses an empty label or one longer than GitHub allows', () => {
+  it('rejects an empty label or one longer than GitHub allows', () => {
     expect(() => ReviewPolicy.of({ label: ' ' })).toThrow(
       InvalidReviewPolicyError,
     );
@@ -134,7 +134,7 @@ describe('ReviewPolicy', () => {
     expect(policy.takes(asked({ author: null }))).toBe(true);
   });
 
-  it('refuses a start it does not know, or a handle that is not one', () => {
+  it('rejects a start it does not know, or a handle that is not one', () => {
     expect(() => ReviewPolicy.of({ start: 'pushed' })).toThrow(
       InvalidReviewPolicyError,
     );

@@ -36,7 +36,7 @@ const image = (
   usual: false,
   release: '20260925-01',
   harnesses: harnesses.map(([id, version]) => ({ id, version })),
-  refused: null,
+  unavailableReason: null,
   ...over,
 });
 
@@ -95,7 +95,7 @@ const HOSTS: HostResponseDto[] = [
       ),
       image('ghcr.io/acme/legacy-runner:2025', [], {
         release: null,
-        refused:
+        unavailableReason:
           'Runner doesn’t report its release number. Minimum version required: 20260925-01',
       }),
     ],

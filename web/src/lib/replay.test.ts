@@ -25,7 +25,7 @@ import {
   replayPath,
   replaySetPath,
   spendBreakdown,
-  startRefusal,
+  startProblem,
   stationAddress,
 } from '@/lib/replay';
 
@@ -280,15 +280,15 @@ describe('replays', () => {
     );
   });
 
-  it('refuses to start a replay of a set with no runs, or whose station is gone', () => {
+  it('says why a replay of a set with no runs, or whose station is gone, cannot start', () => {
     const set = (over: Partial<ReplaySet>) =>
       ({ stationGone: false, entries: [{}], ...over }) as ReplaySet;
 
-    expect(startRefusal(set({}))).toBeNull();
-    expect(startRefusal(set({ entries: [] }))).toBe(
+    expect(startProblem(set({}))).toBeNull();
+    expect(startProblem(set({ entries: [] }))).toBe(
       'Please add runs to the set first.',
     );
-    expect(startRefusal(set({ stationGone: true }))).toBe(
+    expect(startProblem(set({ stationGone: true }))).toBe(
       'The station is gone from its line.',
     );
   });

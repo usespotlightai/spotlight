@@ -112,7 +112,7 @@ describe('ConfiguredSources', () => {
     });
   });
 
-  it('refuses a delivery signed with any other secret', async () => {
+  it('rejects a delivery signed with any other secret', async () => {
     const { sources } = configured([defined(linear())], {
       LINEAR_WEBHOOK_SECRET: 'lin_wh_1',
     });

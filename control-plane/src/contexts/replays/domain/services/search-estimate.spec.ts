@@ -90,7 +90,7 @@ describe('estimateOf', () => {
     ).toBe(true);
   });
 
-  it('holds out the tasks that leave each run the smallest share, so no search of the set the estimate accepts is refused or gets less per run', () => {
+  it('holds out the tasks that leave each run the smallest share, so no search of the set the estimate accepts is rejected or gets less per run', () => {
     const shapes = [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       [5, 1, 1, 1, 1, 1, 1],

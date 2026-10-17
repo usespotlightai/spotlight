@@ -94,7 +94,7 @@ export class CreateWorkspaceRunnersHandler
         if (error instanceof InvalidWorkspaceRunnersError) {
           return {
             outcome: 'invalid',
-            problems: [RunnerProblems.declarationRefused(error)],
+            problems: [RunnerProblems.declarationInvalid(error)],
           };
         }
 

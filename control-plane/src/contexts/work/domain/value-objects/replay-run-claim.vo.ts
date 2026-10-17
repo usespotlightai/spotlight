@@ -1,11 +1,11 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
-  isReplayRefusal,
-  type ReplayRefusal,
+  isUnreplayableReason,
+  type UnreplayableReason,
 } from '@work/domain/exceptions/unreplayable-run.error';
 
-export const REPLAY_RUN_CLAIMS = ['queued', 'forgone', 'refused'] as const;
+export const REPLAY_RUN_CLAIMS = ['queued', 'forgone', 'unreplayable'] as const;
 
 export type ClaimedAs = (typeof REPLAY_RUN_CLAIMS)[number];
 
@@ -13,7 +13,7 @@ export class ReplayRunClaim {
   private constructor(
     readonly runId: RunId,
     readonly claimedAs: ClaimedAs,
-    readonly refusal: ReplayRefusal | null,
+    readonly unreplayableReason: UnreplayableReason | null,
     readonly reason: string | null,
   ) {}
 
@@ -28,28 +28,34 @@ export class ReplayRunClaim {
   static rehydrate(input: {
     runId: RunId;
     claimedAs: ClaimedAs;
-    refusal: string | null;
+    unreplayableReason: string | null;
     reason: string | null;
   }): ReplayRunClaim {
-    const refusal = input.refusal;
+    const unreplayableReason = input.unreplayableReason;
 
-    if (refusal !== null && !isReplayRefusal(refusal)) {
+    if (
+      unreplayableReason !== null &&
+      !isUnreplayableReason(unreplayableReason)
+    ) {
       throw new InconsistentStateError(
         'replay run claim',
-        `was refused for a reason no longer known, ${refusal}`,
+        `has an unreplayable reason that is no longer known, ${unreplayableReason}`,
       );
     }
-    if ((input.claimedAs === 'refused') !== (refusal !== null)) {
+    if (
+      (input.claimedAs === 'unreplayable') !==
+      (unreplayableReason !== null)
+    ) {
       throw new InconsistentStateError(
         'replay run claim',
-        'is refused exactly when it says why',
+        'is unreplayable exactly when it says why',
       );
     }
 
     return new ReplayRunClaim(
       input.runId,
       input.claimedAs,
-      refusal,
+      unreplayableReason,
       input.reason,
     );
   }
@@ -58,15 +64,23 @@ export class ReplayRunClaim {
     return this.claimedAs === 'queued';
   }
 
-  refused(refusal: ReplayRefusal, reason: string): ReplayRunClaim {
+  unreplayable(
+    unreplayableReason: UnreplayableReason,
+    reason: string,
+  ): ReplayRunClaim {
     if (this.claimedAs !== 'queued') {
       throw new InconsistentStateError(
         'replay run claim',
-        'is refused only while it is claimed to be queued',
+        'becomes unreplayable only while it is claimed to be queued',
       );
     }
 
-    return new ReplayRunClaim(this.runId, 'refused', refusal, reason);
+    return new ReplayRunClaim(
+      this.runId,
+      'unreplayable',
+      unreplayableReason,
+      reason,
+    );
   }
 
   forgone(runExists: boolean): ReplayRunClaim {
@@ -81,7 +95,7 @@ export class ReplayRunClaim {
     return (
       this.runId.equals(other.runId) &&
       this.claimedAs === other.claimedAs &&
-      this.refusal === other.refusal &&
+      this.unreplayableReason === other.unreplayableReason &&
       this.reason === other.reason
     );
   }

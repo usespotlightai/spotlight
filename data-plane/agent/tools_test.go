@@ -116,7 +116,7 @@ func TestUsesAToolByItsFullNameWithWhatIsPipedIn(t *testing.T) {
 	}
 }
 
-func TestRefusesAFlagTheToolDoesNotTake(t *testing.T) {
+func TestRejectsAFlagTheToolDoesNotTake(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"linear", "comment", "--isue", "ENG-1"}, strings.NewReader(""), new(bytes.Buffer))
@@ -134,7 +134,7 @@ func TestSaysWhichToolsThereAreForOneTheRunWasNotGiven(t *testing.T) {
 	}
 }
 
-func TestRefusesAToolUseMissingWhatItRequires(t *testing.T) {
+func TestRejectsAToolUseMissingWhatItRequires(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"linear", "comment", "--notify"}, strings.NewReader(""), new(bytes.Buffer))
@@ -187,7 +187,7 @@ func TestReadsTheJSONObjectFromStandardInput(t *testing.T) {
 	}
 }
 
-func TestRefusesAPipedInputNamedWhenStandardInputCarriesTheJSON(t *testing.T) {
+func TestRejectsAPipedInputNamedWhenStandardInputCarriesTheJSON(t *testing.T) {
 	withTools(t, `{}`)
 
 	args := []string{"linear", "comment", "--json", "-", "--body", "-"}
@@ -223,7 +223,7 @@ func TestCarriesFlagsAsTheTextGiven(t *testing.T) {
 	}
 }
 
-func TestRefusesJSONThatIsNotAnObject(t *testing.T) {
+func TestRejectsJSONThatIsNotAnObject(t *testing.T) {
 	for _, given := range []string{`["ENG"]`, `null`, `{"team_id":`} {
 		t.Run(given, func(t *testing.T) {
 			withTools(t, `{}`)
@@ -236,7 +236,7 @@ func TestRefusesJSONThatIsNotAnObject(t *testing.T) {
 	}
 }
 
-func TestRefusesAValueAfterASwitch(t *testing.T) {
+func TestRejectsAValueAfterASwitch(t *testing.T) {
 	_, carried := withTools(t, `{}`)
 
 	args := []string{"linear", "comment", "--notify", "false", "--body", "Fixed."}
@@ -249,7 +249,7 @@ func TestRefusesAValueAfterASwitch(t *testing.T) {
 	}
 }
 
-func TestRefusesAStrayArgument(t *testing.T) {
+func TestRejectsAStrayArgument(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"linear", "comment", "--body", "Fixed.", "again"}, strings.NewReader(""), new(bytes.Buffer))
@@ -316,7 +316,7 @@ func TestPrintsATextAnswerAsJSON(t *testing.T) {
 	}
 }
 
-func TestRefusesAToolsCommandThereIsNot(t *testing.T) {
+func TestRejectsAToolsCommandThereIsNot(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"tools", "find", "issue"}, strings.NewReader(""), new(bytes.Buffer))

@@ -58,7 +58,7 @@ describe('LatencyHistogram', () => {
     expect(merged.percentile(50)).toBe(14);
   });
 
-  it('refuses counts that are not whole or not one per bucket', () => {
+  it('rejects counts that are not whole or not one per bucket', () => {
     expect(() => LatencyHistogram.of([1, 2])).toThrow(
       InvalidLatencyHistogramError,
     );
@@ -67,7 +67,7 @@ describe('LatencyHistogram', () => {
     ).toThrow(InvalidLatencyHistogramError);
   });
 
-  it('refuses a negative time', () => {
+  it('rejects a negative time', () => {
     expect(() => LatencyHistogram.EMPTY.with(-1)).toThrow(
       InvalidLatencyHistogramError,
     );

@@ -125,7 +125,7 @@ describe('SourceForDelivery', () => {
       ).toBeNull();
     });
 
-    it('refuses a file claiming the name of a host Spotlight has', async () => {
+    it('rejects a file claiming the name of a host Spotlight has', async () => {
       const { sources, find } = asking(['github'], ['github']);
 
       expect(

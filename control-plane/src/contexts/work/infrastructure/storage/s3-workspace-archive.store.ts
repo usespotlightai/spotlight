@@ -55,7 +55,7 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
   }
 
   async grantUpload(archive: WorkspaceArchive): Promise<ArchiveUpload> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     const headers = {
       'content-type': CONTENT_TYPE,
@@ -82,7 +82,7 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
   }
 
   async stored(archive: WorkspaceArchive): Promise<StoredArchive | null> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     const head = await headObject(this.store, {
       Bucket: this.bucket,
@@ -100,7 +100,7 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
   }
 
   async grantDownload(archive: WorkspaceArchive): Promise<string> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     return getSignedUrl(
       this.runners,
@@ -119,7 +119,7 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
     );
   }
 
-  private refuseWithoutABucket(): void {
+  private assertBucket(): void {
     if (!this.bucket) {
       throw new InvalidWorkspaceArchiveError(
         'storage is not configured on this deployment',

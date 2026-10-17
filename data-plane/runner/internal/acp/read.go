@@ -98,7 +98,7 @@ func (c *Client) asked(id json.RawMessage, method string, params json.RawMessage
 	case "fs/write_text_file":
 		c.writeFile(id, params)
 	default:
-		c.refuse(id, "this client does not do that")
+		c.reject(id, "this client does not do that")
 	}
 }
 
@@ -145,7 +145,7 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 	}
 
 	if chosen == "" {
-		c.refuse(id, "no option this client could choose")
+		c.reject(id, "no option this client could choose")
 		return
 	}
 
@@ -190,13 +190,13 @@ func (c *Client) readFile(id json.RawMessage, params json.RawMessage) {
 
 	full, ok := c.within(asked.Path)
 	if !ok {
-		c.refuse(id, "outside the workspace")
+		c.reject(id, "outside the workspace")
 		return
 	}
 
 	content, err := os.ReadFile(full)
 	if err != nil {
-		c.refuse(id, err.Error())
+		c.reject(id, err.Error())
 		return
 	}
 
@@ -212,16 +212,16 @@ func (c *Client) writeFile(id json.RawMessage, params json.RawMessage) {
 
 	full, ok := c.within(asked.Path)
 	if !ok {
-		c.refuse(id, "outside the workspace")
+		c.reject(id, "outside the workspace")
 		return
 	}
 
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		c.refuse(id, err.Error())
+		c.reject(id, err.Error())
 		return
 	}
 	if err := os.WriteFile(full, []byte(asked.Content), 0o644); err != nil {
-		c.refuse(id, err.Error())
+		c.reject(id, err.Error())
 		return
 	}
 
@@ -232,7 +232,7 @@ func (c *Client) reply(id json.RawMessage, result any) {
 	_ = c.write(response{JSONRPC: "2.0", ID: id, Result: result})
 }
 
-func (c *Client) refuse(id json.RawMessage, because string) {
+func (c *Client) reject(id json.RawMessage, because string) {
 	_ = c.write(response{
 		JSONRPC: "2.0",
 		ID:      id,

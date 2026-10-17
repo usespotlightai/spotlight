@@ -33,10 +33,10 @@ import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-
 import type { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
 import type { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
 import type { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
-import type { ReplayPairingRefused } from '@replays/domain/events/replay-pairing-refused.event';
+import type { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
 import type { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
 import type { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
-import type { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
+import type { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import type { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import type { ReplaySetAbandonmentDue } from '@replays/domain/events/replay-set-abandonment-due.event';
 import type { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
@@ -261,10 +261,10 @@ export const replaysSubscribers = (
         spentOf(event),
       ),
   ),
-  subscribing<ReplayPairingRefused>(
+  subscribing<ReplayPairingFailed>(
     'replays.record-pair-not-judged',
-    ['replay.pairing-refused'],
-    (event) => reactions.paired.refused(event),
+    ['replay.pairing-failed'],
+    (event) => reactions.paired.askFailed(event),
   ),
   subscribing<ReplayRejudgingWanted>(
     'replays.ask-to-judge-probed-run-again',
@@ -302,10 +302,10 @@ export const replaysSubscribers = (
             spentOf(event),
           ),
   ),
-  subscribing<ReplayRejudgingRefused>(
+  subscribing<ReplayRejudgingFailed>(
     'replays.record-probed-run-not-judged-again',
-    ['replay.rejudging-refused'],
-    (event) => reactions.judging.rejudgingRefused(event),
+    ['replay.rejudging-failed'],
+    (event) => reactions.judging.rejudgingAskFailed(event),
   ),
   subscribing<ReplayRecheckWanted>(
     'replays.ask-to-check-probed-run-again',

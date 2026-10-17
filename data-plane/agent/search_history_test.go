@@ -228,7 +228,7 @@ func TestHistoryOfAStationRunWritesNoCandidates(t *testing.T) {
 	}
 }
 
-func TestHistoryRefusesACandidateOrReplayNamedOutsideItsFolder(t *testing.T) {
+func TestHistoryRejectsACandidateOrReplayNamedOutsideItsFolder(t *testing.T) {
 	for _, spoil := range []func(*protocol.History){
 		func(h *protocol.History) { h.Candidates[0].CandidateName = "../escape" },
 		func(h *protocol.History) { h.Candidates[0].Runs[0].Original = "../../runs" },

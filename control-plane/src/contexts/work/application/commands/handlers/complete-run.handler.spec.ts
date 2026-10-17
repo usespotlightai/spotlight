@@ -496,18 +496,18 @@ describe('CompleteRunHandler', () => {
       expect(handler.asked[0]).toMatchObject({ to: null });
     });
 
-    it('puts the task to a person with the hook’s reason when a hook refuses', async () => {
+    it('puts the task to a person with the hook’s reason when a hook denies it', async () => {
       const saved: Run[] = [];
 
       await completing(async (run) => void saved.push(run), {
-        kind: 'refused',
-        reason: 'The hook core/qa refused: tests are red.',
+        kind: 'denied',
+        reason: 'The hook core/qa denied the handover: tests are red.',
       }).execute(handingOver('deploy'));
 
       const declared = declaredOn(saved[0]);
       expect(declared?.asksForReview()).toBe(true);
       expect(declared?.note).toBe(
-        'The hook core/qa refused: tests are red.\n\nThe run said: Ready for review.',
+        'The hook core/qa denied the handover: tests are red.\n\nThe run said: Ready for review.',
       );
     });
 

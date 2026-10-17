@@ -33,7 +33,7 @@ export class TrustedWorkload {
 
   static issuerOf(raw: string): string {
     const trimmed = raw.trim();
-    const refused = new InvalidTrustedWorkloadError(
+    const invalid = new InvalidTrustedWorkloadError(
       'issuer',
       'must be the https URL the platform signs its tokens as, with no query or fragment',
     );
@@ -42,7 +42,7 @@ export class TrustedWorkload {
     try {
       url = new URL(trimmed);
     } catch {
-      throw refused;
+      throw invalid;
     }
 
     const secure =
@@ -57,7 +57,7 @@ export class TrustedWorkload {
       url.password ||
       trimmed.length > LONGEST
     ) {
-      throw refused;
+      throw invalid;
     }
 
     return trimmed;

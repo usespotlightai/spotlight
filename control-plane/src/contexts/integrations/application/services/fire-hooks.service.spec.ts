@@ -78,7 +78,7 @@ const hookNamed = (
 
 const done = (name: string, output: unknown = null): StepTaken => ({
   outcome: { name, status: 'done', output },
-  refusal: null,
+  denyReason: null,
   trace: {
     hook: 'k',
     step: name,
@@ -99,7 +99,7 @@ const failed = (
   code: HookFailureCode = 'server-error',
 ): StepTaken => ({
   outcome: { name, status: 'failed', code, reason, output: null },
-  refusal: null,
+  denyReason: null,
   trace: null,
 });
 
@@ -266,26 +266,26 @@ describe('FireHooks.before', () => {
     );
   });
 
-  it('refuses when an endpoint says so', async () => {
+  it('denies when an endpoint says so', async () => {
     const { hooked } = setUp([hookNamed('dba', ['ask'])], () => ({
       ...done('ask'),
-      refusal: 'the migration drops a column in use',
+      denyReason: 'the migration drops a column in use',
     }));
 
     await expect(hooked.before(TASK, 'tool.using', EVENT)).resolves.toEqual(
-      HookVerdict.refused(
-        'Hook dba refused. Reason: the migration drops a column in use',
+      HookVerdict.denied(
+        'Hook dba denied the event. Reason: the migration drops a column in use',
       ),
     );
   });
 
-  it('refuses plainly when a blocking hook cannot reach its endpoint', async () => {
+  it('denies plainly when a blocking hook cannot reach its endpoint', async () => {
     const { hooked } = setUp([hookNamed('dba', ['ask'], true)], () =>
       failed('ask', 'could not reach https://dba.example.com: timed out'),
     );
 
     await expect(hooked.before(TASK, 'tool.using', EVENT)).resolves.toEqual(
-      HookVerdict.refused(
+      HookVerdict.denied(
         'Hook dba failed at step ask and blocks on failure. Reason: could not reach https://dba.example.com: timed out',
       ),
     );
@@ -301,7 +301,7 @@ describe('FireHooks.before', () => {
     await expect(
       blocking.hooked.before(TASK, 'tool.using', EVENT),
     ).resolves.toEqual(
-      HookVerdict.refused(
+      HookVerdict.denied(
         'Hook dba failed at step ask and blocks on failure. Reason: the callback token could not be minted',
       ),
     );
@@ -325,7 +325,7 @@ describe('FireHooks.before', () => {
     expect(deadlines).toEqual([new Date(NOW.getTime() + 30_000)]);
   });
 
-  it('refuses when a blocking hook no longer reads as it was written, and skips one that continues', async () => {
+  it('denies when a blocking hook no longer reads as it was written, and skips one that continues', async () => {
     const broken = (blocks: boolean) => ({
       ...hookNamed('dba', ['ask'], blocks),
       broken: 'when No such key: gone',
@@ -337,7 +337,7 @@ describe('FireHooks.before', () => {
     await expect(
       blocking.hooked.before(TASK, 'tool.using', EVENT),
     ).resolves.toEqual(
-      HookVerdict.refused(
+      HookVerdict.denied(
         'Hook dba is broken and blocks on failure. Reason: when No such key: gone',
       ),
     );
@@ -891,7 +891,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
           call: 'call_1',
           until: '2026-09-26T10:05:00.000Z',
         },
-        refusal: null,
+        denyReason: null,
         trace: null,
       }),
       { stored: stored() },

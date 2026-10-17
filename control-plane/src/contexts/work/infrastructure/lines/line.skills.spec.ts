@@ -40,7 +40,7 @@ describe('the skills a station definition gives a station', () => {
     expect(read.ok && read.line.stations[0]?.skills).toEqual([]);
   });
 
-  it('refuses a skill named unlike a folder of skills, where it is written', () => {
+  it('rejects a skill named unlike a folder of skills, where it is written', () => {
     const read = LINE(['Our Migrations']);
 
     expect(read.ok).toBe(false);

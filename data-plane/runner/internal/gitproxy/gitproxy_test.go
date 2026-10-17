@@ -66,7 +66,7 @@ func TestCarriesTheRunnerTokenTheWorkspaceNeverSees(t *testing.T) {
 	}
 }
 
-func TestRefusesAnotherRunsPath(t *testing.T) {
+func TestRejectsAnotherRunsPath(t *testing.T) {
 	seen := &reached{}
 	control := upstream(t, seen)
 	defer control.Close()

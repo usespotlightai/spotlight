@@ -97,7 +97,7 @@ describe('HeldOutSplit', () => {
     [3, 1],
     [4, 2],
   ])(
-    'refuses a set of %i tasks, which would hold out fewer than 2 or search fewer than 3',
+    'rejects a set of %i tasks, which would hold out fewer than 2 or search fewer than 3',
     (count, heldOutCount) => {
       try {
         drawn(entries(tasksOf(count)));
@@ -109,7 +109,7 @@ describe('HeldOutSplit', () => {
     },
   );
 
-  it('refuses many runs of too few tasks', () => {
+  it('rejects many runs of too few tasks', () => {
     expect(() =>
       drawn(entries(['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'])),
     ).toThrow(SearchSetTooSmallError);
@@ -129,7 +129,7 @@ describe('HeldOutSplit', () => {
     ).toBe(false);
   });
 
-  it('refuses a stored split that both searches and holds out a task', () => {
+  it('rejects a stored split that both searches and holds out a task', () => {
     const [one, two] = entries(['a', 'a']) as [ReplaySetEntry, ReplaySetEntry];
 
     expect(() =>

@@ -143,13 +143,10 @@ export class CandidateLines {
       return { ok: false, problems: compiled.problems.map(rerooted(place)) };
     }
 
-    const refused = await this.catalog.refusedIn(
-      line.workspaceId,
-      compiled.line,
-    );
+    const denied = await this.catalog.deniedIn(line.workspaceId, compiled.line);
 
-    if (refused.length > 0) {
-      return { ok: false, problems: refused.map(rerooted(place)) };
+    if (denied.length > 0) {
+      return { ok: false, problems: denied.map(rerooted(place)) };
     }
 
     const reconciled = reconcileLine({

@@ -1,10 +1,10 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import {
-  McpAuthorizationRefused,
-  McpQuestionRefused,
+  McpQuestionUnsupportedError,
+  McpUnauthorizedError,
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import {
   type FakeMcpServer,
@@ -230,7 +230,7 @@ describe('McpSessions', () => {
     }
   });
 
-  it('refuses a call the server asks a question in the middle of, saying why', async () => {
+  it('fails a call the server asks a question in the middle of, saying why', async () => {
     await expect(
       sessions.call(
         'team_1:tracker:team:none',
@@ -239,7 +239,7 @@ describe('McpSessions', () => {
         {},
         injectingNothing,
       ),
-    ).rejects.toBeInstanceOf(McpQuestionRefused);
+    ).rejects.toBeInstanceOf(McpQuestionUnsupportedError);
   });
 
   it('injects the connection and the secrets only for the server', async () => {
@@ -302,7 +302,7 @@ describe('McpSessions', () => {
     expect(JSON.stringify(answered)).toContain('[secret]');
   });
 
-  it('says when the server refuses the connection it was handed', async () => {
+  it('says when the server does not accept the connection it was handed', async () => {
     const guarded = await fakeMcpServer({ token: 'right' });
     const asking = new McpSessions(
       new OutboundPolicy([new URL(guarded.url).host]),
@@ -317,18 +317,18 @@ describe('McpSessions', () => {
           { query: 'queue' },
           { ...injectingNothing, connection: 'wrong' },
         ),
-      ).rejects.toBeInstanceOf(McpAuthorizationRefused);
+      ).rejects.toBeInstanceOf(McpUnauthorizedError);
       await expect(
         asking.tools(guarded.url, { ...injectingNothing, connection: 'wrong' }),
-      ).rejects.toBeInstanceOf(McpAuthorizationRefused);
+      ).rejects.toBeInstanceOf(McpUnauthorizedError);
     } finally {
       asking.onModuleDestroy();
       await guarded.close();
     }
   });
 
-  it('says why a server refused to list its tools without the key it echoed', async () => {
-    const refusing = await serving((request, reply) => {
+  it('says why a server did not list its tools, without the key it echoed', async () => {
+    const failing = await serving((request, reply) => {
       let body = '';
       request.on('data', (chunk) => {
         body += chunk;
@@ -345,20 +345,20 @@ describe('McpSessions', () => {
       });
     });
     const listing = new McpSessions(
-      new OutboundPolicy([new URL(refusing.origin).host]),
+      new OutboundPolicy([new URL(failing.origin).host]),
     );
 
     try {
-      const refused = await listing
-        .tools(`${refusing.origin}/mcp`, injectingKey)
+      const failure = await listing
+        .tools(`${failing.origin}/mcp`, injectingKey)
         .catch((error: unknown) => error as Error);
 
-      expect(refused).toBeInstanceOf(Error);
-      expect((refused as Error).message).toContain('[secret]');
-      expect((refused as Error).message).not.toMatch(/k(%2F|\/)live/);
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toContain('[secret]');
+      expect((failure as Error).message).not.toMatch(/k(%2F|\/)live/);
     } finally {
       listing.onModuleDestroy();
-      refusing.server.close();
+      failing.server.close();
     }
   });
 
@@ -399,7 +399,7 @@ describe('McpSessions', () => {
 
     await expect(
       nowhere.tools(server.url, injectingNothing),
-    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(server.heard).toEqual([]);
   });
 });

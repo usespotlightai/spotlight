@@ -28,7 +28,7 @@ describe('ApprovalIntent', () => {
     expect(ApprovalIntent.said(42)).toBeNull();
   });
 
-  it('cuts a long one short rather than refusing the call', () => {
+  it('cuts a long one short rather than rejecting the call', () => {
     const said = ApprovalIntent.said('post '.repeat(80));
 
     expect(said?.value).toHaveLength(200);

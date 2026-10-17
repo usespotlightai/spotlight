@@ -61,7 +61,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     uploader: UserId,
     file: Attachment,
   ): Promise<UploadGrant> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     const headers = {
       'content-type': file.contentType,
@@ -96,7 +96,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       return [];
     }
 
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     return Promise.all(
       [...new Set(ids)].map(async (id) => {
@@ -123,7 +123,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     file: Attachment,
     bytes: Uint8Array,
   ): Promise<void> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     await this.store.send(
       new PutObjectCommand({
@@ -141,7 +141,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     file: Attachment,
     wanted: Wanted,
   ): Promise<string> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     // Non-image files and SVG files download and do not render, so they cannot run as pages.
     const shown =
@@ -163,7 +163,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     workspaceId: WorkspaceId,
     file: Attachment,
   ): Promise<AttachmentContent> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     const read = await this.store.send(
       new GetObjectCommand({
@@ -190,7 +190,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       return;
     }
 
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     await Promise.all(files.map((file) => this.movedIn(workspaceId, file.id)));
   }
@@ -248,7 +248,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     });
   }
 
-  private refuseWithoutABucket(): void {
+  private assertBucket(): void {
     if (!this.bucket) {
       throw new InvalidAttachmentError(
         'storage is not configured on this deployment',

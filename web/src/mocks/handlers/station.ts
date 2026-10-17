@@ -626,7 +626,7 @@ export const stationHandlers: RequestHandler[] = [
       }
 
       const already =
-        picked.pullRequest !== null && picked.pullRequest.state !== 'refused';
+        picked.pullRequest !== null && picked.pullRequest.state !== 'failed';
       const number =
         60 +
         searchStore().indexOf(search) * 10 +

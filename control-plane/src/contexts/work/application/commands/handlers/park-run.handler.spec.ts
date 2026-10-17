@@ -73,7 +73,7 @@ describe('ParkRunHandler', () => {
     expect(saved[0]?.state).toBe('parked');
   });
 
-  it('refuses to park a run its person answered first, leaving it working', async () => {
+  it('does not park a run its person answered first, leaving it working', async () => {
     const { park, saved } = parking([waiting().resumed()]);
 
     await expect(park()).resolves.toEqual({ parked: false });
@@ -101,7 +101,7 @@ describe('ParkRunHandler', () => {
     expect(saved[0]?.state).toBe('queued');
   });
 
-  it('refuses a runner that does not lease the run', async () => {
+  it('rejects a runner that does not lease the run', async () => {
     const { park } = parking([waiting().park(RUNNER, NOW)]);
 
     await expect(park()).rejects.toMatchObject({ kind: 'conflict' });

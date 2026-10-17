@@ -1,4 +1,4 @@
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import {
   type Dressed,
   followed,
@@ -9,7 +9,7 @@ import {
   InjectedSecrets,
   type InjectionRequest,
 } from '@secrets/application/contracts/injected-secrets.contract';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -65,11 +65,11 @@ export const policedFetch =
 
       return reply;
     } catch (error) {
-      if (injected.isEmpty || error instanceof OutboundRefusedError) {
+      if (injected.isEmpty || error instanceof EgressBlockedError) {
         throw error;
       }
 
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         `reaching ${new URL(url.toString()).host}`,
         injected.redact(error instanceof Error ? error.message : String(error)),
       );

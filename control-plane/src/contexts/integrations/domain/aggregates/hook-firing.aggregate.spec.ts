@@ -186,7 +186,7 @@ describe('HookFiring', () => {
       expect(done.finished).toBe(true);
     });
 
-    it('refuses every change unless a worker has the lease', () => {
+    it('rejects every change unless a worker has the lease', () => {
       const pending = kept(fired());
 
       expect(() => pending.recordStep([DONE_A])).toThrow(
@@ -385,11 +385,11 @@ describe('HookFiring', () => {
   });
 
   describe('as kept', () => {
-    it('refuses a firing kept without a version', () => {
+    it('rejects a firing kept without a version', () => {
       expect(() => kept(fired(), 0)).toThrow(InconsistentStateError);
     });
 
-    it('refuses a failed firing that says no failure', () => {
+    it('rejects a failed firing that says no failure', () => {
       expect(() =>
         HookFiring.rehydrate({
           ...stateOf(fired()),

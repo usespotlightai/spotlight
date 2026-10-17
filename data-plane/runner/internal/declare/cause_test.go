@@ -65,8 +65,8 @@ func TestRelaysACauseToSpotlightAsTheRunner(t *testing.T) {
 	}
 }
 
-func TestSaysWhySpotlightRefusedACause(t *testing.T) {
-	for _, refusal := range []struct {
+func TestSaysWhySpotlightRejectedACause(t *testing.T) {
+	for _, rejected := range []struct {
 		status int
 		answer string
 		want   string
@@ -75,17 +75,17 @@ func TestSaysWhySpotlightRefusedACause(t *testing.T) {
 		{http.StatusNotFound, `{}`, "the task is none it looks into"},
 		{http.StatusConflict, `{}`, "this run proposes candidates"},
 	} {
-		server, _ := recording(t, refusal.status, refusal.answer)
+		server, _ := recording(t, rejected.status, rejected.answer)
 
 		status, body := postTo(t, server, protocol.HandoverCausePath, server.Token(), judged)
 
-		if status != http.StatusUnprocessableEntity || !strings.Contains(body, refusal.want) {
-			t.Errorf("status = %d: %s, want %q", status, body, refusal.want)
+		if status != http.StatusUnprocessableEntity || !strings.Contains(body, rejected.want) {
+			t.Errorf("status = %d: %s, want %q", status, body, rejected.want)
 		}
 	}
 }
 
-func TestRefusesACauseWithoutATaskAKnownCauseOrEvidence(t *testing.T) {
+func TestRejectsACauseWithoutATaskAKnownCauseOrEvidence(t *testing.T) {
 	server, seen := recording(t, http.StatusCreated, `{}`)
 
 	for _, body := range []string{

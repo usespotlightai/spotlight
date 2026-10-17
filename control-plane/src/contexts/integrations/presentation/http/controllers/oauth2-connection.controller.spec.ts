@@ -99,7 +99,7 @@ describe('OAuth2ConnectionController', () => {
     expect(redirect).toHaveBeenCalledWith('https://app.example/landing');
   });
 
-  it('refuses a browser that brought no nonce cookie', async () => {
+  it('rejects a browser that brought no nonce cookie', async () => {
     const { controller, execute } = controlling();
     const { response, redirect } = answering();
 
@@ -109,7 +109,7 @@ describe('OAuth2ConnectionController', () => {
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
-  it('refuses a browser with no session', async () => {
+  it('rejects a browser with no session', async () => {
     const { controller, execute } = controlling(null);
     const { response, redirect } = answering();
 
@@ -142,7 +142,7 @@ describe('OAuth2ConnectionController', () => {
     expect(begin.back).toBe('/w/acme/inbox/task_1');
   });
 
-  it('refuses to connect for anyone but the team or the caller', async () => {
+  it('denies a connection for anyone but the team or the caller', async () => {
     const { controller, execute } = controlling();
 
     await expect(

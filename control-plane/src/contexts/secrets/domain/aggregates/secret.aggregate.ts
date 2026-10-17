@@ -54,7 +54,7 @@ interface State extends Props {
 
 const VALUE_FIELD = 'valueWo';
 
-const refuseValueFor = (source: SecretSource): void => {
+const assertValueAllowedFor = (source: SecretSource): void => {
   if (!source.isBuiltIn) {
     throw new InvalidSecretError(
       VALUE_FIELD,
@@ -90,7 +90,7 @@ export class Secret extends EventRecorder {
       : null;
 
     if (definition.value && !keeping) {
-      refuseValueFor(definition.source);
+      assertValueAllowedFor(definition.source);
     }
 
     const set = new Secret({
@@ -157,7 +157,7 @@ export class Secret extends EventRecorder {
       definition.source.isBuiltIn && !this.source.isBuiltIn;
 
     if (!definition.source.isBuiltIn && definition.value) {
-      refuseValueFor(definition.source);
+      assertValueAllowedFor(definition.source);
     }
 
     const keeping =

@@ -32,7 +32,7 @@ describe('WorkspaceRunners', () => {
     ]);
   });
 
-  it('refuses to name a trust or a pool twice, pointing at the second', () => {
+  it('rejects a trust or a pool named twice, pointing at the second', () => {
     expect(() =>
       WorkspaceRunners.declare({
         id: WorkspaceRunnersId.of('declared_1'),
@@ -57,7 +57,7 @@ describe('WorkspaceRunners', () => {
     ).toThrow(InvalidWorkspaceRunnersError);
   });
 
-  it('refuses a change to a version no longer current', () => {
+  it('rejects a change to a version no longer current', () => {
     expect(() => declared().assertVersion(1)).toThrow(
       WorkspaceRunnersVersionConflictError,
     );

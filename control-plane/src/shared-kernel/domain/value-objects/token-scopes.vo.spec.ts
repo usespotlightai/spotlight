@@ -43,11 +43,11 @@ describe('TokenScopes', () => {
     [['runners']],
     [['trusts']],
     [['secrets', 'runners']],
-  ])('refuses %j granted without a rung of the ladder', (scopes) => {
+  ])('rejects %j granted without a rung of the ladder', (scopes) => {
     expect(() => TokenScopes.named(scopes)).toThrow(InvalidTokenScopeError);
   });
 
-  it('refuses a scope named twice', () => {
+  it('rejects a scope named twice', () => {
     expect(() => TokenScopes.named(['read', 'read'])).toThrow(
       /name each scope once/,
     );

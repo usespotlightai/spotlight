@@ -101,19 +101,19 @@ describe('DraftEvidence', () => {
       expect(proposal.grounds.taskId.value).toBe('task_1');
     });
 
-    it('refuses a step the run does not have', () => {
+    it('rejects a step the run does not have', () => {
       expect(() => proposalOf(remembered({ steps: [7] }))).toThrow(
         InvalidMemoryError,
       );
     });
 
-    it('refuses a note the drafter did not read', () => {
+    it('rejects a note the drafter did not read', () => {
       expect(() => proposalOf(remembered({ steps: [], notes: [1] }))).toThrow(
         InvalidMemoryError,
       );
     });
 
-    it('refuses a memory that rests on nothing', () => {
+    it('rejects a memory that rests on nothing', () => {
       expect(() => proposalOf(remembered({ steps: [], notes: [] }))).toThrow(
         InvalidMemoryError,
       );
@@ -142,7 +142,7 @@ describe('DraftEvidence', () => {
       expect([scope.lineId, scope.stationId]).toEqual(['line_1', 'station_1']);
     });
 
-    it('refuses a reach it does not know', () => {
+    it('rejects a reach it does not know', () => {
       expect(() => proposalOf(remembered({ reach: 'everyone' }))).toThrow(
         InvalidMemoryError,
       );
@@ -157,7 +157,7 @@ describe('DraftEvidence', () => {
       expect(scope.paths.map((each) => each.value)).toEqual(['src/uploads.ts']);
     });
 
-    it('refuses a path the run did not change, or changed in another repository', () => {
+    it('rejects a path the run did not change, or changed in another repository', () => {
       expect(() =>
         proposalOf(
           remembered({ repository: 'acme/api', paths: ['README.md'] }),
@@ -170,19 +170,19 @@ describe('DraftEvidence', () => {
       ).toThrow(InvalidMemoryError);
     });
 
-    it('refuses paths without the repository they lie in', () => {
+    it('rejects paths without the repository they lie in', () => {
       expect(() =>
         proposalOf(remembered({ paths: ['src/uploads.ts'] })),
       ).toThrow(InvalidMemoryError);
     });
 
-    it('refuses a repository the run did not work in', () => {
+    it('rejects a repository the run did not work in', () => {
       expect(() =>
         proposalOf(remembered({ repository: 'acme/infra' })),
       ).toThrow(InvalidMemoryError);
     });
 
-    it('refuses a repository named in a shape no repository has', () => {
+    it('rejects a repository named in a shape no repository has', () => {
       expect(() => proposalOf(remembered({ repository: 'api' }))).toThrow(
         InvalidMemoryError,
       );
@@ -191,7 +191,7 @@ describe('DraftEvidence', () => {
       ).toThrow(InvalidMemoryError);
     });
 
-    it('refuses a path that climbs out of its repository', () => {
+    it('rejects a path that climbs out of its repository', () => {
       expect(() =>
         proposalOf(
           remembered({ repository: 'acme/api', paths: ['../secrets.env'] }),
@@ -239,13 +239,13 @@ describe('DraftEvidence', () => {
       ).toBe('memory_old');
     });
 
-    it('refuses to supersede a memory it was not shown', () => {
+    it('does not supersede a memory it was not shown', () => {
       expect(() =>
         proposalOf(remembered({ supersedes: 'memory_elsewhere' })),
       ).toThrow(InvalidMemoryError);
     });
 
-    it('refuses to supersede a memory that does not apply where the run worked, or is no longer active', () => {
+    it('does not supersede a memory that does not apply where the run worked, or is no longer active', () => {
       for (const supersedes of ['memory_other_station', 'memory_retired']) {
         expect(() => proposalOf(remembered({ supersedes }))).toThrow(
           InvalidMemoryError,
@@ -348,7 +348,7 @@ describe('DraftEvidence', () => {
       expect(evidence.notesThrough).toBe(29);
     });
 
-    it('refuses to cite a step or note left out for length', () => {
+    it('does not cite a step or note left out for length', () => {
       const evidence = told({ steps: 60, notes: 20 });
 
       expect(() =>

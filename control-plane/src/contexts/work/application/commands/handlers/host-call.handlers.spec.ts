@@ -110,20 +110,20 @@ const ANSWER: SentHostCallAnswer = {
   host: HOST,
   status: 200,
   headers: { 'content-type': 'application/json', ignored: 7 },
-  body: Buffer.from('{"refuse":"not today"}').toString('base64'),
+  body: Buffer.from('{"deny":"not today"}').toString('base64'),
   ms: 84,
   error: undefined,
 };
 
 describe('ClaimHostCallHandler', () => {
-  it('refuses a host no pool or trust admits', async () => {
+  it('rejects a host no pool or trust admits', async () => {
     const { claim, calls } = hosting();
 
     expect(
       await claim.execute(
         new ClaimHostCallCommand({ bearer: 'stolen', trust: undefined }, HOST),
       ),
-    ).toEqual({ outcome: 'refused' });
+    ).toEqual({ outcome: 'unauthorized' });
     expect(calls.claimNext).not.toHaveBeenCalled();
   });
 
@@ -175,7 +175,7 @@ describe('ClaimHostCallHandler', () => {
     );
   });
 
-  it('refuses a host that names itself nothing', async () => {
+  it('rejects a host that names itself nothing', async () => {
     const { claim } = hosting();
 
     await expect(
@@ -196,7 +196,7 @@ describe('AnswerHostCallHandler', () => {
     expect(kept?.status).toBe(200);
     expect(kept?.headers).toEqual({ 'content-type': 'application/json' });
     expect(Buffer.from(kept?.body ?? []).toString()).toBe(
-      '{"refuse":"not today"}',
+      '{"deny":"not today"}',
     );
     expect(kept?.ms).toBe(84);
   });
@@ -218,7 +218,7 @@ describe('AnswerHostCallHandler', () => {
     expect(saved[0]?.answer?.error).toBe('timed out after 10s');
   });
 
-  it('refuses a host no pool or trust admits', async () => {
+  it('rejects a host no pool or trust admits', async () => {
     const { answer, calls } = hosting();
 
     expect(
@@ -229,11 +229,11 @@ describe('AnswerHostCallHandler', () => {
           ANSWER,
         ),
       ),
-    ).toEqual({ outcome: 'refused' });
+    ).toEqual({ outcome: 'unauthorized' });
     expect(calls.find).not.toHaveBeenCalled();
   });
 
-  it('refuses an answer from a host other than the one that claimed the call', async () => {
+  it('rejects an answer from a host other than the one that claimed the call', async () => {
     const { answer, saved } = hosting();
 
     expect(
@@ -298,7 +298,7 @@ describe('AnswerHostCallHandler', () => {
     ).toMatchObject({ outcome: 'settled' });
   });
 
-  it('refuses an answer that is no answer', async () => {
+  it('rejects an answer that is no answer', async () => {
     const { answer } = hosting();
 
     await expect(

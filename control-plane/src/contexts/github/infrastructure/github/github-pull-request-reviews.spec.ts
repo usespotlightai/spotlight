@@ -1,6 +1,6 @@
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -307,7 +307,7 @@ describe('GitHubPullRequestReviews', () => {
     });
   });
 
-  it('comments, saying its verdict, where GitHub refuses a verdict on the app’s own pull request', async () => {
+  it('comments, saying its verdict, where GitHub rejects a verdict on the app’s own pull request', async () => {
     const asked = answering(({ url, method, body }) => {
       if (isFiles(url)) {
         return { status: 200, body: FILES };
@@ -350,7 +350,7 @@ describe('GitHubPullRequestReviews', () => {
     expect(submitted.githubId).toBe(904);
   });
 
-  it('speaks as Spotlight, naming the person, where their own token is refused', async () => {
+  it('speaks as Spotlight, naming the person, where their own token is not accepted', async () => {
     const asked = answering(({ token }) =>
       token === 'personal'
         ? { status: 403, body: { message: 'Resource not accessible' } }
@@ -394,11 +394,11 @@ describe('GitHubPullRequestReviews', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('passes on any other refusal', async () => {
+  it('passes on any other upstream error', async () => {
     answering(() => ({ status: 500, body: { message: 'Server Error' } }));
 
     await expect(
       reviews('personal').edit({ ...ON, commentId: 77, body: 'x' }),
-    ).rejects.toThrow(UpstreamRefusedError);
+    ).rejects.toThrow(UpstreamError);
   });
 });

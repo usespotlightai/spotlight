@@ -27,7 +27,7 @@ describe('AuthorizationServer', () => {
     ).toBe(false);
   });
 
-  it('refuses an endpoint that is not a web address', () => {
+  it('rejects an endpoint that is not a web address', () => {
     expect(() =>
       AuthorizationServer.of({ ...SERVER, token: 'file:///etc/passwd' }),
     ).toThrow(/not a web address/);

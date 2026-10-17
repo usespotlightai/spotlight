@@ -277,7 +277,7 @@ describe('HookedTasks', () => {
       expect(current()?.notes).toHaveLength(1);
     });
 
-    it('refuses to note nothing', async () => {
+    it('rejects an empty note', async () => {
       const { hooked } = hooking();
 
       await expect(

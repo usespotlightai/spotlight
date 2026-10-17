@@ -175,13 +175,13 @@ describe('a workspace, created through the resource API (e2e)', () => {
       .insert(schema.teamMember)
       .values({ teamId, userId: fixture.admin });
 
-    const refused = await as(fixture.admin).delete(
+    const rejected = await as(fixture.admin).delete(
       made.body.id,
       made.body.version,
     );
 
-    expect(refused.status).toBe(409);
-    expect(refused.body).toMatchObject({
+    expect(rejected.status).toBe(409);
+    expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
       detail: expect.stringContaining('core'),
     });

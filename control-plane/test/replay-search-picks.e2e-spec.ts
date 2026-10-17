@@ -164,7 +164,7 @@ describe('a search for a better station config, ranking and picking its candidat
     ]);
   }, 120_000);
 
-  it('opens one pull request in the line’s config repository for a picked candidate, records why one was refused, and tries again when picked again', async () => {
+  it('opens one pull request in the line’s config repository for a picked candidate, records why one failed, and tries again when picked again', async () => {
     const setId = await openSet('Picked', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 1,
@@ -228,9 +228,9 @@ describe('a search for a better station config, ranking and picking its candidat
       }, WITHIN);
 
     expect(await settled()).toMatchObject({
-      state: 'refused',
+      state: 'failed',
       url: null,
-      reason: { code: 'drifted', attribute: 'prompt' },
+      reason: { code: 'base-changed', attribute: 'prompt' },
     });
     expect(github.commits).toEqual([]);
 

@@ -366,7 +366,7 @@ describe('the team’s pull request insights (e2e)', () => {
     expect(answer.status).toBe(404);
   });
 
-  it('refuses a filter it does not take', async () => {
+  it('rejects a filter it does not take', async () => {
     const answer = await asOwner(
       insights('pull-requests/list', 'period=7d&author=robots'),
     );
@@ -448,7 +448,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
     expect((await pullRequestOf(93))?.comments).toEqual([]);
   });
 
-  it('refuses a filter that takes one value asked for twice, and takes repositories repeated', async () => {
+  it('rejects a filter that takes one value asked for twice, and takes repositories repeated', async () => {
     const twice = await asOwner(
       insights(
         'pull-requests/list',

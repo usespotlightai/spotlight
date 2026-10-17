@@ -90,7 +90,7 @@ describe('AwsKeyManagement', () => {
     ).rejects.toBe(throttled);
   });
 
-  it('refuses a data key KMS issued without its parts', async () => {
+  it('rejects a data key KMS issued without its parts', async () => {
     const kms = { send: vi.fn(async () => ({})) } as unknown as Pick<
       KMSClient,
       'send'

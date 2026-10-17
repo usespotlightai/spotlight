@@ -403,14 +403,14 @@ describe('ProvisionWork', () => {
   it('counts one failure, the last, when every fitting pool fails', async () => {
     const { provisioner, run } = provisioning(
       [waiting('run_1')],
-      [aPool('a-dead'), aPool('b-refusing')],
+      [aPool('a-dead'), aPool('b-unusable')],
       {
         'pool_a-dead': {
           outcome: 'failed',
           kind: 'unreachable',
           detail: 'connect ECONNREFUSED',
         },
-        'pool_b-refusing': {
+        'pool_b-unusable': {
           outcome: 'failed',
           kind: 'unusable',
           detail: 'the pool’s provision secret does not open',
@@ -785,7 +785,7 @@ describe('ProvisionWork', () => {
         {
           pool_burst: {
             outcome: 'failed',
-            kind: 'refused',
+            kind: 'http-error',
             detail: 'answered 503',
           },
         },
@@ -799,7 +799,7 @@ describe('ProvisionWork', () => {
       expect(checks.failed).toHaveBeenCalledWith(
         'stack_1',
         RunnerId.of('pooled_1'),
-        ProvisionFailure.of('refused', 'answered 503'),
+        ProvisionFailure.of('http-error', 'answered 503'),
         NOON,
       );
       expect(checks.unreserve).not.toHaveBeenCalled();

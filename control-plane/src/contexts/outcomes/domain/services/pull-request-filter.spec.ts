@@ -122,7 +122,7 @@ describe('the pull request list', () => {
     expect(numbers({ rounds: '1' })).toEqual([1]);
   });
 
-  it('refuses a filter it does not know', () => {
+  it('rejects a filter it does not know', () => {
     expect(() => pullRequestFilterOf({ ...NOTHING, author: 'robots' })).toThrow(
       InvalidPullRequestFilterError,
     );
@@ -143,7 +143,7 @@ describe('the pull request list', () => {
     ).toThrow(InvalidPullRequestFilterError);
   });
 
-  it('refuses more than one value for a filter that takes one', () => {
+  it('rejects more than one value for a filter that takes one', () => {
     for (const asked of [
       { author: ['spotlight', 'people'] },
       { type: ['fix', 'chore'] },

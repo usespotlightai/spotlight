@@ -6,7 +6,7 @@ import {
 import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import {
-  refuseTokenGivenBefore,
+  assertPoolTokenUnused,
   tokenGivenTo,
 } from '@runners/domain/services/token-giving';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
@@ -47,22 +47,22 @@ describe('tokenGivenTo', () => {
   });
 });
 
-describe('refuseTokenGivenBefore', () => {
+describe('assertPoolTokenUnused', () => {
   it('lets a pool be given a token never given before', () => {
     expect(() =>
-      refuseTokenGivenBefore(PoolTokenUsage.of({ given: false, inUse: false })),
+      assertPoolTokenUnused(PoolTokenUsage.of({ given: false, inUse: false })),
     ).not.toThrow();
   });
 
-  it('refuses a token a pool uses now as taken', () => {
+  it('rejects a token a pool uses now as taken', () => {
     expect(() =>
-      refuseTokenGivenBefore(PoolTokenUsage.of({ given: true, inUse: true })),
+      assertPoolTokenUnused(PoolTokenUsage.of({ given: true, inUse: true })),
     ).toThrow(PoolTokenTakenError);
   });
 
-  it('refuses a token no pool uses any more as spent', () => {
+  it('rejects a token no pool uses any more as spent', () => {
     expect(() =>
-      refuseTokenGivenBefore(PoolTokenUsage.of({ given: true, inUse: false })),
+      assertPoolTokenUnused(PoolTokenUsage.of({ given: true, inUse: false })),
     ).toThrow(PoolTokenSpentError);
   });
 });

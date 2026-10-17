@@ -10,7 +10,7 @@ import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo'
 import type { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
-import { lineRefusal } from '@work/application/services/line-refusals';
+import { lineRejection } from '@work/application/services/line-rejections';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -56,13 +56,13 @@ export class UpdateLineHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const refused = await this.catalog.refusedIn(
+      const denied = await this.catalog.deniedIn(
         existing.workspaceId,
         compiled.line,
       );
 
-      if (refused.length > 0) {
-        return { outcome: 'invalid', problems: refused };
+      if (denied.length > 0) {
+        return { outcome: 'invalid', problems: denied };
       }
 
       try {
@@ -74,10 +74,10 @@ export class UpdateLineHandler
           ),
         );
       } catch (error) {
-        const refused = lineRefusal(existing.key.value, error);
+        const rejected = lineRejection(existing.key.value, error);
 
-        if (refused) {
-          return refused;
+        if (rejected) {
+          return rejected;
         }
 
         throw error;

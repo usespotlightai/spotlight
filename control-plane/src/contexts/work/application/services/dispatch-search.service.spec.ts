@@ -216,20 +216,20 @@ describe('DispatchSearch', () => {
   it('says which of a search’s agent a runner could not start: an unknown harness, an overlong model or an unknown effort', () => {
     const { dispatch } = dispatching();
 
-    expect(dispatch.refusalOf(ORDER.agent)).toBeNull();
+    expect(dispatch.problemOf(ORDER.agent)).toBeNull();
     expect(
-      dispatch.refusalOf({ harness: 'claude-code', model: null, effort: null }),
+      dispatch.problemOf({ harness: 'claude-code', model: null, effort: null }),
     ).toBeNull();
-    expect(dispatch.refusalOf({ ...ORDER.agent, harness: 'emacs' })).toEqual({
+    expect(dispatch.problemOf({ ...ORDER.agent, harness: 'emacs' })).toEqual({
       field: 'harness',
       reason:
         'Harness emacs is not one that a runner can start. Harnesses: claude-code',
     });
     expect(
-      dispatch.refusalOf({ ...ORDER.agent, model: 'm'.repeat(61) })?.field,
+      dispatch.problemOf({ ...ORDER.agent, model: 'm'.repeat(61) })?.field,
     ).toBe('model');
     expect(
-      dispatch.refusalOf({ ...ORDER.agent, effort: 'enormous' })?.field,
+      dispatch.problemOf({ ...ORDER.agent, effort: 'enormous' })?.field,
     ).toBe('effort');
   });
 

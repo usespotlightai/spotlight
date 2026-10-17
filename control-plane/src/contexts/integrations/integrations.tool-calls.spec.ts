@@ -35,7 +35,7 @@ import {
   reachFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -333,15 +333,17 @@ describe('IntegrationToolCalls', () => {
     expect(output?.tool.value).toBe('linear.comment');
     expect(output?.shape.schema).toEqual({ type: 'string' });
 
-    const refused = using({
+    const failingHost = using({
       ok: false,
       status: 500,
       response: null,
       capture: {},
     });
-    await expect(refused.comment({ body: 'Fixed.' })).rejects.toThrow();
+    await expect(failingHost.comment({ body: 'Fixed.' })).rejects.toThrow();
     expect(
-      await refused.learned.ofTools(TeamId.of('team_1'), ['linear.comment']),
+      await failingHost.learned.ofTools(TeamId.of('team_1'), [
+        'linear.comment',
+      ]),
     ).toEqual([]);
   });
 
@@ -382,7 +384,7 @@ describe('IntegrationToolCalls', () => {
     expect(reached.defaultFor('issue')).toBe('ENG-12');
   });
 
-  it('says what the host refused', async () => {
+  it('says what error the host answered with', async () => {
     const { comment } = using({
       ok: false,
       status: 400,
@@ -390,7 +392,7 @@ describe('IntegrationToolCalls', () => {
       capture: {},
     });
 
-    await expect(comment({ body: 'x' })).rejects.toThrow(UpstreamRefusedError);
+    await expect(comment({ body: 'x' })).rejects.toThrow(UpstreamError);
     await expect(comment({ body: 'x' })).rejects.toThrow(
       /the integration answered 400: .*Entity not found/,
     );
@@ -594,7 +596,7 @@ graphql:
       );
     });
 
-    it('answers with the field a GraphQL operation selects, and refuses an answer carrying errors', async () => {
+    it('answers with the field a GraphQL operation selects, and fails on an answer carrying errors', async () => {
       const answered = generated(
         LINEAR_GRAPHQL,
         ISSUE,
@@ -611,7 +613,7 @@ graphql:
         title: 'Broken',
       });
 
-      const refused = generated(
+      const withErrors = generated(
         LINEAR_GRAPHQL,
         ISSUE,
         new Response(
@@ -621,7 +623,7 @@ graphql:
           }),
         ),
       );
-      const failing = (await refused.reaching(
+      const failing = (await withErrors.reaching(
         'linear.issue',
       )) as IntegrationTool;
 

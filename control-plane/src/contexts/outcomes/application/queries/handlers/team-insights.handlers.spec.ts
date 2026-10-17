@@ -173,7 +173,7 @@ describe('the team’s insights', () => {
     ).rejects.toMatchObject({ kind: 'not-found' });
   });
 
-  it('refuses a period it does not look back over', async () => {
+  it('rejects a period it does not look back over', async () => {
     const { scopes, reader, people } = await insights();
 
     await expect(

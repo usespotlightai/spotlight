@@ -280,7 +280,7 @@ describe('Search', () => {
       );
     });
 
-    it('refuses a budget too thin to give each replay a cent', () => {
+    it('rejects a budget too thin to give each replay a cent', () => {
       expect(() =>
         aSearch({
           budget: aBudget({ iterations: 10, perIteration: 5, ceiling: 0.2 }),
@@ -383,14 +383,14 @@ describe('Search', () => {
       let search = searching();
 
       for (let tried = 0; tried < 2 * ATTEMPTS_PER_PROPOSAL; tried += 1) {
-        search = search.proposalRefused(run(1));
+        search = search.proposalRejected(run(1));
       }
 
       expect(search.iterations[0]?.attempts).toBe(6);
       expect(() => search.admitted(run(1), admission('late'))).toThrow(
         SearchProposalsSpentError,
       );
-      expect(() => search.proposalRefused(run(1))).toThrow(
+      expect(() => search.proposalRejected(run(1))).toThrow(
         SearchProposalsSpentError,
       );
     });
@@ -413,7 +413,7 @@ describe('Search', () => {
       );
     });
 
-    it('refuses a name it took already, in any iteration', () => {
+    it('rejects a name it took already, in any iteration', () => {
       const runIds = searchRunIds();
       const first = iterated(
         searching(aSearch(), runIds),
@@ -938,7 +938,7 @@ describe('Search', () => {
       });
     });
 
-    it('refuses a cause for a task it does not look into, held out or not, alike', () => {
+    it('rejects a cause for a task it does not look into, held out or not, alike', () => {
       const search = stalledAgain();
       const heldOut = search.split.heldOut[0]?.taskId as TaskId;
 
@@ -957,7 +957,7 @@ describe('Search', () => {
       }
     });
 
-    it('refuses a cause it cannot read, from an iteration that proposes, or once its run ended', () => {
+    it('rejects a cause it cannot read, from an iteration that proposes, or once its run ended', () => {
       const search = stalledAgain();
 
       expect(() =>
@@ -1122,7 +1122,7 @@ describe('Search', () => {
       expect(broke.iterations[2]?.endedSearch).toBe(true);
     });
 
-    it('refuses a stored iteration that both proposes and looks into tasks, or has a cause for a task it never looked into', () => {
+    it('rejects a stored iteration that both proposes and looks into tasks, or has a cause for a task it never looked into', () => {
       const search = stalledAgain();
       const recorded = search.recordCause(
         run(3),
@@ -1451,7 +1451,7 @@ describe('Search', () => {
     });
   });
 
-  it('refuses a stored search whose iterations skip a number, or that held out before it stopped searching', () => {
+  it('rejects a stored search whose iterations skip a number, or that held out before it stopped searching', () => {
     const runIds = searchRunIds();
     const search = iterated(searching(aSearch(), runIds), 1, ['one'], runIds);
     const state = {
@@ -1496,7 +1496,7 @@ describe('Search', () => {
     ).toHaveLength(2);
   });
 
-  it('refuses a stored search whose end and state disagree', () => {
+  it('rejects a stored search whose end and state disagree', () => {
     const search = searching();
 
     expect(() =>

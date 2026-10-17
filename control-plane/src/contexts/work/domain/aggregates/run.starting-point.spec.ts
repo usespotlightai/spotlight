@@ -100,7 +100,7 @@ describe('where a run started', () => {
     expect(run.startedFrom?.archive).toBeNull();
   });
 
-  it('refuses an archive of another workspace or another piece of work', () => {
+  it('rejects an archive of another workspace or another piece of work', () => {
     for (const elsewhere of [
       archiveOf('archive_1', 'ws_2'),
       archiveOf('archive_1', 'ws_1', ContinuityKey.forTask('task_2')),
@@ -119,7 +119,7 @@ describe('where a run started', () => {
     expect(again.startedFrom?.at).toEqual(NOW);
   });
 
-  it('refuses a second report that says it started somewhere else', () => {
+  it('rejects a second report that says it started somewhere else', () => {
     const first = claimed().startsFrom(on(), RUNNER, restored(), NOW);
 
     expect(() =>
@@ -152,7 +152,7 @@ describe('where a run started', () => {
     expect(retried.startedFrom?.attempt).toBe(1);
   });
 
-  it('refuses a report from an attempt that is over', () => {
+  it('rejects a report from an attempt that is over', () => {
     const lapsed = claimed().requeue(later(60_000));
     const retried = lapsed.claim(RUNNER, later(120_000));
 
@@ -238,13 +238,13 @@ describe('where a run started', () => {
         at: NOW,
       });
 
-    it('refuses to have started on an attempt it has not made', () => {
+    it('cannot have started on an attempt it has not made', () => {
       expect(() => rehydrated(ofTask, point(2))).toThrow(
         InconsistentStateError,
       );
     });
 
-    it('refuses to have started from somewhere when it works no task', () => {
+    it('cannot have started from somewhere when it works no task', () => {
       expect(() =>
         rehydrated(RunSubject.chat(ChatId.of('chat_1')), point(1)),
       ).toThrow(InconsistentStateError);

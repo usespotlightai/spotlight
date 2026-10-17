@@ -161,7 +161,7 @@ describe('compileHook', () => {
     expect(matched(['src/app.ts'])).toBe(false);
   });
 
-  it('refuses a typo, pointing at where it is and what was meant', () => {
+  it('rejects a typo, pointing at where it is and what was meant', () => {
     expect(
       problemsOf({
         ...GRAFANA_READS,
@@ -170,7 +170,7 @@ describe('compileHook', () => {
     ).toEqual([['when', expect.stringMatching(/argumnts/)]]);
   });
 
-  it('refuses a when that does not return a bool', () => {
+  it('rejects a when that does not return a bool', () => {
     expect(problemsOf({ ...GRAFANA_READS, when: 'event.tool' })).toEqual([
       ['when', 'must return a bool, not a string'],
     ]);
@@ -204,13 +204,13 @@ describe('compileHook', () => {
     ).toEqual([['when', expect.stringMatching(/run/)]]);
   });
 
-  it('refuses to block an event that has already happened', () => {
+  it('rejects a block on an event that has already happened', () => {
     expect(problemsOf({ ...GRAFANA_READS, failure: 'block' })).toEqual([
       ['failure', expect.stringMatching(/cannot be block after/)],
     ]);
   });
 
-  it('refuses tools matched on an event that is not about a tool', () => {
+  it('rejects tools matched on an event that is not about a tool', () => {
     expect(
       problemsOf({ ...MIGRATIONS, match: { tools: ['grafana.search'] } }),
     ).toEqual([
@@ -221,7 +221,7 @@ describe('compileHook', () => {
     ]);
   });
 
-  it('refuses a request with no signing', () => {
+  it('rejects a request with no signing', () => {
     expect(problemsOf({ ...MIGRATIONS, signing: null })).toEqual([
       [
         'signing',
@@ -230,7 +230,7 @@ describe('compileHook', () => {
     ]);
   });
 
-  it('refuses plain http unless the team’s network sends it', () => {
+  it('rejects plain http unless the team’s network sends it', () => {
     const plain = (from: string) => ({
       ...MIGRATIONS,
       steps: [
@@ -244,7 +244,7 @@ describe('compileHook', () => {
     expect(problemsOf(plain('network'))).toEqual([]);
   });
 
-  it('refuses a step that both calls and requests', () => {
+  it('rejects a step that both calls and requests', () => {
     expect(
       problemsOf({
         ...GRAFANA_READS,
@@ -259,7 +259,7 @@ describe('compileHook', () => {
     ).toEqual([['steps[0]', expect.stringMatching(/exactly one/)]]);
   });
 
-  it('refuses reading a secret', () => {
+  it('rejects reading a secret', () => {
     expect(
       problemsOf({
         ...GRAFANA_READS,

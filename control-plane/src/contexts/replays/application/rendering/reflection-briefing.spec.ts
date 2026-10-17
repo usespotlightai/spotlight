@@ -30,7 +30,7 @@ describe('ReflectionBriefing', () => {
     expect(said).toContain(
       'spotlight cause --task <task> --cause config|task|judge|check|infra --evidence <text | @file> [--suggestion <text | @file>]',
     );
-    expect(said).toContain('Spotlight refuses `spotlight candidate` from it');
+    expect(said).toContain('Spotlight rejects `spotlight candidate` from it');
     expect(said).toContain('spotlight history --station build --line delivery');
     expect(said).toContain('`candidates/in-order/runs/<original run>/`');
     expect(said).toContain(

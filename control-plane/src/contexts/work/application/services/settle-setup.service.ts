@@ -81,7 +81,7 @@ export class SettleSetup {
       if (error instanceof InvalidTaskTransitionError) {
         this.logger.error(
           { err: error, ...at },
-          'refused to settle a team’s setup list',
+          'did not settle a team’s setup list, because the task state does not allow it',
         );
 
         return;

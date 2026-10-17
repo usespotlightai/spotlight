@@ -123,7 +123,7 @@ export const transaction: TransactionPort = { inTransaction: (work) => work() };
 export const definitions = (
   over: {
     stored?: IntegrationDefinition | null;
-    refusing?: Error;
+    failing?: Error;
     thenAt?: IntegrationDefinition | null;
   } = {},
 ) => {
@@ -134,9 +134,9 @@ export const definitions = (
     of: read,
     ofTeam: vi.fn(async () => (over.stored ? [over.stored] : [])),
     save: vi.fn(async (_: IntegrationDefinition) => {
-      if (over.refusing) {
+      if (over.failing) {
         read.mockResolvedValue(over.thenAt ?? null);
-        throw over.refusing;
+        throw over.failing;
       }
     }),
   } satisfies IntegrationDefinitionRepository;

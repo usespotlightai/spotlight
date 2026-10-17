@@ -105,7 +105,7 @@ func retried(ctx context.Context, log *slog.Logger, failed string, try func() er
 
 	for {
 		err := try()
-		if err == nil || ctx.Err() != nil || errors.Is(err, control.ErrRefused) {
+		if err == nil || ctx.Err() != nil || errors.Is(err, control.ErrUnauthorized) {
 			return err
 		}
 

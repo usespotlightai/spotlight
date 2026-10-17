@@ -165,7 +165,7 @@ describe('Candidate', () => {
     expect(CandidateName.proposed('Shorter prompt').value).toBe(
       'Shorter prompt',
     );
-    for (const refused of [
+    for (const invalid of [
       ' Shorter',
       'Shorter ',
       'a/b',
@@ -174,7 +174,7 @@ describe('Candidate', () => {
       'Live config, 2026-10-02',
       'live config tweak',
     ]) {
-      expect(() => CandidateName.proposed(refused)).toThrow(
+      expect(() => CandidateName.proposed(invalid)).toThrow(
         InvalidCandidateError,
       );
     }
@@ -244,7 +244,7 @@ describe('Candidate', () => {
       for (const name of ['a', 'terse-prompt', '0-shot', 'x'.repeat(63)]) {
         expect(CandidateName.searched(name).value).toBe(name);
       }
-      for (const refused of [
+      for (const invalid of [
         '',
         '-lead',
         'Upper',
@@ -254,7 +254,7 @@ describe('Candidate', () => {
         '..',
         'x'.repeat(64),
       ]) {
-        expect(() => CandidateName.searched(refused)).toThrow(
+        expect(() => CandidateName.searched(invalid)).toThrow(
           InvalidCandidateError,
         );
       }
@@ -263,8 +263,8 @@ describe('Candidate', () => {
 
     it('says what it hopes for in 1 to 4,000 characters', () => {
       expect(Hypothesis.of('x'.repeat(4_000)).value).toHaveLength(4_000);
-      for (const refused of ['', '   ', 'x'.repeat(4_001)]) {
-        expect(() => Hypothesis.of(refused)).toThrow(InvalidCandidateError);
+      for (const invalid of ['', '   ', 'x'.repeat(4_001)]) {
+        expect(() => Hypothesis.of(invalid)).toThrow(InvalidCandidateError);
       }
     });
 

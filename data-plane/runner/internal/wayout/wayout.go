@@ -120,12 +120,12 @@ func boundSoon(ctx context.Context, egress *Egress, wait time.Duration, log *slo
 }
 
 func passing(err error) bool {
-	refused := (*Refused)(nil)
-	if !errors.As(err, &refused) {
+	httpError := (*HTTPError)(nil)
+	if !errors.As(err, &httpError) {
 		return true
 	}
-	return refused.Status == http.StatusConflict || refused.Status == http.StatusTooManyRequests ||
-		refused.Status >= http.StatusInternalServerError
+	return httpError.Status == http.StatusConflict || httpError.Status == http.StatusTooManyRequests ||
+		httpError.Status >= http.StatusInternalServerError
 }
 
 func (w *WayOut) PEM() []byte {
@@ -185,7 +185,7 @@ func (w *WayOut) connect(rw http.ResponseWriter, r *http.Request) {
 
 	upstream, err := w.dialOut(r.Context(), "tcp", target)
 	if err != nil {
-		w.refuse(rw, target, err)
+		w.fail(rw, target, err)
 		return
 	}
 	defer upstream.Close()
@@ -203,9 +203,9 @@ func (w *WayOut) connect(rw http.ResponseWriter, r *http.Request) {
 	tunnel.Splice(client, buffered, upstream)
 }
 
-func (w *WayOut) refuse(rw http.ResponseWriter, target string, err error) {
-	if refused := (*Refused)(nil); errors.As(err, &refused) {
-		http.Error(rw, refused.Text, refused.Status)
+func (w *WayOut) fail(rw http.ResponseWriter, target string, err error) {
+	if httpError := (*HTTPError)(nil); errors.As(err, &httpError) {
+		http.Error(rw, httpError.Text, httpError.Status)
 		return
 	}
 
@@ -269,8 +269,8 @@ func (w *WayOut) failedFor(host string) func(http.ResponseWriter, *http.Request,
 		if failure := (*url.Error)(nil); errors.As(err, &failure) {
 			err = failure.Err
 		}
-		if refused := (*Refused)(nil); errors.As(err, &refused) {
-			http.Error(rw, refused.Text, refused.Status)
+		if httpError := (*HTTPError)(nil); errors.As(err, &httpError) {
+			http.Error(rw, httpError.Text, httpError.Status)
 			return
 		}
 

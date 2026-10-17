@@ -33,7 +33,7 @@ const host = (overrides: Partial<HostSummary> = {}): HostSummary => ({
       usual: true,
       release: '0.9.0',
       harnesses: [{ id: 'claude-code', version: '2.1.0' }],
-      refused: null,
+      unavailableReason: null,
     },
   ],
   firstSeenAt: ago(3_600_000),

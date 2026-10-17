@@ -15,7 +15,7 @@ describe('Repository', () => {
     expect(Repository.of('acme/widgets.git').value).toBe('acme/widgets');
   });
 
-  it('refuses what is not one repository', () => {
+  it('rejects what is not one repository', () => {
     for (const raw of [
       'spotlight',
       'acme/widgets/extra',

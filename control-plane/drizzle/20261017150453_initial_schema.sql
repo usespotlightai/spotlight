@@ -11,7 +11,7 @@ CREATE TYPE "public"."check_phase" AS ENUM('waiting', 'reordering', 'checked', '
 CREATE TYPE "public"."github_pull_request_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
 CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners', 'trusts');--> statement-breakpoint
-CREATE TYPE "public"."memory_drafting_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'errored', 'interrupted');--> statement-breakpoint
+CREATE TYPE "public"."memory_drafting_failure" AS ENUM('no-evidence', 'request-failed', 'unreadable', 'errored', 'interrupted');--> statement-breakpoint
 CREATE TYPE "public"."memory_kind" AS ENUM('rationale', 'rejected-approach', 'failure', 'environment', 'preference', 'correction');--> statement-breakpoint
 CREATE TYPE "public"."memory_origin" AS ENUM('drafted', 'remembered');--> statement-breakpoint
 CREATE TYPE "public"."memory_proposal_state" AS ENUM('proposed', 'approved', 'rejected');--> statement-breakpoint
@@ -20,7 +20,7 @@ CREATE TYPE "public"."memory_status" AS ENUM('active', 'retired');--> statement-
 CREATE TYPE "public"."memory_use_way" AS ENUM('briefed', 'recalled');--> statement-breakpoint
 CREATE TYPE "public"."alert_measure" AS ENUM('sent_back_rate', 'accepted_rate', 'checks_failed_rate', 'failed_rate', 'merged_rate', 'cost_per_run');--> statement-breakpoint
 CREATE TYPE "public"."alert_threshold" AS ENUM('risesBy', 'fallsBy', 'above', 'below');--> statement-breakpoint
-CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'refused', 'unreadable', 'ungrounded', 'errored', 'interrupted', 'unavailable');--> statement-breakpoint
+CREATE TYPE "public"."judging_failure" AS ENUM('no-evidence', 'request-failed', 'unreadable', 'ungrounded', 'errored', 'interrupted', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."pair_order" AS ENUM('run-first', 'against-first');--> statement-breakpoint
 CREATE TYPE "public"."pull_request_record_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
 CREATE TYPE "public"."run_record_act" AS ENUM('started', 'parked', 'closed', 'answered', 'sent-back');--> statement-breakpoint
@@ -29,8 +29,8 @@ CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped
 CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number', 'claims');--> statement-breakpoint
 CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-breakpoint
 CREATE TYPE "public"."task_delivery_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
-CREATE TYPE "public"."config_pull_request_refusal" AS ENUM('no-source', 'repository-unreachable', 'file-missing', 'file-unparsable', 'block-not-found', 'blocks-ambiguous', 'computed-attribute', 'drifted', 'edit-failed', 'branch-taken', 'file-unwritable', 'github-refused');--> statement-breakpoint
-CREATE TYPE "public"."config_pull_request_state" AS ENUM('opening', 'opened', 'refused');--> statement-breakpoint
+CREATE TYPE "public"."config_pull_request_error" AS ENUM('no-source', 'repository-unreachable', 'file-missing', 'file-unparsable', 'block-not-found', 'blocks-ambiguous', 'computed-attribute', 'base-changed', 'edit-failed', 'branch-taken', 'file-unwritable', 'github-error');--> statement-breakpoint
+CREATE TYPE "public"."config_pull_request_state" AS ENUM('opening', 'opened', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed', 'searched', 'planned', 'oracle');--> statement-breakpoint
 CREATE TYPE "public"."replay_check_baseline" AS ENUM('awaiting', 'found', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_outcome" AS ENUM('completed', 'failed', 'abandoned', 'withdrawn');--> statement-breakpoint
@@ -42,7 +42,7 @@ CREATE TYPE "public"."replay_search_reflection_outcome" AS ENUM('went-on', 'no-c
 CREATE TYPE "public"."replay_search_state" AS ENUM('seeding', 'searching', 'holding-out', 'finished', 'stopped');--> statement-breakpoint
 CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'over-budget');--> statement-breakpoint
 CREATE TYPE "public"."notice_form" AS ENUM('ended', 'advice');--> statement-breakpoint
-CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'forgone', 'refused');--> statement-breakpoint
+CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'forgone', 'unreplayable');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'waiting', 'parked', 'completed', 'failed', 'superseded');--> statement-breakpoint
 CREATE TYPE "public"."aside_form" AS ENUM('memories', 'grade', 'alert');--> statement-breakpoint
 CREATE SEQUENCE "public"."memory_handle_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1;--> statement-breakpoint
@@ -507,7 +507,7 @@ CREATE TABLE "host_connection" (
 	"expires_at" timestamp,
 	"scopes" text DEFAULT '' NOT NULL,
 	"handle" text,
-	"renewal_refused_at" timestamp,
+	"refresh_failed_at" timestamp,
 	"renewal_claimed_until" timestamp,
 	"version" integer DEFAULT 1 NOT NULL,
 	"connected_at" timestamp DEFAULT now() NOT NULL,
@@ -1015,11 +1015,11 @@ CREATE TABLE "config_pull_request" (
 	"branch" text NOT NULL,
 	"state" "config_pull_request_state" NOT NULL,
 	"url" text,
-	"refusal" "config_pull_request_refusal",
-	"refusal_message" text,
-	"refusal_attribute" text,
-	"refusal_expression" text,
-	"refusal_wanted" jsonb,
+	"error_code" "config_pull_request_error",
+	"error_message" text,
+	"error_attribute" text,
+	"error_expression" text,
+	"error_wanted" jsonb,
 	"attempts" integer NOT NULL,
 	"tries" integer NOT NULL,
 	"last_commit" text,
@@ -1131,7 +1131,7 @@ CREATE TABLE "replay_entry" (
 	"queued" boolean DEFAULT false NOT NULL,
 	"fingerprint" text,
 	"queue_attempts" integer DEFAULT 0 NOT NULL,
-	"refusal" text,
+	"unreplayable_reason" text,
 	"not_run" boolean DEFAULT false NOT NULL,
 	"outcome" "replay_run_outcome",
 	"failure" text,
@@ -1564,7 +1564,7 @@ CREATE TABLE "notice" (
 CREATE TABLE "replay_run_claim" (
 	"run_id" text PRIMARY KEY NOT NULL,
 	"claimed_as" "replay_run_claimed" NOT NULL,
-	"refusal" text,
+	"unreplayable_reason" text,
 	"reason" text,
 	"claimed_at" timestamp DEFAULT now() NOT NULL
 );

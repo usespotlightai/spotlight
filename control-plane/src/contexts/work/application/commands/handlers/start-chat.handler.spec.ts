@@ -94,7 +94,7 @@ describe('StartChatHandler', () => {
     expect(added[0]?.setup?.repository.value).toBe('acme/infra');
   });
 
-  it('refuses a setup chat in a repository the GitHub App does not reach', async () => {
+  it('rejects a setup chat in a repository the GitHub App does not reach', async () => {
     const { handler, added } = starting();
 
     await expect(handler.execute(settingUp('acme/example'))).rejects.toThrow(
@@ -103,7 +103,7 @@ describe('StartChatHandler', () => {
     expect(added).toEqual([]);
   });
 
-  it('refuses a setup chat where no host or push pool with egress serves the workspace', async () => {
+  it('rejects a setup chat where no host or push pool with egress serves the workspace', async () => {
     const { handler, added } = starting({ hosted: false });
 
     await expect(handler.execute(settingUp('acme/infra'))).rejects.toThrow(

@@ -288,14 +288,14 @@ const isScalar = (kind: string): kind is (typeof SCALARS)[number] =>
   (SCALARS as readonly string[]).includes(kind);
 
 const read = (raw: unknown, depth: number): ShapeNode => {
-  const refuse = () =>
+  const invalid = () =>
     new InconsistentStateError(
       'learned output shape',
       'was kept in a form Spotlight does not read',
     );
 
   if (!isJsonObject(raw) || typeof raw.kind !== 'string' || depth > 64) {
-    throw refuse();
+    throw invalid();
   }
 
   if (raw.kind === 'nothing' || isScalar(raw.kind)) {
@@ -318,7 +318,7 @@ const read = (raw: unknown, depth: number): ShapeNode => {
       kind: 'object',
       fields: raw.fields.map((each) => {
         if (!isJsonObject(each) || typeof each.name !== 'string') {
-          throw refuse();
+          throw invalid();
         }
 
         return {
@@ -330,7 +330,7 @@ const read = (raw: unknown, depth: number): ShapeNode => {
     };
   }
 
-  throw refuse();
+  throw invalid();
 };
 
 export class OutputShape {

@@ -88,13 +88,13 @@ describe('BuiltInSkillFiles', () => {
       expect(skill.instructions).toBe('## Doing it\n\nSo.');
     });
 
-    it('refuses one with no frontmatter', () => {
+    it('rejects one with no frontmatter', () => {
       expect(() => readSkill('spotlight-example', '# Doing it')).toThrow(
         InvalidSkillError,
       );
     });
 
-    it('refuses one named for another folder', () => {
+    it('rejects one named for another folder', () => {
       expect(() =>
         readSkill(
           'spotlight-example',
@@ -103,7 +103,7 @@ describe('BuiltInSkillFiles', () => {
       ).toThrow(/must be named spotlight-example in its frontmatter/);
     });
 
-    it('refuses one that says nothing about when to use it', () => {
+    it('rejects one that says nothing about when to use it', () => {
       expect(() =>
         readSkill(
           'spotlight-example',
@@ -112,7 +112,7 @@ describe('BuiltInSkillFiles', () => {
       ).toThrow(/needs a description/);
     });
 
-    it('refuses one that has nothing to say', () => {
+    it('rejects one that has nothing to say', () => {
       expect(() =>
         readSkill(
           'spotlight-example',

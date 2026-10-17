@@ -636,7 +636,7 @@ export class AnswerInboxItemRequestDto {
   @ApiPropertyOptional({
     type: Boolean,
     description:
-      'Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else.',
+      'Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Rejected anywhere else.',
   })
   readonly approve?: boolean;
 

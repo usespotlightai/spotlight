@@ -52,7 +52,7 @@ describe('DeliverSaidHandler', () => {
     expect(delivered).toEqual([3]);
   });
 
-  it('refuses another runner, and marks nothing delivered', async () => {
+  it('rejects another runner, and marks nothing delivered', async () => {
     const { handler, delivered } = delivering();
 
     await expect(

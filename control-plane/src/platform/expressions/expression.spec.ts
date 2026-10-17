@@ -30,12 +30,12 @@ describe('compiling an expression', () => {
     expect(compile('body.data.identifier').evaluate(delivery)).toBe('ENG-42');
   });
 
-  it('refuses one that will not parse', () => {
+  it('rejects one that will not parse', () => {
     expect(() => compile('body.data. ==')).toThrow(ExpressionError);
     expect(() => compile('   ')).toThrow(/is empty/);
   });
 
-  it('refuses one longer than anybody would write', () => {
+  it('rejects one longer than anybody would write', () => {
     expect(() => compile(`"${'a'.repeat(2_100)}"`)).toThrow(/longer than/);
   });
 
@@ -135,7 +135,7 @@ describe('binding a delivery', () => {
     expect(Object.getPrototypeOf(bound({ a: 1 }))).toBeNull();
   });
 
-  it('refuses a delivery nested deeper than anyone would read', () => {
+  it('rejects a delivery nested deeper than anyone would read', () => {
     let deep: Record<string, unknown> = { end: true };
     for (let at = 0; at < 40; at += 1) {
       deep = { deep };
@@ -144,13 +144,13 @@ describe('binding a delivery', () => {
     expect(() => bound(deep)).toThrow(/nested deeper/);
   });
 
-  it('refuses a list longer than anyone would walk', () => {
+  it('rejects a list longer than anyone would walk', () => {
     expect(() => bound({ many: new Array(600).fill(1) })).toThrow(
       /longer list/,
     );
   });
 
-  it('refuses a delivery that has more than can be read', () => {
+  it('rejects a delivery that has more than can be read', () => {
     const wide = Object.fromEntries(
       new Array(400).fill(0).map((_, at) => [`k${at}`, new Array(400).fill(1)]),
     );
@@ -175,23 +175,23 @@ describe('checking an expression against what it may read', () => {
     expect(reason('body.anything.at.all')).toBeNull();
   });
 
-  it('refuses one that misspells a field Spotlight shapes', () => {
+  it('rejects one that misspells a field Spotlight shapes', () => {
     expect(reason('task.lnie')).toMatch(/No such key: lnie/);
   });
 
-  it('refuses one that names something not there at all', () => {
+  it('rejects one that names something not there at all', () => {
     expect(reason('tsak.line')).toMatch(/Unknown variable: tsak/);
   });
 
-  it('refuses one that could never evaluate', () => {
+  it('rejects one that could never evaluate', () => {
     expect(reason('task.line + 1')).toMatch(/no such overload/);
   });
 
-  it('refuses one longer than anybody would write', () => {
+  it('rejects one longer than anybody would write', () => {
     expect(reason(`"${'a'.repeat(2_100)}"`)).toMatch(/longer than/);
   });
 
-  it('still compiles one it refuses, to read the way it always read', () => {
+  it('still compiles one it rejects, to read the way it always read', () => {
     expect(
       reads(compile('ask.body'), { ask: { body: 'The queue is stuck.' } }),
     ).toBe('The queue is stuck.');
@@ -296,7 +296,7 @@ describe('checking an expression without compiling it', () => {
     expect(checked.valid ? null : checked.suggestion).toBe('task.line');
   });
 
-  it('refuses one that will not parse', () => {
+  it('rejects one that will not parse', () => {
     expect(expressions.check('task. ==', scope)).toMatchObject({
       valid: false,
     });

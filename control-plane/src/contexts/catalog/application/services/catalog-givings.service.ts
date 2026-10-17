@@ -1,5 +1,6 @@
 import type {
   CatalogCallAnswer,
+  CatalogDenial,
   CatalogGiving,
   CatalogNamed,
   CatalogSkillGiven,
@@ -17,7 +18,11 @@ import type {
   CatalogTool,
 } from '@catalog/domain/entities/catalog-item.entity';
 import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
-import { givingOf, givingsTo } from '@catalog/domain/services/giving';
+import {
+  type Denial,
+  givingOf,
+  givingsTo,
+} from '@catalog/domain/services/giving';
 import { MeteredCall } from '@catalog/domain/value-objects/metered-call.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -36,6 +41,12 @@ const skillGiven = (skill: CatalogSkill): CatalogSkillGiven => ({
   description: skill.listing.description,
   files: skill.files,
   tools: skill.brings.map((each) => each.value),
+});
+
+const denialGiven = (denial: Denial): CatalogDenial => ({
+  id: denial.id,
+  reason: denial.reason,
+  because: denial.detail,
 });
 
 export class CatalogGivings implements CatalogPort {
@@ -61,7 +72,7 @@ export class CatalogGivings implements CatalogPort {
     return {
       tools: givings.tools.map(toolGiven),
       skills: givings.skills.map(skillGiven),
-      refused: givings.refused,
+      denied: givings.denied.map(denialGiven),
     };
   }
 
@@ -75,7 +86,7 @@ export class CatalogGivings implements CatalogPort {
     );
 
     if (!giving.given) {
-      return { kind: 'refused', refusal: giving.refusal };
+      return { kind: 'denied', denial: denialGiven(giving.denial) };
     }
 
     const tool = giving.item;

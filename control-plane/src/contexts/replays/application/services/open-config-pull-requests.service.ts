@@ -1,4 +1,4 @@
-import { ConfigRepositoryRefusedError } from '@replays/application/errors/config-repository-refused.error';
+import { ConfigRepositoryError } from '@replays/application/errors/config-repository.error';
 import type { ConfigRepositoryPort } from '@replays/application/ports/config-repository.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { StationSourceEditorPort } from '@replays/application/ports/station-source-editor.port';
@@ -40,7 +40,7 @@ type Opened =
 const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const refusedAs = (
+const failedAs = (
   code: ConfigPullRequestReason['code'],
   message: string,
 ): Opened => ({ reason: ConfigPullRequestReason.of({ code, message }) });
@@ -116,7 +116,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     try {
       opened = await this.opening(pullRequest, committed);
     } catch (error) {
-      if (!(error instanceof ConfigRepositoryRefusedError)) {
+      if (!(error instanceof ConfigRepositoryError)) {
         this.logger.warn(
           { err: error, pullRequestId: pullRequest.id.value },
           'Opening a config pull request failed; it will be tried again',
@@ -125,13 +125,13 @@ export class OpenConfigPullRequests implements OwedWorkPort {
         return;
       }
 
-      opened = refusedAs(error.code, error.message);
+      opened = failedAs(error.code, error.message);
     }
 
     await this.saved(
       'url' in opened
         ? pullRequest.open(opened.url, opened.proposing, this.clock.now())
-        : pullRequest.refused(opened.reason, this.clock.now()),
+        : pullRequest.failed(opened.reason, this.clock.now()),
     );
   }
 
@@ -156,13 +156,13 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     ]);
 
     if (!named || !path) {
-      return refusedAs(
+      return failedAs(
         'no-source',
         'The config pull request has no target repository.',
       );
     }
     if (!search || !station || !teamKey) {
-      return refusedAs(
+      return failedAs(
         'block-not-found',
         'The searched station is gone from its line.',
       );
@@ -179,7 +179,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     const seed = found.find((each) => each.id.equals(search.seed.candidateId));
 
     if (!candidate || !seed) {
-      return refusedAs(
+      return failedAs(
         'block-not-found',
         'The picked candidate or the seed of the search no longer exists.',
       );
@@ -192,7 +192,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     );
 
     if (!file) {
-      return refusedAs(
+      return failedAs(
         'file-missing',
         `File ${path} not found on the default branch of ${repository.value}.`,
       );

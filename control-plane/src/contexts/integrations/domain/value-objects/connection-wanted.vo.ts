@@ -3,7 +3,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export type ConnectionWant =
   | 'not-connected'
-  | 'renewal-refused'
+  | 'refresh-failed'
   | 'no-requester'
   | 'not-a-member';
 

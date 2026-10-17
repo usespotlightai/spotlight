@@ -222,7 +222,7 @@ describe('openapiOperations', () => {
     ]);
   });
 
-  it('refuses a Swagger 2 description, and anything else that is not OpenAPI 3', () => {
+  it('rejects a Swagger 2 description, and anything else that is not OpenAPI 3', () => {
     expect(() => read({ swagger: '2.0', paths: {} })).toThrow(/Swagger 2/);
     expect(() => read({ openapi: '4.0.0' })).toThrow(/not an OpenAPI 3/);
     expect(() => read('openapi: 3.0.0')).toThrow(/not an OpenAPI description/);

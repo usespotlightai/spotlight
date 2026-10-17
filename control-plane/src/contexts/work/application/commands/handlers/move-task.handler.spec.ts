@@ -202,14 +202,14 @@ describe('MoveTaskHandler', () => {
     expect(saved?.revision.value).toBe(1);
   });
 
-  it('refuses a move based on a revision the task has moved on from', async () => {
+  it('rejects a move based on a revision the task has moved on from', async () => {
     await expect(
       move('station_1', lines(), tasks(), 'team_1', 4),
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(saved).toBeUndefined();
   });
 
-  it('refuses a revision that is no whole number of moves', async () => {
+  it('rejects a revision that is no whole number of moves', async () => {
     await expect(
       move('station_1', lines(), tasks(), 'team_1', -1),
     ).rejects.toMatchObject({ kind: 'invalid' });
@@ -283,7 +283,7 @@ describe('MoveTaskHandler', () => {
     expect(saved?.currentRunId).toBeNull();
   });
 
-  it('refuses a person moving work between work stations, and saves nothing', async () => {
+  it('denies a person moving work between work stations, and saves nothing', async () => {
     await expect(
       move('station_4', lines(), tasks(taskAt('station_2'))),
     ).rejects.toMatchObject({
@@ -294,7 +294,7 @@ describe('MoveTaskHandler', () => {
     expect(dispatched).toEqual([]);
   });
 
-  it('refuses a person moving a completed task back out', async () => {
+  it('denies a person moving a completed task back out', async () => {
     await expect(
       move('station_1', lines(), tasks(taskAt('station_3'))),
     ).rejects.toMatchObject({ kind: 'invalid' });
@@ -307,11 +307,11 @@ describe('MoveTaskHandler', () => {
     ).resolves.toMatchObject({ stationId: 'station_3' });
   });
 
-  it('refuses a station that is not on this line', async () => {
+  it('rejects a station that is not on this line', async () => {
     await expect(move('station_elsewhere')).rejects.toThrow(ApplicationError);
   });
 
-  it('refuses to move a task on another line', async () => {
+  it('does not move a task on another line', async () => {
     await expect(
       move(
         'station_1',
@@ -321,20 +321,20 @@ describe('MoveTaskHandler', () => {
     ).rejects.toThrow(ApplicationError);
   });
 
-  it('refuses a task that does not exist', async () => {
+  it('rejects a task that does not exist', async () => {
     await expect(move('station_1', lines(), tasks(null))).rejects.toThrow(
       ApplicationError,
     );
   });
 
-  it('refuses a line of a team the mover is not a member of', async () => {
+  it('rejects a line of a team the mover is not a member of', async () => {
     await expect(move('station_1', lines(), tasks(), 'team_2')).rejects.toThrow(
       ApplicationError,
     );
     expect(saved).toBeUndefined();
   });
 
-  it('refuses a line that does not exist', async () => {
+  it('rejects a line that does not exist', async () => {
     await expect(move('station_1', lines(null))).rejects.toThrow(
       ApplicationError,
     );

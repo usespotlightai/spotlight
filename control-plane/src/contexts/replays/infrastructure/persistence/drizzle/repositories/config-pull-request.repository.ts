@@ -20,22 +20,22 @@ import { and, asc, eq, inArray, lte, type SQL } from 'drizzle-orm';
 type PullRequestRow = typeof configPullRequest.$inferSelect;
 
 const reasonOf = (row: PullRequestRow): ConfigPullRequestReason | null => {
-  if (row.refusal === null) {
+  if (row.errorCode === null) {
     return null;
   }
-  if (row.refusalMessage === null) {
+  if (row.errorMessage === null) {
     throw new InconsistentStateError(
       'config pull request',
-      'was refused without a message',
+      'failed without a message',
     );
   }
 
   return ConfigPullRequestReason.of({
-    code: row.refusal,
-    message: row.refusalMessage,
-    attribute: row.refusalAttribute,
-    expression: row.refusalExpression,
-    wanted: row.refusalWanted,
+    code: row.errorCode,
+    message: row.errorMessage,
+    attribute: row.errorAttribute,
+    expression: row.errorExpression,
+    wanted: row.errorWanted,
   });
 };
 
@@ -81,11 +81,11 @@ const columnsOf = (aggregate: ConfigPullRequest) => ({
   branch: aggregate.branch,
   state: aggregate.current,
   url: aggregate.url,
-  refusal: aggregate.reason?.code ?? null,
-  refusalMessage: aggregate.reason?.message ?? null,
-  refusalAttribute: aggregate.reason?.attribute ?? null,
-  refusalExpression: aggregate.reason?.expression ?? null,
-  refusalWanted: aggregate.reason?.wanted ?? null,
+  errorCode: aggregate.reason?.code ?? null,
+  errorMessage: aggregate.reason?.message ?? null,
+  errorAttribute: aggregate.reason?.attribute ?? null,
+  errorExpression: aggregate.reason?.expression ?? null,
+  errorWanted: aggregate.reason?.wanted ?? null,
   attempts: aggregate.attempts,
   tries: aggregate.tries,
   lastCommit: aggregate.lastCommit,

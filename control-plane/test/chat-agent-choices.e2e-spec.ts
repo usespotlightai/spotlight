@@ -40,7 +40,7 @@ afterAll(async () => {
 });
 
 describe('choosing the agent’s model and effort in a chat', () => {
-  it('refuses to start on a model that is empty or not text', async () => {
+  it('rejects a model that is empty or not text', async () => {
     await post('', {
       harness: 'claude-code',
       model: '',
@@ -53,7 +53,7 @@ describe('choosing the agent’s model and effort in a chat', () => {
     }).expect(400);
   });
 
-  it('answers with the model and effort a message picks, and refuses an empty or unknown one', async () => {
+  it('answers with the model and effort a message picks, and rejects an empty or unknown one', async () => {
     const chatId = await started();
 
     await post(`/${chatId}/messages`, { body: 'Again.', model: '' }).expect(

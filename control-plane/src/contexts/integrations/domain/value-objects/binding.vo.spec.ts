@@ -13,7 +13,7 @@ describe('Binding', () => {
     expect(binding.isFor('task.opened')).toBe(false);
   });
 
-  it('refuses an event Spotlight never raises', () => {
+  it('rejects an event Spotlight never raises', () => {
     expect(() =>
       Binding.of({ event: 'task.moved', does: 'post', known: ['task.asked'] }),
     ).toThrow(/must be one of task.asked/);

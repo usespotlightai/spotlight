@@ -153,7 +153,7 @@ export const aHostReport = (running: string[] = []): HostReport =>
         image: 'ghcr.io/acme/old:1',
         usual: false,
         harnesses: [],
-        refused:
+        unavailableReason:
           "Runner doesn't report its release number. Minimum version required: 20260925-01",
       },
     ],

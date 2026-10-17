@@ -122,7 +122,7 @@ describe('a task run’s starting point', () => {
     expect(found?.startedFrom).toBeNull();
   });
 
-  it('refuses to read a run that records only part of where it started', async () => {
+  it('does not read a run that records only part of where it started', async () => {
     const run = aTaskRun();
     await runs.add(run);
     await database.db

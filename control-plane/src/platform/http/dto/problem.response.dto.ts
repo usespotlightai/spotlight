@@ -53,7 +53,7 @@ export class ProblemResponseDto {
     enum: FORBIDDEN_ACTS,
     example: 'manage-secrets',
     description:
-      'The permission the caller lacks, when it was refused as forbidden: one its role in the workspace, or its token’s scopes, do not grant',
+      'The permission the caller lacks, when the request is forbidden: one its role in the workspace, or its token’s scopes, do not grant',
   })
   readonly permission?: ForbiddenAct;
 }

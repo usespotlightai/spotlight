@@ -175,9 +175,9 @@ describe('the mock station', () => {
 
     expect(checks.map((each) => each.verdict)).toEqual(['running', 'passed']);
     expect(suggestions.map((each) => each.runId)).toContain('run_billing_1');
-    expect(replayable.some((each) => each.refusal === 'archive-gone')).toBe(
-      true,
-    );
+    expect(
+      replayable.some((each) => each.unreplayableReason === 'archive-gone'),
+    ).toBe(true);
   });
 
   it('lists the replay candidates at the station’s address', async () => {

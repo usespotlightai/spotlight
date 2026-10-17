@@ -113,7 +113,7 @@ describe('WorkloadRule', () => {
     ).toBe(false);
   });
 
-  it('refuses a subject that would admit every owner its issuer signs for', () => {
+  it('rejects a subject that would admit every owner its issuer signs for', () => {
     for (const open of ['*', '**', 'repo:*', '*:*', 'repo:ac*/platform:*']) {
       expect(() => rule({ subject: open })).toThrow(InvalidTokenTrustError);
     }
@@ -146,7 +146,7 @@ describe('WorkloadRule', () => {
     ).toBe(false);
   });
 
-  it('refuses claims the token already answers for, or that are not claim names', () => {
+  it('rejects claims the token already answers for, or that are not claim names', () => {
     expect(() => rule({ claims: { sub: 'x' } })).toThrow(
       InvalidTokenTrustError,
     );
@@ -155,7 +155,7 @@ describe('WorkloadRule', () => {
     );
   });
 
-  it('refuses an issuer that is not https, save on this machine', () => {
+  it('rejects an issuer that is not https, save on this machine', () => {
     expect(() => rule({ issuer: 'http://issuer.example' })).toThrow(
       InvalidTokenTrustError,
     );

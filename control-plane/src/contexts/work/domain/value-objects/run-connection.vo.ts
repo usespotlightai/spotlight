@@ -11,7 +11,7 @@ export type ConnectionOutcome = (typeof CONNECTION_OUTCOMES)[number];
 
 export const CONNECTION_REASONS = [
   'not-allowed',
-  'address-refused',
+  'private-address',
   'not-bound',
   'no-such-host',
   'timed-out',
@@ -38,7 +38,7 @@ export type ConnectionError = (typeof CONNECTION_ERRORS)[number];
 const REASONS_OF: Record<ConnectionOutcome, readonly ConnectionReason[]> = {
   passthrough: [],
   injected: [],
-  blocked: ['not-allowed', 'address-refused', 'not-bound'],
+  blocked: ['not-allowed', 'private-address', 'not-bound'],
   failed: ['no-such-host', 'timed-out', 'tls-failed', 'unreachable'],
 };
 

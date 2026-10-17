@@ -37,7 +37,7 @@ describe('TeamAccess', () => {
     expect(access.by.equals(ADA)).toBe(true);
   });
 
-  it('is refused to anyone not on the team, as if there were no team', () => {
+  it('is denied to anyone not on the team, as if there were no team', () => {
     expect(() => TeamAccess.onTeam('team_1', null)).toThrow(NotOnTeamError);
     expect(() => TeamAccess.onTeam('team_1', null)).toThrow(
       'Team team_1 not found.',

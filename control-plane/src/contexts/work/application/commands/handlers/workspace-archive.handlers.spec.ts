@@ -80,7 +80,7 @@ describe('keeping a workspace between runs', () => {
     ).resolves.toBeNull();
   });
 
-  it('refuses work that does not carry on, and archives too large to keep', async () => {
+  it('rejects work that does not carry on, and archives too large to keep', async () => {
     const { grant, archives } = setUp(
       aLeasedRun({ carriesOn: false }),
       aLeasedRun({ id: 'run_2', runner: 'runner_2' }),
@@ -145,7 +145,7 @@ describe('keeping a workspace between runs', () => {
     });
   });
 
-  it('refuses to seal what was never uploaded as granted', async () => {
+  it('does not seal what was never uploaded as granted', async () => {
     const { grant, seal, store } = setUp();
 
     await grant.execute(

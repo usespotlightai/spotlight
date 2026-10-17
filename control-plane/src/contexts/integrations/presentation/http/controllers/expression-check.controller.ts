@@ -34,7 +34,7 @@ const POSITION_WRITTEN =
 const problemAt = (at: FieldPath, reason: string): ConfigurationProblem =>
   ConfigurationProblem.of({ path: '', at, reason });
 
-const refusalOf = (
+const problemsOf = (
   checked: Exclude<CheckedExpression, { outcome: 'checked' }>,
 ): ConfigurationProblem[] => {
   switch (checked.outcome) {
@@ -117,7 +117,7 @@ export class ExpressionCheckController {
     }
 
     if (checked.outcome !== 'checked') {
-      throw ProblemException.invalid(REQUEST, refusalOf(checked));
+      throw ProblemException.invalid(REQUEST, problemsOf(checked));
     }
 
     return new ExpressionCheckResponseDto(checked.check);

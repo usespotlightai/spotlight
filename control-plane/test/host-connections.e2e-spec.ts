@@ -157,7 +157,7 @@ describe('host connections kept per holder', () => {
     );
   });
 
-  it('lets one caller claim a renewal, and refuses a second claim made from the same reading', async () => {
+  it('lets one caller claim a renewal, and rejects a second claim made from the same reading', async () => {
     const teamId = TeamId.of(randomUUID());
     const alice = ConnectionHolder.person(UserId.of('user_alice'));
     await connections.save(linked(teamId, alice, 'alice'));
@@ -186,7 +186,7 @@ describe('host connections kept per holder', () => {
     expect(renewed?.accessToken.value).toBe('alice-2');
     expect(renewed?.refreshToken?.value).toBe('alice-r-2');
     expect(renewed?.renewalClaim).toBeNull();
-    expect(renewed?.refusedToken(AccessToken.of('alice'))).toBe(false);
+    expect(renewed?.hasToken(AccessToken.of('alice'))).toBe(false);
   });
 
   it('replaces a person’s connection when they connect again, and forgets it when they disconnect', async () => {
@@ -218,7 +218,7 @@ describe('OAuth client registrations', () => {
       secretExpiresAt: null,
     });
 
-  it('keeps the first registration, encrypted, and refuses a second made at the same time', async () => {
+  it('keeps the first registration, encrypted, and rejects a second made at the same time', async () => {
     const teamId = TeamId.of(randomUUID());
 
     await registrations.save(registered(teamId, 'client-1'));

@@ -29,7 +29,7 @@ const rehydrated = (
   over: {
     expiresAt?: Date | null;
     refreshToken?: string | null;
-    renewalRefusedAt?: Date | null;
+    refreshFailedAt?: Date | null;
   } = {},
 ) =>
   HostConnection.rehydrate({
@@ -44,7 +44,7 @@ const rehydrated = (
     expiresAt: over.expiresAt ?? null,
     scopes: ['chat:write'],
     handle: 'Acme',
-    renewalRefusedAt: over.renewalRefusedAt ?? null,
+    refreshFailedAt: over.refreshFailedAt ?? null,
     renewalClaim: null,
     version: 3,
   });
@@ -134,21 +134,21 @@ describe('HostConnection', () => {
     expect(rehydrated().renewedWith(grant()).pullEvents()).toEqual([]);
   });
 
-  it('remembers a refused renewal, says so once, and stops asking', () => {
+  it('remembers a failed refresh, says so once, and stops asking', () => {
     const expiring = rehydrated({
       expiresAt: new Date('2026-09-07T10:01:00.000Z'),
     });
-    const refused = expiring.renewalRefused(NOW);
+    const failed = expiring.refreshFailed(NOW);
 
-    expect(refused.pullEvents().map((each) => each.kind)).toEqual([
-      'integrations.host-renewal-refused',
+    expect(failed.pullEvents().map((each) => each.kind)).toEqual([
+      'integrations.host-refresh-failed',
     ]);
-    expect(refused.renewalRefusedAt).toEqual(NOW);
-    expect(refused.needsRenewal(NOW)).toBe(false);
-    expect(refused.renewalRefused(NOW).pullEvents()).toEqual([]);
+    expect(failed.refreshFailedAt).toEqual(NOW);
+    expect(failed.needsRenewal(NOW)).toBe(false);
+    expect(failed.refreshFailed(NOW).pullEvents()).toEqual([]);
   });
 
-  it('refuses to be read back without a version', () => {
+  it('cannot be read back without a version', () => {
     expect(() =>
       HostConnection.rehydrate({
         workspaceId: WorkspaceId.of('ws_1'),
@@ -160,7 +160,7 @@ describe('HostConnection', () => {
         expiresAt: null,
         scopes: [],
         handle: null,
-        renewalRefusedAt: null,
+        refreshFailedAt: null,
         renewalClaim: null,
         version: 0,
       }),
@@ -222,28 +222,28 @@ describe('HostConnection', () => {
     ).toThrow();
   });
 
-  it('lets go of the claim once renewed, refused or released', () => {
+  it('lets go of the claim once renewed, failed or released', () => {
     const claimed = rehydrated().claimRenewal(NOW, 30_000);
 
     expect(claimed.renewedWith(grant()).isClaimedAt(NOW)).toBe(false);
-    expect(claimed.renewalRefused(NOW).isClaimedAt(NOW)).toBe(false);
+    expect(claimed.refreshFailed(NOW).isClaimedAt(NOW)).toBe(false);
     expect(claimed.renewalReleased().isClaimedAt(NOW)).toBe(false);
   });
 
-  it('knows whether the token a host refused is still the one it has', () => {
+  it('knows whether the token a host did not accept is still the one it has', () => {
     const connection = rehydrated();
 
-    expect(connection.refusedToken(AccessToken.of('xoxb-old'))).toBe(true);
+    expect(connection.hasToken(AccessToken.of('xoxb-old'))).toBe(true);
     expect(
       connection
         .renewedWith(grant({ accessToken: 'xoxb-2' }))
-        .refusedToken(AccessToken.of('xoxb-old')),
+        .hasToken(AccessToken.of('xoxb-old')),
     ).toBe(false);
   });
 
-  it('is unusable once its renewal was refused', () => {
+  it('is unusable once its refresh failed', () => {
     expect(rehydrated().usable).toBe(true);
-    expect(rehydrated().renewalRefused(NOW).usable).toBe(false);
+    expect(rehydrated().refreshFailed(NOW).usable).toBe(false);
   });
 
   it('announces it was disconnected', () => {
@@ -255,7 +255,7 @@ describe('HostConnection', () => {
     ).toEqual(['integrations.host-disconnected']);
   });
 
-  it('refuses to be read back claimed without a way to renew', () => {
+  it('cannot be read back claimed without a way to renew', () => {
     expect(() =>
       HostConnection.rehydrate({
         workspaceId: WorkspaceId.of('ws_1'),
@@ -267,7 +267,7 @@ describe('HostConnection', () => {
         expiresAt: null,
         scopes: [],
         handle: null,
-        renewalRefusedAt: null,
+        refreshFailedAt: null,
         renewalClaim: RenewalClaim.until(NOW),
         version: 1,
       }),

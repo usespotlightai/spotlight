@@ -509,14 +509,14 @@ describe('the team’s insights (e2e)', () => {
     ).toBe(404);
   });
 
-  it('refuses a token it does not know, and a caller with none', async () => {
+  it('does not accept a token it does not know, or a caller with none', async () => {
     expect((await bearing(insights('overview'), 'not-a-token')).status).toBe(
       401,
     );
     expect((await served(app).get(insights('overview'))).status).toBe(401);
   });
 
-  it('refuses a period it does not look back over, and more than one period', async () => {
+  it('rejects a period it does not look back over, and more than one period', async () => {
     const unknown = await asOwner(insights('overview', 'period=14d'));
 
     expect(unknown.status).toBe(422);
@@ -617,7 +617,7 @@ describe('the team’s insights (e2e)', () => {
     expect(await total(`personId=${team.owner.value}`)).toBe(1);
   });
 
-  it('refuses a drill-down it cannot read: an unknown value, one asked twice, a day outside the period, or a page past the last', async () => {
+  it('rejects a drill-down it cannot read: an unknown value, one asked twice, a day outside the period, or a page past the last', async () => {
     const status = async (query: string) =>
       (await asOwner(insights('runs', `period=7d&${query}`))).status;
     const today = new Date().toISOString().slice(0, 10);
@@ -722,7 +722,7 @@ describe('the team’s insights (e2e)', () => {
     ]);
   });
 
-  it('refuses to drill down by more than two hundred tasks at once', async () => {
+  it('rejects a drill-down by more than two hundred tasks at once', async () => {
     const many = Array.from({ length: 201 }, () => randomUUID()).join(',');
 
     expect(

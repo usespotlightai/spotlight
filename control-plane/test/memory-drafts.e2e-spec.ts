@@ -36,7 +36,7 @@ const SITE: StationSite = {
 
 const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   kind: 'correction',
-  body: 'Never retry an upload the bucket refused with a 403.',
+  body: 'Never retry an upload the bucket rejected with a 403.',
   reach: 'station',
   repository: 'acme/api',
   paths: ['src/uploads.ts'],
@@ -185,7 +185,7 @@ describe('storing a task’s memory draft', () => {
     expect(read.failure?.at).toEqual(LATER);
   });
 
-  it('refuses to write over a draft that changed since it was read', async () => {
+  it('does not write over a draft that changed since it was read', async () => {
     const draft = opened().asked(FIRST, NOW);
     await drafts.add(draft);
     const read = await stored(draft);
@@ -205,7 +205,7 @@ describe('storing a task’s memory draft', () => {
     await drafts.save(
       (await stored(waiting))
         .leased(NOW)
-        .failed(MemoryDraftingFailure.of('refused', NOW)),
+        .failed(MemoryDraftingFailure.of('request-failed', NOW)),
     );
 
     const handed = await database.db.transaction(async (tx) =>

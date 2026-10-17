@@ -420,7 +420,7 @@ describe('traceOf', () => {
             connection({ at: at(21_000) }),
             connection({ at: at(22_000) }),
             connection({ at: at(23_000), ms: 500 }),
-            connection({ at: at(24_000), reason: 'address-refused' }),
+            connection({ at: at(24_000), reason: 'private-address' }),
           ],
         }),
       ]);
@@ -432,7 +432,7 @@ describe('traceOf', () => {
         to: at(23_500),
         connection: { count: 3 },
       });
-      expect(rows[1]?.connection?.connection.reason).toBe('address-refused');
+      expect(rows[1]?.connection?.connection.reason).toBe('private-address');
     });
 
     it('leaves out connections without an error', () => {

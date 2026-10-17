@@ -362,7 +362,7 @@ describe('what a harness asks Spotlight about', () => {
 });
 
 describe('reviewing a harness profile', () => {
-  it('refuses native settings for a harness Spotlight does not run', () => {
+  it('rejects native settings for a harness Spotlight does not run', () => {
     expect(
       harnesses.review(profile({ native: { aider: {} } })).problems,
     ).toEqual([
@@ -374,7 +374,7 @@ describe('reviewing a harness profile', () => {
     ]);
   });
 
-  it('refuses Codex settings that do not read as TOML', () => {
+  it('rejects Codex settings that do not read as TOML', () => {
     expect(
       harnesses.review(profile({ native: { codex: 'model = ' } })).problems,
     ).toEqual([
@@ -386,7 +386,7 @@ describe('reviewing a harness profile', () => {
     ]);
   });
 
-  it('refuses Claude Code settings that are not an object', () => {
+  it('rejects Claude Code settings that are not an object', () => {
     expect(
       harnesses.review(profile({ native: { 'claude-code': 'yes' } })).problems,
     ).toEqual([

@@ -58,17 +58,17 @@ export interface HclBlockEdit {
   readonly read: (path: string) => Promise<string | null>;
 }
 
-export type HclEditRefusalCode =
+export type HclEditErrorCode =
   | 'unparsable'
   | 'block-not-found'
   | 'blocks-ambiguous'
   | 'computed-attribute'
-  | 'drifted'
+  | 'base-changed'
   | 'file-missing'
   | 'edit-failed';
 
-interface HclEditRefusal {
-  readonly code: HclEditRefusalCode;
+interface HclEditError {
+  readonly code: HclEditErrorCode;
   readonly message: string;
   readonly attribute: string | null;
   readonly expression: string | null;
@@ -81,7 +81,7 @@ export type HclBlockEdited =
       readonly files: readonly HclFile[];
       readonly unchecked: readonly string[];
     }
-  | { readonly ok: false; readonly refusal: HclEditRefusal };
+  | { readonly ok: false; readonly error: HclEditError };
 
 interface Splice {
   readonly start: number;
@@ -93,20 +93,20 @@ type Resolved =
   | { readonly ok: true; readonly value: HclLiteral; readonly path?: string }
   | { readonly ok: false; readonly why: string };
 
-class Refused extends Error {
-  constructor(readonly refusal: HclEditRefusal) {
-    super(refusal.message);
+class HclEditFailure extends Error {
+  constructor(readonly error: HclEditError) {
+    super(error.message);
   }
 }
 
 class OneLineBlock extends Error {}
 
-const refused = (
-  code: HclEditRefusalCode,
+const fail = (
+  code: HclEditErrorCode,
   message: string,
-  more: Partial<Omit<HclEditRefusal, 'code' | 'message'>> = {},
+  more: Partial<Omit<HclEditError, 'code' | 'message'>> = {},
 ): never => {
-  throw new Refused({
+  throw new HclEditFailure({
     code,
     message,
     attribute: more.attribute ?? null,
@@ -177,7 +177,7 @@ const inRepository = (from: string, path: string): string => {
   );
 
   return posix.isAbsolute(path) || joined === '..' || joined.startsWith('../')
-    ? refused(
+    ? fail(
         'file-missing',
         `The file ${quotedKey(path)} is outside the repository.`,
       )
@@ -288,16 +288,16 @@ class Editing {
       const counted = `${countOf(lines.length, `resource "${resource.type}"`, `resources "${resource.type}"`)} in the file, ${keyed.length} with key ${quotedKey(resource.key)}`;
 
       return keyed.length === 0
-        ? refused(
+        ? fail(
             'block-not-found',
             `The file has no resource "${resource.type}" with key ${quotedKey(resource.key)}. Found: ${counted}`,
           )
         : unknown > 0
-          ? refused(
+          ? fail(
               'blocks-ambiguous',
               `More than one resource "${resource.type}" with key ${quotedKey(resource.key)} can belong to team ${owner.key}. Found: ${counted}`,
             )
-          : refused(
+          : fail(
               'block-not-found',
               `The file has no resource "${resource.type}" with key ${quotedKey(resource.key)} for team ${owner.key}. Found: ${counted}`,
             );
@@ -323,7 +323,7 @@ class Editing {
       ...(dynamic > 0 ? [countOf(dynamic, 'dynamic block')] : []),
     ].join(', ');
 
-    return refused(
+    return fail(
       matching.length === 0 ? 'block-not-found' : 'blocks-ambiguous',
       matching.length === 0
         ? `The resource has no ${block.type} block with key ${quotedKey(block.key)}. Found: ${counted}`
@@ -395,7 +395,7 @@ class Editing {
         const content = await this.read(path);
 
         return content === null
-          ? refused(
+          ? fail(
               'file-missing',
               `\`${name}\` reads ${quotedKey(path)}. The repository doesn't have this file.`,
               { attribute: name, expression: existing.written },
@@ -570,7 +570,7 @@ class Editing {
       );
 
       if (found.length > 1) {
-        refused(
+        fail(
           'unparsable',
           `The ${this.edit.block.type} block sets \`${field.name}\` more than once.`,
           { attribute: field.name },
@@ -583,7 +583,7 @@ class Editing {
 
       if (!current.ok) {
         if (changes) {
-          refused('computed-attribute', current.why, {
+          fail('computed-attribute', current.why, {
             attribute: field.name,
             expression: existing?.written ?? null,
             wanted: field.now,
@@ -593,8 +593,8 @@ class Editing {
         continue;
       }
       if (!same(current.value, field.was)) {
-        refused(
-          'drifted',
+        fail(
+          'base-changed',
           `\`${field.name}\` changed in the repository after the search began. The file no longer has the value that the search started from.`,
           { attribute: field.name },
         );
@@ -641,7 +641,7 @@ class Editing {
       }
 
       if (existing.read.kind === 'file' && typeof field.now === 'string') {
-        refused(
+        fail(
           'edit-failed',
           `\`${field.name}\` reads \`${existing.written}\`. Spotlight writes only the station's own files. Please change it by hand.`,
           {
@@ -715,16 +715,16 @@ class Editing {
     const found = block.body.blocks.filter(
       (each) => each.type === guarded.type && each.labels.length === 0,
     );
-    const drifted = () =>
-      refused(
-        'drifted',
+    const baseChanged = () =>
+      fail(
+        'base-changed',
         `\`${guarded.type}\` changed in the repository after the search began. The file no longer has the value that the search started from.`,
         { attribute: guarded.type },
       );
 
     if (!guarded.was) {
       if (found.length > 0) {
-        drifted();
+        baseChanged();
       }
       return;
     }
@@ -732,7 +732,7 @@ class Editing {
     const [nested] = found;
 
     if (!nested || found.length > 1) {
-      return drifted();
+      return baseChanged();
     }
 
     for (const [name, was] of Object.entries(guarded.was)) {
@@ -745,7 +745,7 @@ class Editing {
       if (!current.ok) {
         unchecked.push(`${guarded.type}.${name}`);
       } else if (!same(current.value, was)) {
-        drifted();
+        baseChanged();
       }
     }
   }
@@ -760,7 +760,7 @@ class Editing {
       parsed = await parsedHcl(content);
     } catch (error) {
       if (error instanceof HclSyntaxError) {
-        refused(
+        fail(
           'edit-failed',
           `Spotlight's edit of the file ${error.message}. Please change the file by hand.`,
         );
@@ -787,7 +787,7 @@ class Editing {
       );
 
       if (!read.ok || !same(read.value, field.now)) {
-        refused(
+        fail(
           'edit-failed',
           `Spotlight's edit of \`${field.name}\` reads back with a different value. Please change it by hand.`,
           { attribute: field.name, wanted: field.now },
@@ -801,7 +801,7 @@ class Editing {
     const { body } = block;
 
     if (body.commented || body.blocks.length > 0) {
-      return refused(
+      return fail(
         'edit-failed',
         `The ${this.edit.block.type} block is written on one line. Spotlight can add to a block only if it spans several lines.`,
       );
@@ -819,19 +819,19 @@ class Editing {
   }
 }
 
-const parsedOrRefused = async (text: string): Promise<ParsedBody> => {
+const parsedOrFailed = async (text: string): Promise<ParsedBody> => {
   try {
     return await parsedHcl(text);
   } catch (error) {
     if (error instanceof HclSyntaxError) {
-      return refused('unparsable', `The file ${error.message}.`);
+      return fail('unparsable', `The file ${error.message}.`);
     }
     throw error;
   }
 };
 
 const edited = async (edit: HclBlockEdit) => {
-  const editing = new Editing(edit, await parsedOrRefused(edit.file.content));
+  const editing = new Editing(edit, await parsedOrFailed(edit.file.content));
 
   try {
     return await editing.edited();
@@ -844,7 +844,7 @@ const edited = async (edit: HclBlockEdit) => {
 
     return new Editing(
       { ...edit, file: { ...edit.file, content } },
-      await parsedOrRefused(content),
+      await parsedOrFailed(content),
     ).edited();
   }
 };
@@ -855,8 +855,8 @@ export const editedHclBlock = async (
   try {
     return { ok: true, ...(await edited(edit)) };
   } catch (error) {
-    if (error instanceof Refused) {
-      return { ok: false, refusal: error.refusal };
+    if (error instanceof HclEditFailure) {
+      return { ok: false, error: error.error };
     }
     throw error;
   }

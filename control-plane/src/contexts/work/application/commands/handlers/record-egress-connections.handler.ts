@@ -60,7 +60,7 @@ export class RecordEgressConnectionsHandler
       const shared = await this.egress.sharedWith(command.token);
 
       if (!shared) {
-        return { outcome: 'refused' };
+        return { outcome: 'unauthorized' };
       }
 
       if (command.records.length > MAX_CONNECTIONS_AT_ONCE) {

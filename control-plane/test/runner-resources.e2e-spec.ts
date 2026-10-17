@@ -348,15 +348,15 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     ).toBe(200);
   });
 
-  it('refuses a token that would manage runners without a rung of the ladder', async () => {
-    const refused = await http()
+  it('rejects a token that would manage runners without a rung of the ladder', async () => {
+    const rejected = await http()
       .post(`/api/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'runners', scopes: ['runners'] });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({ path: 'scopes' }),
     ]);
   });
@@ -480,19 +480,19 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     const workspace = await http()
       .get(`/api/resources/workspaces/${workspaceId}`)
       .set(TEST_USER_HEADER, owner);
-    const refused = await http()
+    const rejected = await http()
       .delete(`/api/resources/workspaces/${workspaceId}`)
       .set(TEST_USER_HEADER, owner)
       .set('If-Match', `"${workspace.body.version}"`);
 
-    expect(refused.status).toBe(409);
-    expect(refused.body.detail).toEqual(
+    expect(rejected.status).toBe(409);
+    expect(rejected.body.detail).toEqual(
       expect.stringContaining('runner trust production'),
     );
-    expect(refused.body.detail).toEqual(
+    expect(rejected.body.detail).toEqual(
       expect.stringContaining('runner pool ephemeral'),
     );
-    expect(refused.body.detail).toEqual(
+    expect(rejected.body.detail).toEqual(
       expect.stringContaining('workspace runners'),
     );
   });

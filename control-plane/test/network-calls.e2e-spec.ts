@@ -128,14 +128,14 @@ describe('DrizzleNetworkCallRepository', () => {
     expect(new Set(handed).size).toBe(3);
   });
 
-  it('keeps the answer, and refuses to write over a call that changed', async () => {
+  it('keeps the answer, and does not write over a call that changed', async () => {
     const call = await queued();
     await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW);
     const claimed = await calls.find(call.id);
     const answer = NetworkAnswer.of({
       status: 200,
       headers: { 'content-type': 'application/json' },
-      body: new TextEncoder().encode('{"refuse":"not today"}'),
+      body: new TextEncoder().encode('{"deny":"not today"}'),
       ms: 84,
     });
 
@@ -161,7 +161,7 @@ describe('DrizzleNetworkCallRepository', () => {
       answer: {
         status: 200,
         headers: { 'content-type': 'application/json' },
-        body: new TextEncoder().encode('{"refuse":"not today"}'),
+        body: new TextEncoder().encode('{"deny":"not today"}'),
         ms: 84,
         error: null,
       },

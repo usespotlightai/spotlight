@@ -183,7 +183,7 @@ describe('OAuth2Linking', () => {
     expect(authorized?.grant.accessToken.value).toBe('xoxb-1');
   });
 
-  it('refuses a state it did not sign', async () => {
+  it('rejects a state it did not sign', async () => {
     const { it, exchange } = linking();
     const forged = new OAuth2State('another-secret').sign({
       teamId: 'team_1',
@@ -198,27 +198,27 @@ describe('OAuth2Linking', () => {
     expect(exchange).not.toHaveBeenCalled();
   });
 
-  it('yields nothing when the host refuses the code', async () => {
+  it('yields nothing when the host does not accept the code', async () => {
     const { it } = linking({ exchanged: null });
 
     expect(await it.authorized(returned())).toBeNull();
   });
 
-  it('refuses a browser whose nonce cookie is not the one the state carries', async () => {
+  it('rejects a browser whose nonce cookie is not the one the state carries', async () => {
     const { it, exchange } = linking();
 
     expect(await it.authorized(returned({ nonce: 'n-2' }))).toBeNull();
     expect(exchange).not.toHaveBeenCalled();
   });
 
-  it('refuses a browser that brought no nonce cookie', async () => {
+  it('rejects a browser that brought no nonce cookie', async () => {
     const { it, exchange } = linking();
 
     expect(await it.authorized(returned({ nonce: null }))).toBeNull();
     expect(exchange).not.toHaveBeenCalled();
   });
 
-  it('refuses a session that is not the person who began', async () => {
+  it('rejects a session that is not the person who began', async () => {
     const { it, exchange } = linking();
 
     expect(await it.authorized(returned({ viewerId: 'user_2' }))).toBeNull();
@@ -226,7 +226,7 @@ describe('OAuth2Linking', () => {
     expect(exchange).not.toHaveBeenCalled();
   });
 
-  it('refuses a state that has already been returned once', async () => {
+  it('rejects a state that has already been returned once', async () => {
     const { it, exchange } = linking();
 
     expect(await it.authorized(returned())).not.toBeNull();

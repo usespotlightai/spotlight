@@ -36,7 +36,7 @@ describe('TeamLayout', () => {
     ).toBe('station');
   });
 
-  it('refuses a line of another team, or a station of another line', () => {
+  it('rejects a line of another team, or a station of another line', () => {
     expect(() => layout.scopeOf({ lineId: 'line_elsewhere' })).toThrow(
       InvalidMemoryError,
     );
@@ -61,7 +61,7 @@ describe('TeamLayout', () => {
     );
   });
 
-  it('refuses paths without the repository they lie in', () => {
+  it('rejects paths without the repository they lie in', () => {
     expect(() => layout.scopeOf({ paths: ['src/uploads.ts'] })).toThrow(
       InvalidMemoryError,
     );

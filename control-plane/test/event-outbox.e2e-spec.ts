@@ -99,11 +99,11 @@ const outboxWith = () => {
       },
     ),
     subscribing<{ kind: string; marker: string }>(
-      'test.refuse-published',
+      'test.fail-published',
       ['bell.published-rang.v1'],
       async (event) => {
-        if (event.marker === 'refused') {
-          throw new Error('refused');
+        if (event.marker === 'failing') {
+          throw new Error('failed');
         }
       },
     ),
@@ -344,11 +344,11 @@ describe('the event outbox', () => {
   it('counts what a subscriber gave up on, and not what it still tries again', async () => {
     const { outbox, delivery } = outboxWith();
     const owed = () =>
-      new EventReactions(context).owedBy('test.refuse-published', {
-        marker: 'refused',
+      new EventReactions(context).owedBy('test.fail-published', {
+        marker: 'failing',
       });
 
-    await outbox.record([new Rang(Marker.of('refused'))]);
+    await outbox.record([new Rang(Marker.of('failing'))]);
     await delivery.processDue();
 
     await expect(owed()).resolves.toEqual({ owed: 1, givenUp: 0 });

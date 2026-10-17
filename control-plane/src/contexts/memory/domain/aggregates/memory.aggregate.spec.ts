@@ -70,7 +70,7 @@ describe('Memory', () => {
     expect(created({ supersedes: retired }).supersedes).toBeNull();
   });
 
-  it('refuses superseding itself', () => {
+  it('rejects superseding itself', () => {
     expect(() => created({ supersedes: created() })).toThrow(
       InvalidMemoryError,
     );
@@ -148,7 +148,7 @@ describe('Memory', () => {
     expect(retired.retirement?.supersededBy).toBeNull();
   });
 
-  it('refuses to retire without a reason, or twice', () => {
+  it('does not retire without a reason, or twice', () => {
     expect(() =>
       created().retire({ by: UserId.of('user_bea'), reason: '  ', at: LATER }),
     ).toThrow(InvalidMemoryError);
@@ -190,7 +190,7 @@ describe('Memory', () => {
     expect(successor.pullEvents()).toEqual([new MemoryCreated(OLD, NEW)]);
   });
 
-  it('refuses to correct a memory that was already retired', () => {
+  it('does not correct a memory that was already retired', () => {
     const retired = created().retire({
       by: UserId.of('user_bea'),
       reason: 'Gone.',

@@ -91,12 +91,12 @@ export class Place {
       };
     }
 
-    const refusal = position.refusal(checked.type);
+    const problem = position.problem(checked.type);
 
     return {
       type: checked.type,
-      errors: refusal
-        ? [{ message: refusal, span: extentOf(source), suggestion: null }]
+      errors: problem
+        ? [{ message: problem, span: extentOf(source), suggestion: null }]
         : [],
       warnings,
     };

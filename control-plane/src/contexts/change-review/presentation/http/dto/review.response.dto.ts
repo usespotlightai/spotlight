@@ -65,7 +65,7 @@ export class ReviewCommentResponseDto {
   @ApiProperty({
     enum: REVIEW_COMMENT_STATE_NAMES,
     description:
-      'draft: only its author sees it; sending: on its way to GitHub; posted: on GitHub; failed: GitHub refused it',
+      'draft: only its author sees it; sending: on its way to GitHub; posted: on GitHub; failed: GitHub answered with an error',
   })
   readonly state: ReviewCommentStateName;
 

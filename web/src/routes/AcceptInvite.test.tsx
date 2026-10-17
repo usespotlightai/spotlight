@@ -163,7 +163,7 @@ describe('AcceptInvite', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('refuses somebody signed in as anybody else', () => {
+  it('does not let somebody signed in as anybody else accept', () => {
     session.mockReturnValue({
       data: { user: { email: 'grace@example.com' } },
       isPending: false,

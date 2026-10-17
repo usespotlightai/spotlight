@@ -22,7 +22,7 @@ describe('ConfigurationProblem', () => {
     expect(problem({ at: FieldPath.root() }).field.isRoot).toBe(true);
   });
 
-  it('refuses one that says nothing to act on', () => {
+  it('rejects one that says nothing to act on', () => {
     expect(() => problem({ reason: '   ' })).toThrow(InvalidIdentifierError);
   });
 

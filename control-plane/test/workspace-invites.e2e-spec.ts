@@ -152,7 +152,7 @@ describe('inviting people to a workspace (e2e)', () => {
     expect(JSON.stringify(answer.body)).toMatch(/invited as an owner/);
   });
 
-  it('refuses a team from elsewhere', async () => {
+  it('rejects a team from elsewhere', async () => {
     await as(seat.owner)
       .post(invites, {
         emails: [emailOf(mallory)],
@@ -177,7 +177,7 @@ describe('inviting people to a workspace (e2e)', () => {
     });
   });
 
-  it('refuses somebody signed in as anybody else, naming who to sign in as', async () => {
+  it('denies somebody signed in as anybody else, naming who to sign in as', async () => {
     const answer = await as(mallory)
       .post(`/api/invites/${tokenFor(emailOf(ada))}/accept`)
       .expect(403);

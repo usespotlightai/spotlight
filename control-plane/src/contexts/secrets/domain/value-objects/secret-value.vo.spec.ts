@@ -21,7 +21,7 @@ describe('SecretValue', () => {
     expect(isSecret(value)).toBe(true);
   });
 
-  it('refuses nothing at all, and more than any credential needs', () => {
+  it('rejects nothing at all, and more than any credential needs', () => {
     expect(() => SecretValue.of('')).toThrow(/must not be empty/);
     expect(() => SecretValue.of('x'.repeat(64 * 1024 + 1))).toThrow(
       /must be at most/,

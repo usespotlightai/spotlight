@@ -121,7 +121,7 @@ describe('DeleteTaskHandler', () => {
     );
   });
 
-  it('refuses a task that is not there', async () => {
+  it('rejects a task that is not there', async () => {
     await expect(
       new DeleteTaskHandler(tasks(null), lines()).execute(
         new DeleteTaskCommand('team_1', 'task_missing', 'user_1'),
@@ -139,7 +139,7 @@ describe('DeleteTaskHandler', () => {
     expect(stored.remove).not.toHaveBeenCalled();
   });
 
-  it('refuses a task on another team’s line, and takes nothing away', async () => {
+  it('rejects a task on another team’s line, and takes nothing away', async () => {
     const stored = tasks();
 
     await expect(

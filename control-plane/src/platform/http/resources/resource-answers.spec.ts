@@ -65,7 +65,7 @@ describe('resource answers', () => {
     [{ outcome: 'taken' as const, address: 'core/x' }, 409, 'already-exists'],
     [{ outcome: 'key-reused' as const }, 422, 'idempotency-key-reused'],
     [forbiddenTo('configure'), 403, 'forbidden'],
-  ])('refuses a create that came to %j', async (outcome, status, slug) => {
+  ])('rejects a create that came to %j', async (outcome, status, slug) => {
     expect(
       await problemOf(() => answerCreated('line', outcome, answer)),
     ).toMatchObject({ status, type: `urn:spotlight:problem:${slug}` });
@@ -81,13 +81,13 @@ describe('resource answers', () => {
     ],
     [{ outcome: 'in-use' as const, reason: 'in use' }, 409, 'in-use'],
     [forbiddenTo('configure'), 403, 'forbidden'],
-  ])('refuses an update that came to %j', async (outcome, status, slug) => {
+  ])('rejects an update that came to %j', async (outcome, status, slug) => {
     expect(
       await problemOf(() => answerUpdated('line', outcome, answer)),
     ).toMatchObject({ status, type: `urn:spotlight:problem:${slug}` });
   });
 
-  it('says why a refusal was forbidden, by what it was forbidden to do', async () => {
+  it('says why a request was forbidden, by what it was forbidden to do', async () => {
     expect(
       await problemOf(() =>
         answerCreated('workspace', forbiddenTo('open-workspaces'), answer),
@@ -115,14 +115,14 @@ describe('resource answers', () => {
     ['manage-token-trusts', 'Not allowed to change the secret'],
     ['administer', 'Not allowed to administer the secret'],
   ] as const)(
-    'names the permission %s a refusal lacked, whatever its title says',
+    'names the permission %s a forbidden request lacked, whatever its title says',
     async (act, title) => {
-      for (const refusing of [
+      for (const forbidden of [
         () => answerCreated('secret', forbiddenTo(act), answer),
         () => answerUpdated('secret', forbiddenTo(act), answer),
         () => answerDeleted('secret', forbiddenTo(act)),
       ]) {
-        expect(await problemOf(refusing)).toMatchObject({
+        expect(await problemOf(forbidden)).toMatchObject({
           type: 'urn:spotlight:problem:forbidden',
           status: 403,
           title,
@@ -132,7 +132,7 @@ describe('resource answers', () => {
     },
   );
 
-  it('names no permission on a problem that is not a refusal', async () => {
+  it('names no permission on a problem that is not forbidden', async () => {
     expect(
       await problemOf(() =>
         answerUpdated(
@@ -144,7 +144,7 @@ describe('resource answers', () => {
     ).not.toHaveProperty('permission');
   });
 
-  it('answers a delete with nothing, and refuses one that did not happen', async () => {
+  it('answers a delete with nothing, and rejects one that did not happen', async () => {
     expect(answerDeleted('line', { outcome: 'deleted' })).toBeUndefined();
     expect(
       await problemOf(() =>

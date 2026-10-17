@@ -598,7 +598,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }
   });
 
-  it('refuses the old egress token once the token is rotated', async () => {
+  it('does not accept the old egress token once the token is rotated', async () => {
     const egress = await http()
       .get(`/api/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)
@@ -649,7 +649,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     expect((await provisioned(runId)).egress?.traffic).toBe('bound');
   });
 
-  it('refuses to delete an egress while a pool names it', async () => {
+  it('does not delete an egress while a pool names it', async () => {
     const egress = await http()
       .get(`/api/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)

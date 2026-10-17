@@ -92,7 +92,7 @@ describe('RunnerEgress', () => {
     });
   });
 
-  it('refuses no token, an unknown one, and a runner that leases nothing or has ended', async () => {
+  it('does not accept a missing or unknown token, or a runner that leases nothing or has ended', async () => {
     const waiting = aRunner();
     const ended = waiting
       .took(RunnerWork.check('stack_1'), later(1))
@@ -193,7 +193,7 @@ describe('RunnerEgress', () => {
       ).resolves.toMatchObject({ egressId: 'spotlight', work: null });
     });
 
-    it('refuses an unknown credential, a runner that is no longer alive, and a pool that names another egress', async () => {
+    it('does not accept an unknown credential, a runner that is no longer alive, or a pool that names another egress', async () => {
       const pool = throughShared();
       const runner = proxied(pool);
       const egress = { egressId: EGRESS_ID.value };
@@ -271,7 +271,7 @@ describe('RunnerEgress', () => {
       ).resolves.toBeNull();
     });
 
-    it('refuses a runner whose pool is gone, or an egress of another workspace', async () => {
+    it('does not accept a runner whose pool is gone, or an egress of another workspace', async () => {
       const pool = throughShared();
       const runner = proxied(pool);
       const egress = { egressId: EGRESS_ID.value };

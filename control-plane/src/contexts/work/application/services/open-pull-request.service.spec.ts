@@ -220,7 +220,7 @@ describe('OpenPullRequest', () => {
     expect(opened[0]?.repository).toEqual(Repository.of('acme/web'));
   });
 
-  it('refuses where several are worked and the agent named none', async () => {
+  it('rejects where several are worked and the agent named none', async () => {
     const { open, opened } = opening({
       repositories: ['acme/api', 'acme/web'],
     });
@@ -229,7 +229,7 @@ describe('OpenPullRequest', () => {
     expect(opened).toEqual([]);
   });
 
-  it('refuses a repository the line does not work', async () => {
+  it('rejects a repository the line does not work', async () => {
     const { open, opened } = opening({ repositories: ['acme/api'] });
 
     await expect(open(task(), asking('web'))).rejects.toThrow(
@@ -238,14 +238,14 @@ describe('OpenPullRequest', () => {
     expect(opened).toEqual([]);
   });
 
-  it('refuses where the line works no repository', async () => {
+  it('rejects where the line works no repository', async () => {
     const { open, opened } = opening({ repositories: [] });
 
     await expect(open(task())).rejects.toThrow(/no repository/);
     expect(opened).toEqual([]);
   });
 
-  it('refuses where the workspace reaches no GitHub installation', async () => {
+  it('rejects where the workspace reaches no GitHub installation', async () => {
     const { open, opened } = opening({ connected: false });
 
     await expect(open(task())).rejects.toThrow(NoGitHubInstallationError);
@@ -385,16 +385,17 @@ describe('OpenPullRequest', () => {
       ]);
     });
 
-    it('opens nothing and tells the agent why when a hook refuses', async () => {
+    it('opens nothing and tells the agent why when a hook denies it', async () => {
       const { open, opened, saved } = opening({
         verdict: {
-          kind: 'refused',
-          reason: 'The hook core/dba-review refused: migrations need a DBA.',
+          kind: 'denied',
+          reason:
+            'The hook core/dba-review denied the pull request: migrations need a DBA.',
         },
       });
 
       await expect(open(task())).rejects.toThrow(
-        'A hook stopped the pull request. No pull request was opened. The hook core/dba-review refused: migrations need a DBA.',
+        'A hook stopped the pull request. No pull request was opened. The hook core/dba-review denied the pull request: migrations need a DBA.',
       );
       expect(opened).toEqual([]);
       expect(saved).toEqual([]);

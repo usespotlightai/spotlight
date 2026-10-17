@@ -37,8 +37,8 @@ import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import { cronCalendar } from '@integrations/infrastructure/integrations/cron-calendar';
 import type { Additions } from '@integrations/infrastructure/integrations/expression-position';
 import {
+  hintProblems,
   orderedTypes,
-  refusedHints,
   type Shape,
 } from '@integrations/infrastructure/integrations/hints';
 import {
@@ -1259,13 +1259,13 @@ const hintProblemsOf = (
     ),
   ] as [Shape, FieldPath][];
 
-  const refused = shapes.flatMap(([shape, at]) =>
-    refusedHints(shape, at, known),
+  const problems = shapes.flatMap(([shape, at]) =>
+    hintProblems(shape, at, known),
   );
   const { cycle } = orderedTypes(file.types as Record<string, Shape>);
 
   return [
-    ...refused,
+    ...problems,
     ...(cycle
       ? [
           {

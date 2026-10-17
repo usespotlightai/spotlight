@@ -309,7 +309,7 @@ describe('AddTaskHandler', () => {
     expect(added?.currentRunId).toBeNull();
   });
 
-  it('refuses a station the line does not have', async () => {
+  it('rejects a station the line does not have', async () => {
     await expect(
       addTask(
         new AddTaskCommand(
@@ -324,7 +324,7 @@ describe('AddTaskHandler', () => {
     ).rejects.toThrow(ApplicationError);
   });
 
-  it('refuses a line that does not exist', async () => {
+  it('rejects a line that does not exist', async () => {
     await expect(
       addTask(
         new AddTaskCommand(
@@ -340,7 +340,7 @@ describe('AddTaskHandler', () => {
     ).rejects.toThrow(ApplicationError);
   });
 
-  it('refuses a task with no title', async () => {
+  it('rejects a task with no title', async () => {
     await expect(
       addTask(
         new AddTaskCommand(

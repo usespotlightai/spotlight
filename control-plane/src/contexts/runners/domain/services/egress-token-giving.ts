@@ -13,7 +13,7 @@ export const egressTokenGivenTo = (
   return current && !before?.tokenHash.equals(current) ? current : null;
 };
 
-export const refuseEgressTokenGivenBefore = (usage: EgressTokenUsage): void => {
+export const assertEgressTokenUnused = (usage: EgressTokenUsage): void => {
   if (usage.inUse) {
     throw new EgressTokenTakenError();
   }

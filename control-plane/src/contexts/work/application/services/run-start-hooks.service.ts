@@ -20,7 +20,7 @@ type Heard =
   | HookVerdict
   | { readonly kind: 'unheard'; readonly because: string };
 
-export type RunStart = 'starts' | 'refused' | 'handed-back';
+export type RunStart = 'starts' | 'denied' | 'handed-back';
 
 export class RunStartHooks {
   constructor(
@@ -42,11 +42,11 @@ export class RunStartHooks {
       return 'starts';
     }
 
-    if (verdict.kind === 'refused') {
+    if (verdict.kind === 'denied') {
       await this.revised(run, runner, (current) =>
-        current.refusedToStart(runner, verdict.reason),
+        current.deniedStart(runner, verdict.reason),
       );
-      return 'refused';
+      return 'denied';
     }
 
     await this.revised(run, runner, (current) =>

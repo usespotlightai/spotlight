@@ -18,7 +18,9 @@ import type {
 import { formatPercent } from '@/lib/judge';
 import { since } from '@/lib/since';
 
-export type ReplayRefusal = NonNullable<ReplaySetEntryResponseDto['refusal']>;
+export type UnreplayableReason = NonNullable<
+  ReplaySetEntryResponseDto['unreplayableReason']
+>;
 export type ReplayState = ReplayResponseDto['state'];
 export type EntryResult = ReplayEntryResponseDto['result'];
 type ReasonCode = EntryReasonResponseDto['code'];
@@ -34,7 +36,7 @@ export type PairTally = PairTallyResponseDto;
 type Unpaired = NonNullable<EntryPairResponseDto['unpaired']>;
 export type TurnedOut = ReplaySetEntryResponseDto['outcome'];
 
-const REFUSALS: Record<ReplayRefusal, string> = {
+const UNREPLAYABLE_REASONS: Record<UnreplayableReason, string> = {
   'unknown-run': 'Run doesn’t exist',
   'not-a-task-run': 'Run has no task of its own',
   'task-gone': 'Task was deleted',
@@ -105,7 +107,7 @@ const UNJUDGED: Record<Unjudged, string> = {
   unavailable: 'no judge model available',
   'unreadable-rubric': 'rubric couldn’t be read',
   'no-evidence': 'nothing to judge',
-  refused: 'judge declined',
+  'request-failed': 'judge request failed',
   unreadable: 'judge’s answer couldn’t be read',
   ungrounded: 'judge cited nothing the run did',
   errored: 'judging failed',
@@ -166,11 +168,11 @@ const isKey = <T extends string>(
   code: string,
 ): code is T => Object.hasOwn(table, code);
 
-export const formatRefusal = (refusal: ReplayRefusal): string =>
-  REFUSALS[refusal];
+export const formatUnreplayableReason = (reason: UnreplayableReason): string =>
+  UNREPLAYABLE_REASONS[reason];
 
-export const formatReplayable = (refusal: ReplayRefusal | null): string =>
-  refusal ? formatRefusal(refusal) : 'Can be replayed';
+export const formatReplayable = (reason: UnreplayableReason | null): string =>
+  reason ? formatUnreplayableReason(reason) : 'Can be replayed';
 
 export const formatState = (state: ReplayState): string => STATES[state];
 
@@ -239,7 +241,9 @@ const formatDetail = (reason: EntryReasonResponseDto): string | null => {
   switch (reason.code) {
     case 'unreplayable':
     case 'not-run':
-      return isKey(REFUSALS, detail) ? REFUSALS[detail].toLowerCase() : detail;
+      return isKey(UNREPLAYABLE_REASONS, detail)
+        ? UNREPLAYABLE_REASONS[detail].toLowerCase()
+        : detail;
     case 'run-failed':
       return formatFailure(detail);
     case 'check-skipped':
@@ -761,7 +765,7 @@ const UNPAIRED: Record<Unpaired, string> = {
   unavailable: 'no judge model available',
   'unreadable-rubric': 'rubric couldn’t be read',
   'no-evidence': 'nothing to compare',
-  refused: 'judge declined',
+  'request-failed': 'judge request failed',
   unreadable: 'judge’s answer couldn’t be read',
   ungrounded: 'judge cited nothing either change did',
   errored: 'judging failed',

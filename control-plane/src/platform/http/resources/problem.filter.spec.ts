@@ -89,12 +89,12 @@ describe('ProblemFilter', () => {
     ).toMatchObject({ status: 409, detail: 'it moved' });
   });
 
-  it('answers a guard or use case that refuses as a forbidden problem', () => {
-    for (const refusal of [
+  it('answers a guard or use case that denies as a forbidden problem', () => {
+    for (const denial of [
       new ForbiddenException(),
       new ApplicationError('not-allowed', 'not yours'),
     ]) {
-      const { body, status, headers } = answering(refusal);
+      const { body, status, headers } = answering(denial);
 
       expect(status).toBe(403);
       expect(headers.get('Content-Type')).toBe('application/problem+json');
@@ -122,7 +122,7 @@ describe('ProblemFilter', () => {
 
   it('reports no fault of a service upstream, which ApplicationErrorFilter does not report either', () => {
     const { status, report } = answering(
-      new ApplicationError('refused', 'GitHub refused'),
+      new ApplicationError('upstream-error', 'GitHub failed'),
     );
 
     expect(status).toBe(502);

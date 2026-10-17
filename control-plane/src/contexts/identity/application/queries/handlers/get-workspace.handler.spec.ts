@@ -75,7 +75,7 @@ describe('GetWorkspaceHandler', () => {
     ).resolves.toBeNull();
   });
 
-  it('refuses an unusable slug rather than asking the database', async () => {
+  it('rejects an unusable slug rather than asking the database', async () => {
     const workspaces = reader(null);
 
     await expect(

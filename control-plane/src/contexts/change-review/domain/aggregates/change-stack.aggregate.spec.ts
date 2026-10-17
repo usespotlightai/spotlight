@@ -217,7 +217,7 @@ describe('ChangeStack', () => {
     ]);
   });
 
-  it('refuses a stack that leaves a change out or places one twice', () => {
+  it('rejects a stack that leaves a change out or places one twice', () => {
     expect(
       problemsOf([
         invitations([layer('Data model', ['h1', 'h1']), layer('API', ['h2'])]),
@@ -225,7 +225,7 @@ describe('ChangeStack', () => {
     ).toEqual(['places h1 2 times', 'leaves h3 out']);
   });
 
-  it('refuses a change the diff does not contain', () => {
+  it('rejects a change the diff does not contain', () => {
     expect(
       problemsOf([
         invitations([layer('Everything', ['h1', 'h2', 'h3', 'h9'])]),
@@ -233,7 +233,7 @@ describe('ChangeStack', () => {
     ).toEqual(['cohort 1, layer 1 names h9, which is not in the diff']);
   });
 
-  it('refuses a layer that depends on itself or on a later layer', () => {
+  it('rejects a layer that depends on itself or on a later layer', () => {
     expect(
       problemsOf([
         invitations([
@@ -247,7 +247,7 @@ describe('ChangeStack', () => {
     ]);
   });
 
-  it('refuses a dependency that does not say what it uses', () => {
+  it('rejects a dependency that does not say what it uses', () => {
     expect(
       problemsOf([
         invitations([
@@ -260,7 +260,7 @@ describe('ChangeStack', () => {
     ]);
   });
 
-  it('refuses a stack with an empty cohort or no cohorts at all', () => {
+  it('rejects a stack with an empty cohort or no cohorts at all', () => {
     expect(problemsOf([])).toContain('has no cohorts');
     expect(problemsOf([invitations([])])).toContain('cohort 1 has no layers');
   });
@@ -269,10 +269,10 @@ describe('ChangeStack', () => {
     const drafted = drafting();
     drafted.pullEvents();
 
-    const failed = drafted.fail('The model refused', LATER);
+    const failed = drafted.fail('The model gave no answer', LATER);
 
     expect(failed.state).toBe('failed');
-    expect(failed.failure).toBe('The model refused');
+    expect(failed.failure).toBe('The model gave no answer');
     expect(failed.pullEvents().map((each) => each.kind)).toEqual([
       'change-stack.failed',
     ]);
@@ -347,7 +347,7 @@ describe('ChangeStack with facts from the code', () => {
   const factsWith = (links: HunkLink[]) =>
     StackFacts.of({ hunks: [], links, imports: [] });
 
-  it('refuses a stack that separates a hunk from what it uses, or puts it first', () => {
+  it('rejects a stack that separates a hunk from what it uses, or puts it first', () => {
     const apart = (): string[] => {
       try {
         drafting(factsWith(USES)).propose(
@@ -465,7 +465,7 @@ describe('ChangeStack read back from what was stored', () => {
     expect(stored({}).state).toBe('ready');
   });
 
-  it('refuses a ready stack that leaves a change out, or places one twice', () => {
+  it('rejects a ready stack that leaves a change out, or places one twice', () => {
     const [cohort] = ready().cohorts;
     const withoutUI = [{ ...cohort, layers: cohort?.layers.slice(0, 2) }];
 
@@ -484,7 +484,7 @@ describe('ChangeStack read back from what was stored', () => {
     expect(() => stored({ cohorts: twice })).toThrow('places h1 2 times');
   });
 
-  it('refuses a stack that is ready with nothing placed, or failed without saying why', () => {
+  it('rejects a stack that is ready with nothing placed, or failed without saying why', () => {
     expect(() => stored({ cohorts: [] })).toThrow(
       'is ready, yet places nothing',
     );
@@ -502,7 +502,7 @@ describe('ChangeStack read back from what was stored', () => {
     ).toThrow('failed without saying why');
   });
 
-  it('refuses a stack that is still drafting, yet has cohorts', () => {
+  it('rejects a stack that is still drafting, yet has cohorts', () => {
     expect(() =>
       stored({
         progress: StackProgress.drafting(NOW),

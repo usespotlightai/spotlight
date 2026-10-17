@@ -1,6 +1,6 @@
 import type {
+  CatalogDenial,
   CatalogNamed,
-  CatalogRefusal,
 } from '@catalog/application/contracts/catalog.contract';
 import type { CatalogPort } from '@catalog/application/ports/catalog.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -86,11 +86,11 @@ export class StationCatalog {
     return {
       skills: given.skills.map(CatalogGivenMapper.toFolder),
       tools: given.tools.map(CatalogGivenMapper.toDeclared),
-      denied: given.refused.map(CatalogGivenMapper.toDenied),
+      denied: given.denied.map(CatalogGivenMapper.toDenied),
     };
   }
 
-  async refusedIn(
+  async deniedIn(
     workspaceId: WorkspaceId,
     plan: LinePlan,
   ): Promise<readonly ConfigurationProblem[]> {
@@ -108,18 +108,18 @@ export class StationCatalog {
         .filter((each) => each.field === 'skills')
         .map((each) => each.id),
     });
-    const bringing = (refusal: CatalogRefusal): readonly string[] => [
-      refusal.id,
+    const bringing = (denial: CatalogDenial): readonly string[] => [
+      denial.id,
       ...given.skills
-        .filter((skill) => skill.tools.includes(refusal.id))
+        .filter((skill) => skill.tools.includes(denial.id))
         .map((skill) => skill.id),
     ];
 
-    return given.refused.flatMap((refusal) =>
+    return given.denied.flatMap((denial) =>
       named
-        .filter((each) => bringing(refusal).includes(each.id))
+        .filter((each) => bringing(denial).includes(each.id))
         .map((each) =>
-          LineProblems.catalogRefused(plan.key.value, each.at, refusal.because),
+          LineProblems.catalogDenied(plan.key.value, each.at, denial.because),
         ),
     );
   }
@@ -139,10 +139,10 @@ export class StationCatalog {
       tools: [pinned.value],
       skills: [],
     });
-    const [refused] = given.refused;
+    const [denied] = given.denied;
 
-    if (refused) {
-      throw new CatalogItemDeniedError(CatalogGivenMapper.toDenied(refused));
+    if (denied) {
+      throw new CatalogItemDeniedError(CatalogGivenMapper.toDenied(denied));
     }
 
     const found = given.tools.find((each) => each.id === pinned.value);
@@ -162,9 +162,9 @@ export class StationCatalog {
               inputs: inputs.values,
             });
 
-            if (answer.kind === 'refused') {
+            if (answer.kind === 'denied') {
               throw new CatalogItemDeniedError(
-                CatalogGivenMapper.toDenied(answer.refusal),
+                CatalogGivenMapper.toDenied(answer.denial),
               );
             }
 

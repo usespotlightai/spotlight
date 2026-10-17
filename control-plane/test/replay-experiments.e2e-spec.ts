@@ -509,7 +509,7 @@ afterAll(async () => {
 });
 
 describe('a replay set', () => {
-  it('is built from a station’s past runs, refusing those that cannot be replayed and those of another station', async () => {
+  it('is built from a station’s past runs, rejecting those that cannot be replayed and those of another station', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
     const unanchored = await anOriginal({ startedFrom: false });
@@ -517,24 +517,28 @@ describe('a replay set', () => {
 
     const picks = (
       await owner().get(`${stationPath()}/replayable-runs`).expect(200)
-    ).body as { runId: string; refusal: string | null; title: string }[];
+    ).body as {
+      runId: string;
+      unreplayableReason: string | null;
+      title: string;
+    }[];
 
     expect(
-      picks.find((each) => each.runId === first.runId)?.refusal,
+      picks.find((each) => each.runId === first.runId)?.unreplayableReason,
     ).toBeNull();
-    expect(picks.find((each) => each.runId === unanchored.runId)?.refusal).toBe(
-      'no-starting-point',
-    );
+    expect(
+      picks.find((each) => each.runId === unanchored.runId)?.unreplayableReason,
+    ).toBe('no-starting-point');
     expect(picks.some((each) => each.runId === elsewhere.runId)).toBe(false);
 
     const setId = await openSet('Queue fixes', first, second);
 
-    const refused = await owner()
+    const rejected = await owner()
       .post(`${teamPath()}/replay-sets/${setId}/entries`, {
         runId: unanchored.runId,
       })
       .expect(409);
-    expect(refused.body.detail).toContain('never reported a starting point');
+    expect(rejected.body.detail).toContain('never reported a starting point');
     await owner()
       .post(`${teamPath()}/replay-sets/${setId}/entries`, {
         runId: elsewhere.runId,
@@ -556,7 +560,7 @@ describe('a replay set', () => {
       name: string;
       entries: {
         runId: string;
-        refusal: string | null;
+        unreplayableReason: string | null;
         title: string;
         state: string;
         endedAt: string | null;
@@ -568,7 +572,7 @@ describe('a replay set', () => {
     expect(
       set?.entries.map((each) => [
         each.runId,
-        each.refusal,
+        each.unreplayableReason,
         each.title,
         each.state,
       ]),
@@ -596,11 +600,14 @@ describe('a replay set', () => {
     await db.delete(schema.task).where(eq(schema.task.id, kept.taskId));
 
     const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
-      .body as { id: string; entries: { refusal: string | null }[] }[];
+      .body as {
+      id: string;
+      entries: { unreplayableReason: string | null }[];
+    }[];
 
-    expect(sets.find((each) => each.id === setId)?.entries[0]?.refusal).toBe(
-      'task-gone',
-    );
+    expect(
+      sets.find((each) => each.id === setId)?.entries[0]?.unreplayableReason,
+    ).toBe('task-gone');
   });
 
   it('keeps the archives its runs started from while it holds them, and lets them go after', async () => {
@@ -716,7 +723,11 @@ describe('a replay set', () => {
       await owner()
         .get(`${teamPath()}/replay-sets/${setId}/suggestions`)
         .expect(200)
-    ).body as { runId: string; outcome: string; refusal: string | null }[];
+    ).body as {
+      runId: string;
+      outcome: string;
+      unreplayableReason: string | null;
+    }[];
 
     expect(suggested.length).toBeLessThanOrEqual(5);
     expect(suggested.map((each) => each.runId)).toEqual(
@@ -726,7 +737,7 @@ describe('a replay set', () => {
       suggested.every(
         (each) =>
           (each.outcome === 'accepted' || each.outcome === 'sent-back') &&
-          each.refusal === null,
+          each.unreplayableReason === null,
       ),
     ).toBe(true);
     expect(suggested.some((each) => each.runId === alsoFailed.runId)).toBe(

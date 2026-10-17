@@ -118,7 +118,7 @@ describe('RunSubject', () => {
     ).toThrow(InconsistentStateError);
   });
 
-  it('refuses a task subject that does not say which revision it was handed', () => {
+  it('rejects a task subject that does not say which revision it was handed', () => {
     expect(() =>
       RunSubject.rehydrate({
         taskId: TaskId.of('task_1'),
