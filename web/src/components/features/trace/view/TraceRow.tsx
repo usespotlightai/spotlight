@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { memo } from 'react';
 import { TraceBar } from '@/components/features/trace/view/TraceBar';
+import { TraceEgressMark } from '@/components/features/trace/view/TraceEgressMark';
 import { TraceRunVerdict } from '@/components/features/trace/view/TraceRunVerdict';
 import { runIdOf, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
@@ -75,6 +76,12 @@ export const TraceRow = memo(function TraceRow({
           {node.name}
         </button>
 
+        {node.connection && node.connection.times > 1 && (
+          <span className="ml-1 shrink-0 text-muted-foreground text-xs tabular-nums">
+            ×{node.connection.times}
+          </span>
+        )}
+        {node.egress === 'not-enforced' && <TraceEgressMark />}
         {runId && <TraceRunVerdict teamId={teamId} runId={runId} />}
       </div>
 
