@@ -140,10 +140,10 @@ export const modelSpentView = (
   };
 
 const phaseOf = (entry: ReplayEntry): ReplayEntryDto['phase'] =>
-  entry.isSettled ? 'settled' : entry.run ? 'dispatched' : 'waiting';
+  entry.hasEnded ? 'ended' : entry.run ? 'dispatched' : 'waiting';
 
 const resultOf = (entry: ReplayEntry, scoring: Scoring): EntryResultDto => {
-  if (!entry.isSettled || !entry.concludedFor(scoring)) {
+  if (!entry.hasEnded || !entry.concludedFor(scoring)) {
     return 'pending';
   }
   if (entry.succeeded === null) {
@@ -364,7 +364,7 @@ export const replayView = (
     endedAt: replay.endedAt?.toISOString() ?? null,
     totals: {
       entries: totals.entries,
-      settled: totals.settled,
+      ended: totals.ended,
       completed: totals.endings.completed,
       failed: totals.endings.failed,
       stopped: totals.endings.stopped,

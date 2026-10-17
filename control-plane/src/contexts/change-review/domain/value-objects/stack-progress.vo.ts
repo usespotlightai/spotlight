@@ -11,7 +11,7 @@ export class StackProgress {
     readonly state: ChangeStackState,
     readonly failure: string | null,
     readonly draftedAt: Date,
-    readonly settledAt: Date | null,
+    readonly completedAt: Date | null,
   ) {}
 
   static drafting(draftedAt: Date): StackProgress {
@@ -22,12 +22,12 @@ export class StackProgress {
     state: ChangeStackState;
     failure: string | null;
     draftedAt: Date;
-    settledAt: Date | null;
+    completedAt: Date | null;
   }): StackProgress {
-    if ((input.state === 'drafting') !== (input.settledAt === null)) {
+    if ((input.state === 'drafting') !== (input.completedAt === null)) {
       throw new InconsistentStateError(
         'change stack',
-        'is settled and drafting at once',
+        'is completed and drafting at once',
       );
     }
 
@@ -35,11 +35,11 @@ export class StackProgress {
       input.state,
       input.failure,
       input.draftedAt,
-      input.settledAt,
+      input.completedAt,
     );
   }
 
-  settled(
+  complete(
     state: Exclude<ChangeStackState, 'drafting'>,
     now: Date,
     change: { failure?: string } = {},

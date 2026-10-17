@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   type MeasureVerdict,
-  MIN_SETTLED_RUNS,
+  MIN_MEASURED_RUNS,
   VERDICTS,
 } from '@outcomes/domain/services/change-verdict';
 import { ALERT_MEASURES } from '@outcomes/domain/value-objects/alert-rule.vo';
@@ -19,7 +19,7 @@ export class MeasureVerdictResponseDto {
     type: Number,
     example: 0.4,
     description:
-      'The measure over the settled runs compared against: a share, or a cost per run',
+      'The measure over the measured runs compared against: a share, or a cost per run',
   })
   readonly before: number | null;
 
@@ -27,7 +27,7 @@ export class MeasureVerdictResponseDto {
     nullable: true,
     type: Number,
     example: 0.6,
-    description: 'The measure over the settled runs compared',
+    description: 'The measure over the measured runs compared',
   })
   readonly after: number | null;
 
@@ -36,13 +36,13 @@ export class MeasureVerdictResponseDto {
     description:
       'Runs compared against whose outcome for this measure is known',
   })
-  readonly settledBefore: number;
+  readonly measuredBefore: number;
 
   @ApiProperty({
     example: 9,
     description: 'Runs compared whose outcome for this measure is known',
   })
-  readonly settledAfter: number;
+  readonly measuredAfter: number;
 
   @ApiProperty({
     nullable: true,
@@ -54,7 +54,7 @@ export class MeasureVerdictResponseDto {
 
   @ApiProperty({
     enum: VERDICTS,
-    description: `Whether the runs compared did better, worse or the same; insufficient below ${MIN_SETTLED_RUNS} settled runs on either side, or where the costs are in different currencies`,
+    description: `Whether the runs compared did better, worse or the same; insufficient below ${MIN_MEASURED_RUNS} measured runs on either side, or where the costs are in different currencies`,
   })
   readonly verdict: string;
 
@@ -70,8 +70,8 @@ export class MeasureVerdictResponseDto {
     this.measure = verdict.measure;
     this.before = verdict.before;
     this.after = verdict.after;
-    this.settledBefore = verdict.settledBefore;
-    this.settledAfter = verdict.settledAfter;
+    this.measuredBefore = verdict.measuredBefore;
+    this.measuredAfter = verdict.measuredAfter;
     this.currency = verdict.currency;
     this.verdict = verdict.verdict;
     this.change = changeResponseOf(verdict.change);

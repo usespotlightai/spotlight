@@ -75,14 +75,14 @@ const watching = (workspace: WorkspaceResponseDto, opened = false) => {
     ({ slug, workspace }: Props) => useSettingUp(slug, workspace),
     { wrapper, initialProps: { slug: 'acme', workspace } },
   );
-  const settled = () =>
+  const loaded = () =>
     waitFor(() =>
       expect(
         client.getQueryState(['onboarding', PLATFORM.id])?.status,
       ).not.toBe('pending'),
     );
 
-  return { ...hook, client, invalidated, settled };
+  return { ...hook, client, invalidated, loaded };
 };
 
 const refreshed = (invalidated: ReturnType<typeof vi.spyOn>) => {
@@ -109,18 +109,18 @@ describe('useSettingUp', () => {
   it('reads as setting up while Spotlight still provisions the team of a workspace opened here', async () => {
     readOnboarding.mockResolvedValue(onboarding('pending'));
 
-    const { result, settled } = watching(ACME, true);
+    const { result, loaded } = watching(ACME, true);
 
-    await settled();
+    await loaded();
     expect(result.current).toBe(true);
   });
 
   it('reads as set up once the team is provisioned, fetches the workspace, inbox and lines anew, and forgets the opening', async () => {
     readOnboarding.mockResolvedValue(onboarding('pending'));
 
-    const { result, client, invalidated, settled } = watching(ACME, true);
+    const { result, client, invalidated, loaded } = watching(ACME, true);
 
-    await settled();
+    await loaded();
     expect(result.current).toBe(true);
 
     readOnboarding.mockResolvedValue(onboarding('done'));
@@ -179,18 +179,18 @@ describe('useSettingUp', () => {
   it('stops setting up when Spotlight gave up on the provisioning', async () => {
     readOnboarding.mockResolvedValue(onboarding('failed'));
 
-    const { result, settled } = watching(ACME, true);
+    const { result, loaded } = watching(ACME, true);
 
-    await settled();
+    await loaded();
     expect(result.current).toBe(false);
   });
 
   it('does not block the workspace when the onboarding cannot be read', async () => {
     readOnboarding.mockRejectedValue(new Error('offline'));
 
-    const { result, settled } = watching(ACME, true);
+    const { result, loaded } = watching(ACME, true);
 
-    await settled();
+    await loaded();
     expect(result.current).toBe(false);
   });
 });

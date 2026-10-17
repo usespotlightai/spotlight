@@ -537,7 +537,7 @@ const chatHandlers = [
         return notFound();
       }
       if (proposal.state !== 'open') {
-        return problem(409, 'Sorry, that proposal was already settled.');
+        return problem(409, 'Sorry, that proposal was already decided.');
       }
 
       const taskId = mint('task');
@@ -577,7 +577,7 @@ const chatHandlers = [
         return notFound();
       }
       if (proposal.state !== 'open') {
-        return problem(409, 'Sorry, that proposal was already settled.');
+        return problem(409, 'Sorry, that proposal was already decided.');
       }
 
       proposal.state = 'dismissed';

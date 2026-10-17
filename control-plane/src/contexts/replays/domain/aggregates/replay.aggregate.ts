@@ -502,7 +502,7 @@ export class Replay extends EventRecorder {
       wanted.push({ run, against, original: entry.original });
       return entry.pairingAsked(against);
     });
-    const settled =
+    const resulting =
       outstanding.length === 0 && wanted.length === 0
         ? entries.map((entry) => {
             const against = this.counterpartEntryOf(counterpart, entry)?.run;
@@ -513,11 +513,11 @@ export class Replay extends EventRecorder {
           })
         : entries;
 
-    if (settled.every((each, place) => each === this.state.entries[place])) {
+    if (resulting.every((each, place) => each === this.state.entries[place])) {
       return this;
     }
 
-    const asked = this.with({ entries: settled });
+    const asked = this.with({ entries: resulting });
 
     for (const each of wanted) {
       asked.record(
@@ -541,7 +541,7 @@ export class Replay extends EventRecorder {
     verdict: PairVerdict,
     spent: ModelSpent | null,
   ): Replay {
-    return this.pairingSettled(
+    return this.afterPairing(
       this.secondRound(run, (entry) => entry.paired(against, verdict, spent)),
     );
   }
@@ -552,14 +552,14 @@ export class Replay extends EventRecorder {
     why: string,
     spent: ModelSpent | null,
   ): Replay {
-    return this.pairingSettled(
+    return this.afterPairing(
       this.secondRound(run, (entry) =>
         entry.pairingFailed(against, why, spent),
       ),
     );
   }
 
-  private pairingSettled(changed: Replay): Replay {
+  private afterPairing(changed: Replay): Replay {
     if (changed === this || !changed.awaitsPairing) {
       return changed;
     }
@@ -983,16 +983,16 @@ export class Replay extends EventRecorder {
         return each;
       }
 
-      const settled = this.settledFrom(each, change(each));
+      const result = this.entryChange(each, change(each));
 
-      if (settled.newly) {
+      if (result.newly) {
         concluded = true;
       }
-      if (settled.wanted) {
-        wanted.push(settled.entry);
+      if (result.wanted) {
+        wanted.push(result.entry);
       }
 
-      return settled.entry;
+      return result.entry;
     });
 
     if (entries.every((each, place) => each === this.state.entries[place])) {
@@ -1027,7 +1027,7 @@ export class Replay extends EventRecorder {
     return changed.finishedAt(at).overBudgetAt(at);
   }
 
-  private settledFrom(
+  private entryChange(
     was: ReplayEntry,
     changed: ReplayEntry,
   ): { entry: ReplayEntry; wanted: boolean; newly: boolean } {
@@ -1050,8 +1050,8 @@ export class Replay extends EventRecorder {
       entry,
       wanted,
       newly:
-        !(was.isSettled && was.concludedFor(scoring)) &&
-        entry.isSettled &&
+        !(was.hasEnded && was.concludedFor(scoring)) &&
+        entry.hasEnded &&
         entry.concludedFor(scoring),
     };
   }
@@ -1080,7 +1080,7 @@ export class Replay extends EventRecorder {
     if (
       !this.isDispatching ||
       !this.state.entries.every(
-        (each) => each.isSettled && each.concludedFor(this.scoring),
+        (each) => each.hasEnded && each.concludedFor(this.scoring),
       )
     ) {
       return this;

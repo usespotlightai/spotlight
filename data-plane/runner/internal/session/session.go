@@ -194,7 +194,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
-	keeper.settled()
+	keeper.recordBaseline()
 
 	channel, err := declare.Serve(
 		run.Spec.Handover.Options,

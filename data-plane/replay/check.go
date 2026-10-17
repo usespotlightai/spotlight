@@ -322,7 +322,7 @@ func (c *checking) start(checked *stationCheck, each plannedStation, options che
 		checked.Status = checkErrored
 		checked.Message = err.Error()
 	default:
-		c.settle(checked, read)
+		c.record(checked, read)
 	}
 }
 
@@ -346,10 +346,10 @@ func (c *checking) follow(checked *stationCheck) {
 	}
 
 	checked.misses = 0
-	c.settle(checked, read)
+	c.record(checked, read)
 }
 
-func (c *checking) settle(checked *stationCheck, read checkRead) {
+func (c *checking) record(checked *stationCheck, read checkRead) {
 	checked.Check = &read
 	checked.Status = read.Verdict
 	checked.pending = read.Verdict == checkRunning

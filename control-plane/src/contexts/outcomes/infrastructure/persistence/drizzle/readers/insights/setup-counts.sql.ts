@@ -15,10 +15,10 @@ import {
   type GroupColumns,
   groupCountsOf,
   inEndOrder,
+  measuredColumns,
   onTeam,
   ran,
   type StationRow,
-  settledColumns,
   stationsInEndOrder,
   tallyColumns,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
@@ -109,7 +109,7 @@ const setupsIn = async (
       ${runFact.effort} as effort,
       ${runFact.profileKey} as profile_key,
       ${tallyColumns},
-      ${settledColumns},
+      ${measuredColumns},
       ${counted(sql`${ran} and (${runFact.nextAct} is not null or ${runFact.handedOnTo} is not null)`)} as answered
     from (${endedFor(team, filter)}) as ${runFact}
     where ${ran}

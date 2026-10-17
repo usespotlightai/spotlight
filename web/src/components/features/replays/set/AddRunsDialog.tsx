@@ -91,7 +91,7 @@ export function AddRunsDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(settled) => !settled && add.reset()}
+      onOpenChangeComplete={(open) => !open && add.reset()}
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

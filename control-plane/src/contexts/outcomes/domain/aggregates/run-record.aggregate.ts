@@ -1,5 +1,5 @@
 import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
-import { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
+import { RunRecordEnriched } from '@outcomes/domain/events/run-record-enriched.event';
 import { InvalidOutcomeError } from '@outcomes/domain/exceptions/invalid-outcome.error';
 import type { CheckVerdict } from '@outcomes/domain/value-objects/check-verdict';
 import type { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
@@ -204,7 +204,7 @@ export class RunRecord extends EventRecorder {
       this.checks === null ||
       (this.checks === 'skipped' && verdict !== 'skipped')
     ) {
-      return this.settledWith({ checks: verdict, checkedAt: at });
+      return this.enrichWith({ checks: verdict, checkedAt: at });
     }
 
     return this;
@@ -215,16 +215,16 @@ export class RunRecord extends EventRecorder {
       return this.approvalAnsweredAt &&
         this.approvalAnsweredAt.getTime() <= act.at.getTime()
         ? this
-        : this.settledWith({ approvalAnsweredAt: act.at });
+        : this.enrichWith({ approvalAnsweredAt: act.at });
     }
 
     return this.next && !act.before(this.next)
       ? this
-      : this.settledWith({ next: act });
+      : this.enrichWith({ next: act });
   }
 
   recordDigest(cost: RunCost, tools: RunTools): RunRecord {
-    return this.cost ? this : this.settledWith({ cost, tools });
+    return this.cost ? this : this.enrichWith({ cost, tools });
   }
 
   refused(refusal: Refusal): RunRecord {
@@ -256,7 +256,7 @@ export class RunRecord extends EventRecorder {
     }
   }
 
-  private settledWith(change: {
+  private enrichWith(change: {
     checks?: CheckVerdict;
     checkedAt?: Date;
     next?: NextAct;
@@ -264,15 +264,15 @@ export class RunRecord extends EventRecorder {
     cost?: RunCost;
     tools?: RunTools;
   }): RunRecord {
-    const settled = this.with(change);
+    const enriched = this.with(change);
 
     if (this.end) {
-      settled.record(
-        new RunRecordSettled(this.runId, this.workspaceId, this.end.place),
+      enriched.record(
+        new RunRecordEnriched(this.runId, this.workspaceId, this.end.place),
       );
     }
 
-    return settled;
+    return enriched;
   }
 
   private with(change: {

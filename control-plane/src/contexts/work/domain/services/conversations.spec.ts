@@ -120,7 +120,7 @@ describe('reviewsIn', () => {
         said('asked', 'run_2'),
       ]),
     ]).toEqual([
-      ['run_1', { from: 0, state: 'settled' }],
+      ['run_1', { from: 0, state: 'answered' }],
       ['run_2', { from: 0, state: 'owed' }],
     ]);
   });
@@ -133,21 +133,21 @@ describe('reviewsIn', () => {
         said('asked', 'run_2'),
       ]),
     ]).toEqual([
-      ['run_1', { from: 0, state: 'settled' }],
+      ['run_1', { from: 0, state: 'answered' }],
       ['run_2', { from: 2, state: 'owed' }],
     ]);
   });
 
-  it('settles as soon as a person answers, before the task moves on', () => {
+  it('counts as answered once a person answers, before the task moves on', () => {
     expect([...reviewsIn([said('asked', 'run_1'), said('answered')])]).toEqual([
-      ['run_1', { from: 0, state: 'settled' }],
+      ['run_1', { from: 0, state: 'answered' }],
     ]);
   });
 
-  it('settles an asking the task moved on from unanswered', () => {
+  it('counts an asking as answered once the task moves on from it without an answer', () => {
     expect([
       ...reviewsIn([said('asked', 'run_1'), said('passed', 'run_2')]),
-    ]).toEqual([['run_1', { from: 0, state: 'settled' }]]);
+    ]).toEqual([['run_1', { from: 0, state: 'answered' }]]);
   });
 
   it('keeps each run apart', () => {
@@ -158,7 +158,7 @@ describe('reviewsIn', () => {
       said('asked', 'run_3'),
     ]);
 
-    expect(reviews.get('run_1')?.state).toBe('settled');
+    expect(reviews.get('run_1')?.state).toBe('answered');
     expect(reviews.get('run_3')).toEqual({ from: 3, state: 'owed' });
   });
 

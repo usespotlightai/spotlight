@@ -36,7 +36,7 @@ const progressOf = (row: Row): NetworkCallProgress => {
     if (!row.lapsedAt) {
       throw new InconsistentStateError(
         'network call',
-        `was settled at no time (${row.id})`,
+        `was completed at no time (${row.id})`,
       );
     }
 
@@ -214,7 +214,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
     return rows.map(toCall);
   }
 
-  async settledBy(at: Date, max: number): Promise<readonly NetworkCall[]> {
+  async completedBy(at: Date, max: number): Promise<readonly NetworkCall[]> {
     const rows = await this.context.db
       .select()
       .from(networkCall)

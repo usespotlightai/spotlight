@@ -68,7 +68,7 @@ type replayRead struct {
 	Repeats    int   `json:"repeats"`
 	Totals     struct {
 		Entries     int       `json:"entries"`
-		Settled     int       `json:"settled"`
+		Ended       int       `json:"ended"`
 		Succeeded   *int      `json:"succeeded"`
 		SuccessRate *float64  `json:"successRate"`
 		Interval    *interval `json:"interval"`
@@ -342,7 +342,7 @@ func (c *cli) watch(args []string) error {
 		}
 
 		if !*flags.json {
-			fmt.Fprintf(c.out, "%s: %d of %d settled, %s spent\n", read.Replay.State, read.Replay.Totals.Settled, read.Replay.Totals.Entries, money(read.Replay.Totals.Spent))
+			fmt.Fprintf(c.out, "%s: %d of %d ended, %s spent\n", read.Replay.State, read.Replay.Totals.Ended, read.Replay.Totals.Entries, money(read.Replay.Totals.Spent))
 		}
 		c.sleep(*every)
 	}

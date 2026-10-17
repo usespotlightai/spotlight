@@ -3,7 +3,7 @@ import {
   RUN_DIGEST_WRITER,
   type RunDigestWriterPort,
 } from '@work/application/ports/run-digest-writer.port';
-import { SettleSetup } from '@work/application/services/settle-setup.service';
+import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import { Logger } from 'nestjs-pino';
 
 export function startWork(app: INestApplication): void {
@@ -14,9 +14,9 @@ export function startWork(app: INestApplication): void {
   });
 
   void app
-    .get(SettleSetup)
+    .get(ReconcileSetup)
     .wherever()
     .catch((error: unknown) => {
-      app.get(Logger).error(error, 'settling setup lists');
+      app.get(Logger).error(error, 'reconciling setup lists');
     });
 }

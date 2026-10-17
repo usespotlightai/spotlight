@@ -67,13 +67,13 @@ export class AnswerHostCallHandler
         await this.calls.save(call.answerWith(host, answer, this.clock.now()));
       } catch (error) {
         if (error instanceof InvalidNetworkCallTransitionError) {
-          return { outcome: 'settled', reason: error.message };
+          return { outcome: 'completed', reason: error.message };
         }
 
         if (error instanceof NetworkCallVersionConflictError) {
           return {
-            outcome: 'settled',
-            reason: 'The network call was settled while the host answered it.',
+            outcome: 'completed',
+            reason: 'The network call completed while the host answered it.',
           };
         }
 

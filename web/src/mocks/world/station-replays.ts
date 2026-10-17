@@ -499,7 +499,7 @@ const entryOf = (replay: ReplaySpec, place: number): ReplayEntryResponseDto => {
       ...head,
       ...WAITING,
       runId: null,
-      phase: 'settled',
+      phase: 'ended',
       ending: 'not-run',
       result: 'unscored',
       reasons: [
@@ -523,7 +523,7 @@ const entryOf = (replay: ReplaySpec, place: number): ReplayEntryResponseDto => {
   return {
     ...head,
     ...WAITING,
-    phase: 'settled',
+    phase: 'ended',
     ending: 'completed',
     next: 'review',
     ms,
@@ -580,34 +580,34 @@ export const entriesOf = (replay: ReplaySpec): ReplayEntryResponseDto[] =>
 const totalsOf = (
   entries: readonly ReplayEntryResponseDto[],
 ): ReplayTotalsResponseDto => {
-  const settled = entries.filter((each) => each.phase === 'settled');
-  const scored = settled.filter((each) => each.succeeded !== null);
+  const ended = entries.filter((each) => each.phase === 'ended');
+  const scored = ended.filter((each) => each.succeeded !== null);
   const succeeded = scored.filter((each) => each.succeeded).length;
-  const spent = settled.reduce(
+  const spent = ended.reduce(
     (total, each) => total + (each.cost?.amount ?? 0),
     0,
   );
-  const steps = settled.flatMap((each) =>
+  const steps = ended.flatMap((each) =>
     each.steps === null ? [] : [each.steps],
   );
-  const took = settled.flatMap((each) => (each.ms === null ? [] : [each.ms]));
+  const took = ended.flatMap((each) => (each.ms === null ? [] : [each.ms]));
 
   return {
     entries: entries.length,
-    settled: settled.length,
-    completed: settled.filter((each) => each.ending === 'completed').length,
-    failed: settled.filter((each) => each.ending === 'failed').length,
-    stopped: settled.filter((each) => each.ending === 'stopped').length,
+    ended: ended.length,
+    completed: ended.filter((each) => each.ending === 'completed').length,
+    failed: ended.filter((each) => each.ending === 'failed').length,
+    stopped: ended.filter((each) => each.ending === 'stopped').length,
     asked: 0,
     unreplayable: 0,
-    notRun: settled.filter((each) => each.ending === 'not-run').length,
+    notRun: ended.filter((each) => each.ending === 'not-run').length,
     succeeded: scored.length === 0 ? null : succeeded,
     successRate: rateOf(succeeded, scored.length),
     interval: intervalOf(succeeded, scored.length),
     scored: scored.length,
     tasks: entries.length,
     tasksScored: scored.length,
-    unscored: settled.length - scored.length,
+    unscored: ended.length - scored.length,
     spent: { amount: rounded(spent), currency: 'USD' },
     spentElsewhere: [],
     unpriced: 0,

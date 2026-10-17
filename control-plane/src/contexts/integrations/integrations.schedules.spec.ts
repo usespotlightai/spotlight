@@ -196,8 +196,8 @@ describe('RunSchedules', () => {
   it('runs the action once when two workers reach the slot together', async () => {
     let reads = 0;
     let bothRead: () => void = () => {};
-    const together = new Promise<void>((settle) => {
-      bothRead = settle;
+    const together = new Promise<void>((resolve) => {
+      bothRead = resolve;
     });
     const cursors = new FakeIntegrationCursors(async () => {
       reads += 1;

@@ -61,7 +61,7 @@ const completed = (
     1,
   );
 
-const settling = (chat: Chat | null) => {
+const outcomesOf = (chat: Chat | null) => {
   const save = vi.fn(async (_saved: Chat) => undefined);
   const takenUp = vi.fn(async (taken: Chat) =>
     taken.handedTo(RunId.of('run_2'), NOW),
@@ -76,7 +76,7 @@ const settling = (chat: Chat | null) => {
 
 describe('ChatOutcomes', () => {
   it('lets go of the run and keeps the session for the next one', async () => {
-    const { outcomes, save, takenUp } = settling(working());
+    const { outcomes, save, takenUp } = outcomesOf(working());
 
     await outcomes.onRunCompleted(completed());
 
@@ -93,7 +93,7 @@ describe('ChatOutcomes', () => {
       body: ChatMessageBody.of('And one more thing.'),
       at: NOW,
     });
-    const { outcomes, save, takenUp } = settling(said);
+    const { outcomes, save, takenUp } = outcomesOf(said);
 
     await outcomes.onRunCompleted(completed());
 
@@ -107,7 +107,7 @@ describe('ChatOutcomes', () => {
       body: ChatMessageBody.of('Never mind.'),
       at: NOW,
     });
-    const { outcomes, takenUp } = settling(said);
+    const { outcomes, takenUp } = outcomesOf(said);
 
     await outcomes.onRunCompleted(completed(RunOutcome.stopped(0)));
 
@@ -128,7 +128,7 @@ describe('ChatOutcomes', () => {
   ])(
     'takes back what %s was handed, and waits for the person',
     async (_, outcome, workedBy) => {
-      const { outcomes, save, takenUp } = settling(handedAgain());
+      const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
       await outcomes.onRunCompleted(
         new RunCompleted(
@@ -154,7 +154,7 @@ describe('ChatOutcomes', () => {
   );
 
   it('ignores a run the chat has already moved past', async () => {
-    const { outcomes, save } = settling(working());
+    const { outcomes, save } = outcomesOf(working());
 
     await outcomes.onRunCompleted(completed(undefined, 'run_0'));
 
@@ -162,7 +162,7 @@ describe('ChatOutcomes', () => {
   });
 
   it('ignores a run that works a task', async () => {
-    const { outcomes, save } = settling(working());
+    const { outcomes, save } = outcomesOf(working());
 
     await outcomes.onRunCompleted(
       completed(
@@ -176,7 +176,7 @@ describe('ChatOutcomes', () => {
   });
 
   it('lets go of a run no runner finished, and takes back what it was handed', async () => {
-    const { outcomes, save, takenUp } = settling(handedAgain());
+    const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
     await outcomes.onRunAbandoned(
       new RunAbandoned(

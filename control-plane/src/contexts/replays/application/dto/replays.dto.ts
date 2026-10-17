@@ -246,7 +246,7 @@ export interface ReplayEntryDto {
   readonly repeat: number;
   readonly runId: string | null;
   readonly fingerprint: string | null;
-  readonly phase: 'waiting' | 'dispatched' | 'settled';
+  readonly phase: 'waiting' | 'dispatched' | 'ended';
   readonly ending: string | null;
   readonly unreplayableReason: string | null;
   readonly failure: string | null;
@@ -274,7 +274,7 @@ export interface ReplayEntryDto {
 
 export interface ReplayTotalsDto {
   readonly entries: number;
-  readonly settled: number;
+  readonly ended: number;
   readonly completed: number;
   readonly failed: number;
   readonly stopped: number;

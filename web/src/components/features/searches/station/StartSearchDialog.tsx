@@ -38,7 +38,7 @@ export function StartSearchDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(settledOpen) => !settledOpen && form.forget()}
+      onOpenChangeComplete={(open) => !open && form.forget()}
     >
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
@@ -98,8 +98,8 @@ export function StartSearchDialog({
 
           <SearchEstimateSummary
             estimate={form.estimate.data}
-            repeats={form.settled?.budget.repeats ?? 1}
-            asked={form.settled !== null}
+            repeats={form.debounced?.budget.repeats ?? 1}
+            asked={form.debounced !== null}
             estimating={form.estimate.isFetching}
             problem={form.estimateProblem}
           />

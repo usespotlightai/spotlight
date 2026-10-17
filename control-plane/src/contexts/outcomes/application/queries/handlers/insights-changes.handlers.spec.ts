@@ -194,8 +194,8 @@ describe('ReadInsightsChangesHandler', () => {
     expect(
       marker?.verdicts.find((each) => each.measure === 'accepted_rate'),
     ).toMatchObject({
-      settledBefore: 2,
-      settledAfter: 2,
+      measuredBefore: 2,
+      measuredAfter: 2,
       verdict: 'insufficient',
     });
     expect(marker?.changes).toEqual([

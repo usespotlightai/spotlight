@@ -4,7 +4,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
-import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
+import { TaskAsideResolved } from '@work/domain/events/task-aside-resolved.event';
 import type { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
 import {
   type AsideForm,
@@ -32,7 +32,7 @@ export class TaskAside extends EventRecorder {
     readonly about: AsideAbout,
     readonly raisedAt: Date,
     readonly reads: readonly AsideRead[],
-    readonly settledAt: Date | null,
+    readonly resolvedAt: Date | null,
     readonly version: number,
   ) {
     super();
@@ -71,13 +71,13 @@ export class TaskAside extends EventRecorder {
     about: AsideAbout;
     raisedAt: Date;
     reads: readonly AsideRead[];
-    settledAt: Date | null;
+    resolvedAt: Date | null;
     version: number;
   }): TaskAside {
-    if (input.settledAt && input.settledAt < input.raisedAt) {
+    if (input.resolvedAt && input.resolvedAt < input.raisedAt) {
       throw new InconsistentStateError(
         'task aside',
-        'was settled before it was raised',
+        'was resolved before it was raised',
       );
     }
 
@@ -106,7 +106,7 @@ export class TaskAside extends EventRecorder {
       input.about,
       input.raisedAt,
       input.reads,
-      input.settledAt,
+      input.resolvedAt,
       input.version,
     );
   }
@@ -132,7 +132,7 @@ export class TaskAside extends EventRecorder {
   }
 
   get open(): boolean {
-    return this.settledAt === null;
+    return this.resolvedAt === null;
   }
 
   unreadBy(viewer: UserId): boolean {
@@ -147,14 +147,14 @@ export class TaskAside extends EventRecorder {
       : this;
   }
 
-  settled(now: Date): TaskAside {
+  resolve(now: Date): TaskAside {
     if (!this.open) {
       return this;
     }
 
-    const settled = this.with({ settledAt: now });
-    settled.record(new TaskAsideSettled(this.id, this.taskId));
-    return settled;
+    const resolved = this.with({ resolvedAt: now });
+    resolved.record(new TaskAsideResolved(this.id, this.taskId));
+    return resolved;
   }
 
   reopen(now: Date): TaskAside {
@@ -183,7 +183,7 @@ export class TaskAside extends EventRecorder {
 
   private with(change: {
     reads?: readonly AsideRead[];
-    settledAt?: Date;
+    resolvedAt?: Date;
   }): TaskAside {
     const next = new TaskAside(
       this.id,
@@ -193,7 +193,7 @@ export class TaskAside extends EventRecorder {
       this.about,
       this.raisedAt,
       change.reads ?? this.reads,
-      change.settledAt ?? this.settledAt,
+      change.resolvedAt ?? this.resolvedAt,
       this.version,
     );
 

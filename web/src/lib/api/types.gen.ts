@@ -707,7 +707,7 @@ export type RenewLeaseResponseDto = {
 
 export type RenewCheckLeaseResponseDto = {
   /**
-   * Whether the runner should stop checking: the check was forgotten with its task, settled, or waited too long to be recorded
+   * Whether the runner should stop checking: the check was forgotten with its task, ended, or waited too long to be recorded
    */
   stop: boolean;
 };
@@ -1287,7 +1287,7 @@ export type InboxFailureResponseDto = {
 
 export type InboxAsideResponseDto = {
   /**
-   * What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
+   * What is put aside for a person to resolve, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
    */
   form: 'memories' | 'grade' | 'alert';
   /**
@@ -1364,7 +1364,7 @@ export type InboxMessageResponseDto = {
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'settled' | 'approval' | 'failure' | 'connection';
+  form: 'words' | 'setup' | 'resolved' | 'approval' | 'failure' | 'connection';
   /**
    * Who spoke: the station, a person, or the world outside it
    */
@@ -1441,7 +1441,7 @@ export type InboxItemResponseDto = {
   createdAt: string;
   askedAt: string;
   /**
-   * True once it is settled, and is no longer yours to answer
+   * True once it is resolved, and is no longer yours to answer
    */
   resolved: boolean;
   /**
@@ -1465,7 +1465,7 @@ export type InboxItemResponseDto = {
    */
   failure: InboxFailureResponseDto | null;
   /**
-   * What this item puts aside for a person to settle, where it is not a conversation; it never blocks the task
+   * What this item puts aside for a person to resolve, where it is not a conversation; it never blocks the task
    */
   aside: InboxAsideResponseDto | null;
   notes: Array<InboxMessageResponseDto>;
@@ -1501,7 +1501,7 @@ export type InboxNoticeResponseDto = {
    */
   unread: boolean;
   /**
-   * True once its person settled it
+   * True once its person resolved it
    */
   resolved: boolean;
 };
@@ -1673,7 +1673,7 @@ export type RunStationResponseDto = {
 };
 
 export type RunReviewResponseDto = {
-  state: 'owed' | 'settled';
+  state: 'owed' | 'answered';
   /**
    * The inbox conversation it opened
    */
@@ -6056,27 +6056,27 @@ export type InsightsToolsResponseDto = {
 export type MeasureVerdictResponseDto = {
   measure: 'sent_back_rate' | 'accepted_rate' | 'checks_failed_rate' | 'failed_rate' | 'merged_rate' | 'cost_per_run';
   /**
-   * The measure over the settled runs compared against: a share, or a cost per run
+   * The measure over the measured runs compared against: a share, or a cost per run
    */
   before: number | null;
   /**
-   * The measure over the settled runs compared
+   * The measure over the measured runs compared
    */
   after: number | null;
   /**
    * Runs compared against whose outcome for this measure is known
    */
-  settledBefore: number;
+  measuredBefore: number;
   /**
    * Runs compared whose outcome for this measure is known
    */
-  settledAfter: number;
+  measuredAfter: number;
   /**
    * The currency of a cost per run; none for a share
    */
   currency: string | null;
   /**
-   * Whether the runs compared did better, worse or the same; insufficient below 5 settled runs on either side, or where the costs are in different currencies
+   * Whether the runs compared did better, worse or the same; insufficient below 5 measured runs on either side, or where the costs are in different currencies
    */
   verdict: 'better' | 'worse' | 'unchanged' | 'insufficient';
   /**
@@ -7495,7 +7495,7 @@ export type CandidateResponseDto = {
 
 export type ReplayTotalsResponseDto = {
   entries: number;
-  settled: number;
+  ended: number;
   completed: number;
   failed: number;
   stopped: number;
@@ -7581,7 +7581,7 @@ export type PairTallyResponseDto = {
 
 export type EntryChecksResponseDto = {
   /**
-   * drafting or checking until its change stacks settle and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing
+   * drafting or checking until its change stacks complete and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing
    */
   state: 'absent' | 'drafting' | 'checking' | 'passed' | 'failed' | 'none' | 'unchecked';
   /**
@@ -7755,7 +7755,7 @@ export type ReplayEntryResponseDto = {
    * The StationConfig fingerprint the replay run was queued under; it can drift from the candidate’s when the line changed since
    */
   fingerprint: string | null;
-  phase: 'waiting' | 'dispatched' | 'settled';
+  phase: 'waiting' | 'dispatched' | 'ended';
   ending: 'completed' | 'failed' | 'stopped' | 'asked' | 'unreplayable' | 'not-run' | null;
   unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   /**
@@ -7942,7 +7942,7 @@ export type EntryComparisonResponseDto = {
    */
   baselineSuccess: number | null;
   /**
-   * Candidate cost less the baseline’s, each averaged over its copies, once both settled
+   * Candidate cost less the baseline’s, each averaged over its copies, once both ended
    */
   costDelta: number | null;
   msDelta: number | null;
@@ -10504,7 +10504,7 @@ export type AnswerHostCallErrors = {
    */
   404: unknown;
   /**
-   * The call was already answered, lapsed before it was answered, or was never claimed (`call-settled`), or another host claimed it (`not-this-hosts-call`)
+   * The call was already answered, lapsed before it was answered, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)
    */
   409: unknown;
 };
@@ -10789,17 +10789,17 @@ export type ReadInboxAsideResponses = {
 
 export type ReadInboxAsideResponse = ReadInboxAsideResponses[keyof ReadInboxAsideResponses];
 
-export type SettleInboxNoticeData = {
+export type ResolveInboxNoticeData = {
   body?: never;
   path: {
     slug: string;
     noticeId: string;
   };
   query?: never;
-  url: '/workspaces/{slug}/inbox/notices/{noticeId}/settle';
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}/resolve';
 };
 
-export type SettleInboxNoticeErrors = {
+export type ResolveInboxNoticeErrors = {
   /**
    * No valid session
    */
@@ -10810,14 +10810,14 @@ export type SettleInboxNoticeErrors = {
   404: unknown;
 };
 
-export type SettleInboxNoticeResponses = {
+export type ResolveInboxNoticeResponses = {
   /**
-   * It is settled
+   * It is resolved
    */
   204: void;
 };
 
-export type SettleInboxNoticeResponse = SettleInboxNoticeResponses[keyof SettleInboxNoticeResponses];
+export type ResolveInboxNoticeResponse = ResolveInboxNoticeResponses[keyof ResolveInboxNoticeResponses];
 
 export type ReadTaskJournalData = {
   body?: never;
@@ -11594,7 +11594,7 @@ export type AcceptProposalErrors = {
    */
   404: unknown;
   /**
-   * The proposal is already settled
+   * The proposal is already decided
    */
   409: unknown;
 };
@@ -11629,7 +11629,7 @@ export type DismissProposalErrors = {
    */
   404: unknown;
   /**
-   * The proposal is already settled
+   * The proposal is already decided
    */
   409: unknown;
 };

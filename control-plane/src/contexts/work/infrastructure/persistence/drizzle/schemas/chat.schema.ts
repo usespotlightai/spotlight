@@ -17,7 +17,7 @@ export interface ProposalRow {
   readonly description: string | null;
   readonly state: ProposalState;
   readonly taskId: string | null;
-  readonly settledAt: string | null;
+  readonly decidedAt: string | null;
 }
 
 export interface TraceRow {

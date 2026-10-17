@@ -193,7 +193,7 @@ const aligned = (lines: readonly Line[]): string[] => {
   const written: string[] = [];
   let run: { indent: number; lead: string; assigned: string }[] = [];
 
-  const settle = () => {
+  const flush = () => {
     const width = Math.max(...run.map((each) => each.lead.length));
 
     for (const each of run) {
@@ -211,13 +211,13 @@ const aligned = (lines: readonly Line[]): string[] => {
       continue;
     }
 
-    settle();
+    flush();
     written.push(
       line.text === '' ? '' : `${'  '.repeat(line.indent)}${line.text}`,
     );
   }
 
-  settle();
+  flush();
 
   return written;
 };

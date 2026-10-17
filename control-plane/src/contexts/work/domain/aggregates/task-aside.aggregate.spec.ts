@@ -7,7 +7,7 @@ import {
   TaskAside,
 } from '@work/domain/aggregates/task-aside.aggregate';
 import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
-import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
+import { TaskAsideResolved } from '@work/domain/events/task-aside-resolved.event';
 import { InvalidTaskAsideError } from '@work/domain/exceptions/invalid-task-aside.error';
 import { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
 import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
@@ -51,20 +51,20 @@ describe('TaskAside', () => {
     expect(() => raised({ about: '  ' })).toThrow(InvalidTaskAsideError);
   });
 
-  it('settles once, and stays settled', () => {
-    const settled = raised().settled(LATER);
-    settled.pullEvents();
+  it('resolves once, and stays resolved', () => {
+    const resolved = raised().resolve(LATER);
+    resolved.pullEvents();
 
-    expect(settled.open).toBe(false);
-    expect(settled.settledAt).toEqual(LATER);
-    expect(settled.settled(NOW)).toBe(settled);
+    expect(resolved.open).toBe(false);
+    expect(resolved.resolvedAt).toEqual(LATER);
+    expect(resolved.resolve(NOW)).toBe(resolved);
   });
 
-  it('reopens unread once settled, says it was raised again, and leaves an open aside be', () => {
-    const settled = raised().readBy(ADA, NOW).settled(NOW);
-    settled.pullEvents();
+  it('reopens unread once resolved, says it was raised again, and leaves an open aside be', () => {
+    const resolved = raised().readBy(ADA, NOW).resolve(NOW);
+    resolved.pullEvents();
 
-    const reopened = settled.reopen(LATER);
+    const reopened = resolved.reopen(LATER);
 
     expect(reopened.open).toBe(true);
     expect(reopened.raisedAt).toEqual(LATER);
@@ -80,12 +80,12 @@ describe('TaskAside', () => {
     expect(reopened.reopen(LATER)).toBe(reopened);
   });
 
-  it('says it settled', () => {
+  it('says it is resolved', () => {
     const aside = raised();
     aside.pullEvents();
 
-    expect(aside.settled(LATER).pullEvents()).toEqual([
-      new TaskAsideSettled(aside.id, aside.taskId),
+    expect(aside.resolve(LATER).pullEvents()).toEqual([
+      new TaskAsideResolved(aside.id, aside.taskId),
     ]);
   });
 
@@ -111,7 +111,7 @@ describe('TaskAside', () => {
         about: AsideAbout.of('run_1'),
         raisedAt: LATER,
         reads,
-        settledAt: null,
+        resolvedAt: null,
         version: 1,
       });
 

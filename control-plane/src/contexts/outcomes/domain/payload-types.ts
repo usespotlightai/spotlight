@@ -4,7 +4,7 @@ import { PairJudged } from '@outcomes/domain/events/pair-judged.event';
 import { PairJudgingFailed } from '@outcomes/domain/events/pair-judging-failed.event';
 import { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
-import { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
+import { RunRecordEnriched } from '@outcomes/domain/events/run-record-enriched.event';
 import { ScoreRecorded } from '@outcomes/domain/events/score-recorded.event';
 import { StationAlertRaised } from '@outcomes/domain/events/station-alert-raised.event';
 import { StationAlertRecovered } from '@outcomes/domain/events/station-alert-recovered.event';
@@ -67,7 +67,7 @@ export const OUTCOMES_PAYLOAD_TYPES = [
   JudgeCriteria,
   ScoreRecorded,
   RunRecordEnded,
-  RunRecordSettled,
+  RunRecordEnriched,
   TaskDeliveryClosed,
   AlertId,
   AlertRule,

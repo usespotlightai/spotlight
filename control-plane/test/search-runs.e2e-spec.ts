@@ -276,7 +276,7 @@ const published = (kind: string, runId: string) =>
       ),
     );
 
-const settled = (runId: string) =>
+const untilDigested = (runId: string) =>
   eventually(async () => {
     const pending = await db
       .select({ subscriber: schema.eventDelivery.subscriber })
@@ -659,7 +659,7 @@ describe('a search run ending', () => {
     await runner(token)
       .post(`/api/runs/${runId}/completion`, finishing('review'))
       .expect(200);
-    await settled(runId);
+    await untilDigested(runId);
 
     expect((await runRow(runId))?.state).toBe('completed');
 
@@ -738,7 +738,7 @@ describe('a search run ending', () => {
           .expect(200)
       ).body,
     ).toEqual({ waiting: false });
-    await settled(runId);
+    await untilDigested(runId);
 
     expect((await runRow(runId))?.askedAPerson).toBe(true);
 

@@ -111,7 +111,7 @@ const readingOf = (
   const asked = runs.filter((run) => run.next !== null).length;
   const checked = tally.checksPassed + tally.checksFailed;
   const tasks = distinct(runs.map((run) => run.taskId)).length;
-  const settledTasks = distinct(
+  const finishedTasks = distinct(
     runs
       .filter((run) => run.delivery === 'merged' || run.delivery === 'closed')
       .map((run) => run.taskId),
@@ -119,19 +119,19 @@ const readingOf = (
 
   switch (measure) {
     case 'sent_back_rate':
-      return { value: shareOf(tally.sentBack, tally.runs), settled: asked };
+      return { value: shareOf(tally.sentBack, tally.runs), measured: asked };
     case 'accepted_rate':
-      return { value: shareOf(tally.accepted, tally.runs), settled: asked };
+      return { value: shareOf(tally.accepted, tally.runs), measured: asked };
     case 'checks_failed_rate':
-      return { value: shareOf(tally.checksFailed, checked), settled: checked };
+      return { value: shareOf(tally.checksFailed, checked), measured: checked };
     case 'failed_rate':
-      return { value: shareOf(tally.failed, tally.runs), settled: tally.runs };
+      return { value: shareOf(tally.failed, tally.runs), measured: tally.runs };
     case 'merged_rate':
-      return { value: shareOf(tally.merged, tasks), settled: settledTasks };
+      return { value: shareOf(tally.merged, tasks), measured: finishedTasks };
     case 'cost_per_run':
       return {
         value: costPerRunOf(runs),
-        settled: runs.length - tally.unpriced,
+        measured: runs.length - tally.unpriced,
       };
   }
 };

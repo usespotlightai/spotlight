@@ -208,7 +208,7 @@ const callsOf = (draw: Draw, profile: Profile): ServerCalls[] =>
       };
     });
 
-type Settle =
+type Outcome =
   | { readonly kind: 'hand-on'; readonly to: string }
   | { readonly kind: 'ask'; readonly to: string | null };
 
@@ -223,7 +223,7 @@ const makeRun = (
   task: HistoryTask,
   profile: Profile,
   queuedAt: number,
-  settle: Settle,
+  outcome: Outcome,
   id: string,
 ): Ran => {
   const version = versionAt(profile, queuedAt);
@@ -243,7 +243,7 @@ const makeRun = (
       : null;
   const sentBack =
     ended &&
-    settle.kind === 'ask' &&
+    outcome.kind === 'ask' &&
     (checks === 'failed'
       ? steadily(`${station}:checks-sent-back`, version.sentBack + 0.3)
       : steadily(`${station}:sent-back`, version.sentBack));
@@ -282,18 +282,18 @@ const makeRun = (
       : null,
     checks,
     next:
-      ended && settle.kind === 'ask'
+      ended && outcome.kind === 'ask'
         ? {
             act: sentBack ? 'sent-back' : 'closed',
             at: new Date(answeredAt).toISOString(),
           }
         : null,
     handedOn:
-      onward && settle.to
+      onward && outcome.to
         ? {
-            to: settle.to,
+            to: outcome.to,
             at: new Date(
-              settle.kind === 'ask' ? answeredAt : endedAt,
+              outcome.kind === 'ask' ? answeredAt : endedAt,
             ).toISOString(),
           }
         : null,
@@ -310,13 +310,13 @@ const makeRun = (
   return {
     run,
     onward,
-    at: (settle.kind === 'ask' ? answeredAt : endedAt) + 5 * MINUTE_MS,
+    at: (outcome.kind === 'ask' ? answeredAt : endedAt) + 5 * MINUTE_MS,
   };
 };
 
 type Step = {
   readonly stationId: string;
-  readonly settle: Settle;
+  readonly outcome: Outcome;
   readonly attempts?: number;
 };
 
@@ -341,7 +341,7 @@ const chainOf = (
     let onward = false;
     const attempts = step.attempts ?? ATTEMPTS;
     for (let attempt = 0; attempt < attempts && !onward; attempt += 1) {
-      const ran = makeRun(draw, task, profile, at, step.settle, ids());
+      const ran = makeRun(draw, task, profile, at, step.outcome, ids());
       if (ran.run.at > cutoff) {
         return null;
       }
@@ -439,22 +439,22 @@ const tasksThatDay = (draw: Draw, line: LineShape, back: number): number => {
 const deliverySteps: readonly Step[] = [
   {
     stationId: 'station_triage',
-    settle: { kind: 'hand-on', to: 'station_spec' },
+    outcome: { kind: 'hand-on', to: 'station_spec' },
   },
   {
     stationId: 'station_spec',
-    settle: { kind: 'ask', to: 'station_implementation' },
+    outcome: { kind: 'ask', to: 'station_implementation' },
   },
 ];
 
 const buildStep: Step = {
   stationId: 'station_implementation',
-  settle: { kind: 'ask', to: 'station_review' },
+  outcome: { kind: 'ask', to: 'station_review' },
 };
 
 const reviewStep: Step = {
   stationId: 'station_review',
-  settle: { kind: 'ask', to: 'station_completed' },
+  outcome: { kind: 'ask', to: 'station_completed' },
   attempts: 1,
 };
 
@@ -547,21 +547,24 @@ const runDeliveryTask = (
 };
 
 const experimentSteps: readonly Step[] = [
-  { stationId: 'station_design', settle: { kind: 'ask', to: 'station_build' } },
+  {
+    stationId: 'station_design',
+    outcome: { kind: 'ask', to: 'station_build' },
+  },
   {
     stationId: 'station_build',
-    settle: { kind: 'ask', to: 'station_shipped' },
+    outcome: { kind: 'ask', to: 'station_shipped' },
   },
 ];
 
 const incidentSteps: readonly Step[] = [
   {
     stationId: 'station_investigate',
-    settle: { kind: 'ask', to: 'station_mitigate' },
+    outcome: { kind: 'ask', to: 'station_mitigate' },
   },
   {
     stationId: 'station_mitigate',
-    settle: { kind: 'ask', to: 'station_resolved' },
+    outcome: { kind: 'ask', to: 'station_resolved' },
   },
 ];
 

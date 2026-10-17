@@ -33,7 +33,7 @@ const PAGE = 200;
 
 const MAX_PAGES = 10;
 
-type Provisioned = 'settled' | 'try-another';
+type Provisioned = 'done' | 'try-another';
 
 type OfferedPool = PoolAtWork & PoolOnOffer;
 
@@ -58,7 +58,7 @@ const rethrown = (thrown: readonly unknown[]): void => {
   }
 };
 
-const everySettled = async (
+const awaitAll = async (
   attempts: readonly Promise<unknown>[],
 ): Promise<void> => {
   rethrown(
@@ -104,7 +104,7 @@ export class ProvisionWork {
   async due(): Promise<void> {
     await this.lapsed();
 
-    await everySettled(
+    await awaitAll(
       [...byWorkspace(await this.pools.provisioning()).values()].map((pools) =>
         this.inWorkspace(pools),
       ),
@@ -183,7 +183,7 @@ export class ProvisionWork {
       }
     }
 
-    await everySettled(
+    await awaitAll(
       placed.map(async ({ provisionable, fitting }) => {
         const thrown: unknown[] = [];
 
@@ -255,7 +255,7 @@ export class ProvisionWork {
     const current = await this.runs.findById(queued.id);
 
     if (!current?.provisionableAt(this.clock.now(), pool.egress)) {
-      return 'settled';
+      return 'done';
     }
 
     const runnerId = RunnerId.of(this.ids.generate());
@@ -268,14 +268,14 @@ export class ProvisionWork {
     const { reservation } = reserved;
 
     if (!reservation) {
-      return 'settled';
+      return 'done';
     }
 
     try {
       await this.runs.save(reserved);
     } catch (error) {
       if (error instanceof RunVersionConflictError) {
-        return 'settled';
+        return 'done';
       }
 
       throw error;
@@ -319,7 +319,7 @@ export class ProvisionWork {
     );
 
     if (!until) {
-      return 'settled';
+      return 'done';
     }
 
     return this.attempted(
@@ -402,14 +402,14 @@ export class ProvisionWork {
     last: boolean,
   ): Promise<Provisioned> {
     if (provisioned.outcome === 'provisioned') {
-      return 'settled';
+      return 'done';
     }
 
     if (provisioned.outcome === 'failed' && last) {
       await then.failed(
         ProvisionFailure.of(provisioned.kind, provisioned.detail),
       );
-      return 'settled';
+      return 'done';
     }
 
     await then.unreserved();

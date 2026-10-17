@@ -34,7 +34,7 @@ export class NetworkCallsWorker implements OnModuleDestroy {
   private async tended(): Promise<void> {
     try {
       await this.calls.lapseOverdue();
-      await this.calls.forgetSettled();
+      await this.calls.forgetCompleted();
     } catch (error) {
       this.logger.error(
         { err: error },

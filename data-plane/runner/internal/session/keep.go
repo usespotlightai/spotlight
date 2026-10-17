@@ -139,7 +139,7 @@ func (k *keeper) unpacked(ctx context.Context, stored protocol.StoredArchive) er
 	return nil
 }
 
-func (k *keeper) settled() {
+func (k *keeper) recordBaseline() {
 	if k.restoredFrom == "" {
 		return
 	}

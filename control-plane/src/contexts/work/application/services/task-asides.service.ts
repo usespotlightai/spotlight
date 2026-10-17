@@ -95,7 +95,7 @@ export class TaskAsides implements TaskAsidesPort {
     return existing?.id.value ?? null;
   }
 
-  settle(asked: AsideOf): Promise<void> {
+  resolve(asked: AsideOf): Promise<void> {
     const aside = { ...asked, about: AsideAbout.of(asked.about) };
 
     return this.transaction.inTransaction(async () => {
@@ -107,7 +107,7 @@ export class TaskAsides implements TaskAsidesPort {
 
       if (existing) {
         if (existing.open) {
-          await this.asides.save(existing.settled(this.clock.now()));
+          await this.asides.save(existing.resolve(this.clock.now()));
         }
         return;
       }
@@ -125,7 +125,7 @@ export class TaskAsides implements TaskAsidesPort {
             form: aside.form,
             about: aside.about,
             now,
-          }).settled(now),
+          }).resolve(now),
         );
       }
     });

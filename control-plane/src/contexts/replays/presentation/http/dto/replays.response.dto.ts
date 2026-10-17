@@ -536,7 +536,7 @@ export class EntryChecksResponseDto {
   @ApiProperty({
     enum: CHECKS_STATES,
     description:
-      'drafting or checking until its change stacks settle and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing',
+      'drafting or checking until its change stacks complete and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing',
   })
   readonly state: string;
 
@@ -910,7 +910,7 @@ export class ReplayEntryResponseDto {
   })
   readonly fingerprint: string | null;
 
-  @ApiProperty({ enum: ['waiting', 'dispatched', 'settled'] })
+  @ApiProperty({ enum: ['waiting', 'dispatched', 'ended'] })
   readonly phase: string;
 
   @ApiProperty({
@@ -1099,7 +1099,7 @@ export class ReplayTotalsResponseDto {
   readonly entries: number;
 
   @ApiProperty()
-  readonly settled: number;
+  readonly ended: number;
 
   @ApiProperty()
   readonly completed: number;
@@ -1190,7 +1190,7 @@ export class ReplayTotalsResponseDto {
 
   constructor(totals: ReplayTotalsDto) {
     this.entries = totals.entries;
-    this.settled = totals.settled;
+    this.ended = totals.ended;
     this.completed = totals.completed;
     this.failed = totals.failed;
     this.stopped = totals.stopped;
@@ -1450,7 +1450,7 @@ export class EntryComparisonResponseDto {
     nullable: true,
     type: Number,
     description:
-      'Candidate cost less the baseline’s, each averaged over its copies, once both settled',
+      'Candidate cost less the baseline’s, each averaged over its copies, once both ended',
   })
   readonly costDelta: number | null;
 

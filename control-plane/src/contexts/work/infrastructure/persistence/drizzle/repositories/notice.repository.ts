@@ -26,7 +26,7 @@ const toNotice = (row: Row): Notice =>
     link: NoticeLink.of({ path: row.link, label: row.linkLabel }),
     wording: NoticeWording.of({ headline: row.headline, points: row.points }),
     raisedAt: row.raisedAt,
-    settledAt: row.settledAt,
+    resolvedAt: row.resolvedAt,
     version: row.version,
   });
 
@@ -47,7 +47,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       headline: added.wording.headline,
       points: [...added.wording.points],
       raisedAt: added.raisedAt,
-      settledAt: added.settledAt,
+      resolvedAt: added.resolvedAt,
       version: added.version,
     });
   }
@@ -56,7 +56,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     const written = await this.context.db
       .update(notice)
       .set({
-        settledAt: saved.settledAt,
+        resolvedAt: saved.resolvedAt,
         version: saved.version + 1,
       })
       .where(

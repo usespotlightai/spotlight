@@ -95,13 +95,13 @@ export const progressOf = (row: {
   state: ChangeStackState;
   failure: string | null;
   draftedAt: Date;
-  settledAt: Date | null;
+  completedAt: Date | null;
 }): StackProgress =>
   StackProgress.rehydrate({
     state: row.state,
     failure: row.failure,
     draftedAt: row.draftedAt,
-    settledAt: row.settledAt,
+    completedAt: row.completedAt,
   });
 
 export const fileRows = (files: readonly DiffFile[]): StoredFile[] =>

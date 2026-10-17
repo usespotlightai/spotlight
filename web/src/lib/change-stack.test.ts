@@ -5,10 +5,10 @@ import {
   currentStacks,
   drafting,
   filesOf,
+  inProgress,
   isLargeDiff,
   layerAt,
   patchOf,
-  settling,
   tallyOf,
 } from '@/lib/change-stack';
 
@@ -124,11 +124,11 @@ describe('currentStacks', () => {
   });
 });
 
-describe('settling', () => {
+describe('inProgress', () => {
   it('keeps asking while a stack drafts or waits for its check', () => {
-    expect(settling([stack({ check: checked('waiting') })])).toBe(true);
-    expect(settling([stack({ check: checked('checked') })])).toBe(false);
-    expect(settling([stack()])).toBe(false);
+    expect(inProgress([stack({ check: checked('waiting') })])).toBe(true);
+    expect(inProgress([stack({ check: checked('checked') })])).toBe(false);
+    expect(inProgress([stack()])).toBe(false);
   });
 });
 

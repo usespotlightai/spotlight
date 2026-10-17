@@ -1,6 +1,6 @@
 import { RUN_STATES } from '@work/domain/value-objects/run-state';
 
-export const REVIEW_STATE_NAMES = ['owed', 'settled'] as const;
+export const REVIEW_STATE_NAMES = ['owed', 'answered'] as const;
 
 interface RunReviewDto {
   readonly state: string;

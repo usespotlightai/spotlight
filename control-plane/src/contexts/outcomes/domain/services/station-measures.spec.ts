@@ -129,7 +129,7 @@ describe('readingOf', () => {
   });
 });
 
-describe('readingOf, among settled runs', () => {
+describe('readingOf, among measured runs', () => {
   const FALLING = AlertRule.of({
     measure: 'accepted_rate',
     fallsBy: 0.5,

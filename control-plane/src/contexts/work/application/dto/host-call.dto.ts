@@ -16,6 +16,6 @@ export type HostCallClaimDto =
 export type HostCallAnswerDto =
   | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'unknown' }
-  | { readonly outcome: 'settled'; readonly reason: string }
+  | { readonly outcome: 'completed'; readonly reason: string }
   | { readonly outcome: 'not-theirs' }
   | { readonly outcome: 'answered' };

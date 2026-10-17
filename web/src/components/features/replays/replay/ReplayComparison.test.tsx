@@ -11,7 +11,7 @@ const entry = (over: Partial<ReplayEntry> = {}): ReplayEntry => ({
   repeat: 1,
   runId: 'run_a_replayed',
   fingerprint: null,
-  phase: 'settled',
+  phase: 'ended',
   ending: 'completed',
   unreplayableReason: null,
   failure: null,

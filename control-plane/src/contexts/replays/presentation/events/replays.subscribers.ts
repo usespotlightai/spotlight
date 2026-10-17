@@ -90,9 +90,9 @@ import {
   type ReplayEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/replay-ended.integration-event';
 import {
-  REPLAY_STACK_SETTLED,
-  type ReplayStackSettledIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-stack-settled.integration-event';
+  REPLAY_STACK_COMPLETED,
+  type ReplayStackCompletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/replay-stack-completed.integration-event';
 import {
   SEARCH_RUN_DIGESTED,
   type SearchRunDigestedIntegrationEvent,
@@ -184,10 +184,10 @@ export const replaysSubscribers = (
       }),
   ),
   subscribing<
-    ReplayStackSettledIntegrationEvent | ReplayChangeCheckedIntegrationEvent
+    ReplayStackCompletedIntegrationEvent | ReplayChangeCheckedIntegrationEvent
   >(
     'replays.record-replay-change-reviewed',
-    [REPLAY_STACK_SETTLED, REPLAY_CHANGE_CHECKED],
+    [REPLAY_STACK_COMPLETED, REPLAY_CHANGE_CHECKED],
     (event) => reactions.reviewing.reviewed(event.runId),
   ),
   subscribing<ReplayJudgingWanted>(

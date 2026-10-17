@@ -31,7 +31,7 @@ export interface AlertReading {
   readonly baseline: number | null;
 }
 
-export interface SettledReading extends AlertReading {
+export interface FinalReading extends AlertReading {
   readonly runId: RunId;
   readonly taskId: TaskId;
 }

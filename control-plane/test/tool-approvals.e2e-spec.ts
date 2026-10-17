@@ -72,7 +72,7 @@ describe('an approval a run asked for', () => {
     const runId = RunId.of(randomUUID());
 
     await tasks.save(
-      list.settled({
+      list.closeConversation({
         station: StationName.of('Backlog'),
         body: TaskNoteBody.of('Set up.'),
         at: NOW,
@@ -80,10 +80,10 @@ describe('an approval a run asked for', () => {
       }),
     );
 
-    const settled = await readBack(list);
+    const closed = await readBack(list);
 
     await tasks.save(
-      Task.rehydrate({ ...settled, currentRunId: runId }).clearFor(
+      Task.rehydrate({ ...closed, currentRunId: runId }).clearFor(
         subject,
         NEEDED,
         {
@@ -97,7 +97,7 @@ describe('an approval a run asked for', () => {
       ).task,
     );
 
-    return { task: await readBack(settled), owner, runId };
+    return { task: await readBack(closed), owner, runId };
   };
 
   it('is read back with the call it is for, still open', async () => {
@@ -344,17 +344,17 @@ describe('an approval a run asked for', () => {
     const runId = RunId.of(randomUUID());
 
     await tasks.save(
-      list.settled({
+      list.closeConversation({
         station: StationName.of('Backlog'),
         body: TaskNoteBody.of('Set up.'),
         at: NOW,
         voice: Voice.station(),
       }),
     );
-    const settled = await readBack(list);
+    const closed = await readBack(list);
 
     await tasks.save(
-      Task.rehydrate({ ...settled, currentRunId: runId }).clearFor(
+      Task.rehydrate({ ...closed, currentRunId: runId }).clearFor(
         CALL,
         NEEDED,
         {
@@ -369,7 +369,7 @@ describe('an approval a run asked for', () => {
     );
 
     expect(
-      (await readBack(settled)).approvalFor(CALL)?.approval.intent?.value,
+      (await readBack(closed)).approvalFor(CALL)?.approval.intent?.value,
     ).toBe('post the fix on ENG-12');
   });
 

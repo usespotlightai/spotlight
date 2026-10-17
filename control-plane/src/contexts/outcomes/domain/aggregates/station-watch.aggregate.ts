@@ -6,7 +6,7 @@ import { AlertCrossing } from '@outcomes/domain/value-objects/alert-crossing.vo'
 import type { AlertId } from '@outcomes/domain/value-objects/alert-id.vo';
 import type {
   AlertRule,
-  SettledReading,
+  FinalReading,
 } from '@outcomes/domain/value-objects/alert-rule.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -22,7 +22,7 @@ export interface WatchedStation {
 
 export interface RuleReading {
   readonly rule: AlertRule;
-  readonly reading: SettledReading | null;
+  readonly reading: FinalReading | null;
 }
 
 const firstOfEach = (readings: readonly RuleReading[]): RuleReading[] => {
@@ -86,7 +86,7 @@ export class StationWatch extends EventRecorder {
     return this.crossings.find((each) => each.id.equals(alertId)) ?? null;
   }
 
-  private settling(rule: AlertRule): AlertCrossing | undefined {
+  private inCooldown(rule: AlertRule): AlertCrossing | undefined {
     const [last] = this.crossings
       .filter((each) => !each.open && each.rule.equals(rule))
       .sort(
@@ -124,7 +124,7 @@ export class StationWatch extends EventRecorder {
         baseline: rule.compares ? reading.baseline : null,
       };
       const open = this.open.find((each) => each.rule.equals(rule));
-      const settling = open ? undefined : this.settling(rule);
+      const cooling = open ? undefined : this.inCooldown(rule);
 
       if (open) {
         const seen = crossed
@@ -138,13 +138,13 @@ export class StationWatch extends EventRecorder {
         if (next !== open) {
           moved.set(open.id.value, next);
         }
-      } else if (settling) {
+      } else if (cooling) {
         const next = crossed
-          ? settling.reopened(rule, read, reading.runId)
-          : settling.seenClear(reading.runId, at);
+          ? cooling.reopened(rule, read, reading.runId)
+          : cooling.seenClear(reading.runId, at);
 
-        if (next !== settling) {
-          moved.set(settling.id.value, next);
+        if (next !== cooling) {
+          moved.set(cooling.id.value, next);
         }
       } else if (crossed) {
         raised.push(

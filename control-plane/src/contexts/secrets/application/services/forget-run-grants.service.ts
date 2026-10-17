@@ -58,7 +58,7 @@ export class ForgetRunGrants {
       return false;
     }
 
-    return this.unitOfWork.settled(existing, existing.purge(now));
+    return this.unitOfWork.saveIgnoringConflict(existing, existing.purge(now));
   }
 
   private async readable(runId: RunId): Promise<RunGrants | null> {

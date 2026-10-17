@@ -59,7 +59,7 @@ const dayWindow = (day: string): Window => {
 const headlineOf = (teamId: string, window: Window) => {
   const runs = runsIn(teamId, window);
   const tasks = distinct(runs.map((run) => run.taskId));
-  const settled = pullRequestsClosedIn(teamId, window);
+  const finished = pullRequestsClosedIn(teamId, window);
   const merged = mergedIn(teamId, window);
   const spend = spendOf(runs);
   const touches = runs.filter((run) => run.next !== null).length;
@@ -79,8 +79,8 @@ const headlineOf = (teamId: string, window: Window) => {
     runs: runs.length,
     tasks: tasks.length,
     mergedPullRequests: merged.length,
-    closedPullRequests: settled.length - merged.length,
-    mergeRate: shareOf(merged.length, settled.length),
+    closedPullRequests: finished.length - merged.length,
+    mergeRate: shareOf(merged.length, finished.length),
     costPerMerge:
       spend === null || merged.length === 0
         ? null

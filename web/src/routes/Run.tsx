@@ -13,7 +13,7 @@ import { failed, loading } from '@/lib/query';
 
 type Query = UseQueryResult<unknown>;
 
-const settling = (
+const stillLoading = (
   runs: Query,
   found: boolean,
   conversation: Query,
@@ -49,7 +49,7 @@ export function Run() {
     return null;
   }
 
-  if (settling(runs, Boolean(run), conversation, journal)) {
+  if (stillLoading(runs, Boolean(run), conversation, journal)) {
     return <RunSkeleton />;
   }
 

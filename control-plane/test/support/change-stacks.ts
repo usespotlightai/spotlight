@@ -51,7 +51,7 @@ export const awaitingCheck = async (
       imports: [],
     },
     draftedAt: new Date(),
-    settledAt: new Date(),
+    completedAt: new Date(),
     cohorts: [
       {
         id: 'c1',

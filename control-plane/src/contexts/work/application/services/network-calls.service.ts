@@ -57,11 +57,11 @@ export class NetworkCalls implements NetworkCallsPort {
       }
 
       if (state.kind === 'lapsed') {
-        return this.settled(call, call.lapsed(now));
+        return this.stateOnceCompleted(call, call.lapsed(now));
       }
 
       if (now.getTime() >= until.getTime()) {
-        return this.settled(call, call.givenUp(now));
+        return this.stateOnceCompleted(call, call.givenUp(now));
       }
 
       await this.clock.sleep(POLL_INTERVAL_MS);
@@ -73,7 +73,7 @@ export class NetworkCalls implements NetworkCallsPort {
     let lapsed = 0;
 
     for (const call of await this.calls.lapsingBy(now, MAX_AT_ONCE)) {
-      if (await this.settledAs(call, call.lapsed(now))) {
+      if (await this.saveIfChanged(call, call.lapsed(now))) {
         lapsed += 1;
       }
     }
@@ -81,17 +81,17 @@ export class NetworkCalls implements NetworkCallsPort {
     return lapsed;
   }
 
-  async forgetSettled(): Promise<number> {
+  async forgetCompleted(): Promise<number> {
     const now = this.clock.now();
     let forgotten = 0;
 
-    for (const call of await this.calls.settledBy(
-      NetworkCall.settledForgettablyBy(now),
+    for (const call of await this.calls.completedBy(
+      NetworkCall.completedForgettablyBy(now),
       MAX_AT_ONCE,
     )) {
       if (
         call.isForgettableAt(now) &&
-        (await this.settledAs(call, call.forgotten(now)))
+        (await this.saveIfChanged(call, call.forgotten(now)))
       ) {
         forgotten += 1;
       }
@@ -133,25 +133,25 @@ export class NetworkCalls implements NetworkCallsPort {
       : { kind: 'lapsed' };
   }
 
-  private async settled(
+  private async stateOnceCompleted(
     call: NetworkCall,
-    settled: NetworkCall,
+    completed: NetworkCall,
   ): Promise<NetworkCallState> {
-    return settled === call || (await this.settledAs(call, settled))
-      ? this.viewOf(settled, this.clock.now())
+    return completed === call || (await this.saveIfChanged(call, completed))
+      ? this.viewOf(completed, this.clock.now())
       : this.stateOf(call.id.value);
   }
 
-  private async settledAs(
+  private async saveIfChanged(
     call: NetworkCall,
-    settled: NetworkCall,
+    changed: NetworkCall,
   ): Promise<boolean> {
-    if (settled === call) {
+    if (changed === call) {
       return false;
     }
 
     try {
-      await this.calls.save(settled);
+      await this.calls.save(changed);
       return true;
     } catch (error) {
       if (error instanceof NetworkCallVersionConflictError) {

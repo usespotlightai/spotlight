@@ -273,7 +273,7 @@ describe('AnswerHostCallHandler', () => {
     ).toEqual({ outcome: 'unknown' });
   });
 
-  it('says a call already answered is settled', async () => {
+  it('says a call already answered is completed', async () => {
     const { answer } = hosting({
       found: claimedCall().answerWith(
         CallingHost.of(HOST),
@@ -285,17 +285,17 @@ describe('AnswerHostCallHandler', () => {
     expect(
       await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
     ).toEqual({
-      outcome: 'settled',
+      outcome: 'completed',
       reason: 'Network call call_1 was already answered.',
     });
   });
 
-  it('says a call that was never claimed is settled no other way', async () => {
+  it('gives the completed outcome to a call that was never claimed', async () => {
     const { answer } = hosting({ found: queued() });
 
     expect(
       await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
-    ).toMatchObject({ outcome: 'settled' });
+    ).toMatchObject({ outcome: 'completed' });
   });
 
   it('rejects an answer that is no answer', async () => {
@@ -311,14 +311,14 @@ describe('AnswerHostCallHandler', () => {
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
-  it('says a call settled meanwhile is settled, not a fault', async () => {
+  it('says a call completed meanwhile is completed, not a fault', async () => {
     const { answer } = hosting({ clash: true });
 
     expect(
       await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
     ).toEqual({
-      outcome: 'settled',
-      reason: 'The network call was settled while the host answered it.',
+      outcome: 'completed',
+      reason: 'The network call completed while the host answered it.',
     });
   });
 });

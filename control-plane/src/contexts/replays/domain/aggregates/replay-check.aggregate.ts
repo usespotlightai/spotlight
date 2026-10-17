@@ -194,14 +194,14 @@ export class ReplayCheck extends EventRecorder {
   }
 
   recordBaseline(): ReplayCheck {
-    return this.baselineSettled('found');
+    return this.withBaseline('found');
   }
 
   markBaselineUnavailable(): ReplayCheck {
-    return this.baselineSettled('unavailable');
+    return this.withBaseline('unavailable');
   }
 
-  private baselineSettled(baseline: BaselineStatus): ReplayCheck {
+  private withBaseline(baseline: BaselineStatus): ReplayCheck {
     return this.state.baseline === 'awaiting'
       ? new ReplayCheck({ ...this.state, baseline }, this.isAbandoned)
       : this;

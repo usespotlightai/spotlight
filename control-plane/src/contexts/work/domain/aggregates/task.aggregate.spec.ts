@@ -805,13 +805,18 @@ describe('Task, what it is doing', () => {
       ).toThrow(InvalidTaskTransitionError);
     });
 
-    it('will not settle what nothing opened', () => {
-      expect(() => added().settled(saying)).toThrow(InvalidTaskTransitionError);
+    it('will not close a conversation that nothing opened', () => {
+      expect(() => added().closeConversation(saying)).toThrow(
+        InvalidTaskTransitionError,
+      );
     });
 
-    it('will not settle the same conversation twice', () => {
+    it('will not close the same conversation twice', () => {
       expect(() =>
-        added().askedAbout(saying, null).settled(saying).settled(saying),
+        added()
+          .askedAbout(saying, null)
+          .closeConversation(saying)
+          .closeConversation(saying),
       ).toThrow(InvalidTaskTransitionError);
     });
 

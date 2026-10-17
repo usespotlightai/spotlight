@@ -36,7 +36,10 @@ export class RunGrantsUnitOfWork {
     });
   }
 
-  async settled(current: RunGrants, changed: RunGrants): Promise<boolean> {
+  async saveIgnoringConflict(
+    current: RunGrants,
+    changed: RunGrants,
+  ): Promise<boolean> {
     try {
       await this.saved(current, changed);
       return changed !== current;

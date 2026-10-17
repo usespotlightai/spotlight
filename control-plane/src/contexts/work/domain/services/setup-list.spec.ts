@@ -7,7 +7,7 @@ import {
   openSetupList,
   SETUP_STEPS,
   type SetupState,
-  settling,
+  setupDoneNote,
   TAKEN,
 } from '@work/domain/services/setup-list';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -54,12 +54,12 @@ describe('the setup list', () => {
       expect(SETUP_STEPS.filter((step) => TAKEN[step](missing))).toHaveLength(
         SETUP_STEPS.length - 1,
       );
-      expect(settling([note('asked', 'setup')], missing, NOW)).toBeNull();
+      expect(setupDoneNote([note('asked', 'setup')], missing, NOW)).toBeNull();
     },
   );
 
   it('is done when every step has been taken', () => {
-    expect(settling([note('asked', 'setup')], done, NOW)).not.toBeNull();
+    expect(setupDoneNote([note('asked', 'setup')], done, NOW)).not.toBeNull();
   });
 
   it('is done by nothing at all where nothing has been', () => {
@@ -67,9 +67,9 @@ describe('the setup list', () => {
   });
 });
 
-describe('settling', () => {
-  it('settles an open list with nothing left on it', () => {
-    const saying = settling([note('asked', 'setup')], done, NOW);
+describe('setupDoneNote', () => {
+  it('closes an open list with nothing left on it', () => {
+    const saying = setupDoneNote([note('asked', 'setup')], done, NOW);
 
     expect(saying?.body).toEqual(
       TaskNoteBody.of('Everything on this list is done.'),
@@ -79,34 +79,38 @@ describe('settling', () => {
   });
 
   it('says so at the station the list was raised at', () => {
-    const saying = settling([note('asked', 'setup', 'Backlog')], done, NOW);
+    const saying = setupDoneNote(
+      [note('asked', 'setup', 'Backlog')],
+      done,
+      NOW,
+    );
 
     expect(saying?.station).toEqual(StationName.of('Backlog'));
   });
 
-  it('settles nothing while a step is still to be taken', () => {
-    expect(settling([note('asked', 'setup')], nothing, NOW)).toBeNull();
+  it('closes nothing while a step is still to be taken', () => {
+    expect(setupDoneNote([note('asked', 'setup')], nothing, NOW)).toBeNull();
   });
 
-  it('still settles one somebody has answered', () => {
+  it('still closes one somebody has answered', () => {
     expect(
-      settling([note('asked', 'setup'), note('answered')], done, NOW),
+      setupDoneNote([note('asked', 'setup'), note('answered')], done, NOW),
     ).not.toBeNull();
   });
 
-  it('settles nothing a conversation closed already', () => {
+  it('closes nothing a conversation closed already', () => {
     expect(
-      settling([note('asked', 'setup'), note('passed')], done, NOW),
+      setupDoneNote([note('asked', 'setup'), note('passed')], done, NOW),
     ).toBeNull();
   });
 
-  it('settles nothing on a task that never had a list', () => {
-    expect(settling([note('asked')], done, NOW)).toBeNull();
+  it('closes nothing on a task that never had a list', () => {
+    expect(setupDoneNote([note('asked')], done, NOW)).toBeNull();
   });
 
-  it('settles nothing where what is open is not the list', () => {
+  it('closes nothing where what is open is not the list', () => {
     expect(
-      settling(
+      setupDoneNote(
         [note('asked', 'setup'), note('passed'), note('asked')],
         done,
         NOW,

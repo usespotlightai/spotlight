@@ -196,7 +196,7 @@ const answerOf = (context: Context, yes: string, no: string): NoteScript[] =>
       ]
     : [];
 
-const settleNotes = (
+const closingNotes = (
   context: Context,
   ask: string,
   pass: string,
@@ -252,7 +252,7 @@ const triageStory = (context: Context): Omit<RunStory, 'spend'> => {
           ]
         : []),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `Reproduced it in \`${context.path}\`. Should it go to ${context.next ?? 'the next station'}?`,
       `Passed to ${context.next ?? 'the next station'}. Reproduced it: the failing path is \`${context.path}\`, and a fix needs a test that covers it.`,
@@ -283,7 +283,7 @@ const specStory = (context: Context): Omit<RunStory, 'spend'> => {
         ? [said('The spec is ready for review.')]
         : []),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `The spec is in \`${spec}\`: change \`${context.path}\` and cover it in \`${testPathOf(context.path)}\`. Hand it to ${context.next ?? 'Implementation'}?`,
       `Passed to ${context.next ?? 'Implementation'}. The spec is in \`${spec}\`.`,
@@ -386,7 +386,7 @@ const buildStory = (context: Context): Omit<RunStory, 'spend'> => {
         : []),
       ...(context.run.ending === 'completed' ? [said(summary)] : []),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       failedChecks
         ? `${summary} Send it back, or let me try again?`
@@ -419,7 +419,7 @@ const reviewStory = (context: Context): Omit<RunStory, 'spend'> => {
       thought('Check what would break in production before anything else.'),
       ...failingStep(context),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `Reviewed ${opened(context)}. Nothing in \`${context.path}\` would break in production. Approve the merge?`,
       `Reviewed ${opened(context)} and passed it on.`,
@@ -461,7 +461,7 @@ const investigateStory = (context: Context): Omit<RunStory, 'spend'> => {
       ),
       ...failingStep(context),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `“${context.title}” started with the ${deployed} deploy and stays on one service. Should Mitigate roll it back?`,
       `Passed to ${context.next ?? 'Mitigate'}. The errors start with the ${deployed} deploy.`,
@@ -489,7 +489,7 @@ const mitigateStory = (context: Context): Omit<RunStory, 'spend'> => {
       ),
       ...failingStep(context),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `Rolled back to revision ${revision}; the error rate is back at 0.3%. Close the incident?`,
       `Rolled back to revision ${revision}; the error rate is back at 0.3%.`,
@@ -515,7 +515,7 @@ const designStory = (context: Context): Omit<RunStory, 'spend'> => {
       ),
       ...failingStep(context),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `The experiment brief is in \`${brief}\`: half of new workspaces, measured by first projects within 24 hours. Build it?`,
       `Passed to Build. The brief is in \`${brief}\`.`,

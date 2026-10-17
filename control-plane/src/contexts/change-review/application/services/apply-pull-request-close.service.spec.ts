@@ -3,9 +3,9 @@ import type {
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import {
+  ApplyPullRequestClose,
   type ClosedPullRequest,
-  SettleDecisions,
-} from '@change-review/application/services/settle-decisions.service';
+} from '@change-review/application/services/apply-pull-request-close.service';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
@@ -57,7 +57,7 @@ const decided = () =>
       }),
     });
 
-const settling = (
+const applying = (
   over: {
     task?: Partial<ReviewedTask> | null;
     stored?: DecisionSet | null;
@@ -88,7 +88,7 @@ const settling = (
     },
   } as unknown as DecisionSetRepository;
 
-  const service = new SettleDecisions(
+  const service = new ApplyPullRequestClose(
     work,
     sets,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
@@ -98,9 +98,9 @@ const settling = (
   return { service, stored: () => stored };
 };
 
-describe('settling a task’s decisions when its pull request closes', () => {
+describe('applying a pull request close to the decisions of its task', () => {
   it('merges them with the pull request', async () => {
-    const { service, stored } = settling();
+    const { service, stored } = applying();
 
     await service.closed(MERGED);
 
@@ -114,7 +114,7 @@ describe('settling a task’s decisions when its pull request closes', () => {
   });
 
   it('forgets them when it closes unmerged', async () => {
-    const { service, stored } = settling();
+    const { service, stored } = applying();
 
     await service.closed({ ...MERGED, merge: null });
 
@@ -122,7 +122,7 @@ describe('settling a task’s decisions when its pull request closes', () => {
   });
 
   it('keeps them after they merge, whatever closes later', async () => {
-    const { service, stored } = settling();
+    const { service, stored } = applying();
 
     await service.closed(MERGED);
     await service.closed({ ...MERGED, merge: null });
@@ -131,7 +131,7 @@ describe('settling a task’s decisions when its pull request closes', () => {
   });
 
   it('leaves decisions alone for a pull request Spotlight only reviews', async () => {
-    const { service, stored } = settling({ task: { reviewing: true } });
+    const { service, stored } = applying({ task: { reviewing: true } });
 
     await service.closed({ ...MERGED, merge: null });
 
@@ -140,7 +140,7 @@ describe('settling a task’s decisions when its pull request closes', () => {
   });
 
   it('does nothing for a pull request that no task has', async () => {
-    const { service, stored } = settling({ task: null });
+    const { service, stored } = applying({ task: null });
 
     await service.closed(MERGED);
 

@@ -7,7 +7,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
-import { settling } from '@work/domain/services/setup-list';
+import { setupDoneNote } from '@work/domain/services/setup-list';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -60,8 +60,8 @@ describe('writing a task somebody else has written', () => {
     return { one, other };
   };
 
-  const settled = (task: NonNullable<Awaited<ReturnType<typeof tasks.find>>>) =>
-    task.settled({
+  const closed = (task: NonNullable<Awaited<ReturnType<typeof tasks.find>>>) =>
+    task.closeConversation({
       station: StationName.of('Backlog'),
       body: TaskNoteBody.of('Everything on this list is done.'),
       at: NOW,
@@ -71,7 +71,7 @@ describe('writing a task somebody else has written', () => {
   it('takes the first of them', async () => {
     const { one } = await opened();
 
-    await expect(tasks.save(settled(one))).resolves.toBeUndefined();
+    await expect(tasks.save(closed(one))).resolves.toBeUndefined();
   });
 
   it('rejects the second, rather than laying it over the first', async () => {
@@ -79,7 +79,7 @@ describe('writing a task somebody else has written', () => {
 
     await tasks.save(withCurrentRun(one, RunId.of(randomUUID())));
 
-    await expect(tasks.save(settled(other))).rejects.toBeInstanceOf(
+    await expect(tasks.save(closed(other))).rejects.toBeInstanceOf(
       TaskVersionConflictError,
     );
   });
@@ -89,7 +89,7 @@ describe('writing a task somebody else has written', () => {
     const runId = RunId.of(randomUUID());
 
     await tasks.save(withCurrentRun(one, runId));
-    await tasks.save(settled(other)).catch(() => {});
+    await tasks.save(closed(other)).catch(() => {});
 
     const read = await tasks.find(one.id);
 
@@ -100,14 +100,14 @@ describe('writing a task somebody else has written', () => {
     const { one, other } = await opened();
 
     await tasks.save(withCurrentRun(one, RunId.of(randomUUID())));
-    await tasks.save(settled(other)).catch(() => {});
+    await tasks.save(closed(other)).catch(() => {});
 
     const again = await tasks.find(one.id);
-    const saying = settling(again?.notes ?? [], DONE, NOW);
+    const saying = setupDoneNote(again?.notes ?? [], DONE, NOW);
 
     await expect(
       tasks.save(
-        (again as NonNullable<typeof again>).settled(
+        (again as NonNullable<typeof again>).closeConversation(
           saying as NonNullable<typeof saying>,
         ),
       ),
@@ -117,7 +117,7 @@ describe('writing a task somebody else has written', () => {
   it('rejects a second write from the same reading', async () => {
     const { one } = await opened();
 
-    await tasks.save(settled(one));
+    await tasks.save(closed(one));
 
     await expect(
       tasks.save(withCurrentRun(one, RunId.of(randomUUID()))),

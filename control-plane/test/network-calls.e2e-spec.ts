@@ -226,7 +226,7 @@ describe('DrizzleNetworkCallRepository', () => {
     expect((await calls.find(overdue.id))?.stateAt(NOW)).toBe('lapsed');
   });
 
-  it('keeps a call given up on as given up, and forgets settled calls a week on', async () => {
+  it('keeps a call given up on as given up, and forgets completed calls a week on', async () => {
     const waited = await queued();
     await calls.save(waited.givenUp(later(1_000)));
 
@@ -234,12 +234,12 @@ describe('DrizzleNetworkCallRepository', () => {
     expect(read?.progress).toEqual({ kind: 'given-up', at: later(1_000) });
 
     const week = 7 * 24 * 60 * 60_000;
-    expect(await calls.settledBy(later(1_000 - 1), 10)).toEqual([]);
+    expect(await calls.completedBy(later(1_000 - 1), 10)).toEqual([]);
 
-    const [settled] = await calls.settledBy(later(1_000), 10);
-    expect(settled?.id).toEqual(waited.id);
+    const [completed] = await calls.completedBy(later(1_000), 10);
+    expect(completed?.id).toEqual(waited.id);
 
-    await calls.save((settled as NetworkCall).forgotten(later(1_000 + week)));
+    await calls.save((completed as NetworkCall).forgotten(later(1_000 + week)));
 
     expect(await calls.find(waited.id)).toBeNull();
   });

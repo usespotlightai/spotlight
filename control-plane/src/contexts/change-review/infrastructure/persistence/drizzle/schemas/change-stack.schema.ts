@@ -49,7 +49,7 @@ export const changeStack = pgTable(
     cohorts: jsonb('cohorts').$type<StoredCohort[]>().notNull().default([]),
     failure: text('failure'),
     draftedAt: timestamp('drafted_at').notNull(),
-    settledAt: timestamp('settled_at'),
+    completedAt: timestamp('completed_at'),
     facts: jsonb('facts').$type<StoredFacts>().notNull(),
     checkCommand: text('check_command'),
     checkSetup: text('check_setup'),

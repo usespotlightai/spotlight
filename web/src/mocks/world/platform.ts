@@ -349,7 +349,7 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       stationId: 'station_spec',
       startedHoursAgo: 4,
       tookHours: 0.3,
-      review: { state: 'settled', conversationId: 'task_retries:0' },
+      review: { state: 'answered', conversationId: 'task_retries:0' },
     }),
     run(DELIVERY, {
       id: 'run_retries_1',

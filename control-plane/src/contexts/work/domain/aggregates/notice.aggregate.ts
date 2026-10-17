@@ -10,7 +10,7 @@ import type { NoticeWording } from '@work/domain/value-objects/notice-wording.vo
 
 const MAX_SUBJECT = 200;
 
-const SETTLED_SHOWN_FOR_DAYS = 30;
+const RESOLVED_SHOWN_FOR_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -24,7 +24,7 @@ interface NoticeState {
   readonly link: NoticeLink;
   readonly wording: NoticeWording;
   readonly raisedAt: Date;
-  readonly settledAt: Date | null;
+  readonly resolvedAt: Date | null;
   readonly version: number;
 }
 
@@ -54,20 +54,20 @@ export class Notice {
       ...input,
       subject,
       raisedAt: input.at,
-      settledAt: null,
+      resolvedAt: null,
       version: 0,
     });
   }
 
-  static settledShownSince(now: Date): Date {
-    return new Date(now.getTime() - SETTLED_SHOWN_FOR_DAYS * DAY_MS);
+  static resolvedShownSince(now: Date): Date {
+    return new Date(now.getTime() - RESOLVED_SHOWN_FOR_DAYS * DAY_MS);
   }
 
   static rehydrate(state: NoticeState): Notice {
-    if (state.settledAt && state.settledAt < state.raisedAt) {
+    if (state.resolvedAt && state.resolvedAt < state.raisedAt) {
       throw new InconsistentStateError(
         'notice',
-        'was settled before it was raised',
+        'was resolved before it was raised',
       );
     }
 
@@ -110,8 +110,8 @@ export class Notice {
     return this.state.raisedAt;
   }
 
-  get settledAt(): Date | null {
-    return this.state.settledAt;
+  get resolvedAt(): Date | null {
+    return this.state.resolvedAt;
   }
 
   get version(): number {
@@ -122,9 +122,9 @@ export class Notice {
     return this.state.addressee.equals(person);
   }
 
-  settled(at: Date): Notice {
-    return this.state.settledAt
+  resolve(at: Date): Notice {
+    return this.state.resolvedAt
       ? this
-      : new Notice({ ...this.state, settledAt: at });
+      : new Notice({ ...this.state, resolvedAt: at });
   }
 }

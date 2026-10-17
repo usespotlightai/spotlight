@@ -67,7 +67,7 @@ export function TabLinks<T extends string>({
           data-slot="tab-indicator"
           className={cn(
             'pointer-events-none absolute bottom-0 left-0 h-[3px] rounded-full bg-primary',
-            indicator.settled &&
+            indicator.ready &&
               'transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
           )}
           style={{

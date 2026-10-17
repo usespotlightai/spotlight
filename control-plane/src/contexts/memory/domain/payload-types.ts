@@ -5,7 +5,7 @@ import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
 import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
-import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
+import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
@@ -32,7 +32,7 @@ export const MEMORY_PAYLOAD_TYPES = [
   MemoryDraftingAsked,
   MemoryDraftingFailed,
   MemoryApproved,
-  MemoryReviewSettled,
+  MemoryReviewResolved,
   MemoryCreated,
   MemoryRetired,
   MemoryDecision,

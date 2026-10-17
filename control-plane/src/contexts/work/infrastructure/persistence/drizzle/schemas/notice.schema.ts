@@ -26,7 +26,7 @@ export const notice = pgTable(
     headline: text('headline').notNull(),
     points: jsonb('points').$type<string[]>().notNull(),
     raisedAt: timestamp('raised_at').notNull(),
-    settledAt: timestamp('settled_at'),
+    resolvedAt: timestamp('resolved_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

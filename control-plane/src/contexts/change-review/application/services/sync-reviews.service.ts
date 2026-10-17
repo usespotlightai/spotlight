@@ -86,13 +86,13 @@ export class SyncReviews implements ReviewSyncWorkPort {
       await this.perform(sync);
       await this.outbox.done(sync.id);
     } catch (error) {
-      await this.settleFailure(sync, error, now);
+      await this.recordFailure(sync, error, now);
     }
 
     return true;
   }
 
-  private async settleFailure(
+  private async recordFailure(
     sync: ReviewSync,
     error: unknown,
     now: Date,

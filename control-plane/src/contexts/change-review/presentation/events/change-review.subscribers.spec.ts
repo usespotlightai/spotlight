@@ -2,10 +2,10 @@ import type { ChangeStackReactions } from '@change-review/application/events/han
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
+import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import type { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
 import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
-import type { SettleDecisions } from '@change-review/application/services/settle-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
@@ -232,7 +232,7 @@ describe('change review hearing a run end', () => {
 });
 
 describe('change review hearing a pull request close', () => {
-  it('settles the decisions of the task that has it', async () => {
+  it('applies the close to the decisions of the task that has the pull request', async () => {
     const closed = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
@@ -243,10 +243,10 @@ describe('change review hearing a pull request close', () => {
       {} as unknown as SignalReviewing,
       {} as never,
       {} as never,
-      { closed } as unknown as SettleDecisions,
+      { closed } as unknown as ApplyPullRequestClose,
       {} as never,
       {} as never,
-    ).find((each) => each.name === 'change-review.settle-decisions');
+    ).find((each) => each.name === 'change-review.apply-pull-request-close');
 
     const merged: PullRequestClosedIntegrationEvent = {
       kind: 'github.pull-request-closed.v1',

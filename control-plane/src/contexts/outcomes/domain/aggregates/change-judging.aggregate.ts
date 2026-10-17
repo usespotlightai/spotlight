@@ -76,11 +76,11 @@ export class ChangeJudging
   }
 
   static rehydrate(state: State): ChangeJudging {
-    const settled = [state.work, state.judgedAt, state.failure].filter(
+    const outcomes = [state.work, state.judgedAt, state.failure].filter(
       (each) => each !== null,
     );
 
-    if (settled.length !== 1) {
+    if (outcomes.length !== 1) {
       throw new InconsistentStateError(
         'change judging',
         'is either still owed, judged or failed, and only one of these',

@@ -1,7 +1,7 @@
 import { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -127,12 +127,12 @@ const checkFor = (stack: ChangeStack) =>
   });
 
 describe('StackCheckReactions', () => {
-  it('begins a check once a stack that asked for one settles', async () => {
+  it('begins a check once a stack that asked for one completes', async () => {
     const stack = stackWith(CheckRequest.of('npm test', 'npm ci'));
     const { reactions, added } = reacting(stack, null);
 
-    await reactions.onSettled(
-      new ChangeStackSettled(STACK, stack.runId, false),
+    await reactions.onCompleted(
+      new ChangeStackCompleted(STACK, stack.runId, false),
     );
 
     expect(added).toHaveLength(1);
@@ -145,8 +145,8 @@ describe('StackCheckReactions', () => {
     const stack = stackWith(null);
     const { reactions, added } = reacting(stack, null);
 
-    await reactions.onSettled(
-      new ChangeStackSettled(STACK, stack.runId, false),
+    await reactions.onCompleted(
+      new ChangeStackCompleted(STACK, stack.runId, false),
     );
 
     expect(added).toEqual([]);

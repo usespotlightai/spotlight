@@ -1,10 +1,10 @@
+import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import { ChangeStackDraftingBegan } from '@change-review/domain/events/change-stack-drafting-began.event';
 import { ChangeStackFailed } from '@change-review/domain/events/change-stack-failed.event';
+import { ChangeStackReady } from '@change-review/domain/events/change-stack-ready.event';
 import { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
 import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
-import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
-import { ChangeStackShaped } from '@change-review/domain/events/change-stack-shaped.event';
-import { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
+import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
@@ -243,8 +243,8 @@ export class ChangeStack
     return this.progress.draftedAt;
   }
 
-  get settledAt(): Date | null {
-    return this.progress.settledAt;
+  get completedAt(): Date | null {
+    return this.progress.completedAt;
   }
 
   get reachesGitHub(): boolean {
@@ -327,7 +327,7 @@ export class ChangeStack
     const before = changeLayers(this.cohorts);
     const after = changeLayers(setAside);
 
-    const ready = StackProposal.settle({
+    const ready = StackProposal.validate({
       diff: this.diff,
       facts: this.facts,
       cohorts: setAside,
@@ -344,13 +344,13 @@ export class ChangeStack
 
     const reordered = this.with({
       cohorts: ready,
-      progress: this.progress.settled('ready', now),
+      progress: this.progress.complete('ready', now),
       work: OwedWork.fresh(),
       reordering: false,
     });
 
     reordered.record(new ChangeStackReordered(this.id, this.runId));
-    reordered.recordShape(now);
+    reordered.recordReady(now);
     return reordered;
   }
 
@@ -367,41 +367,41 @@ export class ChangeStack
   propose(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
     this.assertDrafting();
 
-    const ready = StackProposal.settle({
+    const ready = StackProposal.validate({
       diff: this.diff,
       facts: this.facts,
       cohorts: arranged(this.diff, this.facts, cohorts),
     });
 
-    const settledStack = this.with({
+    const completed = this.with({
       cohorts: ready,
-      progress: this.progress.settled('ready', now),
+      progress: this.progress.complete('ready', now),
       work: OwedWork.fresh(),
     });
 
-    settledStack.record(
-      new ChangeStackSettled(this.id, this.runId, this.replay),
+    completed.record(
+      new ChangeStackCompleted(this.id, this.runId, this.replay),
     );
-    settledStack.recordShape(now);
-    settledStack.recordReplaySettled();
-    return settledStack;
+    completed.recordReady(now);
+    completed.recordReplayCompleted();
+    return completed;
   }
 
-  private recordReplaySettled(): void {
+  private recordReplayCompleted(): void {
     if (this.replay) {
       this.record(
-        new ReplayStackSettled(this.id, this.runId, this.workspaceId),
+        new ReplayStackCompleted(this.id, this.runId, this.workspaceId),
       );
     }
   }
 
-  private recordShape(at: Date): void {
+  private recordReady(at: Date): void {
     if (!reachesBeyondSpotlight(this)) {
       return;
     }
 
     this.record(
-      new ChangeStackShaped(
+      new ChangeStackReady(
         this.id,
         this.runId,
         this.taskId,
@@ -422,12 +422,12 @@ export class ChangeStack
     const failure = reason.trim() || INTERRUPTED;
 
     const failed = this.with({
-      progress: this.progress.settled('failed', now, { failure }),
+      progress: this.progress.complete('failed', now, { failure }),
       work: OwedWork.fresh(),
     });
 
     failed.record(new ChangeStackFailed(this.id, this.runId, failure));
-    failed.recordReplaySettled();
+    failed.recordReplayCompleted();
 
     return failed;
   }

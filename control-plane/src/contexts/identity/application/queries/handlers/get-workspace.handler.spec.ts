@@ -28,14 +28,14 @@ const reader = (found: WorkspaceDetail | null): WorkspaceReaderPort => ({
   findForMember: vi.fn().mockResolvedValue(found),
 });
 
-const settled: WorkspaceProvisioningPort = {
+const provisioned: WorkspaceProvisioningPort = {
   of: vi.fn().mockResolvedValue('done'),
 };
 
 describe('GetWorkspaceHandler', () => {
   it('returns the workspace with its teams', async () => {
     await expect(
-      new GetWorkspaceHandler(reader(acme), settled).execute(
+      new GetWorkspaceHandler(reader(acme), provisioned).execute(
         new GetWorkspaceQuery('acme-inc', 'user_1'),
       ),
     ).resolves.toEqual({ ...acme, provisioning: 'done' });
@@ -57,7 +57,7 @@ describe('GetWorkspaceHandler', () => {
   it('asks only for workspaces the viewer belongs to', async () => {
     const workspaces = reader(acme);
 
-    await new GetWorkspaceHandler(workspaces, settled).execute(
+    await new GetWorkspaceHandler(workspaces, provisioned).execute(
       new GetWorkspaceQuery('acme-inc', 'user_1'),
     );
 
@@ -69,7 +69,7 @@ describe('GetWorkspaceHandler', () => {
 
   it('reads as absent when the reader finds nothing for them', async () => {
     await expect(
-      new GetWorkspaceHandler(reader(null), settled).execute(
+      new GetWorkspaceHandler(reader(null), provisioned).execute(
         new GetWorkspaceQuery('someone-elses', 'user_1'),
       ),
     ).resolves.toBeNull();
@@ -79,7 +79,7 @@ describe('GetWorkspaceHandler', () => {
     const workspaces = reader(null);
 
     await expect(
-      new GetWorkspaceHandler(workspaces, settled).execute(
+      new GetWorkspaceHandler(workspaces, provisioned).execute(
         new GetWorkspaceQuery('not a slug', 'user_1'),
       ),
     ).rejects.toMatchObject({ kind: 'invalid' });

@@ -15,7 +15,7 @@ export interface ClosedPullRequest {
   readonly closedAt: Date | null;
 }
 
-export class SettleDecisions {
+export class ApplyPullRequestClose {
   constructor(
     private readonly work: WorkPort,
     private readonly sets: DecisionSetRepository,

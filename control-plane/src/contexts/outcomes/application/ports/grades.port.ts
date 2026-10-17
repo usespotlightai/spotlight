@@ -6,5 +6,5 @@ export const GRADES = Symbol('OUTCOMES_GRADES');
 export interface GradesPort {
   ask(taskId: TaskId, runId: RunId): Promise<void>;
 
-  settle(taskId: TaskId, runId: RunId): Promise<void>;
+  resolve(taskId: TaskId, runId: RunId): Promise<void>;
 }

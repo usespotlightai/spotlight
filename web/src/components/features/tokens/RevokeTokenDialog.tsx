@@ -32,7 +32,7 @@ export function RevokeTokenDialog({
     <Dialog
       open={token !== null}
       onOpenChange={(open) => !open && onClose()}
-      onOpenChangeComplete={(settled) => !settled && revoke.reset()}
+      onOpenChangeComplete={(open) => !open && revoke.reset()}
     >
       <DialogContent>
         <DialogHeader>

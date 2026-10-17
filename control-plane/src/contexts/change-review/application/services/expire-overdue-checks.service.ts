@@ -6,8 +6,8 @@ import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.po
 
 const MAX_AT_ONCE = 50;
 
-export class SettleOverdueChecks implements OwedWorkPort {
-  readonly name = 'Settling change stack checks nobody took up in time';
+export class ExpireOverdueChecks implements OwedWorkPort {
+  readonly name = 'Expiring change stack checks nobody took up in time';
 
   constructor(
     private readonly checks: StackCheckRepository,
@@ -24,7 +24,7 @@ export class SettleOverdueChecks implements OwedWorkPort {
       }
 
       try {
-        await this.checks.save(check.settledOverdue(now));
+        await this.checks.save(check.expireOverdue(now));
       } catch (error) {
         if (!(error instanceof StackCheckVersionConflictError)) {
           this.logger.error(

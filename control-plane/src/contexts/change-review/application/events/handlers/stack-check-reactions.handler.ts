@@ -1,5 +1,5 @@
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import type { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -12,7 +12,7 @@ export class StackCheckReactions {
     private readonly clock: ClockPort,
   ) {}
 
-  async onSettled(event: ChangeStackSettled): Promise<void> {
+  async onCompleted(event: ChangeStackCompleted): Promise<void> {
     const stack = await this.stacks.find(event.stackId);
 
     if (!stack?.request || stack.state !== 'ready') {

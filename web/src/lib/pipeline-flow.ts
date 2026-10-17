@@ -146,7 +146,7 @@ const freshDot = (
   type: typeFrom(shares, random()),
 });
 
-export const settledDots = (
+export const spreadDots = (
   geometry: FlowGeometry,
   shares: readonly TypeShare[],
   random: () => number = Math.random,

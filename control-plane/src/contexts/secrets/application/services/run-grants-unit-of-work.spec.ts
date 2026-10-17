@@ -72,7 +72,7 @@ describe('RunGrantsUnitOfWork', () => {
     expect(grants.of('run_1')).toBeNull();
   });
 
-  it('settles a change once, saying whether it landed', async () => {
+  it('saves a change once, saying whether it landed', async () => {
     const grants = new Contended(1);
     const unitOfWork = new RunGrantsUnitOfWork(grants);
 
@@ -80,10 +80,12 @@ describe('RunGrantsUnitOfWork', () => {
 
     const current = (await grants.find(LEASE.runId)) as RunGrants;
 
-    expect(await unitOfWork.settled(current, current.end(NOW))).toBe(true);
-    expect(await unitOfWork.settled(current, current.loseLease(LEASE))).toBe(
-      false,
-    );
-    expect(await unitOfWork.settled(current, current)).toBe(false);
+    expect(
+      await unitOfWork.saveIgnoringConflict(current, current.end(NOW)),
+    ).toBe(true);
+    expect(
+      await unitOfWork.saveIgnoringConflict(current, current.loseLease(LEASE)),
+    ).toBe(false);
+    expect(await unitOfWork.saveIgnoringConflict(current, current)).toBe(false);
   });
 });

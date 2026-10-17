@@ -264,8 +264,8 @@ describe('ProcessDuePolls', () => {
   it('polls a slot once when two workers reach it together', async () => {
     let reads = 0;
     let bothRead: () => void = () => {};
-    const together = new Promise<void>((settle) => {
-      bothRead = settle;
+    const together = new Promise<void>((resolve) => {
+      bothRead = resolve;
     });
     const cursors = new FakeIntegrationCursors(async () => {
       reads += 1;

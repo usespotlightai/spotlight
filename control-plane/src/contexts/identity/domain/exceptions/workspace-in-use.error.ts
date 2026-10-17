@@ -6,7 +6,7 @@ export class WorkspaceInUseError extends Error {
   constructor(slug: string, dependents: Dependents) {
     super(
       dependents.isEmpty
-        ? `Workspace ${slug} still has recent changes settling. Please try again shortly.`
+        ? `Workspace ${slug} still has recent changes in progress. Please try again shortly.`
         : `Workspace ${slug} is not empty. It still has: ${dependents.names.join(', ')}`,
     );
     this.name = 'WorkspaceInUseError';

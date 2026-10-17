@@ -76,7 +76,7 @@ const checkedAlong = (
   );
 
 describe('StationWatch', () => {
-  it('raises an alert on the newest settled run whose reading crosses a threshold', () => {
+  it('raises an alert on the newest measured run whose reading crosses a threshold', () => {
     const watch = begun().check([rising(1, 0.6, 0.3)], atRun(1), ids());
 
     const [raised] = watch.pullEvents();
@@ -98,7 +98,7 @@ describe('StationWatch', () => {
     expect(again.open).toHaveLength(1);
   });
 
-  it('recovers only once the reading has stayed clear for as many further settled runs as it compares', () => {
+  it('recovers only once the reading has stayed clear for as many further measured runs as it compares', () => {
     const next = ids();
     const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     raised.pullEvents();
@@ -116,7 +116,7 @@ describe('StationWatch', () => {
     expect(twice.crossings[0]?.recoveredAt).toEqual(atRun(3));
   });
 
-  it('counts a settled run once however often it is read', () => {
+  it('counts a measured run once however often it is read', () => {
     const next = ids();
     const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     const once = raised.check([rising(2, 0.3, 0.3)], atRun(2), next);
@@ -162,7 +162,7 @@ describe('StationWatch', () => {
     expect(watch.open[0]?.raisedAt).toEqual(atRun(1));
   });
 
-  it('raises a new alert once the station has stayed clear past its settling runs', () => {
+  it('raises a new alert once the station has stayed clear past its cooldown runs', () => {
     const next = ids();
     const watch = checkedAlong(begun(), next, [
       rising(1, 0.6, 0.3),
@@ -191,9 +191,9 @@ describe('StationWatch', () => {
     ]);
 
     const events = recovered.pullEvents();
-    const settled = events[1] as StationAlertRecovered;
-    expect(settled).toBeInstanceOf(StationAlertRecovered);
-    expect(settled.taskId.value).toBe('task_1');
+    const event = events[1] as StationAlertRecovered;
+    expect(event).toBeInstanceOf(StationAlertRecovered);
+    expect(event.taskId.value).toBe('task_1');
   });
 
   it('leaves an alert as it is while there are too few runs to read', () => {

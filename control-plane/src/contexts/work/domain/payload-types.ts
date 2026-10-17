@@ -28,7 +28,7 @@ import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
-import { TaskAsideSettled } from '@work/domain/events/task-aside-settled.event';
+import { TaskAsideResolved } from '@work/domain/events/task-aside-resolved.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
@@ -306,7 +306,7 @@ export const WORK_PAYLOAD_TYPES = [
   TaskAnswered,
   TaskAsked,
   TaskAsideRaised,
-  TaskAsideSettled,
+  TaskAsideResolved,
   TaskDeleted,
   TaskFinished,
   TaskHandedToRun,

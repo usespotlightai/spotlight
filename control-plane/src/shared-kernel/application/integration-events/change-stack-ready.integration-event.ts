@@ -1,7 +1,7 @@
-export const CHANGE_STACK_SHAPED = 'change-review.change-stack-shaped.v1';
+export const CHANGE_STACK_READY = 'change-review.change-stack-ready.v1';
 
-export type ChangeStackShapedIntegrationEvent = {
-  readonly kind: typeof CHANGE_STACK_SHAPED;
+export type ChangeStackReadyIntegrationEvent = {
+  readonly kind: typeof CHANGE_STACK_READY;
   readonly runId: string;
   readonly taskId: string | null;
   readonly workspaceId: string;

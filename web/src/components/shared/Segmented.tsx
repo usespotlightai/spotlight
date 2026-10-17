@@ -38,7 +38,7 @@ export function Segmented<T extends string>({
           aria-hidden
           className={cn(
             'pointer-events-none absolute inset-y-0 left-0 rounded-[5px] border border-border bg-card shadow-control',
-            indicator.settled &&
+            indicator.ready &&
               'transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
           )}
           style={{

@@ -97,6 +97,7 @@ import { ReadTaskDecisionsQuery } from '@change-review/application/queries/read-
 import { AgentReviews } from '@change-review/application/services/agent-reviews.service';
 import { AnnounceChangeStack } from '@change-review/application/services/announce-change-stack.service';
 import { AnnounceDecisions } from '@change-review/application/services/announce-decisions.service';
+import { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
 import { ChangeStackAccess } from '@change-review/application/services/change-stack-access.service';
 import { CheckAccess } from '@change-review/application/services/check-access.service';
@@ -104,6 +105,7 @@ import { ClaimChangeStackCheck } from '@change-review/application/services/claim
 import { DecisionAccess } from '@change-review/application/services/decision-access.service';
 import { DecisionsForBriefing } from '@change-review/application/services/decisions-for-briefing.service';
 import { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
+import { ExpireOverdueChecks } from '@change-review/application/services/expire-overdue-checks.service';
 import { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import { ProvisionChangeStackChecks } from '@change-review/application/services/provision-change-stack-checks.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
@@ -111,8 +113,6 @@ import { RecheckReplayChanges } from '@change-review/application/services/rechec
 import { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
 import { ReviewAccess } from '@change-review/application/services/review-access.service';
 import { RunChangeChecks } from '@change-review/application/services/run-change-checks.service';
-import { SettleDecisions } from '@change-review/application/services/settle-decisions.service';
-import { SettleOverdueChecks } from '@change-review/application/services/settle-overdue-checks.service';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { SyncReviews } from '@change-review/application/services/sync-reviews.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
@@ -490,14 +490,14 @@ const services: Provider[] = [
       new DecisionsForBriefing(decisions),
   },
   {
-    provide: SettleDecisions,
+    provide: ApplyPullRequestClose,
     inject: [WORK, DrizzleDecisionSetRepository, TRANSACTION, CLOCK],
     useFactory: (
       work: WorkPort,
       sets: DrizzleDecisionSetRepository,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new SettleDecisions(work, sets, transaction, clock),
+    ) => new ApplyPullRequestClose(work, sets, transaction, clock),
   },
   {
     provide: WorkDecisionSets,
@@ -549,7 +549,7 @@ const services: Provider[] = [
       logger: LoggerPort,
     ) =>
       new OwedWorkWorker(
-        [stacks, decisions, new SettleOverdueChecks(checks, clock, logger)],
+        [stacks, decisions, new ExpireOverdueChecks(checks, clock, logger)],
         logger,
       ),
   },
@@ -825,7 +825,7 @@ const published: Provider[] = [
       SignalReviewing,
       StackCheckReactions,
       AskForDecisions,
-      SettleDecisions,
+      ApplyPullRequestClose,
       DecisionReactions,
       CHECK_RUNNERS,
     ],
@@ -844,7 +844,7 @@ const published: Provider[] = [
       signalling: SignalReviewing,
       checks: StackCheckReactions,
       deciding: AskForDecisions,
-      settling: SettleDecisions,
+      pullRequestClose: ApplyPullRequestClose,
       decisions: DecisionReactions,
       runners: CheckRunnersPort,
     ) => {
@@ -860,7 +860,7 @@ const published: Provider[] = [
           signalling,
           checks,
           deciding,
-          settling,
+          pullRequestClose,
           decisions,
           runners,
         ),

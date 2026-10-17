@@ -109,10 +109,10 @@ const problemsOf = (cohorts: ProposedCohort[]): readonly string[] => {
 
 describe('ChangeStack', () => {
   describe('of a replay', () => {
-    const settledKinds = (stack: ChangeStack) =>
+    const kindsOf = (stack: ChangeStack) =>
       stack.pullEvents().map((each) => each.kind);
 
-    it('stays in Spotlight: it says it settled for its replay, and shapes no task’s outcome', () => {
+    it('stays in Spotlight: it says it completed for its replay, and shapes no task’s outcome', () => {
       const stack = drafting(StackFacts.none(), true);
       stack.pullEvents();
 
@@ -122,19 +122,19 @@ describe('ChangeStack', () => {
       );
 
       expect(ready.reachesGitHub).toBe(false);
-      expect(settledKinds(ready)).toEqual([
-        'change-stack.settled',
-        'change-stack.replay-settled',
+      expect(kindsOf(ready)).toEqual([
+        'change-stack.completed',
+        'change-stack.replay-completed',
       ]);
     });
 
-    it('says it settled for its replay when it could not be drafted', () => {
+    it('says it completed for its replay when it could not be drafted', () => {
       const stack = drafting(StackFacts.none(), true);
       stack.pullEvents();
 
-      expect(settledKinds(stack.fail('No.', LATER))).toEqual([
+      expect(kindsOf(stack.fail('No.', LATER))).toEqual([
         'change-stack.failed',
-        'change-stack.replay-settled',
+        'change-stack.replay-completed',
       ]);
     });
 
@@ -173,14 +173,14 @@ describe('ChangeStack', () => {
       );
 
       expect(ready.reachesGitHub).toBe(true);
-      expect(settledKinds(ready)).toEqual([
-        'change-stack.settled',
-        'change-stack.shaped',
+      expect(kindsOf(ready)).toEqual([
+        'change-stack.completed',
+        'change-stack.ready',
       ]);
     });
   });
 
-  it('starts drafting, with nothing settled', () => {
+  it('starts drafting, with nothing completed', () => {
     const stack = drafting();
 
     expect(stack.state).toBe('drafting');
@@ -189,7 +189,7 @@ describe('ChangeStack', () => {
     ]);
     expect(stack.repository?.value).toBe('web');
     expect(stack.cohorts).toEqual([]);
-    expect(stack.settledAt).toBeNull();
+    expect(stack.completedAt).toBeNull();
   });
 
   it('becomes ready with a stack that places every change once, in order', () => {
@@ -205,7 +205,7 @@ describe('ChangeStack', () => {
     );
 
     expect(ready.state).toBe('ready');
-    expect(ready.settledAt).toEqual(LATER);
+    expect(ready.completedAt).toEqual(LATER);
     expect(ready.cohorts[0]?.id).toBe('c1');
     expect(ready.cohorts[0]?.layers.map((each) => each.id)).toEqual([
       'c1.l1',
@@ -278,7 +278,7 @@ describe('ChangeStack', () => {
     ]);
   });
 
-  it('settles only once', () => {
+  it('completes only once', () => {
     const failed = drafting().fail('No', LATER);
 
     expect(() => failed.fail('Again', LATER)).toThrow(InvalidChangeStackError);
@@ -323,7 +323,7 @@ describe('ChangeStack', () => {
     expect(exhausted.owesWork).toBe(false);
   });
 
-  it('owes no more work once it settles', () => {
+  it('owes no more work once it completes', () => {
     const ready = drafting()
       .leased(NOW)
       .propose([invitations([layer('Everything', ['h1', 'h2', 'h3'])])], LATER);
@@ -496,7 +496,7 @@ describe('ChangeStack read back from what was stored', () => {
           state: 'failed',
           failure: null,
           draftedAt: NOW,
-          settledAt: LATER,
+          completedAt: LATER,
         }),
       }),
     ).toThrow('failed without saying why');

@@ -69,7 +69,7 @@ const toProposal = (
           : null,
         state: row.state,
         taskId: row.taskId ? TaskId.of(row.taskId) : null,
-        settledAt: row.settledAt ? new Date(row.settledAt) : null,
+        decidedAt: row.decidedAt ? new Date(row.decidedAt) : null,
       })
     : null;
 
@@ -82,7 +82,7 @@ const fromProposal = (proposal: TaskProposal | null): ProposalRow | null =>
         description: proposal.description?.value ?? null,
         state: proposal.state,
         taskId: proposal.taskId?.value ?? null,
-        settledAt: proposal.settledAt?.toISOString() ?? null,
+        decidedAt: proposal.decidedAt?.toISOString() ?? null,
       }
     : null;
 

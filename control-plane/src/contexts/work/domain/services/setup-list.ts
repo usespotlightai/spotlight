@@ -26,7 +26,7 @@ export const TAKEN: Record<SetupStepKey, (state: SetupState) => boolean> = {
 const setUp = (state: SetupState): boolean =>
   SETUP_STEPS.every((step) => TAKEN[step](state));
 
-const SETTLED = 'Everything on this list is done.';
+const ALL_DONE = 'Everything on this list is done.';
 
 export const openSetupList = (notes: readonly TaskNote[]): TaskNote | null => {
   const openConversation = conversationsOf(notes.map((each) => each.kind)).find(
@@ -38,7 +38,7 @@ export const openSetupList = (notes: readonly TaskNote[]): TaskNote | null => {
   return opened?.form === 'setup' ? opened : null;
 };
 
-export const settling = (
+export const setupDoneNote = (
   notes: readonly TaskNote[],
   state: SetupState,
   at: Date,
@@ -51,8 +51,8 @@ export const settling = (
 
   return {
     station: opened.station,
-    body: TaskNoteBody.of(SETTLED),
-    form: 'settled',
+    body: TaskNoteBody.of(ALL_DONE),
+    form: 'resolved',
     at,
     voice: Voice.station(),
   };

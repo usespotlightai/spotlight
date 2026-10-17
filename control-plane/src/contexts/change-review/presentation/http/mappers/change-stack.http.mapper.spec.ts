@@ -11,7 +11,7 @@ describe('ChangeStackHttpMapper', () => {
           state: 'ready',
           failure: null,
           draftedAt: '2026-09-16T10:00:00.000Z',
-          settledAt: '2026-09-16T10:01:00.000Z',
+          completedAt: '2026-09-16T10:01:00.000Z',
           files: [
             {
               path: 'src/invite.ts',
@@ -79,7 +79,7 @@ describe('ChangeStackHttpMapper', () => {
           state: 'ready',
           failure: null,
           draftedAt: '2026-10-03T10:00:00.000Z',
-          settledAt: null,
+          completedAt: null,
           files: [],
           cohorts: [],
           check: {

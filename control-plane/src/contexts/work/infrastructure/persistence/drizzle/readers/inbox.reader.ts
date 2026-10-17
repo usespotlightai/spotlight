@@ -73,7 +73,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
   async listForWorkspaceMember(
     slug: string,
     userId: UserId,
-    noticesSettledSince: Date,
+    noticesResolvedSince: Date,
   ): Promise<InboxEntrySummary[] | null> {
     const visible = await this.workspaces.identify(slug);
 
@@ -90,7 +90,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
 
     items.push(...(await this.asidesFor(visible, userId)));
     items.push(
-      ...(await this.noticesFor(visible, userId, noticesSettledSince)),
+      ...(await this.noticesFor(visible, userId, noticesResolvedSince)),
     );
 
     return items.sort((one, other) => +other.askedAt - +one.askedAt);
@@ -228,7 +228,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         about: taskAside.about,
         raisedAt: taskAside.raisedAt,
         readAt: taskAsideRead.readAt,
-        settledAt: taskAside.settledAt,
+        resolvedAt: taskAside.resolvedAt,
         taskId: task.id,
         assigneeId: task.assigneeId,
         teamId: line.teamId,
@@ -344,10 +344,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
         currentStation,
         createdAt: row.createdAt,
         askedAt: row.raisedAt,
-        resolved: row.settledAt !== null,
+        resolved: row.resolvedAt !== null,
         working: false,
         runId: null,
-        unread: row.readAt === null && row.settledAt === null,
+        unread: row.readAt === null && row.resolvedAt === null,
         briefing: null,
         failure: null,
         aside: { form: row.form, about: row.about },
@@ -359,7 +359,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
   private async noticesFor(
     workspaceId: string,
     userId: UserId,
-    settledSince: Date,
+    resolvedSince: Date,
   ): Promise<InboxNoticeSummary[]> {
     const rows = await this.db
       .select()
@@ -368,7 +368,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         and(
           eq(notice.workspaceId, workspaceId),
           eq(notice.addresseeId, userId.value),
-          or(isNull(notice.settledAt), gte(notice.settledAt, settledSince)),
+          or(isNull(notice.resolvedAt), gte(notice.resolvedAt, resolvedSince)),
         ),
       );
     const onTeam = new Map(
@@ -395,8 +395,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
         link: row.link,
         linkLabel: row.linkLabel,
         askedAt: row.raisedAt,
-        unread: row.settledAt === null,
-        resolved: row.settledAt !== null,
+        unread: row.resolvedAt === null,
+        resolved: row.resolvedAt !== null,
       }));
   }
 }

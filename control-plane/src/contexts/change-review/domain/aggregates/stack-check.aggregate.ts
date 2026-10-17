@@ -357,7 +357,7 @@ export class StackCheck extends EventRecorder {
     return this.phase === 'waiting' && this.stateAt(now) === 'skipped';
   }
 
-  settledOverdue(now: Date): StackCheck {
+  expireOverdue(now: Date): StackCheck {
     if (!this.overdueAt(now)) {
       throw InvalidChangeStackError.because(
         'is not overdue, so nobody failed to check it yet',

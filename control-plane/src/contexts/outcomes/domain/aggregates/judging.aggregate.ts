@@ -65,11 +65,11 @@ export class Judging extends EventRecorder implements OwesWork<Judging> {
     failure: JudgingFailure | null;
     version: number;
   }): Judging {
-    const settled = [input.work, input.judgedAt, input.failure].filter(
+    const outcomes = [input.work, input.judgedAt, input.failure].filter(
       (each) => each !== null,
     );
 
-    if (settled.length !== 1) {
+    if (outcomes.length !== 1) {
       throw new InconsistentStateError(
         'judging',
         'is either still owed, judged or failed, and only one of these',

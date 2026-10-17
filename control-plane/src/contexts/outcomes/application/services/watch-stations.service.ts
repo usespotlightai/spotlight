@@ -7,7 +7,7 @@ import {
   type WatchedStation,
 } from '@outcomes/domain/aggregates/station-watch.aggregate';
 import type { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
-import type { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
+import type { RunRecordEnriched } from '@outcomes/domain/events/run-record-enriched.event';
 import type { TaskDeliveryClosed } from '@outcomes/domain/events/task-delivery-closed.event';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { StationWatchRepository } from '@outcomes/domain/repositories/station-watch.repository';
@@ -22,7 +22,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const UNSETTLED_SLACK = 4;
+const UNMEASURED_SLACK = 4;
 
 export interface WatchRepositories {
   readonly records: RunRecordRepository;
@@ -81,7 +81,7 @@ export class WatchStations {
     return this.watch(stationAt(event.workspaceId, event.place));
   }
 
-  runSettled(event: RunRecordSettled): Promise<void> {
+  runEnriched(event: RunRecordEnriched): Promise<void> {
     return this.watch(stationAt(event.workspaceId, event.place));
   }
 
@@ -136,7 +136,7 @@ export class WatchStations {
               teamId,
               lineId: station.lineId,
               stationId: station.stationId,
-              last: max * UNSETTLED_SLACK,
+              last: max * UNMEASURED_SLACK,
             });
       const deliveries = await this.repositories.deliveries.forTasks(
         records.flatMap((each) => (each.taskId ? [each.taskId] : [])),

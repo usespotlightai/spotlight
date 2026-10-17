@@ -42,7 +42,7 @@ const changeVerdictOf = (
 const FIVE_CLOSED = ['closed', 'closed', 'closed', 'closed', 'closed'] as const;
 
 describe('verdictsFrom', () => {
-  it('calls a measure better or worse only from enough settled runs on each side', () => {
+  it('calls a measure better or worse only from enough measured runs on each side', () => {
     const before = runs('b', [
       'closed',
       'sent-back',
@@ -57,8 +57,8 @@ describe('verdictsFrom', () => {
     expect(of(verdicts, 'accepted_rate')).toMatchObject({
       before: 0.4,
       after: 1,
-      settledBefore: 5,
-      settledAfter: 5,
+      measuredBefore: 5,
+      measuredAfter: 5,
       verdict: 'better',
     });
     expect(of(verdicts, 'accepted_rate')?.change).toMatchObject({
@@ -72,7 +72,7 @@ describe('verdictsFrom', () => {
     expect(of(verdicts, 'failed_rate')?.change?.direction).toBe('same');
   });
 
-  it('says too few runs settled rather than guess, leaving out runs nobody answered yet', () => {
+  it('says too few runs are measured rather than guess, leaving out runs nobody answered yet', () => {
     const before = runs('b', FIVE_CLOSED);
     const after = [
       ...runs('a', ['sent-back', 'sent-back', 'sent-back', 'sent-back']),
@@ -83,10 +83,10 @@ describe('verdictsFrom', () => {
 
     expect(of(verdicts, 'accepted_rate')).toMatchObject({
       after: 0,
-      settledAfter: 4,
+      measuredAfter: 4,
       verdict: 'insufficient',
     });
-    expect(of(verdicts, 'failed_rate')?.settledAfter).toBe(5);
+    expect(of(verdicts, 'failed_rate')?.measuredAfter).toBe(5);
   });
 
   it('counts a run that failed provisioning as a failed run on its side', () => {
@@ -108,8 +108,8 @@ describe('verdictsFrom', () => {
       {
         before: 0,
         after: 2 / 7,
-        settledBefore: 5,
-        settledAfter: 7,
+        measuredBefore: 5,
+        measuredAfter: 7,
         verdict: 'worse',
       },
     );
@@ -146,7 +146,7 @@ describe('verdictsFrom', () => {
     expect(merged).toMatchObject({
       before: 0.8,
       after: 0.5,
-      settledAfter: 4,
+      measuredAfter: 4,
       verdict: 'insufficient',
     });
   });
@@ -187,7 +187,7 @@ describe('verdictsFrom', () => {
     ).toMatchObject({ verdict: 'insufficient', change: null });
   });
 
-  it('settles a measure only on the runs that ran, whatever a withdrawn run on its side was given', () => {
+  it('measures only the runs that ran, whatever a withdrawn run on its side was given', () => {
     const withdrawn = costedRecord('a_withdrawn', {
       taskId: 'task_withdrawn',
       ending: 'withdrawn',
@@ -206,12 +206,12 @@ describe('verdictsFrom', () => {
     );
 
     expect(of(verdicts, 'accepted_rate')).toMatchObject({
-      settledAfter: 5,
+      measuredAfter: 5,
       after: 1,
     });
-    expect(of(verdicts, 'cost_per_run')?.settledAfter).toBe(0);
+    expect(of(verdicts, 'cost_per_run')?.measuredAfter).toBe(0);
     expect(of(verdicts, 'merged_rate')).toMatchObject({
-      settledAfter: 0,
+      measuredAfter: 0,
       after: null,
     });
   });

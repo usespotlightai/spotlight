@@ -180,7 +180,7 @@ export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
 
 const finished = sql`${ran} and ${runFact.deliveryState} is not null and ${runFact.deliveryState} <> 'open'`;
 
-export const settledColumns = sql`
+export const measuredColumns = sql`
   ${counted(sql`${ran} and ${runFact.nextAct} is not null`)} as acted,
   ${counted(finished)} as finished,
   count(distinct ${runFact.taskId}) filter (where ${finished})::int as finished_tasks,
@@ -195,7 +195,7 @@ export interface GroupColumns extends TallyColumns {
 
 export const groupCountsOf = (row: GroupColumns): GroupCounts => ({
   tally: tallyCountsOf(row),
-  settled: {
+  measured: {
     acted: row.acted,
     finished: row.finished,
     finishedTasks: row.finished_tasks,

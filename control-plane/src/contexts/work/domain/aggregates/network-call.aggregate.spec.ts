@@ -169,7 +169,7 @@ describe('NetworkCall', () => {
     );
   });
 
-  it('is kept a week after it settles, then forgotten', () => {
+  it('is kept a week after it completes, then forgotten', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
       .answerWith(HOST, OK, later(2_000));
@@ -180,7 +180,7 @@ describe('NetworkCall', () => {
       InvalidNetworkCallTransitionError,
     );
     expect(answered.forgotten(later(2_000 + week)).isDiscarded).toBe(true);
-    expect(NetworkCall.settledForgettablyBy(later(week))).toEqual(NOW);
+    expect(NetworkCall.completedForgettablyBy(later(week))).toEqual(NOW);
   });
 
   it('is never forgotten while it waits', () => {
@@ -209,7 +209,7 @@ describe('NetworkCall', () => {
     expect(answered.lapsed(later(60_000))).toBe(answered);
   });
 
-  it('will not be read back settled while it still has what it sent', () => {
+  it('will not be read back completed while it still has what it sent', () => {
     expect(() =>
       NetworkCall.rehydrate({
         id: NetworkCallId.of('call_1'),

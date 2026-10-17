@@ -23,7 +23,7 @@ export type TaskNoteKind = (typeof TASK_NOTE_KINDS)[number];
 export const TASK_NOTE_FORMS = [
   'words',
   'setup',
-  'settled',
+  'resolved',
   'approval',
   'failure',
   'connection',

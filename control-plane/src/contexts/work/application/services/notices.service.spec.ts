@@ -2,8 +2,8 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { SettleNoticeHandler } from '@work/application/commands/handlers/settle-notice.handler';
-import { SettleNoticeCommand } from '@work/application/commands/settle-notice.command';
+import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
+import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import type { NoticeOf } from '@work/application/ports/notices.port';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
@@ -134,13 +134,13 @@ describe('Notices', () => {
     expect(memory.stored.size).toBe(0);
   });
 
-  it('lets only its person, still on its team, in its workspace, settle it', async () => {
+  it('lets only its person, still on its team, in its workspace, resolve it', async () => {
     const memory = new InMemoryNotices();
     const clock = { now: () => NOW, sleep: async () => {} };
     const loader = new NoticeLoader(memory, access);
-    const settle = (id: string, slug: string, person: string) =>
-      new SettleNoticeHandler(loader, memory, clock).execute(
-        new SettleNoticeCommand(id, slug, person),
+    const resolve = (id: string, slug: string, person: string) =>
+      new ResolveNoticeHandler(loader, memory, clock).execute(
+        new ResolveNoticeCommand(id, slug, person),
       );
 
     await noticesOver(memory).raise(STALLED);
@@ -148,20 +148,20 @@ describe('Notices', () => {
     const [id] = [...memory.stored.keys()] as [string];
 
     members.add('team_1:user_2');
-    await expect(settle(id, 'acme', 'user_2')).rejects.toMatchObject({
+    await expect(resolve(id, 'acme', 'user_2')).rejects.toMatchObject({
       kind: 'not-found',
     });
-    await expect(settle(id, 'elsewhere', 'user_1')).rejects.toMatchObject({
+    await expect(resolve(id, 'elsewhere', 'user_1')).rejects.toMatchObject({
       kind: 'not-found',
     });
-    await settle(id, 'acme', 'user_1');
-    expect(memory.stored.get(id)?.settledAt).toEqual(NOW);
+    await resolve(id, 'acme', 'user_1');
+    expect(memory.stored.get(id)?.resolvedAt).toEqual(NOW);
     await expect(
-      settle('notice_missing', 'acme', 'user_1'),
+      resolve('notice_missing', 'acme', 'user_1'),
     ).rejects.toMatchObject({ kind: 'not-found' });
 
     members.delete('team_1:user_1');
-    await expect(settle(id, 'acme', 'user_1')).rejects.toMatchObject({
+    await expect(resolve(id, 'acme', 'user_1')).rejects.toMatchObject({
       kind: 'not-found',
     });
     members.add('team_1:user_1');

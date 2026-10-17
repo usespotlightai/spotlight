@@ -157,7 +157,7 @@ const working = (
 };
 
 describe('WorkChangeStacks', () => {
-  it('still settles a stack left drafting once the model to draft it is gone, failing it as undrafted', async () => {
+  it('still fails a stack left drafting as undrafted once the model to draft it is gone', async () => {
     const worked = working(
       drafting(),
       async () => {

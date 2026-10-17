@@ -188,7 +188,7 @@ export const MEASURES: readonly Measure[] = [
   'cost_per_run',
 ];
 
-const MIN_SETTLED = 10;
+const MIN_MEASURED = 10;
 
 const LOWER_IS_BETTER: ReadonlySet<Measure> = new Set([
   'sent_back_rate',
@@ -199,7 +199,7 @@ const LOWER_IS_BETTER: ReadonlySet<Measure> = new Set([
 
 export type Reading = {
   readonly value: number | null;
-  readonly settled: number;
+  readonly measured: number;
 };
 
 const verdictOf = (
@@ -210,8 +210,8 @@ const verdictOf = (
   if (
     before.value === null ||
     after.value === null ||
-    before.settled < MIN_SETTLED ||
-    after.settled < MIN_SETTLED
+    before.measured < MIN_MEASURED ||
+    after.measured < MIN_MEASURED
   ) {
     return 'insufficient';
   }
@@ -242,8 +242,8 @@ export const verdictFor = (
     measure,
     before: before.value === null ? null : rounded(before.value),
     after: after.value === null ? null : rounded(after.value),
-    settledBefore: before.settled,
-    settledAfter: after.settled,
+    measuredBefore: before.measured,
+    measuredAfter: after.measured,
     currency: measure === 'cost_per_run' ? CURRENCY : null,
     verdict,
     change: changeOf(

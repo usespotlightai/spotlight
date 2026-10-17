@@ -1,10 +1,10 @@
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
+import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import { ChangeStackDraftingBegan } from '@change-review/domain/events/change-stack-drafting-began.event';
 import { ChangeStackFailed } from '@change-review/domain/events/change-stack-failed.event';
+import { ChangeStackReady } from '@change-review/domain/events/change-stack-ready.event';
 import { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
 import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
-import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
-import { ChangeStackShaped } from '@change-review/domain/events/change-stack-shaped.event';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import { DecisionDraftingFailed } from '@change-review/domain/events/decision-drafting-failed.event';
@@ -14,7 +14,7 @@ import { DecisionsMerged } from '@change-review/domain/events/decisions-merged.e
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
 import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
-import { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
+import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
 import { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
 import { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
@@ -59,13 +59,13 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   StackFacts,
   StackProgress,
   ChangeStackChecked,
-  ReplayStackSettled,
+  ReplayStackCompleted,
   ChangeStackDraftingBegan,
   ChangeStackFailed,
   ChangeStackReordered,
   ChangeStackReorderingEnded,
-  ChangeStackSettled,
-  ChangeStackShaped,
+  ChangeStackCompleted,
+  ChangeStackReady,
   CheckReservationDropped,
   LeasedCheckForgotten,
   LayersFailedCheck,

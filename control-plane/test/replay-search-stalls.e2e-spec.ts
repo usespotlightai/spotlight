@@ -187,28 +187,28 @@ describe('a search for a better station config, when it stalls or loses its stat
     expect(notice?.points.join('\n')).not.toContain(first?.taskId);
 
     await http()
-      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/settle`)
+      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/resolve`)
       .set(TEST_USER_HEADER, randomUUID())
       .expect(404);
     await owner()
-      .post(`/api/workspaces/elsewhere/inbox/notices/${notice?.id}/settle`)
+      .post(`/api/workspaces/elsewhere/inbox/notices/${notice?.id}/resolve`)
       .expect(404);
     await owner()
-      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/settle`)
+      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/resolve`)
       .expect(204);
 
-    const settled = (
+    const resolved = (
       (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
         .body as InboxEntry[]
     ).find((each) => each.id === notice?.id);
 
-    expect(settled).toMatchObject({ unread: false, resolved: true });
+    expect(resolved).toMatchObject({ unread: false, resolved: true });
 
     const longAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
 
     await db
       .update(schema.notice)
-      .set({ raisedAt: longAgo, settledAt: longAgo })
+      .set({ raisedAt: longAgo, resolvedAt: longAgo })
       .where(eq(schema.notice.id, notice?.id as string));
 
     expect(

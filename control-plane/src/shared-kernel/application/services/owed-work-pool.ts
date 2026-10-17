@@ -119,9 +119,9 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
 
       await this.source
         .save(later)
-        .catch((settling: unknown) =>
+        .catch((failure: unknown) =>
           this.logger.error(
-            { ...this.described(owing), err: settling },
+            { ...this.described(owing), err: failure },
             `${this.source.name}: putting work back for later`,
           ),
         );

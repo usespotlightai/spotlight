@@ -18,7 +18,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { openApp } from './support/app';
 import * as schema from './support/schema';
 
-const settled = <T>(work: Promise<T>, within: number) =>
+const stateWithin = <T>(work: Promise<T>, within: number) =>
   Promise.race([
     work.then(() => 'answered' as const),
     new Promise<'waiting'>((resolve) =>
@@ -94,7 +94,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
 
     const second = context.inTransaction(() => creates.claim(made));
 
-    expect(await settled(second, 300)).toBe('waiting');
+    expect(await stateWithin(second, 300)).toBe('waiting');
 
     first.release();
     await first.done;

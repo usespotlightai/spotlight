@@ -52,9 +52,9 @@ import type { Notices } from '@work/application/services/notices.service';
 import type { PauseMarks } from '@work/application/services/pause-marks.service';
 import type { PausedRuns } from '@work/application/services/paused-runs.service';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
+import type { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { RunnerLeases } from '@work/application/services/runner-leases.service';
-import type { SettleSetup } from '@work/application/services/settle-setup.service';
 import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import type { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
@@ -117,7 +117,7 @@ export const workSubscribers = (reactions: {
   taskRuns: EnqueueTaskRun;
   letGoRuns: StopLetGoRun;
   chatRuns: EnqueueChatRun;
-  setup: SettleSetup;
+  setup: ReconcileSetup;
   abandoning: AbandonTeamLines;
   runGrants: RunGrantsPort;
   runTokens: RunTokensPort;
@@ -226,12 +226,12 @@ export const workSubscribers = (reactions: {
       signedUp(event) && reactions.provisioning.provision(newTeam(event)),
   ),
   subscribing<WorkspaceConnectedIntegrationEvent>(
-    'work.settle-on-connection',
+    'work.reconcile-setup-on-connection',
     [WORKSPACE_CONNECTED],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
   subscribing<SetupPullRequestOpened>(
-    'work.settle-on-setup-pull-request',
+    'work.reconcile-setup-on-pull-request',
     ['chat.setup-pull-request-opened'],
     (event) => reactions.setup.forTeam(event.teamId),
   ),
@@ -241,7 +241,7 @@ export const workSubscribers = (reactions: {
     (event) => reactions.acceptances.onProposalAccepted(event),
   ),
   subscribing<TaskOpened>(
-    'work.settle-accepted-proposal',
+    'work.complete-accepted-proposal',
     ['task.opened'],
     (event) => reactions.acceptances.onTaskOpened(event),
   ),
@@ -266,12 +266,12 @@ export const workSubscribers = (reactions: {
     (event) => reactions.chatRuns.on(event),
   ),
   subscribing<RunnerWayInOpenedIntegrationEvent>(
-    'work.settle-on-way-in',
+    'work.reconcile-setup-on-way-in',
     [RUNNER_WAY_IN_OPENED],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
   subscribing<RunnerHostStartedServingIntegrationEvent>(
-    'work.settle-on-host-serving',
+    'work.reconcile-setup-on-host-serving',
     [RUNNER_HOST_STARTED_SERVING],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),

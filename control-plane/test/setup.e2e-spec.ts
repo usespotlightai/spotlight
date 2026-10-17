@@ -15,7 +15,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
-import { settling } from '@work/domain/services/setup-list';
+import { setupDoneNote } from '@work/domain/services/setup-list';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -92,11 +92,11 @@ describe('the open setup lists of a team', () => {
     );
   });
 
-  it('leaves a settled one out', async () => {
+  it('leaves a closed one out', async () => {
     const { teamId, list } = await openTeam('fallon');
 
-    const saying = settling(list.notes, DONE, NOW);
-    const gone = list.settled(saying as NonNullable<typeof saying>);
+    const saying = setupDoneNote(list.notes, DONE, NOW);
+    const gone = list.closeConversation(saying as NonNullable<typeof saying>);
 
     expect(gone.finishedAt).toBeNull();
     await tasks.save(gone);
@@ -183,11 +183,11 @@ describe('the inbox item of a setup list', () => {
     expect(item?.resolved).toBe(false);
   });
 
-  it('reads as resolved once the list has been settled', async () => {
-    const saying = settling(waiting.list.notes, DONE, NOW);
+  it('reads as resolved once the list has been closed', async () => {
+    const saying = setupDoneNote(waiting.list.notes, DONE, NOW);
 
     await tasks.save(
-      waiting.list.settled(saying as NonNullable<typeof saying>),
+      waiting.list.closeConversation(saying as NonNullable<typeof saying>),
     );
 
     const [item] = await inbox();

@@ -3,8 +3,8 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class RunRecordSettled implements DomainEvent {
-  readonly kind = 'run-record.settled';
+export class RunRecordEnriched implements DomainEvent {
+  readonly kind = 'run-record.enriched';
 
   constructor(
     readonly runId: RunId,

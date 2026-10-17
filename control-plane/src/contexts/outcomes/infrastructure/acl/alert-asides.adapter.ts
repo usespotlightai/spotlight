@@ -12,7 +12,7 @@ export class AlertAsides implements AlertAsidesPort {
     return this.asides.reopen({ taskId, form: FORM, about: alertId.value });
   }
 
-  settle(taskId: TaskId, alertId: AlertId): Promise<void> {
-    return this.asides.settle({ taskId, form: FORM, about: alertId.value });
+  resolve(taskId: TaskId, alertId: AlertId): Promise<void> {
+    return this.asides.resolve({ taskId, form: FORM, about: alertId.value });
   }
 }

@@ -1,5 +1,5 @@
 {
-  "id": "f632ebc6-0ab4-4c48-82d2-375f3ab368dd",
+  "id": "2f2bb15a-e7af-4961-8282-4ea3b6f8f18a",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -404,8 +404,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "settled_at": {
-          "name": "settled_at",
+        "completed_at": {
+          "name": "completed_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -12894,8 +12894,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "settled_at": {
-          "name": "settled_at",
+        "resolved_at": {
+          "name": "resolved_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -13998,8 +13998,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "settled_at": {
-          "name": "settled_at",
+        "resolved_at": {
+          "name": "resolved_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -14050,7 +14050,7 @@
               "nulls": "last"
             },
             {
-              "expression": "settled_at",
+              "expression": "resolved_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

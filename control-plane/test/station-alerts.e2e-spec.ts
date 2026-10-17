@@ -132,7 +132,7 @@ const actedOn = async (
   await app.get(EventOutbox).record([acted as never]);
 };
 
-const settled = async <T>(read: () => Promise<T | null | undefined>) =>
+const eventuallyFound = async <T>(read: () => Promise<T | null | undefined>) =>
   eventually(async () => {
     await app.get(EventDelivery).drain(2_000);
     return read();
@@ -179,7 +179,7 @@ afterAll(async () => {
 describe('a station alert (e2e)', () => {
   it('raises an inbox aside on the task whose run crossed the station’s threshold once a person answered it, and shows it', async () => {
     const runId = await ranAndEnded(10);
-    await settled(async () => {
+    await eventuallyFound(async () => {
       const [record] = await db
         .select()
         .from(schema.runRecord)
@@ -190,7 +190,7 @@ describe('a station alert (e2e)', () => {
 
     await actedOn(runId, 'sent-back', 9);
 
-    const aside = await settled(() => asideOf(team.list.id.value));
+    const aside = await eventuallyFound(() => asideOf(team.list.id.value));
 
     const answer = await served(app)
       .get(`/api/teams/${team.teamId.value}/insights/alerts/${aside.about}`)
@@ -225,7 +225,7 @@ describe('a station alert (e2e)', () => {
 
   it('raises no second aside while the station stays past the threshold, nor on a run nobody answered yet', async () => {
     const runId = await ranAndEnded(5);
-    await settled(async () => {
+    await eventuallyFound(async () => {
       const [record] = await db
         .select()
         .from(schema.runRecord)
@@ -261,7 +261,7 @@ describe('a station alert (e2e)', () => {
 
     await actedOn(unanswered?.runId as string, 'closed', 4);
 
-    const [recovered] = await settled(async () => {
+    const [recovered] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();
       return alerts[0]?.recoveredAt ? alerts : null;
     });
@@ -269,15 +269,15 @@ describe('a station alert (e2e)', () => {
     expect(recovered?.recoveredAt).not.toBeNull();
   });
 
-  it('settles the aside on recovering, and reopens the same alert and aside when the station crosses again soon after', async () => {
+  it('resolves the aside on recovering, and reopens the same alert and aside when the station crosses again soon after', async () => {
     const [recovered] = await alertsAtStation();
-    const settledAside = await settled(async () => {
+    const resolvedAside = await eventuallyFound(async () => {
       const aside = await asideOf(team.list.id.value);
-      return aside?.settledAt ? aside : null;
+      return aside?.resolvedAt ? aside : null;
     });
 
     const runId = await ranAndEnded(3);
-    await settled(async () => {
+    await eventuallyFound(async () => {
       const [record] = await db
         .select()
         .from(schema.runRecord)
@@ -286,18 +286,18 @@ describe('a station alert (e2e)', () => {
     });
     await actedOn(runId, 'sent-back', 2);
 
-    const [reopened] = await settled(async () => {
+    const [reopened] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();
       return alerts[0]?.recoveredAt === null ? alerts : null;
     });
-    const aside = await settled(async () => {
+    const aside = await eventuallyFound(async () => {
       const found = await asideOf(team.list.id.value);
-      return found && found.settledAt === null ? found : null;
+      return found && found.resolvedAt === null ? found : null;
     });
 
     expect(await alertsAtStation()).toHaveLength(1);
     expect(reopened?.id).toBe(recovered?.id);
-    expect(aside.id).toBe(settledAside.id);
+    expect(aside.id).toBe(resolvedAside.id);
   });
 
   it('recovers at once when the line no longer sets the threshold', async () => {
@@ -314,7 +314,7 @@ describe('a station alert (e2e)', () => {
     };
     await app.get(EventOutbox).record([redefined as never]);
 
-    const [recovered] = await settled(async () => {
+    const [recovered] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();
       return alerts[0]?.recoveredAt ? alerts : null;
     });
@@ -351,7 +351,7 @@ describe('a station alert (e2e)', () => {
     };
     await app.get(EventOutbox).record([deleted as never]);
 
-    await settled(async () =>
+    await eventuallyFound(async () =>
       (await alertsAtStation()).length === 0 ? true : null,
     );
     const [after] = await db

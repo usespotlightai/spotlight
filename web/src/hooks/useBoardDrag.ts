@@ -78,7 +78,7 @@ export function useBoardDrag(board: Board) {
     setLanding(landingOver(moving, over));
   };
 
-  const settle = ({ active, over }: DragEndEvent) => {
+  const drop = ({ active, over }: DragEndEvent) => {
     if (
       !over ||
       !board.teamId ||
@@ -117,7 +117,7 @@ export function useBoardDrag(board: Board) {
       onDragEnd: (event: DragEndEvent) => {
         clear();
         swallowNextClick();
-        settle(event);
+        drop(event);
       },
     },
   };

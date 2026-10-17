@@ -24,14 +24,14 @@ export function useFolding(open: boolean): Folding {
     }
     was.current = open;
     const element = rows.current;
-    const settled = open ? undefined : () => setShown(false);
+    const done = open ? undefined : () => setShown(false);
 
-    if (glide.reverse(settled)) {
+    if (glide.reverse(done)) {
       return;
     }
 
     if (!canGlide(element)) {
-      settled?.();
+      done?.();
       return;
     }
 
@@ -42,7 +42,7 @@ export function useFolding(open: boolean): Folding {
       open
         ? glideBetween(unfolded, folded, unfolded)
         : glideBetween(unfolded, unfolded, folded),
-      settled,
+      done,
     );
   }, [open, glide]);
 

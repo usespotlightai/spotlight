@@ -8,9 +8,9 @@ import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { settling } from '@work/domain/services/setup-list';
+import { setupDoneNote } from '@work/domain/services/setup-list';
 
-export class SettleSetup {
+export class ReconcileSetup {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly lines: LineRepository,
@@ -45,18 +45,18 @@ export class SettleSetup {
     } catch (error) {
       this.logger.warn(
         { err: error, at },
-        'could not look for the setup lists to settle',
+        'could not look for the setup lists to reconcile',
       );
     }
   }
 
   private async each(tasks: readonly Task[]): Promise<void> {
     for (const each of tasks) {
-      await this.settle(each);
+      await this.reconcile(each);
     }
   }
 
-  private async settle(task: Task): Promise<void> {
+  private async reconcile(task: Task): Promise<void> {
     const at = { taskId: task.id.value, workspaceId: task.workspaceId.value };
 
     try {
@@ -68,10 +68,10 @@ export class SettleSetup {
       }
 
       const { state } = await this.setup.of(task.workspaceId, line.teamId);
-      const saying = settling(task.notes, state, this.clock.now());
+      const saying = setupDoneNote(task.notes, state, this.clock.now());
 
       if (saying) {
-        await this.tasks.save(task.settled(saying));
+        await this.tasks.save(task.closeConversation(saying));
       }
     } catch (error) {
       if (error instanceof TaskVersionConflictError) {
@@ -81,7 +81,7 @@ export class SettleSetup {
       if (error instanceof InvalidTaskTransitionError) {
         this.logger.error(
           { err: error, ...at },
-          'did not settle a team’s setup list, because the task state does not allow it',
+          'did not close a team’s setup list, because the task state does not allow it',
         );
 
         return;
@@ -89,7 +89,7 @@ export class SettleSetup {
 
       this.logger.warn(
         { err: error, ...at },
-        'could not settle a team’s setup list',
+        'could not reconcile a team’s setup list',
       );
     }
   }

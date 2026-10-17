@@ -672,10 +672,10 @@ export class Task extends EventRecorder {
     return this.awaitingReview && Boolean(asked?.approval);
   }
 
-  settled(saying: Saying): Task {
+  closeConversation(saying: Saying): Task {
     if (!this.trail.open) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has nothing open to settle.`,
+        `Task ${this.id.value} has no open conversation to close.`,
       );
     }
 

@@ -58,7 +58,7 @@ const syncing = (over: {
   const reviews = new Map(
     (over.reviews ?? []).map((each) => [each.id.value, each]),
   );
-  const settled: { how: string; args: unknown[] }[] = [];
+  const recorded: { how: string; args: unknown[] }[] = [];
   let pending: ReviewSync | null = {
     id: 'sync_1',
     workspaceId: WORKSPACE,
@@ -73,9 +73,9 @@ const syncing = (over: {
       pending = null;
       return next;
     },
-    done: async (...args) => void settled.push({ how: 'done', args }),
-    later: async (...args) => void settled.push({ how: 'later', args }),
-    failed: async (...args) => void settled.push({ how: 'failed', args }),
+    done: async (...args) => void recorded.push({ how: 'done', args }),
+    later: async (...args) => void recorded.push({ how: 'later', args }),
+    failed: async (...args) => void recorded.push({ how: 'failed', args }),
     failuresFor: async () => new Map(),
     forgetTask: async () => undefined,
   };
@@ -159,7 +159,7 @@ const syncing = (over: {
     reports,
   );
 
-  return { service, settled, github, comments, reviews, reports };
+  return { service, recorded, github, comments, reviews, reports };
 };
 
 const submitted = () => {
@@ -224,7 +224,7 @@ describe('SyncReviews', () => {
         }),
       ]),
     );
-    expect(synced.settled).toEqual([{ how: 'done', args: ['sync_1'] }]);
+    expect(synced.recorded).toEqual([{ how: 'done', args: ['sync_1'] }]);
   });
 
   it('posts an agent’s review as Spotlight itself, naming nobody', async () => {
@@ -307,7 +307,7 @@ describe('SyncReviews', () => {
     await synced.service.syncDue();
 
     expect(synced.github.submit).not.toHaveBeenCalled();
-    expect(synced.settled).toEqual([
+    expect(synced.recorded).toEqual([
       {
         how: 'later',
         args: ['sync_1', new Date(NOW.getTime() + 60_000), null, false],
@@ -332,7 +332,7 @@ describe('SyncReviews', () => {
     await early.service.syncDue();
 
     expect(early.reports.report).not.toHaveBeenCalled();
-    expect(early.settled).toEqual([
+    expect(early.recorded).toEqual([
       {
         how: 'later',
         args: [
@@ -356,7 +356,7 @@ describe('SyncReviews', () => {
     });
     await last.service.syncDue();
 
-    expect(last.settled).toEqual([
+    expect(last.recorded).toEqual([
       { how: 'failed', args: ['sync_1', 'submit the review: Server Error'] },
     ]);
     expect(last.reviews.get('review_1')?.state).toBe('failed');
@@ -395,7 +395,7 @@ describe('SyncReviews', () => {
     expect(synced.reviews.get('review_1')?.pullEvents()).toContainEqual(
       expect.objectContaining({ kind: 'review.comment-not-posted' }),
     );
-    expect(synced.settled).toEqual([{ how: 'done', args: ['sync_1'] }]);
+    expect(synced.recorded).toEqual([{ how: 'done', args: ['sync_1'] }]);
   });
 
   it('fails a reply to a comment whose review never reached GitHub', async () => {
@@ -414,7 +414,7 @@ describe('SyncReviews', () => {
     await synced.service.syncDue();
 
     expect(synced.github.reply).not.toHaveBeenCalled();
-    expect(synced.settled[0]?.how).toBe('failed');
+    expect(synced.recorded[0]?.how).toBe('failed');
     expect(synced.comments.get('comment_2')?.state).toBe('failed');
   });
 
@@ -433,7 +433,7 @@ describe('SyncReviews', () => {
     });
     await waiting.service.syncDue();
 
-    expect(waiting.settled).toEqual([
+    expect(waiting.recorded).toEqual([
       {
         how: 'later',
         args: ['sync_1', new Date(NOW.getTime() + 60_000), null, true],
@@ -450,7 +450,7 @@ describe('SyncReviews', () => {
     });
     await tired.service.syncDue();
 
-    expect(tired.settled[0]?.how).toBe('failed');
+    expect(tired.recorded[0]?.how).toBe('failed');
     expect(tired.comments.get('comment_2')?.state).toBe('failed');
   });
 
@@ -577,7 +577,7 @@ describe('SyncReviews', () => {
         onGitHub: true,
       }),
     );
-    expect(synced.settled).toEqual([{ how: 'done', args: ['sync_1'] }]);
+    expect(synced.recorded).toEqual([{ how: 'done', args: ['sync_1'] }]);
 
     const again = syncing({
       sync: { kind: 'reply', subjectId: 'comment_2', attempts: 1 },
@@ -635,7 +635,7 @@ describe('SyncReviews', () => {
     await synced.service.syncDue();
 
     expect(synced.github.reply).not.toHaveBeenCalled();
-    expect(synced.settled[0]?.how).toBe('later');
+    expect(synced.recorded[0]?.how).toBe('later');
   });
 
   it('carries an edit and a deletion to the comment on GitHub', async () => {
@@ -709,7 +709,7 @@ describe('SyncReviews', () => {
 
     await synced.service.syncDue();
 
-    expect(synced.settled[0]?.how).toBe('failed');
+    expect(synced.recorded[0]?.how).toBe('failed');
     expect(synced.comments.get('comment_1')?.editPending).toBe(false);
   });
 });

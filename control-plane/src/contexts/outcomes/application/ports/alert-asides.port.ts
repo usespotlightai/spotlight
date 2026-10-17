@@ -6,5 +6,5 @@ export const ALERT_ASIDES = Symbol('OUTCOMES_ALERT_ASIDES');
 export interface AlertAsidesPort {
   open(taskId: TaskId, alertId: AlertId): Promise<void>;
 
-  settle(taskId: TaskId, alertId: AlertId): Promise<void>;
+  resolve(taskId: TaskId, alertId: AlertId): Promise<void>;
 }

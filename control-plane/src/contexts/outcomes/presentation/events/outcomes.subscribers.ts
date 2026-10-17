@@ -22,7 +22,7 @@ import type { RecordJudgeScore } from '@outcomes/application/services/record-jud
 import type { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import type { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import type { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
-import type { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
+import type { RunRecordEnriched } from '@outcomes/domain/events/run-record-enriched.event';
 import type { ScoreRecorded } from '@outcomes/domain/events/score-recorded.event';
 import type { StationAlertRaised } from '@outcomes/domain/events/station-alert-raised.event';
 import type { StationAlertRecovered } from '@outcomes/domain/events/station-alert-recovered.event';
@@ -34,9 +34,9 @@ import {
   type ChangeCheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import {
-  CHANGE_STACK_SHAPED,
-  type ChangeStackShapedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/change-stack-shaped.integration-event';
+  CHANGE_STACK_READY,
+  type ChangeStackReadyIntegrationEvent,
+} from '@shared-kernel/application/integration-events/change-stack-ready.integration-event';
 import {
   CHAT_STARTED,
   type ChatStartedIntegrationEvent,
@@ -215,7 +215,7 @@ export const outcomesSubscribers = (
     (event) => reactions.scoring.judged(event),
   ),
   subscribing<ScoreRecorded>(
-    'outcomes.ask-or-settle-grade',
+    'outcomes.ask-or-resolve-grade',
     ['score.recorded'],
     (event) => reactions.grading.recorded(event),
   ),
@@ -224,10 +224,10 @@ export const outcomesSubscribers = (
     ['run-record.ended'],
     (event) => reactions.watching.runEnded(event),
   ),
-  subscribing<RunRecordSettled>(
-    'outcomes.watch-station-after-settled-run',
-    ['run-record.settled'],
-    (event) => reactions.watching.runSettled(event),
+  subscribing<RunRecordEnriched>(
+    'outcomes.watch-station-after-enriched-run',
+    ['run-record.enriched'],
+    (event) => reactions.watching.runEnriched(event),
   ),
   subscribing<TaskDeliveryClosed>(
     'outcomes.watch-stations-after-closed-delivery',
@@ -403,9 +403,9 @@ export const outcomesSubscribers = (
         taskId: TaskId.of(event.taskId),
       }),
   ),
-  subscribing<ChangeStackShapedIntegrationEvent>(
+  subscribing<ChangeStackReadyIntegrationEvent>(
     'outcomes.record-change-shape',
-    [CHANGE_STACK_SHAPED],
+    [CHANGE_STACK_READY],
     (event) =>
       event.taskId
         ? reactions.shaping.shaped({

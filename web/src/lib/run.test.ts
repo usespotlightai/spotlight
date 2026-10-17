@@ -173,23 +173,23 @@ describe('run filters', () => {
     state: 'completed',
     review: { state: 'owed', conversationId: 'c_1' },
   } as const;
-  const settled = {
+  const answered = {
     state: 'completed',
-    review: { state: 'settled', conversationId: 'c_2' },
+    review: { state: 'answered', conversationId: 'c_2' },
   } as const;
   const unreviewed = { state: 'completed', review: null } as const;
   const asking = { state: 'waiting', review: null } as const;
 
   it('lets every run through All', () => {
     expect(inRunFilter('all', owed)).toBe(true);
-    expect(inRunFilter('all', settled)).toBe(true);
+    expect(inRunFilter('all', answered)).toBe(true);
     expect(inRunFilter('all', unreviewed)).toBe(true);
   });
 
   it('lets only runs still owed a review or an answer through Waiting for you', () => {
     expect(inRunFilter('waiting-for-you', owed)).toBe(true);
     expect(inRunFilter('waiting-for-you', asking)).toBe(true);
-    expect(inRunFilter('waiting-for-you', settled)).toBe(false);
+    expect(inRunFilter('waiting-for-you', answered)).toBe(false);
     expect(inRunFilter('waiting-for-you', unreviewed)).toBe(false);
   });
 

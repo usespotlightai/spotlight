@@ -63,7 +63,7 @@ const taskOfAnyRun = (runId: string) =>
     ? historyRunOf(runId)?.taskId
     : undefined);
 
-const settleAsides = (form: 'grade' | 'memories', runId: string) => {
+const resolveAsides = (form: 'grade' | 'memories', runId: string) => {
   for (const entry of inboxStore().entries) {
     if (
       entry.kind === 'task' &&
@@ -76,7 +76,7 @@ const settleAsides = (form: 'grade' | 'memories', runId: string) => {
   }
 };
 
-const settleReviewOf = (item: InboxItemResponseDto) => {
+const answerReviewOf = (item: InboxItemResponseDto) => {
   const task = taskOf(item.taskId);
 
   if (task?.awaitingReview?.conversationId === item.id) {
@@ -84,7 +84,7 @@ const settleReviewOf = (item: InboxItemResponseDto) => {
   }
   for (const run of world().runs[item.taskId] ?? []) {
     if (run.review?.conversationId === item.id) {
-      run.review = { ...run.review, state: 'settled' };
+      run.review = { ...run.review, state: 'answered' };
     }
   }
 };
@@ -124,7 +124,7 @@ const answer = (
   item.askedAt = now();
   item.resolved = true;
   item.unread = false;
-  settleReviewOf(item);
+  answerReviewOf(item);
 };
 
 const conversationHandlers = [
@@ -187,20 +187,23 @@ const conversationHandlers = [
     return noContent();
   }),
 
-  api.post('/workspaces/:slug/inbox/notices/:noticeId/settle', ({ params }) => {
-    const notice = inboxStore().entries.find(
-      (entry) =>
-        entry.kind === 'notice' && entry.id === param(params, 'noticeId'),
-    );
+  api.post(
+    '/workspaces/:slug/inbox/notices/:noticeId/resolve',
+    ({ params }) => {
+      const notice = inboxStore().entries.find(
+        (entry) =>
+          entry.kind === 'notice' && entry.id === param(params, 'noticeId'),
+      );
 
-    if (!isOurs(params) || !notice) {
-      return notFound();
-    }
-    notice.resolved = true;
-    notice.unread = false;
+      if (!isOurs(params) || !notice) {
+        return notFound();
+      }
+      notice.resolved = true;
+      notice.unread = false;
 
-    return noContent();
-  }),
+      return noContent();
+    },
+  ),
 
   api.get('/workspaces/:slug/inbox/tasks/:taskId/journal', ({ params }) => {
     const taskId = param(params, 'taskId');
@@ -294,7 +297,7 @@ const scoreHandlers = [
       gradeOf(scores.kind, given),
       ...scores.grades.filter((grade) => !grade.mine),
     ];
-    settleAsides('grade', runId);
+    resolveAsides('grade', runId);
 
     return json(scores);
   }),
@@ -522,7 +525,7 @@ const decide = (
   memory.decision = { by: SAM.id, name: SAM.name, at: now() };
 
   if (review.memories.every((each) => each.state !== 'proposed')) {
-    settleAsides('memories', review.runId);
+    resolveAsides('memories', review.runId);
   }
 };
 

@@ -29,7 +29,7 @@ const PROGRESS = {
   state: changeStack.state,
   failure: changeStack.failure,
   draftedAt: changeStack.draftedAt,
-  settledAt: changeStack.settledAt,
+  completedAt: changeStack.completedAt,
 };
 
 const CHECK = {
@@ -147,7 +147,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       state: row.state,
       failure: row.failure,
       draftedAt: row.draftedAt.toISOString(),
-      settledAt: row.settledAt?.toISOString() ?? null,
+      completedAt: row.completedAt?.toISOString() ?? null,
       files: row.files,
       cohorts: row.cohorts,
       check: checkOf(row.check, now),

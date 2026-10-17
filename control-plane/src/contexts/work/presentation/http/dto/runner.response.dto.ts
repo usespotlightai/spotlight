@@ -278,7 +278,7 @@ export class RenewCheckLeaseResponseDto {
     example: false,
     description:
       'Whether the runner should stop checking: the check was forgotten ' +
-      'with its task, settled, or waited too long to be recorded',
+      'with its task, ended, or waited too long to be recorded',
   })
   readonly stop: boolean;
 

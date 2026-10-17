@@ -18,7 +18,7 @@ const WATCH_EVERY_MS = 250;
 
 const WATCHES = RENEWAL_LEASE_MS / WATCH_EVERY_MS;
 
-const SETTLES = 3;
+const MAX_SAVE_ATTEMPTS = 3;
 
 export type Wait = (ms: number) => Promise<void>;
 
@@ -141,7 +141,7 @@ export class ConnectionRenewal {
         refreshToken,
       );
     } catch (error) {
-      await this.settle(claimed, refreshToken, (current) =>
+      await this.saveWithRetry(claimed, refreshToken, (current) =>
         current.renewalReleased(),
       );
       throw error;
@@ -150,19 +150,19 @@ export class ConnectionRenewal {
     const at = this.clock.now();
 
     if (renewed.kind === 'renewed') {
-      await this.settle(claimed, refreshToken, (current) =>
+      await this.saveWithRetry(claimed, refreshToken, (current) =>
         current.renewedWith(renewed.grant),
       );
     }
 
     if (renewed.kind === 'failed') {
-      await this.settle(claimed, refreshToken, (current) =>
+      await this.saveWithRetry(claimed, refreshToken, (current) =>
         current.refreshFailed(at),
       );
     }
 
     if (renewed.kind === 'unrenewable') {
-      await this.settle(claimed, refreshToken, (current) =>
+      await this.saveWithRetry(claimed, refreshToken, (current) =>
         current.renewalReleased(),
       );
     }
@@ -170,7 +170,7 @@ export class ConnectionRenewal {
     return renewed;
   }
 
-  private async settle(
+  private async saveWithRetry(
     claimed: HostConnection,
     used: AccessToken,
     change: (current: HostConnection) => HostConnection,
@@ -184,7 +184,7 @@ export class ConnectionRenewal {
       } catch (error) {
         if (
           !(error instanceof HostConnectionVersionConflictError) ||
-          attempt >= SETTLES
+          attempt >= MAX_SAVE_ATTEMPTS
         ) {
           throw error;
         }

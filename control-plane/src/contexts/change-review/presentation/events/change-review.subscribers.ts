@@ -4,15 +4,15 @@ import type { ReviewReactions } from '@change-review/application/events/handlers
 import type { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
+import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import type { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
 import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
-import type { SettleDecisions } from '@change-review/application/services/settle-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
+import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import type { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
 import type { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
-import type { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
 import type { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import type { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import type { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
@@ -68,7 +68,7 @@ export const changeReviewSubscribers = (
   signalling: SignalReviewing,
   checks: StackCheckReactions,
   deciding: AskForDecisions,
-  settling: SettleDecisions,
+  pullRequestClose: ApplyPullRequestClose,
   decisions: DecisionReactions,
   runners: CheckRunnersPort,
 ): readonly DomainEventSubscriber[] => [
@@ -87,10 +87,10 @@ export const changeReviewSubscribers = (
     ['change-stack.check-reservation-dropped'],
     (event) => runners.reservationDropped(event.runner),
   ),
-  subscribing<ChangeStackSettled>(
+  subscribing<ChangeStackCompleted>(
     'change-review.begin-check',
-    ['change-stack.settled'],
-    (event) => checks.onSettled(event),
+    ['change-stack.completed'],
+    (event) => checks.onCompleted(event),
   ),
   subscribing<LayersFailedCheck>(
     'change-review.ask-to-reorder',
@@ -129,10 +129,10 @@ export const changeReviewSubscribers = (
         : Promise.resolve(),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
-    'change-review.settle-decisions',
+    'change-review.apply-pull-request-close',
     [PULL_REQUEST_CLOSED],
     (event) =>
-      settling.closed({
+      pullRequestClose.closed({
         workspaceId: WorkspaceId.of(event.workspaceId),
         pullRequest: PullRequestUrl.of(event.pullRequest),
         repository: Repository.of(event.repository),
@@ -140,10 +140,10 @@ export const changeReviewSubscribers = (
         closedAt: event.closedAt ? new Date(event.closedAt) : null,
       }),
   ),
-  subscribing<ChangeStackSettled>(
-    'change-review.announce-settled',
-    ['change-stack.settled'],
-    (event) => reactions.onSettled(event),
+  subscribing<ChangeStackCompleted>(
+    'change-review.announce-completed',
+    ['change-stack.completed'],
+    (event) => reactions.onCompleted(event),
   ),
   subscribing<ChangeStackChecked>(
     'change-review.announce-checked',
@@ -191,7 +191,7 @@ export const changeReviewSubscribers = (
     (event) => reviews.onCommentPlaced(event),
   ),
   subscribing<ReviewCommentNotPosted>(
-    'change-review.settle-unposted-comment',
+    'change-review.record-unposted-comment',
     ['review.comment-not-posted'],
     (event) => reviews.onCommentNotPosted(event),
   ),

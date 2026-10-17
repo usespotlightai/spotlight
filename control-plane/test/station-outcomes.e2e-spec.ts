@@ -359,7 +359,7 @@ beforeAll(async () => {
     }),
     grading: new GradeAsides({
       ask: async () => {},
-      settle: async () => {},
+      resolve: async () => {},
     }),
     digesting: new NoteRunDigested(work, records, forgotten, context),
     remembering: new NoteRunMemories(work, records, forgotten, context),
@@ -386,7 +386,7 @@ beforeAll(async () => {
     alerting: new AlertInbox(
       {
         open: async () => {},
-        settle: async () => {},
+        resolve: async () => {},
       },
       watches,
     ),

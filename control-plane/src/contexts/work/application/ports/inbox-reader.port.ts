@@ -129,6 +129,6 @@ export interface InboxReaderPort {
   listForWorkspaceMember(
     slug: string,
     userId: UserId,
-    noticesSettledSince: Date,
+    noticesResolvedSince: Date,
   ): Promise<InboxEntrySummary[] | null>;
 }
