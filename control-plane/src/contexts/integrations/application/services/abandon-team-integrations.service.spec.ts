@@ -65,10 +65,12 @@ const setUp = ({ gone = false } = {}) => {
 };
 
 describe('AbandonTeamIntegrations', () => {
-  it('owes one abandonment for each hook and integration a disbanded team had, changing none yet', async () => {
+  it('makes one pending abandonment for each hook and integration a disbanded team had, changing none yet', async () => {
     const { abandoning, hooks, definitions } = setUp();
 
-    await expect(abandoning.owed(TEAM, WORKSPACE)).resolves.toEqual([
+    await expect(
+      abandoning.pendingAbandonments(TEAM, WORKSPACE),
+    ).resolves.toEqual([
       new HookAbandonmentDue(HOOK_ID, WORKSPACE),
       new IntegrationAbandonmentDue(INTEGRATION_ID, WORKSPACE),
     ]);

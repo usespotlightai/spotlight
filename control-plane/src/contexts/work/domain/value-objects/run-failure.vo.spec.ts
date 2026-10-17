@@ -18,11 +18,11 @@ describe('RunFailure', () => {
     ['timed-out', true, 3],
   ])(
     'states whether a run that %s may be retried (%s, %i attempts in all)',
-    (code, retries, max) => {
+    (code, allowsRetry, maxAttempts) => {
       const failure = RunFailure.of(code);
 
-      expect(failure.retry.retries).toBe(retries);
-      expect(failure.retry.max).toBe(max);
+      expect(failure.retry.allowsRetry).toBe(allowsRetry);
+      expect(failure.retry.maxAttempts).toBe(maxAttempts);
     },
   );
 

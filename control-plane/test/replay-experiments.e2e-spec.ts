@@ -274,7 +274,7 @@ const runRow = async (runId: string) => {
 };
 
 const dispatched = async () => {
-  await app.get(DispatchReplayRuns).workDue();
+  await app.get(DispatchReplayRuns).processDue();
 };
 
 const claimed = async (): Promise<{ token: string; runId: string }> => {

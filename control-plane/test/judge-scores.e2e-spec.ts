@@ -191,7 +191,7 @@ afterAll(async () => {
 });
 
 describe('judgings, kept', () => {
-  it('keeps a judging as owed work until it is judged, and says so', async () => {
+  it('keeps a pending job for a judging until it is judged, and says so', async () => {
     await judgings.add(
       Judging.asked({
         runId: RunId.of('run_judged'),
@@ -203,15 +203,15 @@ describe('judgings, kept', () => {
       }),
     );
 
-    const due = await judgings.dueForWork(NOW);
+    const due = await judgings.nextDueJob(NOW);
     expect(due?.runId.value).toBe('run_judged');
 
-    const leased = due?.leased(NOW);
+    const leased = due?.leaseJob(NOW);
     if (!leased) {
       throw new Error('nothing was due');
     }
     await judgings.save(leased);
-    expect(await judgings.dueForWork(NOW)).toBeNull();
+    expect(await judgings.nextDueJob(NOW)).toBeNull();
 
     const judging = await judgings.of(RunId.of('run_judged'));
     await judgings.save(
@@ -242,7 +242,7 @@ describe('judgings, kept', () => {
     );
 
     const done = await judgings.of(RunId.of('run_judged'));
-    expect(done?.owesWork).toBe(false);
+    expect(done?.hasPendingJob).toBe(false);
     expect(done?.judgedAt).toEqual(LATER);
     expect(done?.rubric.version).toBe(VERSION);
     expect(

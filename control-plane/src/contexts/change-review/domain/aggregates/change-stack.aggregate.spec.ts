@@ -18,10 +18,10 @@ import { StackProgress } from '@change-review/domain/value-objects/stack-progres
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import {
-  MAX_WORK_ATTEMPTS,
-  WORK_BACKOFF_MS,
-  WORK_LEASE_MS,
-} from '@shared-kernel/domain/value-objects/owed-work.vo';
+  JOB_BACKOFF_MS,
+  JOB_LEASE_MS,
+  MAX_JOB_ATTEMPTS,
+} from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -285,53 +285,53 @@ describe('ChangeStack', () => {
   });
 
   it('is leased to one worker at a time while it is drafted', () => {
-    const leased = drafting().leased(NOW);
+    const leased = drafting().leaseJob(NOW);
 
-    expect(leased.owesWork).toBe(true);
-    expect(leased.work.attempts).toBe(1);
-    expect(leased.work.dueBy(LATER)).toBe(false);
-    expect(() => leased.leased(LATER)).toThrow(InvalidChangeStackError);
-    expect(leased.work.dueBy(new Date(NOW.getTime() + WORK_LEASE_MS + 1))).toBe(
+    expect(leased.hasPendingJob).toBe(true);
+    expect(leased.job.attempts).toBe(1);
+    expect(leased.job.isDue(LATER)).toBe(false);
+    expect(() => leased.leaseJob(LATER)).toThrow(InvalidChangeStackError);
+    expect(leased.job.isDue(new Date(NOW.getTime() + JOB_LEASE_MS + 1))).toBe(
       true,
     );
   });
 
-  it('is tried again later, waiting longer each time, then given up', () => {
+  it('is retried later, waiting longer each time, then dead-lettered', () => {
     const DAY = 24 * 60 * 60 * 1000;
     const at = (day: number) => new Date(NOW.getTime() + day * DAY);
 
-    const once = drafting().leased(at(0)).triedAgainLater(at(0));
-    const twice = once.leased(at(1)).triedAgainLater(at(1));
+    const once = drafting().leaseJob(at(0)).scheduleRetry(at(0));
+    const twice = once.leaseJob(at(1)).scheduleRetry(at(1));
 
     expect(once.state).toBe('drafting');
-    expect(once.work.dueAt).toEqual(
-      new Date(at(0).getTime() + WORK_BACKOFF_MS),
+    expect(once.job.nextAttemptAt).toEqual(
+      new Date(at(0).getTime() + JOB_BACKOFF_MS),
     );
-    expect(twice.work.dueAt).toEqual(
-      new Date(at(1).getTime() + WORK_BACKOFF_MS * 2),
+    expect(twice.job.nextAttemptAt).toEqual(
+      new Date(at(1).getTime() + JOB_BACKOFF_MS * 2),
     );
 
     let exhausted = drafting();
-    for (let day = 0; day < MAX_WORK_ATTEMPTS; day += 1) {
-      exhausted = exhausted.leased(at(day)).triedAgainLater(at(day));
+    for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
+      exhausted = exhausted.leaseJob(at(day)).scheduleRetry(at(day));
     }
 
     expect(exhausted.state).toBe('failed');
     expect(exhausted.failure).toBe(
       'Spotlight couldn’t draft the change stack.',
     );
-    expect(exhausted.owesWork).toBe(false);
+    expect(exhausted.hasPendingJob).toBe(false);
   });
 
-  it('owes no more work once it completes', () => {
+  it('has no pending job once it completes', () => {
     const ready = drafting()
-      .leased(NOW)
+      .leaseJob(NOW)
       .propose([invitations([layer('Everything', ['h1', 'h2', 'h3'])])], LATER);
 
-    expect(ready.owesWork).toBe(false);
-    expect(ready.work.attempts).toBe(0);
-    expect(ready.triedAgainLater(LATER)).toBe(ready);
-    expect(() => ready.leased(LATER)).toThrow(InvalidChangeStackError);
+    expect(ready.hasPendingJob).toBe(false);
+    expect(ready.job.attempts).toBe(0);
+    expect(ready.scheduleRetry(LATER)).toBe(ready);
+    expect(() => ready.leaseJob(LATER)).toThrow(InvalidChangeStackError);
   });
 });
 
@@ -453,7 +453,7 @@ describe('ChangeStack read back from what was stored', () => {
       facts: StackFacts.none(),
       cohorts: ready().cohorts,
       progress: ready().progress,
-      work: ready().work,
+      job: ready().job,
       spent: ModelUsage.none(),
       request: ready().request,
       reordering: false,

@@ -13,7 +13,7 @@ import { useRunConversation } from '@/hooks/api/useRunConversation';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
-import { decisionOwed } from '@/lib/inbox';
+import { decisionPending } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import { lastNoteOf } from '@/lib/run-conversation';
 
@@ -72,7 +72,7 @@ export function RunThread({
                   teamId={teamId}
                   run={run}
                   said={said}
-                  deciding={decisionOwed(said.notes)}
+                  deciding={decisionPending(said.notes)}
                 />
               ) : null
             }

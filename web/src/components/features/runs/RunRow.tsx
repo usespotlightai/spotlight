@@ -1,5 +1,5 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { RunOwedMarker } from '@/components/features/runs/RunOwedMarker';
+import { RunPendingMarker } from '@/components/features/runs/RunPendingMarker';
 import { InProgress } from '@/components/shared/InProgress';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type Run, runStatus, waitsOnPerson } from '@/lib/run';
@@ -59,7 +59,7 @@ export function RunRow({
       )}
 
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        <RunOwedMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
+        <RunPendingMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
 
         {run.state === 'claimed' && <InProgress />}
 

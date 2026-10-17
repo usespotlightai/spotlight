@@ -14,7 +14,7 @@ export interface JudgingRepository {
   // Must lock the judging until the outer transaction ends. Then a call to forget it waits until its score is kept.
   ofForScoring(runId: RunId): Promise<Judging | null>;
 
-  dueForWork(now: Date): Promise<Judging | null>;
+  nextDueJob(now: Date): Promise<Judging | null>;
 
   removeForTask(taskId: TaskId): Promise<void>;
 

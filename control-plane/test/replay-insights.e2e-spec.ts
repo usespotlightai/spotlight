@@ -346,7 +346,7 @@ const claimed = async (): Promise<Claimed | null> => {
 };
 
 const judged = async () => {
-  await app.get(WorkChangeJudgings).workDue();
+  await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
 };
 
@@ -405,7 +405,7 @@ type Plan = (replayId: string) => { score: number; cost: number };
 
 const drained = async (plan: Plan): Promise<void> => {
   for (let turn = 0; turn < 200; turn += 1) {
-    await app.get(DispatchReplayRuns).workDue();
+    await app.get(DispatchReplayRuns).processDue();
 
     if ((await queuedReplayRuns()).length === 0) {
       await judged();
@@ -446,7 +446,7 @@ const leasedSearchRun = async (
   iteration: number,
 ): Promise<Claimed> => {
   await eventually(async () => {
-    await app.get(AdvanceSearches).workDue();
+    await app.get(AdvanceSearches).processDue();
     const runs = await searchRunsOf(searchId);
 
     return runs.some(
@@ -720,7 +720,7 @@ describe('replayed candidates beside live runs', () => {
     await drained(() => ({ score: 5, cost: 0.1 }));
     expect(await replayEnded(proposed.replayId)).toBe('finished');
     await eventually(async () => {
-      await app.get(AdvanceSearches).workDue();
+      await app.get(AdvanceSearches).processDue();
       return (await searchRow(id))?.heldOut.length === 1;
     }, WITHIN);
     await drained(() => ({ score: 5, cost: 0.1 }));

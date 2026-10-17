@@ -35,7 +35,7 @@ export type Conversing = {
 
 export type RunJournal = RunJournalResponseDto;
 
-export const decisionOwed = (notes: readonly InboxMessage[]): boolean =>
+export const decisionPending = (notes: readonly InboxMessage[]): boolean =>
   notes.findLast((note) => note.kind === 'asked')?.form === 'approval';
 
 const answersTo = (notes: readonly InboxMessage[], runId: string): number[] => {

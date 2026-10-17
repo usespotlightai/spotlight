@@ -42,10 +42,10 @@ const judged = (
   });
 
 describe('Judging', () => {
-  it('owes work until it is judged', () => {
+  it('has a pending job until it is judged', () => {
     const asked = askedJudging();
 
-    expect(asked.owesWork).toBe(true);
+    expect(asked.hasPendingJob).toBe(true);
     expect(asked.pullEvents()).toEqual([]);
   });
 
@@ -53,7 +53,7 @@ describe('Judging', () => {
     const done = judged(askedJudging(), true);
     const [event] = done.pullEvents() as RunJudged[];
 
-    expect(done.owesWork).toBe(false);
+    expect(done.hasPendingJob).toBe(false);
     expect(done.judgedAt).toEqual(NOW);
     expect(event?.kind).toBe('judging.judged');
     expect(event?.value).toBe(1);
@@ -93,17 +93,17 @@ describe('Judging', () => {
     expect(event?.reasons.map((each) => each.claim)).toEqual([0, 1]);
   });
 
-  it('tries again later when every reason cites what is not there', () => {
+  it('retries later when every reason cites what is not there', () => {
     const done = judged(askedJudging(), true, [
       { text: 'Made up.', steps: [99], hunks: [] },
     ]);
 
-    expect(done.owesWork).toBe(true);
-    expect(done.work?.dueAt?.getTime()).toBeGreaterThan(NOW.getTime());
+    expect(done.hasPendingJob).toBe(true);
+    expect(done.job?.nextAttemptAt?.getTime()).toBeGreaterThan(NOW.getTime());
     expect(done.pullEvents()).toEqual([]);
   });
 
-  it('tries again later unless most of its reasons cite what the judge read', () => {
+  it('retries later unless most of its reasons cite what the judge read', () => {
     const half = judged(askedJudging(), true, [
       ...GROUNDED,
       { text: 'Made up.', steps: [99], hunks: [] },
@@ -114,8 +114,8 @@ describe('Judging', () => {
       { text: 'Made up.', steps: [99], hunks: [] },
     ]);
 
-    expect(half.owesWork).toBe(true);
-    expect(mostlyGrounded.owesWork).toBe(false);
+    expect(half.hasPendingJob).toBe(true);
+    expect(mostlyGrounded.hasPendingJob).toBe(false);
     expect((mostlyGrounded.pullEvents()[0] as RunJudged).reasons).toHaveLength(
       2,
     );
@@ -130,20 +130,20 @@ describe('Judging', () => {
     );
   });
 
-  it('tries again later when the verdict gives more than five reasons', () => {
+  it('retries later when the verdict gives more than five reasons', () => {
     const done = judged(
       askedJudging(),
       true,
       Array.from({ length: 6 }, () => GROUNDED[0] as (typeof GROUNDED)[0]),
     );
 
-    expect(done.owesWork).toBe(true);
+    expect(done.hasPendingJob).toBe(true);
   });
 
-  it('tries again later when the verdict is off the rubric’s scale', () => {
+  it('retries later when the verdict is off the rubric’s scale', () => {
     const done = judged(askedJudging(), 3);
 
-    expect(done.owesWork).toBe(true);
+    expect(done.hasPendingJob).toBe(true);
     expect(done.pullEvents()).toEqual([]);
   });
 
@@ -158,24 +158,24 @@ describe('Judging', () => {
     ).toThrow(InvalidScoreError);
   });
 
-  it('gives up where there is nothing to judge', () => {
+  it('fails where there is nothing to judge', () => {
     const done = askedJudging()
-      .leased(NOW)
+      .leaseJob(NOW)
       .failed(JudgingFailure.of('no-evidence', NOW));
 
-    expect(done.owesWork).toBe(false);
+    expect(done.hasPendingJob).toBe(false);
     expect(done.failure?.code).toBe('no-evidence');
   });
 
-  it('is leased while it is worked on, and gives up once it keeps being interrupted', () => {
+  it('is leased while it is worked on, and is dead-lettered once it keeps being interrupted', () => {
     let judging = askedJudging();
 
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      judging = judging.leased(new Date(NOW.getTime() + attempt * 3_600_000));
+      judging = judging.leaseJob(new Date(NOW.getTime() + attempt * 3_600_000));
     }
 
-    expect(judging.workExhausted).toBe(true);
-    expect(judging.gaveUp(NOW).failure?.code).toBe('interrupted');
+    expect(judging.jobExhausted).toBe(true);
+    expect(judging.deadLetter(NOW).failure?.code).toBe('interrupted');
   });
 
   it('ignores a verdict once it is done', () => {

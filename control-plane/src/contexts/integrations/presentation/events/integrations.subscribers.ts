@@ -45,7 +45,7 @@ export const integrationsSubscribers = (
     'integrations.abandon-integrations-of-disbanded-team',
     [TEAM_DISBANDED],
     (event) =>
-      abandoning.owed(
+      abandoning.pendingAbandonments(
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),

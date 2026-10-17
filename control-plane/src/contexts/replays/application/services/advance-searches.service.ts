@@ -13,9 +13,9 @@ import {
 } from '@replays/domain/services/search-reconciliation';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 
-export class AdvanceSearches implements OwedWorkPort {
+export class AdvanceSearches implements PendingJobsPort {
   readonly name = 'Advancing searches';
 
   constructor(
@@ -30,7 +30,7 @@ export class AdvanceSearches implements OwedWorkPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     for (const search of await this.searches.advancing()) {
       await this.advance(search).catch((error: unknown) =>
         this.logger.warn(

@@ -3,8 +3,8 @@ import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provi
 
 export class Provisioning {
   private constructor(
-    readonly failures: number,
-    readonly nextAt: Date | null,
+    readonly attempts: number,
+    readonly nextAttemptAt: Date | null,
     readonly exhausted = false,
   ) {}
 
@@ -12,25 +12,28 @@ export class Provisioning {
     return new Provisioning(0, null);
   }
 
-  static rehydrate(failures: number, nextAt: Date | null): Provisioning {
-    if (!Number.isInteger(failures) || failures < 0) {
+  static rehydrate(attempts: number, nextAttemptAt: Date | null): Provisioning {
+    if (!Number.isInteger(attempts) || attempts < 0) {
       throw new InconsistentStateError(
         'provisioned work',
-        `has failed to be provisioned an impossible number of times (${failures})`,
+        `has an impossible number of provision attempts (${attempts})`,
       );
     }
 
-    return new Provisioning(failures, nextAt);
+    return new Provisioning(attempts, nextAttemptAt);
   }
 
-  dueAt(now: Date): boolean {
-    return this.nextAt === null || this.nextAt.getTime() <= now.getTime();
+  isDue(now: Date): boolean {
+    return (
+      this.nextAttemptAt === null ||
+      this.nextAttemptAt.getTime() <= now.getTime()
+    );
   }
 
   recordFailure(failure: ProvisionFailure, now: Date): Provisioning {
-    const failures = this.failures + 1;
-    const next = failure.retry.after(failures, now);
+    const attempts = this.attempts + 1;
+    const next = failure.retry.nextAttemptAt(attempts, now);
 
-    return new Provisioning(failures, next, next === null);
+    return new Provisioning(attempts, next, next === null);
   }
 }

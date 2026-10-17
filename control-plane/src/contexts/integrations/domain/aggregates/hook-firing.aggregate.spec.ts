@@ -208,7 +208,7 @@ describe('HookFiring', () => {
   });
 
   describe('failing', () => {
-    it('is tried again later after a failure that may be retried', () => {
+    it('is retried later after a failure that allows a retry', () => {
       const failed = working().failedWith(
         HookFailure.of('server-error', 'was answered 503'),
         NOW,
@@ -218,7 +218,7 @@ describe('HookFiring', () => {
       expect(failed.progress).toEqual({ kind: 'pending', dueAt: later(2_000) });
       expect(failed.attempts).toBe(1);
       expect(failed.failure?.code).toBe('server-error');
-      expect(failed.retries(HookFailure.of('server-error', 'x'), NOW)).toBe(
+      expect(failed.willRetry(HookFailure.of('server-error', 'x'), NOW)).toBe(
         true,
       );
     });
@@ -377,7 +377,7 @@ describe('HookFiring', () => {
       expect(HookFiring.finishedForgettablyBefore(month)).toEqual(NOW);
     });
 
-    it('is never forgotten while still owed', () => {
+    it('is never forgotten while it is pending', () => {
       expect(kept(fired()).isForgettableAt(later(365 * 24 * 60 * 60_000))).toBe(
         false,
       );

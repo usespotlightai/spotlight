@@ -1123,7 +1123,7 @@ describe('outcomesSubscribers', () => {
     await heard.deliver('outcomes.judge-ended-run', runEnded());
 
     const judging = await heard.judgings.of(RunId.of('run_1'));
-    expect(judging?.owesWork).toBe(true);
+    expect(judging?.hasPendingJob).toBe(true);
     expect(judging?.rubric.version).toBe(RUBRIC_VERSION);
     expect(heard.judgings.stored.size).toBe(1);
   });

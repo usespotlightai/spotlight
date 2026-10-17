@@ -12,7 +12,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -52,10 +52,10 @@ const toJudging = (row: JudgingRow): Judging =>
       version: row.rubricVersion,
     }),
     askedAt: row.askedAt,
-    work: row.owed
-      ? OwedWork.rehydrate({
-          attempts: row.workAttempts,
-          dueAt: row.workDueAt,
+    job: row.pending
+      ? PendingJob.rehydrate({
+          attempts: row.jobAttempts,
+          nextAttemptAt: row.jobDueAt,
         })
       : null,
     judgedAt: row.judgedAt,
@@ -64,9 +64,9 @@ const toJudging = (row: JudgingRow): Judging =>
   });
 
 const columnsOf = (stored: Judging) => ({
-  owed: stored.work !== null,
-  workAttempts: stored.work?.attempts ?? 0,
-  workDueAt: stored.work?.dueAt ?? null,
+  pending: stored.job !== null,
+  jobAttempts: stored.job?.attempts ?? 0,
+  jobDueAt: stored.job?.nextAttemptAt ?? null,
   judgedAt: stored.judgedAt,
   failure: stored.failure?.code ?? null,
   failedAt: stored.failure?.at ?? null,
@@ -153,14 +153,14 @@ export class DrizzleJudgingRepository implements JudgingRepository {
     return row ? toJudging(row) : null;
   }
 
-  async dueForWork(now: Date): Promise<Judging | null> {
+  async nextDueJob(now: Date): Promise<Judging | null> {
     const [row] = await this.context.db
       .select()
       .from(judging)
       .where(
         and(
-          eq(judging.owed, true),
-          or(isNull(judging.workDueAt), lte(judging.workDueAt, now)),
+          eq(judging.pending, true),
+          or(isNull(judging.jobDueAt), lte(judging.jobDueAt, now)),
         ),
       )
       .orderBy(asc(judging.askedAt))

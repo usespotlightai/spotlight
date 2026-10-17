@@ -64,7 +64,7 @@ describe('ExpireWaitingChecks', () => {
       waiting('stack_2'),
     ]);
 
-    await expire.workDue();
+    await expire.processDue();
 
     expect(listed).toHaveBeenCalledWith(NOW, 50);
     expect(saved.map((each) => each.stackId.value)).toEqual([
@@ -85,7 +85,7 @@ describe('ExpireWaitingChecks', () => {
     );
     const { expire, save } = expiring([taken]);
 
-    await expire.workDue();
+    await expire.processDue();
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -101,7 +101,7 @@ describe('ExpireWaitingChecks', () => {
       ['stack_1'],
     );
 
-    await expire.workDue();
+    await expire.processDue();
 
     expect(saved.map((each) => each.stackId.value)).toEqual(['stack_2']);
   });
@@ -114,7 +114,7 @@ describe('ExpireWaitingChecks', () => {
     );
     const { expire, saved } = expiring([reserved]);
 
-    await expire.workDue();
+    await expire.processDue();
 
     expect(saved[0]?.pullEvents()).toContainEqual(
       new CheckReservationDropped(
@@ -141,7 +141,7 @@ describe('ExpireWaitingChecks', () => {
       { error: logged } as unknown as LoggerPort,
     );
 
-    await expire.workDue();
+    await expire.processDue();
 
     expect(logged).toHaveBeenCalledOnce();
     expect(saved).toEqual(['stack_2']);

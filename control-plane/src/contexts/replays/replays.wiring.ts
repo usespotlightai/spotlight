@@ -47,7 +47,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
+import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import { AddReplaySetEntryCommand } from '@replays/application/commands/add-replay-set-entry.command';
 import { DeleteReplaySetCommand } from '@replays/application/commands/delete-replay-set.command';
 import { GuardChangesCommand } from '@replays/application/commands/guard-changes.command';
@@ -952,7 +952,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
-    provide: OwedWorkWorker,
+    provide: PendingJobWorker,
     inject: [
       DispatchReplayRuns,
       AdvanceSearches,
@@ -967,7 +967,10 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       baselines: EnsureCheckBaselines,
       logger: LoggerPort,
     ) =>
-      new OwedWorkWorker([dispatching, advancing, opening, baselines], logger),
+      new PendingJobWorker(
+        [dispatching, advancing, opening, baselines],
+        logger,
+      ),
   },
   {
     provide: NoteReplayEnded,

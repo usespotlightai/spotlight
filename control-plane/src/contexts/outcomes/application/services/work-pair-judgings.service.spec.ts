@@ -95,7 +95,7 @@ const working = async (
     { report: () => undefined },
   );
 
-  await work.workDue();
+  await work.processDue();
   await work.idle();
 
   return { asked, judgings };
@@ -138,7 +138,7 @@ describe('WorkPairJudgings', () => {
     expect(event?.failure.code).toBe('no-evidence');
   });
 
-  it('keeps what the first reading cost and tries again later when the second call breaks', async () => {
+  it('keeps what the first reading cost and retries later when the second call breaks', async () => {
     let calls = 0;
     const { judgings } = await working((ask) => {
       calls += 1;
@@ -154,7 +154,7 @@ describe('WorkPairJudgings', () => {
     });
     const [judging] = [...judgings.stored.values()];
 
-    expect(judging?.owesWork).toBe(true);
+    expect(judging?.hasPendingJob).toBe(true);
     expect(judging?.spent.costs).toEqual([{ amount: 0.02, currency: 'USD' }]);
     expect(judgings.events).toEqual([]);
   });

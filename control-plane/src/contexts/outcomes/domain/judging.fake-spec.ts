@@ -174,10 +174,10 @@ export class JudgingsInMemory implements JudgingRepository {
     return this.of(runId);
   }
 
-  async dueForWork(now: Date): Promise<Judging | null> {
+  async nextDueJob(now: Date): Promise<Judging | null> {
     return (
       [...this.stored.values()]
-        .filter((each) => each.work?.dueBy(now))
+        .filter((each) => each.job?.isDue(now))
         .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
     );
   }
@@ -245,7 +245,7 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
         criteria: judging.criteria,
         reference: judging.reference,
         askedAt: judging.askedAt,
-        work: judging.work,
+        job: judging.job,
         judgedAt: judging.judgedAt,
         failure: judging.failure,
         spent: judging.spent,
@@ -258,10 +258,10 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
     return this.stored.get(keyOf(runId, round)) ?? null;
   }
 
-  async dueForWork(now: Date): Promise<ChangeJudging | null> {
+  async nextDueJob(now: Date): Promise<ChangeJudging | null> {
     return (
       [...this.stored.values()]
-        .filter((each) => each.work?.dueBy(now))
+        .filter((each) => each.job?.isDue(now))
         .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
     );
   }
@@ -326,7 +326,7 @@ export class PairJudgingsInMemory implements PairJudgingRepository {
         maxAttempts: judging.maxAttempts,
         order: judging.order,
         askedAt: judging.askedAt,
-        work: judging.work,
+        job: judging.job,
         judgedAt: judging.judgedAt,
         failure: judging.failure,
         spent: judging.spent,
@@ -339,10 +339,10 @@ export class PairJudgingsInMemory implements PairJudgingRepository {
     return this.stored.get(pairKeyOf(runId, against)) ?? null;
   }
 
-  async dueForWork(now: Date): Promise<PairJudging | null> {
+  async nextDueJob(now: Date): Promise<PairJudging | null> {
     return (
       [...this.stored.values()]
-        .filter((each) => each.work?.dueBy(now))
+        .filter((each) => each.job?.isDue(now))
         .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
     );
   }

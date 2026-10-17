@@ -116,9 +116,9 @@ describe('ListTaskRunsHandler', () => {
     expect(found?.exitCode).toBeNull();
   });
 
-  it('carries that a run is still owed an answer, and where it is answered', async () => {
+  it('carries that the answer for a run is still pending, and where it is answered', async () => {
     const { runs } = reading([
-      summary({ review: { state: 'owed', conversationId: 'task_1:5' } }),
+      summary({ review: { state: 'pending', conversationId: 'task_1:5' } }),
     ]);
 
     const [found] = await new ListTaskRunsHandler(runs).execute(
@@ -126,7 +126,7 @@ describe('ListTaskRunsHandler', () => {
     );
 
     expect(found?.review).toEqual({
-      state: 'owed',
+      state: 'pending',
       conversationId: 'task_1:5',
     });
   });

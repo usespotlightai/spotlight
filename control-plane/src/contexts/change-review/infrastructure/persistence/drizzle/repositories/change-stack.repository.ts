@@ -22,7 +22,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -53,9 +53,9 @@ const toChangeStack = (row: Row): ChangeStack =>
     facts: factsOf(row.facts),
     cohorts: cohortsOf(row.cohorts),
     progress: progressOf(row),
-    work: OwedWork.rehydrate({
-      attempts: row.workAttempts,
-      dueAt: row.workDueAt,
+    job: PendingJob.rehydrate({
+      attempts: row.jobAttempts,
+      nextAttemptAt: row.jobDueAt,
     }),
     request: row.checkCommand
       ? CheckRequest.of(
@@ -105,8 +105,8 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       draftedAt: added.draftedAt,
       completedAt: added.completedAt,
       facts: factRows(added.facts),
-      workAttempts: added.work.attempts,
-      workDueAt: added.work.dueAt,
+      jobAttempts: added.job.attempts,
+      jobDueAt: added.job.nextAttemptAt,
       checkCommand: added.request?.command ?? null,
       checkSetup: added.request?.setup ?? null,
       checkPlacement: added.request?.placement.clauses ?? [],
@@ -133,8 +133,8 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
         cohorts: cohortRows(saved.cohorts),
         failure: saved.failure,
         completedAt: saved.completedAt,
-        workAttempts: saved.work.attempts,
-        workDueAt: saved.work.dueAt,
+        jobAttempts: saved.job.attempts,
+        jobDueAt: saved.job.nextAttemptAt,
         reordering: saved.reordering,
         spent: usageRow(saved.spent),
       })
@@ -171,7 +171,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
     return rows.map(toChangeStack);
   }
 
-  async dueForWork(now: Date): Promise<ChangeStack | null> {
+  async nextDueJob(now: Date): Promise<ChangeStack | null> {
     const [row] = await this.context.db
       .select()
       .from(changeStack)
@@ -181,7 +181,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
             eq(changeStack.state, 'drafting'),
             eq(changeStack.reordering, true),
           ),
-          or(isNull(changeStack.workDueAt), lte(changeStack.workDueAt, now)),
+          or(isNull(changeStack.jobDueAt), lte(changeStack.jobDueAt, now)),
         ),
       )
       .orderBy(asc(changeStack.draftedAt))

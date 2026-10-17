@@ -112,8 +112,8 @@ CREATE TABLE "change_stack" (
 	"check_placement_image" text,
 	"reordering" boolean DEFAULT false NOT NULL,
 	"spent" jsonb NOT NULL,
-	"work_attempts" integer DEFAULT 0 NOT NULL,
-	"work_due_at" timestamp,
+	"job_attempts" integer DEFAULT 0 NOT NULL,
+	"job_due_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -145,8 +145,8 @@ CREATE TABLE "decision_set" (
 	"decided_in" text,
 	"draft_run_id" text,
 	"draft_asked_at" timestamp,
-	"work_attempts" integer DEFAULT 0 NOT NULL,
-	"work_due_at" timestamp,
+	"job_attempts" integer DEFAULT 0 NOT NULL,
+	"job_due_at" timestamp,
 	"status" "decision_status" DEFAULT 'proposed' NOT NULL,
 	"merged_repository" text,
 	"merged_commit" text,
@@ -234,8 +234,8 @@ CREATE TABLE "stack_check" (
 	"reserved_for" text,
 	"reserved_pool" text,
 	"reserved_until" timestamp,
-	"provision_failures" integer DEFAULT 0 NOT NULL,
-	"next_provision_at" timestamp,
+	"provision_attempts" integer DEFAULT 0 NOT NULL,
+	"next_provision_attempt_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "stack_check_stack_id_recheck_pk" PRIMARY KEY("stack_id","recheck")
 );
@@ -613,8 +613,8 @@ CREATE TABLE "memory_draft" (
 	"workspace_id" text NOT NULL,
 	"drafting_run_id" text,
 	"drafting_asked_at" timestamp,
-	"work_attempts" integer DEFAULT 0 NOT NULL,
-	"work_due_at" timestamp,
+	"job_attempts" integer DEFAULT 0 NOT NULL,
+	"job_due_at" timestamp,
 	"drafted_in" text,
 	"notes_read" integer DEFAULT 0 NOT NULL,
 	"failure" "memory_drafting_failure",
@@ -665,9 +665,9 @@ CREATE TABLE "change_judging" (
 	"reference_run_id" text,
 	"spent" jsonb NOT NULL,
 	"asked_at" timestamp NOT NULL,
-	"owed" boolean NOT NULL,
-	"work_attempts" integer DEFAULT 0 NOT NULL,
-	"work_due_at" timestamp,
+	"pending" boolean NOT NULL,
+	"job_attempts" integer DEFAULT 0 NOT NULL,
+	"job_due_at" timestamp,
 	"judged_at" timestamp,
 	"failure" "judging_failure",
 	"failed_at" timestamp,
@@ -719,9 +719,9 @@ CREATE TABLE "judging" (
 	"pass_share" double precision NOT NULL,
 	"rubric_version" text NOT NULL,
 	"asked_at" timestamp NOT NULL,
-	"owed" boolean NOT NULL,
-	"work_attempts" integer DEFAULT 0 NOT NULL,
-	"work_due_at" timestamp,
+	"pending" boolean NOT NULL,
+	"job_attempts" integer DEFAULT 0 NOT NULL,
+	"job_due_at" timestamp,
 	"judged_at" timestamp,
 	"failure" "judging_failure",
 	"failed_at" timestamp,
@@ -741,9 +741,9 @@ CREATE TABLE "pair_judging" (
 	"shown_order" "pair_order" NOT NULL,
 	"spent" jsonb NOT NULL,
 	"asked_at" timestamp NOT NULL,
-	"owed" boolean NOT NULL,
-	"work_attempts" integer DEFAULT 0 NOT NULL,
-	"work_due_at" timestamp,
+	"pending" boolean NOT NULL,
+	"job_attempts" integer DEFAULT 0 NOT NULL,
+	"job_due_at" timestamp,
 	"judged_at" timestamp,
 	"failure" "judging_failure",
 	"failed_at" timestamp,
@@ -1609,8 +1609,8 @@ CREATE TABLE "run" (
 	"reserved_for" text,
 	"reserved_pool" text,
 	"reserved_until" timestamp,
-	"provision_failures" integer DEFAULT 0 NOT NULL,
-	"next_provision_at" timestamp,
+	"provision_attempts" integer DEFAULT 0 NOT NULL,
+	"next_provision_attempt_at" timestamp,
 	"requeue_count" integer DEFAULT 0 NOT NULL,
 	"suspended_attempts" integer[] DEFAULT '{}'::integer[] NOT NULL,
 	"briefed_memories" jsonb DEFAULT '{"briefed":[],"cut":[]}'::jsonb NOT NULL,
@@ -1823,7 +1823,7 @@ ALTER TABLE "task_attachment" ADD CONSTRAINT "task_attachment_task_id_task_id_fk
 ALTER TABLE "task_mark" ADD CONSTRAINT "task_mark_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_note" ADD CONSTRAINT "task_note_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "event_delivery_due_idx" ON "event_delivery" USING btree ("due_at");--> statement-breakpoint
-CREATE INDEX "event_delivery_owed_idx" ON "event_delivery" USING btree ("subscriber") WHERE "event_delivery"."delivered_at" is null;--> statement-breakpoint
+CREATE INDEX "event_delivery_pending_idx" ON "event_delivery" USING btree ("subscriber") WHERE "event_delivery"."delivered_at" is null;--> statement-breakpoint
 CREATE INDEX "catalog_call_workspace_called_idx" ON "catalog_call" USING btree ("workspace_id","called_at");--> statement-breakpoint
 CREATE INDEX "change_stack_run_idx" ON "change_stack" USING btree ("run_id","drafted_at");--> statement-breakpoint
 CREATE INDEX "change_stack_task_idx" ON "change_stack" USING btree ("task_id","drafted_at");--> statement-breakpoint
@@ -1875,16 +1875,16 @@ CREATE INDEX "memory_draft_drafting_idx" ON "memory_draft" USING btree ("draftin
 CREATE UNIQUE INDEX "memory_proposal_position_idx" ON "memory_proposal" USING btree ("draft_id","position");--> statement-breakpoint
 CREATE INDEX "memory_proposal_decided_idx" ON "memory_proposal" USING btree ("team_id","state","decided_at");--> statement-breakpoint
 CREATE INDEX "memory_use_run_idx" ON "memory_use" USING btree ("run_id","at");--> statement-breakpoint
-CREATE INDEX "change_judging_owed_idx" ON "change_judging" USING btree ("asked_at") WHERE "change_judging"."owed";--> statement-breakpoint
+CREATE INDEX "change_judging_pending_idx" ON "change_judging" USING btree ("asked_at") WHERE "change_judging"."pending";--> statement-breakpoint
 CREATE INDEX "change_judging_workspace_idx" ON "change_judging" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "chat_record_team_idx" ON "chat_record" USING btree ("team_id","started_at");--> statement-breakpoint
 CREATE INDEX "chat_record_workspace_idx" ON "chat_record" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "forgotten_pull_request_updated_idx" ON "forgotten_pull_request" USING btree ("updated_at");--> statement-breakpoint
 CREATE INDEX "forgotten_task_workspace_idx" ON "forgotten_task" USING btree ("workspace_id");--> statement-breakpoint
-CREATE INDEX "judging_owed_idx" ON "judging" USING btree ("asked_at") WHERE "judging"."owed";--> statement-breakpoint
+CREATE INDEX "judging_pending_idx" ON "judging" USING btree ("asked_at") WHERE "judging"."pending";--> statement-breakpoint
 CREATE INDEX "judging_task_idx" ON "judging" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "judging_workspace_idx" ON "judging" USING btree ("workspace_id","team_id");--> statement-breakpoint
-CREATE INDEX "pair_judging_owed_idx" ON "pair_judging" USING btree ("asked_at") WHERE "pair_judging"."owed";--> statement-breakpoint
+CREATE INDEX "pair_judging_pending_idx" ON "pair_judging" USING btree ("asked_at") WHERE "pair_judging"."pending";--> statement-breakpoint
 CREATE INDEX "pair_judging_workspace_idx" ON "pair_judging" USING btree ("workspace_id","team_id");--> statement-breakpoint
 CREATE INDEX "pull_request_record_opened_idx" ON "pull_request_record" USING btree ("workspace_id","opened_at");--> statement-breakpoint
 CREATE INDEX "pull_request_record_repository_idx" ON "pull_request_record" USING btree ("workspace_id","repository");--> statement-breakpoint

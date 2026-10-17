@@ -457,19 +457,19 @@ describe('Task, what it is doing', () => {
     });
   });
 
-  describe('what a person is owed', () => {
-    it('owes nobody until it is put to someone', () => {
+  describe('what waits for a person', () => {
+    it('waits for nobody until it is put to someone', () => {
       expect(added().openConversation).toBeNull();
     });
 
-    it('owes an ending once it has been put to someone', () => {
+    it('waits for an ending once it has been put to someone', () => {
       expect(added().askedAbout(saying, null).openConversation).toEqual({
         from: 0,
         to: null,
       });
     });
 
-    it('still owes it after an answer', () => {
+    it('still waits for it after an answer', () => {
       const asked = added()
         .askedAbout(saying, null)
         .answer(NotePosition.of(0), saying);
@@ -477,7 +477,7 @@ describe('Task, what it is doing', () => {
       expect(asked.openConversation).not.toBeNull();
     });
 
-    it('owes nothing once it has moved on', () => {
+    it('waits for nothing once it has moved on', () => {
       const passed = added()
         .askedAbout(saying, null)
         .react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying);
@@ -1798,7 +1798,7 @@ describe('Task and the happenings heard while it has a current run', () => {
       'asked',
     ]);
     expect(interrupted.awaitingReview).toBe(true);
-    expect(interrupted.owesADecision).toBe(false);
+    expect(interrupted.decisionPending).toBe(false);
     expect(interrupted.deferredMoveTo).toBeNull();
   });
 

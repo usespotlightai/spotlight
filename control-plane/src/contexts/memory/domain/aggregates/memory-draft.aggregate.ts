@@ -17,7 +17,7 @@ import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-draft
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { OwesWork } from '@shared-kernel/domain/owes-work';
+import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -31,7 +31,7 @@ const runsOf = (proposals: readonly MemoryProposal[]): RunId[] =>
 
 export class MemoryDraft
   extends EventRecorder
-  implements OwesWork<MemoryDraft>
+  implements HasPendingJob<MemoryDraft>
 {
   private constructor(
     readonly id: MemoryDraftId,
@@ -115,12 +115,12 @@ export class MemoryDraft
     );
   }
 
-  get owesWork(): boolean {
+  get hasPendingJob(): boolean {
     return this.drafting !== null;
   }
 
-  get workExhausted(): boolean {
-    return this.drafting?.work.exhausted ?? false;
+  get jobExhausted(): boolean {
+    return this.drafting?.job.exhausted ?? false;
   }
 
   reads(position: number): boolean {
@@ -140,24 +140,24 @@ export class MemoryDraft
     return asked;
   }
 
-  leased(now: Date): MemoryDraft {
+  leaseJob(now: Date): MemoryDraft {
     if (!this.drafting) {
       throw InvalidMemoryError.ofDraft('has no run to draft memories from');
     }
-    if (!this.drafting.work.dueBy(now) || this.drafting.work.exhausted) {
+    if (!this.drafting.job.isDue(now) || this.drafting.job.exhausted) {
       throw InvalidMemoryError.ofDraft('cannot be drafted again yet');
     }
 
     return this.with({
-      drafting: this.drafting.withWork(this.drafting.work.leased(now)),
+      drafting: this.drafting.withJob(this.drafting.job.lease(now)),
     });
   }
 
-  triedAgainLater(now: Date): MemoryDraft {
+  scheduleRetry(now: Date): MemoryDraft {
     return this.failed(MemoryDraftingFailure.of('errored', now));
   }
 
-  gaveUp(now: Date): MemoryDraft {
+  deadLetter(now: Date): MemoryDraft {
     return this.ended(MemoryDraftingFailure.of('interrupted', now));
   }
 
@@ -166,12 +166,15 @@ export class MemoryDraft
       return this;
     }
 
-    const next = failure.retry.after(this.drafting.work.attempts, failure.at);
+    const next = failure.retry.nextAttemptAt(
+      this.drafting.job.attempts,
+      failure.at,
+    );
 
     return next
       ? this.with({
-          drafting: this.drafting.withWork(
-            this.drafting.work.waitingUntil(next),
+          drafting: this.drafting.withJob(
+            this.drafting.job.scheduleRetryAt(next),
           ),
         })
       : this.ended(failure);

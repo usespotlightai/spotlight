@@ -557,7 +557,7 @@ describe('FireHooks.workOne', () => {
     );
   });
 
-  it('gives up after the last attempt', async () => {
+  it('fails the firing after the last attempt', async () => {
     const { hooked, last } = setUp(
       [hookNamed('audit', ['a'])],
       () => failed('a'),
@@ -570,7 +570,7 @@ describe('FireHooks.workOne', () => {
     expect(last()?.failure?.code).toBe('server-error');
   });
 
-  it('gives up at once on a failure that may not be retried', async () => {
+  it('fails the firing at once on a failure that allows no retry', async () => {
     const { hooked, last } = setUp(
       [hookNamed('audit', ['a'])],
       () => failed('a', 'was answered 404', 'rejected'),
@@ -596,7 +596,7 @@ describe('FireHooks.workOne', () => {
     expect(last()?.progress).toEqual({ kind: 'superseded', at: NOW });
   });
 
-  it('asks nothing of the task while the firing will be tried again', async () => {
+  it('asks nothing of the task while the firing waits for a retry', async () => {
     const { hooked, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => failed('a'),

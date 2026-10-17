@@ -55,7 +55,7 @@ const reacting = (stored: readonly ReviewComment[] = []) => {
 };
 
 describe('ReviewReactions', () => {
-  it('owes GitHub a post of its own for each comment on a whole file', async () => {
+  it('sends GitHub a post of its own for each comment on a whole file', async () => {
     const { reactions, enqueue } = reacting();
 
     await reactions.onPosted(
@@ -120,7 +120,7 @@ describe('ReviewReactions', () => {
     expect(comments.get('comment_3')?.state).toBe('submitted');
   });
 
-  it('owes GitHub an edit made while the review was on its way', async () => {
+  it('has an edit to send to GitHub that was made while the review was on its way', async () => {
     const sending = draft('comment_1')
       .submittedIn(REVIEW)
       .rewritten('Clearer', ADA, NOW);

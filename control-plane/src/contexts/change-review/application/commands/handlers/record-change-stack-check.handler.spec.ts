@@ -95,7 +95,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     add: async () => undefined,
     save: async () => undefined,
     find: async () => stack,
-    dueForWork: async () => null,
+    nextDueJob: async () => null,
     removeForTask: async () => undefined,
     ofRun: async () => [],
   };

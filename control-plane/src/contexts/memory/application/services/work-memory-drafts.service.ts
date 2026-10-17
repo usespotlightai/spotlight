@@ -23,9 +23,9 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
+import { JobLoop } from '@shared-kernel/application/services/job-loop';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const MAX_DRAFTS_AT_ONCE = 4;
@@ -40,10 +40,10 @@ const known = (each: {
   body: each.body.value,
 });
 
-export class WorkMemoryDrafts implements OwedWorkPort {
+export class WorkMemoryDrafts implements PendingJobsPort {
   readonly name = 'Drafting memories';
 
-  readonly #pool: OwedWorkPool<MemoryDraft, TaskId>;
+  readonly #loop: JobLoop<MemoryDraft, TaskId>;
 
   constructor(
     private readonly drafts: MemoryDraftRepository,
@@ -57,11 +57,11 @@ export class WorkMemoryDrafts implements OwedWorkPort {
     logger: LoggerPort,
     reports: ErrorReportsPort,
   ) {
-    this.#pool = new OwedWorkPool<MemoryDraft, TaskId>(
+    this.#loop = new JobLoop<MemoryDraft, TaskId>(
       {
         name: this.name,
-        maxAtOnce: MAX_DRAFTS_AT_ONCE,
-        due: (now) => this.drafts.dueForWork(now),
+        batchSize: MAX_DRAFTS_AT_ONCE,
+        due: (now) => this.drafts.nextDueJob(now),
         find: (taskId) => this.drafts.forTask(taskId),
         save: (draft) => this.drafts.save(draft),
         keyOf: (draft) => draft.taskId,
@@ -71,9 +71,9 @@ export class WorkMemoryDrafts implements OwedWorkPort {
           runId: draft.drafting?.runId.value,
         }),
         about: (draft) => ({
-          attempts: draft.drafting?.work.attempts,
+          attempts: draft.drafting?.job.attempts,
         }),
-        worked: (draft) => this.drafted(draft),
+        process: (draft) => this.drafted(draft),
         stale: (error) => error instanceof MemoryDraftVersionConflictError,
       },
       transaction,
@@ -83,12 +83,12 @@ export class WorkMemoryDrafts implements OwedWorkPort {
     );
   }
 
-  workDue(): Promise<void> {
-    return this.#pool.workDue();
+  processDue(): Promise<void> {
+    return this.#loop.processDue();
   }
 
   idle(): Promise<void> {
-    return this.#pool.idle();
+    return this.#loop.idle();
   }
 
   private async drafted(draft: MemoryDraft): Promise<MemoryDraft> {

@@ -169,7 +169,7 @@ describe('PausedRuns', () => {
     expect(saved[0]?.state).toBe('queued');
   });
 
-  it('leaves the run waiting while the person still owes an answer', async () => {
+  it('leaves the run waiting while an answer from the person is still pending', async () => {
     const { takeUp, saved } = taking(asked(), waiting());
 
     await takeUp();

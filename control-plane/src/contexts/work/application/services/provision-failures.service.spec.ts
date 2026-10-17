@@ -74,7 +74,7 @@ describe('ProvisionFailures', () => {
       NOON,
     );
 
-    expect(failed?.provisioning.failures).toBe(1);
+    expect(failed?.provisioning.attempts).toBe(1);
     expect(current().reservation).toBeNull();
     expect(current().state).toBe('queued');
   });
@@ -172,7 +172,7 @@ describe('ProvisionFailures', () => {
     await failures.unreserved(RunId.of('run_1'), POOLED);
 
     expect(current().reservation).toBeNull();
-    expect(current().provisioning.failures).toBe(0);
+    expect(current().provisioning.attempts).toBe(0);
   });
 
   it('leaves a run with no reservation alone when unreserved', async () => {

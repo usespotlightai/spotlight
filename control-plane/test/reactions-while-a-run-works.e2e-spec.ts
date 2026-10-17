@@ -389,7 +389,7 @@ describe('a pull request merged while a run works on the task (e2e)', () => {
     const asked = await found(task.id);
     expect(asked.currentRunId).toBeNull();
     expect(asked.awaitingReview).toBe(true);
-    expect(asked.owesADecision).toBe(false);
+    expect(asked.decisionPending).toBe(false);
     expect(asked.notes[asked.notes.length - 1]?.body.value).toBe(question);
   });
 

@@ -13,8 +13,10 @@ describe('ProvisionFailure', () => {
     ['not-allowed', false],
     ['unusable', false],
     ['harness-missing', false],
-  ])('states whether a %s failure may be retried (%s)', (kind, retries) => {
-    expect(ProvisionFailure.of(kind, 'why').retry.retries).toBe(retries);
+  ])('states whether a %s failure may be retried (%s)', (kind, allowsRetry) => {
+    expect(ProvisionFailure.of(kind, 'why').retry.allowsRetry).toBe(
+      allowsRetry,
+    );
   });
 
   it('knows no kind it does not state a retry for', () => {

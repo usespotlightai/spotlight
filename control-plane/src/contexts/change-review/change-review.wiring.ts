@@ -183,7 +183,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
+import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
   type ClockPort,
@@ -533,7 +533,7 @@ const services: Provider[] = [
       ),
   },
   {
-    provide: OwedWorkWorker,
+    provide: PendingJobWorker,
     inject: [
       WorkChangeStacks,
       WorkDecisionSets,
@@ -548,7 +548,7 @@ const services: Provider[] = [
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
-      new OwedWorkWorker(
+      new PendingJobWorker(
         [stacks, decisions, new ExpireWaitingChecks(checks, clock, logger)],
         logger,
       ),

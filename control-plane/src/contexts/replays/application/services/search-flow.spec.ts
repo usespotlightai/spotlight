@@ -621,7 +621,7 @@ describe('a search’s iterations', () => {
     expect(theSearch().iterations[0]?.current).toBe('wanted');
 
     work.dispatchSearch = dispatch;
-    await advancing().workDue();
+    await advancing().processDue();
 
     expect(theSearch().iterations[0]?.current).toBe('running');
     expect(work.searchesDispatched).toHaveLength(1);
@@ -1153,7 +1153,7 @@ describe('AdvanceSearches', () => {
       endedAt: new Date(NOW.getTime() - 16 * 60_000),
     });
 
-    await advancing().workDue();
+    await advancing().processDue();
 
     const iteration = theSearch().iterations[0];
 
@@ -1175,14 +1175,14 @@ describe('AdvanceSearches', () => {
 
     work.unclaimed = { outcome: 'claimed' };
 
-    await advancing().workDue();
+    await advancing().processDue();
 
     expect(theSearch().iterations[1]?.current).toBe('running');
     expect(theSearch().iterations[1]?.agentSpent).toBeNull();
 
     work.unclaimed = { outcome: 'cancelled', started: true };
 
-    await advancing().workDue();
+    await advancing().processDue();
 
     expect(work.cancelledUnclaimed).toEqual([second?.value]);
     expect(theSearch().iterations[1]?.current).toBe('failed');
@@ -1205,7 +1205,7 @@ describe('AdvanceSearches', () => {
       endedAt: null,
     });
 
-    await advancing().workDue();
+    await advancing().processDue();
 
     expect(work.cancelledUnclaimed).toEqual([first]);
     expect(theSearch().iterations[0]?.current).toBe('failed');
@@ -1247,7 +1247,7 @@ describe('AdvanceSearches', () => {
 
     memory.replays.delete(proposed.replayId);
 
-    await advancing().workDue();
+    await advancing().processDue();
 
     expect(theSearch().proposals[0]?.replay.end).toBe('abandoned');
     expect(theSearch().proposals[0]?.replay.spent?.amount).toBe(0);
@@ -1271,7 +1271,7 @@ describe('AdvanceSearches', () => {
 
     expect(memory.replays.get(proposed.replayId)?.current).toBe('queued');
 
-    await advancing().workDue();
+    await advancing().processDue();
 
     expect(memory.replays.get(proposed.replayId)?.current).toBe('stopped');
   });

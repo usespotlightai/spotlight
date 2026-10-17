@@ -162,7 +162,7 @@ describe('Task', () => {
 
     it('marks each run that put the task to a person', () => {
       worked.mockReturnValue([
-        run({ review: { state: 'owed', conversationId: 'task_1:5' } }),
+        run({ review: { state: 'pending', conversationId: 'task_1:5' } }),
         run({ id: 'run_2' }),
         run({
           id: 'run_3',
@@ -179,7 +179,7 @@ describe('Task', () => {
       worked.mockReturnValue([
         run({
           id: 'run_7',
-          review: { state: 'owed', conversationId: 'task_1:5' },
+          review: { state: 'pending', conversationId: 'task_1:5' },
         }),
       ]);
       renderAt('task_1');
@@ -199,7 +199,7 @@ describe('Task', () => {
     it('puts the asking above the run that raised it', () => {
       worked.mockReturnValue([
         run({ id: 'run_2' }),
-        run({ review: { state: 'owed', conversationId: 'task_1:5' } }),
+        run({ review: { state: 'pending', conversationId: 'task_1:5' } }),
       ]);
       renderAt('task_1');
 

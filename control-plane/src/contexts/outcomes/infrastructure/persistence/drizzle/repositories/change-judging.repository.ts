@@ -16,7 +16,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -61,10 +61,10 @@ const toChangeJudging = (row: Row): ChangeJudging =>
     }),
     reference: row.referenceRunId ? RunId.of(row.referenceRunId) : null,
     askedAt: row.askedAt,
-    work: row.owed
-      ? OwedWork.rehydrate({
-          attempts: row.workAttempts,
-          dueAt: row.workDueAt,
+    job: row.pending
+      ? PendingJob.rehydrate({
+          attempts: row.jobAttempts,
+          nextAttemptAt: row.jobDueAt,
         })
       : null,
     judgedAt: row.judgedAt,
@@ -74,9 +74,9 @@ const toChangeJudging = (row: Row): ChangeJudging =>
   });
 
 const columnsOf = (stored: ChangeJudging) => ({
-  owed: stored.work !== null,
-  workAttempts: stored.work?.attempts ?? 0,
-  workDueAt: stored.work?.dueAt ?? null,
+  pending: stored.job !== null,
+  jobAttempts: stored.job?.attempts ?? 0,
+  jobDueAt: stored.job?.nextAttemptAt ?? null,
   judgedAt: stored.judgedAt,
   failure: stored.failure?.code ?? null,
   failedAt: stored.failure?.at ?? null,
@@ -164,17 +164,14 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
     return row ? toChangeJudging(row) : null;
   }
 
-  async dueForWork(now: Date): Promise<ChangeJudging | null> {
+  async nextDueJob(now: Date): Promise<ChangeJudging | null> {
     const [row] = await this.context.db
       .select()
       .from(changeJudging)
       .where(
         and(
-          eq(changeJudging.owed, true),
-          or(
-            isNull(changeJudging.workDueAt),
-            lte(changeJudging.workDueAt, now),
-          ),
+          eq(changeJudging.pending, true),
+          or(isNull(changeJudging.jobDueAt), lte(changeJudging.jobDueAt, now)),
         ),
       )
       .orderBy(asc(changeJudging.askedAt))

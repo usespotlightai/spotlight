@@ -718,7 +718,7 @@ describe('UseToolHandler', () => {
     ]);
   });
 
-  it('asks once while a person still owes an answer', async () => {
+  it('asks once while an answer from a person is still pending', async () => {
     const { reach, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
     });

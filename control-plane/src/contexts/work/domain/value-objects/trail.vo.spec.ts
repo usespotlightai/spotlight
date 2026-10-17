@@ -32,12 +32,12 @@ const trail = (...notes: TaskNote[]) =>
   );
 
 describe('Trail', () => {
-  it('owes an answer while nobody has given one', () => {
-    expect(trail(said('passed'), said('asked')).owed).toEqual({
+  it('keeps the answer pending while nobody has given one', () => {
+    expect(trail(said('passed'), said('asked')).pending).toEqual({
       from: 1,
       to: null,
     });
-    expect(trail(said('asked'), said('answered')).owed).toBeNull();
+    expect(trail(said('asked'), said('answered')).pending).toBeNull();
   });
 
   it('keeps what was said in one conversation, whole', () => {

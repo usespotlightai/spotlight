@@ -91,7 +91,7 @@ describe('TaskBindings', () => {
     });
   });
 
-  it('carries the question a person is owed an answer to', async () => {
+  it('carries the question whose answer is pending', async () => {
     const asked = task().askedAbout(
       {
         station: StationName.of('Triage'),
@@ -109,7 +109,7 @@ describe('TaskBindings', () => {
     expect(bound?.waiting?.awaitsApproval).toBe(false);
   });
 
-  it('says when what a person is owed is a tool call to approve', async () => {
+  it('says when the pending answer is the approval of a tool call', async () => {
     const asked = Task.rehydrate({
       ...task(),
       currentRunId: RunId.of('run_1'),

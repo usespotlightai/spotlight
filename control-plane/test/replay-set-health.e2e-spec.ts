@@ -382,9 +382,9 @@ const entryOf = async (runId: string) => {
 };
 
 const worked = async () => {
-  await app.get(WorkChangeStacks).workDue();
+  await app.get(WorkChangeStacks).processDue();
   await app.get(WorkChangeStacks).idle();
-  await app.get(WorkChangeJudgings).workDue();
+  await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
 };
 
@@ -502,7 +502,7 @@ const workUntil = async (
   plan: Plan,
 ) => {
   for (let turn = 0; turn < 400; turn += 1) {
-    await app.get(DispatchReplayRuns).workDue();
+    await app.get(DispatchReplayRuns).processDue();
     await worked();
 
     if (done(await entriesOf(replayIds))) {

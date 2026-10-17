@@ -283,7 +283,7 @@ export class FireHooks {
     failure: HookFailure,
   ): Promise<void> {
     const now = this.clock.now();
-    const movedOn = firing.retries(failure, now)
+    const movedOn = firing.willRetry(failure, now)
       ? false
       : await this.notes.movedOn(firing.taskId, firing.stationKey);
 

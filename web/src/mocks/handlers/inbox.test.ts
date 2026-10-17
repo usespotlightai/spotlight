@@ -92,7 +92,7 @@ describe('the mock inbox', () => {
     );
   });
 
-  it('answers a question, and the review it owed is answered', async () => {
+  it('answers a question, and its pending review is answered', async () => {
     await answerInboxItem({
       path: { slug: SLUG, itemId: 'task_rate_limits:0' },
       body: { body: 'Per API key.' },

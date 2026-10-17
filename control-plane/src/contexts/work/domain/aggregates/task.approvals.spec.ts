@@ -138,7 +138,7 @@ describe('clearing a tool call that needs approval', () => {
     expect(task.working).toBe(false);
   });
 
-  it('asks nothing more while a person still owes an answer, so the run waits for it', () => {
+  it('asks nothing more while an answer from a person is still pending, so the run waits for it', () => {
     const { asked } = askedOnce();
     const other = ApprovalSubject.toolCall(
       ToolCall.of(Tool.of('linear.close'), ToolInputs.of({ issue: 'ENG-12' })),
@@ -150,7 +150,7 @@ describe('clearing a tool call that needs approval', () => {
     expect(again.task.notes).toHaveLength(asked.notes.length);
   });
 
-  it('keeps what the agent first said it wants to do while a person still owes an answer', () => {
+  it('keeps what the agent first said it wants to do while an answer from a person is still pending', () => {
     const asked = working().clearFor(
       CALL,
       NEEDED,

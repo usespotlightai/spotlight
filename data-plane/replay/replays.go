@@ -117,7 +117,7 @@ const (
 	maxRepeats  = 5
 )
 
-func backedOff(every time.Duration, failures int) time.Duration {
+func retryDelay(every time.Duration, failures int) time.Duration {
 	wait := every << failures
 	if wait <= 0 || wait > maxBackoff {
 		return maxBackoff
@@ -332,7 +332,7 @@ func (c *cli) watch(args []string) error {
 			if !*flags.json {
 				fmt.Fprintf(c.out, "could not ask (%v); asking again\n", err)
 			}
-			c.sleep(backedOff(*every, failures))
+			c.sleep(retryDelay(*every, failures))
 			continue
 		}
 		failures = 0

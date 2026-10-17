@@ -16,7 +16,7 @@ const run = (state: Run['state'], review: Run['review'] = null) =>
     review,
   }) as unknown as Run;
 
-const OWED = { state: 'owed', conversationId: 'task_1:3' } as const;
+const PENDING = { state: 'pending', conversationId: 'task_1:3' } as const;
 
 const shown = (ui: React.ReactNode) => {
   const { container } = render(<MemoryRouter>{ui}</MemoryRouter>);
@@ -73,7 +73,7 @@ describe('RunRow, what a run is doing', () => {
   it('leads from waiting for you to where the person answers', () => {
     shown(
       <RunRow
-        run={run('waiting', OWED)}
+        run={run('waiting', PENDING)}
         to="/runs/run_1"
         reviewTo="/inbox/task_1:3"
       />,
@@ -84,10 +84,10 @@ describe('RunRow, what a run is doing', () => {
     ).toHaveAttribute('href', '/inbox/task_1:3');
   });
 
-  it('says waiting for you for a run that is over and still owed an answer', () => {
+  it('says waiting for you for a run that is over and still waits for an answer', () => {
     shown(
       <RunRow
-        run={run('completed', OWED)}
+        run={run('completed', PENDING)}
         to="/runs/run_1"
         reviewTo="/inbox/task_1:3"
       />,

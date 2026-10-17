@@ -14,7 +14,7 @@ import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-
 import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { MAX_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -157,7 +157,7 @@ describe('a decision set, asked to draft', () => {
   it('drafts the run that asked', () => {
     const asked = opened().asked(FIRST, NOW);
 
-    expect(asked.owesWork).toBe(true);
+    expect(asked.hasPendingJob).toBe(true);
     expect(asked.draft?.isFor(FIRST)).toBe(true);
     expect(kinds(asked)).toEqual(['decisions.asked']);
   });
@@ -175,7 +175,7 @@ describe('a decision set, asked to draft', () => {
 
     const again = drafted.asked(FIRST, NOW);
 
-    expect(again.owesWork).toBe(false);
+    expect(again.hasPendingJob).toBe(false);
     expect(kinds(again)).toEqual([]);
   });
 
@@ -193,7 +193,7 @@ describe('a decision set, asked to draft', () => {
 
     const asked = merged.asked(SECOND, NOW);
 
-    expect(asked.owesWork).toBe(false);
+    expect(asked.hasPendingJob).toBe(false);
     expect(asked.decidedIn?.equals(FIRST)).toBe(true);
     expect(kinds(asked)).toEqual([]);
   });
@@ -216,7 +216,7 @@ describe('a decision set, drafted', () => {
     ]);
     expect(drafted.decisions[0]?.id.value).toBe('run-1_1');
     expect(drafted.decidedIn?.equals(FIRST)).toBe(true);
-    expect(drafted.owesWork).toBe(false);
+    expect(drafted.hasPendingJob).toBe(false);
 
     const [, recorded] = drafted.pullEvents();
     expect(recorded).toMatchObject({
@@ -286,44 +286,44 @@ describe('a decision set, failing to draft', () => {
   it('keeps what an earlier run decided when a later one cannot be drafted', () => {
     const failed = drafting(opened().asked(FIRST, NOW), FIRST, [proposed()])
       .asked(SECOND, NOW)
-      .gaveUp();
+      .deadLetter();
 
     expect(failed.decisions).toHaveLength(1);
     expect(failed.decidedIn?.equals(FIRST)).toBe(true);
-    expect(failed.owesWork).toBe(false);
+    expect(failed.hasPendingJob).toBe(false);
     expect(kinds(failed)).toContain('decisions.drafting-failed');
   });
 
-  it('tries again later, then gives up', () => {
+  it('is retried later, then dead-lettered', () => {
     let set = opened().asked(FIRST, NOW);
 
-    for (let attempt = 0; attempt < MAX_WORK_ATTEMPTS; attempt += 1) {
-      const due = set.draft?.work.dueAt ?? NOW;
-      set = set.leased(due).triedAgainLater(due);
+    for (let attempt = 0; attempt < MAX_JOB_ATTEMPTS; attempt += 1) {
+      const due = set.draft?.job.nextAttemptAt ?? NOW;
+      set = set.leaseJob(due).scheduleRetry(due);
     }
 
-    expect(set.owesWork).toBe(false);
+    expect(set.hasPendingJob).toBe(false);
     expect(kinds(set)).toContain('decisions.drafting-failed');
   });
 
-  it('says its work is exhausted once every attempt is spent', () => {
+  it('says its job is exhausted once every attempt is spent', () => {
     let set = opened().asked(FIRST, NOW);
 
-    for (let attempt = 0; attempt < MAX_WORK_ATTEMPTS; attempt += 1) {
-      set = set.leased(set.draft?.work.dueAt ?? NOW);
+    for (let attempt = 0; attempt < MAX_JOB_ATTEMPTS; attempt += 1) {
+      set = set.leaseJob(set.draft?.job.nextAttemptAt ?? NOW);
     }
 
-    expect(set.workExhausted).toBe(true);
+    expect(set.jobExhausted).toBe(true);
   });
 
   it('cannot be leased with nothing to draft', () => {
-    expect(() => opened().leased(NOW)).toThrow(InvalidDecisionError);
+    expect(() => opened().leaseJob(NOW)).toThrow(InvalidDecisionError);
   });
 
   it('cannot be leased again while the lease is active', () => {
-    const leased = opened().asked(FIRST, NOW).leased(NOW);
+    const leased = opened().asked(FIRST, NOW).leaseJob(NOW);
 
-    expect(() => leased.leased(NOW)).toThrow(InvalidDecisionError);
+    expect(() => leased.leaseJob(NOW)).toThrow(InvalidDecisionError);
   });
 });
 

@@ -1,16 +1,18 @@
 import { OutboxWorkspaceProvisioning } from '@identity/infrastructure/events/outbox-workspace-provisioning';
-import type { EventReactions } from '@platform/events/event-reactions';
+import type { DeliveryBacklog } from '@platform/events/delivery-backlog';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const provisioning = (owed: number, deadLettered: number) => {
-  const owedBy = vi.fn().mockResolvedValue({ owed, deadLettered });
+const provisioning = (pending: number, deadLettered: number) => {
+  const pendingDeliveriesFor = vi
+    .fn()
+    .mockResolvedValue({ pending, deadLettered });
 
   return {
-    owedBy,
+    pendingDeliveriesFor,
     read: new OutboxWorkspaceProvisioning({
-      owedBy,
-    } as unknown as EventReactions).of(WorkspaceId.of('ws_1')),
+      pendingDeliveriesFor,
+    } as unknown as DeliveryBacklog).of(WorkspaceId.of('ws_1')),
   };
 };
 
@@ -19,7 +21,7 @@ describe('OutboxWorkspaceProvisioning', () => {
     await expect(provisioning(0, 0).read).resolves.toBe('done');
   });
 
-  it('reads as pending while the first team is owed, retries included', async () => {
+  it('reads as pending while the first team still has pending deliveries, retries included', async () => {
     await expect(provisioning(1, 0).read).resolves.toBe('pending');
   });
 
@@ -28,11 +30,11 @@ describe('OutboxWorkspaceProvisioning', () => {
   });
 
   it('asks about the first team of that workspace', async () => {
-    const { owedBy, read } = provisioning(0, 0);
+    const { pendingDeliveriesFor, read } = provisioning(0, 0);
 
     await read;
 
-    expect(owedBy).toHaveBeenCalledWith('identity.first-team', {
+    expect(pendingDeliveriesFor).toHaveBeenCalledWith('identity.first-team', {
       workspaceId: 'ws_1',
     });
   });

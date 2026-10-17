@@ -431,11 +431,11 @@ const replayState = async (replayId: string) => {
 };
 
 const worked = async () => {
-  await app.get(WorkChangeStacks).workDue();
+  await app.get(WorkChangeStacks).processDue();
   await app.get(WorkChangeStacks).idle();
-  await app.get(WorkChangeJudgings).workDue();
+  await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
-  await app.get(WorkPairJudgings).workDue();
+  await app.get(WorkPairJudgings).processDue();
   await app.get(WorkPairJudgings).idle();
 };
 
@@ -684,7 +684,7 @@ describe('a replay at a station whose judge goes by claims', () => {
     };
 
     await eventually(async () => {
-      await app.get(DispatchReplayRuns).workDue();
+      await app.get(DispatchReplayRuns).processDue();
       await worked();
 
       if (await workWaiting()) {

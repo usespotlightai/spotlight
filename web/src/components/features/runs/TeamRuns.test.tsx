@@ -45,8 +45,8 @@ const run = (
   taskDescription: null,
 });
 
-const owed = run('run_1', 'Fix the login bug', {
-  state: 'owed',
+const pending = run('run_1', 'Fix the login bug', {
+  state: 'pending',
   conversationId: 'conv_1',
 });
 const answered = run('run_2', 'Tidy the settings page', {
@@ -66,7 +66,7 @@ const filter = (name: string) => screen.getByRole('button', { name });
 
 beforeEach(() => {
   localStorage.clear();
-  runs.mockReturnValue([owed, answered, unreviewed]);
+  runs.mockReturnValue([pending, answered, unreviewed]);
   failing.mockReturnValue(false);
   refetch.mockClear();
 });
@@ -81,7 +81,7 @@ describe('TeamRuns', () => {
     expect(screen.getByText('Upgrade the harness')).toBeInTheDocument();
   });
 
-  it('narrows to runs still owed a review under Waiting for you', async () => {
+  it('narrows to runs with a pending review under Waiting for you', async () => {
     showing();
 
     await userEvent.click(filter('Waiting for you'));

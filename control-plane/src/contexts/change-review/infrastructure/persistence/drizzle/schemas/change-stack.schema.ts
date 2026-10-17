@@ -60,8 +60,8 @@ export const changeStack = pgTable(
     checkPlacementImage: text('check_placement_image'),
     reordering: boolean('reordering').notNull().default(false),
     spent: jsonb('spent').$type<StoredModelUsage>().notNull(),
-    workAttempts: integer('work_attempts').notNull().default(0),
-    workDueAt: timestamp('work_due_at'),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamp('job_due_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

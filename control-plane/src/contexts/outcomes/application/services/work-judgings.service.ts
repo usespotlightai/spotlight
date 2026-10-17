@@ -9,17 +9,17 @@ import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.v
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
+import { JobLoop } from '@shared-kernel/application/services/job-loop';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const MAX_JUDGED_AT_ONCE = 4;
 
-export class WorkJudgings implements OwedWorkPort {
+export class WorkJudgings implements PendingJobsPort {
   readonly name = 'Judging runs';
 
-  readonly #pool: OwedWorkPool<Judging, RunId>;
+  readonly #loop: JobLoop<Judging, RunId>;
 
   constructor(
     private readonly judgings: JudgingRepository,
@@ -30,11 +30,11 @@ export class WorkJudgings implements OwedWorkPort {
     logger: LoggerPort,
     reports: ErrorReportsPort,
   ) {
-    this.#pool = new OwedWorkPool<Judging, RunId>(
+    this.#loop = new JobLoop<Judging, RunId>(
       {
         name: this.name,
-        maxAtOnce: MAX_JUDGED_AT_ONCE,
-        due: (now) => this.judgings.dueForWork(now),
+        batchSize: MAX_JUDGED_AT_ONCE,
+        due: (now) => this.judgings.nextDueJob(now),
         find: (runId) => this.judgings.of(runId),
         save: (judging) => this.judgings.save(judging),
         keyOf: (judging) => judging.runId,
@@ -43,9 +43,9 @@ export class WorkJudgings implements OwedWorkPort {
           runId: judging.runId.value,
         }),
         about: (judging) => ({
-          attempts: judging.work?.attempts,
+          attempts: judging.job?.attempts,
         }),
-        worked: (judging) => this.judged(judging),
+        process: (judging) => this.judged(judging),
         stale: (error) => error instanceof JudgingVersionConflictError,
       },
       transaction,
@@ -55,12 +55,12 @@ export class WorkJudgings implements OwedWorkPort {
     );
   }
 
-  workDue(): Promise<void> {
-    return this.#pool.workDue();
+  processDue(): Promise<void> {
+    return this.#loop.processDue();
   }
 
   idle(): Promise<void> {
-    return this.#pool.idle();
+    return this.#loop.idle();
   }
 
   private async judged(judging: Judging): Promise<Judging> {

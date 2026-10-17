@@ -204,7 +204,7 @@ describe('ProvisionWork', () => {
     );
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
     expect(run('run_2').reservation?.pool.value).toBe('pool_burst');
   });
 
@@ -373,7 +373,7 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(1);
+    expect(run('run_1').provisioning.attempts).toBe(1);
     expect(run('run_1').provisionableAt(NOON)).toBe(false);
   });
 
@@ -397,7 +397,7 @@ describe('ProvisionWork', () => {
       'pool_b-burst',
     ]);
     expect(run('run_1').reservation?.pool.value).toBe('pool_b-burst');
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
   it('counts one failure, the last, when every fitting pool fails', async () => {
@@ -421,7 +421,7 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(1);
+    expect(run('run_1').provisioning.attempts).toBe(1);
   });
 
   it('provisions on the next fitting pool when the first throws, and still says why', async () => {
@@ -442,7 +442,7 @@ describe('ProvisionWork', () => {
     );
 
     expect(run('run_1').reservation?.pool.value).toBe('pool_b-burst');
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
   it('says both when provisioning throws and releasing its reservation does too', async () => {
@@ -484,7 +484,7 @@ describe('ProvisionWork', () => {
       'pool_b-spare',
     ]);
     expect(run('run_1').reservation?.pool.value).toBe('pool_b-spare');
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
   it('counts nothing when a failing pool is followed by one that filled up meanwhile', async () => {
@@ -504,7 +504,7 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
   it('leaves the run unreserved and unfailed when every fitting pool is gone', async () => {
@@ -517,7 +517,7 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
   it('gives a run with injected secrets only to a pool that names an egress', async () => {
@@ -596,7 +596,7 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(1);
+    expect(run('run_1').provisioning.attempts).toBe(1);
     expect(recorded).toContainEqual(
       new RunReservationDropped(
         RunId.of('run_1'),

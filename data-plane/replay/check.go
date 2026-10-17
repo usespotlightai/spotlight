@@ -273,7 +273,7 @@ func (c *checking) run(plan planned, options checkOptions, report *checkReport) 
 		wait := options.every
 		for _, checked := range report.Stations {
 			if checked.pending && checked.misses > 0 {
-				wait = max(wait, backedOff(options.every, checked.misses))
+				wait = max(wait, retryDelay(options.every, checked.misses))
 			}
 		}
 		c.sleep(min(wait, left))
@@ -310,7 +310,7 @@ func (c *checking) start(checked *stationCheck, each plannedStation, options che
 		if !transient(err) || failures+1 >= maxFailures {
 			break
 		}
-		c.sleep(backedOff(options.every, failures+1))
+		c.sleep(retryDelay(options.every, failures+1))
 	}
 
 	var answer *answered

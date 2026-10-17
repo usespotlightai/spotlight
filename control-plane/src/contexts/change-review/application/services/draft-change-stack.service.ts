@@ -123,11 +123,11 @@ export class DraftChangeStack {
       if (!attempt.drafted) {
         this.logger.error(
           { changeStackId: stack.id.value, error: attempt.error },
-          'Drafting a change stack failed; trying again later',
+          'Drafting a change stack failed; scheduling a retry',
         );
         return drafting
           .recordModel(attempt.usage)
-          .triedAgainLater(this.clock.now());
+          .scheduleRetry(this.clock.now());
       }
 
       const { cohorts, usage } = attempt.answer;

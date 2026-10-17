@@ -342,7 +342,7 @@ export class HookFiring extends EventRecorder {
     return this.ended(superseded ? loop.superseded() : loop, now);
   }
 
-  retries(failure: HookFailure, now: Date): boolean {
+  willRetry(failure: HookFailure, now: Date): boolean {
     return this.retryOf(failure, now).at !== null;
   }
 
@@ -404,8 +404,8 @@ export class HookFiring extends EventRecorder {
     const attempts = this.state.attempts + 1;
     const loop = this.state.failure;
 
-    return isLoop(loop) && failure.retry.retries
-      ? { kept: loop, at: DELIVERING.after(attempts, now) }
+    return isLoop(loop) && failure.retry.allowsRetry
+      ? { kept: loop, at: DELIVERING.nextAttemptAt(attempts, now) }
       : { kept: failure, at: failure.nextAttemptAfter(attempts, now) };
   }
 

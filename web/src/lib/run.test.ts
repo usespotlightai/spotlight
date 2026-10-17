@@ -174,9 +174,9 @@ describe('runStatus', () => {
 });
 
 describe('run filters', () => {
-  const owed = {
+  const pending = {
     state: 'completed',
-    review: { state: 'owed', conversationId: 'c_1' },
+    review: { state: 'pending', conversationId: 'c_1' },
   } as const;
   const answered = {
     state: 'completed',
@@ -186,13 +186,13 @@ describe('run filters', () => {
   const asking = { state: 'waiting', review: null } as const;
 
   it('lets every run through All', () => {
-    expect(inRunFilter('all', owed)).toBe(true);
+    expect(inRunFilter('all', pending)).toBe(true);
     expect(inRunFilter('all', answered)).toBe(true);
     expect(inRunFilter('all', unreviewed)).toBe(true);
   });
 
-  it('lets only runs still owed a review or an answer through Waiting for you', () => {
-    expect(inRunFilter('waiting-for-you', owed)).toBe(true);
+  it('lets only runs with a pending review or answer through Waiting for you', () => {
+    expect(inRunFilter('waiting-for-you', pending)).toBe(true);
     expect(inRunFilter('waiting-for-you', asking)).toBe(true);
     expect(inRunFilter('waiting-for-you', answered)).toBe(false);
     expect(inRunFilter('waiting-for-you', unreviewed)).toBe(false);

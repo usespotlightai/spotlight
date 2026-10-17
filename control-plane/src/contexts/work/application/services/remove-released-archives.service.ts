@@ -19,7 +19,7 @@ export class RemoveReleasedArchives {
     private readonly logger: LoggerPort,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     const now = this.clock.now();
 
     const due = await this.references.due(

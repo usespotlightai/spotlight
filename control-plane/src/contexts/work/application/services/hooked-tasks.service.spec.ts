@@ -244,7 +244,7 @@ describe('HookedTasks', () => {
 
       const noted = current();
       expect(noted?.awaitingReview).toBe(true);
-      expect(noted?.owedConversation).toEqual(asking.owedConversation);
+      expect(noted?.pendingConversation).toEqual(asking.pendingConversation);
       expect(noted?.undelivered).toEqual([]);
       expect(noted?.running).toBe(false);
       expect(noted?.notes[noted.notes.length - 1]?.kind).toBe('said');

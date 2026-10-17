@@ -176,7 +176,7 @@ describe('the inbox item of a setup list', () => {
     waiting = await openTeam('nolan');
   });
 
-  it('is owed while a step is still to be taken', async () => {
+  it('stays unresolved while a step is still to be taken', async () => {
     const [item] = await inbox();
 
     expect(item?.title).toBe('Set up your team');

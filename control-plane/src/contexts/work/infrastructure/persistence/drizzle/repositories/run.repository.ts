@@ -260,7 +260,10 @@ export class DrizzleRunRepository implements RunRepository {
           eq(run.state, 'queued'),
           isNull(run.reservedFor),
           page.withSecrets ? undefined : injectsNoSecrets,
-          or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
+          or(
+            isNull(run.nextProvisionAttemptAt),
+            lte(run.nextProvisionAttemptAt, now),
+          ),
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
           noEarlierRunStillLeased,
         ),
@@ -346,8 +349,8 @@ const reservationOf = (saving: Run) => ({
   reservedFor: saving.reservation?.runner.value ?? null,
   reservedPool: saving.reservation?.pool.value ?? null,
   reservedUntil: saving.reservation?.until ?? null,
-  provisionFailures: saving.provisioning.failures,
-  nextProvisionAt: saving.provisioning.nextAt,
+  provisionAttempts: saving.provisioning.attempts,
+  nextProvisionAttemptAt: saving.provisioning.nextAttemptAt,
   requeueCount: saving.requeueCount.count,
   claimableFrom: saving.requeueCount.claimableFrom,
 });
@@ -396,8 +399,8 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
     stopRequestedAt: row.stopRequestedAt,
     reservation: reservationFrom(row),
     provisioning: Provisioning.rehydrate(
-      row.provisionFailures,
-      row.nextProvisionAt,
+      row.provisionAttempts,
+      row.nextProvisionAttemptAt,
     ),
     outcome:
       row.exitCode === null

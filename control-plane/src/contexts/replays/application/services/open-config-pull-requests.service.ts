@@ -25,7 +25,7 @@ import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -54,7 +54,7 @@ const regressionsOf = (
     ? comparedWith(replay, seed, among).filter((each) => each.regressed).length
     : null;
 
-export class OpenConfigPullRequests implements OwedWorkPort {
+export class OpenConfigPullRequests implements PendingJobsPort {
   readonly name = 'Opening config pull requests';
 
   constructor(
@@ -73,7 +73,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     private readonly healths: SetHealths,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     for (const pullRequest of await this.pullRequests.due(this.clock.now())) {
       await this.attempt(pullRequest).catch((error: unknown) =>
         this.logger.warn(
@@ -119,7 +119,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
       if (!(error instanceof ConfigRepositoryError)) {
         this.logger.warn(
           { err: error, pullRequestId: pullRequest.id.value },
-          'Opening a config pull request failed; it will be tried again',
+          'Opening a config pull request failed; Spotlight retries it later',
         );
         await this.saved(pullRequest.tried(because(error), this.clock.now()));
         return;

@@ -45,8 +45,8 @@ export const stackCheck = pgTable(
     reservedFor: text('reserved_for'),
     reservedPool: text('reserved_pool'),
     reservedUntil: timestamp('reserved_until'),
-    provisionFailures: integer('provision_failures').notNull().default(0),
-    nextProvisionAt: timestamp('next_provision_at'),
+    provisionAttempts: integer('provision_attempts').notNull().default(0),
+    nextProvisionAttemptAt: timestamp('next_provision_attempt_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

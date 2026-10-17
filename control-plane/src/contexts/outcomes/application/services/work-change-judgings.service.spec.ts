@@ -102,7 +102,7 @@ const working = async (
     { report: () => undefined },
   );
 
-  await work.workDue();
+  await work.processDue();
   await work.idle();
 
   return {
@@ -168,7 +168,7 @@ describe('WorkChangeJudgings', () => {
       { report: () => undefined },
     );
 
-    await work.workDue();
+    await work.processDue();
     await work.idle();
 
     const [event] = judgings.events as ChangeJudged[];
@@ -243,14 +243,14 @@ describe('WorkChangeJudgings', () => {
     });
     await judgings.add(asked);
 
-    await judgings.save(asked.gaveUp(NOW));
+    await judgings.save(asked.deadLetter(NOW));
 
     const [event] = judgings.events as ChangeJudgingFailed[];
     expect(event?.kind).toBe('change-judging.failed');
     expect(event?.failure.code).toBe('interrupted');
   });
 
-  it('fails a judging for good once the judge is gone, rather than leaving it owed', async () => {
+  it('fails a judging for good once the judge is gone, rather than leaving it pending', async () => {
     const { asked, judging, judgings } = await working(
       async () => ({ value: 5, reasons: [] }),
       null,
@@ -258,23 +258,23 @@ describe('WorkChangeJudgings', () => {
     );
 
     expect(asked).toEqual([]);
-    expect(judging?.owesWork).toBe(false);
+    expect(judging?.hasPendingJob).toBe(false);
     expect(judging?.failure?.code).toBe('unavailable');
     expect((judgings.events as ChangeJudgingFailed[])[0]?.failure.code).toBe(
       'unavailable',
     );
   });
 
-  it('tries again later when the request to the provider fails', async () => {
+  it('retries later when the request to the provider fails', async () => {
     const { judging, judgings } = await working(async () => {
       throw new JudgingError('request-failed', 'no credits', null);
     });
 
-    expect(judging?.owesWork).toBe(true);
+    expect(judging?.hasPendingJob).toBe(true);
     expect(judgings.events).toEqual([]);
   });
 
-  it('keeps what an unreadable answer cost while it tries again later', async () => {
+  it('keeps what an unreadable answer cost while it retries later', async () => {
     const { judging } = await working(async () => {
       throw new JudgingError('unreadable', 'length', {
         inputTokens: 900,
@@ -283,7 +283,7 @@ describe('WorkChangeJudgings', () => {
       });
     });
 
-    expect(judging?.owesWork).toBe(true);
+    expect(judging?.hasPendingJob).toBe(true);
     expect(judging?.spent).toMatchObject({
       calls: 1,
       costs: [{ amount: 0.04, currency: 'USD' }],

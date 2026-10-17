@@ -188,7 +188,7 @@ const rehydrated = (over: Record<string, unknown>) =>
   });
 
 const failedAgain = (check: StackCheck, failure = HTTP_ERROR) => {
-  const due = check.provisioning.nextAt ?? LATER;
+  const due = check.provisioning.nextAttemptAt ?? LATER;
 
   return check
     .reservedFor(RUNNER, PoolId.of('pool_burst'), due)
@@ -329,7 +329,7 @@ describe('StackCheck', () => {
     expect(again.outcome).toBeNull();
   });
 
-  it('keeps the checked layers where reordering is given up', () => {
+  it('keeps the checked layers where reordering stops', () => {
     const reordering = checking().recordResult(
       RUNNER,
       planned(),
@@ -856,7 +856,7 @@ describe('StackCheck', () => {
       expect(kinds(unreserved)).toEqual([
         'change-stack.check-reservation-dropped',
       ]);
-      expect(unreserved.provisioning.failures).toBe(0);
+      expect(unreserved.provisioning.attempts).toBe(0);
       expect(unreserved.provisionableAt(LATER)).toBe(true);
       expect(check.unreservedFor(RUNNER)).toBe(check);
     });
@@ -871,11 +871,11 @@ describe('StackCheck', () => {
       expect(reserved.unreservedFor(OTHER)).toBe(reserved);
     });
 
-    it('backs off after a failed provision and drops the reservation', () => {
+    it('schedules a retry after a failed provision and drops the reservation', () => {
       const failed = failedAgain(waiting());
 
       expect(failed.reservation).toBeNull();
-      expect(failed.provisioning.failures).toBe(1);
+      expect(failed.provisioning.attempts).toBe(1);
       expect(failed.stateAt(LATER)).toBe('waiting');
       expect(failed.provisionableAt(LATER)).toBe(false);
       expect(failed.provisionableAt(new Date(LATER.getTime() + 5_000))).toBe(
@@ -955,7 +955,7 @@ describe('StackCheck', () => {
         .provisionFailed(RUNNER, HTTP_ERROR, WAIT_EXPIRED);
 
       expect(failed.reservation).toBeNull();
-      expect(failed.provisioning.failures).toBe(0);
+      expect(failed.provisioning.attempts).toBe(0);
       expect(failed.phase).toBe('waiting');
       expect(kinds(failed)).toEqual(['change-stack.check-reservation-dropped']);
     });
@@ -994,7 +994,7 @@ describe('StackCheck', () => {
       const again = reordering.reordered(stack().entries(), RESERVED_UNTIL);
 
       expect(again.reservation).toBeNull();
-      expect(again.provisioning.failures).toBe(0);
+      expect(again.provisioning.attempts).toBe(0);
       expect(again.provisionableAt(RESERVED_UNTIL)).toBe(true);
     });
   });

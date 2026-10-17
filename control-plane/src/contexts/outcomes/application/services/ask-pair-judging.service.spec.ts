@@ -38,7 +38,7 @@ const asking = (available = true) => {
 };
 
 describe('AskPairJudging', () => {
-  it('owes one side-by-side judging of the two runs, however often it is asked', async () => {
+  it('creates one pending side-by-side judging of the two runs, however often it is asked', async () => {
     const { judgings, service } = asking();
 
     expect(await service.ask(ASK)).toBe('asked');

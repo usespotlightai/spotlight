@@ -133,7 +133,7 @@ describe('ConfigPullRequest', () => {
     expect(pullRequest.dueAt).toBeNull();
   });
 
-  it('tries again later after a failure, and gives up after the last try', () => {
+  it('retries later after a failure, and fails after the last try', () => {
     let pullRequest = picked();
 
     pullRequest = pullRequest.tried('GitHub is down', NOW);

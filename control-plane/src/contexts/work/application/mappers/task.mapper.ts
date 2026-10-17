@@ -5,13 +5,13 @@ import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 
 export const TaskMapper = {
   awaited(task: Task): { conversationId: string } | null {
-    const owed = task.owedConversation;
+    const pending = task.pendingConversation;
 
-    return owed
+    return pending
       ? {
           conversationId: ConversationId.of({
             taskId: task.id,
-            from: owed.from,
+            from: pending.from,
           }).value,
         }
       : null;

@@ -12,7 +12,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -48,10 +48,10 @@ const toPairJudging = (row: Row): PairJudging =>
     maxAttempts: row.maxAttempts,
     order: row.shownOrder,
     askedAt: row.askedAt,
-    work: row.owed
-      ? OwedWork.rehydrate({
-          attempts: row.workAttempts,
-          dueAt: row.workDueAt,
+    job: row.pending
+      ? PendingJob.rehydrate({
+          attempts: row.jobAttempts,
+          nextAttemptAt: row.jobDueAt,
         })
       : null,
     judgedAt: row.judgedAt,
@@ -61,9 +61,9 @@ const toPairJudging = (row: Row): PairJudging =>
   });
 
 const columnsOf = (stored: PairJudging) => ({
-  owed: stored.work !== null,
-  workAttempts: stored.work?.attempts ?? 0,
-  workDueAt: stored.work?.dueAt ?? null,
+  pending: stored.job !== null,
+  jobAttempts: stored.job?.attempts ?? 0,
+  jobDueAt: stored.job?.nextAttemptAt ?? null,
   judgedAt: stored.judgedAt,
   failure: stored.failure?.code ?? null,
   failedAt: stored.failure?.at ?? null,
@@ -159,14 +159,14 @@ export class DrizzlePairJudgingRepository implements PairJudgingRepository {
     return row ? toPairJudging(row) : null;
   }
 
-  async dueForWork(now: Date): Promise<PairJudging | null> {
+  async nextDueJob(now: Date): Promise<PairJudging | null> {
     const [row] = await this.context.db
       .select()
       .from(pairJudging)
       .where(
         and(
-          eq(pairJudging.owed, true),
-          or(isNull(pairJudging.workDueAt), lte(pairJudging.workDueAt, now)),
+          eq(pairJudging.pending, true),
+          or(isNull(pairJudging.jobDueAt), lte(pairJudging.jobDueAt, now)),
         ),
       )
       .orderBy(asc(pairJudging.askedAt))

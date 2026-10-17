@@ -327,7 +327,7 @@ describe('ReactToHappenings', () => {
     expect(saved?.undelivered.map((each) => each.kind)).toEqual(['said']);
   });
 
-  it('takes a reviewer’s word as the answer a person was owed', async () => {
+  it('takes a reviewer’s word as the pending answer', async () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
@@ -348,7 +348,7 @@ describe('ReactToHappenings', () => {
     expect(dispatched).toHaveLength(1);
   });
 
-  it('takes an unruled spoken word as the answer a task was owed', async () => {
+  it('takes an unruled spoken word as the pending answer of the task', async () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
@@ -529,7 +529,7 @@ describe('ReactToHappenings', () => {
     });
   });
 
-  it('leaves a person owed where the world merely reports itself', async () => {
+  it('keeps the answer from a person pending where the world merely reports itself', async () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),

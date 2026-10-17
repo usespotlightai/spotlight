@@ -1673,7 +1673,7 @@ export type RunStationResponseDto = {
 };
 
 export type RunReviewResponseDto = {
-  state: 'owed' | 'answered';
+  state: 'pending' | 'answered';
   /**
    * The inbox conversation it opened
    */

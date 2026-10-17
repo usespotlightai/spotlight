@@ -119,7 +119,7 @@ describe('ChangeStack, on the check it asks for', () => {
     const asked = ready().askedToReorder();
 
     expect(asked.reordering).toBe(true);
-    expect(asked.owesWork).toBe(true);
+    expect(asked.hasPendingJob).toBe(true);
     expect(asked.askedToReorder()).toBe(asked);
   });
 
@@ -129,7 +129,7 @@ describe('ChangeStack, on the check it asks for', () => {
     );
   });
 
-  it('says it was reordered, and stops owing the work', () => {
+  it('says it was reordered, and has no pending job any more', () => {
     const reordered = ready()
       .askedToReorder()
       .reordered(
@@ -142,24 +142,24 @@ describe('ChangeStack, on the check it asks for', () => {
       );
 
     expect(reordered.reordering).toBe(false);
-    expect(reordered.owesWork).toBe(false);
+    expect(reordered.hasPendingJob).toBe(false);
     expect(kinds(reordered)).toEqual([
       'change-stack.reordered',
       'change-stack.ready',
     ]);
   });
 
-  it('says reordering ended where it is given up', () => {
-    const kept = ready().askedToReorder().gaveUpReordering();
+  it('says reordering ended when reordering stops', () => {
+    const kept = ready().askedToReorder().stopReordering();
 
     expect(kept.reordering).toBe(false);
     expect(kinds(kept)).toEqual(['change-stack.reordering-ended']);
   });
 
-  it('gives up reordering once it has been worked at for too long', () => {
-    const kept = ready().askedToReorder().gaveUp(LATER);
+  it('stops reordering once its job is dead-lettered', () => {
+    const kept = ready().askedToReorder().deadLetter(LATER);
 
-    expect(kept.owesWork).toBe(false);
+    expect(kept.hasPendingJob).toBe(false);
     expect(kinds(kept)).toEqual(['change-stack.reordering-ended']);
   });
 

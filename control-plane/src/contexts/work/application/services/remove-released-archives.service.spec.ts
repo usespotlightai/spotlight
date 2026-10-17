@@ -53,7 +53,7 @@ describe('RemoveReleasedArchives', () => {
     const due = vi.fn(async () => []);
     const { service } = await setUp(due);
 
-    await service.workDue();
+    await service.processDue();
 
     expect(due).toHaveBeenCalledWith(
       WorkspaceArchive.removalCutoffs(later(DAY)),
@@ -83,7 +83,7 @@ describe('RemoveReleasedArchives', () => {
       },
     ]);
 
-    await service.workDue();
+    await service.processDue();
 
     expect(store.removed).toEqual(['gone']);
     expect([...archives.kept.keys()]).toEqual(['owned']);
@@ -105,7 +105,7 @@ describe('RemoveReleasedArchives', () => {
     await archives.add(sealedMeanwhile(unsealed));
     archives.find = async () => unsealed;
 
-    await service.workDue();
+    await service.processDue();
 
     expect(store.removed).toEqual([]);
     expect(archives.kept.get('late')?.isSealed).toBe(true);
@@ -141,7 +141,7 @@ describe('RemoveReleasedArchives', () => {
       await remove(archive);
     };
 
-    await service.workDue();
+    await service.processDue();
 
     expect(store.removed).toEqual(['owned']);
     expect(archives.kept.size).toBe(0);

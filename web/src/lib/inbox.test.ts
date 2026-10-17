@@ -9,7 +9,7 @@ import type {
 } from '@/lib/inbox';
 import {
   counted,
-  decisionOwed,
+  decisionPending,
   inboxItemPath,
   lastSpokenAt,
   noticeLinkPath,
@@ -124,17 +124,17 @@ describe('previewOf', () => {
   });
 });
 
-describe('decisionOwed', () => {
+describe('decisionPending', () => {
   const asked = (form: InboxMessage['form']) =>
     ({ kind: 'asked', form }) as InboxMessage;
 
-  it('owes a decision where the last question put up an approval', () => {
-    expect(decisionOwed([asked('words'), asked('approval')])).toBe(true);
+  it('has a pending decision where the last question put up an approval', () => {
+    expect(decisionPending([asked('words'), asked('approval')])).toBe(true);
   });
 
-  it('owes only an answer where the last question was put in words', () => {
-    expect(decisionOwed([asked('approval'), asked('words')])).toBe(false);
-    expect(decisionOwed([])).toBe(false);
+  it('has only a pending answer where the last question was put in words', () => {
+    expect(decisionPending([asked('approval'), asked('words')])).toBe(false);
+    expect(decisionPending([])).toBe(false);
   });
 });
 
