@@ -9,7 +9,7 @@ import {
   enabledTools,
   LINEAR,
   SLACK,
-  sources,
+  specs,
   storedAt,
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
@@ -27,7 +27,7 @@ const updating = (
   const repository = definitions({ stored: storedAt(3), ...over });
   const handler = new UpdateIntegrationHandler(
     access(over.administers),
-    sources,
+    specs,
     repository,
     enabledTools(over.enabled),
     transaction,
@@ -93,7 +93,7 @@ describe('UpdateIntegrationHandler', () => {
     expect(await update(LINEAR)).toBeNull();
   });
 
-  it('keeps the host it was created for, pointing at the field that tried to move it', async () => {
+  it('keeps the integration name it was created for, pointing at the field that tried to move it', async () => {
     const { update, repository } = updating();
 
     expect(await update(SLACK)).toMatchObject({

@@ -1,8 +1,8 @@
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type {
   SkillFolder,
   SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
+import type { TeamSkillFilesPort } from '@configuration/application/ports/team-skill-files.port';
 import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import { TeamSkillsHandler } from '@configuration/application/queries/handlers/team-skills.handler';
 import { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
@@ -42,9 +42,9 @@ const listing = (teamId = 'team_1') =>
         teamId: TeamId.of('team_1'),
         skills: [],
       })),
-    } satisfies AppliedConfigurationPort,
+    } satisfies TeamSkillFilesPort,
     {
-      read: () => ({ skills: [GRAFANA], problems: [] }),
+      parse: () => ({ skills: [GRAFANA], problems: [] }),
       folder: vi.fn(),
     } satisfies SkillReaderPort,
   ).execute(new TeamSkillsQuery(teamId, 'user_1'));

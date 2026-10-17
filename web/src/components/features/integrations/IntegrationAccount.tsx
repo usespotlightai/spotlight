@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react';
 
 type IntegrationAccountProps = {
-  handle: string | null;
+  linkedAccount: string | null;
   connected: boolean;
   purpose: string;
   action?: ReactNode;
 };
 
 export function IntegrationAccount({
-  handle,
+  linkedAccount,
   connected,
   purpose,
   action,
@@ -19,7 +19,7 @@ export function IntegrationAccount({
         <span
           className={connected ? 'text-foreground' : 'text-muted-foreground'}
         >
-          {connected ? (handle ?? 'Connected') : 'Not connected'}
+          {connected ? (linkedAccount ?? 'Connected') : 'Not connected'}
         </span>
         <span className="text-muted-foreground text-xs leading-5">
           {purpose}

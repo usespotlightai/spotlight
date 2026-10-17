@@ -1181,7 +1181,8 @@ export class Task extends EventRecorder {
       return {
         task: this,
         asked:
-          waiting?.answeredBy(ask.teamId, ask.source, ask.personId) ?? false,
+          waiting?.answeredBy(ask.teamId, ask.integration, ask.personId) ??
+          false,
       };
     }
 
@@ -1197,7 +1198,7 @@ export class Task extends EventRecorder {
 
   connectionMade(
     teamId: TeamId,
-    source: string,
+    integration: string,
     personId: UserId,
     newNote: NewNote,
   ): Task | null {
@@ -1206,7 +1207,7 @@ export class Task extends EventRecorder {
 
     if (
       !open ||
-      !asked?.connectionAsk?.answeredBy(teamId, source, personId) ||
+      !asked?.connectionAsk?.answeredBy(teamId, integration, personId) ||
       !newNote.voice.author?.equals(personId)
     ) {
       return null;

@@ -149,7 +149,7 @@ const working = (state: PollState = { cursor: null, ranAt: null }) => {
 };
 
 describe('ProcessDuePolls', () => {
-  it('polls the host with the cursor it last stored', async () => {
+  it('polls the service with the cursor it last stored', async () => {
     const { polls, run } = working({ cursor: 'ENG-0', ranAt: null });
 
     await polls.processDue();
@@ -211,7 +211,7 @@ describe('ProcessDuePolls', () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps its cursor and does not react when a host answers with an error', async () => {
+  it('keeps its cursor and does not react when the service answers with an error', async () => {
     const react = vi.fn(async () => undefined);
     const cursors = new FakeIntegrationCursors();
     cursors.setState(TEAM, 'linear', { cursor: 'ENG-0', ranAt: null });

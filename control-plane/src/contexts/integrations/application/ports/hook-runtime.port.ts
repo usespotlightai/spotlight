@@ -1,16 +1,16 @@
 import type { HookCall } from '@integrations/application/ports/hook-calls.port';
-import type { HookedTask } from '@integrations/application/ports/tasks-for-hooks.port';
+import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import type { HookStepOutcome } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import type { Hook } from '@integrations/domain/entities/hook.entity';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 
 export const HOOK_RUNTIME = Symbol('HOOK_RUNTIME');
 
-export interface HookMoment {
+export interface HookEventInstance {
   readonly on: HookEventName;
   readonly occurrence: string;
   readonly at: Date;
-  readonly task: HookedTask;
+  readonly task: TaskView;
   readonly event: Readonly<Record<string, unknown>>;
   readonly firing: string | null;
 }
@@ -28,22 +28,22 @@ export interface ListeningHook {
 
 export type StepOutcome = HookStepOutcome;
 
-export interface StepTaken {
+export interface StepResult {
   readonly outcome: StepOutcome;
   readonly denyReason: string | null;
   readonly trace: HookCall | null;
 }
 
-export type Waiting = 'until-answered' | 'suspend';
+export type WaitMode = 'wait' | 'suspend';
 
 export interface StepRequest {
   readonly hook: ListeningHook;
   readonly step: string;
-  readonly moment: HookMoment;
+  readonly instance: HookEventInstance;
   readonly earlier: readonly StepOutcome[];
   readonly resuming: StepOutcome | null;
   readonly deadline: Date;
-  readonly waiting: Waiting;
+  readonly waitMode: WaitMode;
 }
 
 export interface HookRuntimePort {
@@ -54,7 +54,7 @@ export interface HookRuntimePort {
 
   hook(hookId: string): Promise<ListeningHook | null>;
 
-  matches(hook: ListeningHook, moment: HookMoment): boolean;
+  matches(hook: ListeningHook, instance: HookEventInstance): boolean;
 
-  step(request: StepRequest): Promise<StepTaken>;
+  step(request: StepRequest): Promise<StepResult>;
 }

@@ -4,9 +4,9 @@ import type {
   RunLeaseDto,
 } from '@secrets/application/ports/run-grants.port';
 import {
-  HOST_CONNECTED,
-  type HostConnectedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/host-connected.integration-event';
+  INTEGRATION_CONNECTED,
+  type IntegrationConnectedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/integration-connected.integration-event';
 import {
   RUNNER_HOST_STARTED_SERVING,
   type RunnerHostStartedServingIntegrationEvent,
@@ -181,14 +181,14 @@ export const workSubscribers = (reactions: {
     ['task.answered'],
     (event) => reactions.pausedRuns.onTaskAnswered(event),
   ),
-  subscribing<HostConnectedIntegrationEvent>(
+  subscribing<IntegrationConnectedIntegrationEvent>(
     'work.answer-asks-to-connect',
-    [HOST_CONNECTED],
+    [INTEGRATION_CONNECTED],
     async (event) =>
       event.personId !== null &&
       reactions.connections.answer({
         teamId: TeamId.of(event.teamId),
-        source: event.source,
+        integration: event.integration,
         personId: UserId.of(event.personId),
       }),
   ),

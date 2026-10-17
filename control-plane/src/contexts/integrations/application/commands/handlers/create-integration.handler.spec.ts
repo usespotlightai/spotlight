@@ -8,7 +8,7 @@ import {
   definitions,
   LINEAR,
   recalls,
-  sources,
+  specs,
   TEAM,
   teams,
 } from '@integrations/integrations.resources.fake-spec';
@@ -34,7 +34,7 @@ const creating = (
   const handler = new CreateIntegrationHandler(
     access(over.administers),
     teams(),
-    sources,
+    specs,
     repository,
     keys,
     recalls(over.recall),
@@ -130,7 +130,7 @@ describe('CreateIntegrationHandler', () => {
   });
 
   it('answers a retry the key already created from what it created, reading nothing again', async () => {
-    const reading = vi.spyOn(sources, 'compiled');
+    const reading = vi.spyOn(specs, 'compiled');
     const { create, repository, keys } = creating({
       recall: { kind: 'replay', createdId: 'integration_first' },
     });
@@ -146,7 +146,7 @@ describe('CreateIntegrationHandler', () => {
   });
 
   it('rejects a key already used for a different request before reading anything', async () => {
-    const reading = vi.spyOn(sources, 'compiled');
+    const reading = vi.spyOn(specs, 'compiled');
     const { create, repository, keys } = creating({
       recall: { kind: 'reused' },
     });
@@ -164,7 +164,7 @@ describe('CreateIntegrationHandler', () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 
-  it('answers a create for a host the team already has with its address', async () => {
+  it('answers a create for an integration the team already has with its address', async () => {
     const { create, keys } = creating({
       failing: new IntegrationAlreadyExistsError('linear'),
     });

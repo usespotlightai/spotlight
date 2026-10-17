@@ -1,12 +1,12 @@
-import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
+import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 
 export const OAUTH2_LINKING = Symbol('OAUTH2_LINKING');
 
 export const OAUTH2_CALLBACK_ROUTE = 'integrations/oauth/callback';
 
-export type OAuth2HolderKind = 'team' | 'person';
+export type ConnectionOwnerKind = 'team' | 'person';
 
-export interface OAuth2Begun {
+export interface OAuth2Start {
   readonly url: string;
   readonly nonce: string;
   readonly expiresAt: Date;
@@ -21,24 +21,24 @@ export interface OAuth2Returned {
 
 export interface OAuth2LinkInput {
   readonly teamId: string;
-  readonly source: string;
+  readonly integration: string;
   readonly by: string;
-  readonly holder: OAuth2HolderKind;
-  readonly back: string | null;
+  readonly owner: ConnectionOwnerKind;
+  readonly returnTo: string | null;
 }
 
 export interface OAuth2Authorized extends OAuth2LinkInput {
-  readonly grant: HostGrant;
+  readonly tokens: OAuthTokens;
 }
 
 export interface OAuth2LinkingPort {
-  begin(input: OAuth2LinkInput): Promise<OAuth2Begun | null>;
+  begin(input: OAuth2LinkInput): Promise<OAuth2Start | null>;
 
   authorized(returned: OAuth2Returned): Promise<OAuth2Authorized | null>;
 
   landingFor(
     teamId: string,
-    source: string,
-    back: string | null,
+    integration: string,
+    returnTo: string | null,
   ): Promise<string>;
 }

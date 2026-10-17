@@ -50,7 +50,7 @@ const spotlights = (
   request: ReviewRequest,
   pullRequestTask: Task | null,
 ): boolean =>
-  (request.branch?.isSpotlights ?? false) ||
+  (request.branch?.isReserved ?? false) ||
   (pullRequestTask !== null && !pullRequestTask.reviewing);
 
 export const ReactionFor = {
@@ -212,12 +212,12 @@ export const ReactionFor = {
   },
 
   opening(input: { line: Line; opens: OpensWith }): Opening | null {
-    if (!input.line.role?.equals(input.opens.onto)) {
+    if (!input.line.role?.equals(input.opens.lineRole)) {
       return null;
     }
 
-    const at = input.opens.at
-      ? (input.line.stationKeyed(input.opens.at) ?? input.line.entry)
+    const at = input.opens.station
+      ? (input.line.stationKeyed(input.opens.station) ?? input.line.entry)
       : input.line.entry;
 
     if (!at) {

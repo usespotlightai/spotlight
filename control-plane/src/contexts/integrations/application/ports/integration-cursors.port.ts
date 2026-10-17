@@ -8,18 +8,18 @@ export interface PollState {
 }
 
 export interface IntegrationCursorsPort {
-  read(teamId: TeamId, source: string): Promise<PollState>;
+  read(teamId: TeamId, integration: string): Promise<PollState>;
 
   claimTurn(
     teamId: TeamId,
-    source: string,
+    integration: string,
     seen: PollState,
     at: Date,
   ): Promise<boolean>;
 
   advance(
     teamId: TeamId,
-    source: string,
+    integration: string,
     cursor: string | null,
     claimedAt: Date,
   ): Promise<boolean>;

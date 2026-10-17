@@ -1,8 +1,8 @@
-import type { HookedTaskDto } from '@work/application/ports/hooked-tasks.port';
+import type { TaskViewDto } from '@work/application/ports/task-views.port';
 
 export const LIFECYCLE_HOOKS = Symbol('LIFECYCLE_HOOKS');
 
-export type BeforeMoment =
+export type BeforeHookEvent =
   | {
       readonly on: 'tool.using';
       readonly tool: string;
@@ -22,7 +22,7 @@ export type BeforeMoment =
       readonly changed: readonly string[];
     };
 
-export interface ToolUsedMoment {
+export interface ToolUsedHookEvent {
   readonly on: 'tool.used';
   readonly tool: string;
   readonly inputs: Readonly<Record<string, unknown>>;
@@ -30,22 +30,22 @@ export interface ToolUsedMoment {
   readonly failed: boolean;
 }
 
-export type HookVerdict =
+export type HookDecision =
   | { readonly kind: 'allowed' }
   | { readonly kind: 'denied'; readonly reason: string };
 
 export interface LifecycleHooksPort {
-  listens(teamId: string, on: BeforeMoment['on']): Promise<boolean>;
+  listens(teamId: string, on: BeforeHookEvent['on']): Promise<boolean>;
 
   before(
-    task: HookedTaskDto,
-    moment: BeforeMoment,
+    task: TaskViewDto,
+    event: BeforeHookEvent,
     until?: Date,
-  ): Promise<HookVerdict>;
+  ): Promise<HookDecision>;
 
   after(
-    task: HookedTaskDto,
-    moment: ToolUsedMoment,
+    task: TaskViewDto,
+    event: ToolUsedHookEvent,
     occurrence: string,
   ): Promise<void>;
 }

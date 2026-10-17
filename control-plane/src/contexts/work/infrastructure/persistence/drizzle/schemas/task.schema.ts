@@ -68,8 +68,8 @@ export type DeferredMoveRow =
 
 export interface ConnectionAskRow {
   readonly teamId: string;
-  readonly source: string;
   readonly integration: string;
+  readonly integrationName: string;
   readonly personId: string;
   readonly met: boolean;
 }
@@ -149,7 +149,7 @@ export const taskNote = pgTable(
     index('task_note_connection_ask_idx')
       .on(
         sql`(${table.connectionAsk}->>'personId')`,
-        sql`(${table.connectionAsk}->>'source')`,
+        sql`(${table.connectionAsk}->>'integration')`,
       )
       .where(
         sql`${table.connectionAsk} is not null and (${table.connectionAsk}->>'met')::boolean = false`,

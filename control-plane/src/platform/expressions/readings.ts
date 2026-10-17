@@ -21,7 +21,7 @@ const asText = (read: unknown): string | null => {
   return typeof read === 'object' ? null : String(read);
 };
 
-export const reads = (
+export const evaluateText = (
   expression: Expression,
   against: Bindings,
 ): string | null => {

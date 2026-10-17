@@ -4,7 +4,7 @@ import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2LinkInput } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
-import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
+import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';
@@ -48,18 +48,18 @@ webhook:
 
 const config = () => [defined(SLACK)];
 
-const GRANT = HostGrant.of({
+const TOKENS = OAuthTokens.of({
   accessToken: 'xoxb-1',
   refreshToken: 'xoxe-1',
   expiresAt: null,
   scopes: ['chat:write'],
-  handle: 'Acme',
+  linkedAccount: 'Acme',
 });
 
 const linking = (
-  over: { clients?: string; exchanged?: HostGrant | null } = {},
+  over: { clients?: string; exchanged?: OAuthTokens | null } = {},
 ) => {
-  const exchanged = 'exchanged' in over ? over.exchanged : GRANT;
+  const exchanged = 'exchanged' in over ? over.exchanged : TOKENS;
   const exchange = vi.fn(async () => exchanged);
   const spent = new Set<string>();
   const nonces: OAuth2NoncesPort = {
@@ -97,22 +97,22 @@ const linking = (
   return { it, exchange };
 };
 
-const signed = (source = 'slack', by = 'user_1', nonce = 'n-1') =>
+const signed = (integration = 'slack', by = 'user_1', nonce = 'n-1') =>
   new OAuth2State('a-secret').sign({
     teamId: 'team_1',
-    source,
+    integration,
     by,
-    holder: 'person',
-    back: '/w/acme/inbox/task_1',
+    owner: 'person',
+    returnTo: '/w/acme/inbox/task_1',
     nonce,
   }).token;
 
 const linkInput = (over: Partial<OAuth2LinkInput> = {}): OAuth2LinkInput => ({
   teamId: 'team_1',
-  source: 'slack',
+  integration: 'slack',
   by: 'user_1',
-  holder: 'team',
-  back: null,
+  owner: 'team',
+  returnTo: null,
   ...over,
 });
 
@@ -133,8 +133,8 @@ describe('OAuth2Linking', () => {
   it('builds an authorize URL with the app, the callback, the scopes and a state', async () => {
     const { it } = linking();
 
-    const begun = await it.begin(linkInput());
-    const url = new URL(begun?.url ?? '');
+    const started = await it.begin(linkInput());
+    const url = new URL(started?.url ?? '');
 
     expect(url.origin + url.pathname).toBe('https://slack.com/oauth/authorize');
     expect(url.searchParams.get('client_id')).toBe('c-1');
@@ -157,40 +157,40 @@ describe('OAuth2Linking', () => {
     expect(new OAuth2State('a-secret').open(state)?.nonce).toBe(one?.nonce);
   });
 
-  it('will not begin where the deployment registered no app for the host', async () => {
+  it('will not begin where the deployment registered no app for the integration', async () => {
     const { it } = linking({ clients: '{}' });
 
     expect(await it.begin(linkInput())).toBeNull();
   });
 
-  it('will not begin for a host the team does not link this way', async () => {
+  it('will not begin for an integration that the team does not connect this way', async () => {
     const { it } = linking();
 
-    expect(await it.begin(linkInput({ source: 'linear' }))).toBeNull();
+    expect(await it.begin(linkInput({ integration: 'linear' }))).toBeNull();
   });
 
-  it('turns a returning code into a grant, with who signed it', async () => {
+  it('turns a returning code into tokens, with who signed it', async () => {
     const { it, exchange } = linking();
 
     const authorized = await it.authorized(returned());
 
     expect(exchange).toHaveBeenCalledOnce();
     expect(authorized?.teamId).toBe('team_1');
-    expect(authorized?.source).toBe('slack');
+    expect(authorized?.integration).toBe('slack');
     expect(authorized?.by).toBe('user_1');
-    expect(authorized?.holder).toBe('person');
-    expect(authorized?.back).toBe('/w/acme/inbox/task_1');
-    expect(authorized?.grant.accessToken.value).toBe('xoxb-1');
+    expect(authorized?.owner).toBe('person');
+    expect(authorized?.returnTo).toBe('/w/acme/inbox/task_1');
+    expect(authorized?.tokens.accessToken.value).toBe('xoxb-1');
   });
 
   it('rejects a state it did not sign', async () => {
     const { it, exchange } = linking();
     const forged = new OAuth2State('another-secret').sign({
       teamId: 'team_1',
-      source: 'slack',
+      integration: 'slack',
       by: 'user_1',
-      holder: 'team',
-      back: null,
+      owner: 'team',
+      returnTo: null,
       nonce: 'n-1',
     }).token;
 
@@ -198,7 +198,7 @@ describe('OAuth2Linking', () => {
     expect(exchange).not.toHaveBeenCalled();
   });
 
-  it('yields nothing when the host does not accept the code', async () => {
+  it('yields nothing when the service does not accept the code', async () => {
     const { it } = linking({ exchanged: null });
 
     expect(await it.authorized(returned())).toBeNull();
@@ -253,7 +253,7 @@ describe('OAuth2Linking', () => {
   it('never lands anywhere outside the app', async () => {
     const { it } = linking();
 
-    for (const back of [
+    for (const returnTo of [
       'https://evil.example/w/acme/inbox',
       '//evil.example/w/acme/inbox',
       '/w/acme/inbox/../../../evil',
@@ -261,7 +261,7 @@ describe('OAuth2Linking', () => {
       '/w/acme/inbox?next=https://evil.example',
       '/w/acme/runs',
     ]) {
-      expect(await it.landingFor('team_1', 'slack', back)).toBe(
+      expect(await it.landingFor('team_1', 'slack', returnTo)).toBe(
         'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
       );
     }
@@ -270,20 +270,22 @@ describe('OAuth2Linking', () => {
   it('keeps an unsafe place to land out of the state it signs', async () => {
     const { it } = linking();
 
-    const begun = await it.begin(linkInput({ back: 'https://evil.example' }));
-    const state = new URL(begun?.url ?? '').searchParams.get('state') ?? '';
+    const started = await it.begin(
+      linkInput({ returnTo: 'https://evil.example' }),
+    );
+    const state = new URL(started?.url ?? '').searchParams.get('state') ?? '';
 
-    expect(new OAuth2State('a-secret').open(state)?.back).toBeNull();
+    expect(new OAuth2State('a-secret').open(state)?.returnTo).toBeNull();
   });
 
   it('requests an S256 PKCE challenge and exchanges the code with its verifier', async () => {
     const { it, exchange } = linking();
 
-    const begun = await it.begin(linkInput());
-    const url = new URL(begun?.url ?? '');
+    const started = await it.begin(linkInput());
+    const url = new URL(started?.url ?? '');
     const state = url.searchParams.get('state') ?? '';
 
-    await it.authorized(returned({ state, nonce: begun?.nonce ?? '' }));
+    await it.authorized(returned({ state, nonce: started?.nonce ?? '' }));
 
     const verifier = (exchange.mock.calls[0] as unknown as unknown[])[4];
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');

@@ -10,12 +10,10 @@ import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
-type WrittenPermissions = Readonly<
-  Record<PermissionDecision, readonly string[]>
->;
+type RawPermissions = Readonly<Record<PermissionDecision, readonly string[]>>;
 
-export interface WrittenSettings {
-  readonly permissions: WrittenPermissions;
+export interface RawSettings {
+  readonly permissions: RawPermissions;
   readonly mcpServers: readonly {
     readonly name: string;
     readonly command: string;
@@ -34,7 +32,7 @@ export class ProfileSettings {
     readonly native: Readonly<Record<string, unknown>>,
   ) {}
 
-  static written(settings: WrittenSettings): ProfileSettings {
+  static fromRaw(settings: RawSettings): ProfileSettings {
     return ProfileSettings.of({
       rules: PERMISSION_DECISIONS.flatMap((decision) =>
         settings.permissions[decision].map((raw, at) =>

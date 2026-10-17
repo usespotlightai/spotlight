@@ -7,7 +7,7 @@ export interface IntegrationConfig {
   readonly id: string;
   readonly address: string;
   readonly teamId: TeamId;
-  readonly source: string;
+  readonly integration: string;
   readonly definition: Readonly<Record<string, unknown>>;
   readonly secretReferences: readonly SecretReferenceAt[];
 }

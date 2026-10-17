@@ -1,20 +1,20 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
+import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import type { Binding } from '@integrations/domain/value-objects/binding.vo';
-import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
+import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
-import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { Poll } from '@integrations/domain/value-objects/poll.vo';
+import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { Schedule } from '@integrations/domain/value-objects/schedule.vo';
-import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 export class Integration {
   private constructor(
-    readonly source: SourceKey,
+    readonly key: IntegrationKey,
     readonly name: string,
     readonly webhook: Webhook | null,
     readonly poll: Poll | null,
@@ -22,13 +22,13 @@ export class Integration {
     readonly actions: DefinedActions,
     readonly bindings: readonly Binding[],
     readonly credentials: readonly SecretName[],
-    readonly connects: boolean,
-    readonly holderRule: ConnectionHolderRule,
-    readonly offers: readonly OfferedTool[],
+    readonly requiresConnection: boolean,
+    readonly actsAs: ActsAs,
+    readonly tools: readonly ProvidedTool[],
   ) {}
 
   static of(input: {
-    source: SourceKey;
+    key: IntegrationKey;
     name?: string;
     webhook?: Webhook | null;
     poll?: Poll | null;
@@ -36,58 +36,58 @@ export class Integration {
     actions?: DefinedActions;
     bindings?: readonly Binding[];
     credentials?: readonly SecretName[];
-    connects?: boolean;
-    holderRule?: ConnectionHolderRule;
-    offers?: readonly OfferedTool[];
+    requiresConnection?: boolean;
+    actsAs?: ActsAs;
+    tools?: readonly ProvidedTool[];
   }): Integration {
-    const source = input.source;
+    const key = input.key;
     const webhook = input.webhook ?? null;
     const poll = input.poll ?? null;
     const declares = [...(webhook?.declares ?? []), ...(poll?.declares ?? [])];
 
     for (const declared of declares) {
-      source.claim(declared.happening);
+      key.claim(declared.happening);
     }
 
     const words = declares.map((each) => each.happening.value);
 
     if (new Set(words).size !== words.length) {
       throw new InvalidIntegrationError(
-        source.value,
+        key.value,
         'defines a word more than once',
       );
     }
 
-    const offers = input.offers ?? [];
+    const tools = input.tools ?? [];
 
-    for (const offered of offers) {
-      if (!offered.source.equals(source)) {
+    for (const provided of tools) {
+      if (!provided.integration.equals(key)) {
         throw new InvalidIntegrationError(
-          source.value,
-          `offers tool ${offered.tool}, which is named for another integration`,
+          key.value,
+          `offers tool ${provided.tool}, which is named for another integration`,
         );
       }
     }
 
-    const tools = offers.map((each) => each.tool);
+    const names = tools.map((each) => each.tool);
 
-    if (new Set(tools).size !== tools.length) {
+    if (new Set(names).size !== names.length) {
       throw new InvalidIntegrationError(
-        source.value,
+        key.value,
         'offers a tool more than once',
       );
     }
 
     const read = new Set(
-      offers.flatMap((each) =>
-        each.backing.described ? [each.backing.described.hash.value] : [],
+      tools.flatMap((each) =>
+        each.backing.spec ? [each.backing.spec.hash.value] : [],
       ),
     );
 
     if (read.size > 1) {
       throw new InvalidIntegrationError(
-        source.value,
-        'offers tools from two readings of its description',
+        key.value,
+        'provides tools from two fetches of its spec',
       );
     }
 
@@ -96,7 +96,7 @@ export class Integration {
 
     if (new Set(events).size !== events.length) {
       throw new InvalidIntegrationError(
-        source.value,
+        key.value,
         'binds an event more than once',
       );
     }
@@ -105,41 +105,41 @@ export class Integration {
     const schedule = input.schedule ?? null;
 
     if (schedule) {
-      actions.named(schedule.does, 'schedule');
+      actions.named(schedule.action, 'schedule');
     }
 
     for (const binding of bindings) {
-      actions.named(binding.does, `binding on ${binding.event}`);
+      actions.named(binding.action, `binding on ${binding.event}`);
     }
 
-    for (const offered of offers) {
-      if (offered.backing.action !== null) {
-        actions.named(offered.backing.action, `tool ${offered.tool}`);
+    for (const provided of tools) {
+      if (provided.backing.action !== null) {
+        actions.named(provided.backing.action, `tool ${provided.tool}`);
       }
     }
 
-    const connects = input.connects ?? false;
-    const holderRule = input.holderRule ?? ConnectionHolderRule.team();
+    const requiresConnection = input.requiresConnection ?? false;
+    const actsAs = input.actsAs ?? ActsAs.team();
 
-    if (holderRule.byRequester && !connects) {
+    if (actsAs.byRequester && !requiresConnection) {
       throw new InvalidIntegrationError(
-        source.value,
+        key.value,
         'takes each person’s connection. A person can connect only over oauth2',
       );
     }
 
     return new Integration(
-      source,
-      (input.name ?? source.value).trim() || source.value,
+      key,
+      (input.name ?? key.value).trim() || key.value,
       webhook,
       poll,
       schedule,
       actions,
       bindings,
       input.credentials ?? [],
-      connects,
-      holderRule,
-      offers,
+      requiresConnection,
+      actsAs,
+      tools,
     );
   }
 
@@ -163,20 +163,21 @@ export class Integration {
 
   get generatedFrom(): ContentHash | null {
     return (
-      this.offers.find((each) => each.backing.described)?.backing.described
-        ?.hash ?? null
+      this.tools.find((each) => each.backing.spec)?.backing.spec?.hash ?? null
     );
   }
 
-  takesConnectionFrom(holder: ConnectionHolder): boolean {
-    return this.connects && (!holder.isPerson || this.holderRule.byRequester);
+  takesConnectionFrom(owner: ConnectionOwner): boolean {
+    return (
+      this.requiresConnection && (!owner.isPerson || this.actsAs.byRequester)
+    );
   }
 
-  offered(tool: string): OfferedTool | null {
-    return this.offers.find((each) => each.tool === tool) ?? null;
+  providedTool(tool: string): ProvidedTool | null {
+    return this.tools.find((each) => each.tool === tool) ?? null;
   }
 
   equals(other: Integration): boolean {
-    return this.source.equals(other.source);
+    return this.key.equals(other.key);
   }
 }

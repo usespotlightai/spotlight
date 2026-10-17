@@ -1,15 +1,15 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type {
-  HookMoment,
+  HookEventInstance,
   HookRuntimePort,
   ListeningHook,
   StepOutcome,
   StepRequest,
-  StepTaken,
+  StepResult,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
-  BoundTask,
   IntegrationRuntimePort,
+  IntegrationTaskView,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
@@ -61,7 +61,7 @@ const failedAt = (
   name: string,
   code: HookFailureCode,
   reason: string,
-): StepTaken => ({
+): StepResult => ({
   outcome: { name, status: 'failed', code, reason, output: null },
   denyReason: null,
   trace: null,
@@ -93,32 +93,34 @@ const within = <T>(
 const reasoned = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const boundTask = (moment: HookMoment): BoundTask => ({
-  taskId: moment.task.taskId,
-  workspaceId: moment.task.workspaceId,
-  teamId: moment.task.teamId,
-  line: moment.task.line,
-  station: moment.task.station,
-  stationKey: moment.task.stationKey,
-  marks: moment.task.marks,
+const integrationTaskView = (
+  instance: HookEventInstance,
+): IntegrationTaskView => ({
+  taskId: instance.task.taskId,
+  workspaceId: instance.task.workspaceId,
+  teamId: instance.task.teamId,
+  line: instance.task.line,
+  station: instance.task.station,
+  stationKey: instance.task.stationKey,
+  marks: instance.task.marks,
   waiting: null,
 });
 
-const taskSeen = (moment: HookMoment) => ({
-  id: moment.task.taskId,
-  title: moment.task.title,
-  url: moment.task.url,
-  line: moment.task.line,
-  station: moment.task.station,
-  stationKey: moment.task.stationKey,
-  marks: moment.task.marks,
-  repositories: moment.task.repositories,
-  pullRequest: moment.task.pullRequest,
+const taskSeen = (instance: HookEventInstance) => ({
+  id: instance.task.taskId,
+  title: instance.task.title,
+  url: instance.task.url,
+  line: instance.task.line,
+  station: instance.task.station,
+  stationKey: instance.task.stationKey,
+  marks: instance.task.marks,
+  repositories: instance.task.repositories,
+  pullRequest: instance.task.pullRequest,
 });
 
-const eventSeen = (moment: HookMoment) => ({
-  ...moment.event,
-  at: moment.at.toISOString(),
+const eventSeen = (instance: HookEventInstance) => ({
+  ...instance.event,
+  at: instance.at.toISOString(),
 });
 
 const outputOf = (outcome: StepOutcome): unknown =>
@@ -126,12 +128,12 @@ const outputOf = (outcome: StepOutcome): unknown =>
 
 const bindingsFor = (
   hook: Readable,
-  moment: HookMoment,
+  instance: HookEventInstance,
   earlier: readonly StepOutcome[] = [],
 ): Bindings => ({
-  event: bound(eventSeen(moment)),
-  task: bound(taskSeen(moment)),
-  ...(moment.task.runId ? { run: { id: moment.task.runId } } : {}),
+  event: bound(eventSeen(instance)),
+  task: bound(taskSeen(instance)),
+  ...(instance.task.runId ? { run: { id: instance.task.runId } } : {}),
   vars: hook.ir.vars,
   hook: { key: hook.key },
   step: Object.fromEntries(
@@ -142,13 +144,13 @@ const bindingsFor = (
   ),
 });
 
-const defaultBody = (hook: Readable, moment: HookMoment) => ({
+const defaultBody = (hook: Readable, instance: HookEventInstance) => ({
   hook: hook.key,
-  on: moment.on,
-  occurrence: moment.occurrence,
-  event: eventSeen(moment),
-  task: taskSeen(moment),
-  run: moment.task.runId ? { id: moment.task.runId } : null,
+  on: instance.on,
+  occurrence: instance.occurrence,
+  event: eventSeen(instance),
+  task: taskSeen(instance),
+  run: instance.task.runId ? { id: instance.task.runId } : null,
 });
 
 const inputsFor = (
@@ -227,20 +229,20 @@ export class CompiledHookRuntime implements HookRuntimePort {
     return hook ? this.compiledOf(hook) : null;
   }
 
-  matches(hook: ListeningHook, moment: HookMoment): boolean {
+  matches(hook: ListeningHook, instance: HookEventInstance): boolean {
     const compiled = hook as Compiled;
 
     if (!isReadable(compiled)) {
       return false;
     }
-    const bindings = bindingsFor(compiled, moment);
+    const bindings = bindingsFor(compiled, instance);
 
     return compiled.ir.conditions.every((condition) =>
       isTrue(condition, bindings),
     );
   }
 
-  async step(stepRequest: StepRequest): Promise<StepTaken> {
+  async step(stepRequest: StepRequest): Promise<StepResult> {
     const hook = stepRequest.hook as Compiled;
 
     if (!isReadable(hook)) {
@@ -272,7 +274,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     try {
       const bindings = bindingsFor(
         hook,
-        stepRequest.moment,
+        stepRequest.instance,
         stepRequest.earlier,
       );
 
@@ -290,7 +292,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     stepRequest: StepRequest,
     bindings: Bindings,
     now: Date,
-  ): Promise<StepTaken> {
+  ): Promise<StepResult> {
     let url: string;
     let body: string;
     let headers: Record<string, string>;
@@ -307,7 +309,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
       body = asJson(
         step.body
           ? requiredValueOf(step.body, bindings)
-          : defaultBody(hook, stepRequest.moment),
+          : defaultBody(hook, stepRequest.instance),
       );
     } catch (error) {
       return failedAt(
@@ -319,7 +321,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
 
     const request: HookRequest = {
       hook,
-      moment: stepRequest.moment,
+      instance: stepRequest.instance,
       step: step.name,
       url,
       headers,
@@ -327,7 +329,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
       fromNetwork: step.fromNetwork,
       signing: hook.ir.signing,
       deadline: stepRequest.deadline,
-      waiting: stepRequest.waiting,
+      waitMode: stepRequest.waitMode,
       resuming: stepRequest.resuming,
     };
     const denial = hook.ir.hook.requestDenial(step.name, new URL(url));
@@ -343,25 +345,25 @@ export class CompiledHookRuntime implements HookRuntimePort {
     stepRequest: StepRequest,
     bindings: Bindings,
     started: Date,
-  ): Promise<StepTaken> {
-    const { moment } = stepRequest;
+  ): Promise<StepResult> {
+    const { instance } = stepRequest;
     let inputs: ToolInputValues = {};
     let output: unknown = null;
     let failure: { code: HookFailureCode; reason: string } | null = null;
 
     try {
       const definitions = await this.defined.ofTeam(
-        TeamId.of(moment.task.teamId),
+        TeamId.of(instance.task.teamId),
       );
       const resolved = await this.runtime.tool(
         definitions,
         step.tool,
-        boundTask(moment),
+        integrationTaskView(instance),
       );
 
       const denial = hook.ir.hook.callDenial(
         ToolName.of(step.tool),
-        resolved?.offered ?? null,
+        resolved?.provided ?? null,
       );
 
       if (denial || !resolved) {
@@ -384,7 +386,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
         );
       }
 
-      if (resolved.integration.holderRule.byRequester) {
+      if (resolved.integration.actsAs.byRequester) {
         throw new StepFailure(
           'not-allowed',
           `names ${step.tool}, which acts as the person who started a task. A hook acts as nobody`,
@@ -392,7 +394,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
       }
 
       const callAuth = await this.callAuthResolver.of(
-        TeamId.of(moment.task.teamId),
+        TeamId.of(instance.task.teamId),
         resolved.integration,
       );
 

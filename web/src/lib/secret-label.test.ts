@@ -7,7 +7,7 @@ describe('secretLabel', () => {
     ['SLACK_BOT_TOKEN', 'slack', 'Bot token'],
     ['PAGERDUTY_WEBHOOK_SECRET', 'pagerduty', 'Webhook secret'],
     ['GITHUB_API_KEY', 'slack', 'Github api key'],
-  ])('names %s of %s as %s', (name, source, label) => {
-    expect(secretLabel(name, source)).toBe(label);
+  ])('names %s of %s as %s', (name, integration, label) => {
+    expect(secretLabel(name, integration)).toBe(label);
   });
 });

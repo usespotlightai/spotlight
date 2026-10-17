@@ -764,15 +764,15 @@ export type ToolActingAsResponseDto = {
   /**
    * Whose connection the call used: the team’s, or the person’s who started the task
    */
-  holder: 'team' | 'person';
+  actsAs: 'team' | 'requester';
   /**
    * The person whose connection it was, where it was a person’s
    */
   personId: string | null;
   /**
-   * What the host calls whoever the call acted as, where it says
+   * The account name on the service of whoever the call acted as, where the service gives it
    */
-  handle: string | null;
+  linkedAccount: string | null;
 };
 
 export type ToolAnswerResponseDto = {
@@ -783,7 +783,7 @@ export type ToolAnswerResponseDto = {
     [key: string]: unknown;
   } | Array<unknown> | null;
   /**
-   * Whose connection the call acted with, where its integration connects
+   * Whose connection the call acted with, where its integration requires a connection
    */
   actingAs: ToolActingAsResponseDto | null;
 };
@@ -1345,8 +1345,8 @@ export type InboxApprovalResponseDto = {
 };
 
 export type InboxConnectionResponseDto = {
-  source: string;
   integration: string;
+  integrationName: string;
   /**
    * The person asked to connect, whose connection the tool acts with
    */
@@ -3267,9 +3267,9 @@ export type WorkspaceRunnersResourceListResponseDto = {
   items: Array<WorkspaceRunnersResourceResponseDto>;
 };
 
-export type DescriptionViewResponseDto = {
+export type ApiSpecViewResponseDto = {
   /**
-   * The kind of API description, or the MCP server, its tools are generated from
+   * The kind of API spec that its tools are generated from: an OpenAPI document, a GraphQL schema or an MCP server
    */
   kind: 'openapi' | 'graphql' | 'mcp';
   /**
@@ -3277,38 +3277,41 @@ export type DescriptionViewResponseDto = {
    */
   tools: number;
   /**
-   * When it was last read
+   * When Spotlight last fetched the spec
    */
   readAt: string;
   /**
-   * Why it could not be read when it was last requested; the tools from the last good read stay offered
+   * Why it could not be read when it was last requested. The tools from the last good read stay available
    */
   problem: string | null;
 };
 
 export type IntegrationViewResponseDto = {
-  source: string;
+  /**
+   * The name of the integration, as in slack
+   */
+  integration: string;
   name: string;
   /**
    * Where the integration is defined
    */
   path: string;
   /**
-   * Whether the team is linked to the host: it only listens, it links by authorizing and has not, or it has
+   * Whether the team is connected to the integration. The integration needs no connection, is disconnected, or is connected.
    */
-  connectionStatus: 'listens' | 'unlinked' | 'linked';
+  connectionStatus: 'not-required' | 'disconnected' | 'connected';
   /**
    * Whose connection its tools act with: the team’s, or that of the person who started the task
    */
-  holderRule: 'team' | 'requester';
+  actsAs: 'team' | 'requester';
   /**
-   * What the host calls the team once linked, where it says
+   * The account name of the team on the service once connected, where the service gives one
    */
-  handle: string | null;
+  linkedAccount: string | null;
   /**
-   * The API description its tools are generated from, as last read; null where it names none
+   * The API spec that its tools are generated from, as last read. Null where it names none
    */
-  described: DescriptionViewResponseDto | null;
+  spec: ApiSpecViewResponseDto | null;
 };
 
 export type ConfigurationResponseDto = {
@@ -3473,7 +3476,7 @@ export type WorkspaceTerraformResponseDto = {
 
 export type ResourceHclResponseDto = {
   /**
-   * The resource as HCL, formatted as terraform fmt would: any variable it reads, then an import block that adopts it, then the resource, referring to the resources it names
+   * The resource as HCL, formatted as terraform fmt would: any variable it reads, then an import block that imports it, then the resource, referring to the resources it names
    */
   hcl: string;
   /**
@@ -3869,18 +3872,18 @@ export type SubmitReviewRequestDto = {
 
 export type ConnectIntegrationRequestDto = {
   /**
-   * Whose connection to make: the team’s, which only an admin makes, or the caller’s own
+   * Whose connection to make: the team’s, which only an admin makes, or the requester’s own
    */
-  for?: 'team' | 'me';
+  actsAs?: 'team' | 'requester';
   /**
-   * Where in the app to land once connected, as a path in a workspace’s inbox or settings; anything else lands on the team’s integrations
+   * Where in the app to return to after the connection, as a path in a workspace’s inbox or settings. For any other value, the app returns to the team’s integrations.
    */
-  back?: string;
+  returnTo?: string;
 };
 
 export type OAuth2StartResponseDto = {
   /**
-   * Where to send the person to authorize the link
+   * Where to send the person to authorize the connection
    */
   url: string;
 };
@@ -3894,11 +3897,11 @@ export type ConnectionToolRuleResponseDto = {
 };
 
 export type MyConnectionResponseDto = {
-  source: string;
+  integration: string;
   /**
-   * What the host calls the person, where it says
+   * The account name of the person on the service
    */
-  handle: string | null;
+  linkedAccount: string | null;
   connectedAt: string;
   /**
    * Each tool the integration offers, with the caller’s rule for calls made with this connection
@@ -3907,17 +3910,17 @@ export type MyConnectionResponseDto = {
 };
 
 export type PersonConnectionResponseDto = {
-  source: string;
+  integration: string;
   /**
-   * What the host calls the person, where it says
+   * The account name of the person on the service
    */
-  handle: string | null;
+  linkedAccount: string | null;
   connectedAt: string;
   personId: string;
   name: string;
 };
 
-export type HostConnectionsResponseDto = {
+export type IntegrationConnectionsResponseDto = {
   /**
    * The connections the caller made themselves
    */
@@ -3935,25 +3938,25 @@ export type SetToolRuleRequestDto = {
   rule: 'allowed' | 'needs-approval' | 'blocked';
 };
 
-export type DescribedSourceResponseDto = {
+export type ApiSpecResponseDto = {
   /**
-   * The kind of API description, or the MCP server, its tools are generated from
+   * The kind of API spec that its tools are generated from: an OpenAPI document, a GraphQL schema or an MCP server
    */
   kind: 'openapi' | 'graphql' | 'mcp';
   /**
-   * The sha256 of what was last read, unchanged while a later read fails; null when it has never been read
+   * The sha256 of the spec that Spotlight last fetched. It does not change when a later fetch fails. It is null when Spotlight never fetched the spec
    */
   hash: string | null;
   /**
-   * When the description was last read
+   * When Spotlight last fetched the spec
    */
   readAt: string;
   /**
-   * Why the description could not be read when it was last requested, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected, and lists an MCP server’s tools again every MCP_RELIST_SECONDS
+   * Why Spotlight could not fetch the spec the last time, or null when it could. Spotlight fetches the spec again when its url, document, baseUrl, revision or depth changes, on each update after a failed fetch, and when the integration is connected. Spotlight lists the tools of an MCP server again every MCP_RELIST_SECONDS
    */
   problem: string | null;
   /**
-   * How many of its tools were generated from the description
+   * How many of its tools were generated from the spec
    */
   tools: number;
 };
@@ -3980,9 +3983,9 @@ export type IntegrationResourceResponseDto = {
    */
   teamId: string;
   /**
-   * The host it defines; fixed for its life, so changing it means replacing the integration
+   * The name of the integration, as in linear. It cannot change. To change it, replace the integration
    */
-  source: string;
+  integration: string;
   /**
    * The integration as it was defined, with every field it left out filled in
    */
@@ -3990,15 +3993,15 @@ export type IntegrationResourceResponseDto = {
     [key: string]: unknown;
   };
   /**
-   * Each tool the integration offers, hand-written or generated from its API description, by its name within the integration, to the name that a station or hook uses for it; not settable
+   * Each tool the integration provides, hand-written or generated from its API spec, by its name within the integration, to the name that a station or hook uses for it; not settable
    */
   tools: {
     [key: string]: string;
   };
   /**
-   * The API description its tools are generated from, as last read; null when it names none; not settable
+   * The API spec that its tools are generated from, as Spotlight last fetched it; null when it names none; not settable
    */
-  described: DescribedSourceResponseDto | null;
+  spec: ApiSpecResponseDto | null;
 };
 
 export type IntegrationResourceListResponseDto = {
@@ -4018,7 +4021,7 @@ export type CheckExpressionRequestDto = {
    */
   expression: string;
   /**
-   * The integration’s whole definition, as it would be created, which says what the position sees
+   * The whole definition of the integration, as it would be created. It sets the variables at the position
    */
   definition: {
     [key: string]: unknown;
@@ -4058,7 +4061,7 @@ export type ExpressionWarningResponseDto = {
 
 export type ExpressionCheckResponseDto = {
   /**
-   * The CEL type it evaluates to; dyn where that depends on what the host sends, null where it does not check at all
+   * The CEL type it evaluates to; dyn where that depends on what the service sends, null where it does not check at all
    */
   type: string | null;
   /**
@@ -4092,16 +4095,16 @@ export type ExpressionPositionResponseDto = {
   /**
    * The names an expression here may read before the definition adds its own; type hints in the definition refine body and response
    */
-  sees: Array<ExpressionDeclarationResponseDto>;
+  variables: Array<ExpressionDeclarationResponseDto>;
   /**
    * What the definition adds here: item where the event has a forEach, the names its lookup captures, the inputs of the tools that do the action
    */
-  alsoSees: Array<'item' | 'captures' | 'inputs'>;
+  addedVariables: Array<'item' | 'captures' | 'inputs'>;
 };
 
 export type HappeningResponseDto = {
   happening: string;
-  source: string;
+  integration: string;
   label: string;
   summary: string;
 };
@@ -16778,15 +16781,15 @@ export type ConnectIntegrationData = {
   body?: ConnectIntegrationRequestDto;
   path: {
     teamId: string;
-    source: string;
+    integration: string;
   };
   query?: never;
-  url: '/teams/{teamId}/integrations/{source}/connect';
+  url: '/teams/{teamId}/integrations/{integration}/connect';
 };
 
 export type ConnectIntegrationErrors = {
   /**
-   * It requests a connection for someone other than the team or me
+   * It requests a connection that acts as someone other than the team or the requester
    */
   400: unknown;
   /**
@@ -16794,7 +16797,7 @@ export type ConnectIntegrationErrors = {
    */
   401: unknown;
   /**
-   * No such team, not yours to link, or the host does not link so
+   * No such team, not yours to connect, or the integration does not take this connection
    */
   404: unknown;
 };
@@ -16805,7 +16808,7 @@ export type ConnectIntegrationResponses = {
 
 export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
 
-export type ListConnectionsData = {
+export type ListIntegrationConnectionsData = {
   body?: never;
   path: {
     teamId: string;
@@ -16814,7 +16817,7 @@ export type ListConnectionsData = {
   url: '/teams/{teamId}/connections';
 };
 
-export type ListConnectionsErrors = {
+export type ListIntegrationConnectionsErrors = {
   /**
    * No valid session
    */
@@ -16825,23 +16828,23 @@ export type ListConnectionsErrors = {
   404: unknown;
 };
 
-export type ListConnectionsResponses = {
-  200: HostConnectionsResponseDto;
+export type ListIntegrationConnectionsResponses = {
+  200: IntegrationConnectionsResponseDto;
 };
 
-export type ListConnectionsResponse = ListConnectionsResponses[keyof ListConnectionsResponses];
+export type ListIntegrationConnectionsResponse = ListIntegrationConnectionsResponses[keyof ListIntegrationConnectionsResponses];
 
-export type DisconnectMineData = {
+export type DisconnectIntegrationData = {
   body?: never;
   path: {
     teamId: string;
-    source: string;
+    integration: string;
   };
   query?: never;
-  url: '/teams/{teamId}/integrations/{source}/connections/mine';
+  url: '/teams/{teamId}/integrations/{integration}/connections/mine';
 };
 
-export type DisconnectMineErrors = {
+export type DisconnectIntegrationErrors = {
   /**
    * No valid session
    */
@@ -16852,24 +16855,24 @@ export type DisconnectMineErrors = {
   404: unknown;
 };
 
-export type DisconnectMineResponses = {
+export type DisconnectIntegrationResponses = {
   /**
    * The caller’s connection is gone
    */
   204: void;
 };
 
-export type DisconnectMineResponse = DisconnectMineResponses[keyof DisconnectMineResponses];
+export type DisconnectIntegrationResponse = DisconnectIntegrationResponses[keyof DisconnectIntegrationResponses];
 
 export type SetMyToolRuleData = {
   body: SetToolRuleRequestDto;
   path: {
     teamId: string;
-    source: string;
+    integration: string;
     tool: string;
   };
   query?: never;
-  url: '/teams/{teamId}/integrations/{source}/connections/mine/tools/{tool}';
+  url: '/teams/{teamId}/integrations/{integration}/connections/mine/tools/{tool}';
 };
 
 export type SetMyToolRuleErrors = {

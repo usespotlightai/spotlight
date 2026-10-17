@@ -4,24 +4,24 @@ import type {
   MyConnectionResponseDto,
   PersonConnectionResponseDto,
 } from '@/lib/api';
-import { toolsCounted } from '@/lib/described';
+import { toolsCounted } from '@/lib/api-spec';
 
 export type Integration = IntegrationViewResponseDto;
 
 export type MyConnection = MyConnectionResponseDto;
 
 export const actsAsEachPerson = (integration: Integration): boolean =>
-  integration.holderRule === 'requester';
+  integration.actsAs === 'requester';
 
 export const usesTeamAccount = (integration: Integration): boolean =>
-  integration.connectionStatus !== 'listens';
+  integration.connectionStatus !== 'not-required';
 
-const formatTools = ({ described }: Integration): string | null => {
-  if (!described || described.problem) {
+const formatTools = ({ spec }: Integration): string | null => {
+  if (!spec || spec.problem) {
     return null;
   }
 
-  return toolsCounted(described.tools);
+  return toolsCounted(spec.tools);
 };
 
 export const formatUsedFor = (integration: Integration): string => {
@@ -52,13 +52,13 @@ export type Joined = {
 };
 
 export const joinedOf = (
-  source: string,
+  integration: string,
   people: readonly PersonConnectionResponseDto[],
   members: readonly MemberResponseDto[],
 ): Joined => {
   const images = new Map(members.map((member) => [member.id, member.image]));
   const connected = people
-    .filter((each) => each.source === source)
+    .filter((each) => each.integration === integration)
     .map((each) => ({
       id: each.personId,
       name: each.name || 'Someone who left',

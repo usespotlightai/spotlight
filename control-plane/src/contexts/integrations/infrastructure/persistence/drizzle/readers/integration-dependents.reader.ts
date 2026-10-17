@@ -13,10 +13,10 @@ export class DrizzleIntegrationDependents implements TeamDependentSource {
   async dependentsOf(teamId: TeamId): Promise<readonly string[]> {
     const [integrations, hooks] = await Promise.all([
       this.context.db
-        .select({ source: integrationDefinition.source })
+        .select({ integration: integrationDefinition.integration })
         .from(integrationDefinition)
         .where(eq(integrationDefinition.teamId, teamId.value))
-        .orderBy(asc(integrationDefinition.source)),
+        .orderBy(asc(integrationDefinition.integration)),
       this.context.db
         .select({ key: hookDefinition.key })
         .from(hookDefinition)
@@ -25,7 +25,7 @@ export class DrizzleIntegrationDependents implements TeamDependentSource {
     ]);
 
     return [
-      ...integrations.map((each) => `integration ${each.source}`),
+      ...integrations.map((each) => `integration ${each.integration}`),
       ...hooks.map((each) => `hook ${each.key}`),
     ];
   }

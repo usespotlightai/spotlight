@@ -56,7 +56,7 @@ const RULES: Readonly<Record<string, HclField['references']>> = {
   },
   tools: {
     type: 'spotlight_integration',
-    attribute: 'source',
+    attribute: 'integration',
     storedAt: 'definition.integration',
     tool: true,
   },
@@ -150,7 +150,7 @@ describe('editing a line Spotlight exported', () => {
     expect(edited.ok).toBe(true);
     expect(main).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
-      '    tools     = ["github.comment", "${spotlight_integration.core_linear.source}.comment"]\n',
+      '    tools     = ["github.comment", "${spotlight_integration.core_linear.integration}.comment"]\n',
     );
     expect(main).toContain(
       '    skills    = ["catalog.research@1.0.0", spotlight_skill.core_grafana.key]\n',

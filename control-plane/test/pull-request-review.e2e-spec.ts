@@ -106,8 +106,8 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       message: { body: '@spotlight please review' },
       ourOwn: false,
       opens: {
-        onto: 'review',
-        at: null,
+        lineRole: 'review',
+        station: null,
         title: 'Retry uploads',
         description: `Review ${pull}`,
         assignEmail: null,

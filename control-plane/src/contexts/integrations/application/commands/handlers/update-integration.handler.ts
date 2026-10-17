@@ -2,7 +2,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
 import { IntegrationProblems } from '@integrations/application/rendering/integration-problems';
 import type { EnabledTools } from '@integrations/application/services/enabled-tools.service';
-import type { IntegrationSources } from '@integrations/application/services/integration-sources.service';
+import type { IntegrationSpecs } from '@integrations/application/services/integration-specs.service';
 import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
@@ -24,7 +24,7 @@ export class UpdateIntegrationHandler
 {
   constructor(
     private readonly access: WorkspaceAccessPort,
-    private readonly sources: IntegrationSources,
+    private readonly specs: IntegrationSpecs,
     private readonly definitions: IntegrationDefinitionRepository,
     private readonly enabledTools: EnabledTools,
     private readonly transaction: TransactionPort,
@@ -57,7 +57,7 @@ export class UpdateIntegrationHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const { compiled, reading } = await this.sources.compiled({
+      const { compiled, reading } = await this.specs.compiled({
         definition: command.definition,
         teamId: existing.teamId,
         current: existing.reading,
@@ -95,7 +95,7 @@ export class UpdateIntegrationHandler
           outcome: 'invalid',
           problems: [
             IntegrationProblems.immutableField(
-              loaded?.source.value ?? '',
+              loaded?.integration.value ?? '',
               error,
             ),
           ],

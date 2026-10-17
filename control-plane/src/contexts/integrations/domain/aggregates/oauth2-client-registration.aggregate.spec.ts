@@ -1,7 +1,7 @@
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -22,7 +22,7 @@ const registered = (secretExpiresAt: Date | null = null) =>
   OAuth2ClientRegistration.register({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
-    source: SourceKey.of('notion'),
+    integration: IntegrationKey.of('notion'),
     ...WANTED,
     clientId: 'client-1',
     clientSecret: AccessToken.of('secret-1'),
@@ -75,7 +75,7 @@ describe('OAuth2ClientRegistration', () => {
     const stored = OAuth2ClientRegistration.rehydrate({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      source: SourceKey.of('notion'),
+      integration: IntegrationKey.of('notion'),
       ...WANTED,
       clientId: 'client-0',
       clientSecret: null,
@@ -93,7 +93,7 @@ describe('OAuth2ClientRegistration', () => {
       OAuth2ClientRegistration.register({
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
-        source: SourceKey.of('notion'),
+        integration: IntegrationKey.of('notion'),
         ...WANTED,
         clientId: ' ',
         clientSecret: null,

@@ -125,21 +125,21 @@ describe('OAuth2ConnectionController', () => {
     await controller.connect('team_1', 'slack', ADMIN, answering().response);
 
     const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
-    expect(begin.holder).toBe('team');
-    expect(begin.back).toBeNull();
+    expect(begin.owner).toBe('team');
+    expect(begin.returnTo).toBeNull();
   });
 
-  it('connects the caller’s own account, carrying where to land', async () => {
+  it('connects the caller’s own account, carrying where to return to', async () => {
     const { controller, execute } = controlling();
 
     await controller.connect('team_1', 'linear', ADMIN, answering().response, {
-      for: 'me',
-      back: '/w/acme/inbox/task_1',
+      actsAs: 'requester',
+      returnTo: '/w/acme/inbox/task_1',
     });
 
     const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
-    expect(begin.holder).toBe('person');
-    expect(begin.back).toBe('/w/acme/inbox/task_1');
+    expect(begin.owner).toBe('person');
+    expect(begin.returnTo).toBe('/w/acme/inbox/task_1');
   });
 
   it('denies a connection for anyone but the team or the caller', async () => {
@@ -147,10 +147,10 @@ describe('OAuth2ConnectionController', () => {
 
     await expect(
       controller.connect('team_1', 'linear', ADMIN, answering().response, {
-        for: 'someone-else' as 'me',
+        actsAs: 'someone-else' as 'requester',
       }),
     ).rejects.toThrow(
-      /A connection must be for team or me\. Received: someone-else/,
+      /A connection must act as team or requester\. Received: someone-else/,
     );
     expect(execute).not.toHaveBeenCalled();
   });

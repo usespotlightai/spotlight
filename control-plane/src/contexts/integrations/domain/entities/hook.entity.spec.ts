@@ -4,11 +4,11 @@ import {
 } from '@integrations/domain/entities/hook.entity';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
+import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import { HookVerdict } from '@integrations/domain/value-objects/hook-verdict.vo';
-import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { describe, expect, it } from 'vitest';
@@ -40,9 +40,9 @@ const hook = (failure: HookOnFailure = 'continue') =>
     timeoutSeconds: Hook.DEFAULTS.timeoutSeconds,
   });
 
-const offered = (approval: ApprovalNeeded | null = null) =>
-  OfferedTool.of({
-    source: SourceKey.of('linear'),
+const provided = (approval: ApprovalNeeded | null = null) =>
+  ProvidedTool.of({
+    integration: IntegrationKey.of('linear'),
     name: 'comment',
     description: 'Comment on the issue.',
     backing: ToolBacking.action('comment'),
@@ -82,7 +82,7 @@ describe('Hook', () => {
 
   describe('calling a tool', () => {
     it('may call a tool the team offers without approval from anyone', () => {
-      expect(hook().callDenial(COMMENT, offered())).toBeNull();
+      expect(hook().callDenial(COMMENT, provided())).toBeNull();
     });
 
     it('may not call a tool no integration offers now', () => {
@@ -94,7 +94,7 @@ describe('Hook', () => {
     });
 
     it('may not call a tool that asks a person before each call', () => {
-      const needsApproval = offered(
+      const needsApproval = provided(
         ApprovalNeeded.of({ because: 'it writes to customers' }, 'comment'),
       );
 
@@ -132,7 +132,7 @@ describe('Hook', () => {
   describe('judging an event before it happens', () => {
     it('lets the next step go on after a step that did its work', () => {
       expect(
-        hook('block').verdictOn('check', {
+        hook('block').decisionOn('check', {
           denyReason: null,
           failedBecause: null,
         }),
@@ -141,12 +141,12 @@ describe('Hook', () => {
 
     it('denies what an endpoint denied', () => {
       expect(
-        hook().verdictOn('check', {
+        hook().decisionOn('check', {
           denyReason: 'the migration drops a column',
           failedBecause: null,
         }),
       ).toEqual(
-        HookVerdict.denied(
+        HookDecision.denied(
           'Hook dba denied the event. Reason: the migration drops a column',
         ),
       );
@@ -154,12 +154,12 @@ describe('Hook', () => {
 
     it('denies the event when a step fails and the hook blocks on failure', () => {
       expect(
-        hook('block').verdictOn('check', {
+        hook('block').decisionOn('check', {
           denyReason: null,
           failedBecause: 'was answered 503',
         }),
       ).toEqual(
-        HookVerdict.denied(
+        HookDecision.denied(
           'Hook dba failed at step check and blocks on failure. Reason: was answered 503',
         ),
       );
@@ -167,11 +167,11 @@ describe('Hook', () => {
 
     it('lets the event go on when a step fails and the hook continues', () => {
       expect(
-        hook('continue').verdictOn('check', {
+        hook('continue').decisionOn('check', {
           denyReason: null,
           failedBecause: 'was answered 503',
         }),
-      ).toEqual(HookVerdict.allowed());
+      ).toEqual(HookDecision.allowed());
     });
   });
 });

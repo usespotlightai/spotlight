@@ -7,8 +7,8 @@ import type {
   ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
+import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
-import type { TaskBindings } from '@work/application/services/task-bindings.service';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
@@ -18,7 +18,7 @@ export class IntegrationTools implements IntegrationToolsPort {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly lines: LineRepository,
-    private readonly bindings: TaskBindings,
+    private readonly taskViews: IntegrationTaskViews,
     private readonly calls: IntegrationToolCallsPort,
     private readonly works: RunWorks,
   ) {}
@@ -37,11 +37,11 @@ export class IntegrationTools implements IntegrationToolsPort {
       this.tasks.find(context.taskId),
       this.lines.findByStation(context.stationId),
     ]);
-    const bound = task && line ? await this.bindings.of(task, line) : null;
-    const found = bound
+    const view = task && line ? await this.taskViews.of(task, line) : null;
+    const found = view
       ? await this.calls.resolve(
           tool.value,
-          bound,
+          view,
           { runId: attempt.runId.value, attempt: attempt.number },
           context.requester?.value ?? null,
         )
@@ -53,7 +53,7 @@ export class IntegrationTools implements IntegrationToolsPort {
           actingAs: found.actingAs
             ? ToolActingAsMapper.toActingAs(found.actingAs)
             : null,
-          wants: found.wants,
+          missing: found.missing,
           personRule: found.personRule
             ? PersonRuleMapper.toRule(found.personRule)
             : null,

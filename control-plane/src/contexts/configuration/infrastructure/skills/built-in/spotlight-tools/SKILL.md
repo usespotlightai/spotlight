@@ -27,7 +27,7 @@ spotlight tools describe linear.issue-create
 It prints what the tool does, its inputs as a TypeScript type, whether a
 person has to approve it, and one call to start from. An input marked `?` can
 be left out. Where the tool answered an earlier call, it also prints what it
-answers with, as a type learned from those answers: a field it did not always
+answers with, as a type inferred from those answers: a field it did not always
 answer with is marked `?`, and a field it never answered with may be missing.
 
 ## Calling one

@@ -1,5 +1,5 @@
 import {
-  EXPRESSION_ALSO_SEES_NAMES,
+  EXPRESSION_ADDED_VARIABLE_NAMES,
   EXPRESSION_RETURNS_NAMES,
   type ExpressionCheckDto,
   type ExpressionDeclarationDto,
@@ -71,7 +71,7 @@ export class ExpressionCheckResponseDto {
     nullable: true,
     example: 'bool',
     description:
-      'The CEL type it evaluates to; dyn where that depends on what the host sends, null where it does not check at all',
+      'The CEL type it evaluates to; dyn where that depends on what the service sends, null where it does not check at all',
   })
   readonly type: string | null;
 
@@ -148,23 +148,23 @@ export class ExpressionPositionResponseDto {
     description:
       'The names an expression here may read before the definition adds its own; type hints in the definition refine body and response',
   })
-  readonly sees: readonly ExpressionDeclarationResponseDto[];
+  readonly variables: readonly ExpressionDeclarationResponseDto[];
 
   @ApiProperty({
     type: String,
     isArray: true,
-    enum: [...EXPRESSION_ALSO_SEES_NAMES],
+    enum: [...EXPRESSION_ADDED_VARIABLE_NAMES],
     description:
       'What the definition adds here: item where the event has a forEach, the names its lookup captures, the inputs of the tools that do the action',
   })
-  readonly alsoSees: readonly string[];
+  readonly addedVariables: readonly string[];
 
   constructor(position: ExpressionPositionDto) {
     this.position = position.position.rendered;
     this.returns = position.returns;
-    this.sees = position.sees.map(
+    this.variables = position.variables.map(
       (each) => new ExpressionDeclarationResponseDto(each),
     );
-    this.alsoSees = position.alsoSees;
+    this.addedVariables = position.addedVariables;
   }
 }

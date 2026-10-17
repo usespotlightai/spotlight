@@ -2,7 +2,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
+import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
 import { ConnectionAsked as ConnectionAskedText } from '@work/application/rendering/connection-asked';
@@ -113,13 +113,14 @@ export class TaskRunWork implements RunWork {
 
   async askToConnect(
     declared: DeclaredTool,
-    wanted: ConnectionWantedDto,
+    missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked> {
     const askable =
-      wanted.because === 'not-connected' || wanted.because === 'refresh-failed';
+      missing.because === 'not-connected' ||
+      missing.because === 'refresh-failed';
 
-    if (!wanted.personId || !askable) {
-      return { kind: 'denied', reason: ConnectionAskedText.denial(wanted) };
+    if (!missing.personId || !askable) {
+      return { kind: 'denied', reason: ConnectionAskedText.denial(missing) };
     }
 
     const line = await this.lines.findByStation(this.task.stationId);
@@ -133,22 +134,22 @@ export class TaskRunWork implements RunWork {
       {
         station:
           line.stationAt(this.task.stationId)?.name ?? StationName.unknown(),
-        body: TaskNoteBody.of(ConnectionAskedText.body(declared, wanted)),
+        body: TaskNoteBody.of(ConnectionAskedText.body(declared, missing)),
         at: this.clock.now(),
         voice: Voice.station(this.run.id),
       },
       ConnectionAsk.of({
         teamId: line.teamId,
-        source: wanted.source,
-        integration: wanted.integration,
-        personId: UserId.of(wanted.personId),
+        integration: missing.integration,
+        integrationName: missing.integrationName,
+        personId: UserId.of(missing.personId),
       }),
     );
 
     if (!asked) {
       return {
         kind: 'denied',
-        reason: ConnectionAskedText.busy(wanted),
+        reason: ConnectionAskedText.busy(missing),
       };
     }
 

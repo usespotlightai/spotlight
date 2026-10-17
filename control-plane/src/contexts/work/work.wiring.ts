@@ -220,9 +220,9 @@ import {
   type BriefedTasksPort,
 } from '@work/application/ports/briefed-tasks.port';
 import {
+  BUILT_IN_SKILL_KEYS,
   BUILT_IN_SKILLS,
   type BuiltInSkillsPort,
-  SHIPPED_SKILL_KEYS,
 } from '@work/application/ports/built-in-skills.port';
 import {
   CHAT_READER,
@@ -255,10 +255,6 @@ import {
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
 import { HARNESS_TOOL_NAMES } from '@work/application/ports/harness-tool-names.port';
 import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
-import {
-  HOOKED_TASKS,
-  type HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
 import { INBOX_READER } from '@work/application/ports/inbox-reader.port';
 import {
   INTEGRATION_TOOL_CALLS,
@@ -390,6 +386,10 @@ import {
 } from '@work/application/ports/task-placements.port';
 import { TASK_READER } from '@work/application/ports/task-reader.port';
 import {
+  TASK_VIEWS,
+  type TaskViewsPort,
+} from '@work/application/ports/task-views.port';
+import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
 } from '@work/application/ports/team-integrations.port';
@@ -514,7 +514,7 @@ import { EgressSecretFetches } from '@work/application/services/egress-secret-fe
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
-import { HookedTasks } from '@work/application/services/hooked-tasks.service';
+import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
 import { LineViews } from '@work/application/services/line-views.service';
@@ -556,11 +556,11 @@ import { StationOrdering } from '@work/application/services/station-ordering';
 import { StationRuns } from '@work/application/services/station-runs.service';
 import { StationSkills } from '@work/application/services/station-skills.service';
 import { TaskAsides } from '@work/application/services/task-asides.service';
-import { TaskBindings } from '@work/application/services/task-bindings.service';
 import {
   TASK_DISPATCH,
   type TaskDispatching,
 } from '@work/application/services/task-dispatch';
+import { TaskViews } from '@work/application/services/task-views.service';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { ToolSources } from '@work/application/services/tool-sources.service';
 import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
@@ -569,7 +569,7 @@ import { TracesLoader } from '@work/application/services/traces-loader.service';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
 import { WORK_PAYLOAD_TYPES } from '@work/domain/payload-types';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
-import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
+import { BUILT_IN_SKILL_KEY_LIST } from '@work/domain/services/built-in-skills';
 import { AcpHarnessToolNames } from '@work/infrastructure/acp/harness-tools';
 import { OutboxTeamProvisioning } from '@work/infrastructure/events/outbox-team-provisioning';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
@@ -813,7 +813,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: HookedTasks,
+    provide: TaskViews,
     inject: [
       DrizzleTaskRepository,
       DrizzleLineRepository,
@@ -836,7 +836,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       env: Env,
     ) =>
-      new HookedTasks(
+      new TaskViews(
         tasks,
         lines,
         workspaces,
@@ -849,9 +849,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ),
   },
 
-  { provide: HOOKED_TASKS, useExisting: HookedTasks },
+  { provide: TASK_VIEWS, useExisting: TaskViews },
 
-  { provide: TASK_NOTES_FROM_HOOKS, useExisting: HookedTasks },
+  { provide: TASK_NOTES_FROM_HOOKS, useExisting: TaskViews },
 
   {
     provide: HOOK_TRACES,
@@ -905,20 +905,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RunStartHooks,
-    inject: [
-      DrizzleRunRepository,
-      HOOKED_TASKS,
-      LIFECYCLE_HOOKS,
-      CLOCK,
-      LOGGER,
-    ],
+    inject: [DrizzleRunRepository, TASK_VIEWS, LIFECYCLE_HOOKS, CLOCK, LOGGER],
     useFactory: (
       runs: DrizzleRunRepository,
-      hookedTasks: HookedTasksPort,
+      taskViews: TaskViewsPort,
       hooks: LifecycleHooksPort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new RunStartHooks(runs, hookedTasks, hooks, clock, logger),
+    ) => new RunStartHooks(runs, taskViews, hooks, clock, logger),
   },
 
   {
@@ -1285,8 +1279,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: CONTENT_DIGEST, useClass: Sha256ContentDigest },
 
   {
-    provide: SHIPPED_SKILL_KEYS,
-    useValue: BUILT_IN_SKILL_KEYS.map((each) => each.value),
+    provide: BUILT_IN_SKILL_KEYS,
+    useValue: BUILT_IN_SKILL_KEY_LIST.map((each) => each.value),
   },
 
   {
@@ -1602,16 +1596,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: TaskBindings,
+    provide: IntegrationTaskViews,
     inject: [DrizzleLineRepository],
-    useFactory: (lines: DrizzleLineRepository) => new TaskBindings(lines),
+    useFactory: (lines: DrizzleLineRepository) =>
+      new IntegrationTaskViews(lines),
   },
 
   {
     provide: OUTBOUND_TASK_NOTIFIER,
-    inject: [TaskBindings, TASK_NOTICES],
-    useFactory: (bindings: TaskBindings, notices: TaskNoticesPort) =>
-      new OutsideTaskNotices(bindings, notices),
+    inject: [IntegrationTaskViews, TASK_NOTICES],
+    useFactory: (taskViews: IntegrationTaskViews, notices: TaskNoticesPort) =>
+      new OutsideTaskNotices(taskViews, notices),
   },
 
   {
@@ -2093,7 +2088,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleLineRepository,
       PULL_REQUESTS,
       TRANSACTION,
-      HOOKED_TASKS,
+      TASK_VIEWS,
       LIFECYCLE_HOOKS,
       CLOCK,
     ],
@@ -2102,7 +2097,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: DrizzleLineRepository,
       pullRequests: PullRequestPort,
       transaction: TransactionPort,
-      hookedTasks: HookedTasksPort,
+      taskViews: TaskViewsPort,
       hooks: LifecycleHooksPort,
       clock: ClockPort,
     ) =>
@@ -2111,7 +2106,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         lines,
         pullRequests,
         transaction,
-        hookedTasks,
+        taskViews,
         hooks,
         clock,
       ),
@@ -2156,23 +2151,23 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     inject: [
       DrizzleTaskRepository,
       DrizzleLineRepository,
-      TaskBindings,
+      IntegrationTaskViews,
       INTEGRATION_TOOL_CALLS,
       RunWorks,
     ],
     useFactory: (
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
-      bindings: TaskBindings,
+      taskViews: IntegrationTaskViews,
       calls: IntegrationToolCallsPort,
       works: RunWorks,
-    ) => new IntegrationTools(tasks, lines, bindings, calls, works),
+    ) => new IntegrationTools(tasks, lines, taskViews, calls, works),
   },
 
   ...bindCommandHandler(UseToolCommand, UseToolHandler, [
     RunWorks,
     ToolSources,
-    HOOKED_TASKS,
+    TASK_VIEWS,
     LIFECYCLE_HOOKS,
     ID_GENERATOR,
     DOMAIN_EVENT_DISPATCHER,
@@ -2180,9 +2175,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: ToolUsedHooks,
-    inject: [HOOKED_TASKS, LIFECYCLE_HOOKS],
-    useFactory: (hookedTasks: HookedTasksPort, hooks: LifecycleHooksPort) =>
-      new ToolUsedHooks(hookedTasks, hooks),
+    inject: [TASK_VIEWS, LIFECYCLE_HOOKS],
+    useFactory: (taskViews: TaskViewsPort, hooks: LifecycleHooksPort) =>
+      new ToolUsedHooks(taskViews, hooks),
   },
 
   ...bindCommandHandler(AskPermissionCommand, AskPermissionHandler, [
@@ -2455,7 +2450,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DrizzleTaskRepository,
     DrizzleLineRepository,
     TRANSACTION,
-    HOOKED_TASKS,
+    TASK_VIEWS,
     LIFECYCLE_HOOKS,
     CLOCK,
   ]),

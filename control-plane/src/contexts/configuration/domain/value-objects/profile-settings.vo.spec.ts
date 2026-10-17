@@ -1,8 +1,8 @@
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { describe, expect, it } from 'vitest';
 
-const written = (native: Record<string, unknown>) =>
-  ProfileSettings.written({
+const fromRaw = (native: Record<string, unknown>) =>
+  ProfileSettings.fromRaw({
     permissions: { allow: [], ask: [], deny: [] },
     mcpServers: [],
     native,
@@ -11,7 +11,7 @@ const written = (native: Record<string, unknown>) =>
 describe('ProfileSettings', () => {
   it('keeps native settings apart from the document they were written from', () => {
     const native = { 'claude-code': { env: { DEBUG: '1' } } };
-    const settings = written(native);
+    const settings = fromRaw(native);
 
     native['claude-code'].env.DEBUG = '0';
 
@@ -19,7 +19,7 @@ describe('ProfileSettings', () => {
   });
 
   it('rejects a change to its native settings at any depth', () => {
-    const settings = written({
+    const settings = fromRaw({
       'claude-code': { env: { DEBUG: '1' }, hooks: [{ run: 'lint' }] },
     });
     const harness = settings.native['claude-code'] as {

@@ -5,8 +5,8 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { OpenedPullRequest } from '@work/application/dto/pull-request.dto';
-import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
+import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import { takeTaskMarks } from '@work/application/services/task-marks';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { PullRequestHookDeniedError } from '@work/domain/exceptions/pull-request-hook-denied.error';
@@ -34,7 +34,7 @@ export class OpenPullRequest {
     private readonly lines: LineRepository,
     private readonly pullRequests: PullRequestPort,
     private readonly transaction: TransactionPort,
-    private readonly hookedTasks: HookedTasksPort,
+    private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly clock: ClockPort,
   ) {}
@@ -56,16 +56,16 @@ export class OpenPullRequest {
     }
 
     const repository = line.opening(input.repository);
-    const hooked = await this.hookedTasks.of(
+    const taskView = await this.taskViews.of(
       target.taskId.value,
       target.runId.value,
     );
 
     if (
-      hooked &&
-      (await this.hooks.listens(hooked.teamId, 'pull-request.opening'))
+      taskView &&
+      (await this.hooks.listens(taskView.teamId, 'pull-request.opening'))
     ) {
-      const verdict = await this.hooks.before(hooked, {
+      const decision = await this.hooks.before(taskView, {
         on: 'pull-request.opening',
         repository: repository.value,
         branch: task.branch.value,
@@ -77,8 +77,8 @@ export class OpenPullRequest {
         ),
       });
 
-      if (verdict.kind === 'denied') {
-        throw new PullRequestHookDeniedError(verdict.reason);
+      if (decision.kind === 'denied') {
+        throw new PullRequestHookDeniedError(decision.reason);
       }
     }
 

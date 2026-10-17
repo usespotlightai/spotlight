@@ -1,54 +1,55 @@
 import type { FireHooks } from '@integrations/application/services/fire-hooks.service';
-import type { HookVerdict as FiredVerdict } from '@integrations/domain/value-objects/hook-verdict.vo';
-import { HookedTaskMapper } from '@integrations/infrastructure/acl/hooked-task.mapper';
-import type { HookedTaskDto } from '@work/application/ports/hooked-tasks.port';
+import type { HookDecision as FiredDecision } from '@integrations/domain/value-objects/hook-decision.vo';
+import { TaskViewMapper } from '@integrations/infrastructure/acl/task-view.mapper';
 import type {
-  BeforeMoment,
-  HookVerdict,
+  BeforeHookEvent,
+  HookDecision,
   LifecycleHooksPort,
-  ToolUsedMoment,
+  ToolUsedHookEvent,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type { TaskViewDto } from '@work/application/ports/task-views.port';
 
-const eventOf = ({ on: _, ...event }: BeforeMoment | ToolUsedMoment) => event;
+const eventOf = ({ on: _, ...event }: BeforeHookEvent | ToolUsedHookEvent) =>
+  event;
 
-const verdictOf = (verdict: FiredVerdict): HookVerdict =>
-  verdict.denyReason === null
+const decisionOf = (decision: FiredDecision): HookDecision =>
+  decision.denyReason === null
     ? { kind: 'allowed' }
-    : { kind: 'denied', reason: verdict.denyReason };
+    : { kind: 'denied', reason: decision.denyReason };
 
 export class LifecycleHooks implements LifecycleHooksPort {
   constructor(private readonly firings: FireHooks) {}
 
-  listens(teamId: string, on: BeforeMoment['on']): Promise<boolean> {
+  listens(teamId: string, on: BeforeHookEvent['on']): Promise<boolean> {
     return this.firings.listens(teamId, on);
   }
 
   async before(
-    task: HookedTaskDto,
-    moment: BeforeMoment,
+    task: TaskViewDto,
+    instance: BeforeHookEvent,
     until?: Date,
-  ): Promise<HookVerdict> {
-    return verdictOf(
+  ): Promise<HookDecision> {
+    return decisionOf(
       await this.firings.before(
-        HookedTaskMapper.toHooked(task),
-        moment.on,
-        eventOf(moment),
+        TaskViewMapper.toView(task),
+        instance.on,
+        eventOf(instance),
         until ?? null,
       ),
     );
   }
 
   async after(
-    task: HookedTaskDto,
-    moment: ToolUsedMoment,
+    task: TaskViewDto,
+    instance: ToolUsedHookEvent,
     occurrence: string,
   ): Promise<void> {
     await this.firings.happened({
-      on: moment.on,
+      on: instance.on,
       occurrence,
-      change: `${moment.tool} ${occurrence}`,
-      task: HookedTaskMapper.toHooked(task),
-      event: eventOf(moment),
+      change: `${instance.tool} ${occurrence}`,
+      task: TaskViewMapper.toView(task),
+      event: eventOf(instance),
     });
   }
 }

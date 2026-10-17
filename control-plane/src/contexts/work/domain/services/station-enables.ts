@@ -3,7 +3,7 @@ import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
 export const skillsProblem = (skills: readonly SkillKey[]): string | null => {
-  const own = skills.find((each) => each.isSpotlights);
+  const own = skills.find((each) => each.isReserved);
 
   if (own) {
     return `cannot name skill ${own.value}. Spotlight already enables it where it applies`;

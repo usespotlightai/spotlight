@@ -195,12 +195,12 @@ func TestNamesTheNearestToolsForOneNotEnabledForTheRun(t *testing.T) {
 	}
 }
 
-func TestDescribesWhatAToolAnsweredBeforeAsLearned(t *testing.T) {
-	learned := tool("linear.comment", "Comment on an issue.")
-	learned.Output = json.RawMessage(`{"type":"object","properties":{"url":{"type":"string"},"labels":{"type":"object","additionalProperties":{"type":"number"}}},"required":["url"],"additionalProperties":false}`)
+func TestDescribesWhatAToolAnsweredBeforeAsInferred(t *testing.T) {
+	inferred := tool("linear.comment", "Comment on an issue.")
+	inferred.Output = json.RawMessage(`{"type":"object","properties":{"url":{"type":"string"},"labels":{"type":"object","additionalProperties":{"type":"number"}}},"required":["url"],"additionalProperties":false}`)
 
-	described := describing(learned)
-	want := "Answers with (learned from earlier calls, may be incomplete):\n{\n  labels?: {\n    [key: string]: number;\n  };\n  url: string;\n}\n\nFor example:"
+	described := describing(inferred)
+	want := "Answers with (inferred from earlier calls, may be incomplete):\n{\n  labels?: {\n    [key: string]: number;\n  };\n  url: string;\n}\n\nFor example:"
 	if !strings.Contains(described, want) {
 		t.Errorf("described\n%s\nwant it to say\n%s", described, want)
 	}

@@ -6,5 +6,5 @@ export const EXPRESSIONS = 'expressions';
 
 export const WEBHOOKS = 'webhooks';
 
-export const TEAM_DELIVERIES = 'w/:slug/t/:teamKey/:source';
+export const TEAM_DELIVERIES = 'w/:slug/t/:teamKey/:integration';
 export const HOOK_CALLBACKS = 'hook-callbacks';

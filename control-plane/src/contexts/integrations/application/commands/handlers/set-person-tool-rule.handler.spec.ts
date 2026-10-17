@@ -3,14 +3,14 @@ import { SetPersonToolRuleHandler } from '@integrations/application/commands/han
 import { SetPersonToolRuleCommand } from '@integrations/application/commands/set-person-tool-rule.command';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InMemoryPersonToolPolicies } from '@integrations/integrations.policies.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const setting = (member = true, holderRule = 'requester') => {
+const setting = (member = true, actsAs = 'requester') => {
   const policies = new InMemoryPersonToolPolicies();
   const handler = new SetPersonToolRuleHandler(
     {
@@ -18,14 +18,14 @@ const setting = (member = true, holderRule = 'requester') => {
     } as unknown as WorkspaceAccessPort,
     {
       ofTeam: async () => [
-        { source: 'linear', offers: ['linear.comment', 'linear.issue'] },
+        { integration: 'linear', tools: ['linear.comment', 'linear.issue'] },
       ],
     } as unknown as DefinedIntegrationsPort,
     {
       integrations: () => [
         {
-          source: SourceKey.of('linear'),
-          holderRule: { byRequester: holderRule === 'requester' },
+          key: IntegrationKey.of('linear'),
+          actsAs: { byRequester: actsAs === 'requester' },
         },
       ],
     } as unknown as IntegrationRuntimePort,
@@ -42,7 +42,7 @@ const setting = (member = true, holderRule = 'requester') => {
       await policies.of(
         TeamId.of('team_1'),
         UserId.of(viewer),
-        SourceKey.of('linear'),
+        IntegrationKey.of('linear'),
       )
     )?.ruleFor(ToolName.of(tool)).name ?? 'allowed';
 

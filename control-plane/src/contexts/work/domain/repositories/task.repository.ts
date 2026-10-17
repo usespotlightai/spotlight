@@ -32,6 +32,6 @@ export interface TaskRepository {
   awaitingConnection(
     teamId: TeamId,
     personId: UserId,
-    source: string,
+    integration: string,
   ): Promise<readonly Task[]>;
 }

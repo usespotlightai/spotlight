@@ -29,7 +29,7 @@ const DEFINITION = {
   },
   on: {
     'task.opened': {
-      do: 'comment',
+      action: 'comment',
       // biome-ignore lint/suspicious/noTemplateCurlyInString: the definition's own expression syntax
       to: { thread: '${{ ask.body }}' },
     },
@@ -134,7 +134,7 @@ describe('checking expressions for a plan', () => {
     ]);
   });
 
-  it('lists every position with what it sees', async () => {
+  it('lists every position with its variables', async () => {
     const answer = await served(app)
       .get('/api/expressions/positions')
       .set(TEST_USER_HEADER, 'expression-checker');
@@ -144,7 +144,7 @@ describe('checking expressions for a plan', () => {
       expect.objectContaining({
         position: 'integration.webhook.events[*].when',
         returns: 'bool',
-        alsoSees: ['item'],
+        addedVariables: ['item'],
       }),
     );
   });

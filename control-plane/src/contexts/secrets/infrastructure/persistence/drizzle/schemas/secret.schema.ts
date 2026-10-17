@@ -30,7 +30,7 @@ export const secret = pgTable(
     valueVersion: integer('value_version'),
     rotatedAt: timestamp('rotated_at').notNull(),
     version: integer('version').notNull().default(1),
-    definedAt: timestamp('defined_at')
+    updatedAt: timestamp('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),

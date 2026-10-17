@@ -3,8 +3,8 @@ import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
-const declared = (tool: string, offeredBy: string | null = null) =>
-  DeclaredTool.of({ tool: Tool.of(tool), description: 'Does it.', offeredBy });
+const declared = (tool: string, providedBy: string | null = null) =>
+  DeclaredTool.of({ tool: Tool.of(tool), description: 'Does it.', providedBy });
 
 describe('enabledIntegrations', () => {
   it('counts the tools from each integration under its name, in the order given', () => {
@@ -26,7 +26,7 @@ describe('enabledIntegrations', () => {
     expect(enabledIntegrations([declared('pull-request')])).toEqual([]);
   });
 
-  it('names an integration by its source where nothing names it', () => {
+  it('names an integration by its key where nothing names it', () => {
     expect(enabledIntegrations([declared('grafana.search')])).toEqual([
       { name: 'grafana', tools: 1 },
     ]);

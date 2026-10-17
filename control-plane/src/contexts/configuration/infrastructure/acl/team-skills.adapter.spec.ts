@@ -1,9 +1,9 @@
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import type {
   SkillFolder,
   SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
+import type { TeamSkillFilesPort } from '@configuration/application/ports/team-skill-files.port';
 import { Skill } from '@configuration/domain/entities/skill.entity';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
@@ -66,14 +66,14 @@ const withSkills = (
     ofTeam: vi.fn(async () => existing.map((each) => SecretName.of(each))),
   } satisfies SecretNamesPort;
   const reader: SkillReaderPort = {
-    read: () => ({ skills: folders, problems: [] }),
+    parse: () => ({ skills: folders, problems: [] }),
     folder: vi.fn(),
   };
 
   return new TeamSkills(
     {
       of: vi.fn(async () => ({ teamId: TEAM, skills: [] })),
-    } satisfies AppliedConfigurationPort,
+    } satisfies TeamSkillFilesPort,
     reader,
     secrets,
   );

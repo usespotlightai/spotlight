@@ -1,6 +1,6 @@
 import type { AcceptDeliveryCommand } from '@integrations/application/commands/accept-delivery.command';
-import type { DeliveryInboxPort } from '@integrations/application/ports/delivery-inbox.port';
-import type { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
+import type { DeliveryQueuePort } from '@integrations/application/ports/delivery-queue.port';
+import type { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
@@ -8,29 +8,29 @@ export class AcceptDeliveryHandler
   implements CommandHandlerPort<AcceptDeliveryCommand, void>
 {
   constructor(
-    private readonly sources: SourceForDelivery,
-    private readonly inbox: DeliveryInboxPort,
+    private readonly providers: ProviderForDelivery,
+    private readonly queue: DeliveryQueuePort,
   ) {}
 
   async execute(command: AcceptDeliveryCommand): Promise<void> {
     try {
-      const source = await this.sources.find({
-        source: command.source,
+      const provider = await this.providers.find({
+        integration: command.integration,
         workspaceId: command.workspaceId,
         teamId: command.teamId,
         teamKey: command.teamKey,
       });
 
-      if (!source) {
+      if (!provider) {
         return;
       }
 
-      await this.inbox.accept({
-        source: source.key,
+      await this.queue.accept({
+        integration: provider.key,
         workspaceId: command.workspaceId,
         teamId: command.teamId,
         teamKey: command.teamKey,
-        id: source.delivery(command.delivered),
+        id: provider.delivery(command.delivered),
         headers: command.delivered.headers,
         body: command.delivered.body,
         attempts: 0,

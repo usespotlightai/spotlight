@@ -1,7 +1,7 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { GitService } from '@work/application/ports/git-gateway.port';
-import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
+import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
 import type {
   Cleared,
@@ -60,11 +60,11 @@ export class ChatRunWork implements RunWork {
 
   async askToConnect(
     _declared: DeclaredTool,
-    wanted: ConnectionWantedDto,
+    missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked> {
     return {
       kind: 'denied',
-      reason: `${wanted.integration} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`,
+      reason: `${missing.integrationName} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`,
     };
   }
 

@@ -15,11 +15,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
-import type {
-  HookedTaskDto,
-  HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
-import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
+import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type {
   IntegrationToolsPort,
   ResolvedTool,
@@ -27,11 +23,15 @@ import type {
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
 import type {
-  BeforeMoment,
-  HookVerdict,
+  BeforeHookEvent,
+  HookDecision,
   LifecycleHooksPort,
-  ToolUsedMoment,
+  ToolUsedHookEvent,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type {
+  TaskViewDto,
+  TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
@@ -153,7 +153,7 @@ const LINEAR_COMMENT = DeclaredTool.of({
       description: null,
       required: true,
       defaulted: true,
-      piped: false,
+      stdin: false,
     },
     {
       name: 'body',
@@ -161,10 +161,10 @@ const LINEAR_COMMENT = DeclaredTool.of({
       description: null,
       required: true,
       defaulted: false,
-      piped: true,
+      stdin: true,
     },
   ],
-  offeredBy: 'Linear',
+  providedBy: 'Linear',
 });
 
 const describedAs = (tool: string) => {
@@ -213,7 +213,7 @@ const LINE = {
   stationAt: () => null,
 } as unknown as Line;
 
-const HOOKED: HookedTaskDto = {
+const TASK_VIEW: TaskViewDto = {
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
@@ -229,8 +229,8 @@ const HOOKED: HookedTaskDto = {
 };
 
 interface Hooked {
-  readonly before: BeforeMoment[];
-  readonly after: { moment: ToolUsedMoment; occurrence: string }[];
+  readonly before: BeforeHookEvent[];
+  readonly after: { event: ToolUsedHookEvent; occurrence: string }[];
   readonly asked: { taskId: string; runId: string | null }[];
 }
 
@@ -248,12 +248,12 @@ const using = (
     approval?: ApprovalNeeded | null;
     failing?: boolean;
     movedOnWhileCalling?: boolean;
-    verdict?: HookVerdict;
+    decision?: HookDecision;
     hooksDown?: boolean;
     afterFails?: boolean;
     recordingFails?: boolean;
     movedOnTo?: Run;
-    wants?: ConnectionWantedDto;
+    missing?: ConnectionMissingDto;
     actingAs?: ToolActingAs;
     personRule?: PersonRule;
     denied?: {
@@ -287,7 +287,7 @@ const using = (
                   description: null,
                   required: true,
                   defaulted: false,
-                  piped: false,
+                  stdin: false,
                 },
               ],
             })),
@@ -321,7 +321,7 @@ const using = (
         description: LINEAR_COMMENT.description,
         inputs: LINEAR_COMMENT.inputs,
         approval: over.approval,
-        offeredBy: LINEAR_COMMENT.offeredBy,
+        providedBy: LINEAR_COMMENT.providedBy,
       })
     : LINEAR_COMMENT;
 
@@ -352,7 +352,7 @@ const using = (
         ? {
             declared: linear,
             actingAs: over.actingAs ?? null,
-            wants: over.wants ?? null,
+            missing: over.missing ?? null,
             personRule: over.personRule ?? null,
             defaultFor: (input) =>
               input.name === 'issue' ? 'ENG-12' : undefined,
@@ -374,30 +374,30 @@ const using = (
 
   const hooked: Hooked = { before: [], after: [], asked: [] };
   const recorded: DomainEvent[] = [];
-  const hookedTasks: HookedTasksPort = {
+  const taskViews: TaskViewsPort = {
     of: async (taskId: string, runId: string | null) => {
       hooked.asked.push({ taskId, runId });
-      return HOOKED;
+      return TASK_VIEW;
     },
     ofPullRequest: async () => null,
   };
   const hooks: LifecycleHooksPort = {
     listens: async () => true,
-    before: async (_task, moment) => {
+    before: async (_task, event) => {
       if (over.hooksDown) {
         throw new Error('the hooks are unreachable');
       }
-      hooked.before.push(moment);
-      return over.verdict ?? { kind: 'allowed' };
+      hooked.before.push(event);
+      return over.decision ?? { kind: 'allowed' };
     },
-    after: async (_task, moment, occurrence) => {
+    after: async (_task, event, occurrence) => {
       if (over.afterFails) {
         throw new Error('the hooks are down');
       }
-      hooked.after.push({ moment, occurrence });
+      hooked.after.push({ event, occurrence });
     },
   };
-  const afterwards = new ToolUsedHooks(hookedTasks, hooks);
+  const afterwards = new ToolUsedHooks(taskViews, hooks);
 
   const found = over.movedOnTo ? [run, over.movedOnTo] : [run];
   const handler = new UseToolHandler(
@@ -417,7 +417,7 @@ const using = (
       { now: () => NOW, sleep: async () => {} },
     ),
     new ToolSources(builtIns, integrationTools, catalog),
-    hookedTasks,
+    taskViews,
     hooks,
     { generate: () => 'occurrence_1' },
     {
@@ -1153,7 +1153,7 @@ describe('UseToolHandler', () => {
 
     it('calls nothing and tells the agent why when a hook denies it', async () => {
       const { useTool, called, hooked } = using(claimed(['linear.comment']), {
-        verdict: {
+        decision: {
           kind: 'denied',
           reason: 'The hook core/dba-review denied the call: not on a Friday.',
         },
@@ -1217,7 +1217,7 @@ describe('UseToolHandler', () => {
         claimed(['linear.comment']),
         {
           approval: NEEDS_APPROVAL,
-          verdict: { kind: 'denied', reason: 'Not today.' },
+          decision: { kind: 'denied', reason: 'Not today.' },
           task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
         },
       );
@@ -1345,7 +1345,7 @@ describe('UseToolHandler', () => {
 
       expect(hooked.after).toEqual([
         {
-          moment: {
+          event: {
             on: 'tool.used',
             tool: 'linear.comment',
             inputs: { issue: 'ENG-12', body: 'Fixed.' },
@@ -1375,8 +1375,8 @@ describe('UseToolHandler', () => {
       await expect(
         useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({ kind: 'upstream-error' });
-      expect(hooked.after[0]?.moment.failed).toBe(true);
-      expect(hooked.after[0]?.moment.output).toMatch(/down/);
+      expect(hooked.after[0]?.event.failed).toBe(true);
+      expect(hooked.after[0]?.event.output).toMatch(/down/);
     });
 
     it('answers with the tool’s answer, leaving the hooks after it to their own reaction', async () => {
@@ -1416,9 +1416,9 @@ describe('UseToolHandler', () => {
   });
 
   describe('a tool that acts as the person who started the task', () => {
-    const WANTED: ConnectionWantedDto = {
-      source: 'linear',
-      integration: 'Linear',
+    const MISSING: ConnectionMissingDto = {
+      integration: 'linear',
+      integrationName: 'Linear',
       personId: 'user_1',
       because: 'not-connected',
     };
@@ -1426,7 +1426,7 @@ describe('UseToolHandler', () => {
     it('asks that person to connect, sends nothing, and never asks for approval', async () => {
       const { useTool, called, current, recorded } = using(
         claimed(['linear.comment']),
-        { wants: WANTED, approval: NEEDS_APPROVAL },
+        { missing: MISSING, approval: NEEDS_APPROVAL },
       );
 
       await expect(
@@ -1442,14 +1442,14 @@ describe('UseToolHandler', () => {
       expect(asked?.form).toBe('connection');
       expect(asked?.approval).toBeNull();
       expect(asked?.connectionAsk?.personId.value).toBe('user_1');
-      expect(asked?.connectionAsk?.source).toBe('linear');
+      expect(asked?.connectionAsk?.integration).toBe('linear');
       expect(current().assignee?.value).toBe('user_1');
       expect(current().awaitingReview).toBe(true);
     });
 
     it('asks only once while the person has not answered', async () => {
       const { useTool, current } = using(claimed(['linear.comment']), {
-        wants: WANTED,
+        missing: MISSING,
       });
 
       await expect(
@@ -1465,7 +1465,7 @@ describe('UseToolHandler', () => {
 
     it('is denied, never falling back to the team, when nobody started the task', async () => {
       const { useTool, called, current } = using(claimed(['linear.comment']), {
-        wants: { ...WANTED, personId: null, because: 'no-requester' },
+        missing: { ...MISSING, personId: null, because: 'no-requester' },
       });
 
       await expect(
@@ -1497,7 +1497,7 @@ describe('UseToolHandler', () => {
         null,
       ).task;
       const { useTool, called, current } = using(claimed(['linear.comment']), {
-        wants: WANTED,
+        missing: MISSING,
         task: waitingOnApproval,
       });
 
@@ -1515,7 +1515,7 @@ describe('UseToolHandler', () => {
 
     it('is denied when the person who started it left the team', async () => {
       const { useTool, called } = using(claimed(['linear.comment']), {
-        wants: { ...WANTED, because: 'not-a-member' },
+        missing: { ...MISSING, because: 'not-a-member' },
       });
 
       await expect(
@@ -1536,14 +1536,18 @@ describe('UseToolHandler', () => {
         useTool('linear.comment', { body: 'Fixed.' }),
       ).resolves.toEqual({
         output: 'https://linear.app/acme/issue/ENG-12#comment-1',
-        actingAs: { holder: 'person', personId: 'user_1', handle: '@alice' },
+        actingAs: {
+          actsAs: 'requester',
+          personId: 'user_1',
+          linkedAccount: '@alice',
+        },
       });
 
       const used = recorded.find((each) => each instanceof ToolUsed) as
         | ToolUsed
         | undefined;
       expect(used?.actingAs?.personId?.value).toBe('user_1');
-      expect(used?.actingAs?.handle).toBe('@alice');
+      expect(used?.actingAs?.linkedAccount).toBe('@alice');
     });
   });
 });

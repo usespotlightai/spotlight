@@ -73,12 +73,12 @@ export const enabledAt = (
 
 export const describedTools = (
   tools: readonly Tool[],
-  offered: readonly DeclaredTool[],
+  provided: readonly DeclaredTool[],
 ): DeclaredTool[] =>
   tools.flatMap((tool) => {
     const found =
       builtInTool(tool)?.declared ??
-      offered.find((each) => each.tool.equals(tool));
+      provided.find((each) => each.tool.equals(tool));
 
     return found ? [found] : [];
   });

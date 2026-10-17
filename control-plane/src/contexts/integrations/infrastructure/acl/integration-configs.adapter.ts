@@ -8,7 +8,7 @@ import type {
   IntegrationResourcesPort,
 } from '@integrations/application/ports/integration-resources.port';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { secretReferencesIn } from '@integrations/infrastructure/integrations/secret-references';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -19,10 +19,10 @@ const configOf = (
   id: record.id,
   address: IntegrationAddress.of(
     teamKey,
-    SourceKey.of(record.source),
+    IntegrationKey.of(record.integration),
   ).toString(),
   teamId: record.teamId,
-  source: record.source,
+  integration: record.integration,
   definition: record.definition,
   secretReferences: secretReferencesIn(record.definition),
 });

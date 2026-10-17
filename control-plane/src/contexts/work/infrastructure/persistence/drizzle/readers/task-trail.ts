@@ -133,8 +133,8 @@ const connecting = (
 ): InboxConnection | null =>
   parts
     ? {
-        source: parts.source,
         integration: parts.integration,
+        integrationName: parts.integrationName,
         personId: parts.personId,
         personName: named.get(parts.personId)?.name ?? '',
         met: parts.met,

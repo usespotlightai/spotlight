@@ -13,7 +13,7 @@ const profile = (key: string, env: Record<string, string>) =>
     id: HarnessProfileId.of(`profile_${key}`),
     teamId: TeamId.of('team_core'),
     key: ProfileKey.of(key),
-    settings: ProfileSettings.written({
+    settings: ProfileSettings.fromRaw({
       permissions: { allow: [], ask: [], deny: [] },
       mcpServers: [{ name: 'linear', command: 'npx', args: [], env }],
       native: {},

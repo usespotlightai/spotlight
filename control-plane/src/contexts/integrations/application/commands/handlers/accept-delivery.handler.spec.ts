@@ -1,15 +1,15 @@
 import { AcceptDeliveryCommand } from '@integrations/application/commands/accept-delivery.command';
 import { AcceptDeliveryHandler } from '@integrations/application/commands/handlers/accept-delivery.handler';
 import type {
-  DeliveryInboxPort,
+  DeliveryQueuePort,
   StoredDelivery,
-} from '@integrations/application/ports/delivery-inbox.port';
+} from '@integrations/application/ports/delivery-queue.port';
 import type {
   Delivered,
-  WebhookSourcePort,
-} from '@integrations/application/ports/webhook-source.port';
-import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
-import { WebhookSources } from '@integrations/application/services/webhook-sources.service';
+  WebhookProviderPort,
+} from '@integrations/application/ports/webhook-provider.port';
+import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
+import { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
 import { describe, expect, it, vi } from 'vitest';
 
 const github = {
@@ -22,29 +22,30 @@ const github = {
     ),
   routes: async () => null,
   read: async () => [],
-} satisfies WebhookSourcePort;
+} satisfies WebhookProviderPort;
 
 const accepting = () => {
   const taken: StoredDelivery[] = [];
-  const inbox = {
+  const queue = {
     accept: vi.fn(async (delivery: StoredDelivery) => {
       const first = !taken.some(
-        (each) => each.source === delivery.source && each.id === delivery.id,
+        (each) =>
+          each.integration === delivery.integration && each.id === delivery.id,
       );
       taken.push(delivery);
       return first;
     }),
-  } as unknown as DeliveryInboxPort;
+  } as unknown as DeliveryQueuePort;
 
   return {
     handler: new AcceptDeliveryHandler(
-      new SourceForDelivery(WebhookSources.of([github]), {
+      new ProviderForDelivery(WebhookProviders.of([github]), {
         find: async () => null,
         all: async () => [],
       }),
-      inbox,
+      queue,
     ),
-    inbox,
+    queue,
     taken,
   };
 };
@@ -56,7 +57,7 @@ const delivered = (id = 'd_1', body: unknown = { action: 'closed' }) => ({
 });
 
 describe('AcceptDeliveryHandler', () => {
-  it('stores the delivery as it arrived, under the name from its host', async () => {
+  it('stores the delivery as it arrived, under the name of its integration', async () => {
     const { handler, taken } = accepting();
 
     await handler.execute(
@@ -65,7 +66,7 @@ describe('AcceptDeliveryHandler', () => {
 
     expect(taken).toEqual([
       {
-        source: 'github',
+        integration: 'github',
         workspaceId: '',
         teamId: '',
         teamKey: '',
@@ -77,8 +78,8 @@ describe('AcceptDeliveryHandler', () => {
     ]);
   });
 
-  it('offers the same delivery to the inbox under one name', async () => {
-    const { handler, inbox } = accepting();
+  it('offers the same delivery to the queue under one name', async () => {
+    const { handler, queue } = accepting();
 
     await handler.execute(
       new AcceptDeliveryCommand('github', '', '', '', delivered()),
@@ -87,20 +88,20 @@ describe('AcceptDeliveryHandler', () => {
       new AcceptDeliveryCommand('github', '', '', '', delivered()),
     );
 
-    expect(inbox.accept).toHaveBeenCalledTimes(2);
+    expect(queue.accept).toHaveBeenCalledTimes(2);
     expect(
-      await (inbox.accept as never as ReturnType<typeof vi.fn>).mock.results[0]
+      await (queue.accept as never as ReturnType<typeof vi.fn>).mock.results[0]
         ?.value,
     ).toBe(true);
     expect(
-      await (inbox.accept as never as ReturnType<typeof vi.fn>).mock.results[1]
+      await (queue.accept as never as ReturnType<typeof vi.fn>).mock.results[1]
         ?.value,
     ).toBe(false);
   });
 
   it('reads nothing of the delivery beyond what to call it', async () => {
     const { handler, taken } = accepting();
-    const unreadable = { not: 'anything a source would recognise' };
+    const unreadable = { not: 'anything a provider would recognise' };
 
     await handler.execute(
       new AcceptDeliveryCommand(
@@ -115,7 +116,7 @@ describe('AcceptDeliveryHandler', () => {
     expect(taken[0]?.body).toEqual(unreadable);
   });
 
-  it('takes in nothing for a source nobody registered', async () => {
+  it('takes in nothing for a provider nobody registered', async () => {
     const { handler, taken } = accepting();
 
     await handler.execute(

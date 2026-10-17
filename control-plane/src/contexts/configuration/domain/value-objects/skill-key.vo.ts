@@ -20,7 +20,7 @@ export class SkillKey {
     return new SkillKey(trimmed);
   }
 
-  get isSpotlights(): boolean {
+  get isReserved(): boolean {
     return this.value.startsWith('spotlight-');
   }
 

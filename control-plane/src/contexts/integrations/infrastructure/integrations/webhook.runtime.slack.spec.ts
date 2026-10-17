@@ -39,7 +39,7 @@ webhook:
   respond:
     when: '\${{ body.type == "url_verification" }}'
     body: '\${{ body.challenge }}'
-  mine: '\${{ body.event.bot_id != "" }}'
+  ignoreWhen: '\${{ body.event.bot_id != "" }}'
   events:
     - when: '\${{ body.event.type == "app_mention" }}'
       raise:
@@ -47,8 +47,8 @@ webhook:
         label: Mentioned
         summary: Mentioned Spotlight in Slack.
         opens:
-          onto: delivery
-          at: triage
+          lineRole: delivery
+          station: triage
           title: '\${{ body.event.text }}'
         marks:
           - kind: slack.thread
@@ -82,7 +82,7 @@ actions:
 
 on:
   task.asked:
-    do: post-message
+    action: post-message
     to:
       channel: '\${{ task.marks["slack.channel"] }}'
       thread: '\${{ task.marks["slack.thread"] }}'
@@ -193,8 +193,8 @@ describe('the Slack webhook runtime', () => {
       const [read] = await runtime().read(delivered(mention));
 
       expect(read?.happening).toBe('slack.app_mention');
-      expect(read?.opens?.onto).toBe('delivery');
-      expect(read?.opens?.at).toBe('triage');
+      expect(read?.opens?.lineRole).toBe('delivery');
+      expect(read?.opens?.station).toBe('triage');
       expect(read?.concerns.marks).toEqual([
         { kind: 'slack.thread', value: 'C0REQ:170.1' },
       ]);
@@ -260,7 +260,7 @@ webhook:
       raise:
         happening: slack.app_mention
         opens:
-          onto: delivery
+          lineRole: delivery
           title: '\${{ body.event.text }}'
           assignBy:
             email: '\${{ email }}'

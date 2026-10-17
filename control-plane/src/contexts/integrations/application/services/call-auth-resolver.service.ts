@@ -5,15 +5,15 @@ import type {
   CallAuth,
   Credentials,
 } from '@integrations/application/ports/integration-runtime.port';
-import type { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
+import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { RunCredentials } from '@integrations/application/services/run-credentials';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
-import type { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
+import type { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import { ConnectionChoice } from '@integrations/domain/services/connection-choice';
-import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import type { ConnectionWanted } from '@integrations/domain/value-objects/connection-wanted.vo';
+import type { ConnectionMissing } from '@integrations/domain/value-objects/connection-missing.vo';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -30,26 +30,26 @@ export interface RunCallAuth {
 export type ConnectionFound =
   | {
       readonly kind: 'chosen';
-      readonly holder: ConnectionHolder;
-      readonly connection: HostConnection | null;
+      readonly owner: ConnectionOwner;
+      readonly connection: IntegrationConnection | null;
     }
-  | { readonly kind: 'wanted'; readonly wanted: ConnectionWanted };
+  | { readonly kind: 'missing'; readonly missing: ConnectionMissing };
 
 export class CallAuthResolver {
   constructor(
-    private readonly connections: HostConnectionRepository,
+    private readonly connections: IntegrationConnectionRepository,
     private readonly teams: TeamDirectoryPort,
     private readonly access: WorkspaceAccessPort,
     private readonly injection: SecretInjectionPort,
-    private readonly renewal: ConnectionRenewal,
+    private readonly connectionRefresh: ConnectionRefresh,
   ) {}
 
   async of(teamId: TeamId, integration: Integration): Promise<CallAuth> {
-    const connection = integration.connects
+    const connection = integration.requiresConnection
       ? await this.connections.of(
           teamId,
-          integration.source,
-          ConnectionHolder.team(),
+          integration.key,
+          ConnectionOwner.team(),
         )
       : null;
 
@@ -66,10 +66,10 @@ export class CallAuthResolver {
     integration: Integration,
     requester: UserId | null,
   ): Promise<ConnectionFound> {
-    if (!integration.connects) {
+    if (!integration.requiresConnection) {
       return {
         kind: 'chosen',
-        holder: ConnectionHolder.team(),
+        owner: ConnectionOwner.team(),
         connection: null,
       };
     }
@@ -77,30 +77,30 @@ export class CallAuthResolver {
     const chosen = ConnectionChoice.choose(integration, {
       personId: requester,
       member:
-        requester !== null && integration.holderRule.byRequester
+        requester !== null && integration.actsAs.byRequester
           ? (await this.access.onTeam(teamId.value, requester)) !== null
           : false,
     });
 
-    if (chosen.kind === 'wanted') {
+    if (chosen.kind === 'missing') {
       return chosen;
     }
 
     const found = await this.connections.of(
       teamId,
-      integration.source,
-      chosen.holder,
+      integration.key,
+      chosen.owner,
     );
-    const wanted = ConnectionChoice.usable(integration, chosen.holder, found);
+    const missing = ConnectionChoice.usable(integration, chosen.owner, found);
 
-    return wanted
-      ? { kind: 'wanted', wanted }
-      : { kind: 'chosen', holder: chosen.holder, connection: found };
+    return missing
+      ? { kind: 'missing', missing }
+      : { kind: 'chosen', owner: chosen.owner, connection: found };
   }
 
   async forRun(
     run: RunCallAuth,
-    connection: HostConnection | null,
+    connection: IntegrationConnection | null,
   ): Promise<CallAuth> {
     if (run.injectedSecrets.length > 0) {
       await this.injection.grant({
@@ -119,16 +119,16 @@ export class CallAuthResolver {
     };
   }
 
-  private active(connection: HostConnection): ActiveConnection {
+  private active(connection: IntegrationConnection): ActiveConnection {
     return {
       token: connection.accessToken,
-      holder: connection.holder,
-      handle: connection.handle,
+      owner: connection.owner,
+      linkedAccount: connection.linkedAccount,
       unauthorized: (token) =>
-        this.renewal.afterUnauthorized(
+        this.connectionRefresh.afterUnauthorized(
           connection.teamId,
-          connection.source,
-          connection.holder,
+          connection.integration,
+          connection.owner,
           token,
         ),
     };

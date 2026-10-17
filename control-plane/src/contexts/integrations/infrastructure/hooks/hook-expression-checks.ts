@@ -59,8 +59,8 @@ const positioned = (
 ): ExpressionPositionDto => ({
   position: FieldPath.dotted(`${HOOK_RESOURCE}.${dotted}`),
   returns,
-  sees: declarationsOf(scope.declared),
-  alsoSees: [],
+  variables: declarationsOf(scope.declared),
+  addedVariables: [],
 });
 
 const STEP = `steps.${ANY_SEGMENT}`;
@@ -139,7 +139,7 @@ export class HookExpressionChecks {
       return { outcome: 'no-expression-there' };
     }
 
-    const verdict = checkedAgainst(
+    const result = checkedAgainst(
       this.expressions,
       expression,
       place.scope,
@@ -148,7 +148,7 @@ export class HookExpressionChecks {
 
     return {
       outcome: 'checked',
-      check: { type: verdict.type, errors: verdict.errors, warnings: [] },
+      check: { type: result.type, errors: result.errors, warnings: [] },
     };
   }
 

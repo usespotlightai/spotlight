@@ -11,7 +11,7 @@ interface ToolInputDeclaration {
   readonly description: string | null;
   readonly required: boolean;
   readonly defaulted: boolean;
-  readonly piped: boolean;
+  readonly stdin: boolean;
 }
 
 interface ApprovalDeclaration {
@@ -24,5 +24,5 @@ export interface ToolDeclaration {
   readonly description: string;
   readonly inputs: readonly ToolInputDeclaration[];
   readonly approval: ApprovalDeclaration | null;
-  readonly learnedOutput: JsonObject | null;
+  readonly inferredOutput: JsonObject | null;
 }

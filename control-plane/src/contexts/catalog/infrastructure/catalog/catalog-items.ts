@@ -27,7 +27,7 @@ const QUERY = {
   description: 'What to search for',
   required: true,
   defaulted: false,
-  piped: false,
+  stdin: false,
 };
 
 const WEB_SEARCH =
@@ -53,7 +53,7 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
       description: 'How many pages to answer with, at most',
       required: false,
       defaulted: false,
-      piped: false,
+      stdin: false,
     },
   ]),
   CatalogTool.of(
@@ -70,7 +70,7 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
         description: 'The page’s address',
         required: true,
         defaulted: false,
-        piped: false,
+        stdin: false,
       },
     ],
   ),

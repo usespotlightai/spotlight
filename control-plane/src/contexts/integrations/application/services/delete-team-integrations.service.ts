@@ -1,9 +1,9 @@
 import { HookDeletionRequested } from '@integrations/domain/events/hook-deletion-requested.event';
 import { IntegrationDeletionRequested } from '@integrations/domain/events/integration-deletion-requested.event';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import type { InferredOutputSchemaRepository } from '@integrations/domain/repositories/inferred-output-schema.repository';
+import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
-import type { LearnedOutputRepository } from '@integrations/domain/repositories/learned-output.repository';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import type { PersonToolPolicyRepository } from '@integrations/domain/repositories/person-tool-policy.repository';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
@@ -17,16 +17,16 @@ export class DeleteTeamIntegrations {
   constructor(
     private readonly definitions: IntegrationDefinitionRepository,
     private readonly hooks: HookDefinitionRepository,
-    private readonly connections: HostConnectionRepository,
+    private readonly connections: IntegrationConnectionRepository,
     private readonly registrations: OAuth2ClientRegistrationRepository,
-    private readonly learned: LearnedOutputRepository,
+    private readonly schemas: InferredOutputSchemaRepository,
     private readonly policies: PersonToolPolicyRepository,
   ) {}
 
   async deleteConnectionsForTeam(teamId: TeamId): Promise<void> {
     await this.connections.deleteForTeam(teamId);
     await this.registrations.deleteForTeam(teamId);
-    await this.learned.deleteForTeam(teamId);
+    await this.schemas.deleteForTeam(teamId);
     await this.policies.deleteForTeam(teamId);
   }
 

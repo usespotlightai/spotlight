@@ -1,6 +1,6 @@
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
-export interface DescribedSourceDto {
+export interface ApiSpecDto {
   readonly kind: string;
   readonly hash: string | null;
   readonly readAt: string;
@@ -13,9 +13,9 @@ export interface IntegrationResourceDto {
   readonly version: number;
   readonly address: string;
   readonly teamId: string;
-  readonly source: string;
+  readonly integration: string;
   readonly definition: Readonly<Record<string, unknown>>;
   readonly tools: Readonly<Record<string, string>>;
-  readonly described: DescribedSourceDto | null;
+  readonly spec: ApiSpecDto | null;
   readonly warnings: readonly ConfigurationProblem[];
 }

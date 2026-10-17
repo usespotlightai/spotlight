@@ -20,7 +20,7 @@ const TEAM = TeamId.of('team_1');
 
 const ID = SkillDefinitionId.of('skill_1');
 
-const read = (key = 'grafana', body = 'Search first.') => ({
+const parsed = (key = 'grafana', body = 'Search first.') => ({
   skill: Skill.define({
     key: SkillKey.of(key),
     description: 'Look up dashboards',
@@ -51,7 +51,7 @@ const ENABLED = StationUses.of([
 describe('SkillDefinition', () => {
   it('is created for a team under its skill’s key, and says so', () => {
     const created = SkillDefinition.create({
-      ...read(),
+      ...parsed(),
       id: ID,
       teamId: TEAM,
       by: BY,
@@ -76,7 +76,7 @@ describe('SkillDefinition', () => {
   });
 
   it('takes new files, and says so', () => {
-    const updated = stored().update(read('grafana', 'Search twice.'), BY);
+    const updated = stored().update(parsed('grafana', 'Search twice.'), BY);
 
     expect(updated.files.fields).toEqual({ 'SKILL.md': 'Search twice.' });
     expect(updated.pullEvents()).toEqual([
@@ -90,7 +90,7 @@ describe('SkillDefinition', () => {
   });
 
   it('keeps its key for its whole life', () => {
-    expect(() => stored().update(read('loki'), BY)).toThrow(
+    expect(() => stored().update(parsed('loki'), BY)).toThrow(
       ImmutableFieldError,
     );
   });
@@ -117,7 +117,7 @@ describe('SkillDefinition', () => {
         ConfigurationChange.deleted(GRAFANA, BY),
       ),
     ]);
-    expect(() => deleted.update(read(), BY)).toThrow(InconsistentStateError);
+    expect(() => deleted.update(parsed(), BY)).toThrow(InconsistentStateError);
   });
 
   it('is deleted with its team, whichever station still enables it', () => {

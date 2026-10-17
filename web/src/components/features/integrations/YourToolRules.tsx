@@ -4,19 +4,25 @@ import type { ConnectionToolRuleResponseDto } from '@/lib/api';
 
 type YourToolRulesProps = {
   teamId: string;
-  source: string;
+  integration: string;
   tools: readonly ConnectionToolRuleResponseDto[];
 };
 
-const named = (source: string, tool: string): string =>
-  tool.startsWith(`${source}.`) ? tool.slice(source.length + 1) : tool;
+const named = (integration: string, tool: string): string =>
+  tool.startsWith(`${integration}.`)
+    ? tool.slice(integration.length + 1)
+    : tool;
 
-export function YourToolRules({ teamId, source, tools }: YourToolRulesProps) {
+export function YourToolRules({
+  teamId,
+  integration,
+  tools,
+}: YourToolRulesProps) {
   const setting = useSetToolRule(teamId);
 
   return (
     <ul
-      aria-label={`What may act as you in ${source}`}
+      aria-label={`What may act as you in ${integration}`}
       className="-my-0.5 -mr-2 flex flex-col"
     >
       {tools.map((each) => (
@@ -25,13 +31,15 @@ export function YourToolRules({ teamId, source, tools }: YourToolRulesProps) {
           className="flex min-h-7 items-center justify-between gap-4"
         >
           <span className="truncate text-foreground text-sm">
-            {named(source, each.tool)}
+            {named(integration, each.tool)}
           </span>
           <ToolRuleSelect
             tool={each.tool}
             rule={each.rule}
             disabled={setting.isPending}
-            onRule={(rule) => setting.mutate({ source, tool: each.tool, rule })}
+            onRule={(rule) =>
+              setting.mutate({ integration, tool: each.tool, rule })
+            }
           />
         </li>
       ))}

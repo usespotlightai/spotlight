@@ -45,7 +45,7 @@ export class HappeningController {
       (each) =>
         new HappeningResponseDto(
           each.happening,
-          each.source,
+          each.integration,
           each.label,
           each.summary,
         ),

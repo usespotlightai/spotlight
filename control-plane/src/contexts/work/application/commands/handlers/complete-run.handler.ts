@@ -6,8 +6,8 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { CompleteRunCommand } from '@work/application/commands/runner.commands';
 import type { RunCompletionDto } from '@work/application/dto/run-completion.dto';
-import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
+import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
@@ -34,7 +34,7 @@ export class CompleteRunHandler
     private readonly tasks: TaskRepository,
     private readonly lines: LineRepository,
     private readonly transaction: TransactionPort,
-    private readonly hookedTasks: HookedTasksPort,
+    private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly clock: ClockPort,
   ) {}
@@ -165,20 +165,20 @@ export class CompleteRunHandler
       return handover;
     }
 
-    const hooked = await this.hookedTasks.of(run.taskId.value, run.id.value);
+    const taskView = await this.taskViews.of(run.taskId.value, run.id.value);
 
-    if (!hooked) {
+    if (!taskView) {
       return handover;
     }
 
-    const verdict = await this.hooks.before(hooked, {
+    const decision = await this.hooks.before(taskView, {
       on: 'handover.submitting',
       to: handover.next === '' ? null : handover.next,
       note: handover.note,
     });
 
-    return verdict.kind === 'denied'
-      ? handover.sentToReview(verdict.reason)
+    return decision.kind === 'denied'
+      ? handover.sentToReview(decision.reason)
       : handover;
   }
 }

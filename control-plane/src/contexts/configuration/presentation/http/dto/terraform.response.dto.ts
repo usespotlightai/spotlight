@@ -39,7 +39,7 @@ export class ResourceHclResponseDto {
     example:
       'import {\n  to = spotlight_team.core\n  id = "5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57/core"\n}\n\nresource "spotlight_team" "core" {\n  workspace_id = spotlight_workspace.acme.id\n  key          = "core"\n  name         = "Core"\n}\n',
     description:
-      'The resource as HCL, formatted as terraform fmt would: any variable it reads, then an import block that adopts it, then the resource, referring to the resources it names',
+      'The resource as HCL, formatted as terraform fmt would: any variable it reads, then an import block that imports it, then the resource, referring to the resources it names',
   })
   readonly hcl: string;
 

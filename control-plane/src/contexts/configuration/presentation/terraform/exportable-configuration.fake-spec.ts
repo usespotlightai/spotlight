@@ -200,9 +200,9 @@ const LINEAR = {
   },
   tools: {
     comment: {
-      does: 'comment',
+      action: 'comment',
       description: 'Comment on the issue.\nUse it to say what you did.\n',
-      inputs: { body: { type: 'string', required: true, piped: false } },
+      inputs: { body: { type: 'string', required: true, stdin: false } },
     },
   },
 };
@@ -395,7 +395,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       id: 'integration_linear',
       address: 'core/linear',
       teamKey: 'core',
-      source: 'linear',
+      integration: 'linear',
       definition: LINEAR,
       secretReferences: [
         {

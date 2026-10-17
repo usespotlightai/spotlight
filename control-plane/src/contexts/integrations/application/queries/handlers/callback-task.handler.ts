@@ -1,28 +1,30 @@
-import type { CallbackTaskDto } from '@integrations/application/dto/callback-task.dto';
+import type { CallbackTaskView } from '@integrations/application/dto/callback-task-view.dto';
 import type { TasksForHooksPort } from '@integrations/application/ports/tasks-for-hooks.port';
 import type { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
-import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
+import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class CallbackTaskHandler
-  implements QueryHandlerPort<CallbackTaskQuery, CallbackTaskDto | null>
+  implements QueryHandlerPort<CallbackTaskQuery, CallbackTaskView | null>
 {
   constructor(
-    private readonly grants: HookCallbackGrants,
+    private readonly callbackTokens: HookCallbackTokens,
     private readonly tasks: TasksForHooksPort,
   ) {}
 
-  async execute(query: CallbackTaskQuery): Promise<CallbackTaskDto | null> {
+  async execute(query: CallbackTaskQuery): Promise<CallbackTaskView | null> {
     try {
-      const grant = await this.grants.findByToken(query.token);
-      const task = grant ? await this.tasks.of(grant.taskId.value, null) : null;
+      const callbackToken = await this.callbackTokens.findByToken(query.token);
+      const task = callbackToken
+        ? await this.tasks.of(callbackToken.taskId.value, null)
+        : null;
 
       if (
-        !grant ||
+        !callbackToken ||
         !task ||
-        !grant.coversTaskIn(WorkspaceId.of(task.workspaceId))
+        !callbackToken.coversTaskIn(WorkspaceId.of(task.workspaceId))
       ) {
         return null;
       }
@@ -37,7 +39,7 @@ export class CallbackTaskHandler
         marks: task.marks,
         repositories: task.repositories,
         pullRequest: task.pullRequest,
-        hook: grant.hook,
+        hook: callbackToken.hook,
       };
     } catch (error) {
       rethrowAsApplicationError(error);

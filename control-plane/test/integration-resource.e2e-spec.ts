@@ -38,7 +38,7 @@ const LINEAR = {
     },
   },
   tools: {
-    comment: { description: 'Comment on an issue', does: 'comment' },
+    comment: { description: 'Comment on an issue', action: 'comment' },
   },
 };
 
@@ -171,7 +171,7 @@ describe('an integration, created through the resource API (e2e)', () => {
         .ofTeam(teamId),
     ).toEqual([
       expect.objectContaining({
-        source: 'linear',
+        integration: 'linear',
         definition: expect.objectContaining({ name: 'Linear' }),
       }),
     ]);
@@ -179,12 +179,12 @@ describe('an integration, created through the resource API (e2e)', () => {
       (
         await app
           .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-          .offered(teamId, ['linear.comment'])
+          .provided(teamId, ['linear.comment'])
       ).map((each) => each.tool),
     ).toEqual(['linear.comment']);
   });
 
-  it('keeps the host it was created for', async () => {
+  it('keeps the integration name it was created with', async () => {
     const made = await create(LINEAR);
     const moved = await served(app)
       .put(fixture.item(made.body.id))
@@ -198,7 +198,7 @@ describe('an integration, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('will not be deleted, or stop offering a tool, while a station enables it', async () => {
+  it('will not be deleted, or stop providing a tool, while a station enables it', async () => {
     const made = await create(LINEAR);
 
     await enableOnAStation('linear.comment');

@@ -101,8 +101,8 @@ const onboarding = (teamId: string): OnboardingResponseDto => ({
   setupChat: setupChatOf(teamId),
 });
 
-const handleOf = (source: string) =>
-  source === 'sentry' ? 'sam.rivera@acme.dev' : '@sam';
+const linkedAccountOf = (integration: string) =>
+  integration === 'sentry' ? 'sam.rivera@acme.dev' : '@sam';
 
 const resourceHandlers = [
   api.get('/resources/teams/:id', ({ params }) => {
@@ -230,12 +230,12 @@ const teamHandlers = [
   ),
 
   api.post(
-    '/teams/:teamId/integrations/:source/connect',
+    '/teams/:teamId/integrations/:integration/connect',
     async ({ params, request }) => {
       const teamId = String(params.teamId);
-      const source = String(params.source);
+      const integrationKey = String(params.integration);
       const integration = settingsWorld().integrations[teamId]?.find(
-        (each) => each.source === source,
+        (each) => each.integration === integrationKey,
       );
       if (!integration) {
         return notFound();
@@ -245,27 +245,36 @@ const teamHandlers = [
         .json()
         .catch(() => ({}))) as ConnectIntegrationRequestDto;
       const connections = connectionsOf(teamId);
-      if (body.for === 'me') {
-        const handle = handleOf(source);
+      if (body.actsAs === 'requester') {
+        const linkedAccount = linkedAccountOf(integrationKey);
         connections.mine = [
-          ...connections.mine.filter((each) => each.source !== source),
-          { source, handle, connectedAt: daysAgo(0), tools: toolRules(source) },
+          ...connections.mine.filter(
+            (each) => each.integration !== integrationKey,
+          ),
+          {
+            integration: integrationKey,
+            linkedAccount,
+            connectedAt: daysAgo(0),
+            tools: toolRules(integrationKey),
+          },
         ];
         connections.people = [
           ...connections.people.filter(
-            (each) => each.source !== source || each.personId !== SIGNED_IN.id,
+            (each) =>
+              each.integration !== integrationKey ||
+              each.personId !== SIGNED_IN.id,
           ),
           {
-            source,
-            handle,
+            integration: integrationKey,
+            linkedAccount,
             connectedAt: daysAgo(0),
             personId: SIGNED_IN.id,
             name: SIGNED_IN.name,
           },
         ];
       } else {
-        integration.connectionStatus = 'linked';
-        integration.handle = 'Acme';
+        integration.connectionStatus = 'connected';
+        integration.linkedAccount = 'Acme';
       }
 
       return json({ url: globalThis.location.href });
@@ -273,29 +282,32 @@ const teamHandlers = [
   ),
 
   api.delete(
-    '/teams/:teamId/integrations/:source/connections/mine',
+    '/teams/:teamId/integrations/:integration/connections/mine',
     ({ params }) => {
       const connections = connectionsOf(String(params.teamId));
-      const source = String(params.source);
-      if (!connections.mine.some((each) => each.source === source)) {
+      const integrationKey = String(params.integration);
+      if (
+        !connections.mine.some((each) => each.integration === integrationKey)
+      ) {
         return notFound();
       }
 
       connections.mine = connections.mine.filter(
-        (each) => each.source !== source,
+        (each) => each.integration !== integrationKey,
       );
       connections.people = connections.people.filter(
-        (each) => each.source !== source || each.personId !== SIGNED_IN.id,
+        (each) =>
+          each.integration !== integrationKey || each.personId !== SIGNED_IN.id,
       );
       return noContent();
     },
   ),
 
   api.put(
-    '/teams/:teamId/integrations/:source/connections/mine/tools/:tool',
+    '/teams/:teamId/integrations/:integration/connections/mine/tools/:tool',
     async ({ params, request }) => {
       const mine = connectionsOf(String(params.teamId)).mine.find(
-        (each) => each.source === params.source,
+        (each) => each.integration === params.integration,
       );
       if (!mine) {
         return notFound();

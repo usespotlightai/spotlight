@@ -122,16 +122,16 @@ const toDeferredMoveRow = (move: DeferredMove): DeferredMoveRow =>
 const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
   ConnectionAsk.of({
     teamId: TeamId.of(row.teamId),
-    source: row.source,
     integration: row.integration,
+    integrationName: row.integrationName,
     personId: UserId.of(row.personId),
     met: row.met,
   });
 
 const toConnectionAskRow = (ask: ConnectionAsk): ConnectionAskRow => ({
   teamId: ask.teamId.value,
-  source: ask.source,
   integration: ask.integration,
+  integrationName: ask.integrationName,
   personId: ask.personId.value,
   met: ask.met,
 });
@@ -494,7 +494,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   async awaitingConnection(
     teamId: TeamId,
     personId: UserId,
-    source: string,
+    integration: string,
   ): Promise<readonly Task[]> {
     const found = await this.context.db
       .select()
@@ -509,7 +509,7 @@ export class DrizzleTaskRepository implements TaskRepository {
               and(
                 sql`${taskNote.connectionAsk} is not null`,
                 sql`(${taskNote.connectionAsk}->>'personId') = ${personId.value}`,
-                sql`(${taskNote.connectionAsk}->>'source') = ${source}`,
+                sql`(${taskNote.connectionAsk}->>'integration') = ${integration}`,
                 sql`(${taskNote.connectionAsk}->>'teamId') = ${teamId.value}`,
                 sql`(${taskNote.connectionAsk}->>'met')::boolean = false`,
               ),

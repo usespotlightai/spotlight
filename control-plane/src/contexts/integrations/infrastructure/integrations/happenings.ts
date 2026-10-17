@@ -1,12 +1,12 @@
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import type {
-  AttachesIR,
+  AttachmentsIR,
   EventIR,
   RaiseIR,
   RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { type Bindings, bound } from '@platform/expressions/bindings';
-import { isTrue, reads, value } from '@platform/expressions/readings';
+import { evaluateText, isTrue, value } from '@platform/expressions/readings';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type {
   Arriving,
@@ -78,11 +78,11 @@ export const readEvents = async (
 };
 
 const arriving = (
-  attaches: AttachesIR,
+  attachments: AttachmentsIR,
   against: Bindings,
   fetching: Fetching,
 ): Arriving[] => {
-  const files = value(attaches.each, against);
+  const files = value(attachments.each, against);
 
   if (!Array.isArray(files)) {
     return [];
@@ -90,16 +90,20 @@ const arriving = (
 
   return files.flatMap((file) => {
     const per = { ...against, file: bound(file) };
-    const name = reads(attaches.name, per);
-    const size = attaches.size ? Number(value(attaches.size, per)) : Number.NaN;
+    const name = evaluateText(attachments.name, per);
+    const size = attachments.size
+      ? Number(value(attachments.size, per))
+      : Number.NaN;
 
     return name
       ? [
           {
             name,
-            contentType: attaches.type ? reads(attaches.type, per) : null,
+            contentType: attachments.type
+              ? evaluateText(attachments.type, per)
+              : null,
             size: Number.isFinite(size) ? size : null,
-            fetch: () => fetching(attaches.fetch, per),
+            fetch: () => fetching(attachments.fetch, per),
           },
         ]
       : [];
@@ -115,7 +119,7 @@ const raiseFrom = (
 ): Happened => {
   const marked = raise.marks
     .map((mark) => {
-      const read = reads(mark.value, against);
+      const read = evaluateText(mark.value, against);
 
       return read
         ? { mark: { kind: mark.kind.value, value: read }, finds: mark.finds }
@@ -127,7 +131,9 @@ const raiseFrom = (
 
   const marks = marked.map((each) => each.mark);
 
-  const branch = raise.branch ? reads(raise.branch, against) || null : null;
+  const branch = raise.branch
+    ? evaluateText(raise.branch, against) || null
+    : null;
   const finding = marked.filter((each) => each.finds).map((each) => each.mark);
 
   if (!branch && finding.length === 0) {
@@ -137,9 +143,9 @@ const raiseFrom = (
     );
   }
 
-  const title = raise.opens ? reads(raise.opens.title, against) : null;
+  const title = raise.opens ? evaluateText(raise.opens.title, against) : null;
   const messageText = raise.message
-    ? (reads(raise.message, against) ?? '').trim()
+    ? (evaluateText(raise.message, against) ?? '').trim()
     : '';
 
   return {
@@ -153,21 +159,21 @@ const raiseFrom = (
     opens:
       declared.opens && raise.opens && title
         ? {
-            onto: declared.opens.onto,
-            at: declared.opens.at,
+            lineRole: declared.opens.lineRole,
+            station: declared.opens.station,
             title,
             description: raise.opens.description
-              ? reads(raise.opens.description, against)
+              ? evaluateText(raise.opens.description, against)
               : null,
             assignEmail: raise.opens.assignBy
-              ? reads(raise.opens.assignBy.email, against)
+              ? evaluateText(raise.opens.assignBy.email, against)
               : null,
             marks,
           }
         : null,
     attachments:
-      raise.attaches && fetching
-        ? arriving(raise.attaches, against, fetching)
+      raise.attachments && fetching
+        ? arriving(raise.attachments, against, fetching)
         : [],
   };
 };

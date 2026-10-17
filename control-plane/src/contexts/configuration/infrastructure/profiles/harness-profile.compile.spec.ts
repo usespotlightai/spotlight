@@ -33,10 +33,10 @@ describe('HarnessProfileCompiler', () => {
   });
 
   it('reads a stored profile back without calling the harnesses again', () => {
-    const read = DROPPED.read(DOCUMENT);
+    const parsed = DROPPED.parse(DOCUMENT);
 
-    expect(read.ok).toBe(true);
-    expect(read.ok ? read.settings.permissions : null).toEqual({
+    expect(parsed.ok).toBe(true);
+    expect(parsed.ok ? parsed.settings.permissions : null).toEqual({
       allow: ['read'],
       ask: ['execute(git push *)'],
       deny: [],
@@ -46,7 +46,7 @@ describe('HarnessProfileCompiler', () => {
   it('rejects a shape that does not read, whichever way it is read', () => {
     const shapeless = { key: 'careful', permissions: { maybe: [] } };
 
-    expect(DROPPED.read(shapeless).ok).toBe(false);
+    expect(DROPPED.parse(shapeless).ok).toBe(false);
     expect(DROPPED.compile(shapeless).ok).toBe(false);
   });
 
@@ -61,7 +61,7 @@ describe('HarnessProfileCompiler', () => {
       ],
     }).warningsOf({
       key: ProfileKey.of('careful'),
-      settings: ProfileSettings.written({
+      settings: ProfileSettings.fromRaw({
         permissions: { allow: [], ask: ['execute(git push *)'], deny: [] },
         mcpServers: [],
         native: {},

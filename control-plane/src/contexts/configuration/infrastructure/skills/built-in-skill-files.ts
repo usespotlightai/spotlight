@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ShippedSkillsPort } from '@configuration/application/ports/shipped-skills.port';
+import type { BuiltInSkillsPort } from '@configuration/application/ports/built-in-skills.port';
 import type {
   SkillFile,
   SkillFolder,
@@ -8,7 +8,7 @@ import type {
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 
-const SHIPPED_SKILLS = join(__dirname, 'built-in');
+const BUILT_IN_SKILLS_DIRECTORY = join(__dirname, 'built-in');
 
 const filesIn = (root: string, within = ''): SkillFile[] =>
   readdirSync(join(root, within), { withFileTypes: true }).flatMap((each) => {
@@ -19,24 +19,27 @@ const filesIn = (root: string, within = ''): SkillFile[] =>
       : [{ path, text: readFileSync(join(root, path), 'utf8') }];
   });
 
-export class BuiltInSkillFiles implements ShippedSkillsPort {
+export class BuiltInSkillFiles implements BuiltInSkillsPort {
   private readonly byKey: ReadonlyMap<string, SkillFolder>;
 
-  constructor(keys: readonly string[], directory: string = SHIPPED_SKILLS) {
+  constructor(
+    keys: readonly string[],
+    directory: string = BUILT_IN_SKILLS_DIRECTORY,
+  ) {
     const folders = readdirSync(directory, { withFileTypes: true })
       .filter((each) => each.isDirectory())
       .map((each) =>
         readSkillFolder(
           each.name,
           filesIn(join(directory, each.name)),
-          'shipped',
+          'built-in',
         ),
       );
 
     for (const key of keys) {
       if (!folders.some((each) => each.skill.key.value === key)) {
         throw new Error(
-          `Spotlight ships a ${key} skill, and there is no ${key}/${SKILL_FILE} in ${directory}`,
+          `Spotlight has a built-in ${key} skill, and there is no ${key}/${SKILL_FILE} in ${directory}`,
         );
       }
     }

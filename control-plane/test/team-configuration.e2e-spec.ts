@@ -34,7 +34,7 @@ const INTEGRATION = {
     },
   },
   tools: {
-    comment: { description: 'Comment on an issue', does: 'comment' },
+    comment: { description: 'Comment on an issue', action: 'comment' },
   },
 };
 

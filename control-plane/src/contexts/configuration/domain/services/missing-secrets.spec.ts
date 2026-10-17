@@ -3,7 +3,7 @@ import { ProfileSettings } from '@configuration/domain/value-objects/profile-set
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it } from 'vitest';
 
-const referring = ProfileSettings.written({
+const referring = ProfileSettings.fromRaw({
   permissions: { allow: [], ask: [], deny: [] },
   mcpServers: [
     {

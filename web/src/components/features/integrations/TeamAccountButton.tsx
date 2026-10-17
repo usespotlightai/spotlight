@@ -27,7 +27,7 @@ export function TeamAccountButton({
             : `Connect team account for ${integration.name}`
         }
         disabled={connect.isPending}
-        onClick={() => connect.mutate({ source: integration.source })}
+        onClick={() => connect.mutate({ integration: integration.integration })}
       >
         {connect.isPending ? 'Opening…' : 'Connect team account'}
       </PillButton>

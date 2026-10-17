@@ -5,14 +5,14 @@ import type { DefinedIntegrationsPort } from '@integrations/application/ports/de
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type {
   OAuth2Authorized,
-  OAuth2Begun,
   OAuth2LinkInput,
   OAuth2LinkingPort,
   OAuth2Returned,
+  OAuth2Start,
 } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
-import { landingBack } from '@integrations/application/services/landing-back';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { returnPathOf } from '@integrations/application/services/return-to';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { oauth2Of } from '@integrations/infrastructure/integrations/oauth2-config';
 import {
@@ -49,19 +49,19 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     private readonly callback: string,
   ) {}
 
-  async begin(input: OAuth2LinkInput): Promise<OAuth2Begun | null> {
+  async begin(input: OAuth2LinkInput): Promise<OAuth2Start | null> {
     const teamId = TeamId.of(input.teamId);
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
       this.discovery,
       teamId,
-      input.source,
+      input.integration,
     );
     const client = oauth2
       ? await this.clients.clientFor(
           teamId,
-          SourceKey.of(input.source),
+          IntegrationKey.of(input.integration),
           oauth2.registration,
           authorizationServerOf(oauth2),
         )
@@ -74,10 +74,10 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     const nonce = randomBytes(NONCE_BYTES).toString('base64url');
     const signed = this.state.sign({
       teamId: input.teamId,
-      source: input.source,
+      integration: input.integration,
       by: input.by,
-      holder: input.holder,
-      back: landingBack(input.back),
+      owner: input.owner,
+      returnTo: returnPathOf(input.returnTo),
       nonce,
     });
 
@@ -128,12 +128,12 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       this.reader,
       this.discovery,
       teamId,
-      intent.source,
+      intent.integration,
     );
     const client = oauth2
       ? await this.clients.existingFor(
           teamId,
-          SourceKey.of(intent.source),
+          IntegrationKey.of(intent.integration),
           authorizationServerOf(oauth2),
         )
       : null;
@@ -142,7 +142,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       return null;
     }
 
-    const grant = await this.exchange.exchange(
+    const tokens = await this.exchange.exchange(
       oauth2,
       client,
       returned.code,
@@ -150,29 +150,29 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       this.state.verifierFor(intent.nonce),
     );
 
-    if (!grant) {
+    if (!tokens) {
       return null;
     }
 
     return {
       teamId: intent.teamId,
-      source: intent.source,
+      integration: intent.integration,
       by: intent.by,
-      holder: intent.holder,
-      back: intent.back,
-      grant,
+      owner: intent.owner,
+      returnTo: intent.returnTo,
+      tokens,
     };
   }
 
   async landingFor(
     teamId: string,
-    source: string,
-    back: string | null,
+    integration: string,
+    returnTo: string | null,
   ): Promise<string> {
-    const landing = landingBack(back);
+    const landing = returnPathOf(returnTo);
 
     if (landing) {
-      return `${this.base}${landing}?connected=${encodeURIComponent(source)}`;
+      return `${this.base}${landing}?connected=${encodeURIComponent(integration)}`;
     }
 
     const team = await this.teams.find(TeamId.of(teamId));
@@ -184,6 +184,6 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       ? `${this.base}/w/${slug}/settings/team/${teamId}/integrations`
       : `${this.base}`;
 
-    return `${where}?connected=${encodeURIComponent(source)}`;
+    return `${where}?connected=${encodeURIComponent(integration)}`;
   }
 }

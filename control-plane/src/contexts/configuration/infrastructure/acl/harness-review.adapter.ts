@@ -3,16 +3,16 @@ import type {
   HarnessReviewPort,
   ReviewNote,
 } from '@configuration/application/ports/harness-review.port';
-import type { ReadProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
+import type { ParsedProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileShapeMapper } from '@configuration/infrastructure/acl/harness-profile-shape.mapper';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { HarnessNote } from '@work/application/contracts/harness-profile.contract';
 import type { HarnessProfileReviewPort } from '@work/application/ports/harness-profile-review.port';
 
-const fieldOf = (read: ReadProfile, note: HarnessNote): FieldPath => {
+const fieldOf = (parsed: ParsedProfile, note: HarnessNote): FieldPath => {
   switch (note.about) {
     case 'rule': {
-      const written = read.settings.rules.find(
+      const written = parsed.settings.rules.find(
         (each) =>
           each.decision === note.rule.decision &&
           each.kind === note.rule.kind &&
@@ -35,12 +35,12 @@ const fieldOf = (read: ReadProfile, note: HarnessNote): FieldPath => {
 export class HarnessReviewOfWork implements HarnessReviewPort {
   constructor(private readonly harnesses: HarnessProfileReviewPort) {}
 
-  review(read: ReadProfile): HarnessReview {
+  review(parsed: ParsedProfile): HarnessReview {
     const reviewed = this.harnesses.review(
-      HarnessProfileShapeMapper.toShape(read),
+      HarnessProfileShapeMapper.toShape(parsed),
     );
     const noted = (note: HarnessNote): ReviewNote => ({
-      at: fieldOf(read, note),
+      at: fieldOf(parsed, note),
       reason: note.reason,
     });
 

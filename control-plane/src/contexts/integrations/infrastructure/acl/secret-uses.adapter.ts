@@ -28,7 +28,7 @@ export class IntegrationSecretUses implements SecretUser {
         if (
           integration.credentials.some((each) => each.value === secret.name)
         ) {
-          uses.push(`integration ${team.key}/${integration.source.value}`);
+          uses.push(`integration ${team.key}/${integration.key.value}`);
         }
       }
     }

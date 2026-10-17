@@ -20,10 +20,10 @@ const TEAM: TeamProfile = {
 const reading = (
   over: {
     workspace?: null;
-    applied?: boolean;
-    handle?: string | null;
-    connects?: boolean;
-    described?: boolean;
+    defined?: boolean;
+    linkedAccount?: string | null;
+    requiresConnection?: boolean;
+    spec?: boolean;
   } = {},
 ) =>
   new ConfigurationHandler(
@@ -34,18 +34,18 @@ const reading = (
       of: vi.fn(
         async (): Promise<ConfigurationView> => ({
           integrations:
-            over.applied === false
+            over.defined === false
               ? []
               : [
                   {
-                    source: 'linear',
+                    integration: 'linear',
                     name: 'Linear',
                     path: 'integrations/linear',
-                    connectable: over.connects ?? false,
-                    holderRule: 'team',
-                    linked: over.handle !== undefined,
-                    handle: over.handle ?? null,
-                    described: over.described
+                    requiresConnection: over.requiresConnection ?? false,
+                    actsAs: 'team',
+                    connected: over.linkedAccount !== undefined,
+                    linkedAccount: over.linkedAccount ?? null,
+                    spec: over.spec
                       ? {
                           kind: 'openapi',
                           tools: 19,
@@ -63,61 +63,63 @@ const reading = (
 const query = () => new ConfigurationQuery('acme', 'user_1');
 
 describe('ConfigurationHandler', () => {
-  it('says what the team listens to', async () => {
+  it('says which integrations the team has', async () => {
     const read = await reading().execute(query());
 
-    expect(read?.integrations.map((each) => each.source)).toEqual(['linear']);
+    expect(read?.integrations.map((each) => each.integration)).toEqual([
+      'linear',
+    ]);
   });
 
-  it('says how many tools the API description it names lists, and when it was read', async () => {
-    const read = await reading({ described: true }).execute(query());
+  it('says how many tools the API spec it names lists, and when it was read', async () => {
+    const read = await reading({ spec: true }).execute(query());
 
-    expect(read?.integrations[0]?.described).toEqual({
+    expect(read?.integrations[0]?.spec).toEqual({
       kind: 'openapi',
       tools: 19,
       readAt: '2026-10-05T12:00:00.000Z',
       problem: null,
     });
     expect(
-      (await reading().execute(query()))?.integrations[0]?.described,
+      (await reading().execute(query()))?.integrations[0]?.spec,
     ).toBeNull();
   });
 
-  it('says which resource defines each host', async () => {
+  it('says which resource defines each integration', async () => {
     const read = await reading().execute(query());
 
     expect(read?.integrations[0]?.path).toBe('integrations/linear');
   });
 
-  it('says a host is unlinked where it links by authorizing but the team has not', async () => {
-    const read = await reading({ connects: true }).execute(query());
+  it('says an integration is disconnected where it requires a connection and the team has not authorized it', async () => {
+    const read = await reading({ requiresConnection: true }).execute(query());
 
     expect(read?.integrations[0]).toMatchObject({
-      connectionStatus: 'unlinked',
-      handle: null,
+      connectionStatus: 'disconnected',
+      linkedAccount: null,
     });
   });
 
-  it('says a host is linked, and what it calls the team, once the team has authorized it', async () => {
+  it('says an integration is connected, and the account name of the team, once the team has authorized it', async () => {
     const read = await reading({
-      connects: true,
-      handle: 'Acme',
+      requiresConnection: true,
+      linkedAccount: 'Acme',
     }).execute(query());
 
     expect(read?.integrations[0]).toMatchObject({
-      connectionStatus: 'linked',
-      handle: 'Acme',
+      connectionStatus: 'connected',
+      linkedAccount: 'Acme',
     });
   });
 
-  it('says a host that does not link that way only listens', async () => {
+  it('says an integration needs no connection where it requires none', async () => {
     const read = await reading().execute(query());
 
-    expect(read?.integrations[0]?.connectionStatus).toBe('listens');
+    expect(read?.integrations[0]?.connectionStatus).toBe('not-required');
   });
 
-  it('lists nothing where the team listens to nothing', async () => {
-    const read = await reading({ applied: false }).execute(query());
+  it('lists nothing where the team has no integrations', async () => {
+    const read = await reading({ defined: false }).execute(query());
 
     expect(read).toEqual({ integrations: [] });
   });

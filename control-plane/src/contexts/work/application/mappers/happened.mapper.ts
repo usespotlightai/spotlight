@@ -78,8 +78,8 @@ export const HappenedMapper = {
       ourOwn: happened.ourOwn,
       opens: opens
         ? {
-            onto: LineRole.of(opens.onto),
-            at: opens.at ? StationKey.parsed(opens.at) : null,
+            lineRole: LineRole.of(opens.lineRole),
+            station: opens.station ? StationKey.parsed(opens.station) : null,
             title: opens.title,
             description: opens.description,
             assignEmail: opens.assignEmail,

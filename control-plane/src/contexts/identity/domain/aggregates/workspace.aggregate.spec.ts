@@ -68,7 +68,7 @@ describe('Workspace', () => {
     expect(build().equals(build('ws_2'))).toBe(false);
   });
 
-  describe('who may connect it to a host', () => {
+  describe('who may connect it to an integration', () => {
     const OWNER = UserId.of('user_1');
 
     const withMember = (role: WorkspaceRole, user = 'user_2') =>

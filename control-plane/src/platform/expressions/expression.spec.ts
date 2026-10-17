@@ -5,8 +5,8 @@ import {
   ExpressionFailedError,
 } from '@platform/expressions/expression.errors';
 import {
+  evaluateText,
   isTrue,
-  reads,
   required,
   requiredText,
 } from '@platform/expressions/readings';
@@ -85,27 +85,31 @@ describe('whether an expression is true', () => {
   });
 });
 
-describe('what an expression reads', () => {
+describe('what an expression evaluates to as text', () => {
   it('reads text as it is', () => {
-    expect(reads(compile('body.data.identifier'), delivery)).toBe('ENG-42');
+    expect(evaluateText(compile('body.data.identifier'), delivery)).toBe(
+      'ENG-42',
+    );
   });
 
-  it('reads a header the host set', () => {
-    expect(reads(compile('headers["linear-delivery"]'), delivery)).toBe('d_1');
+  it('reads a header the service set', () => {
+    expect(evaluateText(compile('headers["linear-delivery"]'), delivery)).toBe(
+      'd_1',
+    );
   });
 
   it('reads a number as the name it is', () => {
-    expect(reads(compile('42'), delivery)).toBe('42');
+    expect(evaluateText(compile('42'), delivery)).toBe('42');
   });
 
   it('reads nothing where the delivery names nothing', () => {
-    expect(reads(compile('body.nothing'), delivery)).toBeNull();
-    expect(reads(compile('""'), delivery)).toBeNull();
+    expect(evaluateText(compile('body.nothing'), delivery)).toBeNull();
+    expect(evaluateText(compile('""'), delivery)).toBeNull();
   });
 
   it('reads nothing where the value is not a single thing', () => {
-    expect(reads(compile('body.data'), delivery)).toBeNull();
-    expect(reads(compile('body.data.labels'), delivery)).toBeNull();
+    expect(evaluateText(compile('body.data'), delivery)).toBeNull();
+    expect(evaluateText(compile('body.data.labels'), delivery)).toBeNull();
   });
 });
 
@@ -193,7 +197,9 @@ describe('checking an expression against what it may read', () => {
 
   it('still compiles one it rejects, to read the way it always read', () => {
     expect(
-      reads(compile('ask.body'), { ask: { body: 'The queue is stuck.' } }),
+      evaluateText(compile('ask.body'), {
+        ask: { body: 'The queue is stuck.' },
+      }),
     ).toBe('The queue is stuck.');
   });
 

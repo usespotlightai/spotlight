@@ -72,8 +72,8 @@ const supplied = (fill: string, version: number): SigningSecretChange => ({
   versioned: { secret: secret(fill), version },
 });
 
-const OFFERED = {
-  offered: ['grafana.search', 'slack.post-message'],
+const PROVIDED = {
+  provided: ['grafana.search', 'slack.post-message'],
   signsTokens: false,
   allowsHost: (host: string) => host.endsWith('example.com'),
 };
@@ -85,7 +85,7 @@ const created = () =>
     workspaceId: WORKSPACE,
     teamId: TEAM,
     secret: supplied('a', 1),
-    allowances: OFFERED,
+    allowances: PROVIDED,
     by: BY,
   });
 
@@ -136,7 +136,7 @@ describe('HookDefinition', () => {
         workspaceId: WORKSPACE,
         teamId: TEAM,
         secret: supplied('a', 1),
-        allowances: { ...OFFERED, offered: ['grafana.search'] },
+        allowances: { ...PROVIDED, provided: ['grafana.search'] },
         by: BY,
       });
       expect.unreachable();
@@ -153,7 +153,7 @@ describe('HookDefinition', () => {
         workspaceId: WORKSPACE,
         teamId: TEAM,
         secret: supplied('a', 1),
-        allowances: { ...OFFERED, allowsHost: () => false },
+        allowances: { ...PROVIDED, allowsHost: () => false },
         by: BY,
       }),
     ).toThrow(/audit.example.com, which is not an allowed outbound host/);
@@ -167,7 +167,7 @@ describe('HookDefinition', () => {
         workspaceId: WORKSPACE,
         teamId: TEAM,
         secret: { kind: 'none' },
-        allowances: OFFERED,
+        allowances: PROVIDED,
         by: BY,
       }),
     ).toThrow(/needs HOOK_SIGNING_KEY/);
@@ -181,7 +181,7 @@ describe('HookDefinition', () => {
         workspaceId: WORKSPACE,
         teamId: TEAM,
         secret: supplied('a', 1),
-        allowances: OFFERED,
+        allowances: PROVIDED,
         by: BY,
       }),
     ).toThrow(InvalidHookError);
@@ -195,7 +195,7 @@ describe('HookDefinition', () => {
         workspaceId: WORKSPACE,
         teamId: TEAM,
         secret: { kind: 'none' },
-        allowances: OFFERED,
+        allowances: PROVIDED,
         by: BY,
       }),
     ).toThrow(/required for HMAC signing/);
@@ -205,7 +205,7 @@ describe('HookDefinition', () => {
     const updated = rehydrated().update(
       compiled(),
       { kind: 'unchanged', version: 1 },
-      OFFERED,
+      PROVIDED,
       BY,
     );
 
@@ -225,7 +225,7 @@ describe('HookDefinition', () => {
     const updated = rehydrated().update(
       compiled(),
       supplied('b', 2),
-      OFFERED,
+      PROVIDED,
       BY,
     );
 
@@ -238,7 +238,7 @@ describe('HookDefinition', () => {
       rehydrated().update(
         compiled(),
         { kind: 'unchanged', version: 2 },
-        OFFERED,
+        PROVIDED,
         BY,
       ),
     ).toThrow(/required when secretVersion changes/);
@@ -248,7 +248,7 @@ describe('HookDefinition', () => {
     const updated = rehydrated().update(
       compiled({ signing: 'oidc' }),
       { kind: 'none' },
-      { ...OFFERED, signsTokens: true },
+      { ...PROVIDED, signsTokens: true },
       BY,
     );
 
@@ -260,7 +260,7 @@ describe('HookDefinition', () => {
       rehydrated().update(
         compiled({ key: 'other' }),
         { kind: 'none' },
-        OFFERED,
+        PROVIDED,
         BY,
       ),
     ).toThrow(ImmutableFieldError);

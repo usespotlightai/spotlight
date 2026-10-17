@@ -73,7 +73,7 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     diffs     = true
     decisions = true
     memories  = false
-    tools     = ["\${spotlight_integration.core_linear.source}.comment", "github.comment", "catalog.web-search@1.1.0"]
+    tools     = ["\${spotlight_integration.core_linear.integration}.comment", "github.comment", "catalog.web-search@1.1.0"]
     skills    = [spotlight_skill.core_grafana.key, "catalog.research@1.0.0"]
     passes_to = []
     ends      = true
@@ -178,7 +178,7 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('adopts the workspace by its slug and never creates one', () => {
+  it('imports the workspace by its slug and never creates one', () => {
     const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
@@ -298,7 +298,7 @@ describe('workspaceTerraform', () => {
     );
     expect(main).toContain('query = "$${{ inputs.body }}"');
     expect(main).toContain(
-      '        description = <<EOT\nComment on the issue.\nUse it to say what you did.\nEOT\n        does        = "comment"\n',
+      '        action      = "comment"\n        description = <<EOT\nComment on the issue.\nUse it to say what you did.\nEOT\n',
     );
   });
 
@@ -893,7 +893,7 @@ describe('workspaceTerraform', () => {
 });
 
 describe('resourceHcl', () => {
-  it('writes one resource after the import block that adopts it, referring to its neighbours', () => {
+  it('writes one resource after the import block that imports it, referring to the other resources of the module', () => {
     expect(resourceHcl(CONFIGURATION, resourceOf('line')).hcl).toBe(
       `import {\n  to = spotlight_line.core_delivery\n  id = "${WORKSPACE_ID}/core/delivery"\n}\n\n${LINE_RESOURCE}`,
     );

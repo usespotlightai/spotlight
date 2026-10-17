@@ -5,13 +5,12 @@ import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { RunnersModule } from '@runners/runners.module';
 import { SecretsModule } from '@secrets/secrets.module';
-import { SHIPPED_SKILL_KEYS } from '@work/application/ports/built-in-skills.port';
+import { BUILT_IN_SKILL_KEYS } from '@work/application/ports/built-in-skills.port';
 import { CHECK_ENDINGS } from '@work/application/ports/check-endings.port';
 import { ENABLED_AT_STATIONS } from '@work/application/ports/enabled-at-stations.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
 import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
-import { HOOKED_TASKS } from '@work/application/ports/hooked-tasks.port';
 import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
 import { NETWORK_CALLS } from '@work/application/ports/network-calls.port';
 import { NOTICES } from '@work/application/ports/notices.port';
@@ -25,6 +24,7 @@ import { STARTING_POINT_HOLDS } from '@work/application/ports/starting-point-hol
 import { STATION_RUNS } from '@work/application/ports/station-runs.port';
 import { TASK_ASIDES } from '@work/application/ports/task-asides.port';
 import { TASK_NOTES_FROM_HOOKS } from '@work/application/ports/task-notes-from-hooks.port';
+import { TASK_VIEWS } from '@work/application/ports/task-views.port';
 import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
 import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
 
@@ -41,13 +41,13 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
   providers: [...WORK_PROVIDERS],
   exports: [
     WORK_LOOKUP,
-    SHIPPED_SKILL_KEYS,
+    BUILT_IN_SKILL_KEYS,
     HAPPENING_REACTIONS,
     ENABLED_AT_STATIONS,
     HARNESS_PROFILE_REVIEW,
     LINE_RESOURCES,
     CHECK_ENDINGS,
-    HOOKED_TASKS,
+    TASK_VIEWS,
     HOOK_TRACES,
     NETWORK_CALLS,
     TASK_NOTES_FROM_HOOKS,

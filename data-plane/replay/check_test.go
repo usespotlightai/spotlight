@@ -724,11 +724,11 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 		contains string
 	}{
 		"an integration a station's tools come from": {
-			resource: catalogResource("spotlight_integration.core_linear", "spotlight_integration", map[string]any{"team_id": coreTeam, "source": "linear"}),
+			resource: catalogResource("spotlight_integration.core_linear", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "linear"}),
 			want:     "review", contains: "integration spotlight_integration.core_linear",
 		},
 		"an integration of another team": {
-			resource: catalogResource("spotlight_integration.other_linear", "spotlight_integration", map[string]any{"team_id": "another-team", "source": "linear"}),
+			resource: catalogResource("spotlight_integration.other_linear", "spotlight_integration", map[string]any{"team_id": "another-team", "integration": "linear"}),
 			want:     "",
 		},
 		"a hook matching one station": {

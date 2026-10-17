@@ -15,7 +15,7 @@ const tool = (approval: ApprovalNeeded | null) =>
     tool: Tool.of('linear.comment'),
     description: 'Comment on the issue.',
     approval,
-    offeredBy: 'Linear',
+    providedBy: 'Linear',
   });
 
 const alice = (rule: string) => ({

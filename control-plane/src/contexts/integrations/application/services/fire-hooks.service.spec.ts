@@ -4,24 +4,24 @@ import type {
   HookRuntimePort,
   ListeningHook,
   StepRequest,
-  StepTaken,
+  StepResult,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
-  HookedTask,
   TasksForHooksPort,
+  TaskView,
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import { FireHooks } from '@integrations/application/services/fire-hooks.service';
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { Hook } from '@integrations/domain/entities/hook.entity';
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
+import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HookFailure,
   type HookFailureCode,
 } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import { HookVerdict } from '@integrations/domain/value-objects/hook-verdict.vo';
 import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import type {
@@ -33,7 +33,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T10:00:00.000Z');
 
-const TASK: HookedTask = {
+const TASK: TaskView = {
   taskId: 'task_1',
   workspaceId: 'workspace_1',
   teamId: 'team_1',
@@ -76,7 +76,7 @@ const hookNamed = (
   }),
 });
 
-const done = (name: string, output: unknown = null): StepTaken => ({
+const done = (name: string, output: unknown = null): StepResult => ({
   outcome: { name, status: 'done', output },
   denyReason: null,
   trace: {
@@ -97,7 +97,7 @@ const failed = (
   name: string,
   reason = 'was answered 503',
   code: HookFailureCode = 'server-error',
-): StepTaken => ({
+): StepResult => ({
   outcome: { name, status: 'failed', code, reason, output: null },
   denyReason: null,
   trace: null,
@@ -180,7 +180,7 @@ const firingsInMemory = (stored: HookFiring | null) => {
 
 const setUp = (
   hooks: ListeningHook[],
-  step: (request: StepRequest) => StepTaken,
+  step: (request: StepRequest) => StepResult,
   {
     matches = () => true,
     stored = null,
@@ -191,7 +191,7 @@ const setUp = (
   }: {
     matches?: () => boolean;
     stored?: HookFiring | null;
-    task?: HookedTask | null;
+    task?: TaskView | null;
     repeats?: number;
     notice?: HookFailureNotice;
     movedOn?: boolean;
@@ -249,7 +249,7 @@ const setUp = (
 
 const EVENT = { tool: 'grafana.search', inputs: { query: 'cpu' } };
 
-const ALLOWED = HookVerdict.allowed();
+const ALLOWED = HookDecision.allowed();
 
 describe('FireHooks.before', () => {
   it('allows the event when every step succeeds, tracing each call', async () => {
@@ -273,7 +273,7 @@ describe('FireHooks.before', () => {
     }));
 
     await expect(hooked.before(TASK, 'tool.using', EVENT)).resolves.toEqual(
-      HookVerdict.denied(
+      HookDecision.denied(
         'Hook dba denied the event. Reason: the migration drops a column in use',
       ),
     );
@@ -285,7 +285,7 @@ describe('FireHooks.before', () => {
     );
 
     await expect(hooked.before(TASK, 'tool.using', EVENT)).resolves.toEqual(
-      HookVerdict.denied(
+      HookDecision.denied(
         'Hook dba failed at step check and blocks on failure. Reason: could not reach https://dba.example.com: timed out',
       ),
     );
@@ -301,7 +301,7 @@ describe('FireHooks.before', () => {
     await expect(
       blocking.hooked.before(TASK, 'tool.using', EVENT),
     ).resolves.toEqual(
-      HookVerdict.denied(
+      HookDecision.denied(
         'Hook dba failed at step check and blocks on failure. Reason: the callback token could not be issued',
       ),
     );
@@ -337,7 +337,7 @@ describe('FireHooks.before', () => {
     await expect(
       blocking.hooked.before(TASK, 'tool.using', EVENT),
     ).resolves.toEqual(
-      HookVerdict.denied(
+      HookDecision.denied(
         'Hook dba is broken and blocks on failure. Reason: when No such key: gone',
       ),
     );
@@ -663,7 +663,7 @@ describe('FireHooks.workOne', () => {
     const { hooked } = setUp(
       [hookNamed('audit', ['a'])],
       (request) => {
-        firings.push(request.moment.firing);
+        firings.push(request.instance.firing);
         return done('a');
       },
       { stored: stored() },
@@ -939,7 +939,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     const { hooked, saved } = setUp(
       [hookNamed('dba', ['tell'])],
       (request) => {
-        seen.push(request.moment.event);
+        seen.push(request.instance.event);
         return done('tell');
       },
       { stored: stored(MERGED) },

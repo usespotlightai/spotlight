@@ -1,15 +1,15 @@
 import type {
-  BoundTask,
   CallAuth,
+  IntegrationTaskView,
   ResolvedTool,
 } from '@integrations/application/ports/integration-runtime.port';
-import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
+import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
-import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
-import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
+import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -36,7 +36,7 @@ const SERVER = 'https://mcp.tracker.example/mcp';
 const TRACKER = `integration: tracker
 name: Tracker
 connection:
-  holder: requester
+  actsAs: requester
   oauth2:
     discover: true
 mcp:
@@ -46,7 +46,7 @@ mcp:
       connection: true
 `;
 
-const DELETE = DescribedOperation.of({
+const DELETE = SpecOperation.of({
   name: 'delete-issue',
   upstream: 'delete_issue',
   description: 'Delete an issue for good.',
@@ -55,7 +55,7 @@ const DELETE = DescribedOperation.of({
   call: { kind: 'mcp', tool: 'delete_issue' },
 });
 
-const TASK: BoundTask = {
+const TASK: IntegrationTaskView = {
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
@@ -71,11 +71,11 @@ const resolving = async (call: McpSessions['call']): Promise<ResolvedTool> => {
     new IntegrationReader(
       expressions,
       operationsContaining(
-        DescribedDocument.read({
+        SpecDocument.read({
           hash: HASH,
           kind: 'mcp',
           operations: [DELETE],
-          passedOver: [],
+          skipped: [],
           readAt: new Date('2026-10-05T12:00:00.000Z'),
         }),
       ),
@@ -90,7 +90,7 @@ const resolving = async (call: McpSessions['call']): Promise<ResolvedTool> => {
     [
       defined(TRACKER, {
         hash: HASH.value,
-        offers: ['tracker.delete-issue'],
+        tools: ['tracker.delete-issue'],
       }),
     ],
     'tracker.delete-issue',
@@ -106,18 +106,18 @@ const resolving = async (call: McpSessions['call']): Promise<ResolvedTool> => {
 
 const callAuthAs = (
   token: string,
-  renewed: string | null = null,
+  refreshed: string | null = null,
 ): CallAuth & { unauthorized: ReturnType<typeof vi.fn> } => {
   const unauthorized = vi.fn(async () =>
-    renewed ? AccessToken.of(renewed) : null,
+    refreshed ? AccessToken.of(refreshed) : null,
   );
 
   return {
     unauthorized,
     connection: {
       token: AccessToken.of(token),
-      holder: ConnectionHolder.person(UserId.of('ada')),
-      handle: '@ada',
+      owner: ConnectionOwner.person(UserId.of('ada')),
+      linkedAccount: '@ada',
       unauthorized,
     },
     credentials: { injectedFor: vi.fn() },
@@ -148,7 +148,7 @@ describe('a tool an MCP server offers', () => {
     });
   });
 
-  it('renews an unauthorized connection once and calls again, in a new session', async () => {
+  it('refreshes an unauthorized connection once and calls again, in a new session', async () => {
     const call = vi
       .fn()
       .mockRejectedValueOnce(new McpUnauthorizedError(SERVER))
@@ -162,7 +162,7 @@ describe('a tool an MCP server offers', () => {
     expect(call.mock.calls[0]?.[0]).not.toBe(call.mock.calls[1]?.[0]);
   });
 
-  it('fails when the connection cannot be renewed', async () => {
+  it('fails when the connection cannot be refreshed', async () => {
     const resolved = await resolving(async () => {
       throw new McpUnauthorizedError(SERVER);
     });

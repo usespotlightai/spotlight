@@ -126,7 +126,8 @@ export class ExpressionCheckController {
   @Get('positions')
   @ApiOperation({
     operationId: 'listExpressionPositions',
-    summary: 'Every position an expression is written at, and what it sees',
+    summary:
+      'Every position an expression is written at, and the variables it can read',
   })
   @ApiOkResponse({ type: ExpressionPositionResponseDto, isArray: true })
   async positions(): Promise<ExpressionPositionResponseDto[]> {

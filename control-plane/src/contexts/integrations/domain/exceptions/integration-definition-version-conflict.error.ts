@@ -1,8 +1,8 @@
 export class IntegrationDefinitionVersionConflictError extends Error {
   readonly violation = 'conflict' as const;
 
-  constructor(source: string) {
-    super(`Integration ${source} changed while saving. Please try again.`);
+  constructor(integration: string) {
+    super(`Integration ${integration} changed while saving. Please try again.`);
     this.name = 'IntegrationDefinitionVersionConflictError';
   }
 }

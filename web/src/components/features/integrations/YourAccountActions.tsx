@@ -1,7 +1,7 @@
 import { Unplug } from 'lucide-react';
 import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { RowActions } from '@/components/shared/RowActions';
-import { useDisconnect } from '@/hooks/api/useDisconnect';
+import { useDisconnectIntegration } from '@/hooks/api/useDisconnectIntegration';
 import type { Integration } from '@/lib/integration';
 
 type YourAccountActionsProps = {
@@ -13,7 +13,7 @@ export function YourAccountActions({
   integration,
   teamId,
 }: YourAccountActionsProps) {
-  const disconnect = useDisconnect(teamId);
+  const disconnect = useDisconnectIntegration(teamId);
 
   return (
     <ActionWithAlert
@@ -26,7 +26,7 @@ export function YourAccountActions({
           {
             label: 'Disconnect',
             icon: Unplug,
-            onSelect: () => disconnect.mutate(integration.source),
+            onSelect: () => disconnect.mutate(integration.integration),
           },
         ]}
       />

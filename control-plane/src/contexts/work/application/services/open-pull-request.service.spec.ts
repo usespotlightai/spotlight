@@ -9,13 +9,13 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
-  HookedTaskDto,
-  HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
-import type {
-  BeforeMoment,
-  HookVerdict,
+  BeforeHookEvent,
+  HookDecision,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type {
+  TaskViewDto,
+  TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -115,13 +115,13 @@ const opening = (
     repositories?: readonly string[];
     markedTask?: Task;
     meanwhile?: (task: Task) => Task;
-    verdict?: HookVerdict;
-    hooked?: boolean;
+    decision?: HookDecision;
+    viewed?: boolean;
     listening?: boolean;
   } = {},
 ) => {
   const saved: Task[] = [];
-  const hookCalls: BeforeMoment[] = [];
+  const hookCalls: BeforeHookEvent[] = [];
   const compared: unknown[][] = [];
   const listened: [string, string][] = [];
   let stored: Task | null = null;
@@ -158,18 +158,18 @@ const opening = (
     { inTransaction: (work) => work() } satisfies TransactionPort,
     {
       of: async (taskId: string, runId: string | null) =>
-        over.hooked === false
+        over.viewed === false
           ? null
-          : ({ taskId, runId, teamId: 'team_1' } as unknown as HookedTaskDto),
-    } as unknown as HookedTasksPort,
+          : ({ taskId, runId, teamId: 'team_1' } as unknown as TaskViewDto),
+    } as unknown as TaskViewsPort,
     {
       listens: async (teamId, on) => {
         listened.push([teamId, on]);
         return over.listening ?? true;
       },
-      before: async (_task, moment) => {
-        hookCalls.push(moment);
-        return over.verdict ?? { kind: 'allowed' };
+      before: async (_task, event) => {
+        hookCalls.push(event);
+        return over.decision ?? { kind: 'allowed' };
       },
       after: async () => {},
     },
@@ -387,7 +387,7 @@ describe('OpenPullRequest', () => {
 
     it('opens nothing and tells the agent why when a hook denies it', async () => {
       const { open, opened, saved } = opening({
-        verdict: {
+        decision: {
           kind: 'denied',
           reason:
             'The hook core/dba-review denied the pull request: migrations need a DBA.',
@@ -417,7 +417,7 @@ describe('OpenPullRequest', () => {
     });
 
     it('compares nothing where no hook can learn of the task', async () => {
-      const { open, compared, opened } = opening({ hooked: false });
+      const { open, compared, opened } = opening({ viewed: false });
 
       await open(task());
 

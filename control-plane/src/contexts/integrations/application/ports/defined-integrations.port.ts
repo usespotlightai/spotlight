@@ -5,15 +5,15 @@ export const DEFINED_INTEGRATIONS = Symbol('DEFINED_INTEGRATIONS');
 interface DefinedReading {
   readonly readAt: Date;
   readonly problem: string | null;
-  readonly passedOver: readonly string[];
+  readonly skipped: readonly string[];
 }
 
 export interface DefinedIntegration {
   readonly id: string;
   readonly version: number;
-  readonly source: string;
+  readonly integration: string;
   readonly definition: Readonly<Record<string, unknown>>;
-  readonly offers: readonly string[];
+  readonly tools: readonly string[];
   readonly generatedFrom: string | null;
   readonly reading: DefinedReading | null;
 }

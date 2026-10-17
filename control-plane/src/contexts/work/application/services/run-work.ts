@@ -1,7 +1,7 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { GitService } from '@work/application/ports/git-gateway.port';
-import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
+import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ToolContext } from '@work/application/ports/integration-tools.port';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -42,7 +42,7 @@ export interface RunWork {
   ): Promise<Cleared>;
   askToConnect(
     declared: DeclaredTool,
-    wanted: ConnectionWantedDto,
+    missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked>;
   clearPermission(
     permission: HarnessPermission,

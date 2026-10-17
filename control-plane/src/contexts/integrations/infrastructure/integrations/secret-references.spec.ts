@@ -17,7 +17,7 @@ const LINEAR = {
         },
         raise: {
           happening: 'linear.issue.created',
-          attaches: {
+          attachments: {
             fetch: {
               url: 'https://uploads.linear.app',
               auth: { secrets: ['secret.LINEAR_UPLOADS'] },
@@ -78,7 +78,7 @@ describe('secretReferencesIn', () => {
           'events',
           0,
           'raise',
-          'attaches',
+          'attachments',
           'fetch',
           'auth',
           'secrets',

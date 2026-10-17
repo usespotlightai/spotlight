@@ -151,7 +151,7 @@ export class StationCatalog {
       ? {
           declared: CatalogEntitledMapper.toDeclared(found),
           actingAs: null,
-          wants: null,
+          missing: null,
           personRule: null,
           defaultFor: () => undefined,
           call: async (inputs) => {

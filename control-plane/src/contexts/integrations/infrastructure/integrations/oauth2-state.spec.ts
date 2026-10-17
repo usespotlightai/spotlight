@@ -6,15 +6,15 @@ const AT = 1_000_000_000_000;
 
 const INTENT = {
   teamId: 'team_1',
-  source: 'slack',
+  integration: 'slack',
   by: 'user_1',
-  holder: 'person' as const,
-  back: '/w/acme/inbox/task_1',
+  owner: 'person' as const,
+  returnTo: '/w/acme/inbox/task_1',
   nonce: 'n-1',
 };
 
 describe('OAuth2State', () => {
-  it('carries who is linking which host for which team, with its nonce', () => {
+  it('carries who connects which integration for which team, with its nonce', () => {
     const state = new OAuth2State('a-secret', () => AT);
 
     const signed = state.sign(INTENT);
@@ -50,7 +50,7 @@ describe('OAuth2State', () => {
     const body = Buffer.from(
       JSON.stringify({
         teamId: 'team_1',
-        source: 'slack',
+        integration: 'slack',
         by: 'user_1',
         exp: AT + 1000,
       }),
@@ -91,9 +91,9 @@ describe('OAuth2State', () => {
     );
   });
 
-  it('will not open a token naming a holder it does not know', () => {
+  it('will not open a token naming an owner it does not know', () => {
     const body = Buffer.from(
-      JSON.stringify({ ...INTENT, holder: 'admin', exp: AT + 1000 }),
+      JSON.stringify({ ...INTENT, owner: 'admin', exp: AT + 1000 }),
     ).toString('base64url');
     const mac = createHmac('sha256', 'a-secret')
       .update(body)

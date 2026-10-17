@@ -25,9 +25,9 @@ export class HarnessProfileViews {
     record: HarnessProfileRecord,
     teamKey: string,
   ): HarnessProfileResourceDto {
-    const read = this.compiler.read(record.definition);
+    const parsed = this.compiler.parse(record.definition);
 
-    if (!read.ok) {
+    if (!parsed.ok) {
       throw new InconsistentStateError(
         'harness profile',
         `is in a shape that no longer reads (${record.id})`,
@@ -37,19 +37,19 @@ export class HarnessProfileViews {
     return {
       id: record.id,
       version: record.version,
-      address: TeamAddress.of(teamKey, read.key.value).toString(),
+      address: TeamAddress.of(teamKey, parsed.key.value).toString(),
       teamId: record.teamId.value,
-      key: read.key.value,
-      permissions: read.settings.permissions,
-      mcpServers: HarnessProfileMapper.servers(read.settings),
-      native: read.settings.native,
-      secretReferences: read.settings.secretReferences.map(
+      key: parsed.key.value,
+      permissions: parsed.settings.permissions,
+      mcpServers: HarnessProfileMapper.servers(parsed.settings),
+      native: parsed.settings.native,
+      secretReferences: parsed.settings.secretReferences.map(
         ({ path, name }) => ({
           path: FieldPath.of(path.segments.slice(1)),
           name,
         }),
       ),
-      warnings: this.compiler.warningsOf(read),
+      warnings: this.compiler.warningsOf(parsed),
     };
   }
 }

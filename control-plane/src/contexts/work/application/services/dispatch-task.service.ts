@@ -112,12 +112,12 @@ export class DispatchTask implements TaskDispatching {
       return false;
     }
 
-    const offered = await this.integrations.offered(
+    const provided = await this.integrations.provided(
       line,
       found.order.enabled.tools,
     );
     const described = describedTools(found.order.enabled.tools, [
-      ...offered,
+      ...provided,
       ...found.catalogTools,
     ]);
     const ordered = this.ordering.equipped(found, described);

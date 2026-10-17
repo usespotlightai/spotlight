@@ -1,11 +1,11 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
 import type {
-  HookVerdict,
+  HookDecision,
   LifecycleHooksPort,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -17,7 +17,7 @@ const PAST_THE_POLL_MS = 5_000;
 const MAX_HOOK_MS = 12_000;
 
 type HookOutcome =
-  | HookVerdict
+  | HookDecision
   | { readonly kind: 'no-reply'; readonly because: string };
 
 export type RunStart = 'starts' | 'denied' | 'requeued';
@@ -25,7 +25,7 @@ export type RunStart = 'starts' | 'denied' | 'requeued';
 export class RunStartHooks {
   constructor(
     private readonly runs: RunRepository,
-    private readonly hookedTasks: HookedTasksPort,
+    private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
@@ -36,36 +36,36 @@ export class RunStartHooks {
     runner: RunnerId,
     pollUntil: Date,
   ): Promise<RunStart> {
-    const verdict = await this.verdictOn(run, pollUntil);
+    const decision = await this.decisionOn(run, pollUntil);
 
-    if (verdict.kind === 'allowed') {
+    if (decision.kind === 'allowed') {
       return 'starts';
     }
 
-    if (verdict.kind === 'denied') {
+    if (decision.kind === 'denied') {
       await this.revised(run, runner, (current) =>
-        current.deniedStart(runner, verdict.reason),
+        current.deniedStart(runner, decision.reason),
       );
       return 'denied';
     }
 
     await this.revised(run, runner, (current) =>
-      current.requeue(runner, this.clock.now(), verdict.because),
+      current.requeue(runner, this.clock.now(), decision.because),
     );
     return 'requeued';
   }
 
-  private async verdictOn(run: Run, pollUntil: Date): Promise<HookOutcome> {
+  private async decisionOn(run: Run, pollUntil: Date): Promise<HookOutcome> {
     if (!run.firesHooks || !run.taskId) {
       return { kind: 'allowed' };
     }
 
     try {
-      const hooked = await this.hookedTasks.of(run.taskId.value, run.id.value);
+      const taskView = await this.taskViews.of(run.taskId.value, run.id.value);
 
-      return hooked
+      return taskView
         ? await this.hooks.before(
-            hooked,
+            taskView,
             { on: 'run.starting' },
             this.hookUntil(pollUntil),
           )

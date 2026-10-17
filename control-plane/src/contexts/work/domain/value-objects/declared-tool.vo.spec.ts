@@ -15,7 +15,7 @@ const input = (over: Partial<ToolInput> = {}): ToolInput => ({
   description: null,
   required: true,
   defaulted: false,
-  piped: false,
+  stdin: false,
   ...over,
 });
 
@@ -28,7 +28,7 @@ describe('DeclaredTool', () => {
   it('keeps what a tool is for, and what it takes', () => {
     const tool = declared([
       input({ name: 'issue', defaulted: true }),
-      input({ piped: true }),
+      input({ stdin: true }),
     ]);
 
     expect(tool.description).toBe('Comment on the issue.');
@@ -50,12 +50,12 @@ describe('DeclaredTool', () => {
     ).toEqual(['teamId']);
   });
 
-  it('rejects more than one piped input, and one that is not text', () => {
+  it('rejects more than one stdin input, and one that is not text', () => {
     expect(() =>
-      declared([input({ piped: true }), input({ name: 'note', piped: true })]),
+      declared([input({ stdin: true }), input({ name: 'note', stdin: true })]),
     ).toThrow(/can pipe in only one input/);
     expect(() =>
-      declared([input({ schema: InputSchema.ofType('number'), piped: true })]),
+      declared([input({ schema: InputSchema.ofType('number'), stdin: true })]),
     ).toThrow(/text/);
   });
 
@@ -98,7 +98,7 @@ describe('DeclaredTool', () => {
   describe('what it accepts from an agent', () => {
     const commenting = declared([
       input({ name: 'issue', defaulted: true }),
-      input({ piped: true }),
+      input({ stdin: true }),
       input({
         name: 'count',
         schema: InputSchema.ofType('number'),

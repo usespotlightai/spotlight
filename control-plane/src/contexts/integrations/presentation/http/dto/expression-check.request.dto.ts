@@ -20,7 +20,7 @@ export class CheckExpressionRequestDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The integration’s whole definition, as it would be created, which says what the position sees',
+      'The whole definition of the integration, as it would be created. It sets the variables at the position',
   })
   readonly definition!: Record<string, unknown>;
 }

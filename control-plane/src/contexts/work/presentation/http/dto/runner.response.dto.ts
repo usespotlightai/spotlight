@@ -9,10 +9,10 @@ export class ToolActingAsResponseDto {
   @ApiProperty({
     description:
       'Whose connection the call used: the team’s, or the person’s who started the task',
-    enum: ['team', 'person'],
-    example: 'person',
+    enum: ['team', 'requester'],
+    example: 'requester',
   })
-  readonly holder: 'team' | 'person';
+  readonly actsAs: 'team' | 'requester';
 
   @ApiProperty({
     description: 'The person whose connection it was, where it was a person’s',
@@ -23,17 +23,18 @@ export class ToolActingAsResponseDto {
   readonly personId: string | null;
 
   @ApiProperty({
-    description: 'What the host calls whoever the call acted as, where it says',
+    description:
+      'The account name on the service of whoever the call acted as, where the service gives it',
     example: '@alice',
     nullable: true,
     type: String,
   })
-  readonly handle: string | null;
+  readonly linkedAccount: string | null;
 
   constructor(actingAs: ToolActingAsDto) {
-    this.holder = actingAs.holder;
+    this.actsAs = actingAs.actsAs;
     this.personId = actingAs.personId;
-    this.handle = actingAs.handle;
+    this.linkedAccount = actingAs.linkedAccount;
   }
 }
 
@@ -56,7 +57,7 @@ export class ToolAnswerResponseDto {
     type: ToolActingAsResponseDto,
     nullable: true,
     description:
-      'Whose connection the call acted with, where its integration connects',
+      'Whose connection the call acted with, where its integration requires a connection',
   })
   readonly actingAs: ToolActingAsResponseDto | null;
 

@@ -10,10 +10,6 @@ import { UpdateHarnessProfileHandler } from '@configuration/application/commands
 import { UpdateSkillHandler } from '@configuration/application/commands/handlers/update-skill.handler';
 import { UpdateHarnessProfileCommand } from '@configuration/application/commands/update-harness-profile.command';
 import { UpdateSkillCommand } from '@configuration/application/commands/update-skill.command';
-import {
-  APPLIED_CONFIGURATION,
-  type AppliedConfigurationPort,
-} from '@configuration/application/ports/applied-configuration.port';
 import { CONFIGURATION_READER } from '@configuration/application/ports/configuration-reader.port';
 import {
   HARNESS_PROFILE_COMPILER,
@@ -55,6 +51,10 @@ import {
   SKILL_RESOURCES,
   type SkillResourcesPort,
 } from '@configuration/application/ports/skill-resources.port';
+import {
+  TEAM_SKILL_FILES,
+  type TeamSkillFilesPort,
+} from '@configuration/application/ports/team-skill-files.port';
 import { TEAMS } from '@configuration/application/ports/teams.port';
 import { ImportHarnessProfileHandler } from '@configuration/application/queries/handlers/import-harness-profile.handler';
 import { ImportSkillHandler } from '@configuration/application/queries/handlers/import-skill.handler';
@@ -97,17 +97,17 @@ import { StationProfiles } from '@configuration/infrastructure/acl/station-profi
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { Teams } from '@configuration/infrastructure/acl/teams.adapter';
 import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
-import { DrizzleAppliedSkills } from '@configuration/infrastructure/persistence/drizzle/readers/applied-skills.reader';
 import { DrizzleHarnessProfileDependents } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profile-dependents.reader';
 import { DrizzleHarnessProfileResources } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profile-resources.reader';
 import { DrizzleSkillDependents } from '@configuration/infrastructure/persistence/drizzle/readers/skill-dependents.reader';
 import { DrizzleSkillResources } from '@configuration/infrastructure/persistence/drizzle/readers/skill-resources.reader';
+import { DrizzleTeamSkillFiles } from '@configuration/infrastructure/persistence/drizzle/readers/team-skill-files.reader';
 import { DrizzleHarnessProfiles } from '@configuration/infrastructure/persistence/drizzle/repositories/harness-profiles.repository';
 import { DrizzleSkillDefinitions } from '@configuration/infrastructure/persistence/drizzle/repositories/skill-definitions.repository';
 import { HarnessProfileCompiler } from '@configuration/infrastructure/profiles/harness-profile.compile';
 import { BuiltInSkillFiles } from '@configuration/infrastructure/skills/built-in-skill-files';
 import { SkillCompiler } from '@configuration/infrastructure/skills/skill.compile';
-import { TeamSkillFiles } from '@configuration/infrastructure/skills/team-skill-files';
+import { SkillFileParser } from '@configuration/infrastructure/skills/skill-file-parser';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import { ConfigurationController } from '@configuration/presentation/http/controllers/configuration.controller';
 import { HarnessProfileResourceController } from '@configuration/presentation/http/controllers/harness-profile-resource.controller';
@@ -157,8 +157,8 @@ import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
+  BUILT_IN_SKILL_KEYS,
   BUILT_IN_SKILLS,
-  SHIPPED_SKILL_KEYS,
 } from '@work/application/ports/built-in-skills.port';
 import {
   ENABLED_AT_STATIONS,
@@ -200,11 +200,11 @@ const upstream: Provider[] = [
 const adapters: Provider[] = [
   {
     provide: BUILT_IN_SKILLS,
-    inject: [SHIPPED_SKILL_KEYS],
+    inject: [BUILT_IN_SKILL_KEYS],
     useFactory: (keys: readonly string[]) =>
       new BuiltInSkills(new BuiltInSkillFiles(keys)),
   },
-  { provide: SKILL_READER, useFactory: () => new TeamSkillFiles() },
+  { provide: SKILL_READER, useFactory: () => new SkillFileParser() },
   {
     provide: SECRET_NAMES,
     inject: [TEAM_DIRECTORY, DEFINED_SECRETS],
@@ -305,7 +305,7 @@ const handlers: Provider[] = [
   ]),
   ...bindQueryHandler(TeamSkillsQuery, TeamSkillsHandler, [
     TEAMS,
-    APPLIED_CONFIGURATION,
+    TEAM_SKILL_FILES,
     SKILL_READER,
   ]),
   ...bindCommandHandler(CreateSkillCommand, CreateSkillHandler, [
@@ -423,7 +423,7 @@ const handlers: Provider[] = [
 ];
 
 const published: Provider[] = [
-  { provide: APPLIED_CONFIGURATION, useClass: DrizzleAppliedSkills },
+  { provide: TEAM_SKILL_FILES, useClass: DrizzleTeamSkillFiles },
   DrizzleSkillDependents,
   DrizzleHarnessProfileDependents,
   {
@@ -465,12 +465,12 @@ const published: Provider[] = [
   },
   {
     provide: TEAM_SKILLS,
-    inject: [APPLIED_CONFIGURATION, SKILL_READER, SECRET_NAMES],
+    inject: [TEAM_SKILL_FILES, SKILL_READER, SECRET_NAMES],
     useFactory: (
-      applied: AppliedConfigurationPort,
+      teamSkillFiles: TeamSkillFilesPort,
       reader: SkillReaderPort,
       secrets: SecretNamesPort,
-    ) => new TeamSkills(applied, reader, secrets),
+    ) => new TeamSkills(teamSkillFiles, reader, secrets),
   },
 ];
 

@@ -6,13 +6,13 @@ import type { UseToolCommand } from '@work/application/commands/use-tool.command
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
 import type {
-  HookedTaskDto,
-  HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
-import type {
-  HookVerdict,
+  HookDecision,
   LifecycleHooksPort,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type {
+  TaskViewDto,
+  TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 import type { RunWorks } from '@work/application/services/run-works.service';
 import type { ToolSources } from '@work/application/services/tool-sources.service';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
@@ -39,7 +39,7 @@ export class UseToolHandler
   constructor(
     private readonly works: RunWorks,
     private readonly sources: ToolSources,
-    private readonly hookedTasks: HookedTasksPort,
+    private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly ids: IdGeneratorPort,
     private readonly events: DomainEventDispatcher,
@@ -73,16 +73,16 @@ export class UseToolHandler
         throw new UnknownToolError(tool.value);
       }
 
-      if (resolved.wants) {
+      if (resolved.missing) {
         const asked = await work.askToConnect(
           resolved.declared,
-          resolved.wants,
+          resolved.missing,
         );
 
         if (asked.kind === 'asked') {
           throw new ToolAwaitsConnectionError(
             tool.value,
-            resolved.wants.integration,
+            resolved.missing.integrationName,
           );
         }
 
@@ -126,17 +126,17 @@ export class UseToolHandler
           );
         }
 
-        const hooked = await this.hookedTaskOf(run);
-        const verdict: HookVerdict = hooked
-          ? await this.hooks.before(hooked, {
+        const taskView = await this.taskViewOf(run);
+        const decision: HookDecision = taskView
+          ? await this.hooks.before(taskView, {
               on: 'tool.using',
               tool: tool.value,
               inputs: inputs.values,
             })
           : { kind: 'allowed' };
 
-        if (verdict.kind === 'denied') {
-          throw new ToolHookDeniedError(tool.value, verdict.reason);
+        if (decision.kind === 'denied') {
+          throw new ToolHookDeniedError(tool.value, decision.reason);
         }
 
         await this.works.stillOn(run.currentAttempt, command.runnerId);
@@ -187,9 +187,9 @@ export class UseToolHandler
     }
   }
 
-  private hookedTaskOf(run: Run): Promise<HookedTaskDto | null> {
+  private taskViewOf(run: Run): Promise<TaskViewDto | null> {
     return run.firesHooks && run.taskId
-      ? this.hookedTasks.of(run.taskId.value, run.id.value)
+      ? this.taskViews.of(run.taskId.value, run.id.value)
       : Promise.resolve(null);
   }
 

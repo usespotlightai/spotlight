@@ -1,4 +1,4 @@
-import type { ShippedSkillsPort } from '@configuration/application/ports/shipped-skills.port';
+import type { BuiltInSkillsPort } from '@configuration/application/ports/built-in-skills.port';
 import type { SkillFolder } from '@configuration/application/ports/skill-reader.port';
 import { Skill } from '@configuration/domain/entities/skill.entity';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
@@ -7,7 +7,7 @@ import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills
 import { describe, expect, it } from 'vitest';
 
 const HANDOVER: SkillFolder = {
-  skill: Skill.ship({
+  skill: Skill.builtIn({
     key: SkillKey.of('spotlight-handover'),
     description: 'Passing a task on.',
     instructions: 'Write the note.',
@@ -17,13 +17,13 @@ const HANDOVER: SkillFolder = {
   files: [{ path: 'SKILL.md', text: 'Write the note.' }],
 };
 
-const shipped: ShippedSkillsPort = {
+const builtIn: BuiltInSkillsPort = {
   named: (key) => (key === 'spotlight-handover' ? HANDOVER : null),
 };
 
 describe('BuiltInSkills', () => {
-  it('hands Work a skill Spotlight ships, in plain words', () => {
-    expect(new BuiltInSkills(shipped).named('spotlight-handover')).toEqual({
+  it('hands Work a built-in skill, in plain words', () => {
+    expect(new BuiltInSkills(builtIn).named('spotlight-handover')).toEqual({
       skill: {
         key: 'spotlight-handover',
         description: 'Passing a task on.',
@@ -33,7 +33,7 @@ describe('BuiltInSkills', () => {
     });
   });
 
-  it('hands nothing for a skill Spotlight does not ship', () => {
-    expect(new BuiltInSkills(shipped).named('our-migrations')).toBeNull();
+  it('hands nothing for a skill that is not built in', () => {
+    expect(new BuiltInSkills(builtIn).named('our-migrations')).toBeNull();
   });
 });

@@ -866,7 +866,7 @@ describe('ReactToHappenings', () => {
     );
   });
 
-  it('opens a task on a line the word opens onto', async () => {
+  it('opens a task on a line with the line role that the word names', async () => {
     const ISSUE_CREATED = Happening.of('linear.issue.created');
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
@@ -915,8 +915,8 @@ describe('ReactToHappenings', () => {
       message: null,
       ourOwn: false,
       opens: {
-        onto: 'delivery',
-        at: null,
+        lineRole: 'delivery',
+        station: null,
         title: 'Drain the retry queue',
         description: 'It loops forever.',
         assignEmail: null,
@@ -998,8 +998,8 @@ describe('ReactToHappenings', () => {
       message: null,
       ourOwn: false,
       opens: {
-        onto: 'delivery',
-        at: null,
+        lineRole: 'delivery',
+        station: null,
         title: 'Drain the retry queue',
         description: null,
         assignEmail: 'dev@acme.test',
@@ -1076,8 +1076,8 @@ describe('ReactToHappenings', () => {
       message: null,
       ourOwn: false,
       opens: {
-        onto: 'delivery',
-        at: null,
+        lineRole: 'delivery',
+        station: null,
         title: 'Drain the retry queue',
         description: null,
         assignEmail: 'stranger@acme.test',
@@ -1102,7 +1102,7 @@ describe('ReactToHappenings', () => {
     expect(added?.assignee).toBeNull();
   });
 
-  it('opens one task where two lines share the role it opens onto', async () => {
+  it('opens one task where two lines share the line role that it names', async () => {
     const ISSUE_CREATED = Happening.of('linear.issue.created');
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
@@ -1159,8 +1159,8 @@ describe('ReactToHappenings', () => {
       message: null,
       ourOwn: false,
       opens: {
-        onto: 'delivery',
-        at: null,
+        lineRole: 'delivery',
+        station: null,
         title: 'Drain the retry queue',
         description: null,
         assignEmail: null,

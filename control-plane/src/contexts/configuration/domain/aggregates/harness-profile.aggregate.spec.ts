@@ -22,13 +22,13 @@ const TEAM = TeamId.of('team_1');
 const ID = HarnessProfileId.of('profile_1');
 
 const settings = (ask: string[] = []) =>
-  ProfileSettings.written({
+  ProfileSettings.fromRaw({
     permissions: { allow: ['read'], ask, deny: [] },
     mcpServers: [],
     native: {},
   });
 
-const read = (key = 'careful', ask: string[] = []) => ({
+const parsed = (key = 'careful', ask: string[] = []) => ({
   key: ProfileKey.of(key),
   settings: settings(ask),
 });
@@ -57,7 +57,7 @@ const NAMED = StationUses.of([
 describe('HarnessProfile', () => {
   it('is created for a team under its key, and says so', () => {
     const created = HarnessProfile.create({
-      ...read(),
+      ...parsed(),
       id: ID,
       teamId: TEAM,
       by: BY,
@@ -83,7 +83,7 @@ describe('HarnessProfile', () => {
 
   it('takes new settings, and says so', () => {
     const updated = stored().update(
-      read('careful', ['execute(git push *)']),
+      parsed('careful', ['execute(git push *)']),
       BY,
       [],
     );
@@ -100,7 +100,7 @@ describe('HarnessProfile', () => {
   });
 
   it('keeps its key for its whole life', () => {
-    expect(() => stored().update(read('bold'), BY, [])).toThrow(
+    expect(() => stored().update(parsed('bold'), BY, [])).toThrow(
       ImmutableFieldError,
     );
   });
@@ -127,7 +127,7 @@ describe('HarnessProfile', () => {
         ConfigurationChange.deleted(CAREFUL, BY),
       ),
     ]);
-    expect(() => deleted.update(read(), BY, [])).toThrow(
+    expect(() => deleted.update(parsed(), BY, [])).toThrow(
       InconsistentStateError,
     );
   });
@@ -149,7 +149,7 @@ describe('HarnessProfile', () => {
   it('names only secrets the workspace has in its MCP servers’ env', () => {
     const referring = {
       key: ProfileKey.of('careful'),
-      settings: ProfileSettings.written({
+      settings: ProfileSettings.fromRaw({
         permissions: { allow: [], ask: [], deny: [] },
         mcpServers: [
           {

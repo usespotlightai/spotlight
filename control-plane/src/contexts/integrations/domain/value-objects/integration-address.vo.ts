@@ -1,4 +1,4 @@
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
@@ -7,7 +7,7 @@ const SEPARATOR = '/';
 const invalid = (): never => {
   throw new InvalidIdentifierError(
     'integration address',
-    'is the team key and the host it is for, as in core/linear',
+    'is the team key and the integration name, as in core/linear',
   );
 };
 
@@ -16,20 +16,20 @@ export class IntegrationAddress {
 
   private constructor(
     readonly teamKey: string,
-    readonly source: SourceKey,
+    readonly integration: IntegrationKey,
   ) {}
 
-  static of(teamKey: string, source: SourceKey): IntegrationAddress {
+  static of(teamKey: string, integration: IntegrationKey): IntegrationAddress {
     return isSlug(teamKey)
-      ? new IntegrationAddress(teamKey, source)
+      ? new IntegrationAddress(teamKey, integration)
       : invalid();
   }
 
   static parse(raw: string): IntegrationAddress {
-    const [teamKey, source, ...rest] = raw.trim().split(SEPARATOR);
+    const [teamKey, integration, ...rest] = raw.trim().split(SEPARATOR);
 
-    return teamKey && source && rest.length === 0
-      ? IntegrationAddress.of(teamKey, SourceKey.of(source))
+    return teamKey && integration && rest.length === 0
+      ? IntegrationAddress.of(teamKey, IntegrationKey.of(integration))
       : invalid();
   }
 
@@ -37,11 +37,11 @@ export class IntegrationAddress {
     return (
       this.kind === other.kind &&
       this.teamKey === other.teamKey &&
-      this.source.equals(other.source)
+      this.integration.equals(other.integration)
     );
   }
 
   toString(): string {
-    return [this.teamKey, this.source.value].join(SEPARATOR);
+    return [this.teamKey, this.integration.value].join(SEPARATOR);
   }
 }

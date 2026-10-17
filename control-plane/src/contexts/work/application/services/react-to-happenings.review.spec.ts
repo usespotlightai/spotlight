@@ -125,8 +125,8 @@ const requested = (
     message: over.body ? { body: over.body } : null,
     ourOwn: false,
     opens: {
-      onto: 'review',
-      at: null,
+      lineRole: 'review',
+      station: null,
       title: 'Retry uploads',
       description: `Review ${pullRequest}`,
       assignEmail: null,

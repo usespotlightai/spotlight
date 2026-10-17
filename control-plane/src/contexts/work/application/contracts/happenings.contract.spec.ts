@@ -16,7 +16,7 @@ describe('the words Work publishes for happenings', () => {
     expect(Mark.review(PULL).kind).toBe(REVIEW_MARK);
   });
 
-  it('name the role a review opens onto, as the line names it', () => {
+  it('names the line role that a review opens a task on, as the line names it', () => {
     expect(LineRole.REVIEW.value).toBe(REVIEW_ROLE);
   });
 });

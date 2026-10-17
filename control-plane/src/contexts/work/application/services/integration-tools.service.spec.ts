@@ -1,12 +1,12 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type { IntegrationToolCallsPort } from '@work/application/ports/integration-tool-calls.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
+import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
-import type { TaskBindings } from '@work/application/services/task-bindings.service';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -44,10 +44,10 @@ const resolving = (options: { movedOn?: boolean } = {}) => {
         description: 'Comment on an issue',
         inputs: [],
         approval: null,
-        learnedOutput: null,
+        inferredOutput: null,
       },
       actingAs: null,
-      wants: null,
+      missing: null,
       personRule: null,
       defaultFor: () => undefined,
       call: async () => {
@@ -60,7 +60,9 @@ const resolving = (options: { movedOn?: boolean } = {}) => {
   const tools = new IntegrationTools(
     { find: async () => ({}) } as unknown as TaskRepository,
     { findByStation: async () => ({}) } as unknown as LineRepository,
-    { of: async () => ({}) as BoundTaskDto } as unknown as TaskBindings,
+    {
+      of: async () => ({}) as IntegrationTaskViewDto,
+    } as unknown as IntegrationTaskViews,
     calls,
     { stillOn } as unknown as RunWorks,
   );

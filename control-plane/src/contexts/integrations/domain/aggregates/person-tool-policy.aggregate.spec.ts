@@ -1,7 +1,7 @@
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -14,7 +14,7 @@ const none = () =>
   PersonToolPolicy.none({
     teamId: TeamId.of('team_1'),
     personId: UserId.of('user_alice'),
-    source: SourceKey.of('linear'),
+    integration: IntegrationKey.of('linear'),
   });
 
 describe('PersonToolPolicy', () => {
@@ -48,7 +48,7 @@ describe('PersonToolPolicy', () => {
     const stored = {
       teamId: TeamId.of('team_1'),
       personId: UserId.of('user_alice'),
-      source: SourceKey.of('linear'),
+      integration: IntegrationKey.of('linear'),
     };
 
     expect(() =>

@@ -12,7 +12,7 @@ export class MarkKind {
     if (!isDottedName(named)) {
       throw new InvalidIdentifierError(
         'mark',
-        'is its source and its name, as in git.pull-request',
+        'is its integration and its name, as in git.pull-request',
       );
     }
 

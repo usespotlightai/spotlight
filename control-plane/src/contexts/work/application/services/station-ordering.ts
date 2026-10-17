@@ -21,7 +21,7 @@ import type { StationCatalog } from '@work/application/services/station-catalog.
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
-import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
+import { BUILT_IN_SKILL_KEY_LIST } from '@work/domain/services/built-in-skills';
 import { skillsForTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import {
@@ -222,7 +222,7 @@ export class StationOrdering {
             order,
             folders: folders.filter(
               (each) =>
-                !BUILT_IN_SKILL_KEYS.some(
+                !BUILT_IN_SKILL_KEY_LIST.some(
                   (key) => key.value === each.skill.key,
                 ),
             ),

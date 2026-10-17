@@ -47,7 +47,7 @@ const REFERENCES: Partial<Record<Searchable, HclReferenceRule>> = {
   },
   tools: {
     type: 'spotlight_integration',
-    attribute: 'source',
+    attribute: 'integration',
     storedAt: 'definition.integration',
     tool: true,
   },

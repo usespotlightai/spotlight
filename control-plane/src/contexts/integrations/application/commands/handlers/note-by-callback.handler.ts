@@ -1,6 +1,6 @@
 import type { NoteByCallbackCommand } from '@integrations/application/commands/note-by-callback.command';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
-import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
+import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { InvalidCallbackNoteError } from '@integrations/domain/exceptions/invalid-callback-note.error';
 import { CallbackNote } from '@integrations/domain/value-objects/callback-note.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -26,7 +26,7 @@ export class NoteByCallbackHandler
   implements CommandHandlerPort<NoteByCallbackCommand, NotedByCallback>
 {
   constructor(
-    private readonly grants: HookCallbackGrants,
+    private readonly callbackTokens: HookCallbackTokens,
     private readonly notes: TaskNotesFromHooksPort,
     private readonly history: HookFiringHistoryPort,
     private readonly causation: CausationPort,
@@ -40,23 +40,28 @@ export class NoteByCallbackHandler
         return 'empty';
       }
 
-      const grant = await this.grants.findByToken(command.token);
+      const callbackToken = await this.callbackTokens.findByToken(
+        command.token,
+      );
 
-      if (!grant) {
+      if (!callbackToken) {
         return 'rejected';
       }
 
-      const fired = grant.firing
-        ? await this.history.chainOf(grant.workspaceId.value, grant.firing)
+      const fired = callbackToken.firing
+        ? await this.history.chainOf(
+            callbackToken.workspaceId.value,
+            callbackToken.firing,
+          )
         : null;
       const noted = await this.causation.within(
-        (fired ?? this.causation.current()).followedBy(grant.causeLink),
+        (fired ?? this.causation.current()).followedBy(callbackToken.causeLink),
         () =>
           this.notes.noted(
-            grant.taskId.value,
+            callbackToken.taskId.value,
             note.body,
-            grant.hook,
-            grant.noteIdempotencyKey(command.idempotencyKey),
+            callbackToken.hook,
+            callbackToken.noteIdempotencyKey(command.idempotencyKey),
           ),
       );
 

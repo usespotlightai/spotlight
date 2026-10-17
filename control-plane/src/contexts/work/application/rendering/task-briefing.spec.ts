@@ -143,7 +143,7 @@ const task = (stationId: string, description?: TaskDescription) =>
 const HANDOVER_TEXT = 'How to write the note, as the handover skill says it.';
 const PULL_REQUEST_TEXT = 'How to open one, as the pull-request skill says it.';
 
-const shipped = [
+const builtIn = [
   {
     key: HANDING_OVER.value,
     description: 'Handing over.',
@@ -167,7 +167,7 @@ const brief = (
   TaskBriefing.brief({
     task: (worked ?? task(station.id.value)).briefed.withDecisions(decisions),
     line: lineOf(station, at('station_2', 'Spec', 1)),
-    skills: shipped,
+    skills: builtIn,
     listedIn: null,
     memories,
     memoryFolder,
@@ -347,11 +347,11 @@ describe('TaskBriefing', () => {
   });
 
   describe('the tools a station enables for a run', () => {
-    const enabled = (tool: string, offeredBy: string) =>
+    const enabled = (tool: string, providedBy: string) =>
       DeclaredTool.of({
         tool: Tool.of(tool),
         description: 'Does it.',
-        offeredBy,
+        providedBy,
       });
 
     it('names the integrations its tools come from, and how to find and call one', () => {
@@ -394,7 +394,7 @@ describe('TaskBriefing', () => {
       TaskBriefing.brief({
         task: task(station.id.value).briefed,
         line: lineOf(station, at('station_2', 'Spec', 1)),
-        skills: shipped,
+        skills: builtIn,
         listedIn: '.spotlight/skills',
         memories: [],
         memoryFolder: null,
@@ -571,7 +571,7 @@ describe('TaskBriefing', () => {
       TaskBriefing.brief({
         task: worked.briefed,
         line: inBoth(),
-        skills: shipped,
+        skills: builtIn,
         listedIn: null,
         memories: [],
         memoryFolder: null,

@@ -135,7 +135,7 @@ const toolInputOf = (raw: unknown): RunToolInput => {
     ...(description !== undefined ? { description } : {}),
     required: booleanAt(input.required, 'what a tool takes'),
     defaulted: booleanAt(input.defaulted, 'what a tool takes'),
-    piped: booleanAt(input.piped, 'what a tool takes'),
+    stdin: booleanAt(input.stdin, 'what a tool takes'),
   };
 };
 

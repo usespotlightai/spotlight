@@ -222,7 +222,7 @@ const lineWith = (changed?: Station, repositories: readonly Worked[] = []) =>
       : stations,
   });
 
-const SHIPPED_SKILLS: ReadySkillFolder[] = [
+const BUILT_IN_SKILL_FOLDERS: ReadySkillFolder[] = [
   {
     skill: {
       key: HANDING_OVER.value,
@@ -258,17 +258,18 @@ const SHIPPED_SKILLS: ReadySkillFolder[] = [
   },
 ];
 
-const SHIPPED: BuiltInSkillsPort = {
-  named: (key) => SHIPPED_SKILLS.find((each) => each.skill.key === key) ?? null,
+const BUILT_IN: BuiltInSkillsPort = {
+  named: (key) =>
+    BUILT_IN_SKILL_FOLDERS.find((each) => each.skill.key === key) ?? null,
 };
 
-let offeredTools: DeclaredTool[] = [];
-let offeredRequested: string[] = [];
+let providedTools: DeclaredTool[] = [];
+let providedRequested: string[] = [];
 
 const integrations = {
-  offered: async (_line: unknown, tools: readonly Tool[]) => {
-    offeredRequested = tools.map((each) => each.value);
-    return offeredTools;
+  provided: async (_line: unknown, tools: readonly Tool[]) => {
+    providedRequested = tools.map((each) => each.value);
+    return providedTools;
   },
 } as unknown as TeamIntegrations;
 
@@ -316,7 +317,7 @@ const WEB_SEARCH = {
       description: null,
       required: true,
       defaulted: false,
-      piped: false,
+      stdin: false,
     },
   ],
 };
@@ -337,7 +338,7 @@ const dispatch = async (
     harnesses,
     launch,
     tracing,
-    SHIPPED,
+    BUILT_IN,
     teamSkills,
     integrations,
     { ofTask: async () => [] },
@@ -925,16 +926,16 @@ describe('DispatchTask, the skills a station enables for a run', () => {
   });
 
   it('lays the skill of finding and calling tools, and briefs where they come from, where an integration’s tool is described', async () => {
-    offeredTools = [
+    providedTools = [
       DeclaredTool.of({
         tool: Tool.of('linear.comment'),
         description: 'Comment on the issue.',
-        offeredBy: 'Linear',
+        providedBy: 'Linear',
       }),
     ];
 
     await dispatch(triage({ tools: ['linear.comment'] }));
-    offeredTools = [];
+    providedTools = [];
 
     expect(laid()).toEqual([
       '.claude/skills/spotlight-handover/SKILL.md',
@@ -946,7 +947,7 @@ describe('DispatchTask, the skills a station enables for a run', () => {
   });
 
   it('lays no skill of finding tools where nothing describes the integration’s tool', async () => {
-    offeredTools = [];
+    providedTools = [];
 
     await dispatch(triage({ tools: ['linear.missing'] }));
 
@@ -974,8 +975,8 @@ describe('DispatchTask, the team’s own skills', () => {
     queued = [];
     extras = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
-    offeredTools = [];
-    offeredRequested = [];
+    providedTools = [];
+    providedRequested = [];
     readySkills = [
       {
         skill: {
@@ -1012,7 +1013,7 @@ describe('DispatchTask, the team’s own skills', () => {
         files: [{ path: 'SKILL.md', text: `---\nname: ${OURS.value}\n---\n` }],
       },
     ];
-    offeredTools = [
+    providedTools = [
       DeclaredTool.of({
         tool: Tool.of('grafana.search'),
         description: 'Search the dashboards.',
@@ -1048,8 +1049,8 @@ describe('DispatchTask, the tools a run is told about', () => {
   beforeEach(() => {
     queued = [];
     extras = [];
-    offeredTools = [];
-    offeredRequested = [];
+    providedTools = [];
+    providedRequested = [];
   });
 
   it('describes Spotlight’s own tools, and what they take, without reading the team’s', async () => {
@@ -1061,11 +1062,11 @@ describe('DispatchTask, the tools a run is told about', () => {
       'body',
       'repository',
     ]);
-    expect(offeredRequested).toEqual(['pull-request']);
+    expect(providedRequested).toEqual(['pull-request']);
   });
 
   it('describes a tool a team’s integration offers, where the station names it', async () => {
-    offeredTools = [
+    providedTools = [
       DeclaredTool.of({
         tool: Tool.of('linear.comment'),
         description: 'Comment on the issue.',
@@ -1076,7 +1077,7 @@ describe('DispatchTask, the tools a run is told about', () => {
             description: null,
             required: true,
             defaulted: false,
-            piped: true,
+            stdin: true,
           },
         ],
       }),
@@ -1101,7 +1102,7 @@ describe('DispatchTask, the tools a run is told about', () => {
           schema: { type: 'string' },
           required: true,
           defaulted: false,
-          piped: true,
+          stdin: true,
         },
       ],
       approval: null,

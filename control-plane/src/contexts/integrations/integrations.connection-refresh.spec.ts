@@ -1,18 +1,18 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
-import { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
+import { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
-import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
+import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
-import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
-import { InMemoryHostConnections } from '@integrations/integrations.connections.fake-spec';
+import { InMemoryIntegrationConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
@@ -43,7 +43,7 @@ const runtimeWith = (
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
 const TEAM = TeamId.of('team_1');
-const SLACK = SourceKey.of('slack');
+const SLACK = IntegrationKey.of('slack');
 
 const CONFIG = `
 integration: slack
@@ -67,44 +67,44 @@ webhook:
 const config = () => [defined(CONFIG)];
 
 const nearing = (over: { refreshToken?: string | null } = {}) =>
-  HostConnection.rehydrate({
+  IntegrationConnection.rehydrate({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
-    source: SLACK,
-    holder: ConnectionHolder.team(),
+    integration: SLACK,
+    owner: ConnectionOwner.team(),
     accessToken: AccessToken.of('xoxb-old'),
     refreshToken: AccessToken.maybe(
       'refreshToken' in over ? over.refreshToken : 'xoxe-old',
     ),
     expiresAt: new Date('2026-09-07T10:02:00.000Z'),
     scopes: ['chat:write'],
-    handle: 'Acme',
+    linkedAccount: 'Acme',
     refreshFailedAt: null,
-    renewalClaim: null,
+    refreshClaim: null,
     version: 1,
   });
 
 const refreshing = (
-  due: readonly HostConnection[],
-  grant: HostGrant | null = HostGrant.of({
+  due: readonly IntegrationConnection[],
+  tokens: OAuthTokens | null = OAuthTokens.of({
     accessToken: 'xoxb-new',
     refreshToken: 'xoxe-new',
     expiresAt: new Date('2026-09-07T11:00:00.000Z'),
     scopes: ['chat:write'],
-    handle: 'Acme',
+    linkedAccount: 'Acme',
   }),
 ) => {
-  const connections = new InMemoryHostConnections();
+  const connections = new InMemoryIntegrationConnections();
   for (const each of due) {
     connections.add(each);
   }
-  const refresh = vi.fn(async () => grant);
+  const refresh = vi.fn(async () => tokens);
   const clock = { now: () => NOW } as ClockPort;
   const warn = vi.fn();
 
   const it = new RefreshConnections(
     connections,
-    new ConnectionRenewal(
+    new ConnectionRefresh(
       connections,
       { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
       runtimeWith(
@@ -121,11 +121,11 @@ const refreshing = (
   return { it, connections, refresh, warn };
 };
 
-const storedNow = (connections: InMemoryHostConnections) =>
-  connections.of(TEAM, SLACK, ConnectionHolder.team());
+const storedNow = (connections: InMemoryIntegrationConnections) =>
+  connections.of(TEAM, SLACK, ConnectionOwner.team());
 
 describe('RefreshConnections', () => {
-  it('renews a connection nearing expiry and stores the fresh tokens', async () => {
+  it('refreshes a connection near expiry and stores the fresh tokens', async () => {
     const { it, connections, refresh } = refreshing([nearing()]);
 
     await it.refresh();
@@ -134,7 +134,7 @@ describe('RefreshConnections', () => {
     expect(refresh).toHaveBeenCalledOnce();
     expect(stored?.accessToken.value).toBe('xoxb-new');
     expect(stored?.refreshToken?.value).toBe('xoxe-new');
-    expect(stored?.renewalClaim).toBeNull();
+    expect(stored?.refreshClaim).toBeNull();
   });
 
   it('leaves one with no refresh token alone', async () => {
@@ -156,18 +156,18 @@ describe('RefreshConnections', () => {
     const stored = await storedNow(connections);
     expect(stored?.accessToken.value).toBe('xoxb-old');
     expect(stored?.refreshFailedAt).toEqual(NOW);
-    expect(stored?.renewalClaim).toBeNull();
+    expect(stored?.refreshClaim).toBeNull();
     expect(connections.events.map((each) => each.kind)).toEqual([
-      'integrations.host-refresh-failed',
+      'integrations.connection-refresh-failed',
     ]);
     expect(warn).toHaveBeenCalledWith(
-      { team: 'team_1', source: 'slack', holder: 'team' },
-      'A host did not renew a connection',
+      { team: 'team_1', integration: 'slack', owner: 'team' },
+      'The integration did not refresh a connection',
     );
   });
 
-  it('leaves a connection someone else is renewing to them', async () => {
-    const claimed = nearing().claimRenewal(NOW, 30_000);
+  it('leaves a connection that someone else refreshes to them', async () => {
+    const claimed = nearing().claimRefresh(NOW, 30_000);
     const { it, refresh } = refreshing([claimed]);
 
     await it.refresh();

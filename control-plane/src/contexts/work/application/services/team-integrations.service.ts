@@ -7,7 +7,7 @@ import type { Tool } from '@work/domain/value-objects/tool.vo';
 export class TeamIntegrations {
   constructor(private readonly integrations: TeamIntegrationsPort) {}
 
-  async offered(
+  async provided(
     line: Line,
     tools: readonly Tool[],
   ): Promise<readonly DeclaredTool[]> {
@@ -16,7 +16,7 @@ export class TeamIntegrations {
       .map((each) => each.value);
 
     return integrationTools.length > 0
-      ? (await this.integrations.offered(line.teamId, integrationTools)).map(
+      ? (await this.integrations.provided(line.teamId, integrationTools)).map(
           ToolDeclarationMapper.toDeclared,
         )
       : [];

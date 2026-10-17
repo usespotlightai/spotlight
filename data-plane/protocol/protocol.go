@@ -142,7 +142,7 @@ type ToolInputManifest struct {
 	Description string          `json:"description,omitempty"`
 	Required    bool            `json:"required,omitempty"`
 	Defaulted   bool            `json:"defaulted,omitempty"`
-	Piped       bool            `json:"piped,omitempty"`
+	Stdin       bool            `json:"stdin,omitempty"`
 }
 
 type inputSchema struct {

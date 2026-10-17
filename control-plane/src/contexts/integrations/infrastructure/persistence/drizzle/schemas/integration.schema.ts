@@ -13,50 +13,53 @@ export const integrationCursor = pgTable(
   'integration_cursor',
   {
     teamId: text('team_id').notNull(),
-    source: text('source').notNull(),
+    integration: text('integration').notNull(),
     cursor: text('cursor'),
     ranAt: timestamp('ran_at'),
   },
-  (table) => [primaryKey({ columns: [table.teamId, table.source] })],
+  (table) => [primaryKey({ columns: [table.teamId, table.integration] })],
 );
 
-export const hostConnection = pgTable(
-  'host_connection',
+export const integrationConnection = pgTable(
+  'integration_connection',
   {
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
-    source: text('source').notNull(),
-    holder: text('holder').notNull(),
+    integration: text('integration').notNull(),
+    owner: text('owner').notNull(),
     accessToken: text('access_token').notNull(),
     refreshToken: text('refresh_token'),
     expiresAt: timestamp('expires_at'),
     scopes: text('scopes').notNull().default(''),
-    handle: text('handle'),
+    linkedAccount: text('linked_account'),
     refreshFailedAt: timestamp('refresh_failed_at'),
-    renewalClaimedUntil: timestamp('renewal_claimed_until'),
+    refreshClaimedUntil: timestamp('refresh_claimed_until'),
     version: integer('version').notNull().default(1),
     connectedAt: timestamp('connected_at').notNull().defaultNow(),
   },
   (table) => [
-    primaryKey({ columns: [table.teamId, table.source, table.holder] }),
-    index('host_connection_holder_idx').on(table.teamId, table.holder),
+    primaryKey({ columns: [table.teamId, table.integration, table.owner] }),
+    index('integration_connection_owner_idx').on(table.teamId, table.owner),
   ],
 );
 
-export const learnedOutput = pgTable(
-  'learned_output',
+export const inferredOutputSchema = pgTable(
+  'inferred_output_schema',
   {
     teamId: text('team_id').notNull(),
     tool: text('tool').notNull(),
-    source: text('source').notNull(),
+    integration: text('integration').notNull(),
     shape: jsonb('shape').notNull(),
     calls: integer('calls').notNull(),
-    learnedAt: timestamp('learned_at').notNull(),
+    inferredAt: timestamp('inferred_at').notNull(),
     version: integer('version').notNull().default(1),
   },
   (table) => [
     primaryKey({ columns: [table.teamId, table.tool] }),
-    index('learned_output_source_idx').on(table.teamId, table.source),
+    index('inferred_output_schema_integration_idx').on(
+      table.teamId,
+      table.integration,
+    ),
   ],
 );
 
@@ -65,12 +68,12 @@ export const personToolPolicy = pgTable(
   {
     teamId: text('team_id').notNull(),
     personId: text('person_id').notNull(),
-    source: text('source').notNull(),
+    integration: text('integration').notNull(),
     rules: jsonb('rules').$type<Record<string, string>>().notNull(),
     version: integer('version').notNull().default(1),
   },
   (table) => [
-    primaryKey({ columns: [table.teamId, table.personId, table.source] }),
+    primaryKey({ columns: [table.teamId, table.personId, table.integration] }),
   ],
 );
 
@@ -79,7 +82,7 @@ export const oauth2ClientRegistration = pgTable(
   {
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
-    source: text('source').notNull(),
+    integration: text('integration').notNull(),
     registrationEndpoint: text('registration_endpoint').notNull(),
     redirectUri: text('redirect_uri').notNull(),
     issuer: text('issuer'),
@@ -91,7 +94,7 @@ export const oauth2ClientRegistration = pgTable(
     version: integer('version').notNull().default(1),
     registeredAt: timestamp('registered_at').notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.teamId, table.source] })],
+  (table) => [primaryKey({ columns: [table.teamId, table.integration] })],
 );
 
 export const oauth2SpentNonce = pgTable('oauth2_spent_nonce', {
@@ -104,37 +107,37 @@ export const integrationDefinition = pgTable(
   {
     id: text('id').primaryKey(),
     teamId: text('team_id').notNull(),
-    source: text('source').notNull(),
+    integration: text('integration').notNull(),
     definition: jsonb('definition').$type<Record<string, unknown>>().notNull(),
-    offers: jsonb('offers').$type<string[]>().notNull(),
-    sourceFingerprint: text('source_fingerprint'),
-    sourceHash: text('source_hash'),
-    sourceReadAt: timestamp('source_read_at'),
-    sourceProblem: text('source_problem'),
-    sourcePassedOver: jsonb('source_passed_over').$type<string[]>(),
+    tools: jsonb('tools').$type<string[]>().notNull(),
+    specFingerprint: text('spec_fingerprint'),
+    specHash: text('spec_hash'),
+    specReadAt: timestamp('spec_read_at'),
+    specProblem: text('spec_problem'),
+    specSkipped: jsonb('spec_skipped').$type<string[]>(),
     version: integer('version').notNull().default(1),
-    definedAt: timestamp('defined_at')
+    updatedAt: timestamp('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [unique().on(table.teamId, table.source)],
+  (table) => [unique().on(table.teamId, table.integration)],
 );
 
-export const describedDocument = pgTable('described_document', {
+export const specDocument = pgTable('spec_document', {
   hash: text('hash').primaryKey(),
   kind: text('kind').notNull(),
   operations: integer('operations').notNull(),
-  passedOver: jsonb('passed_over').$type<string[]>().notNull(),
+  skipped: jsonb('skipped').$type<string[]>().notNull(),
   readAt: timestamp('read_at').notNull(),
 });
 
-export const describedOperation = pgTable(
-  'described_operation',
+export const specOperation = pgTable(
+  'spec_operation',
   {
     hash: text('hash')
       .notNull()
-      .references(() => describedDocument.hash, { onDelete: 'cascade' }),
+      .references(() => specDocument.hash, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     position: integer('position').notNull(),
     operation: jsonb('operation').$type<Record<string, unknown>>().notNull(),

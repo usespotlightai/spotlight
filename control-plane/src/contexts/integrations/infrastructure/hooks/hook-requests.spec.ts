@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import type {
-  HookMoment,
+  HookEventInstance,
   ListeningHook,
 } from '@integrations/application/ports/hook-runtime.port';
-import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
+import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import {
   type HookRequest,
@@ -30,7 +30,7 @@ const HOOK: ListeningHook = {
   written: null,
 };
 
-const MOMENT: HookMoment = {
+const INSTANCE: HookEventInstance = {
   on: 'pull-request.opening',
   occurrence: 'occurrence_1',
   firing: null,
@@ -54,7 +54,7 @@ const MOMENT: HookMoment = {
 
 const hookRequest = (overrides: Partial<HookRequest> = {}): HookRequest => ({
   hook: HOOK,
-  moment: MOMENT,
+  instance: INSTANCE,
   step: 'check',
   url: 'https://dba.example.com/review',
   headers: { 'x-team': 'core' },
@@ -62,7 +62,7 @@ const hookRequest = (overrides: Partial<HookRequest> = {}): HookRequest => ({
   fromNetwork: false,
   signing: { kind: 'hmac' },
   deadline: new Date(NOW.getTime() + 10_000),
-  waiting: 'until-answered',
+  waitMode: 'wait',
   resuming: null,
   ...overrides,
 });
@@ -109,7 +109,7 @@ const requests = (
         signed,
         keys: async () => ({ keys: [] }),
       },
-      { issued } as unknown as HookCallbackGrants,
+      { issued } as unknown as HookCallbackTokens,
       calls,
       fetch as unknown as typeof globalThis.fetch,
     ),
@@ -128,10 +128,10 @@ describe('HookRequests', () => {
       async () => new Response('{"ok":true}', { status: 200 }),
     );
 
-    const taken = await sending.sent(hookRequest(), NOW);
+    const stepResult = await sending.sent(hookRequest(), NOW);
     const headers = sentHeaders(fetch);
 
-    expect(taken.outcome).toEqual({
+    expect(stepResult.outcome).toEqual({
       name: 'check',
       status: 'done',
       output: { ok: true },
@@ -159,9 +159,9 @@ describe('HookRequests', () => {
       async () => new Response('{}', { status: 200 }),
     );
 
-    const taken = await sending.sent(hookRequest(), NOW);
+    const stepResult = await sending.sent(hookRequest(), NOW);
 
-    expect(JSON.stringify(taken.trace)).not.toMatch(
+    expect(JSON.stringify(stepResult.trace)).not.toMatch(
       /callback_token|webhook-signature/,
     );
   });
@@ -185,9 +185,9 @@ describe('HookRequests', () => {
       async () => new Response('x'.repeat(100_000), { status: 200 }),
     );
 
-    const taken = await sending.sent(hookRequest(), NOW);
+    const stepResult = await sending.sent(hookRequest(), NOW);
 
-    expect((taken.outcome as { output: string }).output).toHaveLength(
+    expect((stepResult.outcome as { output: string }).output).toHaveLength(
       16 * 1024,
     );
   });
@@ -266,7 +266,7 @@ describe('HookRequests', () => {
     } = requests(async () => new Response('{}', { status: 200 }));
 
     await sending.sent(
-      hookRequest({ moment: { ...MOMENT, firing: 'firing_1' } }),
+      hookRequest({ instance: { ...INSTANCE, firing: 'firing_1' } }),
       NOW,
     );
 
@@ -323,7 +323,7 @@ describe('HookRequests', () => {
       requests: sending,
     } = requests(async () => new Response('{}'));
 
-    const taken = await sending.sent(
+    const stepResult = await sending.sent(
       hookRequest({ url: 'http://dba.acme.internal/', fromNetwork: true }),
       NOW,
     );
@@ -339,7 +339,7 @@ describe('HookRequests', () => {
       }),
       new Date(NOW.getTime() + 10_000),
     );
-    expect(taken.outcome).toEqual({
+    expect(stepResult.outcome).toEqual({
       name: 'check',
       status: 'done',
       output: { ok: true },
@@ -354,7 +354,7 @@ describe('HookRequests', () => {
     );
 
     const first = await sending.sent(
-      hookRequest({ fromNetwork: true, waiting: 'suspend' }),
+      hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
       NOW,
     );
 
@@ -380,7 +380,7 @@ describe('HookRequests', () => {
       sending.sent(
         hookRequest({
           fromNetwork: true,
-          waiting: 'suspend',
+          waitMode: 'suspend',
           resuming: first.outcome,
         }),
         NOW,

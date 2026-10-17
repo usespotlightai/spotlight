@@ -81,7 +81,7 @@ export class TerraformController {
   @ApiOperation({
     operationId: operationIdOf('read', 'resource-hcl'),
     summary:
-      'One resource as HCL, with the import block that adopts it and any variable it reads',
+      'One resource as HCL, with the import block that imports it and any variable it reads',
   })
   @ApiParam({
     name: 'collection',

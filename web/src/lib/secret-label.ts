@@ -1,5 +1,5 @@
-export const secretLabel = (name: string, source: string): string => {
-  const prefix = `${source.toUpperCase()}_`;
+export const secretLabel = (name: string, integration: string): string => {
+  const prefix = `${integration.toUpperCase()}_`;
   const words = (name.startsWith(prefix) ? name.slice(prefix.length) : name)
     .toLowerCase()
     .split('_')

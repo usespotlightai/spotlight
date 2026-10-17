@@ -11,7 +11,7 @@ export interface SecretReferenceAt {
 
 type Fields = Readonly<Record<string, unknown>>;
 
-const DESCRIBED_SOURCES = ['openapi', 'graphql', 'mcp'] as const;
+const SPEC_KINDS = ['openapi', 'graphql', 'mcp'] as const;
 
 const isRecord = (value: unknown): value is Fields =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -64,10 +64,10 @@ const inEvents = (events: unknown, path: FieldPath): SecretReferenceAt[] =>
     ...(isRecord(event.lookup)
       ? inRequest(event.lookup.request, path.to(at, 'lookup', 'request'))
       : []),
-    ...(isRecord(event.raise) && isRecord(event.raise.attaches)
+    ...(isRecord(event.raise) && isRecord(event.raise.attachments)
       ? inRequest(
-          event.raise.attaches.fetch,
-          path.to(at, 'raise', 'attaches', 'fetch'),
+          event.raise.attachments.fetch,
+          path.to(at, 'raise', 'attachments', 'fetch'),
         )
       : []),
   ]);
@@ -93,7 +93,7 @@ export const secretReferencesIn = (
           ...inEvents(definition.poll.events, root.to('poll', 'events')),
         ]
       : []),
-    ...DESCRIBED_SOURCES.flatMap((kind) =>
+    ...SPEC_KINDS.flatMap((kind) =>
       isRecord(definition[kind])
         ? inAuth(definition[kind].auth, root.to(kind, 'auth'))
         : [],

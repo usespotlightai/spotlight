@@ -4,13 +4,13 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
-  HookedTaskDto,
-  HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
-import type {
-  BeforeMoment,
-  HookVerdict,
+  BeforeHookEvent,
+  HookDecision,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type {
+  TaskViewDto,
+  TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
@@ -45,22 +45,22 @@ const POLL_UNTIL = new Date(NOW.getTime() + 10_000);
 
 const starting = (
   over: {
-    verdict?: HookVerdict;
+    decision?: HookDecision;
     clashes?: number;
-    hooked?: boolean;
+    viewed?: boolean;
     unreachable?: boolean;
     now?: Date;
   } = {},
 ) => {
   let current = claimed();
   let clashes = over.clashes ?? 0;
-  const hookCalls: BeforeMoment[] = [];
+  const hookCalls: BeforeHookEvent[] = [];
   const untils: (Date | undefined)[] = [];
   const warned: string[] = [];
   const of = vi.fn(async (taskId: string, runId: string | null) =>
-    over.hooked === false
+    over.viewed === false
       ? null
-      : ({ taskId, runId } as unknown as HookedTaskDto),
+      : ({ taskId, runId } as unknown as TaskViewDto),
   );
   const runs = {
     findById: vi.fn(async () => current),
@@ -80,16 +80,16 @@ const starting = (
     current: () => current,
     hooks: new RunStartHooks(
       runs as unknown as RunRepository,
-      { of } as unknown as HookedTasksPort,
+      { of } as unknown as TaskViewsPort,
       {
         listens: async () => true,
-        before: async (_task, moment, until) => {
+        before: async (_task, event, until) => {
           if (over.unreachable) {
             throw new Error('connect ECONNREFUSED');
           }
-          hookCalls.push(moment);
+          hookCalls.push(event);
           untils.push(until);
-          return over.verdict ?? { kind: 'allowed' };
+          return over.decision ?? { kind: 'allowed' };
         },
         after: async () => {},
       },
@@ -117,7 +117,7 @@ describe('RunStartHooks', () => {
 
   it('ends a run a hook denies, saying why', async () => {
     const { hooks, current } = starting({
-      verdict: { kind: 'denied', reason: REASON },
+      decision: { kind: 'denied', reason: REASON },
     });
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('denied');
@@ -127,7 +127,7 @@ describe('RunStartHooks', () => {
 
   it('reads the run again when it changed while being denied', async () => {
     const { hooks, current, runs } = starting({
-      verdict: { kind: 'denied', reason: REASON },
+      decision: { kind: 'denied', reason: REASON },
       clashes: 1,
     });
 
@@ -150,7 +150,7 @@ describe('RunStartHooks', () => {
   });
 
   it('lets a run start whose task no hook can learn of', async () => {
-    const { hooks, hookCalls } = starting({ hooked: false });
+    const { hooks, hookCalls } = starting({ viewed: false });
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('starts');
     expect(hookCalls).toEqual([]);

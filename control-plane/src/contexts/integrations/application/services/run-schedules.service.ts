@@ -48,7 +48,7 @@ export class RunSchedules {
     schedule: Schedule,
     now: Date,
   ): Promise<void> {
-    const key = `${integration.source.value}:schedule`;
+    const key = `${integration.key.value}:schedule`;
     const state = await this.cursors.read(teamId, key);
     const turn = schedule.turn(state.ranAt, now);
 
@@ -75,7 +75,7 @@ export class RunSchedules {
         this.log.warn(
           {
             team: teamId.value,
-            source: integration.source.value,
+            integration: integration.key.value,
             error: acted.error,
           },
           'A scheduled action failed',
@@ -83,7 +83,7 @@ export class RunSchedules {
       }
     } catch (error) {
       this.log.warn(
-        { err: error, team: teamId.value, source: key },
+        { err: error, team: teamId.value, integration: key },
         'Running a schedule',
       );
     }

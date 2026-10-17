@@ -394,7 +394,7 @@ func describing(tool protocol.ToolManifest) string {
 		sections = append(sections, "Takes:\n"+inputType(tool))
 	}
 	if len(tool.Output) > 0 {
-		sections = append(sections, "Answers with (learned from earlier calls, may be incomplete):\n"+typescript(tool.Output))
+		sections = append(sections, "Answers with (inferred from earlier calls, may be incomplete):\n"+typescript(tool.Output))
 	}
 	sections = append(sections, "For example:\n"+exampleCall(tool))
 

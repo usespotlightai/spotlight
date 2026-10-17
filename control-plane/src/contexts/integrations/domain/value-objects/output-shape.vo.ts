@@ -290,7 +290,7 @@ const isScalar = (kind: string): kind is (typeof SCALARS)[number] =>
 const read = (raw: unknown, depth: number): ShapeNode => {
   const invalid = () =>
     new InconsistentStateError(
-      'learned output shape',
+      'inferred output schema',
       'was stored in a form Spotlight does not read',
     );
 

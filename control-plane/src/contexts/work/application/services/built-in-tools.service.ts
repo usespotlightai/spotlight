@@ -35,7 +35,7 @@ export class BuiltInTools {
       ? {
           declared: built.declared,
           actingAs: null,
-          wants: null,
+          missing: null,
           personRule: null,
           defaultFor: () => undefined,
           call: (inputs) => use.call(context, inputs),

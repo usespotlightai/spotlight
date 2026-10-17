@@ -1,4 +1,4 @@
-import { APPLIED_CONFIGURATION } from '@configuration/application/ports/applied-configuration.port';
+import { TEAM_SKILL_FILES } from '@configuration/application/ports/team-skill-files.port';
 import {
   CONFIGURATION_CONTROLLERS,
   CONFIGURATION_PROVIDERS,
@@ -16,11 +16,6 @@ import { WorkModule } from '@work/work.module';
   imports: [IdentityModule, SecretsModule, RunnersModule, WorkModule],
   controllers: [...CONFIGURATION_CONTROLLERS],
   providers: [...CONFIGURATION_PROVIDERS],
-  exports: [
-    APPLIED_CONFIGURATION,
-    TEAM_SKILLS,
-    BUILT_IN_SKILLS,
-    STATION_PROFILES,
-  ],
+  exports: [TEAM_SKILL_FILES, TEAM_SKILLS, BUILT_IN_SKILLS, STATION_PROFILES],
 })
 export class ConfigurationModule {}

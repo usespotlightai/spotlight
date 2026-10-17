@@ -4,16 +4,16 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 export const INTEGRATIONS = 'integrations';
 
-export const integrationAt = (source: string): string =>
-  `${INTEGRATIONS}/${source}`;
+export const integrationAt = (integration: string): string =>
+  `${INTEGRATIONS}/${integration}`;
 
 export const IntegrationProblems = {
   immutableField(
-    source: string,
+    integration: string,
     error: ImmutableFieldError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: integrationAt(source),
+      path: integrationAt(integration),
       at: FieldPath.of([error.field]),
       reason: error.because,
     });

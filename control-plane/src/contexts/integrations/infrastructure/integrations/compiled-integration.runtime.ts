@@ -2,15 +2,15 @@ import { createHash } from 'node:crypto';
 import { ToolDeclarationMapper } from '@integrations/application/mappers/tool-declaration.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type {
-  Acted,
-  BoundTask,
+  ActionResult,
   CallAuth,
-  HostError,
   IntegrationRuntimePort,
-  Polled,
-  Posted,
-  Renewed,
+  IntegrationTaskView,
+  PollResult,
+  PostResult,
+  RefreshResult,
   ResolvedTool,
+  ServiceError,
   TaskPayload,
   ToolOutput,
 } from '@integrations/application/ports/integration-runtime.port';
@@ -19,15 +19,15 @@ import type { Integration } from '@integrations/domain/entities/integration.enti
 import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
-import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type {
   ReadableIntegration,
   RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import type {
+  FoundTool,
   IntegrationReader,
-  Offering,
 } from '@integrations/infrastructure/integrations/integration.reader';
 import {
   authorizationServerOf,
@@ -45,7 +45,7 @@ import {
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import { mcpOutput } from '@integrations/infrastructure/mcp/mcp-output';
 import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
-import { renewingOnce } from '@integrations/infrastructure/mcp/renewing-once';
+import { refreshingOnce } from '@integrations/infrastructure/mcp/refreshing-once';
 import type {
   HttpOutbound,
   OutboundResult,
@@ -53,7 +53,7 @@ import type {
 import { operationRequest } from '@integrations/infrastructure/outbound/operation-request';
 import { taskBinding } from '@integrations/infrastructure/outbound/task-binding';
 import { bound } from '@platform/expressions/bindings';
-import { reads, value } from '@platform/expressions/readings';
+import { evaluateText, value } from '@platform/expressions/readings';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
@@ -63,7 +63,7 @@ const MAX_OUTPUT_CHARS = 500;
 const plainJson = (output: unknown): ToolOutput =>
   JSON.parse(asJson(output ?? null)) as ToolOutput;
 
-const hostErrorOf = (result: OutboundResult): HostError => ({
+const serviceErrorOf = (result: OutboundResult): ServiceError => ({
   status: result.status,
   output: asJson(result.response ?? null).slice(0, MAX_OUTPUT_CHARS),
 });
@@ -151,8 +151,8 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     integration: Integration,
     cursor: string | null,
     callAuth: CallAuth,
-  ): Promise<Polled> {
-    const readable = this.find(definitions, integration.source);
+  ): Promise<PollResult> {
+    const readable = this.find(definitions, integration.key);
     const poll = readable?.poll;
 
     if (!readable || !poll) {
@@ -166,7 +166,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     );
 
     if (!result.ok) {
-      return { kind: 'failed', error: hostErrorOf(result) };
+      return { kind: 'failed', error: serviceErrorOf(result) };
     }
 
     const against = { body: bound(result.response), cursor: cursor ?? '' };
@@ -183,7 +183,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     return {
       kind: 'read',
-      cursor: poll.cursor ? reads(poll.cursor, against) : cursor,
+      cursor: poll.cursor ? evaluateText(poll.cursor, against) : cursor,
       happenings,
     };
   }
@@ -192,10 +192,12 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     callAuth: CallAuth,
-  ): Promise<Acted> {
-    const readable = this.find(definitions, integration.source);
+  ): Promise<ActionResult> {
+    const readable = this.find(definitions, integration.key);
     const schedule = readable?.integration.schedule;
-    const request = schedule ? readable?.actions.get(schedule.does) : undefined;
+    const request = schedule
+      ? readable?.actions.get(schedule.action)
+      : undefined;
 
     if (!request) {
       return { kind: 'nothing-to-do' };
@@ -205,7 +207,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     return result.ok
       ? { kind: 'done' }
-      : { kind: 'failed', error: hostErrorOf(result) };
+      : { kind: 'failed', error: serviceErrorOf(result) };
   }
 
   async post(
@@ -214,13 +216,13 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     event: string,
     payload: TaskPayload,
     callAuth: CallAuth,
-  ): Promise<Posted> {
-    const readable = this.find(definitions, integration.source);
+  ): Promise<PostResult> {
+    const readable = this.find(definitions, integration.key);
     const bound = readable?.integration.bindingFor(event);
     const binding = bound
       ? readable?.on.find((each) => each.event === bound.event)
       : undefined;
-    const action = bound ? readable?.actions.get(bound.does) : undefined;
+    const action = bound ? readable?.actions.get(bound.action) : undefined;
 
     if (!binding || !action) {
       return { kind: 'unaddressed' };
@@ -230,7 +232,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const target: Record<string, string> = {};
 
     for (const each of binding.to) {
-      const read = reads(each.value, against);
+      const read = evaluateText(each.value, against);
       if (read !== null) {
         target[each.name] = read;
       }
@@ -254,7 +256,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     );
 
     if (!result.ok) {
-      return { kind: 'failed', error: hostErrorOf(result), target };
+      return { kind: 'failed', error: serviceErrorOf(result), target };
     }
 
     const beside = {
@@ -265,7 +267,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     const marks: TaskMark[] = [];
     for (const mark of binding.mark) {
-      const read = reads(mark.value, beside);
+      const read = evaluateText(mark.value, beside);
       if (read) {
         marks.push({ kind: mark.kind.value, value: read });
       }
@@ -277,31 +279,31 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   async tool(
     definitions: readonly DefinedIntegration[],
     tool: string,
-    task: BoundTask,
+    task: IntegrationTaskView,
   ): Promise<ResolvedTool | null> {
-    const offering = await this.reader.offering(definitions, tool);
+    const provided = await this.reader.providedTool(definitions, tool);
 
-    if (!offering) {
+    if (!provided) {
       return null;
     }
 
-    if (!offering.offered.backing.described) {
-      return this.written(offering, tool, task);
+    if (!provided.tool.backing.spec) {
+      return this.written(provided, tool, task);
     }
 
-    return offering.operation?.call.kind === 'mcp'
-      ? this.served(offering, tool, task)
-      : this.generated(offering, tool);
+    return provided.operation?.call.kind === 'mcp'
+      ? this.served(provided, tool, task)
+      : this.generated(provided, tool);
   }
 
   private written(
-    { readable, offered }: Offering,
+    { readable, tool: provided }: FoundTool,
     tool: string,
-    task: BoundTask,
+    task: IntegrationTaskView,
   ): ResolvedTool | null {
-    const compiled = readable.tools.get(offered.name);
-    const action = offered.backing.action
-      ? readable.actions.get(offered.backing.action)
+    const compiled = readable.tools.get(provided.name);
+    const action = provided.backing.action
+      ? readable.actions.get(provided.backing.action)
       : undefined;
 
     if (!compiled || !action) {
@@ -312,11 +314,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     return {
       integration: readable.integration,
-      offered,
+      provided,
       injectedSecrets:
         action.auth?.kind === 'secrets' ? action.auth.secrets : [],
       declared: ToolDeclarationMapper.toDeclaration(
-        offered,
+        provided,
         readable.integration.name,
       ),
       defaultFor: (input) => {
@@ -351,10 +353,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   }
 
   private generated(
-    { readable, offered, operation }: Offering,
+    { readable, tool: provided, operation }: FoundTool,
     tool: string,
   ): ResolvedTool | null {
-    const auth = readable.described?.auth ?? null;
+    const auth = readable.apiSpec?.auth ?? null;
 
     if (!operation) {
       return null;
@@ -362,10 +364,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     return {
       integration: readable.integration,
-      offered,
+      provided,
       injectedSecrets: auth?.kind === 'secrets' ? auth.secrets : [],
       declared: ToolDeclarationMapper.toDeclaration(
-        offered,
+        provided,
         readable.integration.name,
       ),
       defaultFor: () => undefined,
@@ -380,11 +382,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
             callAuth.credentials,
           );
         const first = await answering(connection?.token ?? null);
-        const renewed =
+        const refreshed =
           first.status === UNAUTHORIZED && auth?.kind === 'oauth2' && connection
             ? await connection.unauthorized(connection.token)
             : null;
-        const answered = renewed ? await answering(renewed) : first;
+        const answered = refreshed ? await answering(refreshed) : first;
 
         if (!answered.ok) {
           throw upstreamErrorUsing(tool, answered.status, answered.response);
@@ -408,27 +410,27 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   }
 
   private served(
-    { readable, offered, operation }: Offering,
+    { readable, tool: provided, operation }: FoundTool,
     tool: string,
-    task: BoundTask,
+    task: IntegrationTaskView,
   ): ResolvedTool | null {
-    const described = readable.described;
+    const apiSpec = readable.apiSpec;
     const call = operation?.call;
 
-    if (!described?.source.url || call?.kind !== 'mcp') {
+    if (!apiSpec?.spec.url || call?.kind !== 'mcp') {
       return null;
     }
 
-    const server = described.source.url;
-    const auth = described.auth;
+    const server = apiSpec.spec.url;
+    const auth = apiSpec.auth;
     const secrets = auth?.kind === 'secrets' ? auth.secrets : [];
 
     return {
       integration: readable.integration,
-      offered,
+      provided,
       injectedSecrets: secrets,
       declared: ToolDeclarationMapper.toDeclaration(
-        offered,
+        provided,
         readable.integration.name,
       ),
       defaultFor: () => undefined,
@@ -438,9 +440,9 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
           this.sessions.call(
             [
               task.teamId,
-              readable.integration.source.value,
+              readable.integration.key.value,
               auth?.kind ?? 'none',
-              connection?.holder.key ?? 'team',
+              connection?.owner.key ?? 'team',
               versionOf(token),
             ].join(':'),
             server,
@@ -454,7 +456,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
           );
 
         try {
-          return mcpOutput(await renewingOnce(calling, connection), tool);
+          return mcpOutput(await refreshingOnce(calling, connection), tool);
         } catch (error) {
           throw failedUsing(tool, server, error);
         }
@@ -462,33 +464,33 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     };
   }
 
-  async renew(
+  async refresh(
     definitions: readonly DefinedIntegration[],
     teamId: TeamId,
-    source: SourceKey,
+    integration: IntegrationKey,
     refreshToken: AccessToken,
-  ): Promise<Renewed> {
-    const written = this.find(definitions, source)?.connection?.oauth2;
+  ): Promise<RefreshResult> {
+    const written = this.find(definitions, integration)?.connection?.oauth2;
     const oauth2 = written ? await this.discovery.endpoints(written) : null;
     const client = oauth2
       ? await this.clients.existingFor(
           teamId,
-          source,
+          integration,
           authorizationServerOf(oauth2),
         )
       : null;
 
     if (!oauth2 || !client) {
-      return { kind: 'unrenewable' };
+      return { kind: 'not-refreshable' };
     }
 
-    const grant = await this.exchange.refresh(
+    const tokens = await this.exchange.refresh(
       oauth2,
       client,
       refreshToken.value,
     );
 
-    return grant ? { kind: 'renewed', grant } : { kind: 'failed' };
+    return tokens ? { kind: 'refreshed', tokens } : { kind: 'failed' };
   }
 
   private async sent(
@@ -512,13 +514,13 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { result, bindings: first };
     }
 
-    const renewed = await connection.unauthorized(connection.token);
+    const refreshed = await connection.unauthorized(connection.token);
 
-    if (!renewed) {
+    if (!refreshed) {
       return { result, bindings: first };
     }
 
-    const again = connected(bindings, renewed);
+    const again = connected(bindings, refreshed);
 
     return {
       result: await this.outbound.run(request, again, callAuth.credentials),
@@ -543,10 +545,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
   private find(
     definitions: readonly DefinedIntegration[],
-    source: SourceKey,
+    integration: IntegrationKey,
   ): ReadableIntegration | undefined {
     return this.readable(definitions).find((each) =>
-      each.integration.source.equals(source),
+      each.integration.key.equals(integration),
     );
   }
 }

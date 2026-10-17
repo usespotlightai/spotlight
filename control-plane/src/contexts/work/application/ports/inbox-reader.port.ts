@@ -38,8 +38,8 @@ export interface InboxApproval {
 }
 
 export interface InboxConnection {
-  readonly source: string;
   readonly integration: string;
+  readonly integrationName: string;
   readonly personId: string;
   readonly personName: string;
   readonly met: boolean;

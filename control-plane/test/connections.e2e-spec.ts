@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
+import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import {
-  HOST_CONNECTIONS,
-  type HostConnectionRepository,
-} from '@integrations/domain/repositories/host-connection.repository';
-import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+  INTEGRATION_CONNECTIONS,
+  type IntegrationConnectionRepository,
+} from '@integrations/domain/repositories/integration-connection.repository';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -37,7 +37,7 @@ const LINEAR = {
   integration: 'linear',
   name: 'Linear',
   connection: {
-    holder: 'requester',
+    actsAs: 'requester',
     oauth2: {
       authorize: 'https://linear.app/oauth/authorize',
       token: 'https://api.linear.app/oauth/token',
@@ -56,7 +56,7 @@ const LINEAR = {
   },
   tools: {
     comment: {
-      does: 'comment',
+      action: 'comment',
       description: 'Comment on the Linear issue as whoever started the task',
       inputs: { body: { required: true } },
     },
@@ -100,14 +100,17 @@ describe('each person’s own connections (e2e)', () => {
       requester,
     );
 
-  const connect = (personId: string, handle: string) =>
-    app.get<HostConnectionRepository>(HOST_CONNECTIONS).save(
-      HostConnection.linkFrom({
+  const connect = (personId: string, linkedAccount: string) =>
+    app.get<IntegrationConnectionRepository>(INTEGRATION_CONNECTIONS).save(
+      IntegrationConnection.connectFrom({
         workspaceId: WorkspaceId.of(workspaceId),
         teamId: TeamId.of(workspaceId),
-        source: SourceKey.of('linear'),
-        holder: ConnectionHolder.person(UserId.of(personId)),
-        grant: HostGrant.of({ accessToken: `lin-${personId}`, handle }),
+        integration: IntegrationKey.of('linear'),
+        owner: ConnectionOwner.person(UserId.of(personId)),
+        tokens: OAuthTokens.of({
+          accessToken: `lin-${personId}`,
+          linkedAccount,
+        }),
       }),
     );
 
@@ -141,8 +144,8 @@ describe('each person’s own connections (e2e)', () => {
       .delete(schema.integrationDefinition)
       .where(eq(schema.integrationDefinition.teamId, workspaceId));
     await db
-      .delete(schema.hostConnection)
-      .where(eq(schema.hostConnection.teamId, workspaceId));
+      .delete(schema.integrationConnection)
+      .where(eq(schema.integrationConnection.teamId, workspaceId));
     await db
       .delete(schema.personToolPolicy)
       .where(eq(schema.personToolPolicy.teamId, workspaceId));
@@ -152,10 +155,10 @@ describe('each person’s own connections (e2e)', () => {
     await seat.unseat();
   });
 
-  it('lets a member who is no admin begin connecting their own account, landing back where they started', async () => {
+  it('lets a member who is no admin begin connecting their own account, returning to where they started', async () => {
     const started = await as(seat.member).post(
       `/api/teams/${workspaceId}/integrations/linear/connect`,
-      { for: 'me', back: `/w/${workspaceId}/inbox/task_1` },
+      { actsAs: 'requester', returnTo: `/w/${workspaceId}/inbox/task_1` },
     );
 
     expect(started.status).toBe(201);
@@ -166,9 +169,9 @@ describe('each person’s own connections (e2e)', () => {
       url.searchParams.get('state') ?? '',
     );
     expect(state).toMatchObject({
-      holder: 'person',
+      owner: 'person',
       by: seat.member,
-      back: `/w/${workspaceId}/inbox/task_1`,
+      returnTo: `/w/${workspaceId}/inbox/task_1`,
     });
   });
 
@@ -194,14 +197,16 @@ describe('each person’s own connections (e2e)', () => {
 
     expect(theirs.status).toBe(200);
     expect(theirs.body.mine).toEqual([
-      expect.objectContaining({ source: 'linear', handle: '@bea' }),
+      expect.objectContaining({ integration: 'linear', linkedAccount: '@bea' }),
     ]);
     expect(theirs.body.people).toBeNull();
     expect(
-      roster.body.people.map((each: { name: string; handle: string }) => [
-        each.name,
-        each.handle,
-      ]),
+      roster.body.people.map(
+        (each: { name: string; linkedAccount: string }) => [
+          each.name,
+          each.linkedAccount,
+        ],
+      ),
     ).toEqual(
       expect.arrayContaining([
         ['Ada', '@ada'],
@@ -224,7 +229,9 @@ describe('each person’s own connections (e2e)', () => {
 
     expect(gone.status).toBe(204);
     expect(
-      roster.body.people.map((each: { handle: string }) => each.handle),
+      roster.body.people.map(
+        (each: { linkedAccount: string }) => each.linkedAccount,
+      ),
     ).toEqual(['@ada']);
   });
 
