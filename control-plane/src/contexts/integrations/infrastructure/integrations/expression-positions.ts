@@ -83,7 +83,7 @@ const raiseAt = (prefix: string, scope: Scope) => {
     ...each(
       prefix,
       [
-        'say',
+        'message',
         'opens.title',
         'opens.description',
         'opens.assignBy.email',

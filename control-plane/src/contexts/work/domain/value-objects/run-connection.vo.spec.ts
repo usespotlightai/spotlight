@@ -102,11 +102,13 @@ describe('RunConnection', () => {
     const now = new Date('2026-10-16T13:00:00.000Z');
 
     expect(RunConnection.record(parts, now).at).toEqual(AT);
-    for (const told of [
+    for (const reportedAt of [
       new Date('2026-10-16T11:59:59.000Z'),
       new Date('2026-10-16T13:01:01.000Z'),
     ]) {
-      expect(RunConnection.record({ ...parts, at: told }, now).at).toEqual(now);
+      expect(
+        RunConnection.record({ ...parts, at: reportedAt }, now).at,
+      ).toEqual(now);
     }
   });
 });

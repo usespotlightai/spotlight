@@ -295,7 +295,7 @@ describe('a search for a better station config', () => {
     ).body as { candidateId: string; name: string; replayId: string };
     const again = await proposing(agent, {
       name: 'in-order',
-      hypothesis: 'Said twice.',
+      hypothesis: 'Proposed twice.',
       station: { ...block, prompt: 'Build it, draining in order.' },
     }).expect(201);
     const terse = {

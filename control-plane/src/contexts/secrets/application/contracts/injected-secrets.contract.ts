@@ -106,7 +106,10 @@ export class InjectedSecrets implements Secret {
         ...spellingsOf(each.bare),
       ])
       .sort((one, other) => other.length - one.length)
-      .reduce((said, spelling) => said.split(spelling).join(REDACTED), text);
+      .reduce(
+        (redacted, spelling) => redacted.split(spelling).join(REDACTED),
+        text,
+      );
   }
 
   redactedIn(value: unknown): unknown {

@@ -35,7 +35,7 @@ export class RunMemoriesResponseDto {
   @ApiProperty({
     type: TeamMemoryResponseDto,
     isArray: true,
-    description: 'What the run was briefed with, in the order it was told',
+    description: 'What the run was briefed with, in the order of the briefing',
   })
   readonly briefed: readonly TeamMemoryResponseDto[];
 

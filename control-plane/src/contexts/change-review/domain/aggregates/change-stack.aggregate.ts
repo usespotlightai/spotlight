@@ -63,8 +63,8 @@ const assertWhole = (
   diff: Diff,
   cohorts: readonly StackCohort[],
 ): void => {
-  const wrong = (says: string): never => {
-    throw new InconsistentStateError('change stack', says);
+  const wrong = (problem: string): never => {
+    throw new InconsistentStateError('change stack', problem);
   };
 
   if (progress.state === 'drafting' && cohorts.length > 0) {

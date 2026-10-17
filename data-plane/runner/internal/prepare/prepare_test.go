@@ -91,9 +91,9 @@ func setUp(t *testing.T) fixture {
 func TestClonesAFreshCheckoutOntoTheRunsBranchAsTheRunsAuthor(t *testing.T) {
 	f := setUp(t)
 
-	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{f.checkout("spotlight/task-1")}, f.options())
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{f.checkout("spotlight/task-1")}, f.options())
 	if err != nil {
-		t.Fatalf("prepare: %v\n%s", err, said)
+		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
 	if got := git(t, f.tree(), "branch", "--show-current"); got != "spotlight/task-1" {
@@ -102,8 +102,8 @@ func TestClonesAFreshCheckoutOntoTheRunsBranchAsTheRunsAuthor(t *testing.T) {
 	if got := git(t, f.tree(), "config", "user.email"); got != "noreply@usespotlight.ai" {
 		t.Errorf("author %q", got)
 	}
-	if !strings.Contains(said, "cloning acme/api") {
-		t.Errorf("said %q", said)
+	if !strings.Contains(output, "cloning acme/api") {
+		t.Errorf("output %q", output)
 	}
 }
 
@@ -118,9 +118,9 @@ func TestStartsANewBranchFromWhereTheRemoteIsNowNotWhereTheImageBakedIt(t *testi
 	elsewhere := f.checkout("spotlight/task-1")
 	elsewhere.Remote = f.origin + "/."
 
-	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{elsewhere}, f.options())
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{elsewhere}, f.options())
 	if err != nil {
-		t.Fatalf("prepare: %v\n%s", err, said)
+		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
 	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != latest {
@@ -132,8 +132,8 @@ func TestStartsANewBranchFromWhereTheRemoteIsNowNotWhereTheImageBakedIt(t *testi
 	if _, err := os.Stat(filepath.Join(f.tree(), "node_modules", "installed.js")); err != nil {
 		t.Errorf("what the image installed is gone: %v", err)
 	}
-	if !strings.Contains(said, "reusing acme/api") {
-		t.Errorf("said %q", said)
+	if !strings.Contains(output, "reusing acme/api") {
+		t.Errorf("output %q", output)
 	}
 }
 
@@ -187,9 +187,9 @@ func TestCatchesARestoredCheckoutUpWithWhatWasPushedToItsBranch(t *testing.T) {
 
 	pushed := f.push(t, "spotlight/task-1", "REVIEW.md", "a person's fix\n")
 
-	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
-		t.Fatalf("prepare: %v\n%s", err, said)
+		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
 	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != pushed {
@@ -198,8 +198,8 @@ func TestCatchesARestoredCheckoutUpWithWhatWasPushedToItsBranch(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(f.tree(), "halfway.md")); err != nil {
 		t.Errorf("the work left halfway is gone: %v", err)
 	}
-	if !strings.Contains(said, "caught acme/api up") {
-		t.Errorf("said %q", said)
+	if !strings.Contains(output, "caught acme/api up") {
+		t.Errorf("output %q", output)
 	}
 }
 
@@ -213,16 +213,16 @@ func TestLeavesARestoredCheckoutAloneWhenItsBranchMovedOnBothHereAndOnTheRemote(
 
 	f.push(t, "spotlight/task-1", "REVIEW.md", "a person's fix\n")
 
-	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
-		t.Fatalf("prepare: %v\n%s", err, said)
+		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
 	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != local {
 		t.Errorf("the branch moved to %s, want it left at %s", got, local)
 	}
-	if !strings.Contains(said, "moved on both here and on the remote") {
-		t.Errorf("said %q", said)
+	if !strings.Contains(output, "moved on both here and on the remote") {
+		t.Errorf("output %q", output)
 	}
 }
 
@@ -234,9 +234,9 @@ func TestLeavesARestoredCheckoutBehindWhenUncommittedWorkBlocksIt(t *testing.T) 
 
 	f.push(t, "spotlight/task-1", "README.md", "a person's rewrite\n")
 
-	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
-		t.Fatalf("prepare: %v\n%s", err, said)
+		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
 	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != before {
@@ -245,8 +245,8 @@ func TestLeavesARestoredCheckoutBehindWhenUncommittedWorkBlocksIt(t *testing.T) 
 	if body, _ := os.ReadFile(filepath.Join(f.tree(), "README.md")); string(body) != "halfway through a rewrite\n" {
 		t.Errorf("the work left halfway now reads %q", body)
 	}
-	if !strings.Contains(said, "uncommitted changes here block the fast-forward") {
-		t.Errorf("said %q", said)
+	if !strings.Contains(output, "uncommitted changes here block the fast-forward") {
+		t.Errorf("output %q", output)
 	}
 }
 
@@ -257,13 +257,13 @@ func TestSaysNothingOfCatchingUpWhereTheLastRunIsAheadOfWhatWasPushed(t *testing
 	git(t, f.tree(), "add", "--all")
 	git(t, f.tree(), "commit", "--quiet", "--message", "local")
 
-	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{checkout}, f.options())
 	if err != nil {
-		t.Fatalf("prepare: %v\n%s", err, said)
+		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
-	if said != "reusing acme/api" {
-		t.Errorf("said %q", said)
+	if output != "reusing acme/api" {
+		t.Errorf("output %q", output)
 	}
 }
 
@@ -278,8 +278,8 @@ func TestChecksOutARefTheCloneDoesNotHave(t *testing.T) {
 	reviewed := f.checkout("spotlight/review-7")
 	reviewed.Ref = "refs/pull/7/head"
 
-	if said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{reviewed}, f.options()); err != nil {
-		t.Fatalf("prepare: %v\n%s", err, said)
+	if output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{reviewed}, f.options()); err != nil {
+		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
 	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != head {
@@ -299,8 +299,8 @@ func TestChecksOutACommitOnlyTheRestoredCheckoutHas(t *testing.T) {
 	replayed := f.checkout("")
 	replayed.Ref = local
 
-	if said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{replayed}, f.options()); err != nil {
-		t.Fatalf("prepare: %v\n%s", err, said)
+	if output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{replayed}, f.options()); err != nil {
+		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
 	if got := git(t, f.tree(), "rev-parse", "HEAD"); got != local {
@@ -316,13 +316,13 @@ func TestClonesFromTheHostsMirrorWithoutDependingOnIt(t *testing.T) {
 	options := f.options()
 	options.Mirrors = mirrors
 
-	said, err := prepare.Checkouts(context.Background(), []protocol.Checkout{f.checkout("")}, options)
+	output, err := prepare.Checkouts(context.Background(), []protocol.Checkout{f.checkout("")}, options)
 	if err != nil {
-		t.Fatalf("prepare: %v\n%s", err, said)
+		t.Fatalf("prepare: %v\n%s", err, output)
 	}
 
-	if !strings.Contains(said, "from the host's mirror") {
-		t.Errorf("said %q", said)
+	if !strings.Contains(output, "from the host's mirror") {
+		t.Errorf("output %q", output)
 	}
 	if _, err := os.Stat(filepath.Join(f.tree(), ".git", "objects", "info", "alternates")); !os.IsNotExist(err) {
 		t.Errorf("the clone still leans on the mirror: %v", err)
@@ -342,13 +342,13 @@ func TestFailsOnARemoteItCannotReach(t *testing.T) {
 func TestSetupRunsInTheCheckout(t *testing.T) {
 	tree := t.TempDir()
 
-	said, err := prepare.Setup(context.Background(), tree, "echo installing && touch installed", nil, 0, nil)
+	output, err := prepare.Setup(context.Background(), tree, "echo installing && touch installed", nil, 0, nil)
 	if err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 
-	if said != "installing" {
-		t.Errorf("said %q", said)
+	if output != "installing" {
+		t.Errorf("output %q", output)
 	}
 	if _, err := os.Stat(filepath.Join(tree, "installed")); err != nil {
 		t.Errorf("setup did not run in the checkout: %v", err)
@@ -356,10 +356,10 @@ func TestSetupRunsInTheCheckout(t *testing.T) {
 }
 
 func TestSetupGoesOutThroughTheWayOut(t *testing.T) {
-	said, err := prepare.Setup(context.Background(), t.TempDir(), "echo $HTTPS_PROXY", nil, 0,
+	output, err := prepare.Setup(context.Background(), t.TempDir(), "echo $HTTPS_PROXY", nil, 0,
 		map[string]string{"HTTPS_PROXY": "http://127.0.0.1:3128"})
-	if err != nil || said != "http://127.0.0.1:3128" {
-		t.Errorf("said %q: %v", said, err)
+	if err != nil || output != "http://127.0.0.1:3128" {
+		t.Errorf("output %q: %v", output, err)
 	}
 }
 

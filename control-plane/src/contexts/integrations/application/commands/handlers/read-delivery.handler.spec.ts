@@ -15,11 +15,11 @@ const MERGED = 'github.pull_request.merged';
 
 const payloadOf = (ourOwn = false): Happened => ({
   happening: MERGED,
-  told: 'The pull request was merged.',
-  spoken: false,
+  summary: 'The pull request was merged.',
+  answers: false,
   state: 'raised',
   concerns: { branch: 'spotlight/task_1', marks: [] },
-  said: null,
+  message: null,
   ourOwn,
   opens: null,
 });
@@ -48,7 +48,7 @@ const reading = (
     ),
   } as unknown as HookFiringHistoryPort;
   react.mockImplementation(async () => {
-    chains.push(causation.current().saying);
+    chains.push(causation.current().description);
   });
   const handler = new ReadDeliveryHandler(
     new SourceForDelivery(
@@ -78,7 +78,7 @@ const reading = (
 const FIRED = CausalChain.none().followedBy({
   kind: 'hook',
   key: 'hook:notify_id:task.moved:task_1:build → review',
-  saying: 'the hook notify',
+  description: 'the hook notify',
 });
 
 describe('ReadDeliveryHandler', () => {

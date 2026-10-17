@@ -96,7 +96,7 @@ const reading = (input: {
       cut: input.cut.map((each) => each.id.value),
     }),
     reasoning: async () => [],
-    spokenOn: async () => [],
+    notesOf: async () => [],
     harnessOf: async () => 'claude-code',
     siteOfRun: async () =>
       input.teamOfRun && {

@@ -103,12 +103,12 @@ describe('writing a task somebody else has written', () => {
     await tasks.save(closed(other)).catch(() => {});
 
     const again = await tasks.find(one.id);
-    const saying = setupDoneNote(again?.notes ?? [], DONE, NOW);
+    const newNote = setupDoneNote(again?.notes ?? [], DONE, NOW);
 
     await expect(
       tasks.save(
         (again as NonNullable<typeof again>).closeConversation(
-          saying as NonNullable<typeof saying>,
+          newNote as NonNullable<typeof newNote>,
         ),
       ),
     ).resolves.toBeUndefined();

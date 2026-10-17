@@ -25,7 +25,7 @@ export class AppendRunEventsRequestDto {
   readonly events!: RunEventRequestDto[];
 }
 
-export class DeclaredOutcomeDto {
+export class HandoverDto {
   @ApiProperty({
     example: 'code-review',
     description:
@@ -64,8 +64,8 @@ export class CompleteRunRequestDto {
   @ApiPropertyOptional()
   readonly message?: string;
 
-  @ApiPropertyOptional({ type: DeclaredOutcomeDto })
-  readonly outcome?: DeclaredOutcomeDto;
+  @ApiPropertyOptional({ type: HandoverDto })
+  readonly handover?: HandoverDto;
 
   @ApiPropertyOptional({
     example: '67e5ddad-0fc6-4a33-90df-3c17732132c8',
@@ -120,10 +120,10 @@ export class SuspendRunRequestDto {
   readonly requeue?: boolean;
 }
 
-export class DeliverSaidRequestDto {
+export class AckMessagesRequestDto {
   @ApiProperty({
     example: 4,
-    description: 'Everything said up to and including this note was given',
+    description: 'The agent got all the messages up to and including this note',
   })
   readonly upTo!: number;
 }
@@ -220,8 +220,11 @@ export class PendingMessageResponseDto {
   }
 }
 
-export class AnswerRemarkRequestDto {
-  @ApiProperty({ example: 'c3', description: 'Which remark, as briefed' })
+export class ReplyToReviewCommentRequestDto {
+  @ApiProperty({
+    example: 'c3',
+    description: 'Which review comment, as the briefing named it',
+  })
   readonly handle!: string;
 
   @ApiProperty({ example: 'Split out in 4a1c2b0.' })
@@ -229,7 +232,7 @@ export class AnswerRemarkRequestDto {
 
   @ApiPropertyOptional({
     example: true,
-    description: 'Resolve the thread as well as answering it',
+    description: 'Resolve the thread as well as replying to it',
   })
   readonly resolve?: boolean;
 }

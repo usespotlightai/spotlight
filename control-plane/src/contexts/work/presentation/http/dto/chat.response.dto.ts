@@ -230,7 +230,7 @@ export class ChatMessageResponseDto {
   @ApiProperty({ example: 0 })
   readonly position: number;
 
-  @ApiProperty({ enum: CHAT_MESSAGE_KIND_NAMES, example: 'said' })
+  @ApiProperty({ enum: CHAT_MESSAGE_KIND_NAMES, example: 'message' })
   readonly kind: string;
 
   @ApiProperty({ example: 'Let’s plan how retries should back off.' })

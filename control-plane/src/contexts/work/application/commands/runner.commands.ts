@@ -65,7 +65,7 @@ export class CompleteRunCommand {
     readonly exitCode: number,
     readonly failed: boolean,
     readonly message?: string,
-    readonly declared?: { next?: string; note?: string } | null,
+    readonly handover?: { next?: string; note?: string } | null,
     readonly sessionId?: string | null,
     readonly stopped: boolean = false,
     readonly kept: boolean = false,

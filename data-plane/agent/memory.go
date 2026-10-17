@@ -24,7 +24,7 @@ var handleShape = regexp.MustCompile(`^[Mm]-\d+$`)
 
 var sourced = map[string]string{
 	"run":     "a run",
-	"person":  "what a person said",
+	"person":  "notes by a person",
 	"outside": "a run on input from outside the team",
 }
 
@@ -48,7 +48,7 @@ func recall(args []string, out io.Writer) error {
 		asked = protocol.RecallRequest{Handle: strings.ToUpper(words)}
 	}
 
-	answered, err := memoryCall(protocol.HandoverRecallPath, asked, "recall")
+	answered, err := memoryCall(protocol.AgentAPIRecallPath, asked, "recall")
 	if err != nil {
 		return err
 	}
@@ -105,11 +105,11 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("--kind is required\n%s", rememberUsage)
 	}
 
-	said, err := prose(*body, in)
+	memory, err := prose(*body, in)
 	if err != nil {
 		return fmt.Errorf("read the memory: %w", err)
 	}
-	if said == "" {
+	if memory == "" {
 		return fmt.Errorf("--body is required\n%s", rememberUsage)
 	}
 
@@ -122,9 +122,9 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 		absolute = append(absolute, resolved)
 	}
 
-	answered, err := memoryCall(protocol.HandoverRememberPath, protocol.Remembering{
+	answered, err := memoryCall(protocol.AgentAPIRememberPath, protocol.Remembering{
 		Kind:       strings.TrimSpace(*kind),
-		Body:       said,
+		Body:       memory,
 		Reach:      strings.TrimSpace(*reach),
 		Paths:      absolute,
 		Supersedes: strings.TrimSpace(*supersedes),
@@ -148,7 +148,7 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 }
 
 func memoryCall(path string, asked any, doing string) (string, error) {
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return "", fmt.Errorf("no run to %s from: spotlight runs inside a Spotlight workspace", doing)
 	}

@@ -4,7 +4,7 @@ import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { useChangeMemberRole } from '@/hooks/api/useChangeMemberRole';
 import { messageOf } from '@/lib/error';
-import { teamsTold, type WorkspaceMember } from '@/lib/members';
+import { describeTeams, type WorkspaceMember } from '@/lib/members';
 import { nameOfRole } from '@/lib/role';
 
 type MemberRowProps = {
@@ -22,7 +22,7 @@ export function MemberRow({ slug, member }: MemberRowProps) {
         leading={
           <PersonAvatar person={member} className="data-[size=sm]:size-8" />
         }
-        description={`${member.email} · ${teamsTold(member.teams)}`}
+        description={`${member.email} · ${describeTeams(member.teams)}`}
       >
         <ActionWithAlert
           alert={

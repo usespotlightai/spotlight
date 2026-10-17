@@ -1,6 +1,6 @@
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
 
-const MAX_SAID = 1_000;
+const MAX_REASON_CHARS = 1_000;
 
 const MAX_CITED = 10;
 
@@ -25,9 +25,9 @@ export class PairReason {
     const againstHunks = distinct(input.againstHunks);
     const cited = runHunks.length + againstHunks.length;
 
-    if (!text || text.length > MAX_SAID) {
+    if (!text || text.length > MAX_REASON_CHARS) {
       throw new InvalidScoreError(
-        `must be 1 to ${MAX_SAID} characters`,
+        `must be 1 to ${MAX_REASON_CHARS} characters`,
         'reason',
       );
     }

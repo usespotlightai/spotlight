@@ -1,4 +1,4 @@
-import type { ReflectionToTell } from '@replays/domain/services/reflection-notice';
+import type { ReflectionNotice } from '@replays/domain/services/reflection-notice';
 import type { ReflectionOutcome } from '@replays/domain/value-objects/reflection-outcome';
 import type {
   SearchCause,
@@ -79,15 +79,15 @@ const keptToMost = (points: readonly string[]): readonly string[] =>
 
 export const ReflectionNoticeWording = {
   of(
-    told: ReflectionToTell,
+    notice: ReflectionNotice,
     stationName: string | null,
     titles: ReadonlyMap<string, string | null>,
   ): NoticeWords {
     return {
-      headline: HEADLINES[told.outcome](searchFor(stationName)),
+      headline: HEADLINES[notice.outcome](searchFor(stationName)),
       points: keptToMost([
-        HAPPENINGS[told.outcome](told.looked),
-        ...told.fixes.map(pointOf(titles)),
+        HAPPENINGS[notice.outcome](notice.looked),
+        ...notice.fixes.map(pointOf(titles)),
       ]),
     };
   },

@@ -73,7 +73,7 @@ const shareWithin = (
 const points = (value: number): string =>
   `${value >= 0 ? '+' : '−'}${Math.abs(percent(value))}`;
 
-const gainSays = (where: string, gain: ShownGain | null): string | null => {
+const describeGain = (where: string, gain: ShownGain | null): string | null => {
   if (!gain) {
     return null;
   }
@@ -93,12 +93,17 @@ const gainSays = (where: string, gain: ShownGain | null): string | null => {
 const plural = (count: number, one: string, many = `${one}s`): string =>
   `${count} ${count === 1 ? one : many}`;
 
-const pairsSay = (where: string, pairs: ShownPairs | null): string | null =>
+const describePairs = (
+  where: string,
+  pairs: ShownPairs | null,
+): string | null =>
   pairs && pairs.wins + pairs.losses + pairs.ties > 0
     ? `Set side by side with the live config's change on the ${where} tasks, without the judge knowing which was which, its change was better on ${plural(pairs.wins, 'task')}, worse on ${plural(pairs.losses, 'task')} and as good on ${plural(pairs.ties, 'task')}.`
     : null;
 
-const onlyOnSeenTasksSays = (facts: ConfigPullRequestFacts): string | null => {
+const describeOnlyOnSeenTasks = (
+  facts: ConfigPullRequestFacts,
+): string | null => {
   const { searched, heldOut } = facts.gains;
 
   if (facts.heldOutPending) {
@@ -147,7 +152,9 @@ export const ConfigPullRequestBody = {
 
     return [
       `Spotlight searched for a better config of the \`${facts.stationKey}\` station on the \`${facts.lineKey}\` line and found \`${defused(facts.candidateName)}\`, which a person picked. This changes the station as the candidate has it: ${facts.changes.map((each) => `\`${each}\``).join(', ')}.`,
-      ...[onlyOnSeenTasksSays(facts)].flatMap((each) => (each ? [each] : [])),
+      ...[describeOnlyOnSeenTasks(facts)].flatMap((each) =>
+        each ? [each] : [],
+      ),
       ...(facts.hypothesis
         ? [
             `## Why it should be better\n\nThe search's agent wrote:\n\n${fenced(facts.hypothesis)}`,
@@ -164,10 +171,10 @@ export const ConfigPullRequestBody = {
         '',
         `Against the live config it regressed on ${plural(facts.regressions.searched, 'searched task')}; on the held-out tasks, ${heldOut}. The search never showed its agent the held-out tasks.`,
         ...[
-          gainSays('searched', facts.gains.searched),
-          gainSays('held-out', facts.gains.heldOut),
-          pairsSay('searched', facts.pairs.searched),
-          pairsSay('held-out', facts.pairs.heldOut),
+          describeGain('searched', facts.gains.searched),
+          describeGain('held-out', facts.gains.heldOut),
+          describePairs('searched', facts.pairs.searched),
+          describePairs('held-out', facts.pairs.heldOut),
         ].flatMap((each) => (each ? ['', each] : [])),
       ].join('\n'),
       ...(facts.unchecked.length > 0

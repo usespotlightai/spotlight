@@ -24,16 +24,16 @@ import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Handover } from '@work/domain/value-objects/handover.vo';
 import { Happening } from '@work/domain/value-objects/happening.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
+import { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -134,7 +134,7 @@ const RUN = RunId.of('run_1');
 
 const HERE = StationId.of('station_1');
 
-const saying = {
+const newNote = {
   station: StationName.of('Triage'),
   body: TaskNoteBody.of('Reproduced on restart.'),
   at: NOW,
@@ -205,7 +205,7 @@ describe('Task', () => {
       LINE,
       StationId.of('station_2'),
       TaskRank.of('m'),
-      saying,
+      newNote,
     );
 
     expect(moved.stationId).toEqual(StationId.of('station_2'));
@@ -216,7 +216,7 @@ describe('Task', () => {
       LINE,
       StationId.of('station_2'),
       TaskRank.of('m'),
-      saying,
+      newNote,
     );
 
     expect(moved.id.value).toBe('task_1');
@@ -226,7 +226,7 @@ describe('Task', () => {
 
   it('leaves the task it was moved from where it was', () => {
     const task = added();
-    task.react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying);
+    task.react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
 
     expect(task.stationId).toEqual(StationId.of('station_1'));
   });
@@ -283,7 +283,7 @@ describe('Task', () => {
     ]);
   });
 
-  it('carries what was said across a move, and records the move', () => {
+  it('carries the notes across a move, and records the move', () => {
     const worked = withNotes(
       added(),
       TaskNote.of({
@@ -294,7 +294,7 @@ describe('Task', () => {
         at: new Date('2026-08-28T10:00:00.000Z'),
         kind: 'passed',
       }),
-    ).react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying);
+    ).react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
 
     expect(worked.notes).toHaveLength(2);
     expect(worked.notes[0]?.body.value).toBe('Reproduced.');
@@ -366,7 +366,7 @@ describe('Task, what it is doing', () => {
     it('survives being put to a person', () => {
       const asked = added()
         .recordSession(session, runner)
-        .askedAbout(saying, null);
+        .askedAbout(newNote, null);
 
       expect(asked.sessionId).toEqual(session);
       expect(asked.runnerId).toEqual(runner);
@@ -376,7 +376,7 @@ describe('Task, what it is doing', () => {
     it('is left behind when the task is passed on', () => {
       const passed = added()
         .recordSession(session, runner)
-        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying);
+        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
 
       expect(passed.sessionId).toBeNull();
       expect(passed.runnerId).toBeNull();
@@ -385,7 +385,7 @@ describe('Task, what it is doing', () => {
     it('is left behind when the task is moved by hand', () => {
       const moved = added()
         .recordSession(session, runner)
-        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying);
+        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
 
       expect(moved.sessionId).toBeNull();
       expect(moved.runnerId).toBeNull();
@@ -396,7 +396,7 @@ describe('Task, what it is doing', () => {
         LINE,
         StationId.of('station_2'),
         TaskRank.of('m'),
-        saying,
+        newNote,
       );
 
       expect(added().continuity().key.value).toBe('task-task_1');
@@ -418,8 +418,8 @@ describe('Task, what it is doing', () => {
     it('survives a person answering what it was waiting on', () => {
       const answered = added()
         .recordSession(session, runner)
-        .askedAbout(saying, null)
-        .answer(NotePosition.of(0), saying);
+        .askedAbout(newNote, null)
+        .answer(NotePosition.of(0), newNote);
 
       expect(answered.awaitingReview).toBe(false);
       expect(answered.sessionId).toEqual(session);
@@ -440,18 +440,18 @@ describe('Task, what it is doing', () => {
 
   describe('waiting on a person', () => {
     it('waits from the asking until they answer', () => {
-      const asked = added().askedAbout(saying, null);
+      const asked = added().askedAbout(newNote, null);
 
       expect(asked.awaitingReview).toBe(true);
-      expect(asked.answer(NotePosition.of(0), saying).awaitingReview).toBe(
+      expect(asked.answer(NotePosition.of(0), newNote).awaitingReview).toBe(
         false,
       );
     });
 
     it('stops waiting once the task is moved by hand', () => {
       const moved = added()
-        .askedAbout(saying, null)
-        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying);
+        .askedAbout(newNote, null)
+        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
 
       expect(moved.awaitingReview).toBe(false);
     });
@@ -463,7 +463,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('waits for an ending once it has been put to someone', () => {
-      expect(added().askedAbout(saying, null).openConversation).toEqual({
+      expect(added().askedAbout(newNote, null).openConversation).toEqual({
         from: 0,
         to: null,
       });
@@ -471,22 +471,22 @@ describe('Task, what it is doing', () => {
 
     it('still waits for it after an answer', () => {
       const asked = added()
-        .askedAbout(saying, null)
-        .answer(NotePosition.of(0), saying);
+        .askedAbout(newNote, null)
+        .answer(NotePosition.of(0), newNote);
 
       expect(asked.openConversation).not.toBeNull();
     });
 
     it('waits for nothing once it has moved on', () => {
       const passed = added()
-        .askedAbout(saying, null)
-        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying);
+        .askedAbout(newNote, null)
+        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
 
       expect(passed.openConversation).toBeNull();
     });
 
     it('rejects an answer to something nobody was asked', () => {
-      expect(() => added().answer(NotePosition.of(0), saying)).toThrow(
+      expect(() => added().answer(NotePosition.of(0), newNote)).toThrow(
         InvalidTaskTransitionError,
       );
     });
@@ -506,7 +506,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('falls back to the raiser when a person is asked and none is set', () => {
-      const asked = added().unassign().askedAbout(saying, null);
+      const asked = added().unassign().askedAbout(newNote, null);
 
       expect(asked.assignedToThem(UserId.of('user_1'))).toBe(true);
     });
@@ -514,7 +514,7 @@ describe('Task, what it is doing', () => {
     it('keeps the assignee it already has when a person is asked', () => {
       const asked = added()
         .assign(UserId.of('user_2'))
-        .askedAbout(saying, null);
+        .askedAbout(newNote, null);
 
       expect(asked.assignedToThem(UserId.of('user_2'))).toBe(true);
       expect(asked.assignedToThem(UserId.of('user_1'))).toBe(false);
@@ -523,7 +523,7 @@ describe('Task, what it is doing', () => {
 
   describe('reading what was put to a person', () => {
     const READ = new Date('2026-08-29T12:30:00.000Z');
-    const asked = () => added().askedAbout(saying, null);
+    const asked = () => added().askedAbout(newNote, null);
 
     it('leaves an ask unread until the person opens it', () => {
       expect(asked().notes[0]?.unread).toBe(true);
@@ -554,10 +554,10 @@ describe('Task, what it is doing', () => {
     it('reads the whole conversation, not only the note it opens with', () => {
       const carried = asked()
         .answer(NotePosition.of(0), {
-          ...saying,
+          ...newNote,
           voice: Voice.person(UserId.of('user_1')),
         })
-        .askedAbout(saying, null)
+        .askedAbout(newNote, null)
         .read(NotePosition.of(0), READ);
 
       expect(carried.notes.map((note) => note.unread)).toEqual([
@@ -571,10 +571,10 @@ describe('Task, what it is doing', () => {
       const again = asked()
         .read(NotePosition.of(0), READ)
         .answer(NotePosition.of(0), {
-          ...saying,
+          ...newNote,
           voice: Voice.person(UserId.of('user_1')),
         })
-        .askedAbout(saying, null);
+        .askedAbout(newNote, null);
 
       expect(again.notes[2]?.unread).toBe(true);
     });
@@ -586,59 +586,59 @@ describe('Task, what it is doing', () => {
     });
   });
 
-  describe('saying something to the agent working it', () => {
+  describe('a message to the agent of the run', () => {
     const here = StationId.of('station_1');
-    const aloud = { ...saying, voice: Voice.person(UserId.of('user_1')) };
+    const aloud = { ...newNote, voice: Voice.person(UserId.of('user_1')) };
 
     it('joins the trail where the task still is', () => {
-      const told = added().heard(aloud, here);
+      const received = added().addMessage(aloud, here);
 
-      expect(told.notes[0]?.kind).toBe('said');
-      expect(told.notes[0]?.body.value).toBe('Reproduced on restart.');
+      expect(received.notes[0]?.kind).toBe('message');
+      expect(received.notes[0]?.body.value).toBe('Reproduced on restart.');
     });
 
-    it('waits to be delivered', () => {
-      expect(added().heard(aloud, here).undelivered).toHaveLength(1);
+    it('waits to be acknowledged', () => {
+      expect(added().addMessage(aloud, here).unacknowledged).toHaveLength(1);
     });
 
-    it('is delivered once the agent has been given it', () => {
-      const told = added()
-        .heard(aloud, here)
-        .markDeliveredUpTo(NotePosition.of(0), NOW);
+    it('is acknowledged once the agent has got it', () => {
+      const received = added()
+        .addMessage(aloud, here)
+        .acknowledgeUpTo(NotePosition.of(0), NOW);
 
-      expect(told.undelivered).toHaveLength(0);
+      expect(received.unacknowledged).toHaveLength(0);
     });
 
-    it('will not be said to a station the task has left', () => {
+    it('will not go to a station the task has left', () => {
       const moved = added().react(
         LINE,
         StationId.of('station_2'),
         TaskRank.of('m'),
-        saying,
+        newNote,
       );
 
-      expect(() => moved.heard(aloud, here)).toThrow(
+      expect(() => moved.addMessage(aloud, here)).toThrow(
         InvalidTaskTransitionError,
       );
     });
 
-    it('leaves what a station said out of what is undelivered', () => {
-      expect(added().askedAbout(saying, null).undelivered).toHaveLength(0);
+    it('leaves the notes of a station out of what is unacknowledged', () => {
+      expect(added().askedAbout(newNote, null).unacknowledged).toHaveLength(0);
     });
 
     it('sends a task finished at a worked station back to work there when a person speaks in its run', () => {
       const finished = added()
         .assignRun(RUN, LINE)
-        .finishHere(RUN, LINE, saying);
+        .finishHere(RUN, LINE, newNote);
 
       expect(finished.wantsRun(LINE)).toBe(false);
 
-      const told = finished.spokenTo(RUN, aloud, here);
+      const received = finished.receiveMessage(RUN, aloud, here);
 
-      expect(told.finished).toBe(false);
-      expect(told.stationId).toEqual(here);
-      expect(told.wantsRun(LINE)).toBe(true);
-      expect(told.undelivered.map((note) => note.body.value)).toEqual([
+      expect(received.finished).toBe(false);
+      expect(received.stationId).toEqual(here);
+      expect(received.wantsRun(LINE)).toBe(true);
+      expect(received.unacknowledged.map((note) => note.body.value)).toEqual([
         'Reproduced on restart.',
       ]);
     });
@@ -646,60 +646,64 @@ describe('Task, what it is doing', () => {
     it('sends a task left idle at a worked station back to work when a person speaks in its last run', () => {
       const idle = added().assignRun(RUN, LINE).leaveRun(RUN, NOW);
 
-      expect(idle.spokenTo(RUN, aloud, here).wantsRun(LINE)).toBe(true);
+      expect(idle.receiveMessage(RUN, aloud, here).wantsRun(LINE)).toBe(true);
     });
 
-    it('hands what a person says to the run still working it, wanting no second run', () => {
-      const told = added().assignRun(RUN, LINE).spokenTo(RUN, aloud, here);
-
-      expect(told.hasCurrentRun(RUN)).toBe(true);
-      expect(told.wantsRun(LINE)).toBe(false);
-      expect(told.undelivered).toHaveLength(1);
-    });
-
-    it('tells that a person sent a finished task back, after the run they spoke in', () => {
-      const told = added()
+    it('hands the message of a person to the run still working it, wanting no second run', () => {
+      const received = added()
         .assignRun(RUN, LINE)
-        .finishHere(RUN, LINE, saying)
-        .spokenTo(RUN, aloud, here);
+        .receiveMessage(RUN, aloud, here);
 
-      expect(actsOf(told)).toEqual([
+      expect(received.hasCurrentRun(RUN)).toBe(true);
+      expect(received.wantsRun(LINE)).toBe(false);
+      expect(received.unacknowledged).toHaveLength(1);
+    });
+
+    it('tells that a person sent a finished task back, after the run that they sent a message in', () => {
+      const received = added()
+        .assignRun(RUN, LINE)
+        .finishHere(RUN, LINE, newNote)
+        .receiveMessage(RUN, aloud, here);
+
+      expect(actsOf(received)).toEqual([
         { act: 'sent-back', by: 'user_1', after: 'run_1' },
       ]);
     });
 
     it('tells that a person answered what the task was waiting on', () => {
-      const told = added().askedAbout(saying, null).spokenTo(RUN, aloud, here);
+      const received = added()
+        .askedAbout(newNote, null)
+        .receiveMessage(RUN, aloud, here);
 
-      expect(actsOf(told)).toEqual([
+      expect(actsOf(received)).toEqual([
         { act: 'answered', by: 'user_1', after: null },
       ]);
     });
 
     it('tells nothing a person did when they speak to the run still working it', () => {
       expect(
-        actsOf(added().assignRun(RUN, LINE).spokenTo(RUN, aloud, here)),
+        actsOf(added().assignRun(RUN, LINE).receiveMessage(RUN, aloud, here)),
       ).toEqual([]);
     });
 
-    it('keeps a task waiting on a person when what is said there is no answer', () => {
-      const asked = added().askedAbout(saying, null);
-      const told = asked.heard(aloud, here);
+    it('keeps a task waiting on a person when a message there is not an answer', () => {
+      const asked = added().askedAbout(newNote, null);
+      const received = asked.addMessage(aloud, here);
 
-      expect(told.awaitingReview).toBe(true);
-      expect(told.wantsRun(LINE)).toBe(false);
+      expect(received.awaitingReview).toBe(true);
+      expect(received.wantsRun(LINE)).toBe(false);
     });
   });
 
-  describe('answering what was said on the pull request', () => {
-    const spoken = {
-      ...saying,
+  describe('replying to a review comment on the pull request', () => {
+    const reviewComment = {
+      ...newNote,
       voice: Voice.world(),
-      said: Said.of({
+      anchor: Anchor.of({
         body: 'pin this.',
         path: 'compose.yml',
         from: 22,
-        remark: 'PRRC_kwDO',
+        reviewComment: 'PRRC_kwDO',
       }),
     };
 
@@ -714,57 +718,69 @@ describe('Task, what it is doing', () => {
         );
 
     it('offers what nobody has answered, and nothing else', () => {
-      const heard = added().heard(spoken);
+      const heard = added().addMessage(reviewComment);
 
-      expect(heard.openRemarks.map((each) => each.at.value)).toEqual([0]);
-      expect(added().askedAbout(saying, null).openRemarks).toEqual([]);
+      expect(heard.openReviewComments.map((each) => each.at.value)).toEqual([
+        0,
+      ]);
+      expect(added().askedAbout(newNote, null).openReviewComments).toEqual([]);
     });
 
-    it('says what it said back, and marks the remark answered', () => {
+    it('records the reply, and marks the review comment answered', () => {
       const replied = opened()
-        .heard(spoken)
-        .repliedTo(RUN, HERE, NotePosition.of(0), saying);
+        .addMessage(reviewComment)
+        .recordReviewCommentReply(RUN, HERE, NotePosition.of(0), newNote);
 
       expect(replied.notes[0]?.answeredAt).toEqual(NOW);
-      expect(replied.openRemarks).toEqual([]);
-      expect(replied.notes[1]?.kind).toBe('said');
+      expect(replied.openReviewComments).toEqual([]);
+      expect(replied.notes[1]?.kind).toBe('message');
       expect(replied.notes[1]?.voice.isStation).toBe(true);
     });
 
-    it('leaves what it said back out of what is undelivered', () => {
+    it('leaves the reply out of what is unacknowledged', () => {
       const replied = opened()
-        .heard(spoken)
-        .markDeliveredUpTo(NotePosition.of(0), NOW)
-        .repliedTo(RUN, HERE, NotePosition.of(0), saying);
+        .addMessage(reviewComment)
+        .acknowledgeUpTo(NotePosition.of(0), NOW)
+        .recordReviewCommentReply(RUN, HERE, NotePosition.of(0), newNote);
 
-      expect(replied.undelivered).toEqual([]);
+      expect(replied.unacknowledged).toEqual([]);
     });
 
-    it('will not answer a remark twice, or one that was never made', () => {
+    it('will not reply to a review comment twice, or to one that was never made', () => {
       const replied = opened()
-        .heard(spoken)
-        .repliedTo(RUN, HERE, NotePosition.of(0), saying);
+        .addMessage(reviewComment)
+        .recordReviewCommentReply(RUN, HERE, NotePosition.of(0), newNote);
 
       expect(() =>
-        replied.repliedTo(RUN, HERE, NotePosition.of(0), saying),
+        replied.recordReviewCommentReply(
+          RUN,
+          HERE,
+          NotePosition.of(0),
+          newNote,
+        ),
       ).toThrow(InvalidTaskTransitionError);
       expect(() =>
-        opened().repliedTo(RUN, HERE, NotePosition.of(0), saying),
+        opened().recordReviewCommentReply(
+          RUN,
+          HERE,
+          NotePosition.of(0),
+          newNote,
+        ),
       ).toThrow(InvalidTaskTransitionError);
     });
 
     it('will not answer from a station the task has left', () => {
-      const heard = opened().heard(spoken);
+      const heard = opened().addMessage(reviewComment);
 
       expect(() =>
-        heard.remarkAnswerableFrom(
+        heard.reviewCommentToReplyFrom(
           RUN,
           StationId.of('station_2'),
           NotePosition.of(0),
         ),
       ).toThrow(InvalidTaskTransitionError);
       expect(() =>
-        heard.remarkAnswerableFrom(RUN, null, NotePosition.of(0)),
+        heard.reviewCommentToReplyFrom(RUN, null, NotePosition.of(0)),
       ).toThrow(InvalidTaskTransitionError);
     });
 
@@ -772,41 +788,50 @@ describe('Task, what it is doing', () => {
       expect(() =>
         added()
           .assignRun(RUN, LINE)
-          .heard(spoken)
-          .remarkAnswerableFrom(RUN, HERE, NotePosition.of(0)),
+          .addMessage(reviewComment)
+          .reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0)),
       ).toThrow(NoRepositoryError);
     });
 
     it('answers only for its current run', () => {
-      const heard = opened().heard(spoken);
+      const heard = opened().addMessage(reviewComment);
 
       expect(() =>
-        heard.remarkAnswerableFrom(RunId.of('run_2'), HERE, NotePosition.of(0)),
+        heard.reviewCommentToReplyFrom(
+          RunId.of('run_2'),
+          HERE,
+          NotePosition.of(0),
+        ),
       ).toThrow(InvalidTaskTransitionError);
       expect(() =>
-        heard.repliedTo(RunId.of('run_2'), HERE, NotePosition.of(0), saying),
+        heard.recordReviewCommentReply(
+          RunId.of('run_2'),
+          HERE,
+          NotePosition.of(0),
+          newNote,
+        ),
       ).toThrow(InvalidTaskTransitionError);
     });
 
-    it('names the pull request, its repository and the remark it answers', () => {
+    it('names the pull request, its repository and the review comment it replies to', () => {
       const answering = opened()
-        .heard(spoken)
-        .remarkAnswerableFrom(RUN, HERE, NotePosition.of(0));
+        .addMessage(reviewComment)
+        .reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0));
 
       expect(answering.repository.value).toBe('acme/widgets');
-      expect(answering.remark.value).toBe('PRRC_kwDO');
+      expect(answering.reviewComment.value).toBe('PRRC_kwDO');
     });
   });
 
   describe('what it rejects', () => {
     it('will not be put to a person twice over', () => {
       expect(() =>
-        added().askedAbout(saying, null).askedAbout(saying, null),
+        added().askedAbout(newNote, null).askedAbout(newNote, null),
       ).toThrow(InvalidTaskTransitionError);
     });
 
     it('will not close a conversation that nothing opened', () => {
-      expect(() => added().closeConversation(saying)).toThrow(
+      expect(() => added().closeConversation(newNote)).toThrow(
         InvalidTaskTransitionError,
       );
     });
@@ -814,24 +839,24 @@ describe('Task, what it is doing', () => {
     it('will not close the same conversation twice', () => {
       expect(() =>
         added()
-          .askedAbout(saying, null)
-          .closeConversation(saying)
-          .closeConversation(saying),
+          .askedAbout(newNote, null)
+          .closeConversation(newNote)
+          .closeConversation(newNote),
       ).toThrow(InvalidTaskTransitionError);
     });
 
     it('will not be taken up while a person is asked, once finished, or where nothing runs', () => {
       expect(() =>
-        added().askedAbout(saying, null).assignRun(RUN, LINE),
+        added().askedAbout(newNote, null).assignRun(RUN, LINE),
       ).toThrow(InvalidTaskTransitionError);
       expect(() =>
         added()
-          .react(LINE, StationId.of('completed_1'), TaskRank.of('m'), saying)
+          .react(LINE, StationId.of('completed_1'), TaskRank.of('m'), newNote)
           .assignRun(RUN, LINE),
       ).toThrow(InvalidTaskTransitionError);
       expect(() =>
         added()
-          .react(LINE, StationId.of('station_0'), TaskRank.of('m'), saying)
+          .react(LINE, StationId.of('station_0'), TaskRank.of('m'), newNote)
           .assignRun(RUN, LINE),
       ).toThrow(InvalidTaskTransitionError);
     });
@@ -850,21 +875,21 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_1'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         ),
       ).toThrow(InvalidTaskTransitionError);
     });
 
     it('will not answer a conversation that has already closed', () => {
       const carried = added()
-        .askedAbout(saying, null)
-        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying)
-        .askedAbout(saying, null);
+        .askedAbout(newNote, null)
+        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote)
+        .askedAbout(newNote, null);
 
-      expect(() => carried.answer(NotePosition.of(0), saying)).toThrow(
+      expect(() => carried.answer(NotePosition.of(0), newNote)).toThrow(
         InvalidTaskTransitionError,
       );
-      expect(carried.answer(NotePosition.of(2), saying).notes).toHaveLength(4);
+      expect(carried.answer(NotePosition.of(2), newNote).notes).toHaveLength(4);
     });
 
     it('will not be moved to the station it is already at', () => {
@@ -873,19 +898,19 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_1'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         ),
       ).toThrow(InvalidTaskTransitionError);
     });
 
     it('is finished once a run has nothing further to do with it', () => {
-      const ended = added().assignRun(RUN, LINE).finishHere(RUN, LINE, saying);
+      const ended = added().assignRun(RUN, LINE).finishHere(RUN, LINE, newNote);
 
       expect(ended.finished).toBe(true);
       expect(ended.currentRunId).toBeNull();
-      expect(ended.heard({ ...saying, voice: Voice.world() }).finished).toBe(
-        false,
-      );
+      expect(
+        ended.addMessage({ ...newNote, voice: Voice.world() }).finished,
+      ).toBe(false);
     });
 
     it('finishes the task when it is moved to the end of the line', () => {
@@ -893,7 +918,7 @@ describe('Task, what it is doing', () => {
         LINE,
         StationId.of('completed_1'),
         TaskRank.of('m'),
-        saying,
+        newNote,
       );
 
       expect(landed.finished).toBe(true);
@@ -903,12 +928,12 @@ describe('Task, what it is doing', () => {
     it('is unfinished again once a person answers what was put to them', () => {
       const asked = added()
         .assignRun(RUN, LINE)
-        .finishHere(RUN, LINE, saying)
-        .askedAbout(saying, null);
+        .finishHere(RUN, LINE, newNote)
+        .askedAbout(newNote, null);
 
       expect(
         asked.answer(NotePosition.of(1), {
-          ...saying,
+          ...newNote,
           voice: Voice.person(UserId.of('user_1')),
         }).finished,
       ).toBe(false);
@@ -935,7 +960,7 @@ describe('Task, what it is doing', () => {
             LINE,
             StationId.of('station_0'),
             TaskRank.of('m'),
-            saying,
+            newNote,
             { mover: UserId.of('user_1') },
           ),
         ),
@@ -956,7 +981,7 @@ describe('Task, what it is doing', () => {
             LINE,
             StationId.of('station_2'),
             TaskRank.of('m'),
-            saying,
+            newNote,
           ),
         ),
       ).toEqual([]);
@@ -971,7 +996,7 @@ describe('Task, what it is doing', () => {
             LINE,
             StationId.of('station_2'),
             TaskRank.of('m'),
-            saying,
+            newNote,
           ),
         ),
       ).toEqual([]);
@@ -1058,7 +1083,7 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_2'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         ),
       ).toThrow(InvalidTaskTransitionError);
       expect(
@@ -1067,7 +1092,7 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_2'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         ).stationId,
       ).toEqual(StationId.of('station_2'));
     });
@@ -1079,16 +1104,16 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_0'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         ),
       ).toThrow(InvalidTaskTransitionError);
     });
 
     it('is finished only by its current run', () => {
-      expect(() => assigned().finishHere(other, LINE, saying)).toThrow(
+      expect(() => assigned().finishHere(other, LINE, newNote)).toThrow(
         InvalidTaskTransitionError,
       );
-      expect(() => added().finishHere(RUN, LINE, saying)).toThrow(
+      expect(() => added().finishHere(RUN, LINE, newNote)).toThrow(
         InvalidTaskTransitionError,
       );
     });
@@ -1100,26 +1125,26 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_2'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         )
         .assignRun(RUN, LINE);
 
-      expect(() => passed.finishHere(RUN, LINE, saying)).toThrow(
+      expect(() => passed.finishHere(RUN, LINE, newNote)).toThrow(
         InvalidTaskTransitionError,
       );
     });
 
     it('is put to a person by its current run, or by nobody while no run does', () => {
-      expect(() => assigned().askedAbout(saying, other)).toThrow(
+      expect(() => assigned().askedAbout(newNote, other)).toThrow(
         InvalidTaskTransitionError,
       );
-      expect(() => assigned().askedAbout(saying, null)).toThrow(
+      expect(() => assigned().askedAbout(newNote, null)).toThrow(
         InvalidTaskTransitionError,
       );
-      expect(() => added().askedAbout(saying, RUN)).toThrow(
+      expect(() => added().askedAbout(newNote, RUN)).toThrow(
         InvalidTaskTransitionError,
       );
-      expect(assigned().askedAbout(saying, RUN).running).toBe(false);
+      expect(assigned().askedAbout(newNote, RUN).running).toBe(false);
     });
   });
 
@@ -1142,14 +1167,14 @@ describe('Task, what it is doing', () => {
           ELSEWHERE,
           ELSEWHERE.backlog.id,
           TaskRank.of('m'),
-          saying,
+          newNote,
         ),
       ).toThrow(UnknownStationError);
     });
 
     it('will not be moved to a station off its line', () => {
       expect(() =>
-        added().react(LINE, ELSEWHERE.backlog.id, TaskRank.of('m'), saying),
+        added().react(LINE, ELSEWHERE.backlog.id, TaskRank.of('m'), newNote),
       ).toThrow(UnknownStationError);
     });
 
@@ -1157,7 +1182,7 @@ describe('Task, what it is doing', () => {
       expect(() =>
         added()
           .assignRun(RUN, LINE)
-          .passedOn(RUN, LINE, ELSEWHERE.backlog.id, TaskRank.of('m'), saying),
+          .passedOn(RUN, LINE, ELSEWHERE.backlog.id, TaskRank.of('m'), newNote),
       ).toThrow(UnknownStationError);
     });
 
@@ -1179,7 +1204,7 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_1'),
           TaskRank.of('m'),
-          saying,
+          newNote,
           mover,
         ).assignee,
       ).toEqual(UserId.of('user_2'));
@@ -1193,7 +1218,7 @@ describe('Task, what it is doing', () => {
             LINE,
             StationId.of('station_0'),
             TaskRank.of('m'),
-            saying,
+            newNote,
             mover,
           ).assignee,
       ).toBeNull();
@@ -1205,7 +1230,7 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_1'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         ).assignee,
       ).toBeNull();
     });
@@ -1227,7 +1252,7 @@ describe('Task, what it is doing', () => {
       });
 
     const moved = (from: StationId, to: StationId) =>
-      at(from).moveTo(LINE, to, TaskRank.of('m'), saying, hand);
+      at(from).moveTo(LINE, to, TaskRank.of('m'), newNote, hand);
 
     it('starts from the backlog at any work station', () => {
       expect(moved(BACKLOG, HERE).stationId).toEqual(HERE);
@@ -1244,7 +1269,7 @@ describe('Task, what it is doing', () => {
     it('parks from a work station back in the backlog, detaching its run', () => {
       const parked = at(HERE)
         .assignRun(RUN, LINE)
-        .moveTo(LINE, BACKLOG, TaskRank.of('m'), saying, hand);
+        .moveTo(LINE, BACKLOG, TaskRank.of('m'), newNote, hand);
 
       expect(parked.stationId).toEqual(BACKLOG);
       expect(parked.running).toBe(false);
@@ -1265,20 +1290,20 @@ describe('Task, what it is doing', () => {
       ]);
     });
 
-    it('names the run that last spoke on it when a person closes it', () => {
+    it('names the run that last wrote a note on it when a person closes it', () => {
       const finished = at(HERE)
         .assignRun(RUN, LINE)
-        .finishHere(RUN, LINE, { ...saying, voice: Voice.station(RUN) });
-      const reopened = finished.spokenTo(
+        .finishHere(RUN, LINE, { ...newNote, voice: Voice.station(RUN) });
+      const reopened = finished.receiveMessage(
         RUN,
-        { ...saying, voice: Voice.person(UserId.of('user_1')) },
+        { ...newNote, voice: Voice.person(UserId.of('user_1')) },
         HERE,
       );
       reopened.pullEvents();
 
       expect(
         actsOf(
-          reopened.moveTo(LINE, COMPLETED, TaskRank.of('m'), saying, hand),
+          reopened.moveTo(LINE, COMPLETED, TaskRank.of('m'), newNote, hand),
         ),
       ).toEqual([{ act: 'closed', by: 'user_2', after: 'run_1' }]);
     });
@@ -1290,7 +1315,7 @@ describe('Task, what it is doing', () => {
             LINE,
             StationId.of('station_2'),
             TaskRank.of('m'),
-            saying,
+            newNote,
           ),
         ),
       ).toEqual([]);
@@ -1306,10 +1331,10 @@ describe('Task, what it is doing', () => {
       const closed = moved(HERE, COMPLETED);
 
       expect(() =>
-        closed.moveTo(LINE, BACKLOG, TaskRank.of('m'), saying, hand),
+        closed.moveTo(LINE, BACKLOG, TaskRank.of('m'), newNote, hand),
       ).toThrow(MoveDeniedError);
       expect(() =>
-        closed.moveTo(LINE, HERE, TaskRank.of('m'), saying, hand),
+        closed.moveTo(LINE, HERE, TaskRank.of('m'), newNote, hand),
       ).toThrow(MoveDeniedError);
     });
 
@@ -1319,7 +1344,7 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_2'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         ).stationId,
       ).toEqual(StationId.of('station_2'));
     });
@@ -1332,10 +1357,10 @@ describe('Task, what it is doing', () => {
 
     it('wants none while it has a current run, a person is asked, or it is finished', () => {
       expect(added().assignRun(RUN, LINE).wantsRun(LINE)).toBe(false);
-      expect(added().askedAbout(saying, null).wantsRun(LINE)).toBe(false);
+      expect(added().askedAbout(newNote, null).wantsRun(LINE)).toBe(false);
       expect(
         added()
-          .react(LINE, StationId.of('completed_1'), TaskRank.of('m'), saying)
+          .react(LINE, StationId.of('completed_1'), TaskRank.of('m'), newNote)
           .wantsRun(LINE),
       ).toBe(false);
     });
@@ -1343,7 +1368,7 @@ describe('Task, what it is doing', () => {
     it('wants none where nothing runs', () => {
       expect(
         added()
-          .react(LINE, StationId.of('station_0'), TaskRank.of('m'), saying)
+          .react(LINE, StationId.of('station_0'), TaskRank.of('m'), newNote)
           .wantsRun(LINE),
       ).toBe(false);
     });
@@ -1356,8 +1381,8 @@ describe('Task, what it is doing', () => {
           ...added(),
           notes: [
             TaskNote.of({
-              ...saying,
-              kind: 'said',
+              ...newNote,
+              kind: 'message',
               position: NotePosition.of(1),
             }),
           ],
@@ -1375,7 +1400,7 @@ describe('Task, what it is doing', () => {
       task.pullEvents();
 
       const [moved] = movedEvents(
-        task.react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying),
+        task.react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote),
       );
 
       expect(moved).toEqual(
@@ -1399,7 +1424,7 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_2'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         ),
       );
 
@@ -1423,7 +1448,7 @@ describe('Task, what it is doing', () => {
           LINE,
           StationId.of('station_2'),
           TaskRank.of('m'),
-          saying,
+          newNote,
         )
         .pullEvents()
         .filter((each) => each instanceof TaskPassed);
@@ -1446,7 +1471,7 @@ describe('Task, what it is doing', () => {
 
       expect(
         task
-          .react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying)
+          .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote)
           .pullEvents()
           .filter((each) => each instanceof TaskPassed),
       ).toEqual([]);
@@ -1458,9 +1483,9 @@ describe('Task, a failure reported on it', () => {
   const RUN_EXITED = TaskFailure.fromRun('exited');
   const LOOPED = TaskFailure.fromHook('notify', 'loop');
   const worked = () => added().assignRun(RUN, LINE);
-  const failure = (said: string) => ({
-    ...saying,
-    body: TaskNoteBody.of(said),
+  const failure = (body: string) => ({
+    ...newNote,
+    body: TaskNoteBody.of(body),
   });
 
   it('puts the first failure to a person, saying where it came from', () => {
@@ -1496,7 +1521,7 @@ describe('Task, a failure reported on it', () => {
       LINE,
     );
     const answered = asked.answer(NotePosition.of(0), {
-      ...saying,
+      ...newNote,
       body: TaskNoteBody.of('Try again.'),
       voice: Voice.person(UserId.of('user_1')),
     });
@@ -1528,7 +1553,7 @@ describe('Task, a failure reported on it', () => {
         LINE,
       );
 
-    expect(failed.notes.map((each) => each.kind)).toEqual(['asked', 'said']);
+    expect(failed.notes.map((each) => each.kind)).toEqual(['asked', 'message']);
     expect(failed.openConversation?.from).toBe(0);
   });
 
@@ -1547,7 +1572,7 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('puts no failure on a finished task to anyone', () => {
-    const finished = worked().finishHere(RUN, LINE, saying);
+    const finished = worked().finishHere(RUN, LINE, newNote);
 
     expect(finished.movedOnFrom(HERE)).toBe(true);
     expect(() =>
@@ -1640,7 +1665,7 @@ describe('Task, its revision', () => {
       LINE,
       StationId.of('station_2'),
       TaskRank.of('i'),
-      saying,
+      newNote,
     );
 
     expect(added().revision.value).toBe(0);
@@ -1650,12 +1675,13 @@ describe('Task, its revision', () => {
 
   it('counts being finished as a move', () => {
     expect(
-      added().assignRun(RUN, LINE).finishHere(RUN, LINE, saying).revision.value,
+      added().assignRun(RUN, LINE).finishHere(RUN, LINE, newNote).revision
+        .value,
     ).toBe(1);
   });
 
-  it('does not count what is said on it as a move', () => {
-    expect(added().heard(saying).revision.value).toBe(0);
+  it('does not count a message on it as a move', () => {
+    expect(added().addMessage(newNote).revision.value).toBe(0);
   });
 
   it('rejects what was decided on a revision it has moved on from', () => {
@@ -1668,7 +1694,7 @@ describe('Task, its revision', () => {
 });
 
 describe('Task and the happenings heard while it has a current run', () => {
-  const world = { ...saying, voice: Voice.world() };
+  const world = { ...newNote, voice: Voice.world() };
   const SPEC = StationId.of('station_2');
   const COMPLETED = StationId.of('completed_1');
 
@@ -1727,16 +1753,16 @@ describe('Task and the happenings heard while it has a current run', () => {
     const noted = assigned().deferMove(LINE, SPEC, world);
 
     expect(
-      noted.moveTo(LINE, StationId.of('station_0'), TaskRank.of('m'), saying, {
+      noted.moveTo(LINE, StationId.of('station_0'), TaskRank.of('m'), newNote, {
         mover: UserId.of('user_1'),
       }).deferredMoveTo,
     ).toBeNull();
 
-    expect(noted.askedAbout(saying, RUN).deferredMoveTo).toBeNull();
+    expect(noted.askedAbout(newNote, RUN).deferredMoveTo).toBeNull();
     expect(
-      noted.passedOn(RUN, LINE, SPEC, TaskRank.of('m'), saying).deferredMoveTo,
+      noted.passedOn(RUN, LINE, SPEC, TaskRank.of('m'), newNote).deferredMoveTo,
     ).toBeNull();
-    expect(noted.heard(world).deferredMoveTo).toEqual(SPEC);
+    expect(noted.addMessage(world).deferredMoveTo).toEqual(SPEC);
   });
 
   it('keeps a deferred move across a tool approval asked and granted while the run works', () => {
@@ -1747,7 +1773,7 @@ describe('Task and the happenings heard while it has a current run', () => {
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
         ),
         ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
-        { ...saying, voice: Voice.station(RUN) },
+        { ...newNote, voice: Voice.station(RUN) },
         RUN,
         null,
       ).task;
@@ -1756,7 +1782,7 @@ describe('Task and the happenings heard while it has a current run', () => {
 
     const granted = asked.answer(
       NotePosition.of(1),
-      { ...saying, voice: Voice.person(UserId.of('user_1')) },
+      { ...newNote, voice: Voice.person(UserId.of('user_1')) },
       'granted',
     );
 
@@ -1767,7 +1793,7 @@ describe('Task and the happenings heard while it has a current run', () => {
         LINE,
         SPEC,
         TaskRank.of('m'),
-        ending(Handover.done(TaskNoteBody.of('Done.'))),
+        ending(ResolvedHandover.done(TaskNoteBody.of('Done.'))),
       ).stationId,
     ).toEqual(SPEC);
   });
@@ -1780,7 +1806,7 @@ describe('Task and the happenings heard while it has a current run', () => {
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
         ),
         ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
-        { ...saying, voice: Voice.station(RUN) },
+        { ...newNote, voice: Voice.station(RUN) },
         RUN,
         null,
       ).task;
@@ -1793,7 +1819,7 @@ describe('Task and the happenings heard while it has a current run', () => {
     expect(interrupted.currentRunId).toBeNull();
     expect(detached(interrupted)).toEqual([RUN]);
     expect(interrupted.notes.map((each) => each.kind)).toEqual([
-      'said',
+      'message',
       'asked',
       'asked',
     ]);
@@ -1808,8 +1834,8 @@ describe('Task and the happenings heard while it has a current run', () => {
     );
   });
 
-  const ending = (handover: Handover) => ({
-    saying: { ...saying, voice: Voice.station(RUN) },
+  const ending = (handover: ResolvedHandover) => ({
+    newNote: { ...newNote, voice: Voice.station(RUN) },
     handover,
   });
 
@@ -1822,20 +1848,20 @@ describe('Task and the happenings heard while it has a current run', () => {
         SPEC,
         TaskRank.of('m'),
         ending(
-          Handover.review(
+          ResolvedHandover.review(
             TaskNoteBody.of('The run asked for someone to look at this.'),
             TaskNoteBody.of('Uploads retry now.'),
           ),
         ),
       );
 
-    const [, spoken] = moved.notes;
+    const [, passed] = moved.notes;
 
     expect(moved.stationId).toEqual(SPEC);
     expect(moved.currentRunId).toBeNull();
-    expect(spoken?.kind).toBe('passed');
-    expect(spoken?.form).toBe('words');
-    expect(spoken?.body.value).toBe(
+    expect(passed?.kind).toBe('passed');
+    expect(passed?.form).toBe('words');
+    expect(passed?.body.value).toBe(
       'Moved to Spec when the run ended. An event arrived while the run worked.\n\nUploads retry now.',
     );
   });
@@ -1850,15 +1876,18 @@ describe('Task and the happenings heard while it has a current run', () => {
         SPEC,
         TaskRank.of('m'),
         ending(
-          Handover.failed(TaskNoteBody.of('The run failed: exit 1'), failure),
+          ResolvedHandover.failed(
+            TaskNoteBody.of('The run failed: exit 1'),
+            failure,
+          ),
         ),
       );
 
-    const [, spoken] = moved.notes;
+    const [, passed] = moved.notes;
 
-    expect(spoken?.form).toBe('failure');
-    expect(spoken?.failure).toEqual(failure);
-    expect(spoken?.body.value).toContain('The run failed: exit 1');
+    expect(passed?.form).toBe('failure');
+    expect(passed?.failure).toEqual(failure);
+    expect(passed?.body.value).toContain('The run failed: exit 1');
   });
 
   it('says which run passed it on when a deferred move takes it on', () => {
@@ -1869,7 +1898,7 @@ describe('Task and the happenings heard while it has a current run', () => {
         LINE,
         SPEC,
         TaskRank.of('m'),
-        ending(Handover.done(TaskNoteBody.of('Done.'))),
+        ending(ResolvedHandover.done(TaskNoteBody.of('Done.'))),
       )
       .pullEvents()
       .filter((each) => each instanceof TaskPassed);
@@ -1885,12 +1914,12 @@ describe('Task and the happenings heard while it has a current run', () => {
     const answered = assigned()
       .failed(
         exited,
-        { ...saying, body: TaskNoteBody.of('Exit 1.') },
+        { ...newNote, body: TaskNoteBody.of('Exit 1.') },
         RUN,
         LINE,
       )
       .answer(NotePosition.of(0), {
-        ...saying,
+        ...newNote,
         body: TaskNoteBody.of('Try again.'),
         voice: Voice.person(UserId.of('user_1')),
       })
@@ -1904,7 +1933,9 @@ describe('Task and the happenings heard while it has a current run', () => {
         LINE,
         SPEC,
         TaskRank.of('m'),
-        ending(Handover.failed(TaskNoteBody.of('Exit 1 again.'), exited)),
+        ending(
+          ResolvedHandover.failed(TaskNoteBody.of('Exit 1 again.'), exited),
+        ),
       );
 
     expect(
@@ -1918,7 +1949,7 @@ describe('Task and the happenings heard while it has a current run', () => {
 
   it('is moved for a deferred move only by its current run, and only to where the move was deferred to', () => {
     const noted = assigned().deferMove(LINE, SPEC, world);
-    const review = ending(Handover.review(TaskNoteBody.of('Look.')));
+    const review = ending(ResolvedHandover.review(TaskNoteBody.of('Look.')));
 
     expect(() =>
       noted.moveAsDeferred(
@@ -1954,7 +1985,7 @@ describe('Task and the happenings heard while it has a current run', () => {
   describe('while its run waits on a person', () => {
     const paused = () => {
       const task = assigned().putToAPerson(RUN, {
-        ...saying,
+        ...newNote,
         voice: Voice.station(RUN),
       });
       task.pullEvents();
@@ -1985,7 +2016,7 @@ describe('Task and the happenings heard while it has a current run', () => {
       expect(interrupted.awaitingReview).toBe(true);
       expect(interrupted.notes.map((each) => each.kind)).toEqual([
         'asked',
-        'said',
+        'message',
       ]);
       expect(interrupted.openConversation).toEqual({ from: 0, to: null });
       expect(interrupted.pullEvents()).toEqual([]);
@@ -2008,7 +2039,7 @@ describe('Task and the happenings heard while it has a current run', () => {
           LINE,
           SPEC,
           TaskRank.of('m'),
-          ending(Handover.review(TaskNoteBody.of('Stopped.'))),
+          ending(ResolvedHandover.review(TaskNoteBody.of('Stopped.'))),
         );
 
       expect(moved.stationId).toEqual(SPEC);
@@ -2018,22 +2049,24 @@ describe('Task and the happenings heard while it has a current run', () => {
   });
 
   describe('once interrupted', () => {
-    const person = { ...saying, voice: Voice.person(UserId.of('user_1')) };
+    const person = { ...newNote, voice: Voice.person(UserId.of('user_1')) };
 
     it('takes a word in the run chat as the answer, wanting a run at its station again', () => {
-      const spoken = assigned().interrupt(world).spokenTo(RUN, person, HERE);
+      const answered = assigned()
+        .interrupt(world)
+        .receiveMessage(RUN, person, HERE);
 
-      expect(spoken.awaitingReview).toBe(false);
-      expect(spoken.notes.map((each) => each.kind)).toEqual([
+      expect(answered.awaitingReview).toBe(false);
+      expect(answered.notes.map((each) => each.kind)).toEqual([
         'asked',
         'answered',
       ]);
-      expect(spoken.wantsRun(LINE)).toBe(true);
+      expect(answered.wantsRun(LINE)).toBe(true);
     });
 
     it('will not take a word from the chat of a run at a station it has left', () => {
       expect(() =>
-        assigned().interrupt(world).spokenTo(RUN, person, SPEC),
+        assigned().interrupt(world).receiveMessage(RUN, person, SPEC),
       ).toThrow(InvalidTaskTransitionError);
     });
   });

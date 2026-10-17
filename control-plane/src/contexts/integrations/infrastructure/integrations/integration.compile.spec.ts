@@ -25,7 +25,7 @@ const EVENTS = `  events:
       raise:
         happening: linear.issue.completed
         label: Issue completed
-        told: The issue was moved to Done.
+        summary: The issue was moved to Done.
         marks:
           - kind: linear.issue
             value: \${{ body.data.identifier }}
@@ -248,7 +248,7 @@ poll:
       raise:
         happening: linear.issue.completed
         label: Issue completed
-        told: The issue was moved to Done.
+        summary: The issue was moved to Done.
         marks:
           - kind: linear.issue
             value: \${{ item.id }}
@@ -999,9 +999,9 @@ describe('IntegrationCompiler', () => {
     );
 
     expect(compiled.ok && compiled.integration.source.value).toBe('linear');
-    expect(compiled.ok && compiled.document.says('integration', 'linear')).toBe(
-      true,
-    );
+    expect(
+      compiled.ok && compiled.document.hasValue('integration', 'linear'),
+    ).toBe(true);
   });
 
   it('says what is wrong with one that will not compile', () => {

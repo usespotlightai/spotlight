@@ -22,6 +22,7 @@ import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-c
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { openSetupList } from '@work/domain/services/setup-list';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -32,7 +33,6 @@ import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -144,11 +144,11 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     body: TaskNoteBody.of(row.body),
     at: row.at,
     voice: Voice.of({ by: row.voice, author: row.authorId, run: row.runId }),
-    said: row.said ? Said.of(row.said) : null,
+    anchor: row.anchor ? Anchor.of(row.anchor) : null,
     answeredAt: row.answeredAt,
     kind: row.kind,
     readAt: row.readAt,
-    deliveredAt: row.deliveredAt,
+    acknowledgedAt: row.acknowledgedAt,
     form: row.form,
     approval: row.approval ? toApproval(row.approval) : null,
     failure: row.failure ? TaskFailure.rehydrate(row.failure) : null,
@@ -645,14 +645,14 @@ export class DrizzleTaskRepository implements TaskRepository {
           station: note.station.value,
           body: note.body.value,
           at: note.at,
-          said: note.said?.parts ?? null,
+          anchor: note.anchor?.parts ?? null,
           answeredAt: note.answeredAt,
           voice: note.voice.by,
           authorId: note.voice.author?.value ?? null,
           runId: note.voice.run?.value ?? null,
           kind: note.kind,
           readAt: note.readAt,
-          deliveredAt: note.deliveredAt,
+          acknowledgedAt: note.acknowledgedAt,
           form: note.form,
           approval: note.approval ? toApprovalRow(note.approval) : null,
           failure: note.failure
@@ -674,7 +674,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         target: [taskNote.taskId, taskNote.position],
         set: {
           readAt: sql`excluded.read_at`,
-          deliveredAt: sql`excluded.delivered_at`,
+          acknowledgedAt: sql`excluded.acknowledged_at`,
           answeredAt: sql`excluded.answered_at`,
           approval: sql`excluded.approval`,
           failure: sql`excluded.failure`,

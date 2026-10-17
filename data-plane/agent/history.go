@@ -90,7 +90,7 @@ func historyCmd(args []string, out io.Writer) error {
 }
 
 func fetchHistory(asked protocol.HistoryRequest) (protocol.History, error) {
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return protocol.History{}, fmt.Errorf(
 			"no run to read history from: spotlight runs inside a Spotlight workspace",
@@ -103,7 +103,7 @@ func fetchHistory(asked protocol.HistoryRequest) (protocol.History, error) {
 	}
 
 	answered, err := post(
-		strings.TrimSuffix(endpoint, "/")+protocol.HandoverHistoryPath, token, body,
+		strings.TrimSuffix(endpoint, "/")+protocol.AgentAPIHistoryPath, token, body,
 	)
 	if err != nil {
 		return protocol.History{}, err

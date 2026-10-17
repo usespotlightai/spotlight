@@ -63,7 +63,7 @@ const taskRun = async () => {
     at: new Date('2026-09-17T09:00:00.000Z'),
     voice: 'person',
     authorId: 'user_1',
-    kind: 'said',
+    kind: 'message',
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -79,8 +79,8 @@ const taskRun = async () => {
   return { taskId, runId: RunId.of(runId) };
 };
 
-describe('what a leased run has yet to be told', () => {
-  it('hands the current run of the task what a person said to it', async () => {
+describe('the messages that a leased run has yet to get', () => {
+  it('hands the current run of the task the messages that a person sent to it', async () => {
     const { runId } = await taskRun();
 
     const pending = await reader.pendingFor(runId, RUNNER);
@@ -88,7 +88,7 @@ describe('what a leased run has yet to be told', () => {
     expect(pending?.map((each) => each.body)).toEqual(['Pin it to a version.']);
   });
 
-  it('keeps what was said from a run the task has detached', async () => {
+  it('keeps the messages from a run that the task has detached', async () => {
     const { taskId, runId } = await taskRun();
 
     await db
@@ -99,15 +99,15 @@ describe('what a leased run has yet to be told', () => {
     await expect(reader.pendingFor(runId, RUNNER)).resolves.toEqual([]);
   });
 
-  it('hands the run exactly what its task says is undelivered, for every kind of note and voice', async () => {
+  it('hands the run exactly the notes that its task has not acknowledged, for every kind of note and voice', async () => {
     const { taskId, runId } = await taskRun();
-    const kinds = ['asked', 'passed', 'answered', 'said'] as const;
+    const kinds = ['asked', 'passed', 'answered', 'message'] as const;
     const voices = ['station', 'person', 'world'] as const;
     let position = 1;
 
     for (const kind of kinds) {
       for (const voice of voices) {
-        for (const deliveredAt of [
+        for (const acknowledgedAt of [
           null,
           new Date('2026-09-17T10:00:00.000Z'),
         ]) {
@@ -120,7 +120,7 @@ describe('what a leased run has yet to be told', () => {
             voice,
             authorId: voice === 'person' ? 'user_1' : null,
             kind,
-            deliveredAt,
+            acknowledgedAt,
           });
         }
       }
@@ -132,7 +132,7 @@ describe('what a leased run has yet to be told', () => {
     const pending = await reader.pendingFor(runId, RUNNER);
 
     expect(pending?.map((each) => each.position)).toEqual(
-      task?.undelivered.map((each) => each.position.value),
+      task?.unacknowledged.map((each) => each.position.value),
     );
     expect(pending?.length).toBeGreaterThan(1);
   });

@@ -37,7 +37,7 @@ const stepsOf = (
   startedHoursAgo: number,
   running: boolean,
 ): JournalStepResponseDto[] => {
-  const [thought, said] = SEARCH_NOTES[runId] ?? [
+  const [thought, message] = SEARCH_NOTES[runId] ?? [
     'Reading how the earlier candidates did.',
     `Proposed ${proposed.length} candidate${proposed.length === 1 ? '' : 's'}`,
   ];
@@ -82,8 +82,8 @@ const stepsOf = (
       : [
           {
             ...base,
-            kind: 'said' as const,
-            text: said,
+            kind: 'message' as const,
+            text: message,
             ms: 400,
             startedAt: hoursAgo(startedHoursAgo - 0.25),
           },
@@ -157,8 +157,8 @@ export const searchRun = (runId: string): SearchRunResponseDto | null => {
               marks: {
                 startedAt: hoursAgo(startedHoursAgo),
                 readyAt: null,
-                spokeFrom: null,
-                spokeTo: null,
+                firstAgentUpdateAt: null,
+                lastAgentUpdateAt: null,
                 endedAt: running ? null : hoursAgo(endedHoursAgo),
               },
               spent: {

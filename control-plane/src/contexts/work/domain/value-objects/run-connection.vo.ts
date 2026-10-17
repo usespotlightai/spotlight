@@ -112,10 +112,10 @@ export class RunConnection {
   }
 
   static record(parts: Parts, now: Date): RunConnection {
-    const told = parts.at.getTime();
+    const reportedAt = parts.at.getTime();
     const near =
-      told >= now.getTime() - EARLIEST_BEFORE_MS &&
-      told <= now.getTime() + LATEST_AFTER_MS;
+      reportedAt >= now.getTime() - EARLIEST_BEFORE_MS &&
+      reportedAt <= now.getTime() + LATEST_AFTER_MS;
 
     return RunConnection.of({ ...parts, at: near ? parts.at : now });
   }

@@ -151,14 +151,14 @@ func TestKeepsNothingItCouldNotReadOrInjectAndSaysWhyWithoutTheValue(t *testing.
 	if injector.InjectsFor("gone.example.com") || injector.InjectsFor("multi.example.com") {
 		t.Error("keeps a secret it could not read or inject")
 	}
-	for _, said := range []string{
+	for _, want := range []string{
 		"NOWHERE", "no such secret", "GONE", "ResourceNotFoundException", "MULTI",
 		"OUTSIDE", "allow-list does not admit exfiltrate.example.net",
 		"UNLISTED_READ", "does not let egress read prod/payments",
 		"SAME_HEADER", "already injected in Authorization for mcp.linear.app",
 	} {
-		if !strings.Contains(logged.String(), said) {
-			t.Errorf("did not say %q: %s", said, logged)
+		if !strings.Contains(logged.String(), want) {
+			t.Errorf("did not log %q: %s", want, logged)
 		}
 	}
 	if injector.InjectsFor("exfiltrate.example.net") {
@@ -226,13 +226,13 @@ func TestInjectsAKeyOfTheHostOnlyByReplacingItsOwnStandIn(t *testing.T) {
 		t.Errorf("a Codex request went out as %v", got)
 	}
 
-	for _, said := range []string{
+	for _, want := range []string{
 		"GITHUB_TOKEN", "allow-list does not admit api.github.com",
 		"CLAUDE_OAUTH", "has a key of its own for api.anthropic.com",
 		"DOTTED",
 	} {
-		if !strings.Contains(logged.String(), said) {
-			t.Errorf("did not say %q: %s", said, logged.String())
+		if !strings.Contains(logged.String(), want) {
+			t.Errorf("did not log %q: %s", want, logged.String())
 		}
 	}
 	if got := sent("api.anthropic.com", http.Header{}); got.Get("X-Dotted") != "" {
@@ -293,9 +293,9 @@ func TestInjectsAQuerySecretOnlyByReplacingItsStandInKeepingTheRestOfTheQuery(t 
 		t.Errorf("a header and a query parameter of one name were not both injected: %v", header)
 	}
 
-	for _, said := range []string{"SAME_TARGET", "already injected in ?key for maps.googleapis.com", "NAMELESS", "parameter=other", "parameter=key", "parameter=k"} {
-		if !strings.Contains(logged.String(), said) {
-			t.Errorf("did not say %q: %s", said, logged.String())
+	for _, want := range []string{"SAME_TARGET", "already injected in ?key for maps.googleapis.com", "NAMELESS", "parameter=other", "parameter=key", "parameter=k"} {
+		if !strings.Contains(logged.String(), want) {
+			t.Errorf("did not log %q: %s", want, logged.String())
 		}
 	}
 	for _, value := range []string{"AIza", "in-a-header", "second", "tok\n", "nameless\n"} {
@@ -339,9 +339,9 @@ func TestHandsBackTheStandInWhereverTheHostEchoesASecret(t *testing.T) {
 		return response
 	}
 
-	response := answered("application/json; charset=utf-8", `{"said":"Bearer tok/1+2","bare":"tok/1+2","query":"tok%2F1%2B2","path":"tok%2F1+2","lower":"tok%2f1%2b2"}`)
+	response := answered("application/json; charset=utf-8", `{"echo":"Bearer tok/1+2","bare":"tok/1+2","query":"tok%2F1%2B2","path":"tok%2F1+2","lower":"tok%2f1%2b2"}`)
 	read, _ := io.ReadAll(response.Body)
-	want := `{"said":"Bearer spotlight-egress:TOKEN","bare":"spotlight-egress:TOKEN","query":"spotlight-egress%3ATOKEN","path":"spotlight-egress:TOKEN","lower":"spotlight-egress%3aTOKEN"}`
+	want := `{"echo":"Bearer spotlight-egress:TOKEN","bare":"spotlight-egress:TOKEN","query":"spotlight-egress%3ATOKEN","path":"spotlight-egress:TOKEN","lower":"spotlight-egress%3aTOKEN"}`
 	if string(read) != want {
 		t.Errorf("the sandbox read\n%s\nwant\n%s", read, want)
 	}
@@ -355,8 +355,8 @@ func TestHandsBackTheStandInWhereverTheHostEchoesASecret(t *testing.T) {
 		t.Errorf("linked the sandbox to %q", link)
 	}
 
-	escaped := answered("application/json", `{"said":"tok\/1+2"}`)
-	if read, _ := io.ReadAll(escaped.Body); string(read) != `{"said":"spotlight-egress:TOKEN"}` {
+	escaped := answered("application/json", `{"echo":"tok\/1+2"}`)
+	if read, _ := io.ReadAll(escaped.Body); string(read) != `{"echo":"spotlight-egress:TOKEN"}` {
 		t.Errorf("the sandbox read %s", read)
 	}
 

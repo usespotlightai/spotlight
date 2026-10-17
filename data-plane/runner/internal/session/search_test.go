@@ -20,44 +20,44 @@ func asking(t *testing.T) string {
 	script := filepath.Join(t.TempDir(), "ask.js")
 	body := `
 const ask = async (path, body) => {
-  const answer = await fetch(process.env.SPOTLIGHT_HANDOVER_URL + path, {
+  const answer = await fetch(process.env.SPOTLIGHT_AGENT_API_URL + path, {
     method: "POST",
-    headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+    headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_AGENT_API_TOKEN },
     body: JSON.stringify(body),
   });
   return path + " " + answer.status + " " + (await answer.text()).trim();
 };
 (async () => {
-  const said = [
+  const results = [
     await ask("remember", { kind: "rationale", body: "Retry in the request." }),
     await ask("recall", { words: "upload retries" }),
-    await ask("remark", { handle: "R-1", body: "Done." }),
+    await ask("review-comment-replies", { handle: "R-1", body: "Done." }),
     await ask("candidates", { name: "terse", hypothesis: "Shorter prompts finish sooner.", station: { prompt: "Be brief." } }),
     await ask("causes", { taskId: "task_1", cause: "judge", evidence: "The rubric asks for tests.", suggestion: "Drop that line." }),
   ];
-  process.stdout.write(said.join("\n"));
+  process.stdout.write(results.join("\n"));
 })();
 `
 	if err := os.WriteFile(script, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	return harness(t, "said = execSync(\"node "+script+"\").toString();", "end_turn")
+	return harness(t, "output = execSync(\"node "+script+"\").toString();", "end_turn")
 }
 
 func TestASearchKeepsOutOfTheTeamsMemoryAndProposesCandidates(t *testing.T) {
 	written := run(t, asking(t), searching)
 
-	heard := said(t, written)
+	output := agentOutput(t, written)
 	for _, want := range []string{
 		"remember 422 a search may not propose a memory",
 		"recall 422 a search may not recall what the team remembers",
-		"remark 422 a search may not answer a remark",
+		"review-comment-replies 422 a search may not reply to a review comment",
 		`candidates 200 {"candidateId":"cand_1","name":"terse","replayId":"replay_1"}`,
 		`causes 200 {"taskId":"task_1","cause":"judge","replayRunId":"replayed_1"}`,
 	} {
-		if !strings.Contains(heard, want) {
-			t.Errorf("the agent heard %q, missing %q", heard, want)
+		if !strings.Contains(output, want) {
+			t.Errorf("the agent wrote %q, missing %q", output, want)
 		}
 	}
 
@@ -76,13 +76,13 @@ func TestASearchKeepsOutOfTheTeamsMemoryAndProposesCandidates(t *testing.T) {
 			continue
 		}
 		spans++
-		said := map[string]string{}
+		attributes := map[string]string{}
 		for _, each := range span.Attributes {
-			said[each.Key] = each.Value.StringValue
+			attributes[each.Key] = each.Value.StringValue
 		}
-		if said["spotlight.candidate.name"] != "terse" || said["spotlight.candidate.id"] != "cand_1" ||
-			said["spotlight.candidate.replay"] != "replay_1" {
-			t.Errorf("the span said %v", said)
+		if attributes["spotlight.candidate.name"] != "terse" || attributes["spotlight.candidate.id"] != "cand_1" ||
+			attributes["spotlight.candidate.replay"] != "replay_1" {
+			t.Errorf("the span has %v", attributes)
 		}
 	}
 	if spans != 1 {
@@ -112,13 +112,13 @@ func TestASearchKeepsOutOfTheTeamsMemoryAndProposesCandidates(t *testing.T) {
 func TestOnlyASearchProposesCandidatesAndRecordsCauses(t *testing.T) {
 	written := run(t, asking(t))
 
-	heard := said(t, written)
+	output := agentOutput(t, written)
 	for _, want := range []string{
 		"candidates 501 this run cannot propose a candidate",
 		"causes 501 this run cannot record a cause",
 	} {
-		if !strings.Contains(heard, want) {
-			t.Errorf("the agent heard %q, missing %q", heard, want)
+		if !strings.Contains(output, want) {
+			t.Errorf("the agent wrote %q, missing %q", output, want)
 		}
 	}
 
@@ -131,13 +131,13 @@ func TestOnlyASearchProposesCandidatesAndRecordsCauses(t *testing.T) {
 }
 
 func TestASearchChecksNothingOut(t *testing.T) {
-	written := run(t, harness(t, `said = require("node:fs").readdirSync(".").filter((name) => !name.startsWith(".")).join(",");`, "end_turn"),
+	written := run(t, harness(t, `output = require("node:fs").readdirSync(".").filter((name) => !name.startsWith(".")).join(",");`, "end_turn"),
 		searching, func(o *runOptions) {
 			o.checkouts = []protocol.Checkout{{Remote: "/nowhere/at/all.git", Path: "api", Branch: "main"}}
 		})
 
-	if heard := said(t, written); heard != "" {
-		t.Errorf("the search's workspace contains %q", heard)
+	if output := agentOutput(t, written); output != "" {
+		t.Errorf("the search's workspace contains %q", output)
 	}
 	if got := step(t, written, "prepare"); got != "" {
 		t.Errorf("the search prepared %q", got)
@@ -157,34 +157,34 @@ func TestASearchFindsNoneOfTheTeamsMemoryInItsWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	written := run(t, harness(t, `said = String(require("node:fs").existsSync(".spotlight/memory"));`, "end_turn"),
+	written := run(t, harness(t, `output = String(require("node:fs").existsSync(".spotlight/memory"));`, "end_turn"),
 		searching, func(o *runOptions) {
 			o.root = root
 			o.continuity = protocol.Continuity{Key: "search_1"}
 			o.memory = []protocol.MemoryFile{{Path: ".spotlight/memory/team/M-2.md", Body: "# M-2 · rationale"}}
 		})
 
-	if heard := said(t, written); heard != "false" {
-		t.Errorf("the search found the memory folder: %q", heard)
+	if output := agentOutput(t, written); output != "false" {
+		t.Errorf("the search found the memory folder: %q", output)
 	}
 }
 
 func TestASearchRestoresNoWorkspaceAndKeepsNone(t *testing.T) {
 	kept := newKeptArchives(t)
 
-	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"),
+	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn}
 		})
 
-	searched := run(t, harness(t, `said = String(require("node:fs").existsSync("notes.md"));`, "end_turn"),
+	searched := run(t, harness(t, `output = String(require("node:fs").existsSync("notes.md"));`, "end_turn"),
 		searching, func(o *runOptions) {
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn}
 		})
 
-	if got := said(t, searched); got != "false" {
+	if got := agentOutput(t, searched); got != "false" {
 		t.Errorf("the search found notes.md: %q", got)
 	}
 	if got := step(t, searched, "restore"); got != "" {
@@ -209,7 +209,7 @@ func TestASearchIsHandedNoSkillsOrHarnessFiles(t *testing.T) {
 	}
 
 	written := run(t, harness(t, `const fs = require("node:fs");
-said = JSON.stringify([
+output = JSON.stringify([
   fs.existsSync(".claude/skills/review/SKILL.md"),
   fs.existsSync(".claude/CLAUDE.md"),
   fs.readFileSync("claude/settings.json", "utf8"),
@@ -221,7 +221,7 @@ said = JSON.stringify([
 		o.setup = protocol.HarnessSetup{Files: []protocol.SetupFile{{Path: ".claude/CLAUDE.md", Text: "be brief"}}}
 	})
 
-	if heard := said(t, written); heard != `[false,false,"{\"left\":\"alone\"}"]` {
-		t.Errorf("the search found %s", heard)
+	if output := agentOutput(t, written); output != `[false,false,"{\"left\":\"alone\"}"]` {
+		t.Errorf("the search found %s", output)
 	}
 }

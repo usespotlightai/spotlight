@@ -45,7 +45,7 @@ export function ApprovalCard({
   const approveEdited = () =>
     deciding?.({
       approve: true,
-      said: '',
+      body: '',
       inputs: changed
         ? approval.inputs.map((input) => ({
             name: input.name,

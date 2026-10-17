@@ -30,7 +30,7 @@ export class StationKey {
     if (reserved) {
       throw new InvalidIdentifierError(
         'station key',
-        `cannot be ${named}. A run says ${named} to ${reserved}`,
+        `cannot be ${named}. A run names ${named} in its handover to ${reserved}`,
       );
     }
 

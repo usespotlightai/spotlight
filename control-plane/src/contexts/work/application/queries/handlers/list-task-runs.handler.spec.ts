@@ -62,12 +62,12 @@ describe('ListTaskRunsHandler', () => {
     const pinned = `ghcr.io/acme/widgets@sha256:${'a'.repeat(64)}`;
     const { runs } = reading([summary({ image: pinned }), summary()]);
 
-    const [ran, unsaid] = await new ListTaskRunsHandler(runs).execute(
+    const [ran, unreported] = await new ListTaskRunsHandler(runs).execute(
       new ListTaskRunsQuery('task_1', 'user_1'),
     );
 
     expect(ran?.image).toBe(pinned);
-    expect(unsaid?.image).toBeNull();
+    expect(unreported?.image).toBeNull();
   });
 
   it('leaves a run dispatched to no station without one', async () => {

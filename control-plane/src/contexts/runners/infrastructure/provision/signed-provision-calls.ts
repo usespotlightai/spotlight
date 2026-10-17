@@ -97,7 +97,10 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
       return { outcome: 'unreachable', detail: described(error) };
     }
 
-    const said = (await answered.text().catch(() => '')).slice(0, MAX_DETAIL);
+    const response = (await answered.text().catch(() => '')).slice(
+      0,
+      MAX_DETAIL,
+    );
 
     if (answered.status >= 200 && answered.status < 300) {
       return { outcome: 'accepted' };
@@ -105,7 +108,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
 
     return {
       outcome: 'http-error',
-      detail: `Provision URL answered ${answered.status}.${said ? ` Response: ${said}` : ''}`,
+      detail: `Provision URL answered ${answered.status}.${response ? ` Response: ${response}` : ''}`,
     };
   }
 }

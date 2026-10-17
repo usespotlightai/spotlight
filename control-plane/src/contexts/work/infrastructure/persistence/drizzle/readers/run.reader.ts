@@ -226,9 +226,9 @@ export class DrizzleRunReader implements RunReaderPort {
     const stationCounts = await stationsPerLine(this.db, [
       found.stationLineId ?? '',
     ]);
-    const told = trail ?? [];
+    const notes = trail ?? [];
     const isCurrentRun = found.workingRunId === found.runId;
-    const said = turnOf(told, runId.value, isCurrentRun);
+    const turn = turnOf(notes, runId.value, isCurrentRun);
     const spec = RunSpecContract.from(found.spec);
 
     return {
@@ -240,8 +240,8 @@ export class DrizzleRunReader implements RunReaderPort {
       station: worked({ ...found }, stationCounts),
       createdAt: found.createdAt,
       briefing: spec.briefing,
-      working: isCurrentRun && !awaitsAPerson(told),
-      notes: said,
+      working: isCurrentRun && !awaitsAPerson(notes),
+      notes: turn,
     };
   }
 

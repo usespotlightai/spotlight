@@ -89,7 +89,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
     hook: string,
     heardAs: string | null,
   ): Promise<boolean> {
-    const said = TaskNoteBody.fromHook(hook, body);
+    const noteBody = TaskNoteBody.fromHook(hook, body);
 
     return this.retried(async () => {
       const task = await this.tasks.find(TaskId.of(taskId));
@@ -108,10 +108,10 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
       const line = await this.lines.findByStation(task.stationId);
 
       await this.tasks.save(
-        task.heard({
+        task.addMessage({
           station:
             line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
-          body: said,
+          body: noteBody,
           at: this.clock.now(),
           voice: Voice.station(),
         }),
@@ -154,7 +154,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
         TaskFailure.fromHook(report.hook, report.code),
         {
           station: firedAt.name,
-          body: TaskNoteBody.fromHook(report.hook, report.saying),
+          body: TaskNoteBody.fromHook(report.hook, report.reason),
           at: this.clock.now(),
           voice: Voice.station(),
         },

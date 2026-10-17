@@ -70,12 +70,14 @@ describe('notesIn', () => {
 });
 
 describe('pendingIn', () => {
-  const said = (kind: TaskNoteKind) => ({ kind });
+  const note = (kind: TaskNoteKind) => ({ kind });
 
   it('finds the one a person has not answered yet', () => {
     expect(
       pendingIn(
-        ['passed', 'asked', 'said'].map((kind) => said(kind as TaskNoteKind)),
+        ['passed', 'asked', 'message'].map((kind) =>
+          note(kind as TaskNoteKind),
+        ),
       ),
     ).toEqual({
       from: 1,
@@ -86,30 +88,30 @@ describe('pendingIn', () => {
   it('finds nothing pending where the person already answered', () => {
     expect(
       pendingIn(
-        ['asked', 'answered'].map((kind) => said(kind as TaskNoteKind)),
+        ['asked', 'answered'].map((kind) => note(kind as TaskNoteKind)),
       ),
     ).toBeNull();
   });
 
   it('finds nothing pending where the task has moved on since', () => {
     expect(
-      pendingIn(['asked', 'passed'].map((kind) => said(kind as TaskNoteKind))),
+      pendingIn(['asked', 'passed'].map((kind) => note(kind as TaskNoteKind))),
     ).toBeNull();
   });
 
   it('finds nothing pending where nobody was ever asked', () => {
-    expect(pendingIn([said('passed')])).toBeNull();
+    expect(pendingIn([note('passed')])).toBeNull();
   });
 });
 
 describe('reviewsIn', () => {
-  const said = (kind: TaskNoteKind, runId: string | null = null) => ({
+  const note = (kind: TaskNoteKind, runId: string | null = null) => ({
     kind,
     runId,
   });
 
   it('keeps the answer pending where nobody has given one', () => {
-    expect([...reviewsIn([said('asked', 'run_1')])]).toEqual([
+    expect([...reviewsIn([note('asked', 'run_1')])]).toEqual([
       ['run_1', { from: 0, state: 'pending' }],
     ]);
   });
@@ -117,9 +119,9 @@ describe('reviewsIn', () => {
   it('points a later ask at the conversation it joined', () => {
     expect([
       ...reviewsIn([
-        said('asked', 'run_1'),
-        said('answered'),
-        said('asked', 'run_2'),
+        note('asked', 'run_1'),
+        note('answered'),
+        note('asked', 'run_2'),
       ]),
     ]).toEqual([
       ['run_1', { from: 0, state: 'answered' }],
@@ -130,9 +132,9 @@ describe('reviewsIn', () => {
   it('opens a new one where the task moved on in between', () => {
     expect([
       ...reviewsIn([
-        said('asked', 'run_1'),
-        said('passed'),
-        said('asked', 'run_2'),
+        note('asked', 'run_1'),
+        note('passed'),
+        note('asked', 'run_2'),
       ]),
     ]).toEqual([
       ['run_1', { from: 0, state: 'answered' }],
@@ -141,23 +143,23 @@ describe('reviewsIn', () => {
   });
 
   it('counts as answered once a person answers, before the task moves on', () => {
-    expect([...reviewsIn([said('asked', 'run_1'), said('answered')])]).toEqual([
+    expect([...reviewsIn([note('asked', 'run_1'), note('answered')])]).toEqual([
       ['run_1', { from: 0, state: 'answered' }],
     ]);
   });
 
   it('counts an asking as answered once the task moves on from it without an answer', () => {
     expect([
-      ...reviewsIn([said('asked', 'run_1'), said('passed', 'run_2')]),
+      ...reviewsIn([note('asked', 'run_1'), note('passed', 'run_2')]),
     ]).toEqual([['run_1', { from: 0, state: 'answered' }]]);
   });
 
   it('keeps each run apart', () => {
     const reviews = reviewsIn([
-      said('asked', 'run_1'),
-      said('answered'),
-      said('passed', 'run_2'),
-      said('asked', 'run_3'),
+      note('asked', 'run_1'),
+      note('answered'),
+      note('passed', 'run_2'),
+      note('asked', 'run_3'),
     ]);
 
     expect(reviews.get('run_1')?.state).toBe('answered');
@@ -165,77 +167,77 @@ describe('reviewsIn', () => {
   });
 
   it('finds nothing where no run asked', () => {
-    expect([...reviewsIn([said('passed', 'run_1')])]).toEqual([]);
+    expect([...reviewsIn([note('passed', 'run_1')])]).toEqual([]);
   });
 });
 
 describe('awaitsAPerson', () => {
-  const said = (kind: TaskNoteKind) => ({ kind });
+  const note = (kind: TaskNoteKind) => ({ kind });
 
   it('waits once something was put to a person', () => {
-    expect(awaitsAPerson([said('asked')])).toBe(true);
+    expect(awaitsAPerson([note('asked')])).toBe(true);
   });
 
   it('stops waiting once they answer', () => {
-    expect(awaitsAPerson([said('asked'), said('answered')])).toBe(false);
+    expect(awaitsAPerson([note('asked'), note('answered')])).toBe(false);
   });
 
   it('stops waiting once the task moved on', () => {
-    expect(awaitsAPerson([said('asked'), said('passed')])).toBe(false);
+    expect(awaitsAPerson([note('asked'), note('passed')])).toBe(false);
   });
 
   it('waits again where a later run asked something new', () => {
     expect(
       awaitsAPerson([
-        said('asked'),
-        said('answered'),
-        said('passed'),
-        said('asked'),
+        note('asked'),
+        note('answered'),
+        note('passed'),
+        note('asked'),
       ]),
     ).toBe(true);
   });
 
   it('does not wait where nothing was asked', () => {
-    expect(awaitsAPerson([said('passed')])).toBe(false);
+    expect(awaitsAPerson([note('passed')])).toBe(false);
   });
 });
 
 describe('turnOf', () => {
   const trail = [
-    { runId: 'run_1', body: 'triage said' },
+    { runId: 'run_1', body: 'triage note' },
     { runId: null, body: 'a person answered' },
-    { runId: 'run_2', body: 'spec said' },
+    { runId: 'run_2', body: 'spec note' },
     { runId: null, body: 'typed at implementation' },
-    { runId: 'run_3', body: 'implementation said' },
-    { runId: 'run_4', body: 'code review said' },
+    { runId: 'run_3', body: 'implementation note' },
+    { runId: 'run_4', body: 'code review note' },
   ];
 
-  it('takes what the run said and what was typed at it', () => {
+  it('takes the notes of the run and the messages to it', () => {
     expect(turnOf(trail, 'run_3').map((each) => each.body)).toEqual([
       'typed at implementation',
-      'implementation said',
+      'implementation note',
     ]);
   });
 
-  it('leaves out what the run before it said', () => {
+  it('leaves out the notes of the run before it', () => {
     expect(turnOf(trail, 'run_3').map((each) => each.body)).not.toContain(
-      'spec said',
+      'spec note',
     );
   });
 
-  it('leaves out what the runs after it said', () => {
+  it('leaves out the notes of the runs after it', () => {
     expect(turnOf(trail, 'run_3').map((each) => each.body)).not.toContain(
-      'code review said',
+      'code review note',
     );
   });
 
   it('opens the trail for the first run', () => {
     expect(turnOf(trail, 'run_1').map((each) => each.body)).toEqual([
-      'triage said',
+      'triage note',
     ]);
   });
 
-  it('takes what follows the last run where it has said nothing', () => {
+  it('takes what follows the last run where it has no notes', () => {
     expect(turnOf(trail.slice(0, 4), 'run_3').map((each) => each.body)).toEqual(
       ['typed at implementation'],
     );
@@ -247,16 +249,16 @@ describe('turnOf', () => {
 
   describe('a run that paused for a person', () => {
     const paused = [
-      { runId: 'run_1', body: 'triage said' },
+      { runId: 'run_1', body: 'triage note' },
       { runId: null, body: 'typed at implementation' },
       { runId: 'run_2', body: 'which queue should I drain?' },
       { runId: null, body: 'the default one' },
       { runId: 'run_2', body: 'drained it, ready for review' },
       { runId: null, body: 'thanks' },
-      { runId: 'run_3', body: 'code review said' },
+      { runId: 'run_3', body: 'code review note' },
     ];
 
-    it('runs from before its question to what it said after the answer', () => {
+    it('runs from before its question to its note after the answer', () => {
       expect(turnOf(paused, 'run_2').map((each) => each.body)).toEqual([
         'typed at implementation',
         'which queue should I drain?',

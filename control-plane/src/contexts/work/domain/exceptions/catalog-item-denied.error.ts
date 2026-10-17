@@ -4,7 +4,7 @@ export class CatalogItemDeniedError extends Error {
   readonly violation = 'not-allowed' as const;
 
   constructor(denied: DeniedCatalogItem) {
-    super(denied.saying);
+    super(denied.description);
     this.name = 'CatalogItemDeniedError';
   }
 }

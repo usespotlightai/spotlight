@@ -185,7 +185,7 @@ const LINEAR = {
         when: '${{ body.type == "Issue" }}',
         raise: {
           happening: 'linear.issue.completed',
-          spoken: false,
+          answers: false,
           marks: [
             {
               kind: 'linear.issue',

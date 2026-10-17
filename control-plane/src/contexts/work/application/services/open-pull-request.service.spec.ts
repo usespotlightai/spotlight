@@ -319,7 +319,7 @@ describe('OpenPullRequest', () => {
   it('records it on the task as it is when GitHub answers, not as it was read before', async () => {
     const { open, saved } = opening({
       meanwhile: (task) =>
-        task.heard({
+        task.addMessage({
           station: StationName.of('Backlog'),
           body: TaskNoteBody.of('One more thing.'),
           at: NOW,

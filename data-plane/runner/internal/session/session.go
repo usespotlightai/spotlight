@@ -20,7 +20,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/account"
 	"usespotlight.ai/data-plane/runner/internal/acp"
-	"usespotlight.ai/data-plane/runner/internal/declare"
+	"usespotlight.ai/data-plane/runner/internal/agentapi"
 	"usespotlight.ai/data-plane/runner/internal/gitproxy"
 	"usespotlight.ai/data-plane/runner/internal/otel"
 	"usespotlight.ai/data-plane/runner/internal/prepare"
@@ -37,7 +37,7 @@ type Journal interface {
 	Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error)
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
 	DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error
-	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
+	ReplyToReviewComment(ctx context.Context, runID string, reply protocol.ReviewCommentReply) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	History(ctx context.Context, runID string, asked protocol.HistoryRequest) (json.RawMessage, error)
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
@@ -46,8 +46,8 @@ type Journal interface {
 	ProposeCandidate(ctx context.Context, runID string, proposal protocol.CandidateProposal) (json.RawMessage, error)
 	RecordCause(ctx context.Context, runID string, record protocol.CauseRecord) (json.RawMessage, error)
 	MemoryFiles(ctx context.Context, runID string) ([]protocol.MemoryFile, error)
-	Said(ctx context.Context, runID string) ([]protocol.Said, error)
-	Delivered(ctx context.Context, runID string, upTo int) error
+	Messages(ctx context.Context, runID string) ([]protocol.Message, error)
+	AckMessages(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
 	AskPermission(ctx context.Context, runID string, asked protocol.PermissionAsked) (protocol.PermissionAnswer, error)
 	WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
@@ -111,7 +111,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	if err := space.Remove(workspace.OutcomePath); err != nil {
+	if err := space.Remove(workspace.HandoverPath); err != nil {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear an earlier run's outcome: %w", err))
 	}
 
@@ -196,17 +196,17 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
 	keeper.recordBaseline()
 
-	channel, err := declare.Serve(
+	channel, err := agentapi.Serve(
 		run.Spec.Handover.Options,
 		run.Spec.Handover.NoteLimit,
-		func(ctx context.Context, said protocol.Remark) error {
+		func(ctx context.Context, reply protocol.ReviewCommentReply) error {
 			if replays(run) {
-				return keptFromReplays("answer a remark")
+				return keptFromReplays("reply to a review comment")
 			}
 			if searches(run) {
-				return keptFromSearches("answer a remark")
+				return keptFromSearches("reply to a review comment")
 			}
-			return opts.Journal.AnswerRemark(ctx, run.ID, said)
+			return opts.Journal.ReplyToReviewComment(ctx, run.ID, reply)
 		},
 	)
 	if err != nil {
@@ -330,11 +330,11 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		control:   opts.Journal,
 		keeper:    keeper,
 		lifecycle: lifecycle,
-		declared: func() *protocol.Outcome {
-			if declared := channel.Take(); declared != nil {
-				return declared
+		takeHandover: func() *protocol.Handover {
+			if handover := channel.TakeHandover(); handover != nil {
+				return handover
 			}
-			return space.TakeOutcome()
+			return space.TakeHandover()
 		},
 		attached: func(ctx context.Context, attachment protocol.Attachment) error {
 			return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
@@ -385,7 +385,7 @@ func replays(run protocol.Run) bool {
 }
 
 func keptFromReplays(what string) error {
-	return &declare.Error{Because: "a replay may not " + what + ": it has no effect outside Spotlight"}
+	return &agentapi.Error{Because: "a replay may not " + what + ": it has no effect outside Spotlight"}
 }
 
 func searches(run protocol.Run) bool {
@@ -393,7 +393,7 @@ func searches(run protocol.Run) bool {
 }
 
 func keptFromSearches(what string) error {
-	return &declare.Error{Because: "a search may not " + what + ": it studies the station's history and proposes station configs, nothing more"}
+	return &agentapi.Error{Because: "a search may not " + what + ": it studies the station's history and proposes station configs, nothing more"}
 }
 
 func (o Options) heartbeat() time.Duration {
@@ -706,11 +706,11 @@ func failed(
 	}
 
 	telemetry.Report(cause, telemetry.Tags{"run": runID})
-	saying := failureOf(cause, beforeHandover)
+	message := failureOf(cause, beforeHandover)
 
 	journal.append(protocol.Event{
 		Type:    protocol.EventFailed,
-		Message: saying,
+		Message: message,
 	})
 	journal.flush(ctx)
 
@@ -718,7 +718,7 @@ func failed(
 		ExitCode:   -1,
 		Failed:     true,
 		Unprepared: beforeHandover,
-		Message:    saying,
+		Message:    message,
 	}); err != nil {
 		log.Warn("could not report the failure", "error", err)
 	}
@@ -862,7 +862,7 @@ func checkedOutPaths(dir string, checkouts []protocol.Checkout, asked []string) 
 	for _, raw := range asked {
 		found, ok := checkedOutPath(roots, checkouts, raw)
 		if !ok {
-			return nil, &declare.Error{Because: fmt.Sprintf(
+			return nil, &agentapi.Error{Because: fmt.Sprintf(
 				"%s is outside the repositories this run checked out; name a path inside %s",
 				raw, checkoutDirs(dir, checkouts),
 			)}
@@ -930,7 +930,7 @@ func reachingAPI(spec protocol.Spec, controlPlane string) map[string]string {
 }
 
 func granted(
-	env map[string]string, channel *declare.Server, state, telemetry string, api map[string]string,
+	env map[string]string, channel *agentapi.Server, state, telemetry string, api map[string]string,
 ) map[string]string {
 	places := map[string]string{StateVar: state, TelemetryVar: telemetry}
 
@@ -940,8 +940,8 @@ func granted(
 	}
 
 	maps.Copy(granted, api)
-	granted[protocol.HandoverURLVar] = channel.URL()
-	granted[protocol.HandoverTokenVar] = channel.Token()
+	granted[protocol.AgentAPIURLVar] = channel.URL()
+	granted[protocol.AgentAPITokenVar] = channel.Token()
 	granted[StateVar] = state
 
 	return granted

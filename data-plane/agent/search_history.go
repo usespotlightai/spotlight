@@ -206,10 +206,10 @@ func indented(raw json.RawMessage) (string, error) {
 	return out.String() + "\n", nil
 }
 
-func nonNil(said []string) []string {
-	if said == nil {
+func nonNil(values []string) []string {
+	if values == nil {
 		return []string{}
 	}
 
-	return said
+	return values
 }

@@ -12,7 +12,6 @@ import { PULL_REQUESTS } from '@github/application/ports/pull-request.port';
 import { PULL_REQUEST_COMMENTS } from '@github/application/ports/pull-request-comments.port';
 import { PULL_REQUEST_REACTIONS } from '@github/application/ports/pull-request-reactions.port';
 import { PULL_REQUEST_REVIEWS } from '@github/application/ports/pull-request-reviews.port';
-import { REMARKS } from '@github/application/ports/remarks.port';
 import {
   REPOSITORY_ACCESS,
   RepositoryAccessPort,
@@ -20,6 +19,7 @@ import {
 import { REPOSITORY_CATALOG } from '@github/application/ports/repository-catalog.port';
 import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
 import { REPOSITORY_GIT } from '@github/application/ports/repository-git.port';
+import { REVIEW_COMMENTS } from '@github/application/ports/review-comments.port';
 import {
   WEBHOOK_SIGNATURE,
   type WebhookSignaturePort,
@@ -46,9 +46,9 @@ import { GitHubPullRequestComments } from '@github/infrastructure/github/github-
 import { GitHubPullRequestReactions } from '@github/infrastructure/github/github-pull-request-reactions';
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';
 import { GitHubPullRequests } from '@github/infrastructure/github/github-pull-requests';
-import { GitHubRemarks } from '@github/infrastructure/github/github-remarks';
 import { GitHubRepositoryCatalog } from '@github/infrastructure/github/github-repository.catalog';
 import { GitHubRepositoryContents } from '@github/infrastructure/github/github-repository-contents';
+import { GitHubReviewComments } from '@github/infrastructure/github/github-review-comments';
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
 import { DrizzleGitHubConnections } from '@github/infrastructure/persistence/drizzle/repositories/github-connection.repository';
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
@@ -253,9 +253,10 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: REMARKS,
+    provide: REVIEW_COMMENTS,
     inject: [REPOSITORY_ACCESS],
-    useFactory: (access: RepositoryAccessPort) => new GitHubRemarks(access),
+    useFactory: (access: RepositoryAccessPort) =>
+      new GitHubReviewComments(access),
   },
 
   {

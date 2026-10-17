@@ -158,7 +158,7 @@ const carriedOn = "task-task_1"
 func TestKeepsTheWorkspaceForTheNextRunInAFreshSandbox(t *testing.T) {
 	kept := newKeptArchives(t)
 
-	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"),
+	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn}
@@ -168,13 +168,13 @@ func TestKeepsTheWorkspaceForTheNextRunInAFreshSandbox(t *testing.T) {
 		t.Fatalf("the first run said %q about keeping its workspace", got)
 	}
 
-	second := run(t, harness(t, `said = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
+	second := run(t, harness(t, `output = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
 		})
 
-	if got := said(t, second); got != "halfway" {
+	if got := agentOutput(t, second); got != "halfway" {
 		t.Errorf("the next run found %q in the workspace", got)
 	}
 	if got := step(t, second, "restore"); !strings.HasPrefix(got, "Restored the workspace") {
@@ -189,15 +189,15 @@ func TestRestoresTheWorkspaceForARunThatStartsItsConversationAfresh(t *testing.T
 		o.continuity = protocol.Continuity{Key: carriedOn}
 	}
 
-	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"), carrying)
+	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"), carrying)
 
 	if got := step(t, first, "restore"); got != "" {
 		t.Errorf("a run with nothing kept before it said %q about restoring", got)
 	}
 
-	second := run(t, harness(t, `said = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"), carrying)
+	second := run(t, harness(t, `output = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"), carrying)
 
-	if got := said(t, second); got != "halfway" {
+	if got := agentOutput(t, second); got != "halfway" {
 		t.Errorf("the next station's run found %q in the workspace", got)
 	}
 	if got := step(t, second, "restore"); !strings.HasPrefix(got, "Restored the workspace") {
@@ -212,8 +212,8 @@ func TestCoalescesAWorkspaceNothingChangedIn(t *testing.T) {
 		o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
 	}
 
-	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"), continuing)
-	second := run(t, harness(t, `said = "looked";`, "end_turn"), continuing)
+	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"), continuing)
+	second := run(t, harness(t, `output = "looked";`, "end_turn"), continuing)
 
 	if got := step(t, second, "archive"); !strings.HasPrefix(got, "Coalesced") {
 		t.Errorf("a run that changed nothing said %q about keeping its workspace", got)
@@ -224,7 +224,7 @@ func TestCoalescesAWorkspaceNothingChangedIn(t *testing.T) {
 }
 
 func TestSkipsKeepingAWorkspaceWithNowhereToKeepIt(t *testing.T) {
-	written := run(t, harness(t, `said = "worked";`, "end_turn"), func(o *runOptions) {
+	written := run(t, harness(t, `output = "worked";`, "end_turn"), func(o *runOptions) {
 		o.continuity = protocol.Continuity{Key: carriedOn}
 	})
 
@@ -239,7 +239,7 @@ func TestSkipsKeepingAWorkspaceWithNowhereToKeepIt(t *testing.T) {
 func TestRestoresOverWhatTheImageLaidDown(t *testing.T) {
 	kept := newKeptArchives(t)
 
-	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"),
+	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn}
@@ -253,14 +253,14 @@ func TestRestoresOverWhatTheImageLaidDown(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	second := run(t, harness(t, `said = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
+	second := run(t, harness(t, `output = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
 		func(o *runOptions) {
 			o.root = baked
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
 		})
 
-	if got := said(t, second); got != "halfway" {
+	if got := agentOutput(t, second); got != "halfway" {
 		t.Errorf("the next run found %q in the workspace", got)
 	}
 	if _, err := os.Stat(filepath.Join(baked, "stale.md")); !os.IsNotExist(err) {
@@ -271,7 +271,7 @@ func TestRestoresOverWhatTheImageLaidDown(t *testing.T) {
 func TestStartsAfreshFromAnArchiveThatIsNotTheOneKept(t *testing.T) {
 	kept := newKeptArchives(t)
 
-	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"),
+	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn}
@@ -279,14 +279,14 @@ func TestStartsAfreshFromAnArchiveThatIsNotTheOneKept(t *testing.T) {
 
 	kept.spoil = true
 	root := t.TempDir()
-	second := run(t, harness(t, `said = require("node:fs").existsSync("notes.md") ? "restored" : "afresh";`, "end_turn"),
+	second := run(t, harness(t, `output = require("node:fs").existsSync("notes.md") ? "restored" : "afresh";`, "end_turn"),
 		func(o *runOptions) {
 			o.root = root
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
 		})
 
-	if got := said(t, second); got != "afresh" {
+	if got := agentOutput(t, second); got != "afresh" {
 		t.Errorf("the run found the workspace %s", got)
 	}
 	if got := step(t, second, "restore"); !strings.HasPrefix(got, "Started afresh") {
@@ -301,7 +301,7 @@ func TestRenewsTheLeaseWhileItKeepsTheWorkspace(t *testing.T) {
 	kept := newKeptArchives(t)
 	kept.slow = 5 * time.Second
 
-	written := run(t, harness(t, `said = "worked";`, "end_turn"), func(o *runOptions) {
+	written := run(t, harness(t, `output = "worked";`, "end_turn"), func(o *runOptions) {
 		o.archives = kept
 		o.continuity = protocol.Continuity{Key: carriedOn}
 		o.stopAfter = 1
@@ -326,8 +326,8 @@ func TestSaysWhereATaskRunStartedFromTheArchiveItRestored(t *testing.T) {
 		o.starting = true
 	}
 
-	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"), reporting)
-	second := run(t, harness(t, `said = "read";`, "end_turn"), reporting)
+	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"), reporting)
+	second := run(t, harness(t, `output = "read";`, "end_turn"), reporting)
 
 	if len(first.starts) != 1 || first.starts[0].ArchiveID != nil {
 		t.Errorf("the first run said it started from %+v, want no archive", first.starts)
@@ -341,7 +341,7 @@ func TestSaysWhereATaskRunStartedFromTheArchiveItRestored(t *testing.T) {
 }
 
 func TestSaysNothingOfWhereARunStartedUnlessAsked(t *testing.T) {
-	written := run(t, harness(t, `said = "worked";`, "end_turn"))
+	written := run(t, harness(t, `output = "worked";`, "end_turn"))
 
 	if len(written.starts) != 0 {
 		t.Errorf("a run not asked said it started from %+v", written.starts)
@@ -349,7 +349,7 @@ func TestSaysNothingOfWhereARunStartedUnlessAsked(t *testing.T) {
 }
 
 func TestRunsOnWhenWhereItStartedCannotBeRecorded(t *testing.T) {
-	written := run(t, harness(t, `said = "worked";`, "end_turn"), func(o *runOptions) {
+	written := run(t, harness(t, `output = "worked";`, "end_turn"), func(o *runOptions) {
 		o.starting = true
 		o.startErr = errors.New("409 Conflict: a run records where it started only when it works a task")
 	})
@@ -360,7 +360,7 @@ func TestRunsOnWhenWhereItStartedCannotBeRecorded(t *testing.T) {
 	if written.done == nil || written.done.Failed {
 		t.Errorf("a start it could not record failed the run: %+v", written.done)
 	}
-	if got := said(t, written); got != "worked" {
-		t.Errorf("heard %q", got)
+	if got := agentOutput(t, written); got != "worked" {
+		t.Errorf("output %q", got)
 	}
 }

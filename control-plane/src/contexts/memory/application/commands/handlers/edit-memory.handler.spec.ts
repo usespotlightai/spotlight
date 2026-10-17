@@ -47,7 +47,7 @@ const editing = (member = true) => {
   const work = {
     linesOf: async () => [],
     reasoning: async () => null,
-    spokenOn: async () => null,
+    notesOf: async () => null,
   } as unknown as WorkPort;
   const people = {
     memberOf: async () => (member ? { workspaceId: WORKSPACE, by: ADA } : null),

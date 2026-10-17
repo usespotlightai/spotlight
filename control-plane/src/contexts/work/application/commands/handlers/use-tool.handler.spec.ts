@@ -696,7 +696,7 @@ describe('UseToolHandler', () => {
     expect(current().working).toBe(false);
   });
 
-  it('keeps what the agent said it wants to do on the ask, apart from what the tool takes', async () => {
+  it('keeps the intent of the agent on the ask, apart from what the tool takes', async () => {
     const { reach, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
     });

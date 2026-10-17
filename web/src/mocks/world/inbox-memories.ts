@@ -5,7 +5,7 @@ import type {
 import { minutesAfter, runEnded } from '@/mocks/world/inbox-places';
 import { MAYA, TOM } from '@/mocks/world/people';
 import {
-  DISK_DUMPS_SAID,
+  DISK_DUMPS_MESSAGE,
   DRAIN_ANSWER,
   GONE_REMEMBER,
   GONE_THOUGHT,
@@ -119,7 +119,7 @@ export const seedMemoryReviews = (): Record<
         paths: ['terraform/workers/eu-west-1.tf'],
         body: 'Workers in eu-west-1 write core dumps to /var/crash; clear them before resizing a disk, or the resize fills up again within a day.',
         decision: decidedByTom(70),
-        steps: [groundStep(DISK_RUN_ID, DISK_DUMPS_SAID)],
+        steps: [groundStep(DISK_RUN_ID, DISK_DUMPS_MESSAGE)],
       }),
       proposed({
         id: 'memory_disk_size',

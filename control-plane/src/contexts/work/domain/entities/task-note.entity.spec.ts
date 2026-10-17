@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-31T10:00:00.000Z');
 
-const said = (over: Record<string, unknown> = {}) =>
+const aNote = (over: Record<string, unknown> = {}) =>
   TaskNote.of({
     position: NotePosition.of(0),
     voice: Voice.station(),
@@ -21,34 +21,38 @@ const said = (over: Record<string, unknown> = {}) =>
 
 describe('TaskNote', () => {
   it('is the same note wherever it is in the trail, however it has changed', () => {
-    const note = said({ kind: 'asked' });
+    const note = aNote({ kind: 'asked' });
 
     expect(note.read(NOW).equals(note)).toBe(true);
-    expect(note.equals(said({ position: NotePosition.of(1) }))).toBe(false);
+    expect(note.equals(aNote({ position: NotePosition.of(1) }))).toBe(false);
   });
 
-  it('carries who spoke, whole', () => {
-    const note = said({ voice: Voice.person(UserId.of('user_1')) });
+  it('carries who wrote it, whole', () => {
+    const note = aNote({ voice: Voice.person(UserId.of('user_1')) });
 
     expect(note.voice.isPerson).toBe(true);
     expect(note.voice.author?.value).toBe('user_1');
   });
 
-  it('waits to be delivered where somebody said something', () => {
-    expect(said({ kind: 'said', voice: Voice.world() }).undelivered).toBe(true);
-    expect(said({ kind: 'passed' }).undelivered).toBe(false);
+  it('waits to be acknowledged where it is a message', () => {
+    expect(
+      aNote({ kind: 'message', voice: Voice.world() }).unacknowledged,
+    ).toBe(true);
+    expect(aNote({ kind: 'passed' }).unacknowledged).toBe(false);
   });
 
-  it('is delivered once, and stays so', () => {
-    const handed = said({ kind: 'said', voice: Voice.world() }).delivered(NOW);
+  it('is acknowledged once, and stays so', () => {
+    const handed = aNote({ kind: 'message', voice: Voice.world() }).acknowledge(
+      NOW,
+    );
 
-    expect(handed.undelivered).toBe(false);
-    expect(handed.delivered(new Date()).deliveredAt).toEqual(NOW);
+    expect(handed.unacknowledged).toBe(false);
+    expect(handed.acknowledge(new Date()).acknowledgedAt).toEqual(NOW);
   });
 
   it('is unread only while a person has been asked something', () => {
-    expect(said({ kind: 'asked' }).unread).toBe(true);
-    expect(said({ kind: 'asked' }).read(NOW).unread).toBe(false);
-    expect(said({ kind: 'passed' }).unread).toBe(false);
+    expect(aNote({ kind: 'asked' }).unread).toBe(true);
+    expect(aNote({ kind: 'asked' }).read(NOW).unread).toBe(false);
+    expect(aNote({ kind: 'passed' }).unread).toBe(false);
   });
 });

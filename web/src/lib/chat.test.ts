@@ -12,7 +12,7 @@ import type { JournalStep, RunJournal } from '@/lib/inbox';
 
 const message = (over: Partial<ChatMessage>): ChatMessage => ({
   position: 0,
-  kind: 'said',
+  kind: 'message',
   body: 'Plan how retries back off.',
   at: '2026-09-14T09:00:00.000Z',
   author: null,
@@ -49,7 +49,7 @@ describe('momentsOf', () => {
         message({}),
         message({
           position: 1,
-          kind: 'said',
+          kind: 'message',
           body: 'Split it up.',
           at: '2026-09-14T09:00:05.000Z',
         }),
@@ -58,12 +58,12 @@ describe('momentsOf', () => {
         journal([
           step({ startedAt: '2026-09-14T09:00:01.000Z' }),
           step({
-            kind: 'said',
+            kind: 'message',
             text: 'Retries double.',
             startedAt: '2026-09-14T09:00:02.000Z',
           }),
           step({
-            kind: 'said',
+            kind: 'message',
             text: 'Two tasks, then.',
             startedAt: '2026-09-14T09:00:06.000Z',
           }),
@@ -72,10 +72,10 @@ describe('momentsOf', () => {
     );
 
     expect(moments.map((each) => each.kind)).toEqual([
-      'said',
+      'message',
       'worked',
       'answered',
-      'said',
+      'message',
       'answered',
     ]);
   });
@@ -95,10 +95,10 @@ describe('momentsOf', () => {
       ],
     );
 
-    expect(moments.map((each) => each.kind)).toEqual(['said', 'worked']);
+    expect(moments.map((each) => each.kind)).toEqual(['message', 'worked']);
   });
 
-  it('gathers the agent’s work between what it says into one group', () => {
+  it('gathers the agent’s work between its messages into one group', () => {
     const moments = momentsOf(
       [],
       [
@@ -106,7 +106,7 @@ describe('momentsOf', () => {
           step({ startedAt: '2026-09-14T09:00:01.000Z' }),
           step({ tool: 'grep', startedAt: '2026-09-14T09:00:02.000Z' }),
           step({
-            kind: 'said',
+            kind: 'message',
             text: 'Found it.',
             startedAt: '2026-09-14T09:00:03.000Z',
           }),
@@ -120,7 +120,7 @@ describe('momentsOf', () => {
     ).toEqual([2, 0, 1]);
   });
 
-  it('keeps a proposal as a proposal, not as something said', () => {
+  it('keeps a proposal as a proposal, not as a message', () => {
     const [moment] = momentsOf(
       [
         message({
@@ -149,7 +149,7 @@ describe('momentsOf', () => {
 });
 
 describe('turnsOf', () => {
-  it('opens a turn at everything the person says, with what followed it', () => {
+  it('opens a turn at each message of the person, with what followed it', () => {
     const turns = turnsOf(
       momentsOf(
         [
@@ -163,7 +163,7 @@ describe('turnsOf', () => {
         [
           journal([
             step({
-              kind: 'said',
+              kind: 'message',
               text: 'Retries double.',
               startedAt: '2026-09-14T09:00:02.000Z',
             }),
@@ -172,12 +172,12 @@ describe('turnsOf', () => {
       ),
     );
 
-    expect(turns.map((turn) => [turn.said?.body, turn.moments.length])).toEqual(
-      [
-        ['Plan how retries back off.', 1],
-        ['Split it up.', 0],
-      ],
-    );
+    expect(
+      turns.map((turn) => [turn.message?.body, turn.moments.length]),
+    ).toEqual([
+      ['Plan how retries back off.', 1],
+      ['Split it up.', 0],
+    ]);
   });
 });
 

@@ -290,7 +290,7 @@ describe('recalling what the team remembers from inside a run', () => {
               stationId: BUILD,
               repositories: [Repository.of('acme/api')],
             },
-            steps: [{ index: 1, kind: 'said', text: 'It timed out.' }],
+            steps: [{ index: 1, kind: 'message', text: 'It timed out.' }],
             notes: [],
             notesRead: 0,
             changed: [],

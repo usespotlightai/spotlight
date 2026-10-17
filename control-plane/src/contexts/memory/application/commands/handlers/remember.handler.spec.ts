@@ -56,7 +56,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
     reasoning: async () => [
       { index: 4, kind: 'remember', text: 'spotlight remember' },
     ],
-    spokenOn: async () => [],
+    notesOf: async () => [],
     harnessOf: async () => 'claude-code',
   } as unknown as WorkPort;
 

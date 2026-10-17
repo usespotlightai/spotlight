@@ -1,6 +1,6 @@
 import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.error';
+import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import type { Said } from '@work/domain/value-objects/said.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 
 export class TaskNoteBody {
@@ -16,19 +16,19 @@ export class TaskNoteBody {
     return new TaskNoteBody(trimmed);
   }
 
-  static heard(told: string, said: Said | null): TaskNoteBody {
-    const spoken = [said?.place, said?.body].filter(Boolean).join('\n');
+  static heard(summary: string, anchor: Anchor | null): TaskNoteBody {
+    const anchored = [anchor?.place, anchor?.body].filter(Boolean).join('\n');
 
-    return TaskNoteBody.of(spoken || told);
+    return TaskNoteBody.of(anchored || summary);
   }
 
   static deferredMove(
-    told: string,
-    said: Said | null,
+    summary: string,
+    anchor: Anchor | null,
     to: StationName,
   ): TaskNoteBody {
     return TaskNoteBody.of(
-      `Heard while a run worked on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${TaskNoteBody.heard(told, said).value}`,
+      `Heard while a run worked on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${TaskNoteBody.heard(summary, anchor).value}`,
     );
   }
 
@@ -41,27 +41,30 @@ export class TaskNoteBody {
     return TaskNoteBody.of(account ? `${moved}\n\n${account.value}` : moved);
   }
 
-  static interrupted(told: string, working: StationName | null): TaskNoteBody {
-    return TaskNoteBody.happenedWhile(told, working, 'was working');
+  static interrupted(
+    summary: string,
+    working: StationName | null,
+  ): TaskNoteBody {
+    return TaskNoteBody.happenedWhile(summary, working, 'was working');
   }
 
   static interruptedWhileWaiting(
-    told: string,
+    summary: string,
     waiting: StationName | null,
   ): TaskNoteBody {
     return TaskNoteBody.happenedWhile(
-      told,
+      summary,
       waiting,
       'was waiting for an answer',
     );
   }
 
   private static happenedWhile(
-    told: string,
+    summary: string,
     station: StationName | null,
     doing: string,
   ): TaskNoteBody {
-    const happened = TaskNoteBody.of(told).value.replace(/\.$/, '');
+    const happened = TaskNoteBody.of(summary).value.replace(/\.$/, '');
 
     return TaskNoteBody.of(
       `${happened} while ${station?.value ?? 'its station'} ${doing}. Close the task, or reply to carry on.`,
@@ -77,9 +80,9 @@ export class TaskNoteBody {
     return TaskNoteBody.of(raw.trim() || (names ? `Attached ${names}.` : ''));
   }
 
-  static fromHook(hook: string, said: string): TaskNoteBody {
+  static fromHook(hook: string, text: string): TaskNoteBody {
     return TaskNoteBody.of(
-      `From the hook ${hook}:\n\n${TaskNoteBody.of(said).value}`,
+      `From the hook ${hook}:\n\n${TaskNoteBody.of(text).value}`,
     );
   }
 

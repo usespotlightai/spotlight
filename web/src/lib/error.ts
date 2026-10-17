@@ -7,13 +7,13 @@ export function messageOf(
   }
 
   if (typeof thrown === 'object' && thrown !== null && 'message' in thrown) {
-    const said = (thrown as { message: unknown }).message;
+    const body = (thrown as { message: unknown }).message;
 
-    if (typeof said === 'string' && said.length > 0) {
-      return said;
+    if (typeof body === 'string' && body.length > 0) {
+      return body;
     }
-    if (Array.isArray(said) && typeof said[0] === 'string') {
-      return said[0];
+    if (Array.isArray(body) && typeof body[0] === 'string') {
+      return body[0];
     }
   }
 
@@ -29,9 +29,9 @@ export function messageOf(
 }
 
 const answered = (thrown: unknown, status: number): boolean => {
-  const said = thrown as { statusCode?: unknown; status?: unknown } | null;
+  const body = thrown as { statusCode?: unknown; status?: unknown } | null;
 
-  return said?.statusCode === status || said?.status === status;
+  return body?.statusCode === status || body?.status === status;
 };
 
 export const notFound = (thrown: unknown): boolean => answered(thrown, 404);

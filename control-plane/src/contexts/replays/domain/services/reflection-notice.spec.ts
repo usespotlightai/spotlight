@@ -1,4 +1,4 @@
-import { reflectionToTell } from '@replays/domain/services/reflection-notice';
+import { reflectionNotice } from '@replays/domain/services/reflection-notice';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import type { ReflectionOutcome } from '@replays/domain/value-objects/reflection-outcome';
@@ -47,31 +47,31 @@ const reflection = (
   });
 };
 
-describe('reflectionToTell', () => {
+describe('reflectionNotice', () => {
   it('tells of a reflection that ended its search, whatever it found, with why', () => {
-    expect(reflectionToTell(reflection([], 'no-failures'))).toEqual({
+    expect(reflectionNotice(reflection([], 'no-failures'))).toEqual({
       outcome: 'no-failures',
       endedSearch: true,
       looked: 0,
       fixes: [],
     });
     expect(
-      reflectionToTell(
+      reflectionNotice(
         reflection(['task', 'judge'], 'no-config-cause'),
       )?.fixes.map((each) => each.cause),
     ).toEqual(['task', 'judge']);
     expect(
-      reflectionToTell(reflection(['config'], 'out-of-budget'))?.endedSearch,
+      reflectionNotice(reflection(['config'], 'out-of-budget'))?.endedSearch,
     ).toBe(true);
   });
 
   it('tells of a search going on only for the fixes it found outside the config, and of nothing before it ended', () => {
-    expect(reflectionToTell(reflection(['config'], 'went-on'))).toBeNull();
+    expect(reflectionNotice(reflection(['config'], 'went-on'))).toBeNull();
     expect(
-      reflectionToTell(reflection(['config', 'check'], 'went-on'))?.fixes.map(
+      reflectionNotice(reflection(['config', 'check'], 'went-on'))?.fixes.map(
         (each) => each.cause,
       ),
     ).toEqual(['check']);
-    expect(reflectionToTell(reflection(['task'], null))).toBeNull();
+    expect(reflectionNotice(reflection(['task'], null))).toBeNull();
   });
 });

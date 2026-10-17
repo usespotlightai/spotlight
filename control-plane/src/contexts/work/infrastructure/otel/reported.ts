@@ -52,7 +52,7 @@ const plainly = (value: Record<string, unknown> | undefined): string | null => {
   return null;
 };
 
-const said = (span: Exported): SpanAttribute[] =>
+const attributesOf = (span: Exported): SpanAttribute[] =>
   (span.attributes ?? []).flatMap((each) => {
     const value = plainly(each?.value);
     return each?.key && value !== null ? [{ name: each.key, value }] : [];
@@ -90,7 +90,7 @@ export class Reported {
       startedAt: new Date(Number(from / NS_PER_MS)),
       ms: to === null ? 0 : Number((to - from) / NS_PER_MS),
       failed: isError(sent),
-      attributes: said(sent),
+      attributes: attributesOf(sent),
     });
   }
 

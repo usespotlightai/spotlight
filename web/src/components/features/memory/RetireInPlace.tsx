@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
+import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { NOTE_BOX, PersonNote } from '@/components/features/memory/PersonNote';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
@@ -63,7 +63,7 @@ export function RetireInPlace({
         name={me.name}
         about={<span className="text-muted-foreground">retiring this</span>}
       >
-        <SaidCard className={NOTE_BOX}>
+        <MessageCard className={NOTE_BOX}>
           <AutoGrowTextarea
             value={reason}
             onChange={(event) => setReason(event.target.value)}
@@ -73,7 +73,7 @@ export function RetireInPlace({
             maxLength={MAX_RETIRE_REASON}
             className="max-h-72 text-foreground text-sm leading-5"
           />
-        </SaidCard>
+        </MessageCard>
 
         <div className="flex items-center justify-end gap-2 pt-1">
           <PillButton type="button" onClick={onCancel}>

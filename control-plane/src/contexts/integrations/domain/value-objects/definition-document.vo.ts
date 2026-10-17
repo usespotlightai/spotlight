@@ -23,7 +23,7 @@ export class DefinitionDocument {
     );
   }
 
-  says(field: string, value: string): boolean {
+  hasValue(field: string, value: string): boolean {
     return this.fields[field] === value;
   }
 

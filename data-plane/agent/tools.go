@@ -14,7 +14,7 @@ import (
 )
 
 func reach() (string, string, error) {
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return "", "", fmt.Errorf("no run to reach for tools in: spotlight runs inside a Spotlight workspace")
 	}
@@ -28,7 +28,7 @@ func manifest() ([]protocol.ToolManifest, error) {
 		return nil, err
 	}
 
-	request, err := http.NewRequest(http.MethodGet, endpoint+strings.TrimSuffix(protocol.HandoverToolsPath, "/"), nil)
+	request, err := http.NewRequest(http.MethodGet, endpoint+strings.TrimSuffix(protocol.AgentAPIToolsPath, "/"), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -41,13 +41,13 @@ func manifest() ([]protocol.ToolManifest, error) {
 	defer response.Body.Close()
 
 	if response.StatusCode >= 300 {
-		said, _ := io.ReadAll(response.Body)
-		return nil, fmt.Errorf("%s", strings.TrimSpace(string(said)))
+		errorBody, _ := io.ReadAll(response.Body)
+		return nil, fmt.Errorf("%s", strings.TrimSpace(string(errorBody)))
 	}
 
 	var tools []protocol.ToolManifest
 	if err := json.NewDecoder(response.Body).Decode(&tools); err != nil {
-		return nil, fmt.Errorf("Spotlight said what tools there are unreadably: %w", err)
+		return nil, fmt.Errorf("Spotlight sent an unreadable tool list: %w", err)
 	}
 
 	return tools, nil
@@ -325,7 +325,7 @@ func useTool(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	answered, err := post(endpoint+protocol.HandoverToolsPath+tool.Name, token, asked)
+	answered, err := post(endpoint+protocol.AgentAPIToolsPath+tool.Name, token, asked)
 	if err != nil {
 		return err
 	}

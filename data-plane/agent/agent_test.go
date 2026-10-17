@@ -21,8 +21,8 @@ func inARun(t *testing.T) *channel {
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	return server
 }
@@ -36,13 +36,13 @@ func TestHandsOver(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	declared := server.Declared()
-	if declared == nil || declared.Next != "spec" || declared.Note != "the queue drains twice" {
-		t.Fatalf("got %+v", declared)
+	handover := server.Handover()
+	if handover == nil || handover.Next != "spec" || handover.Note != "the queue drains twice" {
+		t.Fatalf("got %+v", handover)
 	}
 
 	if !strings.Contains(out.String(), "spec") {
-		t.Fatalf("said nothing useful: %q", out)
+		t.Fatalf("wrote nothing useful: %q", out)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestTakesTheNoteFromStandardInput(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if note := server.Declared().Note; note != "first line\nsecond line" {
+	if note := server.Handover().Note; note != "first line\nsecond line" {
 		t.Fatalf("got %q", note)
 	}
 }
@@ -70,7 +70,7 @@ func TestReadsNoteFromStandardInputWhenNamed(t *testing.T) {
 				t.Fatalf("run: %v", err)
 			}
 
-			if note := server.Declared().Note; note != "the real note" {
+			if note := server.Handover().Note; note != "the real note" {
 				t.Fatalf("got %q", note)
 			}
 		})
@@ -102,8 +102,8 @@ func TestNextIsRequired(t *testing.T) {
 }
 
 func TestOutsideARunItSaysSo(t *testing.T) {
-	t.Setenv(protocol.HandoverURLVar, "")
-	t.Setenv(protocol.HandoverTokenVar, "")
+	t.Setenv(protocol.AgentAPIURLVar, "")
+	t.Setenv(protocol.AgentAPITokenVar, "")
 
 	err := run([]string{"handover", "--next", "spec"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "no run") {
@@ -130,13 +130,13 @@ func TestPuttingItToAPersonDoesNotSoundLikeAStation(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	said := out.String()
+	output := out.String()
 
-	if !strings.Contains(said, "person") {
-		t.Errorf("did not say who it went to: %q", said)
+	if !strings.Contains(output, "person") {
+		t.Errorf("did not say who it went to: %q", output)
 	}
-	if strings.Contains(said, "Passed to") {
-		t.Errorf("read as a station handover: %q", said)
+	if strings.Contains(output, "Passed to") {
+		t.Errorf("read as a station handover: %q", output)
 	}
 }
 
@@ -152,24 +152,24 @@ func TestClosingItInPlaceDoesNotSoundLikeAStation(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if declared := server.Declared(); declared == nil || declared.Next != "done" {
-		t.Fatalf("got %+v", declared)
+	if handover := server.Handover(); handover == nil || handover.Next != "done" {
+		t.Fatalf("got %+v", handover)
 	}
 
-	said := out.String()
+	output := out.String()
 
-	if !strings.Contains(said, "Closed at its current station") {
-		t.Errorf("did not say it was closed: %q", said)
+	if !strings.Contains(output, "Closed at its current station") {
+		t.Errorf("did not say it was closed: %q", output)
 	}
-	if strings.Contains(said, "Passed to") {
-		t.Errorf("read as a station handover: %q", said)
+	if strings.Contains(output, "Passed to") {
+		t.Errorf("read as a station handover: %q", output)
 	}
 }
 
-func TestRepliesToARemark(t *testing.T) {
-	var said protocol.Remark
-	server, err := serveHandover([]string{"spec"}, func(_ context.Context, spoken protocol.Remark) error {
-		said = spoken
+func TestRepliesToAReviewComment(t *testing.T) {
+	var replied protocol.ReviewCommentReply
+	server, err := serveHandover([]string{"spec"}, func(_ context.Context, reply protocol.ReviewCommentReply) error {
+		replied = reply
 		return nil
 	})
 	if err != nil {
@@ -177,8 +177,8 @@ func TestRepliesToARemark(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	out := new(bytes.Buffer)
 	args := []string{"reply", "--to", "c3", "--resolve"}
@@ -187,20 +187,20 @@ func TestRepliesToARemark(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if said.Handle != "c3" || said.Body != "Split out in 4a1c2b0." || !said.Resolve {
-		t.Fatalf("said = %+v", said)
+	if replied.Handle != "c3" || replied.Body != "Split out in 4a1c2b0." || !replied.Resolve {
+		t.Fatalf("replied = %+v", replied)
 	}
 	if !strings.Contains(out.String(), "resolved") {
-		t.Errorf("said %q, want that it resolved the thread", out.String())
+		t.Errorf("output %q, want that it resolved the thread", out.String())
 	}
 }
 
-func TestRejectsAReplyNamingNoRemark(t *testing.T) {
+func TestRejectsAReplyNamingNoReviewComment(t *testing.T) {
 	inARun(t)
 
 	err := run([]string{"reply", "--body", "x"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--to") {
-		t.Fatalf("err = %v, want it to ask which remark", err)
+		t.Fatalf("err = %v, want it to ask which review comment", err)
 	}
 }
 
@@ -247,7 +247,7 @@ func TestOpensAPullRequestThroughItsTool(t *testing.T) {
 		t.Fatalf("carried = %v", *carried)
 	}
 	if !strings.Contains(out.String(), `"url": "https://github.com/acme/widgets/pull/7"`) {
-		t.Errorf("said %q, want where it landed", out.String())
+		t.Errorf("output %q, want where it landed", out.String())
 	}
 }
 
@@ -266,8 +266,8 @@ func TestSaysWhyItCouldNotLookForATool(t *testing.T) {
 	}))
 	t.Cleanup(down.Close)
 
-	t.Setenv(protocol.HandoverURLVar, down.URL)
-	t.Setenv(protocol.HandoverTokenVar, "token")
+	t.Setenv(protocol.AgentAPIURLVar, down.URL)
+	t.Setenv(protocol.AgentAPITokenVar, "token")
 
 	err := run([]string{"pull-request", "--title", "Fix the queue"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "the run's tools are unavailable") {

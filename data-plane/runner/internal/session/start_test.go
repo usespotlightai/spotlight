@@ -11,12 +11,12 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-type toldStarts struct {
-	told []protocol.StartingPoint
+type recordedStarts struct {
+	points []protocol.StartingPoint
 }
 
-func (s *toldStarts) RecordStartingPoint(_ context.Context, _ string, point protocol.StartingPoint) error {
-	s.told = append(s.told, point)
+func (s *recordedStarts) RecordStartingPoint(_ context.Context, _ string, point protocol.StartingPoint) error {
+	s.points = append(s.points, point)
 	return nil
 }
 
@@ -42,26 +42,26 @@ func TestRecordsTheArchiveRestoredAndTheCommitEachCheckoutIsAt(t *testing.T) {
 	api := committed(t, dir, "api")
 	web := committed(t, dir, "web")
 
-	to := &toldStarts{}
+	to := &recordedStarts{}
 	run := protocol.Run{ID: "run_1", Attempt: 2, Spec: protocol.Spec{Checkouts: []protocol.Checkout{{Path: "api"}, {Path: "web"}}}}
 
 	if err := recordStart(context.Background(), to, run, dir, "archive_1"); err != nil {
 		t.Fatalf("record: %v", err)
 	}
 
-	if len(to.told) != 1 {
-		t.Fatalf("told %d starting points, want one", len(to.told))
+	if len(to.points) != 1 {
+		t.Fatalf("recorded %d starting points, want one", len(to.points))
 	}
-	told := to.told[0]
-	if told.Attempt != 2 {
-		t.Errorf("told attempt %d, want the attempt of the run", told.Attempt)
+	point := to.points[0]
+	if point.Attempt != 2 {
+		t.Errorf("recorded attempt %d, want the attempt of the run", point.Attempt)
 	}
-	if told.ArchiveID == nil || *told.ArchiveID != "archive_1" {
-		t.Errorf("told archive %v, want archive_1", told.ArchiveID)
+	if point.ArchiveID == nil || *point.ArchiveID != "archive_1" {
+		t.Errorf("recorded archive %v, want archive_1", point.ArchiveID)
 	}
 	want := []protocol.StartedCheckout{{Path: "api", Commit: api}, {Path: "web", Commit: web}}
-	if len(told.Checkouts) != 2 || told.Checkouts[0] != want[0] || told.Checkouts[1] != want[1] {
-		t.Errorf("told checkouts %+v, want %+v", told.Checkouts, want)
+	if len(point.Checkouts) != 2 || point.Checkouts[0] != want[0] || point.Checkouts[1] != want[1] {
+		t.Errorf("recorded checkouts %+v, want %+v", point.Checkouts, want)
 	}
 	if len(api) != 40 {
 		t.Errorf("a commit is named by %q, not its full SHA", api)
@@ -69,14 +69,14 @@ func TestRecordsTheArchiveRestoredAndTheCommitEachCheckoutIsAt(t *testing.T) {
 }
 
 func TestRecordsARunThatRestoredNothingAsStartingAfresh(t *testing.T) {
-	to := &toldStarts{}
+	to := &recordedStarts{}
 
 	if err := recordStart(context.Background(), to, protocol.Run{ID: "run_1"}, t.TempDir(), ""); err != nil {
 		t.Fatalf("record: %v", err)
 	}
 
-	if len(to.told) != 1 || to.told[0].ArchiveID != nil || len(to.told[0].Checkouts) != 0 {
-		t.Errorf("told %+v, want a start from no archive and no checkouts", to.told)
+	if len(to.points) != 1 || to.points[0].ArchiveID != nil || len(to.points[0].Checkouts) != 0 {
+		t.Errorf("recorded %+v, want a start from no archive and no checkouts", to.points)
 	}
 }
 
@@ -87,7 +87,7 @@ func TestTellsNothingWhenACheckoutHasNoCommitToName(t *testing.T) {
 
 	dir := t.TempDir()
 	committed(t, dir, "api")
-	to := &toldStarts{}
+	to := &recordedStarts{}
 	run := protocol.Run{ID: "run_1", Spec: protocol.Spec{Checkouts: []protocol.Checkout{{Path: "api"}, {Path: "missing"}}}}
 
 	err := recordStart(context.Background(), to, run, dir, "")
@@ -95,7 +95,7 @@ func TestTellsNothingWhenACheckoutHasNoCommitToName(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "missing") {
 		t.Errorf("recording a checkout that is not there said %v", err)
 	}
-	if len(to.told) != 0 {
-		t.Errorf("told %+v, want nothing", to.told)
+	if len(to.points) != 0 {
+		t.Errorf("recorded %+v, want nothing", to.points)
 	}
 }

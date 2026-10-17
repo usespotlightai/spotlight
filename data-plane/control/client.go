@@ -167,13 +167,13 @@ func (c *Client) AskPermission(
 	return out, nil
 }
 
-func (c *Client) AnswerRemark(
-	ctx context.Context, runID string, said protocol.Remark,
+func (c *Client) ReplyToReviewComment(
+	ctx context.Context, runID string, reply protocol.ReviewCommentReply,
 ) error {
-	path := "/api/runs/" + runID + "/remark"
+	path := "/api/runs/" + runID + "/review-comment-replies"
 
-	if err := c.do(ctx, http.MethodPost, path, said, nil); err != nil {
-		return fmt.Errorf("answer a remark: %w", err)
+	if err := c.do(ctx, http.MethodPost, path, reply, nil); err != nil {
+		return fmt.Errorf("reply to a review comment: %w", err)
 	}
 
 	return nil
@@ -375,25 +375,25 @@ func (c *Client) AnswerCall(ctx context.Context, id string, answer protocol.Host
 	return nil
 }
 
-func (c *Client) Said(ctx context.Context, runID string) ([]protocol.Said, error) {
+func (c *Client) Messages(ctx context.Context, runID string) ([]protocol.Message, error) {
 	path := fmt.Sprintf("/api/runs/%s/messages", url.PathEscape(runID))
 
-	var said []protocol.Said
-	if err := c.do(ctx, http.MethodGet, path, nil, &said); err != nil {
-		return nil, fmt.Errorf("read what was said: %w", err)
+	var messages []protocol.Message
+	if err := c.do(ctx, http.MethodGet, path, nil, &messages); err != nil {
+		return nil, fmt.Errorf("read the messages: %w", err)
 	}
 
-	return said, nil
+	return messages, nil
 }
 
-func (c *Client) Delivered(ctx context.Context, runID string, upTo int) error {
-	path := fmt.Sprintf("/api/runs/%s/messages/delivered", url.PathEscape(runID))
+func (c *Client) AckMessages(ctx context.Context, runID string, upTo int) error {
+	path := fmt.Sprintf("/api/runs/%s/messages/ack", url.PathEscape(runID))
 	body := struct {
 		UpTo int `json:"upTo"`
 	}{UpTo: upTo}
 
 	if err := c.do(ctx, http.MethodPost, path, body, nil); err != nil {
-		return fmt.Errorf("mark what was said delivered: %w", err)
+		return fmt.Errorf("acknowledge the messages: %w", err)
 	}
 
 	return nil
@@ -714,13 +714,13 @@ const (
 func rejection(method, path string, response *http.Response) error {
 	read, _ := io.ReadAll(io.LimitReader(response.Body, maxProblem))
 
-	var said struct {
+	var errorBody struct {
 		Reason  string                `json:"reason"`
 		Message json.RawMessage       `json:"message"`
 		Detail  string                `json:"detail"`
 		Errors  []protocol.FieldError `json:"errors"`
 	}
-	_ = json.Unmarshal(read, &said)
+	_ = json.Unmarshal(read, &errorBody)
 
 	detail := read
 	if len(detail) > maxDetail {
@@ -732,13 +732,13 @@ func rejection(method, path string, response *http.Response) error {
 		err = fmt.Errorf("%w: %w", ErrUnauthorized, err)
 	}
 
-	message := messageOf(said.Message)
+	message := messageOf(errorBody.Message)
 	if message == "" {
-		message = said.Detail
+		message = errorBody.Detail
 	}
 
 	return &ResponseError{
-		Status: response.StatusCode, Reason: said.Reason, Message: message, Errors: said.Errors, Err: err,
+		Status: response.StatusCode, Reason: errorBody.Reason, Message: message, Errors: errorBody.Errors, Err: err,
 	}
 }
 

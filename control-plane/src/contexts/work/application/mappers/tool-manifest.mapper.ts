@@ -2,7 +2,7 @@ import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/appro
 import type { ToolManifestShape } from '@work/application/contracts/run-spec.contract';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 
-const told = (declared: DeclaredTool): string =>
+const descriptionOf = (declared: DeclaredTool): string =>
   declared.approval
     ? [
         declared.description,
@@ -23,7 +23,7 @@ const INTENT = {
 
 export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
   name: declared.tool.called,
-  description: told(declared),
+  description: descriptionOf(declared),
   inputs: [
     ...declared.inputs.map((each) => ({
       name: each.name,

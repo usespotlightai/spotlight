@@ -35,7 +35,7 @@ import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo'
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import type { Declaration } from '@work/domain/value-objects/declaration.vo';
+import type { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import type { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
@@ -682,14 +682,14 @@ export class Run extends EventRecorder {
       at: now,
     });
     const wanted = [...this.spec.checkoutFolders].sort();
-    const told = point.paths;
+    const named = point.paths;
 
     if (
-      wanted.length !== told.length ||
-      wanted.some((each, at) => each !== told[at])
+      wanted.length !== named.length ||
+      wanted.some((each, at) => each !== named[at])
     ) {
       throw new InvalidStartingPointError(
-        `names the checkouts the run was given (${wanted.join(', ') || 'none'}), not ${told.join(', ') || 'none'}`,
+        `names the checkouts the run was given (${wanted.join(', ') || 'none'}), not ${named.join(', ') || 'none'}`,
       );
     }
 
@@ -705,7 +705,7 @@ export class Run extends EventRecorder {
   complete(
     by: RunnerId,
     outcome: RunOutcome,
-    said: HandoverReport = HandoverReport.none(),
+    report: HandoverReport = HandoverReport.none(),
   ): Run {
     this.requireLeasedBy(by, 'complete');
 
@@ -714,7 +714,7 @@ export class Run extends EventRecorder {
       outcome,
       leaseExpiresAt: null,
       askedAPerson:
-        this.askedAPerson || this.replayAsksAfter(outcome, said.declared),
+        this.askedAPerson || this.replayAsksAfter(outcome, report.handover),
     });
 
     ended.record(
@@ -724,8 +724,8 @@ export class Run extends EventRecorder {
         this.subject,
         outcome,
         by,
-        said.declared ?? null,
-        said.session ?? null,
+        report.handover ?? null,
+        report.session ?? null,
         this.attempt,
         ended.askedAPerson,
       ),
@@ -736,7 +736,7 @@ export class Run extends EventRecorder {
 
   private replayAsksAfter(
     outcome: RunOutcome,
-    declared: Declaration | null,
+    handover: Handover | null,
   ): boolean {
     const replay = this.spec.replay;
 
@@ -745,7 +745,7 @@ export class Run extends EventRecorder {
     }
 
     return !(
-      declared && replay.movesOnAfter.includes(declared.next.toLowerCase())
+      handover && replay.movesOnAfter.includes(handover.next.toLowerCase())
     );
   }
 
@@ -795,7 +795,7 @@ export class Run extends EventRecorder {
   paused(
     by: RunnerId,
     outcome: RunOutcome,
-    said: HandoverReport,
+    report: HandoverReport,
     now: Date,
   ): Run {
     this.requireWorkedBy(by, 'pause');
@@ -821,7 +821,7 @@ export class Run extends EventRecorder {
     const waiting = this.with({
       state: 'waiting',
       leaseExpiresAt: this.leaseFrom(now),
-      spec: this.spec.resumingIn(said.session),
+      spec: this.spec.resumingIn(report.session),
       outcome,
     });
 
@@ -832,8 +832,8 @@ export class Run extends EventRecorder {
         this.subject,
         by,
         outcome,
-        said.declared,
-        said.session,
+        report.handover,
+        report.session,
         this.attempt,
         now,
       ),
@@ -1044,7 +1044,7 @@ export class Run extends EventRecorder {
   deniedStart(by: RunnerId, reason: string): Run {
     this.requireWorkedBy(by, 'deny the start of');
 
-    return this.endedUnstarted(RunOutcome.refused([{ saying: reason }]));
+    return this.endedUnstarted(RunOutcome.refused([{ description: reason }]));
   }
 
   cancel(now: Date): Run {

@@ -75,7 +75,7 @@ export const askHandedOver = (state: unknown): string | null => {
 
 export type ChatMoment =
   | {
-      readonly kind: 'said';
+      readonly kind: 'message';
       readonly at: string;
       readonly message: ChatMessage;
     }
@@ -100,7 +100,7 @@ export const chatPath = (
   chatId: string,
 ): string => `${teamSectionPath(slug, teamId, 'agent')}/${chatId}`;
 
-const spoken = (message: ChatMessage): ChatMoment =>
+const momentOf = (message: ChatMessage): ChatMoment =>
   message.proposal
     ? {
         kind: 'proposed',
@@ -108,7 +108,7 @@ const spoken = (message: ChatMessage): ChatMoment =>
         message,
         proposal: message.proposal,
       }
-    : { kind: 'said', at: message.at, message };
+    : { kind: 'message', at: message.at, message };
 
 const finishedAt = (step: JournalStep): string =>
   new Date(Date.parse(step.startedAt) + step.ms).toISOString();
@@ -119,7 +119,7 @@ const worked = (journal: RunJournal): ChatMoment[] => {
   for (const step of journal.steps) {
     const last = cut[cut.length - 1];
 
-    if (step.kind === 'said') {
+    if (step.kind === 'message') {
       cut.push({ kind: 'answered', at: step.startedAt, text: step.text });
     } else if (last?.kind === 'worked') {
       cut[cut.length - 1] = { ...last, steps: [...last.steps, step] };
@@ -135,29 +135,29 @@ export const momentsOf = (
   messages: readonly ChatMessage[],
   journals: readonly RunJournal[],
 ): ChatMoment[] =>
-  [...messages.map(spoken), ...journals.flatMap(worked)].sort(
+  [...messages.map(momentOf), ...journals.flatMap(worked)].sort(
     (a, b) => Date.parse(a.at) - Date.parse(b.at),
   );
 
 export type ChatTurn = {
-  readonly said: ChatMessage | null;
+  readonly message: ChatMessage | null;
   readonly moments: readonly ChatMoment[];
 };
 
 export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
-  const cut: { said: ChatMessage | null; moments: ChatMoment[] }[] = [
-    { said: null, moments: [] },
+  const cut: { message: ChatMessage | null; moments: ChatMoment[] }[] = [
+    { message: null, moments: [] },
   ];
 
   for (const moment of moments) {
-    if (moment.kind === 'said') {
-      cut.push({ said: moment.message, moments: [] });
+    if (moment.kind === 'message') {
+      cut.push({ message: moment.message, moments: [] });
     } else {
       cut[cut.length - 1]?.moments.push(moment);
     }
   }
 
-  return cut.filter((turn) => turn.said || turn.moments.length > 0);
+  return cut.filter((turn) => turn.message || turn.moments.length > 0);
 };
 
 const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {

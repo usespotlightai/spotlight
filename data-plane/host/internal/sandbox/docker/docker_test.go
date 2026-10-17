@@ -200,8 +200,8 @@ func TestASandboxOnItsOwnNetworkReachesOnlyWhatJoinedIt(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if said, err := engine.Read(ctx, way, "/srv/index.html"); err != nil || string(said) != "reached\n" {
-		t.Errorf("read %q: %v", said, err)
+	if content, err := engine.Read(ctx, way, "/srv/index.html"); err != nil || string(content) != "reached\n" {
+		t.Errorf("read %q: %v", content, err)
 	}
 
 	id, err := engine.Start(ctx, sandbox.Spec{

@@ -59,7 +59,7 @@ describe('UpdateIntegrationHandler', () => {
     const [saved] = kept.save.mock.calls[0] as [IntegrationDefinition];
 
     expect(saved.version).toBe(3);
-    expect(saved.document.says('name', 'Linear')).toBe(true);
+    expect(saved.document.hasValue('name', 'Linear')).toBe(true);
   });
 
   it('rejects a change based on a version no longer current, naming the current one', async () => {

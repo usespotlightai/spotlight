@@ -139,7 +139,7 @@ const judgedAs = async (
         steps: [
           {
             index: 2,
-            kind: 'said',
+            kind: 'message',
             tool: null,
             text: 'Draining it in order.',
             given: null,

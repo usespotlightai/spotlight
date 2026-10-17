@@ -148,12 +148,12 @@ export class DeclaredTool {
       return { intent: null, rest: given };
     }
 
-    const { [APPROVAL_INTENT_INPUT]: said, ...rest } = given as Record<
+    const { [APPROVAL_INTENT_INPUT]: intent, ...rest } = given as Record<
       string,
       unknown
     >;
 
-    return { intent: ApprovalIntent.said(said), rest };
+    return { intent: ApprovalIntent.from(intent), rest };
   }
 
   callWith(inputs: ToolInputs): ToolCall {

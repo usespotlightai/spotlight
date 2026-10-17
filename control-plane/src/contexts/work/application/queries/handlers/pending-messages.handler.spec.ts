@@ -54,7 +54,7 @@ const reading = (run: Run = working()) =>
   );
 
 describe('PendingMessagesHandler', () => {
-  it('hands the runner that leases the run what was said to it, with where its files lie', async () => {
+  it('hands the runner that leases the run the messages sent to it, with where its files lie', async () => {
     const pending = await reading().execute(
       new PendingMessagesQuery('run_1', 'runner_1'),
     );

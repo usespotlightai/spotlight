@@ -5,6 +5,6 @@ export class TurnAsksAPersonQuery {
     readonly exitCode: number,
     readonly failed: boolean,
     readonly stopped: boolean,
-    readonly declared: { next?: string; note?: string } | null,
+    readonly handover: { next?: string; note?: string } | null,
   ) {}
 }

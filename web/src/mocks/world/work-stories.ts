@@ -1,8 +1,8 @@
 import type {
   InboxApprovalResponseDto,
   InboxFailureResponseDto,
-  InboxMessageResponseDto,
   JournalStepResponseDto,
+  NoteResponseDto,
   RunSpendResponseDto,
   StepChangeResponseDto,
   TaskPersonResponseDto,
@@ -21,8 +21,8 @@ export type StepScript = {
 };
 
 export type NoteScript = {
-  readonly kind: InboxMessageResponseDto['kind'];
-  readonly form?: InboxMessageResponseDto['form'];
+  readonly kind: NoteResponseDto['kind'];
+  readonly form?: NoteResponseDto['form'];
   readonly body: string;
   readonly author?: TaskPersonResponseDto;
   readonly failure?: InboxFailureResponseDto;
@@ -60,8 +60,8 @@ export const thought = (text: string, weight = 1): StepScript => ({
   weight,
 });
 
-export const said = (text: string, weight = 1): StepScript => ({
-  kind: 'said',
+export const messageStep = (text: string, weight = 1): StepScript => ({
+  kind: 'message',
   text,
   weight,
 });
@@ -255,10 +255,10 @@ export const GONE_REMEMBER =
 export const DRAIN_ANSWER =
   'Start with webhook-retries. Billing is still being reconciled, so leave it alone for now.';
 
-export const DISK_DUMPS_SAID =
+export const DISK_DUMPS_MESSAGE =
   '/var/crash contains 14 GB of core dumps from the image resizer, all from the last three days. Nothing rotates them.';
 
-export const PRICING_FLAG_SAID =
+export const PRICING_FLAG_MESSAGE =
   'Finance has not agreed the 20% annual discount yet, so the design keeps the toggle behind pricing_annual and shows monthly prices to everyone else.';
 
 export const SEARCH_SCAN_THOUGHT =
@@ -316,7 +316,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         3,
       ),
       read('src/http/public/routes.ts'),
-      said(
+      messageStep(
         'Reproduced: three partner tokens send up to 1,800 requests in the first minute after their nightly sync, and the dashboard slows for everyone. Nothing limits a token today.',
       ),
     ],
@@ -346,7 +346,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         '# Rate limits on the public API\n\n- 600 requests a minute per API key, bursts of 100\n- Over the limit: `429 Too Many Requests` with `Retry-After`\n- Dashboard sessions are not limited\n',
         3,
       ),
-      said(
+      messageStep(
         'The spec is in `docs/specs/rate-limits.md`. One question is open: per API key or per workspace.',
       ),
     ],
@@ -374,7 +374,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         '[{"name":"QUEUE_URL","value":"redis://queue:6379"}]',
         1,
       ),
-      said(
+      messageStep(
         'The worker came back on Friday without `RETRY_CONCURRENCY`, so it takes no jobs at all.',
       ),
     ],
@@ -404,7 +404,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         3,
       ),
       execute(GONE_REMEMBER, 'Proposed for the team to approve.', 1),
-      said('The spec is ready for review.'),
+      messageStep('The spec is ready for review.'),
     ],
     notes: [
       asked(
@@ -453,7 +453,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         2,
         'failed',
       ),
-      said(
+      messageStep(
         'The reconcile script cannot reach the billing database from the runner.',
       ),
     ],
@@ -477,7 +477,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         '8.13 returns `timestamptz` values with microseconds, so anything that compares stored timestamps as strings may change.',
       ),
-      said(
+      messageStep(
         'Spec: move pg from 8.7.3 to 8.13.1 and drop the pg-native binding, which breaks the Alpine image build.',
       ),
     ],
@@ -531,7 +531,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         PULL_431,
         1,
       ),
-      said(
+      messageStep(
         'Opened acme/api#431. All 412 tests pass. The migration rewrites `invoices.paid_at`, about 1.3M rows.',
       ),
     ],
@@ -555,7 +555,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         'One ALTER over 1.3M rows keeps an exclusive lock on invoices for the whole rewrite, about 40 seconds on the replica.',
       ),
-      said(
+      messageStep(
         'The migration rewrites 1.3M invoice rows under one lock. Everything else looks safe to merge.',
       ),
     ],
@@ -598,7 +598,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         'The migration builds the index concurrently, so it will not lock the table.',
       ),
-      said('acme/api#412 is ready to merge.'),
+      messageStep('acme/api#412 is ready to merge.'),
     ],
     notes: [
       asked(
@@ -625,7 +625,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         'The pool runs out under the 09:00 batch. Silencing the alert while the pool is resized stops the pages.',
         2,
       ),
-      said(
+      messageStep(
         'The payments API runs out of database connections during the 09:00 batch.',
       ),
     ],
@@ -672,8 +672,8 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         'Debug logging is still on in eu-west-1. At 9 GB a day it fills the disk within a week of every resize.',
       ),
-      said(DISK_DUMPS_SAID),
-      said(
+      messageStep(DISK_DUMPS_MESSAGE),
+      messageStep(
         'The worker logs grow 9 GB a day since debug logging was left on in eu-west-1.',
       ),
     ],
@@ -727,7 +727,9 @@ export const RUN_STORIES: Record<string, RunStory> = {
         '/dev/nvme1n1  100G   38G  62G  38% /var',
         1,
       ),
-      said('The eu-west-1 workers log at info again, and the disk is at 38%.'),
+      messageStep(
+        'The eu-west-1 workers log at info again, and the disk is at 38%.',
+      ),
     ],
     notes: [
       asked(
@@ -749,7 +751,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         'Most people stop at step four, inviting a teammate; a shorter list could move it to the end.',
       ),
-      said(
+      messageStep(
         'Designed the experiment: four steps instead of seven, measured by first projects within 24 hours.',
       ),
     ],
@@ -773,7 +775,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         '',
         '# Annual pricing toggle\n\n- Monthly by default; annual shows the monthly equivalent\n- Behind the `pricing_annual` flag\n- Metric: share of upgrades that pick annual\n',
       ),
-      said(PRICING_FLAG_SAID),
+      messageStep(PRICING_FLAG_MESSAGE),
     ],
     notes: [
       passed(
@@ -839,7 +841,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         'Only one signup in five says where it came from. One optional question on the welcome screen should not cost activation.',
       ),
-      said(
+      messageStep(
         'Designed the experiment: one optional question on the welcome screen, measured by how many signups answer it.',
       ),
     ],

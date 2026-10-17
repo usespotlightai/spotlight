@@ -111,8 +111,10 @@ const toMessage = (
       }),
     ),
     proposal: toProposal(row.proposal ?? null, position),
-    deliveredAt: row.deliveredAt,
-    deliveredTo: row.deliveredTo ? RunId.of(row.deliveredTo) : null,
+    acknowledgedAt: row.acknowledgedAt,
+    acknowledgedBy: row.acknowledgedByRunId
+      ? RunId.of(row.acknowledgedByRunId)
+      : null,
   });
 };
 
@@ -295,15 +297,15 @@ export class DrizzleChatRepository implements ChatRepository {
             teamId: each.teamId.value,
           })),
           proposal,
-          deliveredAt: message.deliveredAt,
-          deliveredTo: message.deliveredTo?.value ?? null,
+          acknowledgedAt: message.acknowledgedAt,
+          acknowledgedByRunId: message.acknowledgedBy?.value ?? null,
         })
         .onConflictDoUpdate({
           target: [chatMessage.chatId, chatMessage.position],
           set: {
             proposal,
-            deliveredAt: message.deliveredAt,
-            deliveredTo: message.deliveredTo?.value ?? null,
+            acknowledgedAt: message.acknowledgedAt,
+            acknowledgedByRunId: message.acknowledgedBy?.value ?? null,
           },
         });
 

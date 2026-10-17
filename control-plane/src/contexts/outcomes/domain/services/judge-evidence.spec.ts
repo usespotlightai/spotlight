@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 const stepOf = (index: number, text = `step ${index}`): JudgedStep => ({
   index,
-  kind: 'said',
+  kind: 'message',
   tool: null,
   text,
   given: null,
@@ -209,7 +209,7 @@ describe('JudgeEvidence', () => {
     const seen = evidence.seenFor(reasons);
 
     expect(seen.steps).toEqual([
-      { index: 7, kind: 'said', tool: null, text: 'step 7' },
+      { index: 7, kind: 'message', tool: null, text: 'step 7' },
     ]);
     expect(seen.hunks.map((each) => each.id)).toEqual(['api/src/uploads.ts#1']);
   });

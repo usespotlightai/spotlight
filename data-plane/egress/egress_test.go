@@ -156,7 +156,7 @@ func TestWritesTheCallsAnswerForTheHostAndWaitsToBeStopped(t *testing.T) {
 
 	select {
 	case err := <-done:
-		t.Fatalf("stopped before it was told to: %v", err)
+		t.Fatalf("stopped before a stop was requested: %v", err)
 	case <-time.After(50 * time.Millisecond):
 	}
 

@@ -59,7 +59,7 @@ const reason = () =>
 
 const seen = () =>
   SeenEvidence.of({
-    steps: [{ index: 4, kind: 'said', tool: null, text: 'Retrying.' }],
+    steps: [{ index: 4, kind: 'message', tool: null, text: 'Retrying.' }],
     hunks: [
       {
         id: 'api/src/uploads.ts#1',
@@ -227,7 +227,7 @@ describe('judgings, kept', () => {
           steps: [
             {
               index: 4,
-              kind: 'said',
+              kind: 'message',
               tool: null,
               text: 'Retrying.',
               given: null,

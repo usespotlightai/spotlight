@@ -12,7 +12,7 @@ describe('unread', () => {
     expect(unread({ kind: 'asked', readAt: at })).toBe(false);
   });
 
-  it('is nothing a station was told, read or not', () => {
+  it('is no note that passed or answered, read or not', () => {
     expect(unread({ kind: 'passed', readAt: null })).toBe(false);
     expect(unread({ kind: 'answered', readAt: null })).toBe(false);
   });

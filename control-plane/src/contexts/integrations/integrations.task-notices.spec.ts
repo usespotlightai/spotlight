@@ -101,7 +101,7 @@ const asked = (
   marks,
   waiting: {
     conversationId: 'task_1:1',
-    said: 'Which queue should I drain?',
+    body: 'Which queue should I drain?',
     awaitsApproval,
   },
 });

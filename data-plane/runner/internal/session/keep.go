@@ -68,7 +68,7 @@ func (k *keeper) restore(ctx context.Context) error {
 func (k *keeper) restored(ctx context.Context) {
 	stored, err := k.control.WorkspaceArchive(ctx, k.run.ID)
 	if err != nil {
-		k.say(restoreStep, "Started afresh: %v", err)
+		k.report(restoreStep, "Started afresh: %v", err)
 		return
 	}
 	if stored == nil {
@@ -76,11 +76,11 @@ func (k *keeper) restored(ctx context.Context) {
 	}
 
 	if err := k.unpacked(ctx, *stored); err != nil {
-		k.say(restoreStep, "Started afresh: %v", err)
+		k.report(restoreStep, "Started afresh: %v", err)
 		return
 	}
 
-	k.say(restoreStep, "Restored the workspace the last run left (%s)", sized(stored.Size))
+	k.report(restoreStep, "Restored the workspace the last run left (%s)", sized(stored.Size))
 }
 
 func (k *keeper) restoreReplayed(ctx context.Context) error {
@@ -110,7 +110,7 @@ func (k *keeper) restoredExactly(ctx context.Context, wanted string) error {
 		return fmt.Errorf("restore the archive the replay starts from: %w", err)
 	}
 
-	k.say(restoreStep, "Restored the workspace the replayed run started from (%s)", sized(stored.Size))
+	k.report(restoreStep, "Restored the workspace the replayed run started from (%s)", sized(stored.Size))
 	return nil
 }
 
@@ -160,9 +160,9 @@ func (k *keeper) keep(ctx context.Context) bool {
 
 	var sealed bool
 	k.leased(ctx, func(ctx context.Context) {
-		var said string
-		said, sealed = k.kept(ctx)
-		k.say(keepStep, "%s", said)
+		var summary string
+		summary, sealed = k.kept(ctx)
+		k.report(keepStep, "%s", summary)
 	})
 
 	return sealed
@@ -254,14 +254,14 @@ func (k *keeper) rebuilt(ctx context.Context) []string {
 	return ignored
 }
 
-func (k *keeper) say(step, format string, args ...any) {
-	said := fmt.Sprintf(format, args...)
+func (k *keeper) report(step, format string, args ...any) {
+	summary := fmt.Sprintf(format, args...)
 
-	k.log.Info("workspace "+step, "outcome", said)
+	k.log.Info("workspace "+step, "outcome", summary)
 	k.journal.append(protocol.Event{
 		Type:    protocol.EventOutput,
 		Message: step,
-		Data:    []byte(said),
+		Data:    []byte(summary),
 	})
 }
 

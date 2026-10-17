@@ -1,4 +1,4 @@
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
+import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { StationNameSkeleton } from '@/components/features/inbox/conversation/StationNameSkeleton';
 import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSkeleton';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
@@ -15,11 +15,11 @@ export function ConversationSkeleton() {
 
           <section className="flex flex-col">
             <div className={STICKY_AT_TOP}>
-              <SaidCard>
+              <MessageCard>
                 <StationNameSkeleton />
 
                 <SkeletonLine className="w-2/5 text-sm leading-6" />
-              </SaidCard>
+              </MessageCard>
             </div>
 
             <TurnsSkeleton />

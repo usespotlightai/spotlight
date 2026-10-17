@@ -62,7 +62,7 @@ const DateTick = ({
   </text>
 );
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -140,7 +140,7 @@ export function TraceVolume({
 
             <Tooltip
               {...cursor.tooltip}
-              content={<Said placement={cursor.placement} />}
+              content={<TipContent placement={cursor.placement} />}
               cursor={{ fill: 'var(--accent)' }}
             />
 

@@ -84,19 +84,19 @@ const OUTCOME_COUNTS: readonly [InviteOutcome['outcome'], string][] = [
   ['not-sent', 'not sent'],
 ];
 
-export const outcomesTold = (outcomes: readonly InviteOutcome[]): string =>
-  OUTCOME_COUNTS.flatMap(([outcome, told]) => {
+export const describeOutcomes = (outcomes: readonly InviteOutcome[]): string =>
+  OUTCOME_COUNTS.flatMap(([outcome, label]) => {
     const count = outcomes.filter((each) => each.outcome === outcome).length;
-    return count > 0 ? [`${count} ${told}`] : [];
+    return count > 0 ? [`${count} ${label}`] : [];
   }).join(' · ') || 'Invites';
 
-export const teamsTold = (teams: readonly TeamReferenceResponseDto[]) =>
+export const describeTeams = (teams: readonly TeamReferenceResponseDto[]) =>
   teams.length === 0 ? 'No team' : teams.map((each) => each.name).join(', ');
 
 export const inviterNamed = (name: string | null | undefined): string =>
   name ?? 'Someone who has left';
 
-export const invitedByTold = (name: string | null | undefined): string =>
+export const describeInviter = (name: string | null | undefined): string =>
   `Invited by ${name ?? 'someone who has left'}`;
 
 export const sameAddress = (one: string, other: string): boolean =>

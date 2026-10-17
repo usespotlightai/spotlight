@@ -31,7 +31,7 @@ import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
-import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
+import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunConversationDto } from '@work/application/dto/run-conversation.dto';
@@ -62,7 +62,7 @@ import {
   InboxAuthorResponseDto,
   InboxConnectionResponseDto,
   InboxFailureResponseDto,
-  InboxMessageResponseDto,
+  NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
@@ -72,7 +72,7 @@ import {
   RunConversationResponseDto,
   RunSpendResponseDto,
   RunStationResponseDto,
-  SayToRunRequestDto,
+  SendMessageRequestDto,
   TaskRunResponseDto,
   TeamRunResponseDto,
 } from '@work/presentation/http/dto/task-run.response.dto';
@@ -266,7 +266,7 @@ export class TaskController {
       found.working,
       found.notes.map(
         (note) =>
-          new InboxMessageResponseDto(
+          new NoteResponseDto(
             note.position,
             note.kind,
             note.form,
@@ -305,11 +305,11 @@ export class TaskController {
     );
   }
 
-  @Post('runs/:runId/say')
+  @Post('runs/:runId/messages')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'sayToRun',
-    summary: 'Say something to the agent working a run',
+    operationId: 'sendMessage',
+    summary: 'Send a message to the agent of a run',
   })
   @ApiParam({ name: 'runId', type: String })
   @ApiNoContentResponse({
@@ -320,13 +320,13 @@ export class TaskController {
   @ApiConflictResponse({
     description: 'The task has moved on from that station',
   })
-  async say(
+  async sendMessage(
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
-    @Body() body: SayToRunRequestDto,
+    @Body() body: SendMessageRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new SayToRunCommand(
+      new SendMessageCommand(
         runId,
         user.id,
         body.body ?? '',

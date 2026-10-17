@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-31T12:00:00.000Z');
 
-const said = (kind: TaskNoteKind, over: Record<string, unknown> = {}) =>
+const note = (kind: TaskNoteKind, over: Record<string, unknown> = {}) =>
   TaskNote.of({
     position: NotePosition.of(0),
     voice: Voice.station(),
@@ -33,15 +33,15 @@ const trail = (...notes: TaskNote[]) =>
 
 describe('Trail', () => {
   it('keeps the answer pending while nobody has given one', () => {
-    expect(trail(said('passed'), said('asked')).pending).toEqual({
+    expect(trail(note('passed'), note('asked')).pending).toEqual({
       from: 1,
       to: null,
     });
-    expect(trail(said('asked'), said('answered')).pending).toBeNull();
+    expect(trail(note('asked'), note('answered')).pending).toBeNull();
   });
 
-  it('keeps what was said in one conversation, whole', () => {
-    const whole = trail(said('passed'), said('asked'), said('answered'));
+  it('keeps the notes of one conversation, whole', () => {
+    const whole = trail(note('passed'), note('asked'), note('answered'));
 
     expect(whole.within({ value: 1 } as never)).toHaveLength(2);
     expect(whole.within({ value: 0 } as never)).toBeNull();
@@ -49,12 +49,12 @@ describe('Trail', () => {
 
   it('waits to hand a person’s word and the world’s to an agent', () => {
     const waiting = trail(
-      said('said', { voice: 'person', author: UserId.of('user_1') }),
-      said('said', { voice: 'world' }),
-      said('passed', { run: RunId.of('run_1') }),
+      note('message', { voice: 'person', author: UserId.of('user_1') }),
+      note('message', { voice: 'world' }),
+      note('passed', { run: RunId.of('run_1') }),
     );
 
-    expect(waiting.undelivered.map((each) => each.voice)).toEqual([
+    expect(waiting.unacknowledged.map((each) => each.voice)).toEqual([
       'person',
       'world',
     ]);

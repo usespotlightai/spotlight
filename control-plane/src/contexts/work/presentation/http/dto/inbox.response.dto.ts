@@ -222,7 +222,7 @@ export class InboxConnectionResponseDto {
   }
 }
 
-export class InboxMessageResponseDto {
+export class NoteResponseDto {
   @ApiProperty({ example: 0 })
   readonly position: number;
 
@@ -242,7 +242,7 @@ export class InboxMessageResponseDto {
   @ApiProperty({
     example: 'station',
     enum: [...NOTE_VOICES],
-    description: 'Who spoke: the station, a person, or the world outside it',
+    description: 'Who wrote it: the station, a person, or the world outside it',
   })
   readonly voice: string;
 
@@ -278,7 +278,7 @@ export class InboxMessageResponseDto {
   @ApiProperty({
     type: InboxAuthorResponseDto,
     nullable: true,
-    description: 'Absent where the station said it rather than a person',
+    description: 'Absent where the station wrote it rather than a person',
   })
   readonly author: InboxAuthorResponseDto | null;
 
@@ -467,8 +467,8 @@ export class InboxItemResponseDto {
   })
   readonly aside: InboxAsideResponseDto | null;
 
-  @ApiProperty({ type: InboxMessageResponseDto, isArray: true })
-  readonly notes: readonly InboxMessageResponseDto[];
+  @ApiProperty({ type: NoteResponseDto, isArray: true })
+  readonly notes: readonly NoteResponseDto[];
 
   constructor(
     id: string,
@@ -492,7 +492,7 @@ export class InboxItemResponseDto {
     briefing: string | null,
     failure: InboxFailureResponseDto | null,
     aside: InboxAsideResponseDto | null,
-    notes: readonly InboxMessageResponseDto[],
+    notes: readonly NoteResponseDto[],
   ) {
     this.id = id;
     this.taskId = taskId;
@@ -622,7 +622,7 @@ export class AnswerInboxItemRequestDto {
   @ApiProperty({
     example: 'Drain the queue before retrying, and cap it at 500.',
     description:
-      'What the person says back. It joins the task’s trail. May be empty where files are attached.',
+      'What the person writes back. It joins the task’s trail. May be empty where files are attached.',
   })
   readonly body!: string;
 

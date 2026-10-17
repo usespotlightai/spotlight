@@ -34,7 +34,7 @@ const FILLS: Record<Rounds, string> = {
 
 const THROUGHPUT = 'var(--chart-5)';
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -116,7 +116,7 @@ export function ReviewDepthOverTime({
                   />
                   <Tooltip
                     {...cursor.tooltip}
-                    content={<Said placement={cursor.placement} />}
+                    content={<TipContent placement={cursor.placement} />}
                     cursor={{ fill: 'var(--accent)' }}
                   />
                   {ROUNDS.map((rounds) => (

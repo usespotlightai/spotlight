@@ -167,7 +167,7 @@ const anOriginal = async (): Promise<Original> => {
         }),
       ],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
     briefedMemories: {
       briefed: [{ id: memoryId, handle: `M-${memoryHandle}` }],
@@ -326,7 +326,7 @@ const inboxHas = async (taskId: string): Promise<boolean> =>
 const finishing = (next: string) => ({
   exitCode: 0,
   failed: false,
-  outcome: { next, note: 'Done here.' },
+  handover: { next, note: 'Done here.' },
   sessionId: 'session_1',
   kept: true,
 });
@@ -528,21 +528,21 @@ describe('a replay claimed by a runner', () => {
       .expect(404);
   });
 
-  it('uses no tool, answers no remark, takes up nothing said, reads no trace, and remembers nothing', async () => {
+  it('uses no tool, replies to no review comment, acknowledges no message, reads no trace, and remembers nothing', async () => {
     const { original, replayId, token } = await aClaimedReplay();
 
     await runner(token)
       .post(`/api/runs/${replayId}/tools/linear.comment`, { body: 'hi' })
       .expect(403);
     await runner(token)
-      .post(`/api/runs/${replayId}/remark`, {
+      .post(`/api/runs/${replayId}/review-comment-replies`, {
         handle: 'R-1',
         body: 'Fixed.',
         resolve: true,
       })
       .expect(409);
     await runner(token)
-      .post(`/api/runs/${replayId}/messages/delivered`, { upTo: 0 })
+      .post(`/api/runs/${replayId}/messages/ack`, { upTo: 0 })
       .expect(409);
     await runner(token)
       .post(`/api/runs/${replayId}/memories`, {

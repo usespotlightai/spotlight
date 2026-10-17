@@ -11,11 +11,11 @@ const decided = (decision: ApprovalDecision | null): string =>
 
 export const ApprovalAnswered = {
   words(
-    said: string,
+    comment: string,
     decision: ApprovalDecision | null,
     changed: ToolCall | null,
   ): string {
-    const words = said.trim() ? said : decided(decision);
+    const words = comment.trim() ? comment : decided(decision);
 
     return changed
       ? [

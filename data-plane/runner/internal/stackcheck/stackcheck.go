@@ -95,7 +95,7 @@ func (o Options) renew(
 				stop, err := client.RenewCheckLease(ctx, check.RunID, check.StackID, check.Recheck)
 				switch {
 				case err == nil && stop:
-					o.Log.Info("told to stop checking a change stack", "stack", check.StackID)
+					o.Log.Info("a stop was requested, so the change stack check stops", "stack", check.StackID)
 					release(errNoLongerLeased)
 					return
 				case err != nil && control.CheckLeaseLost(err):

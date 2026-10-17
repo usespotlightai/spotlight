@@ -73,10 +73,12 @@ describe('what a run referred to under a folder', () => {
     ).toEqual([]);
   });
 
-  it('never reads what the agent said, only what its tools touched', () => {
+  it('never reads the messages of the agent, only what its tools touched', () => {
     expect(
       referencesUnder(
-        journal([{ kind: 'said', text: 'See .spotlight/memory/team/M-3.md' }]),
+        journal([
+          { kind: 'message', text: 'See .spotlight/memory/team/M-3.md' },
+        ]),
         '.spotlight/memory',
         /M-\d+\.md/,
       ),

@@ -79,7 +79,7 @@ const PAGE = 50;
 
 const LONGEST_PAGE = 200;
 
-const SET_SAYS = 'Replay set must be one of the station’s replay sets.';
+const SET_PROBLEM = 'Replay set must be one of the station’s replay sets.';
 
 interface Answerable {
   status(code: number): unknown;
@@ -154,7 +154,7 @@ export class SearchesController {
             teamId,
             lineId,
             stationId,
-            textAt(body, 'setId', SET_SAYS),
+            textAt(body, 'setId', SET_PROBLEM),
             searchBudgetIn(body),
             objectiveIn(body),
             principal,
@@ -207,7 +207,7 @@ export class SearchesController {
               teamId,
               lineId,
               stationId,
-              textAt(body, 'setId', SET_SAYS),
+              textAt(body, 'setId', SET_PROBLEM),
               searchAgentIn(body),
               searchBudgetIn(body),
               objectiveIn(body),

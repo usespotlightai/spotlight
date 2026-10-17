@@ -179,7 +179,7 @@ describe('briefing runs with what the team remembers', () => {
     expect(memories.map((each) => each.id)).not.toContain(byPath.id);
   });
 
-  it('reads back what a run was briefed with, in the order it was told, apart from what the cap cut, and counts the run as using them', async () => {
+  it('reads back what a run was briefed with, in the order of the briefing, apart from what the cap cut, and counts the run as using them', async () => {
     const runId = RunId.of(randomUUID());
     await app.get(DrizzleRunRepository).add(
       Run.enqueue({
@@ -280,7 +280,7 @@ describe('briefing runs with what the team remembers', () => {
               stationId: BUILD,
               repositories: [API],
             },
-            steps: [{ index: 1, kind: 'said', text: 'Said it.' }],
+            steps: [{ index: 1, kind: 'message', text: 'Sent it.' }],
             notes: [],
             notesRead: 0,
             changed: [],

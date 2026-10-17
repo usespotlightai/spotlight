@@ -15,7 +15,7 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { turnEnded } from '@work/domain/services/turn-end';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -56,26 +56,26 @@ export class CompleteRunHandler
             unprepared: command.unprepared,
             message: command.message,
           });
-      const declared =
-        command.declared && outcome.handsOver
+      const handover =
+        command.handover && outcome.handsOver
           ? await this.handingOver(
               runId,
               runnerId,
-              Declaration.of(command.declared),
+              Handover.of(command.handover),
             )
-          : command.declared
-            ? Declaration.of(command.declared)
+          : command.handover
+            ? Handover.of(command.handover)
             : null;
 
-      const said = HandoverReport.of({
-        declared,
+      const report = HandoverReport.of({
+        handover,
         session: command.sessionId
           ? HarnessSession.of(command.sessionId)
           : null,
       });
 
       return await this.retrying(() =>
-        this.ended(runId, runnerId, outcome, said, command.kept),
+        this.ended(runId, runnerId, outcome, report, command.kept),
       );
     } catch (error) {
       rethrowAsApplicationError(error);
@@ -151,8 +151,8 @@ export class CompleteRunHandler
   private async handingOver(
     runId: RunId,
     runnerId: RunnerId,
-    declared: Declaration,
-  ): Promise<Declaration> {
+    handover: Handover,
+  ): Promise<Handover> {
     const run = await this.runs.findById(runId);
 
     if (
@@ -162,23 +162,23 @@ export class CompleteRunHandler
       !run.wasWorkedBy(runnerId) ||
       run.pausedBy(runnerId)
     ) {
-      return declared;
+      return handover;
     }
 
     const hooked = await this.hookedTasks.of(run.taskId.value, run.id.value);
 
     if (!hooked) {
-      return declared;
+      return handover;
     }
 
     const verdict = await this.hooks.before(hooked, {
       on: 'handover.giving',
-      to: declared.next === '' ? null : declared.next,
-      note: declared.note,
+      to: handover.next === '' ? null : handover.next,
+      note: handover.note,
     });
 
     return verdict.kind === 'denied'
-      ? declared.sentToReview(verdict.reason)
-      : declared;
+      ? handover.sentToReview(verdict.reason)
+      : handover;
   }
 }

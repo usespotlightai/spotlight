@@ -59,7 +59,7 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return fmt.Errorf("no run to propose a candidate from: spotlight runs inside a Spotlight workspace")
 	}
@@ -71,7 +71,7 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	answered, err := proposeTo(strings.TrimSuffix(endpoint, "/")+protocol.HandoverCandidatePath, token, body)
+	answered, err := proposeTo(strings.TrimSuffix(endpoint, "/")+protocol.AgentAPICandidatePath, token, body)
 	if err != nil {
 		return err
 	}
@@ -98,12 +98,12 @@ func hypothesisOf(given string) (string, error) {
 		return "", fmt.Errorf("read the hypothesis: %w", err)
 	}
 
-	said := strings.TrimSpace(string(read))
-	if said == "" {
+	text := strings.TrimSpace(string(read))
+	if text == "" {
 		return "", fmt.Errorf("%s contains no hypothesis; say what you expect the change to do", file)
 	}
 
-	return said, nil
+	return text, nil
 }
 
 func stationBlock(path string, in io.Reader) (json.RawMessage, error) {
@@ -144,19 +144,19 @@ func proposeTo(url, token string, body []byte) ([]byte, error) {
 	}
 	defer response.Body.Close()
 
-	said, _ := io.ReadAll(response.Body)
+	read, _ := io.ReadAll(response.Body)
 
 	if response.StatusCode < 300 {
-		return said, nil
+		return read, nil
 	}
 
 	var invalid protocol.FieldErrors
 	if response.StatusCode == http.StatusUnprocessableEntity &&
-		json.Unmarshal(said, &invalid) == nil && protocol.HasErrors(invalid.Errors) {
+		json.Unmarshal(read, &invalid) == nil && protocol.HasErrors(invalid.Errors) {
 		return nil, errors.New(problemsOf(invalid.Errors))
 	}
 
-	return nil, fmt.Errorf("%s", strings.TrimSpace(string(said)))
+	return nil, fmt.Errorf("%s", strings.TrimSpace(string(read)))
 }
 
 func problemsOf(found []protocol.FieldError) string {

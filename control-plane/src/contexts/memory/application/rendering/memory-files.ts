@@ -12,7 +12,7 @@ export interface MemoryFileContext {
 
 const SOURCED: Record<MemorySource, string> = {
   run: 'a run',
-  person: 'what a person said',
+  person: 'notes by a person',
   outside: 'a run on input from outside the team',
 };
 

@@ -34,7 +34,7 @@ const EVENT = `
       raise:
         happening: x.thing
         label: A thing
-        told: A thing happened.
+        summary: A thing happened.
         marks:
           - kind: x.thing
             value: '\${{ "one" }}'

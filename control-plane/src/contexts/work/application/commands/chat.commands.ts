@@ -14,11 +14,11 @@ export class StartChatCommand {
   ) {}
 }
 
-export class SayInChatCommand {
+export class SendChatMessageCommand {
   constructor(
     readonly teamId: string,
     readonly chatId: string,
-    readonly saidBy: string,
+    readonly sentBy: string,
     readonly body: string,
     readonly attachments: readonly string[] = [],
     readonly traces: readonly string[] = [],

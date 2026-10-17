@@ -23,8 +23,8 @@ export function SubmitReviewButton() {
   }
 
   const pending = drafts(reviewing.review);
-  const says = body.trim().length > 0 || pending > 0;
-  const ready = !submit.isPending && (verdict === 'approve' || says);
+  const written = body.trim().length > 0 || pending > 0;
+  const ready = !submit.isPending && (verdict === 'approve' || written);
 
   const send = () =>
     submit.mutate(
@@ -94,7 +94,7 @@ export function SubmitReviewButton() {
               <span className="flex flex-col">
                 <span className="text-foreground text-sm">{each.label}</span>
                 <span className="text-muted-foreground text-xs">
-                  {each.told}
+                  {each.description}
                 </span>
               </span>
             </label>

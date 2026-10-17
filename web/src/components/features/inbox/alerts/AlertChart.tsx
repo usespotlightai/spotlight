@@ -43,7 +43,7 @@ const ticksWidth = (alert: StationAlertCrossing): number => {
   return widest * TICK_CHARACTER_WIDTH + TICKS_GAP;
 };
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -117,7 +117,9 @@ export function AlertChart({ alert }: { alert: StationAlertCrossing }) {
               />
               <Tooltip
                 {...cursor.tooltip}
-                content={<Said placement={cursor.placement} alert={alert} />}
+                content={
+                  <TipContent placement={cursor.placement} alert={alert} />
+                }
                 cursor={{ stroke: 'var(--chart-grid)' }}
               />
               {level !== null && (

@@ -90,8 +90,8 @@ const journal = (runId: string): RunJournal => ({
   marks: {
     startedAt: null,
     readyAt: null,
-    spokeFrom: null,
-    spokeTo: null,
+    firstAgentUpdateAt: null,
+    lastAgentUpdateAt: null,
     endedAt: null,
   },
   spent: null,
@@ -166,7 +166,7 @@ const reading = ({
       return sight;
     },
   };
-  const told: RunOutcomesPort = {
+  const outcomesPort: RunOutcomesPort = {
     of: async () => new Map(outcomes.map((each) => [each.runId, each])),
   };
 
@@ -197,7 +197,7 @@ const reading = ({
       new ReadRunnerHistoryHandler(
         traces,
         stations,
-        told,
+        outcomesPort,
         digests,
         sights,
         connectionsInMemory(),

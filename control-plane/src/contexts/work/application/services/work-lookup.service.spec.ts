@@ -290,19 +290,19 @@ describe('WorkLookup, reading how a run reasoned', () => {
       } as unknown as RunJournalReaderPort,
     ).reasoning(RunId.of('run_1'));
 
-  it('offers what the agent said, thought and planned, where it is in the journal', async () => {
+  it('offers the messages, thoughts and plans of the agent, where it is in the journal', async () => {
     const reasoned = await reading([
       step({ kind: 'planned', text: '[pending] Retry uploads' }),
       step({ kind: 'tool', text: 'Edit uploads.ts' }),
       step({ kind: 'thought', text: 'A queue needs a worker.' }),
-      step({ kind: 'said', text: '  ' }),
-      step({ kind: 'said', text: 'Retrying in the request.' }),
+      step({ kind: 'message', text: '  ' }),
+      step({ kind: 'message', text: 'Retrying in the request.' }),
     ]);
 
     expect(reasoned?.steps.map((each) => [each.index, each.kind])).toEqual([
       [0, 'planned'],
       [2, 'thought'],
-      [4, 'said'],
+      [4, 'message'],
     ]);
   });
 
@@ -421,7 +421,7 @@ describe('WorkLookup, reading what a run changed', () => {
   });
 });
 
-describe('WorkLookup, reading what people said on a task', () => {
+describe('WorkLookup, reading the notes of people on a task', () => {
   const AT = new Date('2026-09-21T10:00:00.000Z');
 
   const note = (position: number, voice: Voice, body: string) =>
@@ -434,8 +434,8 @@ describe('WorkLookup, reading what people said on a task', () => {
       kind: 'answered',
     });
 
-  it('reads what people and the world said, and who of the team said it, and nothing the stations did', async () => {
-    const spoken = await new WorkLookup(
+  it('reads the notes of people and the world, and who of the team wrote them, and nothing the stations did', async () => {
+    const views = await new WorkLookup(
       {} as RunRepository,
       {
         find: async () => ({
@@ -449,9 +449,9 @@ describe('WorkLookup, reading what people said on a task', () => {
       {} as LineRepository,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
-    ).spokenOn(TaskId.of('task_1'));
+    ).notesOf(TaskId.of('task_1'));
 
-    expect(spoken).toEqual([
+    expect(views).toEqual([
       {
         position: 1,
         by: 'person',

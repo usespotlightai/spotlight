@@ -30,30 +30,30 @@ import {
   type Outcome,
   ReactionFor,
 } from '@work/domain/services/reaction-for';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { ReviewRequest } from '@work/domain/value-objects/review-asked.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
-const spoken = (
+const anchorOf = (
   happened: Heard,
   attachments: readonly Attachment[],
-): Said | null =>
-  happened.said ??
+): Anchor | null =>
+  happened.anchor ??
   (attachments.length > 0
-    ? Said.of({ body: TaskNoteBody.given('', attachments).value })
+    ? Anchor.of({ body: TaskNoteBody.given('', attachments).value })
     : null);
 
 const identityOf = (happened: Happened): string =>
   JSON.stringify([
     happened.happening,
-    happened.told,
+    happened.summary,
     happened.state,
     happened.concerns,
-    happened.said,
+    happened.message,
     happened.opens,
     (happened.attachments ?? []).map((each) => each.name),
   ]);
@@ -204,7 +204,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
         task,
         line,
         payload: happened.payload,
-        said: spoken(happened, attachments),
+        anchor: anchorOf(happened, attachments),
       }),
       task,
       line,
@@ -237,7 +237,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       lines: await this.linesOf(workspaceId, teamId),
       opens: happened.opens,
       request,
-      said: happened.said,
+      anchor: happened.anchor,
       pullRequestTask: await this.findByMark(
         workspaceId,
         Mark.pullRequest(request.pullRequest),
@@ -355,29 +355,29 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return null;
     }
 
-    const saying = {
+    const newNote = {
       station: reaction.station,
       body: reaction.body,
       at: this.clock.now(),
       voice: Voice.world(),
-      said: reaction.said,
+      anchor: reaction.anchor,
       attachments,
     };
 
     if (reaction.kind === 'stays') {
-      return task.heard(saying);
+      return task.addMessage(newNote);
     }
 
     if (reaction.kind === 'deferredMove') {
-      return task.deferMove(line, reaction.to.id, saying);
+      return task.deferMove(line, reaction.to.id, newNote);
     }
 
     if (reaction.kind === 'interrupts') {
-      return task.interrupt(saying);
+      return task.interrupt(newNote);
     }
 
     if (reaction.kind === 'answers') {
-      return task.answer(reaction.to, saying);
+      return task.answer(reaction.to, newNote);
     }
 
     return task.react(
@@ -388,7 +388,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
           (each) => each.rank,
         ),
       ),
-      saying,
+      newNote,
     );
   }
 }

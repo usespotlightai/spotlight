@@ -259,7 +259,7 @@ describe('a file handed over twice', () => {
 });
 
 describe('a chat dispatched to a run', () => {
-  it('remembers the run each message went to, until it is taken back', async () => {
+  it('remembers the run that acknowledged each message, until the message is unacknowledged', async () => {
     const { workspaceId, teamId, owner } = await openTeam(
       db,
       tasks,
@@ -282,13 +282,13 @@ describe('a chat dispatched to a run', () => {
     await chats.save(started.assignRun(run, NOW));
     const dispatched = (await chats.find(started.id)) as Chat;
 
-    expect(dispatched.messages[0]?.wasDeliveredTo(run)).toBe(true);
+    expect(dispatched.messages[0]?.wasAcknowledgedBy(run)).toBe(true);
 
     await chats.save(dispatched.runKeptNothing(run));
     const back = (await chats.find(started.id)) as Chat;
 
     expect(back.running).toBe(false);
-    expect(back.undelivered).toHaveLength(1);
-    expect(back.messages[0]?.wasDeliveredTo(run)).toBe(false);
+    expect(back.unacknowledged).toHaveLength(1);
+    expect(back.messages[0]?.wasAcknowledgedBy(run)).toBe(false);
   });
 });

@@ -45,8 +45,8 @@ export interface RunSpanDto {
 interface RunMarksDto {
   readonly startedAt: string | null;
   readonly readyAt: string | null;
-  readonly spokeFrom: string | null;
-  readonly spokeTo: string | null;
+  readonly firstAgentUpdateAt: string | null;
+  readonly lastAgentUpdateAt: string | null;
   readonly endedAt: string | null;
 }
 

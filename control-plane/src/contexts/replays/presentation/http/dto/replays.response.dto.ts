@@ -325,7 +325,7 @@ export class CheckConsistencyResponseDto {
 export class OracleReadingResponseDto {
   @ApiProperty({
     description:
-      'The newest replay of the live config handed each run’s answer: the change people accepted, or what they said when they sent it back',
+      'The newest replay of the live config handed each run’s answer: the change people accepted, or the note they wrote when they sent it back',
   })
   readonly replayId: string;
 
@@ -357,7 +357,7 @@ export class OracleReadingResponseDto {
 
   @ApiProperty({
     description:
-      'Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with something a person said. Others have no answer to hand over',
+      'Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with a note from a person. Others have no answer to hand over',
   })
   readonly answered: number;
 

@@ -51,7 +51,7 @@ export function ApprovalControls({
         pending={pending}
         reason={reason}
         onReason={onReason}
-        onRefuse={() => onDecide({ approve: false, said: reason })}
+        onRefuse={() => onDecide({ approve: false, body: reason })}
         onCancel={() => onMode('viewing')}
       />
     );
@@ -63,7 +63,7 @@ export function ApprovalControls({
       pending={pending}
       onlyFor={onlyFor}
       onApprove={
-        onlyFor ? undefined : () => onDecide({ approve: true, said: '' })
+        onlyFor ? undefined : () => onDecide({ approve: true, body: '' })
       }
       onDismiss={() => onMode('refusing')}
     />

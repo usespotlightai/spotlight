@@ -179,7 +179,7 @@ describe('InviteDialog', () => {
     );
     await send(dialog);
 
-    const said = within(dialog).getByRole('list', {
+    const outcomes = within(dialog).getByRole('list', {
       name: 'What happened to each address',
     });
 
@@ -189,7 +189,7 @@ describe('InviteDialog', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(said)
+      within(outcomes)
         .getAllByRole('listitem')
         .map((each) => each.textContent),
     ).toEqual([

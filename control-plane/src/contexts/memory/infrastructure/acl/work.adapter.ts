@@ -5,7 +5,7 @@ import type {
   ReasonedStep,
   RememberedRun,
   RememberedTask,
-  SpokenNote,
+  TaskNote,
   TeamLine,
   WorkPort,
 } from '@memory/application/ports/work.port';
@@ -138,11 +138,11 @@ export class Work implements WorkPort {
     );
   }
 
-  async spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null> {
-    const spoken = await this.work.spokenOn(taskId);
+  async notesOf(taskId: TaskId): Promise<readonly TaskNote[] | null> {
+    const notes = await this.work.notesOf(taskId);
 
     return (
-      spoken?.map((each) => ({
+      notes?.map((each) => ({
         position: each.position,
         by: each.by,
         author: each.author ? UserId.of(each.author) : null,

@@ -315,9 +315,9 @@ func (c *checking) start(checked *stationCheck, each plannedStation, options che
 
 	var answer *answered
 	switch {
-	case errors.As(err, &answer) && answer.said.Type == nothingToReplay:
+	case errors.As(err, &answer) && answer.errorBody.Type == nothingToReplay:
 		checked.Status = checkUnchanged
-		checked.Message = answer.said.Detail
+		checked.Message = answer.errorBody.Detail
 	case err != nil:
 		checked.Status = checkErrored
 		checked.Message = err.Error()
@@ -411,21 +411,21 @@ func (r *checkReport) print(out io.Writer) {
 		fmt.Fprintf(out, "  %d of %d tasks regressed (at most %d may), replaying %s: %d tasks, %d scored on both sides\n",
 			len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions, set, read.Tasks, read.Compared)
 		if read.UndecidedBecause != nil {
-			fmt.Fprintf(out, "  undecided: %s\n", undecidedSays(*read.UndecidedBecause))
+			fmt.Fprintf(out, "  undecided: %s\n", describeUndecided(*read.UndecidedBecause))
 		}
 		if read.Repeats > 1 {
 			fmt.Fprintf(out, "  each run replayed %d times\n", read.Repeats)
 		}
-		fmt.Fprintf(out, "  candidate %s, baseline %s\n", sideSays(read.Candidate), sideSays(read.Baseline))
+		fmt.Fprintf(out, "  candidate %s, baseline %s\n", describeSide(read.Candidate), describeSide(read.Baseline))
 		if read.Gain != nil {
-			fmt.Fprintf(out, "  %s\n", gainSays(*read.Gain, "the baseline"))
+			fmt.Fprintf(out, "  %s\n", describeGain(*read.Gain, "the baseline"))
 		}
-		fmt.Fprintf(out, "  spent %s of a %s ceiling\n", spentSays(read.Candidate.Spent), money(read.Threshold.Ceiling))
+		fmt.Fprintf(out, "  spent %s of a %s ceiling\n", describeSpent(read.Candidate.Spent), money(read.Threshold.Ceiling))
 		if len(read.KeptLive) > 0 {
 			fmt.Fprintf(out, "  scored with the live %s, which the plan also changes\n", strings.Join(read.KeptLive, ", "))
 		}
 		for _, regressed := range read.Regressions {
-			fmt.Fprintf(out, "  REGRESSED %s: %s\n", taskSays(regressed), reasonsSay(regressed))
+			fmt.Fprintf(out, "  REGRESSED %s: %s\n", describeTask(regressed), describeReasons(regressed))
 		}
 		if each.URL != "" {
 			fmt.Fprintf(out, "  %s\n", each.URL)
@@ -458,10 +458,10 @@ func (r *checkReport) summarise(path string) error {
 		regressed, candidate, baseline, gain, spent, link := "", "", "", "", "", ""
 		if read := each.Check; read != nil {
 			regressed = fmt.Sprintf("%d of %d (at most %d)", len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions)
-			candidate = sideSays(read.Candidate)
-			baseline = sideSays(read.Baseline)
+			candidate = describeSide(read.Candidate)
+			baseline = describeSide(read.Baseline)
 			gain = gainCell(read.Gain)
-			spent = spentSays(read.Candidate.Spent)
+			spent = describeSpent(read.Candidate.Spent)
 		}
 		if each.URL != "" {
 			link = fmt.Sprintf("[open](%s)", each.URL)
@@ -478,11 +478,11 @@ func (r *checkReport) summarise(path string) error {
 			fmt.Fprintf(&written, "%s\n\n", markdownCell(each.Message))
 		}
 		if each.Check != nil && each.Check.Gain != nil {
-			fmt.Fprintf(&written, "%s\n\n", markdownCell(gainSays(*each.Check.Gain, "the baseline")))
+			fmt.Fprintf(&written, "%s\n\n", markdownCell(describeGain(*each.Check.Gain, "the baseline")))
 		}
 		if each.Check != nil {
 			for _, regressed := range each.Check.Regressions {
-				fmt.Fprintf(&written, "- **%s**: %s\n", markdownCell(taskSays(regressed)), markdownCell(reasonsSay(regressed)))
+				fmt.Fprintf(&written, "- **%s**: %s\n", markdownCell(describeTask(regressed)), markdownCell(describeReasons(regressed)))
 			}
 		}
 	}
@@ -501,7 +501,7 @@ func markdownCell(text string) string {
 	return markdownSpecials.Replace(text)
 }
 
-func undecidedSays(because string) string {
+func describeUndecided(because string) string {
 	switch because {
 	case "stopped":
 		return "the replay was stopped"
@@ -520,7 +520,7 @@ func undecidedSays(because string) string {
 	}
 }
 
-func sideSays(side checkSide) string {
+func describeSide(side checkSide) string {
 	if side.Succeeded == nil || side.SuccessRate == nil {
 		return "nothing scored yet"
 	}
@@ -528,7 +528,7 @@ func sideSays(side checkSide) string {
 		return fmt.Sprintf("%d of %d succeeded (%.0f%%)", *side.Succeeded, side.Scored, *side.SuccessRate*100)
 	}
 
-	return fmt.Sprintf("%d of %d succeeded, %s over %d tasks", *side.Succeeded, side.Scored, intervalSays(*side.Interval), side.TasksScored)
+	return fmt.Sprintf("%d of %d succeeded, %s over %d tasks", *side.Succeeded, side.Scored, describeInterval(*side.Interval), side.TasksScored)
 }
 
 func gainCell(gain *gainReading) string {
@@ -544,7 +544,7 @@ func gainCell(gain *gainReading) string {
 	return fmt.Sprintf("%s points (%s to %s), %s", points(gain.Gain), points(gain.Low), points(gain.High), verdict)
 }
 
-func spentSays(spent *spend) string {
+func describeSpent(spent *spend) string {
 	if spent == nil {
 		return "nothing"
 	}
@@ -552,7 +552,7 @@ func spentSays(spent *spend) string {
 	return money(*spent)
 }
 
-func taskSays(regressed checkRegression) string {
+func describeTask(regressed checkRegression) string {
 	if regressed.Title != nil && *regressed.Title != "" {
 		return fmt.Sprintf("%s %q", regressed.TaskID, *regressed.Title)
 	}
@@ -560,7 +560,7 @@ func taskSays(regressed checkRegression) string {
 	return regressed.TaskID
 }
 
-func reasonsSay(regressed checkRegression) string {
+func describeReasons(regressed checkRegression) string {
 	baseline := "none"
 	if len(regressed.Baseline) > 0 {
 		baseline = strings.Join(regressed.Baseline, "/")
@@ -575,10 +575,10 @@ func reasonsSay(regressed checkRegression) string {
 		}
 	}
 
-	said := fmt.Sprintf("%s where the baseline %s", strings.Join(regressed.Candidate, "/"), baseline)
+	text := fmt.Sprintf("%s where the baseline %s", strings.Join(regressed.Candidate, "/"), baseline)
 	if len(reasons) > 0 {
-		said += ", " + strings.Join(reasons, "; ")
+		text += ", " + strings.Join(reasons, "; ")
 	}
 
-	return said
+	return text
 }

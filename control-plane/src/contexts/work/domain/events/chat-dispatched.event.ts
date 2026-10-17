@@ -9,6 +9,6 @@ export class ChatDispatched implements DomainEvent {
   constructor(
     readonly chatId: ChatId,
     readonly runId: RunId,
-    readonly delivered: readonly MessagePosition[],
+    readonly acknowledged: readonly MessagePosition[],
   ) {}
 }

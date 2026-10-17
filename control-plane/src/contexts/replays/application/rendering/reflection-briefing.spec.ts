@@ -24,16 +24,20 @@ const briefing = (seed: boolean) =>
 
 describe('ReflectionBriefing', () => {
   it('asks for one cause per failing task, and no candidate', () => {
-    const said = briefing(false);
+    const briefed = briefing(false);
 
-    expect(said).toContain('| `task_1` | `original_1` | `replayed_1` |');
-    expect(said).toContain(
+    expect(briefed).toContain('| `task_1` | `original_1` | `replayed_1` |');
+    expect(briefed).toContain(
       'spotlight cause --task <task> --cause config|task|judge|check|infra --evidence <text | @file> [--suggestion <text | @file>]',
     );
-    expect(said).toContain('Spotlight rejects `spotlight candidate` from it');
-    expect(said).toContain('spotlight history --station build --line delivery');
-    expect(said).toContain('`candidates/in-order/runs/<original run>/`');
-    expect(said).toContain(
+    expect(briefed).toContain(
+      'Spotlight rejects `spotlight candidate` from it',
+    );
+    expect(briefed).toContain(
+      'spotlight history --station build --line delivery',
+    );
+    expect(briefed).toContain('`candidates/in-order/runs/<original run>/`');
+    expect(briefed).toContain(
       'The best config so far is the candidate `in-order`',
     );
   });

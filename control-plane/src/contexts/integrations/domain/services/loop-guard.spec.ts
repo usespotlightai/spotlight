@@ -8,19 +8,19 @@ import { describe, expect, it } from 'vitest';
 const moved = (from: string, to: string) => ({
   kind: 'event' as const,
   key: `task.moved:task_1:${from} → ${to}`,
-  saying: `task.moved (${from} → ${to})`,
+  description: `task.moved (${from} → ${to})`,
 });
 
 const notify = (from: string, to: string) => ({
   kind: 'hook' as const,
   key: `hook:notify:${moved(from, to).key}`,
-  saying: 'the hook notify',
+  description: 'the hook notify',
 });
 
 const slack = {
   kind: 'delivery' as const,
   key: 'delivery:slack',
-  saying: 'a delivery from slack',
+  description: 'a delivery from slack',
 };
 
 describe('loopStopFor', () => {
@@ -52,7 +52,7 @@ describe('loopStopFor', () => {
       }),
     ).toEqual({
       kind: 'repeated',
-      saying:
+      description:
         'It would fire again for the change that caused it. Cause chain: task.moved (build → review) → the hook notify → a delivery from slack → task.moved (review → build) → the hook notify → a delivery from slack → task.moved (build → review) → the hook notify',
     });
   });
@@ -92,6 +92,6 @@ describe('loopStopFor', () => {
     });
 
     expect(stop?.kind).toBe('recurring');
-    expect(stop?.saying).toContain('fired 3 times');
+    expect(stop?.description).toContain('fired 3 times');
   });
 });

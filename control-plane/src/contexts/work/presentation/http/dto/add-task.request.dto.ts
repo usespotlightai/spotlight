@@ -9,7 +9,7 @@ export class AddTaskRequestDto {
     maxLength: 20000,
     nullable: true,
     type: String,
-    description: 'Markdown. Left out or blank for a task with nothing said.',
+    description: 'Markdown. Left out or blank for a task with no description.',
   })
   readonly description?: string | null;
 

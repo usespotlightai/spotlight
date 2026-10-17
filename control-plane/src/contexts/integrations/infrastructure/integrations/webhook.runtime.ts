@@ -63,8 +63,8 @@ export class WebhookRuntime implements WebhookSourcePort {
     return this.readable.integration.declares.map((each) => ({
       happening: each.happening,
       label: each.label,
-      told: each.told,
-      spoken: each.spoken,
+      summary: each.summary,
+      answers: each.answers,
     }));
   }
 

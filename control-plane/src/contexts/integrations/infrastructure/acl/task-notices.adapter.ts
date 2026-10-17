@@ -99,7 +99,7 @@ export class TaskNotices implements TaskNoticesPort {
       open.conversationId,
     );
 
-    const body = open.said || waiting(station, link);
+    const body = open.body || waiting(station, link);
 
     return {
       body: open.awaitsApproval ? `${body}\n\n${decidedAt(link)}` : body,

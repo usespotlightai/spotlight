@@ -68,7 +68,7 @@ const list = (): Task =>
   welcomeTask({
     line: DELIVERY,
     teamId: TEAM,
-    saying: TaskNoteBody.of(listed()),
+    noteBody: TaskNoteBody.of(listed()),
     at: STATION,
     station: StationName.of('Inbox'),
     owner: OWNER,

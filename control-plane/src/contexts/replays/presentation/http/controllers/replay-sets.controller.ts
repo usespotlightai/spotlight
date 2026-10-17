@@ -64,7 +64,7 @@ import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo
 
 const SET = 'replay set';
 
-const NAME_SAYS = 'Name must be text of 1 to 100 characters.';
+const NAME_PROBLEM = 'Name must be text of 1 to 100 characters.';
 
 const STATION = 'lines/:lineId/stations/:stationId';
 
@@ -213,7 +213,7 @@ export class ReplaySetsController {
           teamId,
           lineId,
           stationId,
-          textAt(body, 'name', NAME_SAYS),
+          textAt(body, 'name', NAME_PROBLEM),
           principal,
         ),
       ),
@@ -248,7 +248,7 @@ export class ReplaySetsController {
         new RenameReplaySetCommand(
           teamId,
           setId,
-          textAt(body, 'name', NAME_SAYS),
+          textAt(body, 'name', NAME_PROBLEM),
           principal,
         ),
       ),

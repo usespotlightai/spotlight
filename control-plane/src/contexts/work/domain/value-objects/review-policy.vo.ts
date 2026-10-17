@@ -98,7 +98,7 @@ export class ReviewPolicy {
 
     if (
       asked.asking === 'mentioned' &&
-      !this.mentionedIn(asked.said?.body ?? '')
+      !this.mentionedIn(asked.anchor?.body ?? '')
     ) {
       return false;
     }

@@ -13,7 +13,7 @@ import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -105,8 +105,8 @@ const claimed = () => queued().claim(RUNNER, NOW);
 
 const finished = RunOutcome.of({ exitCode: 0, failed: false });
 
-const saying = (next: string) =>
-  HandoverReport.of({ declared: Declaration.of({ next }), session: null });
+const reportOf = (next: string) =>
+  HandoverReport.of({ handover: Handover.of({ next }), session: null });
 
 describe('a replay', () => {
   it('works no task of its own and keeps no workspace for one', () => {
@@ -165,14 +165,14 @@ describe('a replay', () => {
 
   it('never waits for a person', () => {
     expect(() =>
-      claimed().paused(RUNNER, finished, saying('review'), NOW),
+      claimed().paused(RUNNER, finished, reportOf('review'), NOW),
     ).toThrow(InvalidRunTransitionError);
   });
 
   it('ends recording that it asked a person, when its runner says so', () => {
     const ended = claimed()
       .askedAPersonBy(RUNNER)
-      .complete(RUNNER, finished, saying('build'));
+      .complete(RUNNER, finished, reportOf('build'));
     const [completed] = ended
       .pullEvents()
       .filter((each): each is RunCompleted => each instanceof RunCompleted);
@@ -185,25 +185,25 @@ describe('a replay', () => {
   it('ends recording that it asked a person, when its handover would have put the work to one under the candidate', () => {
     for (const next of ['review', 'Nowhere', '']) {
       expect(
-        claimed().complete(RUNNER, finished, saying(next)).askedAPerson,
+        claimed().complete(RUNNER, finished, reportOf(next)).askedAPerson,
       ).toBe(true);
     }
     expect(
       claimed().complete(
         RUNNER,
         finished,
-        HandoverReport.of({ declared: null, session: null }),
+        HandoverReport.of({ handover: null, session: null }),
       ).askedAPerson,
     ).toBe(true);
   });
 
   it('ends recording that it asked nobody where it failed, was stopped, or moved on as the candidate would', () => {
     expect(
-      claimed().complete(RUNNER, RunOutcome.stopped(130), saying('review'))
+      claimed().complete(RUNNER, RunOutcome.stopped(130), reportOf('review'))
         .askedAPerson,
     ).toBe(false);
     expect(
-      claimed().complete(RUNNER, finished, saying('Done')).askedAPerson,
+      claimed().complete(RUNNER, finished, reportOf('Done')).askedAPerson,
     ).toBe(false);
   });
 
@@ -227,15 +227,15 @@ describe('a replay', () => {
   });
 
   it('reaches nothing beyond itself, and hears no hook', () => {
-    expect(() => claimed().mayReachBeyondItself('answer a remark')).toThrow(
-      KeptFromReplaysError,
-    );
+    expect(() =>
+      claimed().mayReachBeyondItself('reply to a review comment'),
+    ).toThrow(KeptFromReplaysError);
     expect(claimed().hearsHooks).toBe(false);
     expect(queued(OF_TASK, TASK_SPEC).hearsHooks).toBe(true);
   });
 
   it('ends recording that it asked nobody, when it did not', () => {
-    const ended = claimed().complete(RUNNER, finished, saying('build'));
+    const ended = claimed().complete(RUNNER, finished, reportOf('build'));
     const [completed] = ended
       .pullEvents()
       .filter((each): each is RunCompleted => each instanceof RunCompleted);
@@ -251,7 +251,7 @@ describe('a replay', () => {
       InvalidRunTransitionError,
     );
     expect(
-      ofTask.complete(RUNNER, finished, saying('review')).askedAPerson,
+      ofTask.complete(RUNNER, finished, reportOf('review')).askedAPerson,
     ).toBe(false);
   });
 

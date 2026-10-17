@@ -65,7 +65,7 @@ beforeEach(() => {
 });
 
 describe('ReviewThreadCard', () => {
-  it('shows a thread with who said what and the status of each', () => {
+  it('shows a thread with the author of each comment and the status of each', () => {
     render(
       within_(
         REVIEW,

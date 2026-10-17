@@ -16,45 +16,45 @@ export type TokenTerms = {
   readonly expiresAt: string | null;
 };
 
-type Told<T extends TokenScope> = {
+type ScopeOption<T extends TokenScope> = {
   readonly id: T;
   readonly label: string;
-  readonly told: string;
+  readonly description: string;
 };
 
-export const REACHES: readonly Told<TokenReach>[] = [
+export const REACHES: readonly ScopeOption<TokenReach>[] = [
   {
     id: 'read',
     label: 'Read',
-    told: 'Reads the workspace’s configuration.',
+    description: 'Reads the workspace’s configuration.',
   },
   {
     id: 'plan',
     label: 'Plan',
-    told: 'Reads and checks expressions.',
+    description: 'Reads and checks expressions.',
   },
   {
     id: 'configure',
     label: 'Configure',
-    told: 'Also changes configuration, like a Terraform apply.',
+    description: 'Also changes configuration, like a Terraform apply.',
   },
 ];
 
-export const GRANTS: readonly Told<TokenGrant>[] = [
-  { id: 'secrets', label: 'Secrets', told: 'Also manages secrets.' },
+export const GRANTS: readonly ScopeOption<TokenGrant>[] = [
+  { id: 'secrets', label: 'Secrets', description: 'Also manages secrets.' },
   {
     id: 'runners',
     label: 'Runners',
-    told: 'Also manages runner pools and runner trusts.',
+    description: 'Also manages runner pools and runner trusts.',
   },
   {
     id: 'trusts',
     label: 'Token trusts',
-    told: 'Also manages workspace token trusts.',
+    description: 'Also manages workspace token trusts.',
   },
 ];
 
-const SCOPES: readonly Told<TokenScope>[] = [...REACHES, ...GRANTS];
+const SCOPES: readonly ScopeOption<TokenScope>[] = [...REACHES, ...GRANTS];
 
 export const scopesOf = (
   reach: TokenReach,
@@ -64,7 +64,7 @@ export const scopesOf = (
   ...GRANTS.filter((each) => grants.has(each.id)).map((each) => each.id),
 ];
 
-export const scopesTold = (scopes: readonly TokenScope[]): string => {
+export const describeScopes = (scopes: readonly TokenScope[]): string => {
   const granted = new Set(scopes);
 
   return SCOPES.filter((each) => granted.has(each.id))
@@ -97,10 +97,10 @@ const dayOf = (at: Date, now: number): string =>
       : { year: 'numeric' as const }),
   });
 
-export const createdTold = (issuedAt: string, now = Date.now()): string =>
+export const describeCreated = (issuedAt: string, now = Date.now()): string =>
   `Created ${dayOf(new Date(issuedAt), now)}`;
 
-export const expiryTold = (
+export const describeExpiry = (
   expiresAt: string | null,
   now = Date.now(),
 ): string => {

@@ -37,7 +37,7 @@ export const REVIEW_STATES = [
 
 export type ReviewState = (typeof REVIEW_STATES)[number];
 
-const says = (verdict: ReviewVerdict, body: string, comments: number) =>
+const hasContent = (verdict: ReviewVerdict, body: string, comments: number) =>
   verdict === 'approve' || body.length > 0 || comments > 0;
 
 export interface SubmittedReview {
@@ -99,7 +99,7 @@ export class Review extends EventRecorder {
       }
     }
 
-    if (!says(verdict, body, input.drafts.length)) {
+    if (!hasContent(verdict, body, input.drafts.length)) {
       throw new InvalidReviewError(
         verdict === 'request-changes'
           ? 'that requests changes must say which'
@@ -182,7 +182,7 @@ export class Review extends EventRecorder {
   }
 
   silentWith(posted: readonly ReviewComment[]): boolean {
-    return !says(
+    return !hasContent(
       this.verdict,
       this.body,
       posted.filter((comment) => comment.belongsTo(this.id)).length,

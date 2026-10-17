@@ -71,7 +71,7 @@ vi.mock('@/components/features/inbox/grades/GradeThread', () => ({
   ),
 }));
 
-const message = (over: Record<string, unknown> = {}) => ({
+const note = (over: Record<string, unknown> = {}) => ({
   position: 0,
   kind: 'asked',
   voice: 'station',
@@ -135,7 +135,7 @@ describe('InboxItem', () => {
   beforeEach(() => {
     answer.mockClear();
     read.mockClear();
-    waiting.mockReturnValue(item([message()]));
+    waiting.mockReturnValue(item([note()]));
     viewer.mockReturnValue({ user: { id: 'user_2' } });
     journal.mockReturnValue([]);
     failing.mockReturnValue(false);
@@ -255,7 +255,7 @@ describe('InboxItem', () => {
     });
   });
 
-  it('folds the work away behind what the station said', async () => {
+  it('folds the work away behind the note of the station', async () => {
     const person = userEvent.setup();
     journal.mockReturnValue([
       {
@@ -326,7 +326,7 @@ describe('InboxItem', () => {
     expect(screen.queryByText(/Worked/)).not.toBeInTheDocument();
   });
 
-  it('shows what the station said, in the station’s name', () => {
+  it('shows the note of the station, in the station’s name', () => {
     renderItem();
 
     const conversation = within(screen.getByRole('list'));
@@ -340,9 +340,9 @@ describe('InboxItem', () => {
   it('frames what came from outside as what came in, not as a station', () => {
     waiting.mockReturnValue(
       item([
-        message({
+        note({
           position: 1,
-          kind: 'said',
+          kind: 'message',
           voice: 'world',
           body: 'The pull request was commented on.',
         }),
@@ -351,15 +351,15 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    const said = screen.getByText('The pull request was commented on.');
-    expect(said.closest('li')).not.toHaveTextContent('Triage');
+    const shown = screen.getByText('The pull request was commented on.');
+    expect(shown.closest('li')).not.toHaveTextContent('Triage');
   });
 
-  it('shows what a person said without naming them', () => {
+  it('shows the message of a person without naming them', () => {
     waiting.mockReturnValue(
       item([
-        message(),
-        message({
+        note(),
+        note({
           position: 1,
           body: 'The retry queue.',
           voice: 'person',
@@ -375,7 +375,7 @@ describe('InboxItem', () => {
   });
 
   it('opens on the prompt the station was given', () => {
-    const [only] = item([message()]);
+    const [only] = item([note()]);
     waiting.mockReturnValue([
       { ...only, briefing: '## Code review\n\nReview the change.' },
     ]);
@@ -386,7 +386,7 @@ describe('InboxItem', () => {
   });
 
   it('shows the task itself as the person’s own input', () => {
-    waiting.mockReturnValue(item([message()], 'Write ACP.md, then hand over.'));
+    waiting.mockReturnValue(item([note()], 'Write ACP.md, then hand over.'));
 
     renderItem();
 
@@ -402,9 +402,9 @@ describe('InboxItem', () => {
   it('marks the time where one station takes over from another', () => {
     waiting.mockReturnValue(
       item([
-        message(),
-        message({ position: 1, body: 'Still Triage.' }),
-        message({
+        note(),
+        note({ position: 1, body: 'Still Triage.' }),
+        note({
           position: 2,
           station: 'Spec',
           stationPosition: 1,
@@ -426,9 +426,9 @@ describe('InboxItem', () => {
   it('shows the item switched to, not the one left behind', async () => {
     const person = userEvent.setup();
     waiting.mockReturnValue([
-      ...item([message({ body: 'The first task said this.' })]),
+      ...item([note({ body: 'The first task wrote this.' })]),
       {
-        ...item([message({ body: 'The second task said this.' })])[0],
+        ...item([note({ body: 'The second task wrote this.' })])[0],
         id: 'task_2:0',
         taskId: 'task_2',
         title: 'Another task',
@@ -446,27 +446,27 @@ describe('InboxItem', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByText('The first task said this.')).toBeInTheDocument();
+    expect(screen.getByText('The first task wrote this.')).toBeInTheDocument();
 
     await person.click(screen.getByRole('button', { name: 'switch' }));
 
-    expect(screen.getByText('The second task said this.')).toBeInTheDocument();
+    expect(screen.getByText('The second task wrote this.')).toBeInTheDocument();
     expect(
-      screen.queryByText('The first task said this.'),
+      screen.queryByText('The first task wrote this.'),
     ).not.toBeInTheDocument();
   });
 
-  it('opens a turn of its own at every person’s word', () => {
+  it('opens a turn of its own at each message of a person', () => {
     waiting.mockReturnValue(
       item([
-        message({ body: 'Triage said this.' }),
-        message({
+        note({ body: 'Triage wrote this.' }),
+        note({
           position: 1,
           body: 'A person asked this.',
           voice: 'person',
           author: { id: 'user_2', name: 'Leon', image: null },
         }),
-        message({ position: 2, body: 'And Triage answered.' }),
+        note({ position: 2, body: 'And Triage answered.' }),
       ]),
     );
 
@@ -475,7 +475,7 @@ describe('InboxItem', () => {
     const turns = screen.getAllByRole('list');
 
     expect(turns).toHaveLength(2);
-    expect(turns[0]).toHaveTextContent('Triage said this.');
+    expect(turns[0]).toHaveTextContent('Triage wrote this.');
     expect(turns[0]).not.toHaveTextContent('And Triage answered.');
     expect(turns[1]).toHaveTextContent('And Triage answered.');
   });
@@ -483,8 +483,8 @@ describe('InboxItem', () => {
   it('can still be answered after a reply has been sent', () => {
     waiting.mockReturnValue(
       item([
-        message(),
-        message({
+        note(),
+        note({
           position: 1,
           body: 'The retry queue.',
           voice: 'person',
@@ -501,7 +501,7 @@ describe('InboxItem', () => {
   });
 
   it('has nothing to answer once it has moved on', () => {
-    const [only] = item([message()]);
+    const [only] = item([note()]);
     waiting.mockReturnValue([{ ...only, resolved: true }]);
 
     renderItem();
@@ -513,7 +513,7 @@ describe('InboxItem', () => {
   });
 
   it('says only that the conversation is closed here when the conversation closed in place', () => {
-    const [only] = item([message()]);
+    const [only] = item([note()]);
     waiting.mockReturnValue([
       {
         ...only,
@@ -531,7 +531,7 @@ describe('InboxItem', () => {
   it('says when a reply was sent', () => {
     waiting.mockReturnValue(
       item([
-        message({
+        note({
           position: 1,
           body: 'The retry queue.',
           at: '2026-08-29T14:35:00.000Z',
@@ -543,15 +543,15 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    const said = screen
+    const times = screen
       .getAllByRole('time')
       .map((each) => each.getAttribute('datetime'));
 
-    expect(said).toContain('2026-08-29T14:35:00.000Z');
+    expect(times).toContain('2026-08-29T14:35:00.000Z');
   });
 
   it('says the station is working while a run is on it', () => {
-    const [only] = item([message()]);
+    const [only] = item([note()]);
     waiting.mockReturnValue([{ ...only, working: true }]);
 
     renderItem();
@@ -580,7 +580,7 @@ describe('InboxItem', () => {
       change: null,
     });
 
-    const answered = message({
+    const answered = note({
       position: 1,
       kind: 'answered',
       voice: 'person',
@@ -591,7 +591,7 @@ describe('InboxItem', () => {
     });
 
     it('says nothing about working while it waits on you, nor offers to stop it', () => {
-      const [only] = item([message()]);
+      const [only] = item([note()]);
       waiting.mockReturnValue([{ ...only, runId: 'run_1', working: false }]);
 
       renderItem();
@@ -603,7 +603,7 @@ describe('InboxItem', () => {
     });
 
     it('shows the same run carrying on after the answer, without repeating what it did before', () => {
-      const [only] = item([message(), answered]);
+      const [only] = item([note(), answered]);
       waiting.mockReturnValue([{ ...only, runId: 'run_1', working: true }]);
       journal.mockReturnValue([
         {
@@ -645,7 +645,7 @@ describe('InboxItem', () => {
 
   it('marks what was put to you as read on opening it', () => {
     waiting.mockReturnValue(
-      item([message()]).map((each) => ({ ...each, unread: true })),
+      item([note()]).map((each) => ({ ...each, unread: true })),
     );
 
     renderItem();
@@ -662,8 +662,8 @@ describe('InboxItem', () => {
   it('reads the conversation it opens with, not the task', () => {
     waiting.mockReturnValue(
       item([
-        message({ position: 4 }),
-        message({ position: 5, body: 'And this.' }),
+        note({ position: 4 }),
+        note({ position: 5, body: 'And this.' }),
       ]).map((each) => ({ ...each, id: 'task_1:4', unread: true })),
     );
 
@@ -682,7 +682,7 @@ describe('InboxItem', () => {
 
   it('puts a failure in words and counts how often it happened', () => {
     const [failing] = item([
-      message({ form: 'failure', body: 'The run exited before it finished.' }),
+      note({ form: 'failure', body: 'The run exited before it finished.' }),
     ]);
     waiting.mockReturnValue([
       {

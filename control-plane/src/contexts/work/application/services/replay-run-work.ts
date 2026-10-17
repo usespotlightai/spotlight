@@ -29,8 +29,8 @@ export class ReplayRunWork implements RunWork {
     return this.run.workspaceId;
   }
 
-  async deliverUpTo(): Promise<void> {
-    throw new KeptFromReplaysError('take up what a person says');
+  async acknowledgeUpTo(): Promise<void> {
+    throw new KeptFromReplaysError('acknowledge the messages of a person');
   }
 
   gave(attachmentId: string): Attachment | null {

@@ -18,7 +18,7 @@ const POOLS = [aPool(BURST, ['gpu']), aPool(STEADY), aPool(SPARE)];
 
 describe('poolChoiceFor', () => {
   it('offers the pools that could take the placement and have room, in the order given', () => {
-    const room = PoolRoom.told([
+    const room = PoolRoom.of([
       [BURST, 1],
       [STEADY, null],
       [SPARE, 0],
@@ -38,7 +38,7 @@ describe('poolChoiceFor', () => {
 
   it('offers a run with injected secrets only the pools that name an egress', () => {
     const pools = [aPool(BURST), aPool(STEADY, [], true)];
-    const room = PoolRoom.told([
+    const room = PoolRoom.of([
       [BURST, null],
       [STEADY, null],
     ]);
@@ -57,14 +57,14 @@ describe('poolChoiceFor', () => {
 
   it('offers no pool whose room it was never told', () => {
     expect(
-      poolChoiceFor(RunnerPlacement.anywhere(), POOLS, PoolRoom.told([])),
+      poolChoiceFor(RunnerPlacement.anywhere(), POOLS, PoolRoom.of([])),
     ).toEqual([]);
   });
 });
 
 describe('PoolRoom', () => {
   it('takes one run of a bounded pool’s room, and leaves an unbounded pool’s alone', () => {
-    const room = PoolRoom.told([
+    const room = PoolRoom.of([
       [BURST, 1],
       [STEADY, null],
     ]);
@@ -76,20 +76,20 @@ describe('PoolRoom', () => {
   });
 
   it('knows a pool by its id, not by the object naming it', () => {
-    const room = PoolRoom.told([[BURST, 1]]);
+    const room = PoolRoom.of([[BURST, 1]]);
 
     expect(room.hasRoomIn(PoolId.of('burst'))).toBe(true);
     expect(room.afterTaking(PoolId.of('burst')).hasRoomIn(BURST)).toBe(false);
   });
 
   it('finds room while some pool is unbounded or has runs to spare', () => {
-    expect(PoolRoom.told([[BURST, 0]]).anyLeft).toBe(false);
+    expect(PoolRoom.of([[BURST, 0]]).anyLeft).toBe(false);
     expect(
-      PoolRoom.told([
+      PoolRoom.of([
         [BURST, 0],
         [STEADY, null],
       ]).anyLeft,
     ).toBe(true);
-    expect(PoolRoom.told([[BURST, 2]]).anyLeft).toBe(true);
+    expect(PoolRoom.of([[BURST, 2]]).anyLeft).toBe(true);
   });
 });

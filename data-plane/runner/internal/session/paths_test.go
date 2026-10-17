@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/runner/internal/declare"
+	"usespotlight.ai/data-plane/runner/internal/agentapi"
 )
 
 func TestNamesAPathByItsCheckoutWithinTheWorkspace(t *testing.T) {
@@ -39,7 +39,7 @@ func TestRejectsAPathOutsideTheCheckoutsNamingWhereToLook(t *testing.T) {
 	} {
 		_, err := checkedOutPaths(dir, checkouts, []string{outside})
 
-		var rejected *declare.Error
+		var rejected *agentapi.Error
 		if !errors.As(err, &rejected) {
 			t.Fatalf("%s: got %v", outside, err)
 		}

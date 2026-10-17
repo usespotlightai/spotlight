@@ -364,7 +364,7 @@ describe('an approval a run asked for', () => {
           voice: Voice.station(runId),
         },
         runId,
-        ApprovalIntent.said('post the fix on ENG-12'),
+        ApprovalIntent.from('post the fix on ENG-12'),
       ).task,
     );
 

@@ -6,7 +6,7 @@ import { formatDay } from '@/lib/judge';
 
 const HEIGHT = 16;
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -61,7 +61,7 @@ export function SkillWeeksChart({ weeks, onWeek }: SkillWeeksChartProps) {
             <YAxis hide domain={[0, 'dataMax']} />
             <Tooltip
               {...cursor.tooltip}
-              content={<Said placement={cursor.placement} />}
+              content={<TipContent placement={cursor.placement} />}
               cursor={{ stroke: 'var(--chart-grid)' }}
             />
             <Line

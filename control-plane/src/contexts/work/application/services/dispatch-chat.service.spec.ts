@@ -143,7 +143,7 @@ const dispatched = (chat: Chat, runId: RunId) => {
   const assigned = chat.assignRun(runId, NOW);
   const [event] = assigned.pullEvents();
 
-  return { chat: assigned, handed: (event as ChatDispatched).delivered };
+  return { chat: assigned, handed: (event as ChatDispatched).acknowledged };
 };
 
 describe('DispatchChat', () => {
@@ -182,7 +182,7 @@ describe('DispatchChat', () => {
       .assignRun(RunId.of('run_1'), NOW)
       .recordSession(HarnessSession.of('session_1'), null)
       .endRun(RunId.of('run_1'))
-      .said({
+      .addMessage({
         by: UserId.of('user_1'),
         body: ChatMessageBody.of('Split it.'),
         at: NOW,
@@ -197,7 +197,7 @@ describe('DispatchChat', () => {
     ).toBe(false);
 
     const again = dispatched(
-      first.chat.runKeptNothing(RunId.of('run_2')).said({
+      first.chat.runKeptNothing(RunId.of('run_2')).addMessage({
         by: UserId.of('user_1'),
         body: ChatMessageBody.of('Then the docs.'),
         at: NOW,

@@ -39,7 +39,7 @@ const amountOf = (
     ? amountIn(amount, currency)
     : sharePercent(amount);
 
-const pointsSaid = (share: number): string => {
+const pointsText = (share: number): string => {
   const points = Math.round(share * 1000) / 10;
 
   return `${points} ${points === 1 ? 'point' : 'points'}`;
@@ -104,7 +104,7 @@ const BOUNDS: Record<AlertTrigger, string> = {
   above: '> ',
 };
 
-const SAID: Record<AlertTrigger, (threshold: string) => string> = {
+const TRIGGER_TEXT: Record<AlertTrigger, (threshold: string) => string> = {
   rises: (threshold) => `rises ${threshold} or more`,
   falls: (threshold) => `falls ${threshold} or more`,
   below: (threshold) => `drops below ${threshold}`,
@@ -136,8 +136,8 @@ export const alertPhrase = (
     alert,
     readingOf(alert),
     currency,
-    pointsSaid,
+    pointsText,
   );
 
-  return `Alerts when the ${measure.toLowerCase()} ${SAID[trigger](threshold)} ${window}`;
+  return `Alerts when the ${measure.toLowerCase()} ${TRIGGER_TEXT[trigger](threshold)} ${window}`;
 };

@@ -39,7 +39,7 @@ const at = (
     repositories: [API, WEB],
   },
   steps: change.steps ?? [
-    { index: 2, kind: 'said' },
+    { index: 2, kind: 'message' },
     { index: 7, kind: 'remember' },
     { index: 9, kind: 'thought' },
   ],
@@ -128,7 +128,7 @@ describe('Remembering, what an agent asks its team to keep', () => {
     expect(proposal.proposed).toBe(true);
   });
 
-  it('rests on the latest step not yet remembered from, or the last thing said', () => {
+  it('rests on the latest step not yet remembered from, or the last step', () => {
     expect(
       proposed(
         {},
@@ -142,11 +142,11 @@ describe('Remembering, what an agent asks its team to keep', () => {
       ).grounds.steps,
     ).toEqual([3]);
     expect(
-      proposed({}, { steps: [{ index: 4, kind: 'said' }] }).grounds.steps,
+      proposed({}, { steps: [{ index: 4, kind: 'message' }] }).grounds.steps,
     ).toEqual([4]);
   });
 
-  it('rejects a memory from a run that has said nothing yet', () => {
+  it('rejects a memory from a run that has no steps yet', () => {
     expect(() => proposed({}, { steps: [] })).toThrow(InvalidMemoryError);
   });
 

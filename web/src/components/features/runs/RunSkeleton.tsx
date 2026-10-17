@@ -1,4 +1,4 @@
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
+import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSkeleton';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
@@ -36,9 +36,9 @@ export function RunSkeleton() {
 
             <section className="flex flex-col">
               <div className={STICKY_AT_TOP}>
-                <SaidCard>
+                <MessageCard>
                   <SkeletonLine className="w-3/5 text-sm leading-6" />
-                </SaidCard>
+                </MessageCard>
               </div>
 
               <TurnsSkeleton />

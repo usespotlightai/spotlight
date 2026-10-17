@@ -725,7 +725,7 @@ func TestEverySandboxIsToldHowLongToWaitWarmForAnAnswer(t *testing.T) {
 
 	id := engine.workSandboxes()[0]
 	if spec := engine.sandbox(id); !slices.Contains(spec.Env, "SPOTLIGHT_ANSWER_WAIT=1m30s") {
-		t.Errorf("the sandbox was not told how long to wait: %v", spec.Env)
+		t.Errorf("the sandbox did not get the wait time: %v", spec.Env)
 	}
 
 	engine.finish(id)
@@ -1318,7 +1318,7 @@ func TestKeepsTheCheckLeasedWhileItPullsAndStarts(t *testing.T) {
 
 func TestStartsNoSandboxForACheckItNoLongerLeasesWhileItPulls(t *testing.T) {
 	for name, gone := range map[string]func(c *runClient){
-		"told to stop": func(c *runClient) { c.checksGone = true },
+		"a stop was requested": func(c *runClient) { c.checksGone = true },
 		"not found": func(c *runClient) {
 			c.checkLost = &control.ResponseError{Status: http.StatusNotFound, Err: errors.New("404 Not Found")}
 		},
@@ -1423,14 +1423,14 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 		t.Errorf("egress joined %+v", egress.Joins)
 	}
 
-	var told protocol.EgressConfig
+	var config protocol.EgressConfig
 	if len(egress.Files) != 1 || egress.Files[0].Path != protocol.EgressConfigPath || egress.Files[0].Mode != 0o400 ||
-		json.Unmarshal(egress.Files[0].Body, &told) != nil {
+		json.Unmarshal(egress.Files[0].Body, &config) != nil {
 		t.Fatalf("egress got %+v", egress.Files)
 	}
-	if told.Token != "egress-runner_1" || told.URL != opts.SandboxURL || !slices.Equal(told.Allow, []string{"api.anthropic.com"}) ||
-		!slices.Equal(told.SecretAllow, []string{"prod/*"}) || len(told.Credential) < 16 {
-		t.Errorf("egress was told %+v", told)
+	if config.Token != "egress-runner_1" || config.URL != opts.SandboxURL || !slices.Equal(config.Allow, []string{"api.anthropic.com"}) ||
+		!slices.Equal(config.SecretAllow, []string{"prod/*"}) || len(config.Credential) < 16 {
+		t.Errorf("egress got %+v", config)
 	}
 
 	sandboxID := engine.workSandboxes()[0]
@@ -1445,7 +1445,7 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 		t.Errorf("the sandbox got egress's credential: %s", spec.Files[0].Body)
 	}
 
-	proxy := "http://sandbox:" + told.Credential + "@egress:3128"
+	proxy := "http://sandbox:" + config.Credential + "@egress:3128"
 	for _, want := range []string{
 		"HTTPS_PROXY=" + proxy,
 		"https_proxy=" + proxy,
@@ -1568,11 +1568,11 @@ func TestEachRunsEgressAnswersOnlyToACredentialOfItsOwn(t *testing.T) {
 	credentials := map[string]bool{}
 	for _, runner := range []string{"runner_1", "runner_2"} {
 		_, egress, _ := engine.egressOf(runner)
-		var told protocol.EgressConfig
-		if err := json.Unmarshal(egress.Files[0].Body, &told); err != nil {
+		var config protocol.EgressConfig
+		if err := json.Unmarshal(egress.Files[0].Body, &config); err != nil {
 			t.Fatal(err)
 		}
-		credentials[told.Credential] = true
+		credentials[config.Credential] = true
 	}
 	if len(credentials) != 2 {
 		t.Errorf("two runs' egresses share a credential: %v", credentials)
@@ -1615,7 +1615,7 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
-	told := func(spec sandbox.Spec) protocol.EgressConfig {
+	egressConfigOf := func(spec sandbox.Spec) protocol.EgressConfig {
 		var config protocol.EgressConfig
 		if err := json.Unmarshal(spec.Files[0].Body, &config); err != nil {
 			t.Fatal(err)
@@ -1625,7 +1625,7 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	wantHarnessKeys := []protocol.HarnessKey{{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-test"}}
 
 	_, runEgress, _ := engine.egressOf("runner_1")
-	if harnessKeys := told(runEgress).HarnessKeys; !slices.Equal(harnessKeys, wantHarnessKeys) {
+	if harnessKeys := egressConfigOf(runEgress).HarnessKeys; !slices.Equal(harnessKeys, wantHarnessKeys) {
 		t.Errorf("the run's egress has %+v", harnessKeys)
 	}
 
@@ -1658,8 +1658,8 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	for _, spec := range engine.egresses {
 		if spec.Labels[serve.LabelRunner] == "" {
 			probeEgress = true
-			if config := told(spec); config.Token != "" || !slices.Equal(config.HarnessKeys, wantHarnessKeys) {
-				t.Errorf("the probe's egress was told %+v", config)
+			if config := egressConfigOf(spec); config.Token != "" || !slices.Equal(config.HarnessKeys, wantHarnessKeys) {
+				t.Errorf("the probe's egress got %+v", config)
 			}
 		}
 	}
@@ -1691,7 +1691,7 @@ func hookCall(id string) protocol.HostCall {
 	}
 }
 
-func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWhatItSaid(t *testing.T) {
+func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWithItsResponse(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
 	opts.Network = "spotlight"

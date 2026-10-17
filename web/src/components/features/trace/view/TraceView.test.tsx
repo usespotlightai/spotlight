@@ -150,11 +150,11 @@ const trace = (): Trace => ({
             }),
             node({
               id: 'run_1:step:2',
-              name: 'Said',
+              name: 'Message',
               startedAt: iso(35_000),
               ms: 400,
               step: step({
-                kind: 'said',
+                kind: 'message',
                 text: 'vitest is missing from the image',
                 startedAt: iso(35_000),
                 ms: 400,
@@ -193,7 +193,7 @@ describe('TraceView', () => {
       expect.stringContaining('Turn · claude-code'),
       expect.stringContaining('npm test'),
       expect.stringContaining('llm_request'),
-      expect.stringContaining('Said'),
+      expect.stringContaining('Message'),
       expect.stringContaining('Publish'),
     ]);
   });
@@ -244,11 +244,11 @@ describe('TraceView', () => {
     expect(screen.getByText('"0.7"')).toBeInTheDocument();
   });
 
-  it('shows what was said, where the row only says that it spoke', async () => {
+  it('shows the message, where the row shows only the step kind', async () => {
     const user = userEvent.setup();
     view();
 
-    await user.click(screen.getByRole('button', { name: 'Said' }));
+    await user.click(screen.getByRole('button', { name: 'Message' }));
 
     expect(
       screen.getByText('vitest is missing from the image'),

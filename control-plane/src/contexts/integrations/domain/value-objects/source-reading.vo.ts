@@ -66,9 +66,9 @@ export class SourceReading {
   }
 
   stillAfter(problem: string): SourceReading {
-    const said = problem.trim();
+    const trimmed = problem.trim();
 
-    if (said === '' || !this.hash) {
+    if (trimmed === '' || !this.hash) {
       throw new InvalidIntegrationPartError(
         'reading',
         'keeps what it read before only when it read something, and says why it could not read it again',
@@ -79,7 +79,7 @@ export class SourceReading {
       this.fingerprint,
       this.hash,
       this.readAt,
-      said,
+      trimmed,
       this.passedOver,
     );
   }

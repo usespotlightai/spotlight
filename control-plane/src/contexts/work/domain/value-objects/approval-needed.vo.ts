@@ -12,13 +12,13 @@ export class ApprovalNeeded {
     because: string,
     askedOf: UserId | null = null,
   ): ApprovalNeeded {
-    const said = because.trim();
+    const reason = because.trim();
 
-    if (said.length === 0) {
+    if (reason.length === 0) {
       throw new InvalidToolError(tool, 'needs approval, so it must say why');
     }
 
-    return new ApprovalNeeded(said, askedOf);
+    return new ApprovalNeeded(reason, askedOf);
   }
 
   equals(other: ApprovalNeeded): boolean {

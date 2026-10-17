@@ -57,7 +57,7 @@ const aChatRun = async (): Promise<{
   await db.insert(schema.chatMessage).values({
     chatId,
     position: 0,
-    kind: 'said',
+    kind: 'message',
     body: 'Here is the screen.',
     at: new Date(),
     authorId: team.owner.value,

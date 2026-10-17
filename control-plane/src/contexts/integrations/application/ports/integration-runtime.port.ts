@@ -19,7 +19,7 @@ import type {
 
 interface BoundTaskWaiting {
   readonly conversationId: string;
-  readonly said: string;
+  readonly body: string;
   readonly awaitsApproval: boolean;
 }
 
@@ -61,7 +61,7 @@ export interface Reach {
 
 export interface HostError {
   readonly status: number;
-  readonly said: string;
+  readonly output: string;
 }
 
 export type ToolOutput =

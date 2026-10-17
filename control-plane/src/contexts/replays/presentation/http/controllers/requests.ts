@@ -22,10 +22,14 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
     ? (body as Record<string, unknown>)
     : {};
 
-export const textAt = (body: unknown, field: string, says: string): string => {
+export const textAt = (
+  body: unknown,
+  field: string,
+  reason: string,
+): string => {
   const value = fieldsOf(body)[field];
 
-  return typeof value === 'string' ? value : rejectAt([field], says);
+  return typeof value === 'string' ? value : rejectAt([field], reason);
 };
 
 const ceilingAt = (
@@ -62,17 +66,17 @@ export const ceilingIn = (
 const countAt = (
   fields: Record<string, unknown>,
   at: readonly string[],
-  says: string,
+  reason: string,
 ): number => {
   const count = fields[at[at.length - 1] as string];
 
-  return typeof count === 'number' ? count : rejectAt(at, says);
+  return typeof count === 'number' ? count : rejectAt(at, reason);
 };
 
 const optionalTextAt = (
   fields: Record<string, unknown>,
   at: readonly string[],
-  says: string,
+  reason: string,
 ): string | null => {
   const text = fields[at[at.length - 1] as string];
 
@@ -80,7 +84,7 @@ const optionalTextAt = (
     return null;
   }
 
-  return typeof text === 'string' ? text : rejectAt(at, says);
+  return typeof text === 'string' ? text : rejectAt(at, reason);
 };
 
 export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {

@@ -12,11 +12,11 @@ describe('Voice', () => {
   });
 
   it('is a person speaking, who has a name', () => {
-    const spoke = Voice.person(UserId.of('user_1'));
+    const person = Voice.person(UserId.of('user_1'));
 
-    expect(spoke.isPerson).toBe(true);
-    expect(spoke.author?.value).toBe('user_1');
-    expect(spoke.run).toBeNull();
+    expect(person.isPerson).toBe(true);
+    expect(person.author?.value).toBe('user_1');
+    expect(person.run).toBeNull();
   });
 
   it('is the world speaking, which is nobody of ours', () => {

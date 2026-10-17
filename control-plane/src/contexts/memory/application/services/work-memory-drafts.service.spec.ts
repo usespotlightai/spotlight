@@ -13,7 +13,7 @@ import type {
   ChangedFile,
   NamedStationSite,
   ReasonedStep,
-  SpokenNote,
+  TaskNote,
   WorkPort,
 } from '@memory/application/ports/work.port';
 import { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
@@ -55,14 +55,14 @@ const SITE: NamedStationSite = {
 
 const STEPS: readonly ReasonedStep[] = [
   { index: 2, kind: 'thought', text: 'A queue needs a worker we do not run.' },
-  { index: 5, kind: 'said', text: 'Retrying in the request instead.' },
+  { index: 5, kind: 'message', text: 'Retrying in the request instead.' },
 ];
 
 const CHANGED: readonly ChangedFile[] = [
   { repository: API, path: 'src/uploads.ts' },
 ];
 
-const SPOKEN: readonly SpokenNote[] = [
+const NOTES: readonly TaskNote[] = [
   { position: 0, by: 'person', author: null, text: 'Keep it simple.' },
   { position: 1, by: 'person', author: null, text: 'Never retry on a 403.' },
 ];
@@ -134,7 +134,7 @@ const working = (input: {
   answer?: (ask: MemoryDraftAsk) => Promise<readonly ProposedMemory[]>;
   site?: NamedStationSite | null;
   steps?: readonly ReasonedStep[] | null;
-  spoken?: readonly SpokenNote[];
+  notes?: readonly TaskNote[];
   fromOutside?: boolean;
   existing?: MemoryDraft;
 }) => {
@@ -173,7 +173,7 @@ const working = (input: {
       }),
       reasoning: async () => (input.steps === undefined ? STEPS : input.steps),
       changedBy: async () => CHANGED,
-      spokenOn: async () => input.spoken ?? SPOKEN,
+      notesOf: async () => input.notes ?? NOTES,
       harnessOf: async () => null,
     } satisfies WorkPort,
     new MemoriesInReach(
@@ -211,7 +211,7 @@ const working = (input: {
 };
 
 describe('drafting what a run should leave the team remembering', () => {
-  it('proposes what its evidence grounds, from a person where only a person said it', async () => {
+  it('proposes what its evidence grounds, from a person where it rests only on notes by a person', async () => {
     const worked = working({});
 
     await worked.tick();
@@ -226,7 +226,7 @@ describe('drafting what a run should leave the team remembering', () => {
     expect(proposal?.scope.stationId).toBe('station_1');
   });
 
-  it('asks with the agent’s own words, what people said, and what the team keeps or turned down where the run worked', async () => {
+  it('asks with the agent’s own words, the notes people wrote, and what the team keeps or turned down where the run worked', async () => {
     const worked = working({});
 
     await worked.tick();
@@ -237,7 +237,7 @@ describe('drafting what a run should leave the team remembering', () => {
       repositories: ['acme/api'],
       steps: STEPS,
       stepsLeftOut: 0,
-      notes: SPOKEN,
+      notes: NOTES,
       changed: CHANGED,
       active: ACTIVE,
       proposed: [],
@@ -264,8 +264,8 @@ describe('drafting what a run should leave the team remembering', () => {
 
     const later = working({
       existing: first.stored().asked(RunId.of('run_2'), NOW),
-      spoken: [
-        ...SPOKEN,
+      notes: [
+        ...NOTES,
         { position: 2, by: 'person', author: null, text: 'Use gzip.' },
       ],
       answer: async () => [],
@@ -285,8 +285,8 @@ describe('drafting what a run should leave the team remembering', () => {
     expect(worked.stored().proposals[0]?.source).toBe('outside');
   });
 
-  it('proposes nothing, asking no model, when the run said nothing and nobody spoke', async () => {
-    const worked = working({ steps: [], spoken: [] });
+  it('proposes nothing, asking no model, when the run has no steps and nobody wrote a note', async () => {
+    const worked = working({ steps: [], notes: [] });
 
     await worked.tick();
 

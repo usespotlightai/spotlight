@@ -93,7 +93,7 @@ ${SCALES[ask.scale]}
 The user message is one JSON document that contains the evidence of the run:
 
 - "task": the title and description of the task the agent was given.
-- "steps": what the agent said, thought, planned and did, in order, each with its "index", and what its tools were given and returned.
+- "steps": the messages, thoughts, plans and actions of the agent, in order, each with its "index", and what its tools were given and returned.
 - "hunks": parts of the run's changes, each named by its "id".
 - "left_out": how many of the earliest steps and the last hunks were left out for length.${
   ask.reference

@@ -104,7 +104,7 @@ describe('TaskBindings', () => {
 
     const bound = await binding().of(asked);
 
-    expect(bound?.waiting?.said).toBe('Which queue should I drain?');
+    expect(bound?.waiting?.body).toBe('Which queue should I drain?');
     expect(bound?.waiting?.conversationId).toMatch(/^task_1:/);
     expect(bound?.waiting?.awaitsApproval).toBe(false);
   });
@@ -146,10 +146,10 @@ describe('TaskBindings', () => {
     const bound = await binding().of(asked);
 
     expect(bound?.waiting?.awaitsApproval).toBe(true);
-    expect(bound?.waiting?.said).not.toContain('**');
-    expect(bound?.waiting?.said).toContain('`linear.comment`');
-    expect(bound?.waiting?.said).toContain('issue: `ENG-12`');
-    expect(bound?.waiting?.said).toContain('body:\n```\nFixed.\nIn #41.\n```');
+    expect(bound?.waiting?.body).not.toContain('**');
+    expect(bound?.waiting?.body).toContain('`linear.comment`');
+    expect(bound?.waiting?.body).toContain('issue: `ENG-12`');
+    expect(bound?.waiting?.body).toContain('body:\n```\nFixed.\nIn #41.\n```');
   });
 
   it('binds nothing for a task off every line', async () => {

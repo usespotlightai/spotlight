@@ -150,13 +150,13 @@ describe('clearing a tool call that needs approval', () => {
     expect(again.task.notes).toHaveLength(asked.notes.length);
   });
 
-  it('keeps what the agent first said it wants to do while an answer from a person is still pending', () => {
+  it('keeps the first intent of the agent while an answer from a person is still pending', () => {
     const asked = working().clearFor(
       CALL,
       NEEDED,
       asking(),
       RUN,
-      ApprovalIntent.said('post the fix on ENG-12'),
+      ApprovalIntent.from('post the fix on ENG-12'),
     ).task;
 
     const again = asked.clearFor(
@@ -164,7 +164,7 @@ describe('clearing a tool call that needs approval', () => {
       NEEDED,
       asking(),
       RUN,
-      ApprovalIntent.said('post something else'),
+      ApprovalIntent.from('post something else'),
     ).task;
 
     expect(again.approvalFor(CALL)?.approval.intent?.value).toBe(

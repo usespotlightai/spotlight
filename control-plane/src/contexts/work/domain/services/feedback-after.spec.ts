@@ -14,7 +14,7 @@ const noteOf = (
   position: number,
   body: string,
   voice: Voice,
-  kind: 'asked' | 'passed' | 'said' = 'said',
+  kind: 'asked' | 'passed' | 'message' = 'message',
   form: 'words' | 'approval' = 'words',
 ) =>
   TaskNote.of({
@@ -30,7 +30,7 @@ const noteOf = (
 const MAYA = Voice.person(UserId.of('user_maya'));
 
 describe('feedbackAfter', () => {
-  it('reads what people said after the run, up to the next run', () => {
+  it('reads the notes of people after the run, up to the next run', () => {
     expect(
       feedbackAfter(
         [
@@ -50,14 +50,14 @@ describe('feedbackAfter', () => {
     expect(feedbackAfter([noteOf(0, 'Hello.', MAYA)], RUN)).toEqual([]);
   });
 
-  it('keeps reading past what the world or the station says, but not past an approval', () => {
+  it('keeps reading past the notes of the world or the station, but not past an approval', () => {
     expect(
       feedbackAfter(
         [
           noteOf(0, 'Done.', Voice.station(RUN), 'passed'),
           noteOf(1, 'Slack: build red.', Voice.world()),
           noteOf(2, 'Moved to Build.', Voice.station()),
-          noteOf(3, 'Approve the deploy?', MAYA, 'said', 'approval'),
+          noteOf(3, 'Approve the deploy?', MAYA, 'message', 'approval'),
           noteOf(4, 'Keep the old API.', MAYA),
         ],
         RUN,
@@ -65,7 +65,7 @@ describe('feedbackAfter', () => {
     ).toEqual(['Keep the old API.']);
   });
 
-  it('reads after the run’s last note, when it spoke more than once', () => {
+  it('reads after the run’s last note, when it wrote more than one note', () => {
     expect(
       feedbackAfter(
         [

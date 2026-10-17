@@ -74,7 +74,7 @@ export class ProvisionTeam {
       welcomeTask({
         line: delivery,
         teamId: team.teamId,
-        saying: TaskNoteBody.of(listed()),
+        noteBody: TaskNoteBody.of(listed()),
         at: first.id,
         station: first.name,
         owner: team.owner,

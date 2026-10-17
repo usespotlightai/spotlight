@@ -15,7 +15,7 @@ export const EGRESS_CHECKED = 'egress.checked';
 
 export type EgressEnforcement = 'enforced' | 'not-enforced';
 
-export const enforcementTold = (
+export const parseEnforcement = (
   data: string | null | undefined,
 ): EgressEnforcement | null => {
   if (!data) {
@@ -23,15 +23,15 @@ export const enforcementTold = (
   }
 
   try {
-    const told = JSON.parse(Buffer.from(data, 'base64').toString('utf8')) as {
+    const parsed = JSON.parse(Buffer.from(data, 'base64').toString('utf8')) as {
       enforced?: unknown;
     };
 
-    if (typeof told.enforced !== 'boolean') {
+    if (typeof parsed.enforced !== 'boolean') {
       return null;
     }
 
-    return told.enforced ? 'enforced' : 'not-enforced';
+    return parsed.enforced ? 'enforced' : 'not-enforced';
   } catch {
     return null;
   }
@@ -75,8 +75,8 @@ export interface RunSpent {
 export interface RunMarks {
   readonly startedAt: Date | null;
   readonly readyAt: Date | null;
-  readonly spokeFrom: Date | null;
-  readonly spokeTo: Date | null;
+  readonly firstAgentUpdateAt: Date | null;
+  readonly lastAgentUpdateAt: Date | null;
   readonly endedAt: Date | null;
 }
 

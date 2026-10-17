@@ -442,22 +442,22 @@ func (c *cli) printReplay(read followed) {
 	if replay.Repeats > 1 {
 		fmt.Fprintf(c.out, "It replays each run %d times.\n", replay.Repeats)
 	}
-	fmt.Fprintf(c.out, "Succeeded: %s, %d unscored\n", totalsSay(replay), replay.Totals.Unscored)
+	fmt.Fprintf(c.out, "Succeeded: %s, %d unscored\n", describeTotals(replay), replay.Totals.Unscored)
 	switch {
 	case replay.IsBaseline:
 		fmt.Fprint(c.out, "It is the set's baseline.\n\n")
 	case read.ComparedWith != nil:
-		against := counterpartSays(replay)
-		fmt.Fprintf(c.out, "Compared with %s, %s: %s, %d unscored\n", against, read.ComparedWith.State, totalsSay(*read.ComparedWith), read.ComparedWith.Totals.Unscored)
-		if both, differs := bothScoredSays(replay.ComparedWith, *read.ComparedWith); differs {
+		against := describeCounterpart(replay)
+		fmt.Fprintf(c.out, "Compared with %s, %s: %s, %d unscored\n", against, read.ComparedWith.State, describeTotals(*read.ComparedWith), read.ComparedWith.Totals.Unscored)
+		if both, differs := describeBothScored(replay.ComparedWith, *read.ComparedWith); differs {
 			fmt.Fprintf(c.out, "On the tasks both scored: %s\n", both)
 		}
 		if replay.AgainstBaseline != nil {
-			fmt.Fprintf(c.out, "%s\n", gainSays(*replay.AgainstBaseline, against))
+			fmt.Fprintf(c.out, "%s\n", describeGain(*replay.AgainstBaseline, against))
 		}
 		fmt.Fprintln(c.out)
 	default:
-		fmt.Fprintf(c.out, "It is compared with nothing: %s.\n\n", nothingComparedSays(replay))
+		fmt.Fprintf(c.out, "It is compared with nothing: %s.\n\n", describeNothingCompared(replay))
 	}
 
 	table := tabled(c.out)
@@ -467,12 +467,12 @@ func (c *cli) printReplay(read followed) {
 		if each.Regressed {
 			mark = "REGRESSED"
 		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", mark, each.TaskID, resultsSay(each.Candidate), resultsSay(each.Baseline), signed(each.CostDelta), signed(each.StepsDelta), signed(each.ScoreDelta))
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", mark, each.TaskID, describeResults(each.Candidate), describeResults(each.Baseline), signed(each.CostDelta), signed(each.StepsDelta), signed(each.ScoreDelta))
 	}
 	_ = table.Flush()
 }
 
-func counterpartSays(replay replayRead) string {
+func describeCounterpart(replay replayRead) string {
 	if replay.BaselineReplayID != nil && replay.ComparedWith.ReplayID == *replay.BaselineReplayID {
 		return "the baseline"
 	}
@@ -487,7 +487,7 @@ func counterpartSays(replay replayRead) string {
 	}
 }
 
-func nothingComparedSays(replay replayRead) string {
+func describeNothingCompared(replay replayRead) string {
 	switch {
 	case candidateKind(replay) == "oracle":
 		return "the live replay it was compared with is gone"
@@ -506,17 +506,17 @@ func candidateKind(replay replayRead) string {
 	return replay.Candidate.Kind
 }
 
-func bothScoredSays(compared *counterpart, its replayRead) (string, bool) {
+func describeBothScored(compared *counterpart, its replayRead) (string, bool) {
 	if compared.Interval == nil {
 		return "", false
 	}
 
-	both := intervalSays(*compared.Interval)
+	both := describeInterval(*compared.Interval)
 
-	return both, its.Totals.Interval == nil || intervalSays(*its.Totals.Interval) != both
+	return both, its.Totals.Interval == nil || describeInterval(*its.Totals.Interval) != both
 }
 
-func resultsSay(copies []entry) string {
+func describeResults(copies []entry) string {
 	if len(copies) == 0 {
 		return "none"
 	}
@@ -529,16 +529,16 @@ func resultsSay(copies []entry) string {
 	return strings.Join(results, "/")
 }
 
-func totalsSay(replay replayRead) string {
-	said := rate(replay.Totals.Succeeded, replay.Totals.SuccessRate, replay.Totals.Scored)
+func describeTotals(replay replayRead) string {
+	text := rate(replay.Totals.Succeeded, replay.Totals.SuccessRate, replay.Totals.Scored)
 	if replay.Totals.Interval == nil {
-		return said
+		return text
 	}
 
-	return fmt.Sprintf("%s; %s over %d of %d tasks", said, intervalSays(*replay.Totals.Interval), replay.Totals.TasksScored, replay.Totals.Tasks)
+	return fmt.Sprintf("%s; %s over %d of %d tasks", text, describeInterval(*replay.Totals.Interval), replay.Totals.TasksScored, replay.Totals.Tasks)
 }
 
-func intervalSays(of interval) string {
+func describeInterval(of interval) string {
 	return fmt.Sprintf("%.0f%% (%.0f–%.0f%%)", of.Rate*100, of.Low*100, of.High*100)
 }
 
@@ -546,7 +546,7 @@ func points(share float64) string {
 	return fmt.Sprintf("%+.0f", share*100)
 }
 
-func gainSays(gain gainReading, against string) string {
+func describeGain(gain gainReading, against string) string {
 	span := fmt.Sprintf("%s points (%s to %s) over %d tasks", points(gain.Gain), points(gain.Low), points(gain.High), gain.Tasks)
 	switch gain.Verdict {
 	case "better":

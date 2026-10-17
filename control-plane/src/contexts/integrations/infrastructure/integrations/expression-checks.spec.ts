@@ -39,7 +39,7 @@ const LINEAR = {
         },
         raise: {
           happening: 'linear.issue.closed',
-          say: e('issue.title'),
+          message: e('issue.title'),
           marks: [{ kind: 'linear.issue', value: e('issue.id') }],
         },
       },
@@ -177,7 +177,8 @@ describe('checking an expression where a definition contains it', () => {
 
   it('gives a raise what its lookup captured', () => {
     expect(
-      checked('integration.webhook.events[1].raise.say', 'issue.title').errors,
+      checked('integration.webhook.events[1].raise.message', 'issue.title')
+        .errors,
     ).toEqual([]);
   });
 
@@ -214,7 +215,7 @@ describe('checking an expression where a definition contains it', () => {
 
   it('warns where a capture shadows a name Spotlight gives', () => {
     expect(
-      checked('integration.webhook.events[1].raise.say', 'issue.title')
+      checked('integration.webhook.events[1].raise.message', 'issue.title')
         .warnings,
     ).toEqual([
       {
@@ -440,7 +441,7 @@ describe('the positions an expression is written at', () => {
       lookup: { request, capture: { k: NOPE } },
       raise: {
         happening,
-        say: NOPE,
+        message: NOPE,
         opens: {
           onto: 'core',
           title: NOPE,

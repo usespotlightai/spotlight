@@ -1,9 +1,9 @@
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { InvalidReviewRequestError } from '@work/domain/exceptions/invalid-review-request.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
+import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
-import type { Said } from '@work/domain/value-objects/said.vo';
 
 const REVIEW_ASKINGS = ['opened', 'mentioned', 'labelled'] as const;
 
@@ -44,6 +44,6 @@ export const reviewRequested = (request: ReviewRequest): ReviewRequest => {
 };
 
 export interface ReviewAsked extends ReviewRequest {
-  readonly said: Said | null;
+  readonly anchor: Anchor | null;
   readonly ours: boolean;
 }

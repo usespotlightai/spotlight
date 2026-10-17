@@ -4,11 +4,11 @@ import { InvalidVoiceError } from '@work/domain/exceptions/invalid-voice.error';
 
 export const VOICES = ['station', 'person', 'world'] as const;
 
-export type SpokenBy = (typeof VOICES)[number];
+export type AuthorKind = (typeof VOICES)[number];
 
 export class Voice {
   private constructor(
-    readonly by: SpokenBy,
+    readonly by: AuthorKind,
     readonly author: UserId | null,
     readonly run: RunId | null,
   ) {}

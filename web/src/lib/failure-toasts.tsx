@@ -11,13 +11,13 @@ declare module '@tanstack/react-query' {
 }
 
 const toastFailure = (thrown: unknown) => {
-  const said = messageOf(thrown, '');
+  const message = messageOf(thrown, '');
 
   toast.add({
     type: 'error',
     title: failureHeadline(thrown),
     description: (
-      <FailureDetail said={said || null} sent={sentRequestOf(thrown)} />
+      <FailureDetail message={message || null} sent={sentRequestOf(thrown)} />
     ),
   });
 };

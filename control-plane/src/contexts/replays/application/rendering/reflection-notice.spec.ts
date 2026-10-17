@@ -35,7 +35,7 @@ const TITLES = new Map<string, string | null>([
 
 describe('ReflectionNoticeWording', () => {
   it('names each fix outside the config by its task’s title, and its suggestion or else its evidence', () => {
-    const said = ReflectionNoticeWording.of(
+    const wording = ReflectionNoticeWording.of(
       {
         outcome: 'no-config-cause',
         endedSearch: true,
@@ -49,10 +49,10 @@ describe('ReflectionNoticeWording', () => {
       TITLES,
     );
 
-    expect(said.headline).toBe(
+    expect(wording.headline).toBe(
       'The search for a better Build config ended with nothing the config can fix',
     );
-    expect(said.points).toEqual([
+    expect(wording.points).toEqual([
       'No config change can fix the 2 tasks still failing. The rest of the budget stays unspent.',
       'Fix the judge’s rubric, for “Drain the queue on restart”: Drop the test requirement.',
       'Take the task out of the replay set, or reword it, for one of the searched tasks: Evidence 2.',

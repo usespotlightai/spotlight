@@ -1,4 +1,4 @@
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
+import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { ChatInputSkeleton } from '@/components/shared/chat-input/ChatInputSkeleton';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
@@ -35,9 +35,9 @@ export function AgentChatSkeleton() {
             <section className="flex flex-col">
               <div className={STICKY_AT_TOP}>
                 <div className="flex flex-col gap-1.5">
-                  <SaidCard>
+                  <MessageCard>
                     <SkeletonLine className="w-2/5 text-sm leading-6" />
-                  </SaidCard>
+                  </MessageCard>
                 </div>
               </div>
             </section>

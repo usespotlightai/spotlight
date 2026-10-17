@@ -175,7 +175,7 @@ const anOriginal = async (
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
     briefedMemories: { briefed: [], cut: [] },
     ...(input.startedFrom === false
@@ -327,7 +327,7 @@ const finishes = async (
     .send({
       exitCode: failed ? 1 : 0,
       failed,
-      outcome: failed ? undefined : { next: 'ship', note: 'Done here.' },
+      handover: failed ? undefined : { next: 'ship', note: 'Done here.' },
       sessionId: 'session_1',
       kept: true,
     })

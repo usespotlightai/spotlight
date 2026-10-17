@@ -58,7 +58,7 @@ export class ReadRunnerTraceHandler
         return null;
       }
 
-      const [ran, told] = await Promise.all([
+      const [ran, journals] = await Promise.all([
         this.traces.runsForTask(target),
         this.traces.journalsForTask(target),
       ]);
@@ -70,7 +70,9 @@ export class ReadRunnerTraceHandler
         return null;
       }
 
-      const byRun = new Map(told.map((journal) => [journal.runId, journal]));
+      const byRun = new Map(
+        journals.map((journal) => [journal.runId, journal]),
+      );
       const errors = await this.connections.errorsIn(
         found.map((run) => run.id),
       );

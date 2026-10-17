@@ -2,12 +2,12 @@ type Invalid = new (reason: string) => Error;
 
 export const WrittenText = {
   prose(written: string, max: number, Invalid: Invalid): string {
-    const said = written.trim();
+    const text = written.trim();
 
-    if (!said) {
+    if (!text) {
       throw new Invalid('must not be empty');
     }
-    if (said.length > max) {
+    if (text.length > max) {
       throw new Invalid(`must be at most ${max} characters`);
     }
 
@@ -15,9 +15,9 @@ export const WrittenText = {
   },
 
   oneLine(written: string, max: number, Invalid: Invalid): string {
-    const said = written.trim();
+    const text = written.trim();
 
-    if (!said || said.length > max || /[\r\n]/.test(said)) {
+    if (!text || text.length > max || /[\r\n]/.test(text)) {
       throw new Invalid(`is one line of at most ${max} characters`);
     }
 

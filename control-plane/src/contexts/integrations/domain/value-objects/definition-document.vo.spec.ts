@@ -5,9 +5,9 @@ describe('DefinitionDocument', () => {
   it('says what a field contains', () => {
     const document = DefinitionDocument.of({ key: 'delivery' });
 
-    expect(document.says('key', 'delivery')).toBe(true);
-    expect(document.says('key', 'review')).toBe(false);
-    expect(document.says('name', 'delivery')).toBe(false);
+    expect(document.hasValue('key', 'delivery')).toBe(true);
+    expect(document.hasValue('key', 'review')).toBe(false);
+    expect(document.hasValue('name', 'delivery')).toBe(false);
   });
 
   it('keeps a copy that nothing can change afterwards', () => {

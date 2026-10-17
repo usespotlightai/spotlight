@@ -82,7 +82,7 @@ const proposing = async (
         repositories: [API],
       },
       steps: [
-        { index: 5, kind: 'said', text: 'Branches are named for tickets.' },
+        { index: 5, kind: 'message', text: 'Branches are named for tickets.' },
       ],
       notes: [],
       notesRead: 0,

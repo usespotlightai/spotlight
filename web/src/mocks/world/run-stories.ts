@@ -1,7 +1,7 @@
 import type {
   ChangeStackResponseDto,
-  InboxMessageResponseDto,
   JournalStepResponseDto,
+  NoteResponseDto,
   RunJournalResponseDto,
   TaskRunResponseDto,
 } from '@/lib/api';
@@ -31,13 +31,13 @@ import {
   edit,
   execute,
   failedWith,
+  messageStep,
   type NoteScript,
   passed,
   RUN_STORIES,
   type RunStory,
   read,
   type StepScript,
-  said,
   spend,
   thought,
 } from '@/mocks/world/work-stories';
@@ -247,7 +247,7 @@ const triageStory = (context: Context): Omit<RunStory, 'spend'> => {
       ...failingStep(context),
       ...(context.run.ending === 'completed'
         ? [
-            said(
+            messageStep(
               `Reproduced it. The failing path is \`${context.path}\`; a fix needs a test that covers it.`,
             ),
           ]
@@ -281,7 +281,7 @@ const specStory = (context: Context): Omit<RunStory, 'spend'> => {
       ),
       ...failingStep(context),
       ...(context.run.ending === 'completed'
-        ? [said('The spec is ready for review.')]
+        ? [messageStep('The spec is ready for review.')]
         : []),
     ],
     notes: closingNotes(
@@ -385,7 +385,7 @@ const buildStory = (context: Context): Omit<RunStory, 'spend'> => {
             ),
           ]
         : []),
-      ...(context.run.ending === 'completed' ? [said(summary)] : []),
+      ...(context.run.ending === 'completed' ? [messageStep(summary)] : []),
     ],
     notes: closingNotes(
       context,
@@ -739,8 +739,8 @@ const journalOf = (run: TaskRunResponseDto): RunJournalResponseDto => {
     marks: {
       startedAt: run.startedAt,
       readyAt: ready,
-      spokeFrom: ready,
-      spokeTo: steps.at(-1)?.startedAt ?? null,
+      firstAgentUpdateAt: ready,
+      lastAgentUpdateAt: steps.at(-1)?.startedAt ?? null,
       endedAt: finished(run) ? run.updatedAt : null,
     },
     spent: {
@@ -758,14 +758,14 @@ export const journalsOfTask = (taskId: string): RunJournalResponseDto[] =>
     .filter((run) => run.state !== 'queued')
     .map(journalOf);
 
-export type StoryMessage = Omit<InboxMessageResponseDto, 'position'>;
+export type StoryNote = Omit<NoteResponseDto, 'position'>;
 
-export const messageOf = (
+export const storyNoteOf = (
   run: TaskRunResponseDto,
   script: NoteScript,
-): StoryMessage => {
+): StoryNote => {
   const station = run.station;
-  const fromPerson = script.kind === 'answered' || script.kind === 'said';
+  const fromPerson = script.kind === 'answered' || script.kind === 'message';
   const at =
     script.minutesIn !== undefined
       ? Date.parse(run.startedAt) + script.minutesIn * MINUTE_MS
@@ -789,5 +789,5 @@ export const messageOf = (
   };
 };
 
-export const messagesOfRun = (run: TaskRunResponseDto): StoryMessage[] =>
-  storyOf(run.id).notes.map((script) => messageOf(run, script));
+export const notesOfRun = (run: TaskRunResponseDto): StoryNote[] =>
+  storyOf(run.id).notes.map((script) => storyNoteOf(run, script));

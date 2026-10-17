@@ -21,7 +21,7 @@ const declared = (happening: string, label = 'Issue completed') =>
   DeclaredHappening.of({
     happening: HappeningName.of(happening),
     label,
-    told: 'The issue was moved to Done.',
+    summary: 'The issue was moved to Done.',
     finds: [MarkKind.of('linear.issue')],
   });
 

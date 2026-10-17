@@ -53,7 +53,7 @@ export function SearchRunPage({ slug, teamId, run }: SearchRunPageProps) {
       trail={trail}
       forward={forward}
       run={run}
-      opening={null}
+      threadBriefing={null}
       title={iterationTitle(run.iteration, number)}
       briefing={run.briefing}
       failure={run.failure ? failureSentence(run.failure) : null}

@@ -172,16 +172,21 @@ const dispatch: TaskDispatching = {
 
 const news = (
   happening: Happening,
-  said: string | null,
+  message: string | null,
   ourOwn = false,
 ): Happened => ({
   happening: happening.value,
-  told: `The pull request was ${happening.value.split('.').pop()}.`,
-  spoken: happening.equals(COMMENTED) || happening.equals(CHANGES_REQUESTED),
+  summary: `The pull request was ${happening.value.split('.').pop()}.`,
+  answers: happening.equals(COMMENTED) || happening.equals(CHANGES_REQUESTED),
   state: 'raised',
   concerns: { branch: 'spotlight/task_1', marks: [] },
-  said: said
-    ? { body: said, path: 'compose.yml', from: 22, remark: 'PRRC_kwDO' }
+  message: message
+    ? {
+        body: message,
+        path: 'compose.yml',
+        from: 22,
+        reviewComment: 'PRRC_kwDO',
+      }
     : null,
   ourOwn,
   opens: null,
@@ -190,7 +195,7 @@ const news = (
 const heard = (
   happening: Happening,
   found: Task | null,
-  said: string | null = null,
+  message: string | null = null,
 ) =>
   new ReactToHappenings(
     tasks(found),
@@ -204,7 +209,7 @@ const heard = (
     files,
     heardInMemory(),
     logger,
-  ).react(WorkspaceId.of('ws_1'), null, [news(happening, said)], 'heard-as');
+  ).react(WorkspaceId.of('ws_1'), null, [news(happening, message)], 'heard-as');
 
 describe('ReactToHappenings', () => {
   beforeEach(() => {
@@ -235,10 +240,20 @@ describe('ReactToHappenings', () => {
       heardInMemory(),
       logger,
     );
-    const said = [news(CHANGES_REQUESTED, 'Handle the empty case.')];
+    const happenings = [news(CHANGES_REQUESTED, 'Handle the empty case.')];
 
-    await reactions.react(WorkspaceId.of('ws_1'), null, said, 'delivery_1');
-    await reactions.react(WorkspaceId.of('ws_1'), null, said, 'delivery_1');
+    await reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      happenings,
+      'delivery_1',
+    );
+    await reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      happenings,
+      'delivery_1',
+    );
 
     expect(stored.save).toHaveBeenCalledTimes(1);
     expect(dispatched).toHaveLength(1);
@@ -259,10 +274,10 @@ describe('ReactToHappenings', () => {
       heardInMemory(),
       logger,
     );
-    const said = [news(COMMENTED, 'Still retries.')];
+    const happenings = [news(COMMENTED, 'Still retries.')];
 
-    await reactions.react(WorkspaceId.of('ws_1'), null, said, null);
-    await reactions.react(WorkspaceId.of('ws_1'), null, said, null);
+    await reactions.react(WorkspaceId.of('ws_1'), null, happenings, null);
+    await reactions.react(WorkspaceId.of('ws_1'), null, happenings, null);
 
     expect(stored.save).toHaveBeenCalledTimes(2);
   });
@@ -282,10 +297,20 @@ describe('ReactToHappenings', () => {
       heardInMemory(),
       logger,
     );
-    const said = [news(COMMENTED, 'Still retries.')];
+    const happenings = [news(COMMENTED, 'Still retries.')];
 
-    await reactions.react(WorkspaceId.of('ws_1'), null, said, 'delivery_1');
-    await reactions.react(WorkspaceId.of('ws_1'), null, said, 'delivery_2');
+    await reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      happenings,
+      'delivery_1',
+    );
+    await reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      happenings,
+      'delivery_2',
+    );
 
     expect(stored.save).toHaveBeenCalledTimes(2);
   });
@@ -301,19 +326,19 @@ describe('ReactToHappenings', () => {
     await heard(COMMENTED, taskAt(), 'This retries forever.');
 
     expect(saved?.stationId).toEqual(StationId.of('station_2'));
-    expect(saved?.notes.map((each) => each.kind)).toEqual(['said']);
+    expect(saved?.notes.map((each) => each.kind)).toEqual(['message']);
     expect(saved?.notes.map((each) => each.voice.by)).toEqual(['world']);
     expect(dispatched).toHaveLength(1);
   });
 
-  it('keeps what the world said on the note, whole', async () => {
+  it('keeps the anchor from the world on the note, whole', async () => {
     await heard(COMMENTED, taskAt(), 'pin this to a version.');
 
     const note = saved?.notes[0];
 
-    expect(note?.said?.body).toBe('pin this to a version.');
-    expect(note?.said?.place).toBe('compose.yml:22');
-    expect(note?.remark?.value).toBe('PRRC_kwDO');
+    expect(note?.anchor?.body).toBe('pin this to a version.');
+    expect(note?.anchor?.place).toBe('compose.yml:22');
+    expect(note?.reviewComment?.value).toBe('PRRC_kwDO');
     expect(note?.open).toBe(true);
   });
 
@@ -324,7 +349,7 @@ describe('ReactToHappenings', () => {
       'Look.',
     );
 
-    expect(saved?.undelivered.map((each) => each.kind)).toEqual(['said']);
+    expect(saved?.unacknowledged.map((each) => each.kind)).toEqual(['message']);
   });
 
   it('takes a reviewer’s word as the pending answer', async () => {
@@ -348,7 +373,7 @@ describe('ReactToHappenings', () => {
     expect(dispatched).toHaveLength(1);
   });
 
-  it('takes an unruled spoken word as the pending answer of the task', async () => {
+  it('takes an unruled message as the pending answer of the task', async () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
@@ -361,14 +386,14 @@ describe('ReactToHappenings', () => {
 
     const reply: Happened = {
       happening: 'slack.app_mention',
-      told: 'Somebody mentioned Spotlight in Slack.',
-      spoken: true,
+      summary: 'Somebody mentioned Spotlight in Slack.',
+      answers: true,
       state: 'raised',
       concerns: {
         branch: null,
         marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
       },
-      said: { body: 'In the example repository, please.' },
+      message: { body: 'In the example repository, please.' },
       ourOwn: false,
       opens: null,
     };
@@ -428,14 +453,14 @@ describe('ReactToHappenings', () => {
       [
         {
           happening: 'slack.app_mention',
-          told: 'Somebody mentioned Spotlight in Slack.',
-          spoken: true,
+          summary: 'Somebody mentioned Spotlight in Slack.',
+          answers: true,
           state: 'raised',
           concerns: {
             branch: null,
             marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
           },
-          said: { body: 'In the example repository, please.' },
+          message: { body: 'In the example repository, please.' },
           ourOwn: false,
           opens: null,
         },
@@ -467,18 +492,18 @@ describe('ReactToHappenings', () => {
       );
 
     const replying = (
-      said: string | null,
+      message: string | null,
       fetch: () => Promise<Uint8Array>,
     ): Happened => ({
       happening: 'slack.message.replied',
-      told: 'Replied in a Slack thread.',
-      spoken: true,
+      summary: 'Replied in a Slack thread.',
+      answers: true,
       state: 'raised',
       concerns: {
         branch: null,
         marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
       },
-      said: said ? { body: said } : null,
+      message: message ? { body: message } : null,
       ourOwn: false,
       opens: null,
       attachments: [
@@ -542,7 +567,7 @@ describe('ReactToHappenings', () => {
 
     await heard(CHECKS_FAILED, asked);
 
-    expect(saved?.notes.map((each) => each.kind)).toEqual(['asked', 'said']);
+    expect(saved?.notes.map((each) => each.kind)).toEqual(['asked', 'message']);
     expect(saved?.awaitingReview).toBe(true);
     expect(dispatched).toHaveLength(0);
   });
@@ -621,7 +646,10 @@ describe('ReactToHappenings', () => {
 
     await heard(COMMENTED, ended, 'One more thing.');
 
-    expect(saved?.notes.map((each) => each.kind)).toEqual(['passed', 'said']);
+    expect(saved?.notes.map((each) => each.kind)).toEqual([
+      'passed',
+      'message',
+    ]);
     expect(saved?.finished).toBe(false);
     expect(dispatched).toHaveLength(1);
   });
@@ -681,12 +709,12 @@ describe('ReactToHappenings', () => {
       expect(saved?.notes[0]?.station).toEqual(
         StationName.of('Implementation'),
       );
-      expect(saved?.notes[0]?.remark?.value).toBe('PRRC_kwDO');
-      expect(saved?.undelivered).toHaveLength(1);
+      expect(saved?.notes[0]?.reviewComment?.value).toBe('PRRC_kwDO');
+      expect(saved?.unacknowledged).toHaveLength(1);
       expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
     });
 
-    it('defers a spoken word with nothing said as what happened', async () => {
+    it('defers a comment with no anchor as the summary of what happened', async () => {
       await heard(COMMENTED, handed('station_1'), null);
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
@@ -703,7 +731,10 @@ describe('ReactToHappenings', () => {
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
       expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
       expect(saved?.awaitingReview).toBe(true);
-      expect(saved?.notes.map((each) => each.kind)).toEqual(['asked', 'said']);
+      expect(saved?.notes.map((each) => each.kind)).toEqual([
+        'asked',
+        'message',
+      ]);
       expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
       expect(saved?.pullEvents()).toEqual([]);
       expect(dispatched).toHaveLength(0);
@@ -716,7 +747,10 @@ describe('ReactToHappenings', () => {
       await heard(CHANGES_REQUESTED, noted, 'Handle the empty case.');
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
-      expect(saved?.notes.map((each) => each.kind)).toEqual(['said', 'said']);
+      expect(saved?.notes.map((each) => each.kind)).toEqual([
+        'message',
+        'message',
+      ]);
       expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
     });
 
@@ -773,7 +807,7 @@ describe('ReactToHappenings', () => {
         ).toEqual([
           ['asked', 'Which queue should I drain?'],
           [
-            'said',
+            'message',
             'The pull request was merged while Code Review was waiting for an answer. Close the task, or reply to carry on.',
           ],
         ]);
@@ -866,11 +900,11 @@ describe('ReactToHappenings', () => {
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
-      told: 'An issue was filed.',
-      spoken: false,
+      summary: 'An issue was filed.',
+      answers: false,
       state: 'raised',
       concerns: { branch: null, marks: [issueMark] },
-      said: null,
+      message: null,
       ourOwn: false,
       opens: {
         onto: 'delivery',
@@ -949,11 +983,11 @@ describe('ReactToHappenings', () => {
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
-      told: 'An issue was filed.',
-      spoken: false,
+      summary: 'An issue was filed.',
+      answers: false,
       state: 'raised',
       concerns: { branch: null, marks: [issueMark] },
-      said: null,
+      message: null,
       ourOwn: false,
       opens: {
         onto: 'delivery',
@@ -1027,11 +1061,11 @@ describe('ReactToHappenings', () => {
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
-      told: 'An issue was filed.',
-      spoken: false,
+      summary: 'An issue was filed.',
+      answers: false,
       state: 'raised',
       concerns: { branch: null, marks: [issueMark] },
-      said: null,
+      message: null,
       ourOwn: false,
       opens: {
         onto: 'delivery',
@@ -1110,11 +1144,11 @@ describe('ReactToHappenings', () => {
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
-      told: 'An issue was filed.',
-      spoken: false,
+      summary: 'An issue was filed.',
+      answers: false,
       state: 'raised',
       concerns: { branch: null, marks: [issueMark] },
-      said: null,
+      message: null,
       ourOwn: false,
       opens: {
         onto: 'delivery',

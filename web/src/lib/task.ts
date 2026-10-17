@@ -38,7 +38,7 @@ export const raisedOn = (createdAt: string): string => {
   });
 };
 
-export const startsAgainWhenTold = (
+export const startsAgainOnMessage = (
   task: Task | undefined,
   currentStation:
     | { readonly id: string; readonly harness: string | null }

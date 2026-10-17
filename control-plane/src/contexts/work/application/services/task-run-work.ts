@@ -47,9 +47,9 @@ export class TaskRunWork implements RunWork {
     return this.task.workspaceId;
   }
 
-  async deliverUpTo(position: number, at: Date): Promise<void> {
+  async acknowledgeUpTo(position: number, at: Date): Promise<void> {
     await this.tasks.save(
-      this.task.markDeliveredUpTo(NotePosition.of(position), at),
+      this.task.acknowledgeUpTo(NotePosition.of(position), at),
     );
   }
 

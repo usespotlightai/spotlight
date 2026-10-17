@@ -39,15 +39,15 @@ type journal struct {
 	lostWhileWaiting bool
 	conflictsWaiting int
 	requeueSuspends  int
-	saysNoWait       bool
+	noWait           bool
 	paused           bool
-	answers          [][]protocol.Said
+	answers          [][]protocol.Message
 	suspending       []bool
 	suspends         int
 	stopAfter        int
 	stopWhileWaiting bool
-	said             [][]protocol.Said
-	delivered        []int
+	messages         [][]protocol.Message
+	acked            []int
 	files            map[string]string
 	drafted          []drafted
 	decision         string
@@ -95,7 +95,7 @@ func (j *journal) Asks(_ context.Context, _ string, _ protocol.Completion) (bool
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.calls = append(j.calls, "asks")
-	return !j.saysNoWait && len(j.waits) > 0 && j.waits[0], nil
+	return !j.noWait && len(j.waits) > 0 && j.waits[0], nil
 }
 
 type gone struct{}
@@ -162,8 +162,8 @@ func (j *journal) DraftChangeStack(
 	return nil
 }
 
-func (j *journal) AnswerRemark(
-	_ context.Context, _ string, _ protocol.Remark,
+func (j *journal) ReplyToReviewComment(
+	_ context.Context, _ string, _ protocol.ReviewCommentReply,
 ) error {
 	return nil
 }
@@ -223,7 +223,7 @@ func (j *journal) MemoryFiles(context.Context, string) ([]protocol.MemoryFile, e
 	return j.memory, j.memoryErr
 }
 
-func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {
+func (j *journal) Messages(context.Context, string) ([]protocol.Message, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -237,19 +237,19 @@ func (j *journal) Said(context.Context, string) ([]protocol.Said, error) {
 		return answer, nil
 	}
 
-	if len(j.said) == 0 {
+	if len(j.messages) == 0 {
 		return nil, nil
 	}
 
-	next := j.said[0]
-	j.said = j.said[1:]
+	next := j.messages[0]
+	j.messages = j.messages[1:]
 	return next, nil
 }
 
-func (j *journal) Delivered(_ context.Context, _ string, upTo int) error {
+func (j *journal) AckMessages(_ context.Context, _ string, upTo int) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.delivered = append(j.delivered, upTo)
+	j.acked = append(j.acked, upTo)
 	return nil
 }
 
@@ -346,11 +346,11 @@ process.stdin.on("data", (chunk) => {
     }
     if (msg.method === "session/prompt") {
       const sessionId = msg.params.sessionId;
-      let said = "";
+      let output = "";
       let usage;
-      try { ` + doing + ` } catch (e) { said = String(e.message ?? e); }
+      try { ` + doing + ` } catch (e) { output = String(e.message ?? e); }
       send({ jsonrpc: "2.0", method: "session/update",
-             params: { update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: said } } } });
+             params: { update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: output } } } });
       send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "` + stopReason + `", ...(usage ? { usage } : {}) } });
     }
   }
@@ -409,16 +409,16 @@ process.stdin.on("data", (chunk) => {
 }
 
 type runOptions struct {
-	said        [][]protocol.Said
+	messages    [][]protocol.Message
 	waits       []bool
-	answers     [][]protocol.Said
+	answers     [][]protocol.Message
 	suspending  []bool
 	answerWait  time.Duration
 	heartbeat   time.Duration
 	stopWaiting bool
 	lostWaiting bool
 	conflicts   int
-	saysNoWait  bool
+	noWait      bool
 	briefing    string
 	handover    []string
 	agentUser   *account.User
@@ -454,14 +454,14 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	}
 
 	written := &journal{
-		said:             settings.said,
+		messages:         settings.messages,
 		waits:            settings.waits,
 		answers:          settings.answers,
 		suspending:       settings.suspending,
 		stopWhileWaiting: settings.stopWaiting,
 		lostWhileWaiting: settings.lostWaiting,
 		conflictsWaiting: settings.conflicts,
-		saysNoWait:       settings.saysNoWait,
+		noWait:           settings.noWait,
 		stopAfter:        settings.stopAfter,
 		files:            settings.files,
 		decision:         settings.decision,
@@ -475,7 +475,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		Spec: protocol.Spec{
 			Command:       protocol.Command{Executable: executable, Env: settings.env},
 			Briefing:      settings.briefing,
-			Handover:      protocol.Handover{Options: settings.handover},
+			Handover:      protocol.HandoverSpec{Options: settings.handover},
 			Continuity:    settings.continuity,
 			Attachments:   settings.attachments,
 			Skills:        settings.skills,
@@ -504,10 +504,10 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	return written
 }
 
-func said(t *testing.T, written *journal) string {
+func agentOutput(t *testing.T, written *journal) string {
 	t.Helper()
 
-	var heard strings.Builder
+	var output strings.Builder
 	for _, event := range written.typed(protocol.EventOutput) {
 		if event.Message != "" {
 			continue
@@ -522,28 +522,28 @@ func said(t *testing.T, written *journal) string {
 		if err := json.Unmarshal(event.Data, &update); err != nil {
 			t.Fatalf("the journal kept something that is not an update: %v", err)
 		}
-		heard.WriteString(update.Update.Content.Text)
+		output.WriteString(update.Update.Content.Text)
 	}
 
-	return heard.String()
+	return output.String()
 }
 
 func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
-	written := run(t, harness(t, `said = "worked";`, "end_turn"))
+	written := run(t, harness(t, `output = "worked";`, "end_turn"))
 
 	if ready := written.typed(protocol.EventWorkspaceReady); len(ready) != 1 {
 		t.Errorf("expected the workspace to be reported once, got %d", len(ready))
 	}
-	if heard := said(t, written); heard != "worked" {
-		t.Errorf("heard %q", heard)
+	if output := agentOutput(t, written); output != "worked" {
+		t.Errorf("output %q", output)
 	}
 	if written.done == nil || written.done.Failed {
 		t.Errorf("completion %+v", written.done)
 	}
 }
 
-func TestKeepsWhatTheAgentSaidAsItSaidIt(t *testing.T) {
-	written := run(t, harness(t, `said = "structured";`, "end_turn"))
+func TestKeepsTheAgentsOutputAsItWasWritten(t *testing.T) {
+	written := run(t, harness(t, `output = "structured";`, "end_turn"))
 
 	output := written.typed(protocol.EventOutput)
 	if len(output) == 0 {
@@ -560,7 +560,7 @@ func TestKeepsWhatTheAgentSaidAsItSaidIt(t *testing.T) {
 }
 
 func TestWhatATurnUsedIsKeptAsTheHarnessReportedIt(t *testing.T) {
-	written := run(t, harness(t, `said = "cached"; usage = { totalTokens: 20, inputTokens: 3, outputTokens: 5, cachedReadTokens: 12 };`, "end_turn"))
+	written := run(t, harness(t, `output = "cached"; usage = { totalTokens: 20, inputTokens: 3, outputTokens: 5, cachedReadTokens: 12 };`, "end_turn"))
 
 	used := written.typed(protocol.EventUsage)
 	if len(used) != 1 {
@@ -574,13 +574,13 @@ func TestWhatATurnUsedIsKeptAsTheHarnessReportedIt(t *testing.T) {
 	if usage["cachedReadTokens"] != float64(12) {
 		t.Errorf("kept %v", usage)
 	}
-	if _, told := usage["cachedWriteTokens"]; told {
+	if _, found := usage["cachedWriteTokens"]; found {
 		t.Errorf("kept a cache write the harness never reported: %v", usage)
 	}
 }
 
 func TestATurnThatReportsNoUsageKeepsNone(t *testing.T) {
-	written := run(t, harness(t, `said = "quiet";`, "end_turn"))
+	written := run(t, harness(t, `output = "quiet";`, "end_turn"))
 
 	if used := written.typed(protocol.EventUsage); len(used) != 0 {
 		t.Errorf("kept usage nobody reported: %v", used)
@@ -588,7 +588,7 @@ func TestATurnThatReportsNoUsageKeepsNone(t *testing.T) {
 }
 
 func TestEventsAreNumberedWithoutGaps(t *testing.T) {
-	written := run(t, harness(t, `said = "one";`, "end_turn"))
+	written := run(t, harness(t, `output = "one";`, "end_turn"))
 
 	for at, event := range written.events {
 		if event.Seq != at+1 {
@@ -598,7 +598,7 @@ func TestEventsAreNumberedWithoutGaps(t *testing.T) {
 }
 
 func TestATurnThatEndsBadlyIsReportedAsFailed(t *testing.T) {
-	written := run(t, harness(t, `said = "refused";`, "refusal"))
+	written := run(t, harness(t, `output = "refused";`, "refusal"))
 
 	if written.done == nil || !written.done.Failed {
 		t.Fatalf("completion %+v", written.done)
@@ -620,9 +620,9 @@ func TestARunStoppedFromTheConsoleFinishesAsStopped(t *testing.T) {
 }
 
 func TestASteeredTurnIsTakenUpNotFailed(t *testing.T) {
-	written := run(t, harness(t, `said = "working";`, "cancelled"),
+	written := run(t, harness(t, `output = "working";`, "cancelled"),
 		func(o *runOptions) {
-			o.said = [][]protocol.Said{
+			o.messages = [][]protocol.Message{
 				{{Position: 1, Body: "actually, do this instead"}},
 			}
 		})
@@ -630,8 +630,8 @@ func TestASteeredTurnIsTakenUpNotFailed(t *testing.T) {
 	if written.done == nil || written.done.Failed {
 		t.Fatalf("a steered run should finish, not fail: %+v", written.done)
 	}
-	if len(written.delivered) == 0 {
-		t.Error("what the person said mid-turn was never delivered to the agent")
+	if len(written.acked) == 0 {
+		t.Error("the message that the person sent mid-turn was never acknowledged")
 	}
 }
 
@@ -658,7 +658,7 @@ func TestARunWithoutItsWayOutFailsBeforeTheAgentStarts(t *testing.T) {
 	written := &journal{}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID:   "run_1",
-		Spec: protocol.Spec{Command: protocol.Command{Executable: harness(t, `said = "went out";`, "end_turn")}},
+		Spec: protocol.Spec{Command: protocol.Command{Executable: harness(t, `output = "went out";`, "end_turn")}},
 	}, session.Options{
 		Workspace: t.TempDir(),
 		Journal:   written,
@@ -670,9 +670,9 @@ func TestARunWithoutItsWayOutFailsBeforeTheAgentStarts(t *testing.T) {
 		t.Fatalf("completion %+v: %v", written.done, err)
 	}
 	if !strings.Contains(written.done.Message, "the way out through egress did not open") {
-		t.Errorf("said %q", written.done.Message)
+		t.Errorf("got %q", written.done.Message)
 	}
-	if said(t, written) != "" {
+	if agentOutput(t, written) != "" {
 		t.Error("the agent started")
 	}
 }
@@ -695,35 +695,35 @@ func TestTheAgentIsGivenItsOwnAccount(t *testing.T) {
 	t.Cleanup(func() { _ = os.RemoveAll(root) })
 
 	written := run(t, harness(t,
-		`said = [process.getuid(), process.env.HOME, process.env.USER, process.env.SHELL,
+		`output = [process.getuid(), process.env.HOME, process.env.USER, process.env.SHELL,
                  process.env.SPOTLIGHT_TOKEN ?? "no-token"].join(" ");`, "end_turn"),
 		func(o *runOptions) { o.agentUser = as; o.root = root })
 
-	heard := said(t, written)
+	output := agentOutput(t, written)
 	for _, wanted := range []string{"2000", "/home/agent", "agent", "no-token"} {
-		if !strings.Contains(heard, wanted) {
-			t.Errorf("%q missing from %q", wanted, heard)
+		if !strings.Contains(output, wanted) {
+			t.Errorf("%q missing from %q", wanted, output)
 		}
 	}
 }
 
-func TestWhatTheAgentDeclaresReachesTheCompletion(t *testing.T) {
-	declaring := `execSync(` + "`" +
-		`${process.env.SPOTLIGHT_HANDOVER_URL ? "" : "no url"} node -e '
+func TestWhatTheAgentHandsOverReachesTheCompletion(t *testing.T) {
+	handingOver := `execSync(` + "`" +
+		`${process.env.SPOTLIGHT_AGENT_API_URL ? "" : "no url"} node -e '
       const body = JSON.stringify({ next: "Spec", note: "needs a spec" });
-      fetch(process.env.SPOTLIGHT_HANDOVER_URL, {
+      fetch(process.env.SPOTLIGHT_AGENT_API_URL, {
         method: "POST",
-        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_AGENT_API_TOKEN },
         body,
       }).then(() => process.exit(0));
-    '` + "`" + `); said = "declared";`
+    '` + "`" + `); output = "handed over";`
 
-	written := run(t, harness(t, declaring, "end_turn"),
+	written := run(t, harness(t, handingOver, "end_turn"),
 		func(o *runOptions) { o.handover = []string{"Spec", "review"} })
 
-	spoken := written.done.Outcome
-	if spoken == nil || spoken.Next != "Spec" || spoken.Note != "needs a spec" {
-		t.Fatalf("got %+v", spoken)
+	handover := written.done.Handover
+	if handover == nil || handover.Next != "Spec" || handover.Note != "needs a spec" {
+		t.Fatalf("got %+v", handover)
 	}
 }
 
@@ -733,12 +733,12 @@ func TestTheAgentRemembersThroughItsRunAfterItsStepsAreJournalled(t *testing.T) 
       execSync(` + "`" +
 		`node -e '
       const body = JSON.stringify({ kind: "rationale", body: "Retry in the request." });
-      fetch(process.env.SPOTLIGHT_HANDOVER_URL + "remember", {
+      fetch(process.env.SPOTLIGHT_AGENT_API_URL + "remember", {
         method: "POST",
-        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_AGENT_API_TOKEN },
         body,
       }).then((answer) => process.exit(answer.ok ? 0 : 1));
-    '` + "`" + `); said = "remembered";`
+    '` + "`" + `); output = "remembered";`
 
 	written := run(t, harness(t, remembering, "end_turn"))
 
@@ -762,12 +762,12 @@ func TestTheAgentRemembersThroughItsRunAfterItsStepsAreJournalled(t *testing.T) 
 func TestARecallReachesSpotlightAndTheTraceAsASpan(t *testing.T) {
 	recalling := `execSync(` + "`" +
 		`node -e '
-      fetch(process.env.SPOTLIGHT_HANDOVER_URL + "recall", {
+      fetch(process.env.SPOTLIGHT_AGENT_API_URL + "recall", {
         method: "POST",
-        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_AGENT_API_TOKEN },
         body: JSON.stringify({ words: "upload retries" }),
       }).then((answer) => process.exit(answer.ok ? 0 : 1));
-    '` + "`" + `); said = "recalled";`
+    '` + "`" + `); output = "recalled";`
 
 	written := run(t, harness(t, recalling, "end_turn"))
 
@@ -779,17 +779,17 @@ func TestARecallReachesSpotlightAndTheTraceAsASpan(t *testing.T) {
 }
 
 func TestTheBriefingReachesTheAgent(t *testing.T) {
-	written := run(t, harness(t, `said = msg.params.prompt[0].text;`, "end_turn"),
+	written := run(t, harness(t, `output = msg.params.prompt[0].text;`, "end_turn"),
 		func(o *runOptions) { o.briefing = "## Fix the queue" })
 
-	if heard := said(t, written); heard != "## Fix the queue" {
-		t.Errorf("the agent was asked %q", heard)
+	if output := agentOutput(t, written); output != "## Fix the queue" {
+		t.Errorf("the agent was asked %q", output)
 	}
 }
 
 func TestTheWorkspaceGoesWithTheRun(t *testing.T) {
 	root := t.TempDir()
-	run(t, harness(t, `said = "done";`, "end_turn"), func(o *runOptions) { o.root = root })
+	run(t, harness(t, `output = "done";`, "end_turn"), func(o *runOptions) { o.root = root })
 
 	if _, err := os.Stat(filepath.Join(root, "run_1")); !os.IsNotExist(err) {
 		t.Error("the workspace should be gone")
@@ -797,11 +797,11 @@ func TestTheWorkspaceGoesWithTheRun(t *testing.T) {
 }
 
 func TestTakesUpTheSessionItWasGiven(t *testing.T) {
-	written := run(t, harness(t, `said = sessionId;`, "end_turn"), func(o *runOptions) {
+	written := run(t, harness(t, `output = sessionId;`, "end_turn"), func(o *runOptions) {
 		o.continuity = protocol.Continuity{SessionID: "session_known"}
 	})
 
-	if got := said(t, written); got != "session_known" {
+	if got := agentOutput(t, written); got != "session_known" {
 		t.Errorf("worked in session %q", got)
 	}
 	if written.done.SessionID != "session_known" {
@@ -810,11 +810,11 @@ func TestTakesUpTheSessionItWasGiven(t *testing.T) {
 }
 
 func TestOpensAFreshSessionWhenTheHarnessHasForgotten(t *testing.T) {
-	written := run(t, harness(t, `said = sessionId;`, "end_turn"), func(o *runOptions) {
+	written := run(t, harness(t, `output = sessionId;`, "end_turn"), func(o *runOptions) {
 		o.continuity = protocol.Continuity{SessionID: "session_long_gone"}
 	})
 
-	if got := said(t, written); got != "session_opened" {
+	if got := agentOutput(t, written); got != "session_opened" {
 		t.Errorf("worked in session %q", got)
 	}
 	if written.done.SessionID != "session_opened" {
@@ -823,7 +823,7 @@ func TestOpensAFreshSessionWhenTheHarnessHasForgotten(t *testing.T) {
 }
 
 func TestReportsTheSessionItOpened(t *testing.T) {
-	written := run(t, harness(t, `said = "worked";`, "end_turn"))
+	written := run(t, harness(t, `output = "worked";`, "end_turn"))
 
 	if written.done.SessionID != "session_opened" {
 		t.Errorf("reported session %q", written.done.SessionID)
@@ -833,43 +833,43 @@ func TestReportsTheSessionItOpened(t *testing.T) {
 func TestDisposesOfTheWorkspaceAfterTheRun(t *testing.T) {
 	root := t.TempDir()
 
-	run(t, harness(t, `said = "worked";`, "end_turn"), func(o *runOptions) { o.root = root })
+	run(t, harness(t, `output = "worked";`, "end_turn"), func(o *runOptions) { o.root = root })
 
 	if _, err := os.Stat(filepath.Join(root, "run_1")); !os.IsNotExist(err) {
 		t.Errorf("the workspace outlived the run: %v", err)
 	}
 }
 
-func TestExpandsTheStateDirectoryIntoWhatTheHarnessIsTold(t *testing.T) {
+func TestExpandsTheStateDirectoryIntoWhatTheHarnessIsGiven(t *testing.T) {
 	root := t.TempDir()
 
-	written := run(t, harness(t, `said = process.env.HARNESS_STATE_DIR ?? "unset";`, "end_turn"), func(o *runOptions) {
+	written := run(t, harness(t, `output = process.env.HARNESS_STATE_DIR ?? "unset";`, "end_turn"), func(o *runOptions) {
 		o.root = root
 		o.continuity = protocol.Continuity{Key: "task_1"}
 		o.env = map[string]string{"HARNESS_STATE_DIR": "${" + session.StateVar + "}/somewhere"}
 	})
 
 	want := filepath.Join(root, workspace.StatePath, "somewhere")
-	if got := said(t, written); got != want {
-		t.Errorf("the harness was told %q, wanted %q", got, want)
+	if got := agentOutput(t, written); got != want {
+		t.Errorf("the harness got %q, wanted %q", got, want)
 	}
 }
 
 func TestTheHarnessGoesOutThroughTheWayOut(t *testing.T) {
-	written := run(t, harness(t, `said = [process.env.HTTPS_PROXY, process.env.NODE_USE_ENV_PROXY].join(" ");`, "end_turn"),
+	written := run(t, harness(t, `output = [process.env.HTTPS_PROXY, process.env.NODE_USE_ENV_PROXY].join(" ");`, "end_turn"),
 		func(o *runOptions) {
 			o.env = map[string]string{"HTTPS_PROXY": "http://elsewhere:8080"}
 			o.wayOut = map[string]string{"HTTPS_PROXY": "http://127.0.0.1:3128", "NODE_USE_ENV_PROXY": "1"}
 		})
 
-	if got := said(t, written); got != "http://127.0.0.1:3128 1" {
-		t.Errorf("the harness was told %q", got)
+	if got := agentOutput(t, written); got != "http://127.0.0.1:3128 1" {
+		t.Errorf("the harness got %q", got)
 	}
 }
 
 func TestJournalsWhetherEgressIsEnforcedBeforeTheHarnessStarts(t *testing.T) {
 	for _, enforced := range []bool{true, false} {
-		written := run(t, harness(t, `said = "worked";`, "end_turn"), func(o *runOptions) {
+		written := run(t, harness(t, `output = "worked";`, "end_turn"), func(o *runOptions) {
 			o.enforced = func(context.Context) bool { return enforced }
 		})
 
@@ -879,30 +879,30 @@ func TestJournalsWhetherEgressIsEnforcedBeforeTheHarnessStarts(t *testing.T) {
 		}
 	}
 
-	if checked := run(t, harness(t, `said = "worked";`, "end_turn")).typed(protocol.EventEgressChecked); len(checked) != 0 {
+	if checked := run(t, harness(t, `output = "worked";`, "end_turn")).typed(protocol.EventEgressChecked); len(checked) != 0 {
 		t.Errorf("journalled a check without egress: %+v", checked)
 	}
 }
 
 func TestWhatAPersonSaysReachesTheAgentAsAnotherTurn(t *testing.T) {
-	written := run(t, harness(t, `said = JSON.stringify(msg.params.prompt);`, "end_turn"),
+	written := run(t, harness(t, `output = JSON.stringify(msg.params.prompt);`, "end_turn"),
 		func(o *runOptions) {
 			o.briefing = "the first thing"
-			o.said = [][]protocol.Said{{{Position: 3, Body: "and one more thing"}}}
+			o.messages = [][]protocol.Message{{{Position: 3, Body: "and one more thing"}}}
 		})
 
-	heard := said(t, written)
+	output := agentOutput(t, written)
 
-	if !strings.Contains(heard, "and one more thing") {
-		t.Errorf("what the person said never arrived: %q", heard)
+	if !strings.Contains(output, "and one more thing") {
+		t.Errorf("the message that the person sent never arrived: %q", output)
 	}
-	if len(written.delivered) != 1 || written.delivered[0] != 3 {
-		t.Errorf("marked delivered %v, wanted [3]", written.delivered)
+	if len(written.acked) != 1 || written.acked[0] != 3 {
+		t.Errorf("acknowledged %v, wanted [3]", written.acked)
 	}
 }
 
 func reading(path string) string {
-	return `said = require("node:fs").readFileSync("` + path + `", "utf8");`
+	return `output = require("node:fs").readFileSync("` + path + `", "utf8");`
 }
 
 func TestWhatWasAttachedIsThereBeforeTheAgentStarts(t *testing.T) {
@@ -913,8 +913,8 @@ func TestWhatWasAttachedIsThereBeforeTheAgentStarts(t *testing.T) {
 		o.files = map[string]string{"att_1": "the notes"}
 	})
 
-	if heard := said(t, written); heard != "the notes" {
-		t.Errorf("the agent found %q", heard)
+	if output := agentOutput(t, written); output != "the notes" {
+		t.Errorf("the agent found %q", output)
 	}
 }
 
@@ -923,7 +923,7 @@ func TestARunWhoseAttachmentCannotBeFetchedFails(t *testing.T) {
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
-			Command: protocol.Command{Executable: harness(t, `said = "worked";`, "end_turn")},
+			Command: protocol.Command{Executable: harness(t, `output = "worked";`, "end_turn")},
 			Attachments: []protocol.Attachment{
 				{ID: "att_gone", Path: ".spotlight/attachments/att_gone/notes.txt"},
 			},
@@ -940,8 +940,8 @@ func TestARunWhoseAttachmentCannotBeFetchedFails(t *testing.T) {
 	if written.done == nil || !written.done.Failed {
 		t.Fatalf("completion %+v", written.done)
 	}
-	if heard := said(t, written); heard != "" {
-		t.Errorf("the agent was started anyway and said %q", heard)
+	if output := agentOutput(t, written); output != "" {
+		t.Errorf("the agent was started anyway and wrote %q", output)
 	}
 }
 
@@ -949,7 +949,7 @@ func TestWhatIsAttachedMidRunIsThereBeforeItsTurn(t *testing.T) {
 	const path = ".spotlight/attachments/att_2/log.txt"
 
 	written := run(t, harness(t, reading(path), "end_turn"), func(o *runOptions) {
-		o.said = [][]protocol.Said{{{
+		o.messages = [][]protocol.Message{{{
 			Position:    1,
 			Body:        "see " + path,
 			Attachments: []protocol.Attachment{{ID: "att_2", Path: path}},
@@ -957,42 +957,42 @@ func TestWhatIsAttachedMidRunIsThereBeforeItsTurn(t *testing.T) {
 		o.files = map[string]string{"att_2": "the log"}
 	})
 
-	heard := said(t, written)
-	if !strings.HasSuffix(heard, "the log") {
-		t.Errorf("the second turn did not find the file: %q", heard)
+	output := agentOutput(t, written)
+	if !strings.HasSuffix(output, "the log") {
+		t.Errorf("the second turn did not find the file: %q", output)
 	}
-	if strings.HasPrefix(heard, "the log") {
-		t.Errorf("the file was there before anyone attached it: %q", heard)
+	if strings.HasPrefix(output, "the log") {
+		t.Errorf("the file was there before anyone attached it: %q", output)
 	}
 }
 
-func TestWordsAreDeliveredEvenWhenTheirAttachmentIsNot(t *testing.T) {
-	written := run(t, harness(t, `said = JSON.stringify(msg.params.prompt);`, "end_turn"),
+func TestMessagesAreAcknowledgedEvenWhenTheirAttachmentIsNot(t *testing.T) {
+	written := run(t, harness(t, `output = JSON.stringify(msg.params.prompt);`, "end_turn"),
 		func(o *runOptions) {
-			o.said = [][]protocol.Said{{{
+			o.messages = [][]protocol.Message{{{
 				Position:    2,
 				Body:        "see the log",
 				Attachments: []protocol.Attachment{{ID: "att_gone", Path: "log.txt"}},
 			}}}
 		})
 
-	if heard := said(t, written); !strings.Contains(heard, "see the log") {
-		t.Errorf("what the person said never arrived: %q", heard)
+	if output := agentOutput(t, written); !strings.Contains(output, "see the log") {
+		t.Errorf("the message that the person sent never arrived: %q", output)
 	}
-	if len(written.delivered) != 1 || written.delivered[0] != 2 {
-		t.Errorf("marked delivered %v, wanted [2]", written.delivered)
+	if len(written.acked) != 1 || written.acked[0] != 2 {
+		t.Errorf("acknowledged %v, wanted [2]", written.acked)
 	}
 	if written.done == nil || written.done.Failed {
 		t.Errorf("completion %+v", written.done)
 	}
 }
 
-func TestARunEndsWhenNobodyHasSaidAnything(t *testing.T) {
-	written := run(t, harness(t, `said = "worked";`, "end_turn"),
+func TestARunEndsWhenNobodyHasSentAMessage(t *testing.T) {
+	written := run(t, harness(t, `output = "worked";`, "end_turn"),
 		func(o *runOptions) { o.briefing = "the only thing" })
 
-	if len(written.delivered) != 0 {
-		t.Errorf("marked delivered %v, wanted nothing", written.delivered)
+	if len(written.acked) != 0 {
+		t.Errorf("acknowledged %v, wanted nothing", written.acked)
 	}
 }
 
@@ -1003,8 +1003,8 @@ func TestSkillsAreLaidBeforeTheAgentStarts(t *testing.T) {
 		o.skills = []protocol.SkillFile{{Path: path, Text: "how to hand over"}}
 	})
 
-	if heard := said(t, written); heard != "how to hand over" {
-		t.Errorf("the agent found %q", heard)
+	if output := agentOutput(t, written); output != "how to hand over" {
+		t.Errorf("the agent found %q", output)
 	}
 }
 
@@ -1019,7 +1019,7 @@ func TestTheTeamsMemoryIsLaidOutBeforeTheAgentStarts(t *testing.T) {
 	}
 
 	written := run(t, harness(t, `const fs = require("node:fs");
-said = JSON.stringify([
+output = JSON.stringify([
   fs.readFileSync(".spotlight/memory/repositories/acme/api/src/uploads/M-18.md", "utf8"),
   fs.existsSync(".spotlight/memory/team/M-1.md"),
   fs.existsSync("elsewhere.md"),
@@ -1032,18 +1032,18 @@ said = JSON.stringify([
 		}
 	})
 
-	if heard := said(t, written); heard != `["# M-18 · rationale",false,false]` {
-		t.Errorf("the agent found %s", heard)
+	if output := agentOutput(t, written); output != `["# M-18 · rationale",false,false]` {
+		t.Errorf("the agent found %s", output)
 	}
 }
 
 func TestARunStartsWithANoteWhenTheTeamsMemoryCannotBeRead(t *testing.T) {
 	written := run(t, harness(t, `const fs = require("node:fs");
-said = JSON.stringify([fs.readdirSync(".spotlight/memory"), fs.readFileSync(".spotlight/memory/README.md", "utf8")]);`, "end_turn"),
+output = JSON.stringify([fs.readdirSync(".spotlight/memory"), fs.readFileSync(".spotlight/memory/README.md", "utf8")]);`, "end_turn"),
 		func(o *runOptions) { o.memoryErr = errors.New("control plane down") })
 
-	if heard := said(t, written); !strings.Contains(heard, `["README.md"]`) || !strings.Contains(heard, "could not be read") {
-		t.Errorf("the agent found %s", heard)
+	if output := agentOutput(t, written); !strings.Contains(output, `["README.md"]`) || !strings.Contains(output, "could not be read") {
+		t.Errorf("the agent found %s", output)
 	}
 }
 
@@ -1063,19 +1063,19 @@ func TestTheMemoryFolderIsLaidEvenWhereARestoredWorkspaceLeftAFileInItsPlace(t *
 		o.memory = []protocol.MemoryFile{{Path: ".spotlight/memory/team/M-1.md", Body: "# M-1"}}
 	})
 
-	if heard := said(t, written); heard != "# M-1" {
-		t.Errorf("the agent found %q", heard)
+	if output := agentOutput(t, written); output != "# M-1" {
+		t.Errorf("the agent found %q", output)
 	}
 }
 
 func TestAMemoryFileThatWouldLeaveTheFolderIsLeftOut(t *testing.T) {
-	written := run(t, harness(t, `said = String(require("node:fs").existsSync("escaped.md"));`, "end_turn"),
+	written := run(t, harness(t, `output = String(require("node:fs").existsSync("escaped.md"));`, "end_turn"),
 		func(o *runOptions) {
 			o.memory = []protocol.MemoryFile{{Path: ".spotlight/memory/../../escaped.md", Body: "out"}}
 		})
 
-	if heard := said(t, written); heard != "false" {
-		t.Errorf("a memory file escaped the folder: %s", heard)
+	if output := agentOutput(t, written); output != "false" {
+		t.Errorf("a memory file escaped the folder: %s", output)
 	}
 }
 
@@ -1090,7 +1090,7 @@ func TestARestoredWorkspaceHasOnlyTheSkillsThisRunWasGiven(t *testing.T) {
 	leaveSkills(t, root, handingOver, migrating, example, opening)
 
 	written := run(t, harness(t, `const fs = require("node:fs");
-said = JSON.stringify([
+output = JSON.stringify([
   fs.readFileSync(".claude/skills/our-migrations/SKILL.md", "utf8"),
   fs.existsSync(".claude/skills/spotlight-handover/SKILL.md"),
   fs.existsSync(".claude/skills/our-migrations/examples"),
@@ -1101,8 +1101,8 @@ said = JSON.stringify([
 		o.skills = []protocol.SkillFile{handingOver, migrating}
 	})
 
-	if heard := said(t, written); heard != `["how we migrate",true,false,false]` {
-		t.Errorf("the agent found %s", heard)
+	if output := agentOutput(t, written); output != `["how we migrate",true,false,false]` {
+		t.Errorf("the agent found %s", output)
 	}
 }
 
@@ -1116,7 +1116,7 @@ func TestARestoredWorkspaceHasNoSkillsOfAnEarlierStationWhenThisRunWasGivenNone(
 	)
 
 	written := run(t, harness(t, `const fs = require("node:fs");
-said = JSON.stringify([
+output = JSON.stringify([
   fs.existsSync(".claude/skills/our-migrations"),
   fs.existsSync(".spotlight/skills/our-migrations"),
   fs.existsSync("notes/SKILL.md"),
@@ -1126,8 +1126,8 @@ said = JSON.stringify([
 		o.skillHomes = []string{".claude/skills", ".spotlight/skills"}
 	})
 
-	if heard := said(t, written); heard != `[false,false,true]` {
-		t.Errorf("the agent found %s", heard)
+	if output := agentOutput(t, written); output != `[false,false,true]` {
+		t.Errorf("the agent found %s", output)
 	}
 }
 
@@ -1141,7 +1141,7 @@ func TestARestoredWorkspaceHasOnlyTheHarnessSettingsThisRunWasGiven(t *testing.T
 	)
 
 	written := run(t, harness(t, `const fs = require("node:fs");
-said = JSON.stringify([
+output = JSON.stringify([
   fs.existsSync(".spotlight/state/claude/settings.json"),
   fs.readFileSync(".spotlight/state/codex/config.toml", "utf8"),
   fs.existsSync(".spotlight/state/claude/projects/-workspace/session_1.jsonl"),
@@ -1152,8 +1152,8 @@ said = JSON.stringify([
 		o.setup = protocol.HarnessSetup{Files: []protocol.SetupFile{{Path: "codex/config.toml", Text: "model = \"given\""}}}
 	})
 
-	if heard := said(t, written); heard != `[false,"model = \"given\"",true]` {
-		t.Errorf("the agent found %s", heard)
+	if output := agentOutput(t, written); output != `[false,"model = \"given\"",true]` {
+		t.Errorf("the agent found %s", output)
 	}
 }
 
@@ -1165,12 +1165,12 @@ func TestAnOutcomeAnEarlierRunLeftIsNotTakenForThisRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	written := run(t, harness(t, `said = "declared nothing";`, "end_turn"), func(o *runOptions) {
+	written := run(t, harness(t, `output = "handed over nothing";`, "end_turn"), func(o *runOptions) {
 		o.root = root
 		o.handover = []string{"review"}
 	})
 
-	if written.done == nil || written.done.Outcome != nil {
+	if written.done == nil || written.done.Handover != nil {
 		t.Errorf("the run ended with %+v, wanted no outcome", written.done)
 	}
 }
@@ -1237,9 +1237,9 @@ process.stdin.on("data", (chunk) => {
 	return path
 }
 
-func TestWhatWasSaidIsSaidAgainWhereTheHarnessLetsItGoUnread(t *testing.T) {
+func TestAMessageIsSentAgainWhereTheHarnessLetsItGoUnread(t *testing.T) {
 	written := run(t, droppingAfterCancel(t), func(o *runOptions) {
-		o.said = [][]protocol.Said{
+		o.messages = [][]protocol.Message{
 			{{Position: 1, Body: "actually, do this instead"}},
 		}
 	})
@@ -1253,7 +1253,7 @@ func TestWhatWasSaidIsSaidAgainWhereTheHarnessLetsItGoUnread(t *testing.T) {
 			return
 		}
 	}
-	t.Fatal("what the person said never reached the agent")
+	t.Fatal("the message that the person sent never reached the agent")
 }
 
 func TestHarnessFilesAreLaidInTheStateDirectory(t *testing.T) {
@@ -1263,8 +1263,8 @@ func TestHarnessFilesAreLaidInTheStateDirectory(t *testing.T) {
 		}}
 	})
 
-	if heard := said(t, written); heard != `{"permissions":{"deny":["Bash(rm *)"]}}` {
-		t.Errorf("the agent found %q", heard)
+	if output := agentOutput(t, written); output != `{"permissions":{"deny":["Bash(rm *)"]}}` {
+		t.Errorf("the agent found %q", output)
 	}
 }
 
@@ -1273,7 +1273,7 @@ func TestAHarnessFileOutsideTheStateDirectoryFailsTheRun(t *testing.T) {
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
-			Command: protocol.Command{Executable: harness(t, `said = "worked";`, "end_turn")},
+			Command: protocol.Command{Executable: harness(t, `output = "worked";`, "end_turn")},
 			HarnessSetup: protocol.HarnessSetup{Files: []protocol.SetupFile{
 				{Path: "../settings.json", Text: "{}"},
 			}},
@@ -1290,8 +1290,8 @@ func TestAHarnessFileOutsideTheStateDirectoryFailsTheRun(t *testing.T) {
 	if written.done == nil || !written.done.Failed {
 		t.Fatalf("completion %+v", written.done)
 	}
-	if heard := said(t, written); heard != "" {
-		t.Errorf("the agent was started anyway and said %q", heard)
+	if output := agentOutput(t, written); output != "" {
+		t.Errorf("the agent was started anyway and wrote %q", output)
 	}
 }
 
@@ -1321,10 +1321,10 @@ process.stdin.on("data", (chunk) => {
     }
     if (msg.id === 900) {
       const outcome = msg.result.outcome;
-      const told = outcome.outcome === "selected" ? outcome.optionId : outcome.outcome;
+      const answer = outcome.outcome === "selected" ? outcome.optionId : outcome.outcome;
       send({ jsonrpc: "2.0", method: "session/update",
-             params: { update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: told } } } });
-      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: told === "cancelled" ? "cancelled" : "end_turn" } });
+             params: { update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: answer } } } });
+      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: answer === "cancelled" ? "cancelled" : "end_turn" } });
     }
   }
 });
@@ -1351,7 +1351,7 @@ func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 		name     string
 		asks     []string
 		decision string
-		told     string
+		answer   string
 		asked    int
 		refused  []string
 	}{
@@ -1366,8 +1366,8 @@ func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 			o.decision = expected.decision
 		})
 
-		if heard := said(t, written); heard != expected.told {
-			t.Errorf("%s: the agent was told %q, wanted %q", expected.name, heard, expected.told)
+		if output := agentOutput(t, written); output != expected.answer {
+			t.Errorf("%s: the agent got %q, wanted %q", expected.name, output, expected.answer)
 		}
 		if len(written.asked) != expected.asked {
 			t.Fatalf("%s: asked the control plane %d times, wanted %d", expected.name, len(written.asked), expected.asked)
@@ -1420,8 +1420,8 @@ func TestAPermissionEscalatedToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testi
 		o.decision = protocol.PermissionEscalated
 	})
 
-	if heard := said(t, written); heard != "cancelled" {
-		t.Errorf("the agent was told %q", heard)
+	if output := agentOutput(t, written); output != "cancelled" {
+		t.Errorf("the agent got %q", output)
 	}
 	if got := refusedCalls(t, written); !slices.Equal(got, []string{"toolu_1"}) {
 		t.Errorf("journalled refusals %v", got)
@@ -1432,8 +1432,8 @@ func TestAPermissionEscalatedToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testi
 	if written.done.SessionID != "session_opened" {
 		t.Errorf("reported session %q", written.done.SessionID)
 	}
-	if len(written.delivered) != 0 {
-		t.Errorf("waited on what was said: delivered %v", written.delivered)
+	if len(written.acked) != 0 {
+		t.Errorf("waited on the messages: acknowledged %v", written.acked)
 	}
 }
 

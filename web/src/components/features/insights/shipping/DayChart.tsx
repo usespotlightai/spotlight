@@ -31,7 +31,7 @@ type DayChartProps = {
   legend?: boolean;
 };
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -121,7 +121,7 @@ export function DayChart({
               <Tooltip
                 {...cursor.tooltip}
                 content={
-                  <Said
+                  <TipContent
                     placement={cursor.placement}
                     series={series}
                     format={format}

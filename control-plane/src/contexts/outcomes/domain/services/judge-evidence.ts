@@ -4,19 +4,19 @@ import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const MAX_STEPS_TOLD = 80_000;
+const MAX_PROMPT_STEPS = 80_000;
 
-const MAX_HUNKS_TOLD = 60_000;
+const MAX_PROMPT_HUNKS = 60_000;
 
-const MAX_LINE_TOLD = 500;
+const MAX_PROMPT_LINE_CHARS = 500;
 
-const MAX_HUNK_LINES_TOLD = 200;
+const MAX_PROMPT_HUNK_LINES = 200;
 
 const ITEM_OVERHEAD = 64;
 
-const MAX_TITLE_TOLD = 300;
+const MAX_PROMPT_TITLE_CHARS = 300;
 
-const MAX_DESCRIPTION_TOLD = 4_000;
+const MAX_PROMPT_DESCRIPTION_CHARS = 4_000;
 
 const REFERENCE = 'reference:';
 
@@ -64,13 +64,13 @@ const sizeOfHunk = (hunk: JudgedHunk): number =>
     ITEM_OVERHEAD + hunk.id.length + hunk.path.length + hunk.header.length,
   );
 
-const linesTold = (lines: readonly string[]): string[] => {
-  const told = lines
-    .slice(0, MAX_HUNK_LINES_TOLD)
-    .map((line) => clipped(line, MAX_LINE_TOLD));
-  const left = lines.length - told.length;
+const clippedLines = (lines: readonly string[]): string[] => {
+  const kept = lines
+    .slice(0, MAX_PROMPT_HUNK_LINES)
+    .map((line) => clipped(line, MAX_PROMPT_LINE_CHARS));
+  const left = lines.length - kept.length;
 
-  return left > 0 ? [...told, `… ${left} more lines`] : told;
+  return left > 0 ? [...kept, `… ${left} more lines`] : kept;
 };
 
 const latestWithin = (steps: readonly JudgedStep[]): JudgedStep[] => {
@@ -78,7 +78,7 @@ const latestWithin = (steps: readonly JudgedStep[]): JudgedStep[] => {
   let used = 0;
 
   for (const step of [...steps].reverse()) {
-    if (used + sizeOfStep(step) > MAX_STEPS_TOLD) {
+    if (used + sizeOfStep(step) > MAX_PROMPT_STEPS) {
       break;
     }
 
@@ -94,14 +94,14 @@ const firstWithin = (hunks: readonly JudgedHunk[]): JudgedHunk[] => {
   let used = 0;
 
   for (const hunk of hunks) {
-    const told = { ...hunk, lines: linesTold(hunk.lines) };
+    const shortened = { ...hunk, lines: clippedLines(hunk.lines) };
 
-    if (used + sizeOfHunk(told) > MAX_HUNKS_TOLD) {
+    if (used + sizeOfHunk(shortened) > MAX_PROMPT_HUNKS) {
       continue;
     }
 
-    kept.push(told);
-    used += sizeOfHunk(told);
+    kept.push(shortened);
+    used += sizeOfHunk(shortened);
   }
 
   return kept;
@@ -131,10 +131,10 @@ export class JudgeEvidence {
 
     return new JudgeEvidence(
       input.runId,
-      clipped(input.title, MAX_TITLE_TOLD),
+      clipped(input.title, MAX_PROMPT_TITLE_CHARS),
       input.description === null
         ? null
-        : clipped(input.description, MAX_DESCRIPTION_TOLD),
+        : clipped(input.description, MAX_PROMPT_DESCRIPTION_CHARS),
       steps,
       input.steps.length - steps.length,
       hunks,
@@ -144,7 +144,7 @@ export class JudgeEvidence {
   }
 
   against(reference: readonly JudgedHunk[]): JudgeEvidence {
-    const told = firstWithin(
+    const kept = firstWithin(
       reference.map((hunk) => ({ ...hunk, id: `${REFERENCE}${hunk.id}` })),
     );
 
@@ -156,8 +156,8 @@ export class JudgeEvidence {
       this.stepsLeftOut,
       this.hunks,
       this.hunksLeftOut,
-      told.length > 0
-        ? { hunks: told, hunksLeftOut: reference.length - told.length }
+      kept.length > 0
+        ? { hunks: kept, hunksLeftOut: reference.length - kept.length }
         : null,
     );
   }

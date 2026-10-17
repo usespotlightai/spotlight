@@ -11,16 +11,16 @@ const hunk = (id: string, size: number) => ({
 
 describe('Answered', () => {
   it('hands over the accepted change as whole hunks, saying how many it left out', () => {
-    const told = Answered.accepted([
+    const briefing = Answered.accepted([
       hunk('a', 40_000),
       hunk('b', 30_000),
       hunk('c', 10),
     ]);
 
-    expect(told).toContain('--- api/a.ts');
-    expect(told).not.toContain('--- api/b.ts');
-    expect(told).toContain('… 2 more hunks');
-    expect(told?.endsWith('```')).toBe(true);
+    expect(briefing).toContain('--- api/a.ts');
+    expect(briefing).not.toContain('--- api/b.ts');
+    expect(briefing).toContain('… 2 more hunks');
+    expect(briefing?.endsWith('```')).toBe(true);
   });
 
   it('quotes what a person said when they sent the run back', () => {

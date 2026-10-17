@@ -60,7 +60,7 @@ const evidence = (fromOutside = false) =>
     },
     steps: [
       { index: 2, kind: 'thought', text: 'A queue needs a worker.' },
-      { index: 5, kind: 'said', text: 'Retrying in the request.' },
+      { index: 5, kind: 'message', text: 'Retrying in the request.' },
     ],
     notes: [
       { position: 3, by: 'person', text: 'Use the archive bucket.' },
@@ -201,13 +201,13 @@ describe('DraftEvidence', () => {
   });
 
   describe('where a proposal came from', () => {
-    it('comes from a person when it rests only on what a person said', () => {
+    it('comes from a person when it rests only on notes by a person', () => {
       expect(proposalOf(remembered({ steps: [], notes: [3] })).source).toBe(
         'person',
       );
     });
 
-    it('comes from the run when it rests on anything the agent said', () => {
+    it('comes from the run when it rests on any step of the agent', () => {
       expect(proposalOf(remembered({ steps: [2], notes: [3] })).source).toBe(
         'run',
       );
@@ -284,10 +284,10 @@ describe('DraftEvidence', () => {
     expect(evidence().notesThrough).toBe(6);
   });
 
-  describe('telling the drafter within its length', () => {
+  describe('keeping the prompt of the drafter within its length', () => {
     const long = (size: number) => 'x'.repeat(size);
 
-    const told = (input: {
+    const clippedEvidence = (input: {
       steps?: number;
       notes?: number;
       notesRead?: number;
@@ -304,7 +304,7 @@ describe('DraftEvidence', () => {
         },
         steps: Array.from({ length: input.steps ?? 0 }, (_, index) => ({
           index,
-          kind: 'said',
+          kind: 'message',
           text: long(5_000),
         })),
         notes: Array.from({ length: input.notes ?? 0 }, (_, position) => ({
@@ -322,7 +322,7 @@ describe('DraftEvidence', () => {
       });
 
     it('clips a long step and keeps the latest steps that fit', () => {
-      const evidence = told({ steps: 60 });
+      const evidence = clippedEvidence({ steps: 60 });
 
       expect(evidence.steps[0]?.text.length).toBeLessThan(2_100);
       expect(evidence.steps.slice(-1)[0]?.index).toBe(59);
@@ -331,7 +331,7 @@ describe('DraftEvidence', () => {
     });
 
     it('keeps the earliest notes that fit, so the rest are read next time', () => {
-      const evidence = told({ notes: 20 });
+      const evidence = clippedEvidence({ notes: 20 });
 
       expect(evidence.notes[0]?.position).toBe(0);
       expect(evidence.notes.length).toBeLessThan(20);
@@ -339,7 +339,7 @@ describe('DraftEvidence', () => {
     });
 
     it('tells notes nobody has read before those it reads again, so new notes are never crowded out', () => {
-      const evidence = told({ notes: 30, notesRead: 25 });
+      const evidence = clippedEvidence({ notes: 30, notesRead: 25 });
 
       const positions = evidence.notes.map((each) => each.position);
 
@@ -349,7 +349,7 @@ describe('DraftEvidence', () => {
     });
 
     it('does not cite a step or note left out for length', () => {
-      const evidence = told({ steps: 60, notes: 20 });
+      const evidence = clippedEvidence({ steps: 60, notes: 20 });
 
       expect(() =>
         evidence.proposalOf(
@@ -368,7 +368,7 @@ describe('DraftEvidence', () => {
     });
 
     it('leaves out a changed file whose path no memory could cover', () => {
-      const evidence = told({
+      const evidence = clippedEvidence({
         steps: 1,
         notesRead: 0,
         changed: ['src/uploads.ts', long(600)],
@@ -379,9 +379,9 @@ describe('DraftEvidence', () => {
       ]);
     });
 
-    it('is empty when the run said nothing and nobody spoke', () => {
-      expect(told({}).isEmpty).toBe(true);
-      expect(told({ steps: 1 }).isEmpty).toBe(false);
+    it('is empty when the run has no steps and nobody wrote a note', () => {
+      expect(clippedEvidence({}).isEmpty).toBe(true);
+      expect(clippedEvidence({ steps: 1 }).isEmpty).toBe(false);
     });
   });
 });

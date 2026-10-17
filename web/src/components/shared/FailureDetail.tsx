@@ -1,14 +1,14 @@
 import type { SentRequest } from '@/lib/request-failure';
 
 type FailureDetailProps = {
-  said: string | null;
+  message: string | null;
   sent: SentRequest | null;
 };
 
-export function FailureDetail({ said, sent }: FailureDetailProps) {
+export function FailureDetail({ message, sent }: FailureDetailProps) {
   return (
     <span className="flex flex-col gap-1">
-      {said && <span className="break-words">{said}</span>}
+      {message && <span className="break-words">{message}</span>}
       {sent && (
         <code className="break-all font-mono text-[0.7rem] text-muted-foreground">
           {sent.method} {sent.path}

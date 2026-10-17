@@ -247,19 +247,19 @@ describe('tasks waiting on a connection', () => {
       `connections-${randomUUID()}`,
     );
     const runId = RunId.of(randomUUID());
-    const saying = {
+    const newNote = {
       station: StationName.of('Backlog'),
       body: TaskNoteBody.of('Set up.'),
       at: NOW,
       voice: Voice.station(),
     };
 
-    await tasks.save(list.closeConversation(saying));
+    await tasks.save(list.closeConversation(newNote));
     const closed = (await tasks.find(list.id)) as Task;
     await tasks.save(
       Task.rehydrate({ ...closed, currentRunId: runId }).askToConnect(
         runId,
-        { ...saying, body: TaskNoteBody.of('Connect Linear.') },
+        { ...newNote, body: TaskNoteBody.of('Connect Linear.') },
         ConnectionAsk.of({
           teamId,
           source: 'linear',
@@ -277,7 +277,7 @@ describe('tasks waiting on a connection', () => {
     ).toEqual([]);
 
     const answered = waiting[0]?.connectionMade(teamId, 'linear', owner, {
-      ...saying,
+      ...newNote,
       body: TaskNoteBody.of('Connected Linear.'),
       voice: Voice.person(owner),
     });

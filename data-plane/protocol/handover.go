@@ -1,19 +1,19 @@
 package protocol
 
 const (
-	HandoverURLVar   = "SPOTLIGHT_HANDOVER_URL"
-	HandoverTokenVar = "SPOTLIGHT_HANDOVER_TOKEN"
+	AgentAPIURLVar   = "SPOTLIGHT_AGENT_API_URL"
+	AgentAPITokenVar = "SPOTLIGHT_AGENT_API_TOKEN"
 )
 
 const (
-	HandoverToolsPath     = "/tools/"
-	HandoverRemarkPath    = "/remark"
-	HandoverTracePath     = "/trace"
-	HandoverRecallPath    = "/recall"
-	HandoverRememberPath  = "/remember"
-	HandoverHistoryPath   = "/history"
-	HandoverCandidatePath = "/candidates"
-	HandoverCausePath     = "/causes"
+	AgentAPIToolsPath              = "/tools/"
+	AgentAPIReviewCommentReplyPath = "/review-comment-replies"
+	AgentAPITracePath              = "/trace"
+	AgentAPIRecallPath             = "/recall"
+	AgentAPIRememberPath           = "/remember"
+	AgentAPIHistoryPath            = "/history"
+	AgentAPICandidatePath          = "/candidates"
+	AgentAPICausePath              = "/causes"
 )
 
 const (

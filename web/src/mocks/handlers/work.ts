@@ -5,7 +5,7 @@ import type {
   AttachmentResponseDto,
   GrantAttachmentUploadRequestDto,
   MoveTaskRequestDto,
-  SayToRunRequestDto,
+  SendMessageRequestDto,
   TaskResponseDto,
   TeamTracesResponseDto,
 } from '@/lib/api';
@@ -15,6 +15,7 @@ import { perWorld, world } from '@/mocks/world';
 import { SAM } from '@/mocks/world/people';
 import { runNetworkOf } from '@/mocks/world/run-network';
 import {
+  addMessage,
   changeStacksOf,
   conversationOf,
   findTask,
@@ -23,7 +24,6 @@ import {
   placeStation,
   readableTask,
   runStationIn,
-  sayTo,
   taskTraceOf,
   teamRunsOf,
   teamTracesOf,
@@ -228,18 +228,21 @@ export const workHandlers: RequestHandler[] = [
     return located ? json(runMemoriesOf(located.run.id)) : notFound();
   }),
 
-  api.post('/teams/:teamId/runs/:runId/say', async ({ params, request }) => {
-    const located = locateRun(String(params.teamId), String(params.runId));
+  api.post(
+    '/teams/:teamId/runs/:runId/messages',
+    async ({ params, request }) => {
+      const located = locateRun(String(params.teamId), String(params.runId));
 
-    if (!located) {
-      return notFound();
-    }
+      if (!located) {
+        return notFound();
+      }
 
-    const body = (await request.json()) as SayToRunRequestDto;
-    sayTo(located, body.body, attachmentsOf(body.attachments));
+      const body = (await request.json()) as SendMessageRequestDto;
+      addMessage(located, body.body, attachmentsOf(body.attachments));
 
-    return noContent();
-  }),
+      return noContent();
+    },
+  ),
 
   api.post('/teams/:teamId/runs/:runId/stop', ({ params }) => {
     const teamId = String(params.teamId);

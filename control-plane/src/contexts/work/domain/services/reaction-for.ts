@@ -1,6 +1,7 @@
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
+import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { HappeningPayload } from '@work/domain/value-objects/happening.vo';
 import type { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -9,25 +10,24 @@ import type {
   ReviewAsked,
   ReviewRequest,
 } from '@work/domain/value-objects/review-asked.vo';
-import type { Said } from '@work/domain/value-objects/said.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 
-interface Told {
+interface OutcomeNote {
   readonly station: StationName;
   readonly body: TaskNoteBody;
-  readonly said: Said | null;
+  readonly anchor: Anchor | null;
 }
 
 export type Outcome =
   | { readonly kind: 'nothing' }
-  | (Told & { readonly kind: 'stays' })
-  | (Told & { readonly kind: 'deferredMove'; readonly to: Station })
-  | (Told & { readonly kind: 'interrupts' })
-  | (Told & { readonly kind: 'answers'; readonly to: NotePosition })
-  | (Told & { readonly kind: 'moves'; readonly to: Station });
+  | (OutcomeNote & { readonly kind: 'stays' })
+  | (OutcomeNote & { readonly kind: 'deferredMove'; readonly to: Station })
+  | (OutcomeNote & { readonly kind: 'interrupts' })
+  | (OutcomeNote & { readonly kind: 'answers'; readonly to: NotePosition })
+  | (OutcomeNote & { readonly kind: 'moves'; readonly to: Station });
 
 export interface Opening {
   readonly at: Station;
@@ -58,7 +58,7 @@ export const ReactionFor = {
     task: Task;
     line: Line;
     payload: HappeningPayload;
-    said: Said | null;
+    anchor: Anchor | null;
   }): Outcome {
     if (input.line.completed.id.equals(input.task.stationId)) {
       return { kind: 'nothing' };
@@ -72,8 +72,8 @@ export const ReactionFor = {
 
     const note = (
       station: StationName,
-      body = TaskNoteBody.heard(input.payload.told, input.said),
-    ): Told => ({ station, body, said: input.said });
+      body = TaskNoteBody.heard(input.payload.summary, input.anchor),
+    ): OutcomeNote => ({ station, body, anchor: input.anchor });
 
     if (rule) {
       const destination = input.line.stationAt(rule.to);
@@ -96,11 +96,11 @@ export const ReactionFor = {
                 station,
                 input.task.awaitsAnAnswer
                   ? TaskNoteBody.interruptedWhileWaiting(
-                      input.payload.told,
+                      input.payload.summary,
                       here?.name ?? null,
                     )
                   : TaskNoteBody.interrupted(
-                      input.payload.told,
+                      input.payload.summary,
                       here?.name ?? null,
                     ),
               ),
@@ -111,8 +111,8 @@ export const ReactionFor = {
               ...note(
                 station,
                 TaskNoteBody.deferredMove(
-                  input.payload.told,
-                  input.said,
+                  input.payload.summary,
+                  input.anchor,
                   destination.name,
                 ),
               ),
@@ -121,7 +121,7 @@ export const ReactionFor = {
     }
 
     const pending = input.task.pendingConversation;
-    if (here && pending && input.payload.spoken && input.said) {
+    if (here && pending && input.payload.answers && input.anchor) {
       return {
         kind: 'answers',
         to: NotePosition.of(pending.from),
@@ -129,7 +129,7 @@ export const ReactionFor = {
       };
     }
 
-    return rule && here && !(input.payload.spoken && !input.said)
+    return rule && here && !(input.payload.answers && !input.anchor)
       ? { kind: 'stays', ...note(here.name) }
       : { kind: 'nothing' };
   },
@@ -158,7 +158,7 @@ export const ReactionFor = {
     lines: readonly Line[];
     opens: OpensWith;
     request: ReviewRequest;
-    said: Said | null;
+    anchor: Anchor | null;
     pullRequestTask: Task | null;
     reviewTask: Task | null;
   }): ReviewAnswer {
@@ -167,7 +167,7 @@ export const ReactionFor = {
       opens: input.opens,
       asked: {
         ...input.request,
-        said: input.said,
+        anchor: input.anchor,
         ours: spotlights(input.request, input.pullRequestTask),
       },
     });

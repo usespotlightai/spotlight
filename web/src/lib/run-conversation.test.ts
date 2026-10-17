@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { lastNoteOf } from '@/lib/run-conversation';
 
 describe('lastNoteOf', () => {
-  it('finds where a run last spoke, so its thread opens there', () => {
+  it('finds the last note of a run, so its thread opens there', () => {
     const notes = [
       { position: 0, runId: 'run_1' },
       { position: 1, runId: null },

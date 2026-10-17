@@ -69,7 +69,7 @@ export class HookCallbackController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'noteOnHookTask',
-    summary: 'Say something on the task a hook request was about',
+    summary: 'Add a note to the task that a hook request was about',
   })
   @ApiBody({ type: CallbackNoteRequestDto })
   @ApiNoContentResponse({ description: 'The note is on the task' })
@@ -77,7 +77,7 @@ export class HookCallbackController {
     name: 'Idempotency-Key',
     required: false,
     description:
-      'The same on every retry of one note, so a retried note is said once',
+      'The same on every retry of one note, so a retried note is added once',
   })
   async note(
     @Headers('authorization') authorization: string | undefined,

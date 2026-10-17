@@ -525,10 +525,10 @@ func (e *Engine) send(ctx context.Context, method, path string, body io.Reader, 
 }
 
 func failure(response *http.Response) error {
-	var said struct{ Message string }
+	var errorBody struct{ Message string }
 	raw, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-	if json.Unmarshal(raw, &said) == nil && said.Message != "" {
-		return fmt.Errorf("%s: %s", response.Status, said.Message)
+	if json.Unmarshal(raw, &errorBody) == nil && errorBody.Message != "" {
+		return fmt.Errorf("%s: %s", response.Status, errorBody.Message)
 	}
 
 	return fmt.Errorf("%s: %s", response.Status, strings.TrimSpace(string(raw)))

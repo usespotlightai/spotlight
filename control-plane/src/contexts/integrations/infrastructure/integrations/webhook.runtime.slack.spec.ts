@@ -45,7 +45,7 @@ webhook:
       raise:
         happening: slack.app_mention
         label: Mentioned
-        told: Mentioned Spotlight in Slack.
+        summary: Mentioned Spotlight in Slack.
         opens:
           onto: delivery
           at: triage
@@ -60,9 +60,9 @@ webhook:
       raise:
         happening: slack.message.replied
         label: Replied
-        told: Replied in a Slack thread.
-        spoken: true
-        say: '\${{ body.event.text }}'
+        summary: Replied in a Slack thread.
+        answers: true
+        message: '\${{ body.event.text }}'
         marks:
           - kind: slack.thread
             value: '\${{ body.event.channel + ":" + body.event.thread_ts }}'
@@ -216,8 +216,8 @@ describe('the Slack webhook runtime', () => {
       const [read] = await runtime().read(delivered(reply));
 
       expect(read?.happening).toBe('slack.message.replied');
-      expect(read?.spoken).toBe(true);
-      expect(read?.said?.body).toBe('the queue');
+      expect(read?.answers).toBe(true);
+      expect(read?.message?.body).toBe('the queue');
     });
 
     it('marks its own posts as its own doing', async () => {

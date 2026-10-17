@@ -299,7 +299,7 @@ const untilDigested = (runId: string) =>
 const finishing = (next: string) => ({
   exitCode: 0,
   failed: false,
-  outcome: { next, note: 'Proposed two candidates.' },
+  handover: { next, note: 'Proposed two candidates.' },
   sessionId: 'session_1',
   kept: true,
 });
@@ -441,7 +441,7 @@ describe('a search run claimed by a runner', () => {
     expect(await searches.leasedSearchRun(runId, randomUUID())).toBeNull();
   });
 
-  it('reaches no repository, uses no tool, answers no remark, takes up nothing said, keeps no workspace and reaches no memory', async () => {
+  it('reaches no repository, uses no tool, replies to no review comment, acknowledges no message, keeps no workspace and reaches no memory', async () => {
     const { runId, token } = await aClaimedSearch();
 
     await runner(token)
@@ -454,14 +454,14 @@ describe('a search run claimed by a runner', () => {
       .post(`/api/runs/${runId}/tools/linear.comment`, { body: 'hi' })
       .expect(403);
     await runner(token)
-      .post(`/api/runs/${runId}/remark`, {
+      .post(`/api/runs/${runId}/review-comment-replies`, {
         handle: 'R-1',
         body: 'Fixed.',
         resolve: true,
       })
       .expect(409);
     await runner(token)
-      .post(`/api/runs/${runId}/messages/delivered`, { upTo: 0 })
+      .post(`/api/runs/${runId}/messages/ack`, { upTo: 0 })
       .expect(409);
     await runner(token)
       .post(`/api/runs/${runId}/workspace-archive`, {

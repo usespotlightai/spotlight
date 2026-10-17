@@ -1,17 +1,17 @@
-import type { Declaration } from '@work/domain/value-objects/declaration.vo';
+import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 
 export class HandoverReport {
   private constructor(
-    readonly declared: Declaration | null,
+    readonly handover: Handover | null,
     readonly session: HarnessSession | null,
   ) {}
 
   static of(input: {
-    declared?: Declaration | null;
+    handover?: Handover | null;
     session?: HarnessSession | null;
   }): HandoverReport {
-    return new HandoverReport(input.declared ?? null, input.session ?? null);
+    return new HandoverReport(input.handover ?? null, input.session ?? null);
   }
 
   static none(): HandoverReport {
@@ -25,7 +25,7 @@ export class HandoverReport {
     ): boolean => (a === null || b === null ? a === b : a.equals(b));
 
     return (
-      same(this.declared, other.declared) && same(this.session, other.session)
+      same(this.handover, other.handover) && same(this.session, other.session)
     );
   }
 }

@@ -30,7 +30,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -132,14 +132,14 @@ const workingAt = async (
   return { task, runId };
 };
 
-const happens = async (task: Task, happening: string, told: string) => {
+const happens = async (task: Task, happening: string, summary: string) => {
   const happened: Happened = {
     happening,
-    told,
-    spoken: happening === CHANGES_REQUESTED,
+    summary,
+    answers: happening === CHANGES_REQUESTED,
     state: 'raised',
     concerns: { branch: task.branch.value, marks: [] },
-    said: null,
+    message: null,
     ourOwn: false,
     opens: null,
   };
@@ -169,7 +169,7 @@ const endedPassingTo = async (runId: RunId, next: string) => {
       RUNNER,
       RunOutcome.of({ exitCode: 0, failed: false }),
       HandoverReport.of({
-        declared: Declaration.of({ next, note: 'Uploads retry now.' }),
+        handover: Handover.of({ next, note: 'Uploads retry now.' }),
         session: null,
       }),
     ),
@@ -456,7 +456,7 @@ describe('a happening while the current run of the task waits on a person (e2e)'
         after.notes.slice(-2).map((each) => [each.kind, each.body.value]),
       ).toEqual([
         ['asked', 'Which queue should I drain?'],
-        ['said', DEFERRED_MOVE_TO_CODE_REVIEW],
+        ['message', DEFERRED_MOVE_TO_CODE_REVIEW],
       ]);
       expect((await runOf(runId)).state).toBe(
         state === 'warm' ? 'waiting' : 'suspended',
@@ -514,7 +514,7 @@ describe('a run-chat message on a task a merge interrupted (e2e)', () => {
     await eventually(async () => (await runOf(runId)).hasEnded);
 
     await served(app)
-      .post(`/api/teams/${team.teamId.value}/runs/${runId.value}/say`)
+      .post(`/api/teams/${team.teamId.value}/runs/${runId.value}/messages`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ body: 'Carry on, the follow-up still needs doing.' })
       .expect(204);
@@ -556,7 +556,7 @@ describe('a deferred move and what ends the run (e2e)', () => {
         stationKey: 'implementation',
         hook: 'core/notify',
         code: 'rejected',
-        saying: 'The hook rejected the run.',
+        reason: 'The hook rejected the run.',
         heardAs: randomUUID(),
       }),
     ).resolves.toBe('reported');

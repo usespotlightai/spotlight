@@ -52,7 +52,7 @@ const briefed = BriefedTask.of({
   reviewing: null,
   attachments: [SCREENSHOT],
   notes: [],
-  openRemarks: [],
+  openReviewComments: [],
 });
 
 const replay = () =>
@@ -134,7 +134,7 @@ describe('the work of a replay', () => {
   it('takes up nothing a person says', async () => {
     const { work } = working();
 
-    await expect(work.deliverUpTo()).rejects.toThrow(KeptFromReplaysError);
+    await expect(work.acknowledgeUpTo()).rejects.toThrow(KeptFromReplaysError);
   });
 
   it('records a permission it would have asked a person for on the run as it is now, and ends its turn there', async () => {

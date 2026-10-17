@@ -27,8 +27,8 @@ func historian(t *testing.T, history protocol.History) *[]protocol.HistoryReques
 		return json.Marshal(history)
 	})
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	return &asked
 }
@@ -324,8 +324,8 @@ func TestHistoryCarriesSpotlightsErrorToTheAgent(t *testing.T) {
 	server.Histories(func(protocol.HistoryRequest) (json.RawMessage, error) {
 		return nil, errors.New("Several lines have a station by that key; name one with --line: delivery, maintenance")
 	})
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 	root := t.TempDir()
 
 	err = run([]string{"history", "--station", "implementation", "--out", root}, strings.NewReader(""), new(bytes.Buffer))

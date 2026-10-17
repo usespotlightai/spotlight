@@ -31,7 +31,7 @@ import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
@@ -70,7 +70,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       attributedIn(),
     );
     const stations = [StationId.of('station_1'), StationId.of('station_2')];
-    const told = {
+    const redefined = {
       kind: 'work.line-redefined.v1',
       lineId: 'line_1',
       workspaceId: 'ws_1',
@@ -89,7 +89,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           stations,
         ),
       ),
-    ).toEqual([told]);
+    ).toEqual([redefined]);
     expect(
       published(
         new LineRetired(
@@ -101,7 +101,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           stations,
         ),
       ),
-    ).toEqual([told]);
+    ).toEqual([redefined]);
   });
 
   it('publishes a task opening, on which team and line, by whom and when', () => {
@@ -460,7 +460,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           WORKSPACE,
           SUBJECT,
           RunOutcome.refused([
-            { saying: 'The hook core/freeze denied the run.' },
+            { description: 'The hook core/freeze denied the run.' },
           ]),
           null,
           null,
@@ -507,7 +507,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           replay,
           RunOutcome.of({ exitCode: 0, failed: false }),
           null,
-          Declaration.of({ next: 'review', note: 'Over to you.' }),
+          Handover.of({ next: 'review', note: 'Over to you.' }),
           null,
           1,
           true,
@@ -568,7 +568,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           search,
           RunOutcome.of({ exitCode: 0, failed: false }),
           null,
-          Declaration.of({ next: 'review' }),
+          Handover.of({ next: 'review' }),
           null,
           1,
           true,

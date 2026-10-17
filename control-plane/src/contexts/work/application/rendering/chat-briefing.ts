@@ -104,8 +104,8 @@ export const ChatBriefing = {
     memories: readonly BriefedMemory[];
     memoryFolder: MemoryFolder | null;
   }): string {
-    const said = input.chat.messages.filter(
-      (message) => message.kind === 'said',
+    const messages = input.chat.messages.filter(
+      (message) => message.kind === 'message',
     );
 
     const setup = input.chat.setup;
@@ -125,8 +125,8 @@ export const ChatBriefing = {
       }),
       proposing,
       proposedSoFar(input.chat, input.lines),
-      tracing(said) ? Traced.reading : null,
-      ['## What they said', ...said.map(words)].join('\n\n'),
+      tracing(messages) ? Traced.reading : null,
+      ['## Their messages', ...messages.map(words)].join('\n\n'),
     ]
       .filter(Boolean)
       .join('\n\n');

@@ -28,7 +28,7 @@ export type ConnectionAsked =
 
 export interface RunWork {
   readonly workspaceId: WorkspaceId;
-  deliverUpTo(position: number, at: Date): Promise<void>;
+  acknowledgeUpTo(position: number, at: Date): Promise<void>;
   gave(attachmentId: string): Attachment | null;
   repositoryNamed(
     name: string,

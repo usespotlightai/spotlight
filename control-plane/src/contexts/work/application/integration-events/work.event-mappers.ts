@@ -101,20 +101,20 @@ import type { TaskFailed } from '@work/domain/events/task-failed.event';
 import type { TaskMoved } from '@work/domain/events/task-moved.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskPassed } from '@work/domain/events/task-passed.event';
-import type { Declaration } from '@work/domain/value-objects/declaration.vo';
+import type { Handover } from '@work/domain/value-objects/handover.vo';
 
 interface Ending {
   readonly failure: string | null;
   readonly stopped: boolean;
   readonly asked: boolean;
-  readonly declared: Declaration | null;
+  readonly handover: Handover | null;
 }
 
-const UNSAID: Ending = {
+const PLAIN_ENDING: Ending = {
   failure: null,
   stopped: false,
   asked: false,
-  declared: null,
+  handover: null,
 };
 
 type Ended =
@@ -126,7 +126,7 @@ const ended = (
   event: RunCompleted | RunExhausted | RunCancelled,
   at: Date,
   outcome: RunEnding,
-  ending: Ending = UNSAID,
+  ending: Ending = PLAIN_ENDING,
 ): Ended => {
   const runEnded = (): RunEndedIntegrationEvent => ({
     kind: RUN_ENDED,
@@ -156,8 +156,8 @@ const ended = (
       failure: ending.failure,
       stopped: ending.stopped,
       asked: ending.asked,
-      next: ending.declared?.next || null,
-      note: ending.declared?.note || null,
+      next: ending.handover?.next || null,
+      note: ending.handover?.note || null,
     }),
     search: (searchId, iteration, stationId, teamId) => ({
       kind: SEARCH_RUN_ENDED,
@@ -264,18 +264,21 @@ export const WORK_EVENT_MAPPERS = [
       failure: event.outcome.failure?.code ?? null,
       stopped: event.outcome.stopped,
       asked: event.asked === true,
-      declared: event.declared,
+      handover: event.handover,
     }),
   ),
   mapping<RunExhausted>('run.exhausted', (event, at) =>
     ended(event, at, 'exhausted', {
-      ...UNSAID,
+      ...PLAIN_ENDING,
       failure: event.failure,
       asked: event.asked === true,
     }),
   ),
   mapping<RunCancelled>('run.cancelled', (event, at) =>
-    ended(event, at, 'cancelled', { ...UNSAID, asked: event.asked === true }),
+    ended(event, at, 'cancelled', {
+      ...PLAIN_ENDING,
+      asked: event.asked === true,
+    }),
   ),
   mapping<RunSuperseded>(
     'run.superseded',

@@ -15,7 +15,7 @@ const HEIGHT = 180;
 
 type TypeBar = TypeShare & { readonly label: string };
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -80,7 +80,7 @@ export function PullRequestTypesChart({
               <YAxis hide allowDecimals={false} />
               <Tooltip
                 {...cursor.tooltip}
-                content={<Said placement={cursor.placement} />}
+                content={<TipContent placement={cursor.placement} />}
                 cursor={{ fill: 'var(--accent)' }}
               />
               <Bar

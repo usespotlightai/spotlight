@@ -128,7 +128,7 @@ describe('givenAt, for a station that names a harness profile', () => {
     const given = givenAt(station([], [], 'reckless'), [], [careful]);
 
     expect(given.profile).toBeNull();
-    expect(given.refusals.map((each) => each.saying)).toEqual([
+    expect(given.refusals.map((each) => each.description)).toEqual([
       'harness_profile_unknown: Harness profile reckless is not in this team. Station: Implementation',
     ]);
   });

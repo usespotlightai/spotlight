@@ -42,15 +42,15 @@ func encoded(body string) string {
 	return base64.StdEncoding.EncodeToString([]byte(body))
 }
 
-func TestSendsTheCallOnceAndAnswersWhatTheHostSaid(t *testing.T) {
+func TestSendsTheCallOnceAndAnswersWithTheHostsResponse(t *testing.T) {
 	var got *http.Request
-	var said string
+	var received string
 	calls := 0
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		got = r.Clone(context.Background())
 		read, _ := io.ReadAll(r.Body)
-		said = string(read)
+		received = string(read)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
 		_, _ = io.WriteString(w, `{"deny":"no migrations on Fridays"}`)
@@ -72,8 +72,8 @@ func TestSendsTheCallOnceAndAnswersWhatTheHostSaid(t *testing.T) {
 	if calls != 1 || got.Method != http.MethodPost || got.URL.Path != "/hooks" || got.Host != "audit.example.com" {
 		t.Errorf("the host saw %d calls, last %s %s at %s", calls, got.Method, got.URL.Path, got.Host)
 	}
-	if got.Header.Get("Webhook-Id") != "firing_1" || said != `{"hook":"core/dba-review"}` {
-		t.Errorf("the host was sent %v %q", got.Header, said)
+	if got.Header.Get("Webhook-Id") != "firing_1" || received != `{"hook":"core/dba-review"}` {
+		t.Errorf("the host was sent %v %q", got.Header, received)
 	}
 	body, _ := base64.StdEncoding.DecodeString(answer.Body)
 	if string(body) != `{"deny":"no migrations on Fridays"}` || answer.Headers["content-type"] != "application/json" {

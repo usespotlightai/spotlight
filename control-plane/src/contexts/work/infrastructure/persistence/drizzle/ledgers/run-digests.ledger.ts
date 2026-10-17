@@ -25,7 +25,7 @@ import { TERMINAL_RUN_STATES } from '@work/domain/value-objects/run-state';
 import { faulted } from '@work/domain/value-objects/step-status';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
-import { Told } from '@work/infrastructure/acp/told';
+import { JournalBuilder } from '@work/infrastructure/acp/journal-builder';
 import {
   run,
   runDigest,
@@ -49,13 +49,15 @@ interface Worked {
   readonly tokens: Tokens;
 }
 
-export const tokensAcross = (readings: readonly Told[]): Tokens =>
+export const tokensAcross = (readings: readonly JournalBuilder[]): Tokens =>
   readings.reduce(
     (all, reading) => all.plus(reading.tokens()),
     Tokens.UNREPORTED,
   );
 
-export const spentAcross = (readings: readonly Told[]): RunSpent | null => {
+export const spentAcross = (
+  readings: readonly JournalBuilder[],
+): RunSpent | null => {
   const latest =
     readings
       .map((reading) => reading.spent())
@@ -86,7 +88,7 @@ export const spentAcross = (readings: readonly Told[]): RunSpent | null => {
     : null;
 };
 
-export const spendAcross = (readings: readonly Told[]): RunSpend => {
+export const spendAcross = (readings: readonly JournalBuilder[]): RunSpend => {
   const bySession = new Map<string, RunSpent>();
 
   for (const reading of readings) {
@@ -153,7 +155,7 @@ export class DrizzleRunDigests
   ) {}
 
   async spendOf(runId: RunId): Promise<RunSpend> {
-    const told = await this.db
+    const entries = await this.db
       .select({
         attempt: runJournalEntry.attempt,
         type: runJournalEntry.type,
@@ -164,10 +166,10 @@ export class DrizzleRunDigests
       .from(runJournalEntry)
       .where(eq(runJournalEntry.runId, runId.value))
       .orderBy(asc(runJournalEntry.attempt), asc(runJournalEntry.seq));
-    const readings = new Map<number, Told>();
+    const readings = new Map<number, JournalBuilder>();
 
-    for (const row of told) {
-      const reading = readings.get(row.attempt) ?? new Told();
+    for (const row of entries) {
+      const reading = readings.get(row.attempt) ?? new JournalBuilder();
       reading.take(row);
       readings.set(row.attempt, reading);
     }
@@ -221,7 +223,7 @@ export class DrizzleRunDigests
       suspended: readonly number[];
     }[],
   ): Promise<void> {
-    const told = await this.db
+    const entries = await this.db
       .select({
         runId: runJournalEntry.runId,
         attempt: runJournalEntry.attempt,
@@ -247,9 +249,10 @@ export class DrizzleRunDigests
         asc(runJournalEntry.seq),
       );
 
-    const readings = new Map<string, Told>();
-    for (const row of told) {
-      const reading = readings.get(`${row.runId}:${row.attempt}`) ?? new Told();
+    const readings = new Map<string, JournalBuilder>();
+    for (const row of entries) {
+      const reading =
+        readings.get(`${row.runId}:${row.attempt}`) ?? new JournalBuilder();
       reading.take(row);
       readings.set(`${row.runId}:${row.attempt}`, reading);
     }
@@ -258,7 +261,7 @@ export class DrizzleRunDigests
     const rows = pending.map(({ id, attempt, suspended }) => {
       const kept = [...suspended, attempt]
         .sort((one, other) => one - other)
-        .map((each) => readings.get(`${id}:${each}`) ?? new Told());
+        .map((each) => readings.get(`${id}:${each}`) ?? new JournalBuilder());
       const spent = spentAcross(kept);
       const steps = kept.flatMap((reading) => reading.steps());
       const took = kept

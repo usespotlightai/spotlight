@@ -5,13 +5,13 @@ import { describe, expect, it } from 'vitest';
 const moved = {
   kind: 'event' as const,
   key: 'task.moved:t-1:build>review',
-  saying: 'task.moved of t-1 from build to review',
+  description: 'task.moved of t-1 from build to review',
 };
 
 const hook = {
   kind: 'hook' as const,
   key: 'hook:h-1:task.moved:t-1:build>review',
-  saying: 'the hook notify',
+  description: 'the hook notify',
 };
 
 describe('CausalChain', () => {
@@ -25,7 +25,7 @@ describe('CausalChain', () => {
 
     expect(chain.depth).toBe(2);
     expect(chain.contains(hook.key)).toBe(true);
-    expect(chain.saying).toBe(
+    expect(chain.description).toBe(
       'task.moved of t-1 from build to review → the hook notify',
     );
   });
@@ -40,7 +40,7 @@ describe('CausalChain', () => {
     expect(chain.links).toHaveLength(32);
     expect(chain.contains('k-39')).toBe(true);
     expect(chain.contains('k-0')).toBe(false);
-    expect(chain.saying.startsWith('… → ')).toBe(true);
+    expect(chain.description.startsWith('… → ')).toBe(true);
   });
 
   it('reads back what it stored, and none from nothing stored', () => {
@@ -57,7 +57,7 @@ describe('CausalChain', () => {
     );
   });
 
-  it('rejects a link that says nothing of what it was', () => {
+  it('rejects a link without a description', () => {
     expect(() =>
       CausalChain.read({ links: [{ kind: 'rumour', key: 'x' }], depth: 1 }),
     ).toThrow(InconsistentStateError);

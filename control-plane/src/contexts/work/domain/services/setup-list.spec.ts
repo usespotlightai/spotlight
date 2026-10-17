@@ -69,23 +69,23 @@ describe('the setup list', () => {
 
 describe('setupDoneNote', () => {
   it('closes an open list with nothing left on it', () => {
-    const saying = setupDoneNote([note('asked', 'setup')], done, NOW);
+    const newNote = setupDoneNote([note('asked', 'setup')], done, NOW);
 
-    expect(saying?.body).toEqual(
+    expect(newNote?.body).toEqual(
       TaskNoteBody.of('Everything on this list is done.'),
     );
-    expect(saying?.voice.isStation).toBe(true);
-    expect(saying?.at).toBe(NOW);
+    expect(newNote?.voice.isStation).toBe(true);
+    expect(newNote?.at).toBe(NOW);
   });
 
   it('says so at the station the list was raised at', () => {
-    const saying = setupDoneNote(
+    const newNote = setupDoneNote(
       [note('asked', 'setup', 'Backlog')],
       done,
       NOW,
     );
 
-    expect(saying?.station).toEqual(StationName.of('Backlog'));
+    expect(newNote?.station).toEqual(StationName.of('Backlog'));
   });
 
   it('closes nothing while a step is still to be taken', () => {

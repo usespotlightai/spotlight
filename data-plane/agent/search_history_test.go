@@ -208,8 +208,8 @@ func TestHistoryOfAStationRunWritesNoCandidates(t *testing.T) {
 	shaped["candidates"] = json.RawMessage(`[]`)
 	shaped["seedBlock"] = json.RawMessage(`null`)
 	server.Histories(func(protocol.HistoryRequest) (json.RawMessage, error) { return json.Marshal(shaped) })
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 	root := t.TempDir()
 	out := new(bytes.Buffer)
 

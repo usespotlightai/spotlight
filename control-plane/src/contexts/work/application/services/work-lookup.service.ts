@@ -20,8 +20,8 @@ import type {
   RunPlace,
   RunReasoning,
   RunSite,
-  SpokenNote,
   TaskLookup,
+  TaskNoteView,
   TeamLine,
   WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
@@ -44,7 +44,7 @@ import {
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 
-const spoken = (note: TaskNote): SpokenNote[] => {
+const noteViewsOf = (note: TaskNote): TaskNoteView[] => {
   const by = note.voice.isPerson
     ? 'person'
     : note.voice.isWorld
@@ -185,10 +185,10 @@ export class WorkLookup implements WorkLookupPort {
     return distinctFiles(filesChangedIn(changesIn(journal, run), repositories));
   }
 
-  async spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null> {
+  async notesOf(taskId: TaskId): Promise<readonly TaskNoteView[] | null> {
     const task = await this.tasks.find(taskId);
 
-    return task ? task.notes.flatMap(spoken) : null;
+    return task ? task.notes.flatMap(noteViewsOf) : null;
   }
 
   private async worked(run: Run, line: Line): Promise<readonly Repository[]> {

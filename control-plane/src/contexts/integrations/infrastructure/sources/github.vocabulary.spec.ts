@@ -13,17 +13,17 @@ describe('the words the GitHub source declares', () => {
     }
   });
 
-  it('each say how they read in a note', () => {
+  it('each have a summary for a note', () => {
     for (const happening of source.happenings) {
-      expect(happening.told.trim()).not.toBe('');
+      expect(happening.summary.trim()).not.toBe('');
       expect(happening.label.trim()).not.toBe('');
     }
   });
 
-  it('count a comment, a review and a mention as a person speaking, and nothing else', () => {
+  it('count a comment, a review and a mention as answers, and nothing else', () => {
     expect(
       source.happenings
-        .filter((each) => each.spoken)
+        .filter((each) => each.answers)
         .map((each) => each.happening.value)
         .sort(),
     ).toEqual([

@@ -132,8 +132,8 @@ export interface RequestIR {
 
 export interface RaiseIR {
   readonly happening: string;
-  readonly spoken: boolean;
-  readonly say: Expression | null;
+  readonly answers: boolean;
+  readonly message: Expression | null;
   readonly opens: {
     readonly onto: string;
     readonly at: string | null;
@@ -338,8 +338,8 @@ class Compiler {
       DeclaredHappening.of({
         happening,
         label: event.raise.label ?? event.raise.happening,
-        told: event.raise.told ?? event.raise.happening,
-        spoken: event.raise.spoken,
+        summary: event.raise.summary ?? event.raise.happening,
+        answers: event.raise.answers,
         finds: event.raise.marks
           .filter((mark) => mark.find)
           .map((mark) => MarkKind.of(mark.kind)),
@@ -642,8 +642,10 @@ class Compiler {
   raise(raise: RaiseFile, place: Place): RaiseIR {
     return {
       happening: raise.happening,
-      spoken: raise.spoken,
-      say: raise.say ? this.expression(raise.say, place.to('say')) : null,
+      answers: raise.answers,
+      message: raise.message
+        ? this.expression(raise.message, place.to('message'))
+        : null,
       opens: raise.opens
         ? {
             onto: raise.opens.onto,

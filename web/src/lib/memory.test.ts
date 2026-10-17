@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   appliesTo,
+  authorOf,
   filterOf,
   givenMemories,
   memoryFilesOf,
@@ -14,7 +15,6 @@ import {
   proposedSummary,
   type RunProposal,
   rememberedCounts,
-  speakerOf,
   type TeamMemory,
 } from '@/lib/memory';
 
@@ -214,10 +214,10 @@ describe('placeTreeOf', () => {
   });
 });
 
-describe('speakerOf', () => {
-  it('names the teammate who said it, and says words came from another tool', () => {
+describe('authorOf', () => {
+  it('names the teammate who wrote the note, and names another tool as the author of a note from it', () => {
     expect(
-      speakerOf({
+      authorOf({
         position: 1,
         by: 'person',
         author: { id: 'user_1', name: 'Maya Chen', image: null },
@@ -225,11 +225,11 @@ describe('speakerOf', () => {
       }),
     ).toBe('Maya Chen');
     expect(
-      speakerOf({ position: 1, by: 'person', author: null, text: 'A.' }),
+      authorOf({ position: 1, by: 'person', author: null, text: 'A.' }),
     ).toBe('A teammate');
     expect(
-      speakerOf({ position: 2, by: 'world', author: null, text: 'B.' }),
-    ).toBe('From another tool');
+      authorOf({ position: 2, by: 'world', author: null, text: 'B.' }),
+    ).toBe('Another tool');
   });
 });
 

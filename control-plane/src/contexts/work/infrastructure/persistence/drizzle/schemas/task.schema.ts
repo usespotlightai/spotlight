@@ -7,7 +7,7 @@ import type {
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
-import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
+import type { AuthorKind } from '@work/domain/value-objects/voice.vo';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { sql } from 'drizzle-orm';
 import {
@@ -21,12 +21,12 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-export interface SaidRow {
+export interface AnchorRow {
   readonly body: string;
   readonly path: string | null;
   readonly from: number | null;
   readonly to: number | null;
-  readonly remark: string | null;
+  readonly reviewComment: string | null;
 }
 
 export type ApprovalSubjectRow =
@@ -129,19 +129,19 @@ export const taskNote = pgTable(
     station: text('station').notNull(),
     body: text('body').notNull(),
     at: timestamp('at').notNull(),
-    voice: text('voice').$type<SpokenBy>().notNull().default('station'),
+    voice: text('voice').$type<AuthorKind>().notNull().default('station'),
     authorId: text('author_id'),
     runId: text('run_id'),
     kind: text('kind').$type<TaskNoteKind>().notNull(),
     form: text('form').$type<TaskNoteForm>().notNull().default('words'),
-    said: jsonb('said').$type<SaidRow>(),
+    anchor: jsonb('anchor').$type<AnchorRow>(),
     approval: jsonb('approval').$type<ApprovalRow>(),
     failure: jsonb('failure').$type<FailureRow>(),
     deferredMove: jsonb('deferred_move').$type<DeferredMoveRow>(),
     connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
     answeredAt: timestamp('answered_at'),
     readAt: timestamp('read_at'),
-    deliveredAt: timestamp('delivered_at'),
+    acknowledgedAt: timestamp('acknowledged_at'),
   },
   (table) => [
     primaryKey({ columns: [table.taskId, table.position] }),

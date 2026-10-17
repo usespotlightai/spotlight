@@ -80,8 +80,8 @@ const toneOf = (step: JournalStep): Tone => {
 };
 
 const named = (step: JournalStep): string => {
-  if (step.kind === 'said') {
-    return 'Said';
+  if (step.kind === 'message') {
+    return 'Message';
   }
   if (step.kind === 'thought') {
     return 'Thought';
@@ -223,21 +223,21 @@ const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
     });
   }
 
-  if (marks.spokeFrom && marks.spokeTo) {
+  if (marks.firstAgentUpdateAt && marks.lastAgentUpdateAt) {
     phases.push({
       id: `${run.id.value}:turn`,
       name: `Turn · ${run.harness.value}`,
-      from: marks.spokeFrom,
-      to: marks.spokeTo,
+      from: marks.firstAgentUpdateAt,
+      to: marks.lastAgentUpdateAt,
       worked: true,
     });
   }
 
-  if (marks.spokeTo && closed > marks.spokeTo) {
+  if (marks.lastAgentUpdateAt && closed > marks.lastAgentUpdateAt) {
     phases.push({
       id: `${run.id.value}:publish`,
       name: 'Publish',
-      from: marks.spokeTo,
+      from: marks.lastAgentUpdateAt,
       to: closed,
       worked: false,
     });

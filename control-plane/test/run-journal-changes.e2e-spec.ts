@@ -46,14 +46,14 @@ const sent = (update: Record<string, unknown>): string =>
     'base64',
   );
 
-type Said =
+type Notification =
   | { call: string }
   | { edit: string; path: string }
   | { hook: string }
   | { chunk: string };
 
-const entries = (...said: Said[]): JournalEntry[] =>
-  said.map((each, index) => {
+const entries = (...notifications: Notification[]): JournalEntry[] =>
+  notifications.map((each, index) => {
     const at = new Date(Date.UTC(2026, 8, 27, 9, 0, index));
     const seq = index + 1;
 

@@ -48,12 +48,13 @@ export class ReplayRunResponseDto extends TaskRunResponseDto {
   @ApiProperty({
     type: RunJournalResponseDto,
     isArray: true,
-    description: 'What it did and said, attempt by attempt',
+    description: 'What it did and wrote, attempt by attempt',
   })
   readonly journals: RunJournalResponseDto[];
 
   @ApiProperty({
-    description: 'What the replay told its agent when it was dispatched',
+    description:
+      'The briefing that the replay gave its agent when it was dispatched',
   })
   readonly briefing: string;
 

@@ -16,7 +16,7 @@ import {
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { DONE } from '@work/domain/value-objects/handover-word';
 import type { RunReplay } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -81,11 +81,7 @@ const movesOnAfter = (candidate: Line, stationId: StationId): string[] =>
     .map((word) => word.toLowerCase())
     .filter((word) => {
       const routing = routeAfterRun(
-        HandoverFor.declared(
-          Declaration.of({ next: word }),
-          candidate,
-          stationId,
-        ),
+        HandoverFor.resolve(Handover.of({ next: word }), candidate, stationId),
         candidate,
         NOT_DEFERRED,
       );

@@ -5,9 +5,9 @@ import { IconAvatar } from '@/components/shared/avatar/IconAvatar';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import {
+  authorOf,
   type MemoryGround,
   type MemoryGroundNote,
-  speakerOf,
 } from '@/lib/memory';
 
 const noteAvatar = (note: MemoryGroundNote) => {
@@ -37,10 +37,10 @@ export function MemoryGroundList({
 }: MemoryGroundListProps) {
   const { data: harnesses } = useHarnesses();
   const agent = harnesses?.find((each) => each.id === grounds.harness)?.name;
-  const said = [
+  const entries = [
     ...grounds.notes.map((note) => ({
       key: `note-${note.position}`,
-      name: speakerOf(note),
+      name: authorOf(note),
       avatar: noteAvatar(note),
       text: note.text,
     })),
@@ -63,7 +63,7 @@ export function MemoryGroundList({
   if (!compact) {
     return (
       <ol className="flex flex-col">
-        {said.map((each, at) => (
+        {entries.map((each, at) => (
           <ThreadEntry
             key={each.key}
             first={at === 0}
@@ -81,7 +81,7 @@ export function MemoryGroundList({
 
   return (
     <ol className="flex flex-col gap-2">
-      {said.map((each) => (
+      {entries.map((each) => (
         <li key={each.key}>
           <div className="flex flex-col gap-0.5 text-xs leading-5">
             <div className="flex items-center gap-2.5">

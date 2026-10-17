@@ -58,14 +58,14 @@ import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
 
-const MAX_SAID = 500;
+const MAX_OUTPUT_CHARS = 500;
 
 const plainJson = (output: unknown): ToolOutput =>
   JSON.parse(asJson(output ?? null)) as ToolOutput;
 
 const hostErrorOf = (result: OutboundResult): HostError => ({
   status: result.status,
-  said: asJson(result.response ?? null).slice(0, MAX_SAID),
+  output: asJson(result.response ?? null).slice(0, MAX_OUTPUT_CHARS),
 });
 
 const upstreamErrorUsing = (
@@ -75,7 +75,7 @@ const upstreamErrorUsing = (
 ): UpstreamError =>
   new UpstreamError(
     `using ${tool}`,
-    `the integration answered ${status}: ${asJson(response ?? null).slice(0, MAX_SAID)}`,
+    `the integration answered ${status}: ${asJson(response ?? null).slice(0, MAX_OUTPUT_CHARS)}`,
   );
 
 const fieldOf = (value: unknown, field: string): unknown =>

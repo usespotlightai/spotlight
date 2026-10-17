@@ -6,7 +6,7 @@ import type {
   ProposedMemoryResponseDto,
   RememberRequestDto,
   RetireMemoryRequestDto,
-  SayInChatRequestDto,
+  SendChatMessageRequestDto,
   StartChatRequestDto,
   TeamMemoryDetailResponseDto,
   TeamMemoryResponseDto,
@@ -18,7 +18,7 @@ import { SAM } from '@/mocks/world/people';
 import {
   type ChatRecord,
   chatTurn,
-  saidBy,
+  messageBy,
   teamChats,
   turnEndsAt,
 } from '@/mocks/world/team-chats';
@@ -419,16 +419,16 @@ const answerTo = (
   return 'Here is how I would break this down: first find where it happens in the code, then fix the cause rather than the symptom, then add a check so it cannot come back quietly. Say the word and I will propose those as tasks.';
 };
 
-const answered = (record: ChatRecord, heardAt: string, body: string): void => {
+const answered = (record: ChatRecord, sentAt: string, body: string): void => {
   const runId = `run_${record.chat.id}_${record.journals.length + 1}`;
-  const journal = chatTurn(runId, heardAt, [
+  const journal = chatTurn(runId, sentAt, [
     { kind: 'thought', text: 'Reading what the team already has on this.' },
     {
       kind: 'tool',
       tool: 'bash',
       text: `spotlight recall "${body.trim().slice(0, 40)}"`,
     },
-    { kind: 'said', text: answerTo(body, record.chat.improving) },
+    { kind: 'message', text: answerTo(body, record.chat.improving) },
   ]);
   record.journals.push(journal);
   record.chat.updatedAt = turnEndsAt(journal);
@@ -483,7 +483,7 @@ const chatHandlers = [
         updatedAt: at,
         working: false,
         runId: null,
-        messages: [saidBy(SAM, 0, asked.body, at, traces)],
+        messages: [messageBy(SAM, 0, asked.body, at, traces)],
       },
       journals: [],
     };
@@ -512,10 +512,10 @@ const chatHandlers = [
       }
 
       const { body, model, effort } =
-        (await request.json()) as SayInChatRequestDto;
+        (await request.json()) as SendChatMessageRequestDto;
       const at = now();
       record.chat.messages.push(
-        saidBy(SAM, record.chat.messages.length, body, at),
+        messageBy(SAM, record.chat.messages.length, body, at),
       );
       record.chat.model = model ?? record.chat.model;
       record.chat.effort = effort ?? record.chat.effort;

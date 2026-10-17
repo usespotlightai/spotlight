@@ -58,7 +58,7 @@ export interface LeasedRunLookup extends RunSite {
 
 export interface ReasonedStep {
   readonly index: number;
-  readonly kind: 'said' | 'thought' | 'planned' | 'handover' | 'remember';
+  readonly kind: 'message' | 'thought' | 'planned' | 'handover' | 'remember';
   readonly text: string;
 }
 
@@ -79,7 +79,7 @@ export interface ChangedFile {
   readonly path: string;
 }
 
-export interface SpokenNote {
+export interface TaskNoteView {
   readonly position: number;
   readonly by: 'person' | 'world';
   readonly author: string | null;
@@ -119,7 +119,7 @@ export interface WorkLookupPort {
 
   changedBy(runId: RunId): Promise<readonly ChangedFile[] | null>;
 
-  spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null>;
+  notesOf(taskId: TaskId): Promise<readonly TaskNoteView[] | null>;
 
   task(taskId: TaskId): Promise<TaskLookup | null>;
 

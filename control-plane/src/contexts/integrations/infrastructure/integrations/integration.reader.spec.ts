@@ -19,7 +19,7 @@ webhook:
       raise:
         happening: linear.issue.completed
         label: Issue completed
-        told: The issue was moved to Done.
+        summary: The issue was moved to Done.
         marks:
           - kind: linear.issue
             value: \${{ body.data.identifier }}

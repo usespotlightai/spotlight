@@ -60,14 +60,14 @@ export function HealthRow({ reading, replayTo, children }: HealthRowProps) {
       <span className="col-span-full flex min-w-0 flex-col gap-1 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
         <span className="flex min-w-0 flex-wrap items-center gap-x-3">
           <span
-            data-slot="health-said"
+            data-slot="health-text"
             className={cn(
               'inline-flex items-center gap-2',
               TONES[reading.tone],
             )}
           >
             <Icon aria-hidden className="size-3 shrink-0" />
-            {reading.said}
+            {reading.text}
           </span>
           {replayTo && (
             <TrailLink

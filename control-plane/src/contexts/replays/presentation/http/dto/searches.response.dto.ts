@@ -341,7 +341,7 @@ const WARNING_MODELS = [
   NoHeadroomWarningResponseDto,
 ];
 
-const OBJECTIVE_SAYS =
+const OBJECTIVE_DESCRIPTION =
   'success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs';
 
 export class EstimateSearchRequestDto {
@@ -353,7 +353,7 @@ export class EstimateSearchRequestDto {
 
   @ApiPropertyOptional({
     enum: SEARCH_OBJECTIVES,
-    description: `What the search looks for: ${OBJECTIVE_SAYS}. Left out, cost on a set the live config saturates, else success`,
+    description: `What the search looks for: ${OBJECTIVE_DESCRIPTION}. Left out, cost on a set the live config saturates, else success`,
   })
   readonly objective?: 'success' | 'cost';
 }
@@ -376,7 +376,7 @@ export class SearchStartedResponseDto {
 
   @ApiProperty({
     enum: SEARCH_OBJECTIVES,
-    description: `What the search looks for: ${OBJECTIVE_SAYS}`,
+    description: `What the search looks for: ${OBJECTIVE_DESCRIPTION}`,
   })
   readonly objective: 'success' | 'cost';
 
@@ -547,7 +547,7 @@ export class SearchResponseDto {
 
   @ApiProperty({
     enum: SEARCH_OBJECTIVES,
-    description: `What it looks for, which orders its frontier and its best: ${OBJECTIVE_SAYS}`,
+    description: `What it looks for, which orders its frontier and its best: ${OBJECTIVE_DESCRIPTION}`,
   })
   readonly objective: 'success' | 'cost';
 
@@ -1159,7 +1159,7 @@ export class SearchEstimateResponseDto {
 
   @ApiProperty({
     enum: SEARCH_OBJECTIVES,
-    description: `What it would look for, as asked or as the set’s health suggests: ${OBJECTIVE_SAYS}`,
+    description: `What it would look for, as asked or as the set’s health suggests: ${OBJECTIVE_DESCRIPTION}`,
   })
   readonly objective: 'success' | 'cost';
 

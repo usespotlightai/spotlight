@@ -15,7 +15,7 @@ export type ApprovalMode = 'viewing' | 'editing' | 'refusing';
 
 export type ApprovalAnswer = {
   readonly approve: boolean;
-  readonly said: string;
+  readonly body: string;
   readonly inputs?: readonly ApprovalInput[];
 };
 

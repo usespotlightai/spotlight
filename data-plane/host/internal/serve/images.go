@@ -276,13 +276,13 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 		return protocol.Registration{}, fmt.Errorf("the runner image answered with exit %d", code)
 	}
 
-	var said lines
-	if err := h.engine.Follow(ctx, id, &said); err != nil {
+	var output lines
+	if err := h.engine.Follow(ctx, id, &output); err != nil {
 		return protocol.Registration{}, err
 	}
 
 	var reported protocol.Registration
-	if err := json.Unmarshal([]byte(said.last()), &reported); err != nil {
+	if err := json.Unmarshal([]byte(output.last()), &reported); err != nil {
 		return protocol.Registration{}, fmt.Errorf("read what the runner image has: %w", err)
 	}
 

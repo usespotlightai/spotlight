@@ -248,9 +248,9 @@ const raiseSchema = z.object({
     .string()
     .regex(HAPPENING, 'names its source first, as in slack.app_mention'),
   label: z.string().min(1).optional(),
-  told: z.string().min(1).optional(),
-  spoken: z.boolean().default(false),
-  say: expression.optional(),
+  summary: z.string().min(1).optional(),
+  answers: z.boolean().default(false),
+  message: expression.optional(),
   opens: z
     .object({
       onto: z.string().regex(KEY, 'is the role of the lines this opens on'),

@@ -1,6 +1,6 @@
 import { RunActions } from '@/components/features/runs/RunActions';
 import { RunWaiting } from '@/components/features/runs/RunWaiting';
-import { lastSpokenAt, type RunJournal } from '@/lib/inbox';
+import { lastNoteAt, type RunJournal } from '@/lib/inbox';
 import { type TeamRun, waitsOnPerson } from '@/lib/run';
 import { type RunConversation, runThreadText } from '@/lib/run-conversation';
 
@@ -8,7 +8,7 @@ type RunClosingProps = {
   slug: string;
   teamId: string;
   run: TeamRun;
-  said: RunConversation | undefined;
+  conversation: RunConversation | undefined;
   ran: readonly RunJournal[];
   deciding: boolean;
 };
@@ -17,7 +17,7 @@ export function RunClosing({
   slug,
   teamId,
   run,
-  said,
+  conversation,
   ran,
   deciding,
 }: RunClosingProps) {
@@ -27,8 +27,8 @@ export function RunClosing({
         slug={slug}
         teamId={teamId}
         runId={run.id}
-        thread={runThreadText(said, run, ran)}
-        at={lastSpokenAt(said?.notes ?? [], ran) ?? run.updatedAt}
+        thread={runThreadText(conversation, run, ran)}
+        at={lastNoteAt(conversation?.notes ?? [], ran) ?? run.updatedAt}
       />
       {waitsOnPerson(run) && (
         <RunWaiting slug={slug} run={run} deciding={deciding} />

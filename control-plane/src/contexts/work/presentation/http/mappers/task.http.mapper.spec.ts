@@ -47,7 +47,7 @@ describe('TaskHttpMapper', () => {
     });
   });
 
-  it('keeps a task nobody has said anything about noteless', () => {
+  it('gives no note to a task that has no notes', () => {
     expect(TaskHttpMapper.toResponse({ ...dto, note: null }).note).toBeNull();
   });
 });

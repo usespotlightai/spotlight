@@ -170,7 +170,7 @@ export class FireHooks {
     const change = {
       kind: 'event' as const,
       key: `${happened.on}:${happened.task.taskId}:${happened.change}`,
-      saying: `${happened.on} of ${happened.task.title}${happened.change ? ` (${happened.change})` : ''}`,
+      description: `${happened.on} of ${happened.task.title}${happened.change ? ` (${happened.change})` : ''}`,
     };
     const cause = this.causation.current().followedBy(change);
     let fired = 0;
@@ -209,7 +209,7 @@ export class FireHooks {
           link: {
             kind: 'hook',
             key: `hook:${hook.id}:${change.key}`,
-            saying: `the hook ${hook.key}`,
+            description: `the hook ${hook.key}`,
           },
         }),
       );
@@ -307,7 +307,7 @@ export class FireHooks {
         stationKey: firing.stationKey,
         hook,
         code: loop.code,
-        saying: loop.reason,
+        reason: loop.reason,
         heardAs: `loop:${firing.id}`,
       });
 
@@ -317,7 +317,7 @@ export class FireHooks {
       );
 
       await this.firings.save(
-        firing.toldOfLoop(this.clock.now(), heard !== 'reported'),
+        firing.markLoopNotified(this.clock.now(), heard !== 'reported'),
       );
     } catch (error) {
       if (error instanceof HookFiringVersionConflictError) {
@@ -326,7 +326,7 @@ export class FireHooks {
 
       this.logger.warn(
         { err: error, hook, task: firing.taskId },
-        'Could not yet tell of a hook stopped for looping',
+        'Could not yet send the notice of a hook stopped for looping',
       );
       await this.firings.save(
         firing.failedWith(

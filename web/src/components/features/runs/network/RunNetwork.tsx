@@ -13,8 +13,8 @@ import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import {
   connectionGroups,
+  ENFORCEMENT_DESCRIPTION,
   ENFORCEMENT_LABELS,
-  ENFORCEMENT_TOLD,
 } from '@/lib/run-network';
 import { cn } from '@/lib/utils';
 
@@ -95,7 +95,7 @@ export function RunNetwork({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-80">
-                  {ENFORCEMENT_TOLD[network.egressEnforcement]}
+                  {ENFORCEMENT_DESCRIPTION[network.egressEnforcement]}
                 </TooltipContent>
               </Tooltip>
             ) : (

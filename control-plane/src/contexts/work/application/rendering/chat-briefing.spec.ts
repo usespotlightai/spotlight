@@ -95,7 +95,7 @@ const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
   const handed = chat
     .assignRun(RunId.of('run_1'), NOW)
     .endRun(RunId.of('run_1'))
-    .said({
+    .addMessage({
       by: LEON,
       body: ChatMessageBody.given('And this one?'),
       traces,
@@ -107,7 +107,7 @@ const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
     .filter((each): each is ChatDispatched => each instanceof ChatDispatched)
     .pop();
 
-  return ChatBriefing.followUp(handed, event?.delivered ?? []);
+  return ChatBriefing.followUp(handed, event?.acknowledged ?? []);
 };
 
 const improvingChat = () =>
@@ -172,7 +172,7 @@ describe('ChatBriefing', () => {
     expect(briefed).not.toContain('## Reading a trace');
   });
 
-  it('follows up with what was said since the last run', () => {
+  it('follows up with the messages sent since the last run', () => {
     const followed = followingUp(started(), []);
 
     expect(followed).toBe('And this one?');

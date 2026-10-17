@@ -218,14 +218,14 @@ const sent = (update: Record<string, unknown>): string =>
     'base64',
   );
 
-const changing = (from: number, said: string, line: string) => [
+const changing = (from: number, message: string, line: string) => [
   {
     seq: from,
     type: 'output',
     at: new Date().toISOString(),
     data: sent({
       sessionUpdate: 'agent_message_chunk',
-      content: { type: 'text', text: said },
+      content: { type: 'text', text: message },
     }),
   },
   {
@@ -336,7 +336,7 @@ const anOriginal = async (title: string): Promise<Original> => {
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
     briefedMemories: { briefed: [], cut: [] },
     startedFromArchiveId: archiveId,
@@ -609,7 +609,7 @@ describe('a replay at a station whose judge goes by claims', () => {
         .post(`/api/runs/${assignment.runId}/completion`, {
           exitCode: 0,
           failed: false,
-          outcome: { next: 'ship', note: 'Drained.' },
+          handover: { next: 'ship', note: 'Drained.' },
           sessionId: 'session_1',
           kept: true,
         })

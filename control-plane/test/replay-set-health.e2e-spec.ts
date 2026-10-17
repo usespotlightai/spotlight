@@ -111,10 +111,10 @@ const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
   judge: async (ask: JudgeAsk) => {
-    const said = ask.steps.find((each) => SCORED.test(each.text));
-    const run = MARKED.exec(said?.text ?? '')?.[1] ?? '';
+    const scoredStep = ask.steps.find((each) => SCORED.test(each.text));
+    const run = MARKED.exec(scoredStep?.text ?? '')?.[1] ?? '';
     const times = (judgedRuns.get(run) ?? 0) + 1;
-    const scored = Number(SCORED.exec(said?.text ?? '')?.[1] ?? 1);
+    const scored = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
     const flips = times > 1 && judgeFlipsLeft > 0;
     const value = flips ? 2 : scored;
 
@@ -133,7 +133,7 @@ const judge: JudgePort = {
         reasons: [
           {
             text: `It drains the queue as a ${value}.`,
-            steps: said ? [said.index] : [],
+            steps: scoredStep ? [scoredStep.index] : [],
             hunks: ask.hunks.slice(0, 1).map((each) => each.id),
           },
         ],
@@ -174,14 +174,14 @@ const sent = (update: Record<string, unknown>): string =>
     'base64',
   );
 
-const changing = (said: string, line: string) => [
+const changing = (message: string, line: string) => [
   {
     seq: 1,
     type: 'output',
     at: new Date().toISOString(),
     data: sent({
       sessionUpdate: 'agent_message_chunk',
-      content: { type: 'text', text: said },
+      content: { type: 'text', text: message },
     }),
   },
   {
@@ -292,7 +292,7 @@ const anOriginal = async (): Promise<Original> => {
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
     briefedMemories: { briefed: [], cut: [] },
     startedFromArchiveId: archiveId,
@@ -419,7 +419,7 @@ const finish = async (assignment: Claimed, plan: Plan) => {
     .post(`/api/runs/${assignment.runId}/completion`, {
       exitCode: 0,
       failed: false,
-      outcome: { next: 'ship', note: 'Drained.' },
+      handover: { next: 'ship', note: 'Drained.' },
       sessionId: 'session_1',
       kept: true,
     })

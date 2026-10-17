@@ -7,7 +7,7 @@ type CauseKind = (typeof CAUSE_KINDS)[number];
 export interface CauseLink {
   readonly kind: CauseKind;
   readonly key: string;
-  readonly saying: string;
+  readonly description: string;
 }
 
 const MAX_KEPT = 32;
@@ -62,17 +62,21 @@ export class CausalChain {
   }
 
   private static linkOf(link: CauseLink): CauseLink {
-    if (!isKind(link?.kind) || !link.key || typeof link.saying !== 'string') {
+    if (
+      !isKind(link?.kind) ||
+      !link.key ||
+      typeof link.description !== 'string'
+    ) {
       throw new InconsistentStateError(
         'causal chain',
-        'has a link that says nothing of what it was',
+        'has a link without a description',
       );
     }
 
     return {
       kind: link.kind,
       key: link.key.slice(0, MAX_KEY),
-      saying: link.saying,
+      description: link.description,
     };
   }
 
@@ -91,10 +95,10 @@ export class CausalChain {
     return this.links.some((each) => each.key === key.slice(0, MAX_KEY));
   }
 
-  get saying(): string {
-    const said = this.links.map((each) => each.saying).join(' → ');
+  get description(): string {
+    const described = this.links.map((each) => each.description).join(' → ');
 
-    return this.depth > this.links.length ? `… → ${said}` : said;
+    return this.depth > this.links.length ? `… → ${described}` : described;
   }
 
   get stored(): { links: readonly CauseLink[]; depth: number } {

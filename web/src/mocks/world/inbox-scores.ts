@@ -93,7 +93,7 @@ const verdict = (
 
 const citedStep = (index: number, tool: string | null, text: string) => ({
   kind: 'step' as const,
-  step: { index, kind: tool ? 'tool' : 'said', tool, text },
+  step: { index, kind: tool ? 'tool' : 'message', tool, text },
   hunk: null,
 });
 
@@ -117,9 +117,9 @@ const citedStackHunk = (runId: string, path: string) => {
   return citedHunk(found?.id ?? path, path, header, lines);
 };
 
-const citedSaid = (runId: string) => {
+const citedMessage = (runId: string) => {
   const steps = RUN_STORIES[runId]?.steps ?? [];
-  const index = steps.findLastIndex((step) => step.kind === 'said');
+  const index = steps.findLastIndex((step) => step.kind === 'message');
 
   return citedStep(index, null, steps[index]?.text ?? '');
 };
@@ -160,7 +160,7 @@ const JUDGED: Record<string, Pick<RunScoresResponseDto, 'judge' | 'grades'>> = {
       {
         claim: null,
         text: 'It said the migration rewrites 1.3M rows and left batching to review, rather than deciding it alone.',
-        citations: [citedSaid('run_postgres_2')],
+        citations: [citedMessage('run_postgres_2')],
       },
     ]),
   },

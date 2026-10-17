@@ -44,9 +44,9 @@ export const toolWordsOf = (upstream: string): string =>
   );
 
 export const describedAs = (text: unknown, otherwise: string): string => {
-  const said = typeof text === 'string' ? text.trim() : '';
+  const trimmed = typeof text === 'string' ? text.trim() : '';
 
-  return (said === '' ? otherwise : said).slice(0, MAX_DESCRIPTION);
+  return (trimmed === '' ? otherwise : trimmed).slice(0, MAX_DESCRIPTION);
 };
 
 export const keepingFirst = (

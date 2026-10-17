@@ -96,7 +96,7 @@ func TestUsesAToolTypedAsTwoWords(t *testing.T) {
 		t.Errorf("carried an issue nobody gave, which the task is left to say: %v", *carried)
 	}
 	if strings.TrimSpace(out.String()) != `"https://linear.app/acme/issue/ENG-12#comment-1"` {
-		t.Errorf("said %q, want the tool's output as JSON", out.String())
+		t.Errorf("output %q, want the tool's output as JSON", out.String())
 	}
 }
 
@@ -112,7 +112,7 @@ func TestUsesAToolByItsFullNameWithWhatIsPipedIn(t *testing.T) {
 		t.Errorf("carried %v", *carried)
 	}
 	if !strings.Contains(out.String(), `"url": "https://linear.app/c/1"`) {
-		t.Errorf("said %q, want the answer as indented JSON", out.String())
+		t.Errorf("output %q, want the answer as indented JSON", out.String())
 	}
 }
 
@@ -311,8 +311,8 @@ func TestSummarisesSpotlightsOwnToolsUnderSpotlight(t *testing.T) {
 }
 
 func TestPrintsATextAnswerAsJSON(t *testing.T) {
-	if said := readable(`{"output":"done \"now\""}`); said != `"done \"now\""` {
-		t.Errorf("said %s, want the text as a JSON string", said)
+	if output := readable(`{"output":"done \"now\""}`); output != `"done \"now\""` {
+		t.Errorf("output %s, want the text as a JSON string", output)
 	}
 }
 
@@ -326,9 +326,9 @@ func TestRejectsAToolsCommandThereIsNot(t *testing.T) {
 }
 
 func TestPrintsOnlyTheOutputOfAnAnswerThatSaysWhoItActedAs(t *testing.T) {
-	said := readable(`{"output":{"id":"ENG-1"},"actingAs":{"holder":"user_1","personId":"user_1"}}`)
+	output := readable(`{"output":{"id":"ENG-1"},"actingAs":{"holder":"user_1","personId":"user_1"}}`)
 
-	if said != "{\n  \"id\": \"ENG-1\"\n}" {
-		t.Errorf("said %s, want only the output", said)
+	if output != "{\n  \"id\": \"ENG-1\"\n}" {
+		t.Errorf("output %s, want only the output", output)
 	}
 }

@@ -72,19 +72,19 @@ func (c Credentials) For(image string) (string, error) {
 		return "", nil
 	}
 
-	said := header{ServerAddress: key, IdentityToken: found.IdentityToken}
+	auth := header{ServerAddress: key, IdentityToken: found.IdentityToken}
 	switch {
 	case found.Auth != "":
 		decoded, err := base64.StdEncoding.DecodeString(found.Auth)
 		if err != nil {
 			return "", fmt.Errorf("registry credentials for %s: auth is not base64", server)
 		}
-		said.Username, said.Password, _ = strings.Cut(string(decoded), ":")
+		auth.Username, auth.Password, _ = strings.Cut(string(decoded), ":")
 	default:
-		said.Username, said.Password = found.Username, found.Password
+		auth.Username, auth.Password = found.Username, found.Password
 	}
 
-	encoded, err := json.Marshal(said)
+	encoded, err := json.Marshal(auth)
 	if err != nil {
 		return "", err
 	}

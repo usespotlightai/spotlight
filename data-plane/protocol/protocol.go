@@ -46,7 +46,7 @@ type Command struct {
 	Env        map[string]string `json:"env,omitempty"`
 }
 
-type Handover struct {
+type HandoverSpec struct {
 	Options   []string `json:"options,omitempty"`
 	NoteLimit int      `json:"noteLimit,omitempty"`
 }
@@ -55,7 +55,7 @@ type Spec struct {
 	Checkouts     []Checkout     `json:"checkouts,omitempty"`
 	Command       Command        `json:"command"`
 	Briefing      string         `json:"briefing,omitempty"`
-	Handover      Handover       `json:"handover,omitzero"`
+	Handover      HandoverSpec   `json:"handover,omitzero"`
 	Manifest      []ToolManifest `json:"manifest,omitempty"`
 	Continuity    Continuity     `json:"continuity,omitzero"`
 	Attachments   []Attachment   `json:"attachments,omitempty"`
@@ -255,27 +255,27 @@ type Event struct {
 	ExitCode *int      `json:"exitCode,omitempty"`
 }
 
-type Remark struct {
+type ReviewCommentReply struct {
 	Handle  string `json:"handle"`
 	Body    string `json:"body"`
 	Resolve bool   `json:"resolve,omitempty"`
 }
 
-type Outcome struct {
+type Handover struct {
 	Next string `json:"next"`
 	Note string `json:"note,omitempty"`
 }
 
 type Completion struct {
-	ExitCode   int      `json:"exitCode"`
-	Failed     bool     `json:"failed"`
-	Unprepared bool     `json:"unprepared,omitempty"`
-	TimedOut   bool     `json:"timedOut,omitempty"`
-	Stopped    bool     `json:"stopped,omitempty"`
-	Message    string   `json:"message,omitempty"`
-	Outcome    *Outcome `json:"outcome,omitempty"`
-	SessionID  string   `json:"sessionId,omitempty"`
-	Kept       bool     `json:"kept,omitempty"`
+	ExitCode   int       `json:"exitCode"`
+	Failed     bool      `json:"failed"`
+	Unprepared bool      `json:"unprepared,omitempty"`
+	TimedOut   bool      `json:"timedOut,omitempty"`
+	Stopped    bool      `json:"stopped,omitempty"`
+	Message    string    `json:"message,omitempty"`
+	Handover   *Handover `json:"handover,omitempty"`
+	SessionID  string    `json:"sessionId,omitempty"`
+	Kept       bool      `json:"kept,omitempty"`
 }
 
 type TurnAsks struct {
@@ -323,7 +323,7 @@ type ArchiveGrant struct {
 	Headers map[string]string `json:"headers"`
 }
 
-type Said struct {
+type Message struct {
 	Position    int          `json:"position"`
 	Body        string       `json:"body"`
 	Attachments []Attachment `json:"attachments,omitempty"`

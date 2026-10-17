@@ -30,7 +30,7 @@ import * as schema from './support/schema';
 const OPENED = {
   kind: 'event' as const,
   key: 'task.opened:task_1:triage',
-  saying: 'task.opened of Fix the queue (triage)',
+  description: 'task.opened of Fix the queue (triage)',
 };
 
 describe('hook firings, kept in the database (e2e)', () => {
@@ -62,7 +62,7 @@ describe('hook firings, kept in the database (e2e)', () => {
       link: {
         kind: 'hook',
         key: `hook:${hookId}:${OPENED.key}`,
-        saying: 'the hook opened',
+        description: 'the hook opened',
       },
     });
 
@@ -173,11 +173,13 @@ describe('hook firings, kept in the database (e2e)', () => {
 
     const next = await claimed();
 
-    expect(next.cause.saying).toBe(OPENED.saying);
+    expect(next.cause.description).toBe(OPENED.description);
     expect(next.link.key).toBe(`hook:${hookId}:${OPENED.key}`);
     await expect(
-      history.chainOf('workspace_1', fired.id).then((chain) => chain?.saying),
-    ).resolves.toBe(`${OPENED.saying} → the hook opened`);
+      history
+        .chainOf('workspace_1', fired.id)
+        .then((chain) => chain?.description),
+    ).resolves.toBe(`${OPENED.description} → the hook opened`);
     await expect(history.chainOf('workspace_2', fired.id)).resolves.toBeNull();
   });
 

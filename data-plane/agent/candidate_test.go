@@ -25,8 +25,8 @@ func proposer(t *testing.T, status int, body string) *[]protocol.CandidatePropos
 		return status, body
 	})
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	return &asked
 }
@@ -54,7 +54,7 @@ func TestCandidateReadsTheStationBlockFromStdin(t *testing.T) {
 	}
 	for _, want := range []string{"Proposed terse as candidate cand_1.", "replays it as replay_1"} {
 		if !strings.Contains(out.String(), want) {
-			t.Errorf("said %q, missing %q", out, want)
+			t.Errorf("output %q, missing %q", out, want)
 		}
 	}
 }
@@ -103,7 +103,7 @@ func TestCandidatePrintsTheProblemsSpotlightFound(t *testing.T) {
 		"\nstation.prompt: the prompt is long (warning, not why it was rejected)\n",
 	} {
 		if !strings.Contains(err.Error(), want) {
-			t.Errorf("said %q, missing %q", err, want)
+			t.Errorf("output %q, missing %q", err, want)
 		}
 	}
 	if out.Len() != 0 {
@@ -141,7 +141,7 @@ func TestCandidateRejectsMisuseBeforeAskingSpotlight(t *testing.T) {
 	} {
 		err := run(args, strings.NewReader(`{}`), new(bytes.Buffer))
 		if err == nil || !strings.Contains(err.Error(), "usage:") {
-			t.Errorf("%v said %v", args, err)
+			t.Errorf("%v returned %v", args, err)
 		}
 	}
 	if len(*asked) != 0 {
@@ -184,8 +184,8 @@ func TestCandidateSaysWhenTheRunCannotProposeOne(t *testing.T) {
 		t.Fatalf("serve: %v", err)
 	}
 	t.Cleanup(func() { _ = server.Close() })
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	err = run([]string{"candidate", "--name", "terse", "--hypothesis", "x", "-"}, strings.NewReader(`{}`), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "only a search's runs do") {
@@ -194,8 +194,8 @@ func TestCandidateSaysWhenTheRunCannotProposeOne(t *testing.T) {
 }
 
 func TestCandidateOutsideARunSaysSo(t *testing.T) {
-	t.Setenv(protocol.HandoverURLVar, "")
-	t.Setenv(protocol.HandoverTokenVar, "")
+	t.Setenv(protocol.AgentAPIURLVar, "")
+	t.Setenv(protocol.AgentAPITokenVar, "")
 
 	err := run([]string{"candidate", "--name", "terse", "--hypothesis", "x", "-"}, strings.NewReader(`{}`), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "no run") {

@@ -12,7 +12,7 @@ import {
   ReplayedPointMark,
   type ReplayedPointMarkProps,
 } from '@/components/features/insights/candidates/ReplayedPointMark';
-import { ReplayedPointSaid } from '@/components/features/insights/candidates/ReplayedPointSaid';
+import { ReplayedPointTip } from '@/components/features/insights/candidates/ReplayedPointTip';
 import { RunsSizeLegend } from '@/components/features/insights/changes/RunsSizeLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { PointLabels } from '@/components/shared/chart/PointLabels';
@@ -34,7 +34,7 @@ const HEIGHT = 300;
 
 const TICKS = [0, 0.25, 0.5, 0.75, 1];
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -55,7 +55,7 @@ const Said = ({
 
   if ('mark' in point) {
     return (
-      <ReplayedPointSaid
+      <ReplayedPointTip
         point={point}
         currency={currency}
         placement={placement}
@@ -159,7 +159,7 @@ export function SetupScatter({
                 {...cursor.tooltip}
                 {...hover.tooltip}
                 content={
-                  <Said
+                  <TipContent
                     placement={cursor.placement}
                     measure={measure}
                     currency={currency}

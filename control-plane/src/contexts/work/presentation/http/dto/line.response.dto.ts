@@ -156,7 +156,7 @@ export class StationResponseDto {
     nullable: true,
     type: String,
     description:
-      'How hard the harness is told to think. Null leaves its own default.',
+      'How hard the harness must think. Null leaves its own default.',
   })
   readonly effort: string | null;
 

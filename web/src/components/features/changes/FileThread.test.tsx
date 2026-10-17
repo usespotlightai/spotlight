@@ -117,7 +117,7 @@ describe('FileThread', () => {
     );
   });
 
-  it('shows nothing where there is nothing said and nothing to say', () => {
+  it('shows nothing where there is no comment and nothing to write', () => {
     shown([], null, false);
 
     expect(screen.queryByRole('region')).not.toBeInTheDocument();

@@ -107,10 +107,10 @@ describe('GradeRun', () => {
 
     showing();
 
-    const answer = async (claim: string, said: 'Yes' | 'No') =>
+    const answer = async (claim: string, choice: 'Yes' | 'No') =>
       userEvent.click(
         within(screen.getByRole('group', { name: claim })).getByRole('button', {
-          name: said,
+          name: choice,
         }),
       );
     await answer('Retries stop on a 410 Gone', 'Yes');

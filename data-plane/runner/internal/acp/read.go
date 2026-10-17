@@ -20,24 +20,24 @@ func (c *Client) read(stdout io.Reader) {
 			continue
 		}
 
-		var spoke struct {
+		var message struct {
 			ID     json.RawMessage `json:"id"`
 			Method string          `json:"method"`
 			Params json.RawMessage `json:"params"`
 			Result json.RawMessage `json:"result"`
 			Error  *responseError  `json:"error"`
 		}
-		if err := json.Unmarshal(line, &spoke); err != nil {
+		if err := json.Unmarshal(line, &message); err != nil {
 			continue
 		}
 
 		switch {
-		case spoke.Method == "" && len(spoke.ID) > 0:
-			c.answered(spoke.ID, spoke.Result, spoke.Error)
-		case len(spoke.ID) > 0:
-			c.asked(spoke.ID, spoke.Method, spoke.Params)
+		case message.Method == "" && len(message.ID) > 0:
+			c.answered(message.ID, message.Result, message.Error)
+		case len(message.ID) > 0:
+			c.asked(message.ID, message.Method, message.Params)
 		default:
-			c.told(spoke.Method, spoke.Params)
+			c.onNotification(message.Method, message.Params)
 		}
 	}
 
@@ -59,12 +59,12 @@ func (c *Client) answered(id json.RawMessage, result json.RawMessage, failed *re
 	}
 }
 
-func (c *Client) told(method string, params json.RawMessage) {
+func (c *Client) onNotification(method string, params json.RawMessage) {
 	if method != "session/update" {
 		return
 	}
 
-	var said struct {
+	var notification struct {
 		Update struct {
 			SessionUpdate string `json:"sessionUpdate"`
 			Content       struct {
@@ -72,7 +72,7 @@ func (c *Client) told(method string, params json.RawMessage) {
 			} `json:"content"`
 		} `json:"update"`
 	}
-	_ = json.Unmarshal(params, &said)
+	_ = json.Unmarshal(params, &notification)
 
 	c.mu.Lock()
 	watching := c.watching
@@ -83,8 +83,8 @@ func (c *Client) told(method string, params json.RawMessage) {
 	}
 
 	watching(Update{
-		Kind: said.Update.SessionUpdate,
-		Text: said.Update.Content.Text,
+		Kind: notification.Update.SessionUpdate,
+		Text: notification.Update.Content.Text,
 		Raw:  params,
 	})
 }

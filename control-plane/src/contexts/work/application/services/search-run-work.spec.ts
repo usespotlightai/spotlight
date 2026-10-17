@@ -76,7 +76,7 @@ describe('the work of a search', () => {
   });
 
   it('takes up nothing a person says', async () => {
-    await expect(working().work.deliverUpTo()).rejects.toThrow(
+    await expect(working().work.acknowledgeUpTo()).rejects.toThrow(
       KeptFromSearchesError,
     );
   });

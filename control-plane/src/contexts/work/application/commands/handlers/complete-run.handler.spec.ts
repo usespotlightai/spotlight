@@ -159,12 +159,12 @@ const completing = (
   return Object.assign(handler, { asked });
 };
 
-const declaredOn = (run: Run | undefined) =>
+const handoverOn = (run: Run | undefined) =>
   (
     run?.pullEvents().find((each) => each instanceof RunCompleted) as
       | RunCompleted
       | undefined
-  )?.declared;
+  )?.handover;
 
 describe('CompleteRunHandler', () => {
   describe('ending a turn that asks a person', () => {
@@ -485,7 +485,7 @@ describe('CompleteRunHandler', () => {
       expect(handler.asked).toEqual([
         { on: 'handover.giving', to: 'review-code', note: 'Ready for review.' },
       ]);
-      expect(declaredOn(saved[0])?.next).toBe('review-code');
+      expect(handoverOn(saved[0])?.next).toBe('review-code');
     });
 
     it('says nowhere where the run named no station', async () => {
@@ -504,10 +504,10 @@ describe('CompleteRunHandler', () => {
         reason: 'The hook core/qa denied the handover: tests are red.',
       }).execute(handingOver('deploy'));
 
-      const declared = declaredOn(saved[0]);
-      expect(declared?.asksForReview()).toBe(true);
-      expect(declared?.note).toBe(
-        'The hook core/qa denied the handover: tests are red.\n\nThe run said: Ready for review.',
+      const handover = handoverOn(saved[0]);
+      expect(handover?.asksForReview()).toBe(true);
+      expect(handover?.note).toBe(
+        'The hook core/qa denied the handover: tests are red.\n\nNote from the run: Ready for review.',
       );
     });
 
@@ -537,7 +537,7 @@ describe('CompleteRunHandler', () => {
       expect(stopped.asked).toEqual([]);
     });
 
-    it('asks no hooks when the run declared nothing', async () => {
+    it('asks no hooks when the run handed over nothing', async () => {
       const handler = completing(async () => {});
 
       await handler.execute(
