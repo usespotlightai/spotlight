@@ -15,8 +15,8 @@ const ownWords = (declaration: Declaration): TaskNoteBody | null =>
   declaration.note === '' ? null : TaskNoteBody.of(declaration.note);
 
 const REFUSED: Record<PassRefusal, (key: string) => string> = {
-  'standing-there': (key) =>
-    `The run asked for station "${key}". The task already stands there.`,
+  'already-there': (key) =>
+    `The run asked for station "${key}". The task is already there.`,
   'nothing-runs': (key) =>
     `The run asked for station "${key}". Nothing runs there to take up the task.`,
   'no-way': (key) =>
@@ -28,14 +28,18 @@ export const HandoverFor = {
     outcome: RunOutcome;
     declared: Declaration | null;
     line: Line | null;
-    standingAt: StationId;
+    currentStation: StationId;
   }): Handover {
     if (input.outcome.stopped) {
       return HandoverFor.stopped();
     }
 
     if (input.declared && !input.outcome.failed) {
-      return HandoverFor.declared(input.declared, input.line, input.standingAt);
+      return HandoverFor.declared(
+        input.declared,
+        input.line,
+        input.currentStation,
+      );
     }
 
     return HandoverFor.outcome(input.outcome);
@@ -44,7 +48,7 @@ export const HandoverFor = {
   declared(
     declaration: Declaration,
     line: Line | null,
-    standingAt: StationId,
+    currentStation: StationId,
   ): Handover {
     if (declaration.asksForReview()) {
       return Handover.review(
@@ -54,7 +58,7 @@ export const HandoverFor = {
     }
 
     if (declaration.saysItIsDone()) {
-      return line?.endsAt(standingAt)
+      return line?.endsAt(currentStation)
         ? Handover.done(
             spoken(declaration, 'The work is done.'),
             ownWords(declaration),
@@ -78,7 +82,7 @@ export const HandoverFor = {
       );
     }
 
-    const refused = line.refusalToPass(standingAt, named);
+    const refused = line.refusalToPass(currentStation, named);
 
     if (refused) {
       return Handover.review(

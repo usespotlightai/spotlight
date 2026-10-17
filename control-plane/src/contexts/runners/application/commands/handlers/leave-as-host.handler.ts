@@ -1,5 +1,5 @@
 import type { LeaveAsHostCommand } from '@runners/application/commands/host.commands';
-import type { HostLeftDto } from '@runners/application/dto/host-standing.dto';
+import type { HostLeftDto } from '@runners/application/dto/host-heartbeat.dto';
 import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
 import { forgetHost } from '@runners/application/services/runner-host-revisions';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';

@@ -13,7 +13,7 @@ import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fa
 import { describe, expect, it } from 'vitest';
 
 describe('poolsNaming', () => {
-  it('finds the standing pools that name the egress, and no other', () => {
+  it('finds the active pools that name the egress, and no other', () => {
     const naming = aPushPool({ egress: EgressReference.to(EGRESS_ID) });
 
     expect(

@@ -19,7 +19,7 @@ import type {
   SetNoiseDto,
   SpendDto,
 } from '@replays/application/dto/replays.dto';
-import type { StandingRun } from '@replays/application/ports/work.port';
+import type { RunSummary } from '@replays/application/ports/work.port';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -406,14 +406,14 @@ const compositionView = (composition: SetComposition): SetCompositionDto => ({
 
 export const setView = (
   set: ReplaySet,
-  standing: readonly StandingRun[],
+  summaries: readonly RunSummary[],
   turnouts: ReadonlyMap<string, OriginalOutcome>,
   health: SetHealth,
   minGain: number,
 ): ReplaySetDto => {
   const entries = set.entries.map((entry) => ({
     entry,
-    now: standing.find((each) => each.runId.equals(entry.runId)),
+    now: summaries.find((each) => each.runId.equals(entry.runId)),
     outcome: turnedOutOf(turnouts, entry.runId.value),
   }));
 

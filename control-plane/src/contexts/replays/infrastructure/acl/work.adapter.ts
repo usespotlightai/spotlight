@@ -9,10 +9,10 @@ import type {
   ReplayRunQueued,
   RunForgone,
   RunReplayability,
+  RunSummary,
   SearchRunOrder,
   SearchRunQueued,
-  SearchRunStanding,
-  StandingRun,
+  SearchRunStatus,
   StationView,
   UnclaimedWithdrawal,
   WorkPort,
@@ -127,16 +127,16 @@ export class Work implements WorkPort {
     ).map(replayabilityOf);
   }
 
-  async standing(
+  async runSummaries(
     workspaceId: WorkspaceId,
     runs: readonly RunId[],
-  ): Promise<readonly StandingRun[]> {
+  ): Promise<readonly RunSummary[]> {
     if (runs.length === 0) {
       return [];
     }
 
     return (
-      await this.runs.standing(
+      await this.runs.summaries(
         workspaceId.value,
         runs.map((each) => each.value),
       )
@@ -319,15 +319,15 @@ export class Work implements WorkPort {
       : null;
   }
 
-  async searchRunStandings(
+  async searchRunStatuses(
     runs: readonly RunId[],
-  ): Promise<readonly SearchRunStanding[]> {
+  ): Promise<readonly SearchRunStatus[]> {
     if (runs.length === 0) {
       return [];
     }
 
-    return (await this.searchRuns.standing(runs.map((each) => each.value))).map(
-      ({ runId, ...standing }) => ({ ...standing, run: RunId.of(runId) }),
+    return (await this.searchRuns.statuses(runs.map((each) => each.value))).map(
+      ({ runId, ...status }) => ({ ...status, run: RunId.of(runId) }),
     );
   }
 

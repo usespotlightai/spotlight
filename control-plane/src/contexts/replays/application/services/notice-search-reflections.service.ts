@@ -31,7 +31,7 @@ export class NoticeSearchReflections {
     const station = await this.work.station(lineId, stationId);
     const titles = new Map(
       (
-        await this.work.standing(
+        await this.work.runSummaries(
           search.workspaceId,
           told.fixes.map((each) => each.originalRunId),
         )

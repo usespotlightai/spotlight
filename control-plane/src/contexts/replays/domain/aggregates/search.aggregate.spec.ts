@@ -868,7 +868,7 @@ describe('Search', () => {
         from.reflectingOn(on, from.seed.candidateId, tasks, later(3), runIds);
 
       expect(search.iterations[2]?.reflectedOn).toHaveLength(2);
-      expect(search.iterations[2]?.standing).toEqual(search.seed.candidateId);
+      expect(search.iterations[2]?.incumbent).toEqual(search.seed.candidateId);
       expect(
         at(search, [searchedTask(search, 2)]).iterations[2]?.reflectedOn,
       ).toHaveLength(2);
@@ -1137,7 +1137,7 @@ describe('Search', () => {
         proposals: [],
         attempts: 0,
         agentSpent: null,
-        standing: reflection.standing,
+        incumbent: reflection.incumbent,
         outcome: null,
         reflectedOn: reflection.reflectedOn,
         causes: reflection.causes,

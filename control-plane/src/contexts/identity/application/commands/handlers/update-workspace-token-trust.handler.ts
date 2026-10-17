@@ -34,15 +34,15 @@ export class UpdateWorkspaceTokenTrustHandler
     const id = WorkspaceTokenTrustId.of(command.trustId);
 
     try {
-      const standing = await this.trusts.find(id);
-      const permissions = standing
+      const existing = await this.trusts.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -50,7 +50,7 @@ export class UpdateWorkspaceTokenTrustHandler
         return forbiddenTo('manage-token-trusts');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.workspaceTokenTrust(command.definition);
 
@@ -58,13 +58,13 @@ export class UpdateWorkspaceTokenTrustHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const redefined = standing.redefinedAs(
+      const redefined = existing.redefinedAs(
         compiled.terms,
         Grantor.of(command.actor.principal),
         Attribution.of(command.actor, permissions.workspaceId),
       );
 
-      if (redefined !== standing) {
+      if (redefined !== existing) {
         await this.transaction.inTransaction(() => this.trusts.save(redefined));
       }
 

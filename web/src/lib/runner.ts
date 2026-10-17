@@ -80,7 +80,7 @@ export const answeringCount = (fleet: Fleet) =>
 export const noneAnswering = (fleet: Fleet): boolean =>
   fleet.hosts.length > 0 && answeringCount(fleet) === 0;
 
-export const standing = (host: Host): string => {
+export const hostStatus = (host: Host): string => {
   if (!host.answering) {
     return 'Not answering';
   }
@@ -189,7 +189,7 @@ export const poolName = (way: AdmittedThroughResponseDto): string =>
 
 export const PUSH_POOL = 'Push pool';
 
-export const poolStanding = (pool: PushPool): string => {
+export const poolStatus = (pool: PushPool): string => {
   const running = pool.runners.filter(
     (runner) => runner.currentRun !== null,
   ).length;
@@ -197,7 +197,7 @@ export const poolStanding = (pool: PushPool): string => {
   return running > 0 ? `Running ${running}` : 'Starting';
 };
 
-export const runnerStanding = (runner: ActiveRunner): string => {
+export const runnerStatus = (runner: ActiveRunner): string => {
   if (!runner.currentRun) {
     return 'Starting';
   }

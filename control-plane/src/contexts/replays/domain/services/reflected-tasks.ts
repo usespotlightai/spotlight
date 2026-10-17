@@ -28,18 +28,18 @@ export const failingSearchedTasksOf = (
   );
   const candidateId = best?.candidateId ?? search.seed.candidateId;
   const replayId = best?.replayId ?? search.seed.replay.replayId;
-  const standing = replays.find((each) => each.id.equals(replayId));
+  const bestReplay = replays.find((each) => each.id.equals(replayId));
 
-  if (!standing) {
+  if (!bestReplay) {
     return { candidateId, tasks: [] };
   }
 
   const searched = search.split.searched;
   const searchedRuns = searched.map((each) => each.runId);
-  const successes = taskSuccessesOf(standing, searchedRuns);
+  const successes = taskSuccessesOf(bestReplay, searchedRuns);
   const tasks: ReflectedTask[] = [];
 
-  for (const [original, copies] of copiesByOriginal(standing.entries)) {
+  for (const [original, copies] of copiesByOriginal(bestReplay.entries)) {
     const success = successes.get(original);
     const firstFailed = copies.find(
       (each) => each.run !== null && each.succeeded === false,

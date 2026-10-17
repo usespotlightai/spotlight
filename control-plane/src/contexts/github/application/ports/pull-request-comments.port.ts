@@ -4,7 +4,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const PULL_REQUEST_COMMENTS = Symbol('PULL_REQUEST_COMMENTS');
 
-export interface StandingComment {
+export interface StickyComment {
   readonly workspaceId: WorkspaceId;
   readonly repository: Repository;
   readonly pullRequest: PullRequestUrl;
@@ -12,10 +12,10 @@ export interface StandingComment {
   readonly body: string;
 }
 
-export type StandingPlace = Omit<StandingComment, 'body'>;
+export type StickyCommentPlace = Omit<StickyComment, 'body'>;
 
 export interface PullRequestCommentsPort {
-  keep(comment: StandingComment): Promise<void>;
+  keep(comment: StickyComment): Promise<void>;
 
-  withdraw(place: StandingPlace): Promise<void>;
+  withdraw(place: StickyCommentPlace): Promise<void>;
 }

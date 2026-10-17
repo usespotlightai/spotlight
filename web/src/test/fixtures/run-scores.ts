@@ -1,9 +1,12 @@
-import type { JudgeStandingResponseDto, RunScoresResponseDto } from '@/lib/api';
+import type {
+  JudgeCalibrationResponseDto,
+  RunScoresResponseDto,
+} from '@/lib/api';
 
 export const RUBRIC =
   'Pass a run that fixes the reported bug without widening the change. Fail it where tests were skipped or the diff touches unrelated files.';
 
-const TRUSTED: JudgeStandingResponseDto = {
+const TRUSTED: JudgeCalibrationResponseDto = {
   trusted: true,
   measure: 'kappa',
   agreement: 0.71,
@@ -24,7 +27,7 @@ export const runScoresOf = (
   rubricBody: RUBRIC,
   claims: [],
   judged: true,
-  standing: TRUSTED,
+  calibration: TRUSTED,
   grades: [],
   judge: {
     kind: 'yes-no',

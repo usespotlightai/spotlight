@@ -39,7 +39,7 @@ const correcting = (old: Memory, id: number) =>
   });
 
 describe('withoutSuperseded', () => {
-  it('drops a memory whose correction stands beside it', () => {
+  it('drops a memory whose correction is active beside it', () => {
     const old = kept(1);
     const other = kept(2);
     const correction = correcting(old, 3);

@@ -151,7 +151,7 @@ describe('ReadRunScoresHandler', () => {
   it('lays out a trusted judge’s score with each cited step and hunk as the judge read it', async () => {
     const scores = await scoresOf(true);
 
-    expect(scores.standing.trusted).toBe(true);
+    expect(scores.calibration.trusted).toBe(true);
     expect(scores.judge?.label).toBe('yes');
     expect(scores.judge?.reasons[0]?.citations).toEqual([
       {
@@ -177,7 +177,7 @@ describe('ReadRunScoresHandler', () => {
 
     expect(scores.judged).toBe(true);
     expect(scores.judge).toBeNull();
-    expect(scores.standing).toMatchObject({
+    expect(scores.calibration).toMatchObject({
       trusted: false,
       hiddenBecause: 'below-trust',
     });
@@ -186,7 +186,7 @@ describe('ReadRunScoresHandler', () => {
   it('keeps a score by an earlier rubric to itself, even while the current rubric’s judge is trusted', async () => {
     const scores = await scoresOf(true, 'team_1', NEXT_RUBRIC_VERSION);
 
-    expect(scores.standing.trusted).toBe(true);
+    expect(scores.calibration.trusted).toBe(true);
     expect(scores.judged).toBe(true);
     expect(scores.judge).toBeNull();
   });

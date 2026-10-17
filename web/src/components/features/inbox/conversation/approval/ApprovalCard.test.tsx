@@ -12,7 +12,7 @@ const COMMENT: Approval = {
     { name: 'body', value: 'Fixed.' },
     { name: 'issue', value: 'ENG-12' },
   ],
-  standing: 'asked',
+  status: 'asked',
   edited: null,
   intent: 'post the drain summary on the issue, publicly under the team’s name',
   askedOf: null,
@@ -23,7 +23,7 @@ const EXECUTE: Approval = {
   name: 'claude-code execute',
   because: 'The harness asked before doing it.',
   inputs: [{ name: 'title', value: 'kubectl logs deploy/api --since=1h' }],
-  standing: 'asked',
+  status: 'asked',
   edited: null,
   intent: null,
   askedOf: null,
@@ -64,7 +64,7 @@ describe('ApprovalCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('approves it as it stands', async () => {
+  it('approves it unchanged', async () => {
     const onDecide = showing(COMMENT);
 
     await userEvent.click(
@@ -143,7 +143,7 @@ describe('ApprovalCard', () => {
     });
   });
 
-  it('approves it as it stands where the edits changed nothing', async () => {
+  it('approves it unchanged where the edits changed nothing', async () => {
     const onDecide = showing(COMMENT);
 
     await userEvent.click(
@@ -254,7 +254,7 @@ describe('ApprovalCard', () => {
   it('says it was approved with the person’s changes, and shows what runs', () => {
     showing({
       ...COMMENT,
-      standing: 'granted',
+      status: 'granted',
       edited: [
         { name: 'body', value: 'Fixed in #41.' },
         { name: 'issue', value: 'ENG-12' },
@@ -277,7 +277,7 @@ describe('ApprovalCard', () => {
   it('titles it as approved or dismissed', () => {
     const { rerender } = render(
       <ApprovalCard
-        approval={{ ...COMMENT, standing: 'granted' }}
+        approval={{ ...COMMENT, status: 'granted' }}
         pending={false}
       />,
     );
@@ -291,7 +291,7 @@ describe('ApprovalCard', () => {
 
     rerender(
       <ApprovalCard
-        approval={{ ...COMMENT, standing: 'refused' }}
+        approval={{ ...COMMENT, status: 'refused' }}
         pending={false}
       />,
     );

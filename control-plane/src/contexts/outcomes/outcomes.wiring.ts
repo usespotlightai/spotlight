@@ -34,9 +34,9 @@ import {
 } from '@outcomes/application/ports/insights-reader.port';
 import { JUDGE, type JudgePort } from '@outcomes/application/ports/judge.port';
 import {
-  JUDGE_STANDING,
-  type JudgeStandingPort,
-} from '@outcomes/application/ports/judge-standing.port';
+  JUDGE_CALIBRATION,
+  type JudgeCalibrationPort,
+} from '@outcomes/application/ports/judge-calibration.port';
 import { MEMORY_BENCHMARK } from '@outcomes/application/ports/memory-benchmark.port';
 import { MEMORY_USE } from '@outcomes/application/ports/memory-use.port';
 import {
@@ -298,7 +298,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       deliveries: DrizzleTaskDeliveryRepository,
     ) => new StationJudgeReports(evidence, scores, records, deliveries),
   },
-  { provide: JUDGE_STANDING, useExisting: StationJudgeReports },
+  { provide: JUDGE_CALIBRATION, useExisting: StationJudgeReports },
   {
     provide: RunScoresViews,
     inject: [
@@ -335,8 +335,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: TrustedJudges,
-    inject: [JUDGE_STANDING],
-    useFactory: (standing: JudgeStandingPort) => new TrustedJudges(standing),
+    inject: [JUDGE_CALIBRATION],
+    useFactory: (judges: JudgeCalibrationPort) => new TrustedJudges(judges),
   },
   ...bindQueryHandler(ReadInsightsChangesQuery, ReadInsightsChangesHandler, [
     TeamScopes,

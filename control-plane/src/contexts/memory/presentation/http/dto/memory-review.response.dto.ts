@@ -14,7 +14,10 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class MemoryGroundStepResponseDto {
-  @ApiProperty({ example: 12, description: 'Where the step stands in its run' })
+  @ApiProperty({
+    example: 12,
+    description: 'The position of the step in its run',
+  })
   readonly index: number;
 
   @ApiProperty({
@@ -55,7 +58,10 @@ export class MemoryPersonResponseDto {
 }
 
 export class MemoryGroundNoteResponseDto {
-  @ApiProperty({ example: 4, description: 'Where the note stands on its task' })
+  @ApiProperty({
+    example: 4,
+    description: 'The position of the note on its task',
+  })
   readonly position: number;
 
   @ApiProperty({
@@ -148,7 +154,7 @@ export class ProposedMemoryResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'The standing memory it replaces once approved',
+    description: 'The active memory it replaces after approval',
   })
   readonly supersedes: string | null;
 
@@ -230,7 +236,7 @@ export class ApprovedMemoryRequestDto {
 
   @ApiPropertyOptional({
     example: 'Never retry an upload the bucket refused with a 403 or 404.',
-    description: 'The memory as it should stand, where it was edited',
+    description: 'The memory as it should be, where it was edited',
   })
   readonly body?: string;
 }

@@ -191,13 +191,13 @@ export class IntegrationDefinition extends EventRecorder {
   }
 
   rereads(reading: SourceReading): boolean {
-    const standing = this.state.reading;
+    const current = this.state.reading;
 
     return (
-      !standing ||
-      standing.fingerprint !== reading.fingerprint ||
-      (standing.hash?.value ?? null) !== (reading.hash?.value ?? null) ||
-      standing.problem !== reading.problem
+      !current ||
+      current.fingerprint !== reading.fingerprint ||
+      (current.hash?.value ?? null) !== (reading.hash?.value ?? null) ||
+      current.problem !== reading.problem
     );
   }
 

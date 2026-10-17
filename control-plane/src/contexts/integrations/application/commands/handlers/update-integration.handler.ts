@@ -35,15 +35,15 @@ export class UpdateIntegrationHandler
     const id = IntegrationDefinitionId.of(command.integrationId);
 
     try {
-      const standing = await this.definitions.withId(id);
-      const permissions = standing
+      const existing = await this.definitions.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -51,23 +51,23 @@ export class UpdateIntegrationHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const { compiled, reading } = await this.sources.compiled({
         definition: command.definition,
-        teamId: standing.teamId,
-        standing: standing.reading,
+        teamId: existing.teamId,
+        current: existing.reading,
       });
 
       if (!compiled.ok) {
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const given = await this.given.onTeam(standing.teamId);
+      const given = await this.given.onTeam(existing.teamId);
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          standing.redefinedAs(
+          existing.redefinedAs(
             compiled,
             reading,
             given,

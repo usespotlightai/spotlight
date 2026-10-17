@@ -10,7 +10,7 @@ import {
   tokenGivenTo,
 } from '@runners/domain/services/token-giving';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
-import { PoolTokenStanding } from '@runners/domain/value-objects/pool-token-standing.vo';
+import { PoolTokenUsage } from '@runners/domain/value-objects/pool-token-usage.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -50,25 +50,19 @@ describe('tokenGivenTo', () => {
 describe('refuseTokenGivenBefore', () => {
   it('lets a pool be given a token never given before', () => {
     expect(() =>
-      refuseTokenGivenBefore(
-        PoolTokenStanding.of({ given: false, inUse: false }),
-      ),
+      refuseTokenGivenBefore(PoolTokenUsage.of({ given: false, inUse: false })),
     ).not.toThrow();
   });
 
   it('refuses a token a pool uses now as taken', () => {
     expect(() =>
-      refuseTokenGivenBefore(
-        PoolTokenStanding.of({ given: true, inUse: true }),
-      ),
+      refuseTokenGivenBefore(PoolTokenUsage.of({ given: true, inUse: true })),
     ).toThrow(PoolTokenTakenError);
   });
 
   it('refuses a token no pool uses any more as spent', () => {
     expect(() =>
-      refuseTokenGivenBefore(
-        PoolTokenStanding.of({ given: true, inUse: false }),
-      ),
+      refuseTokenGivenBefore(PoolTokenUsage.of({ given: true, inUse: false })),
     ).toThrow(PoolTokenSpentError);
   });
 });

@@ -22,7 +22,7 @@ interface Recalled {
   readonly id: string;
   readonly handle: string;
   readonly body: string;
-  readonly standing: string;
+  readonly status: string;
   readonly grounds: { readonly taskId: string; readonly runId: string } | null;
   readonly superseded?: { readonly handle: string; readonly body: string };
 }
@@ -225,11 +225,11 @@ afterAll(async () => {
 });
 
 describe('recalling what the team remembers from inside a run', () => {
-  let standing: Recalled;
+  let active: Recalled;
   let corrected: Recalled;
 
   beforeAll(async () => {
-    standing = await writing(team.teamId.value, team.owner.value, {
+    active = await writing(team.teamId.value, team.owner.value, {
       body: 'Uploads retry in the request, never from a queue.',
     });
     const retired = await writing(team.teamId.value, team.owner.value, {
@@ -299,14 +299,14 @@ describe('recalling what the team remembers from inside a run', () => {
     );
   });
 
-  it('finds a standing memory by a word in it, and nothing retired, proposed or of another team', async () => {
+  it('finds an active memory by a word in it, and nothing retired, proposed or of another team', async () => {
     const found = await recall('upload');
 
     expect(found.status).toBe(200);
     expect((found.body as Recalled[]).map((each) => each.body)).toEqual([
       'Uploads retry in the request, never from a queue.',
     ]);
-    expect((found.body as Recalled[])[0]?.handle).toBe(standing.handle);
+    expect((found.body as Recalled[])[0]?.handle).toBe(active.handle);
   });
 
   it('prints one memory in full by its handle, with the memory it replaced', async () => {
@@ -316,7 +316,7 @@ describe('recalling what the team remembers from inside a run', () => {
     expect(read.body).toMatchObject({
       handle: corrected.handle,
       body: 'Name branches after the ticket.',
-      standing: 'stands',
+      status: 'active',
       superseded: { body: 'Name branches after people.' },
     });
     expect((read.body as Recalled).superseded?.handle).toMatch(/^M-\d+$/);
@@ -496,7 +496,7 @@ describe('what the run remembered, as a person sees it', () => {
     expect(((await recall('upload')).body as Recalled[]).length).toBe(0);
     const after = (await remembered()).body as { recalled: Recalled[] };
     expect(
-      after.recalled.find((each) => each.id === recalled?.id)?.standing,
+      after.recalled.find((each) => each.id === recalled?.id)?.status,
     ).toBe('retired');
   });
 
@@ -523,7 +523,7 @@ describe('the team’s memory laid out in the run’s workspace', () => {
         .expect(200)
     ).body as MemoryFile[];
 
-  it('includes every standing memory that applies to the run, and none of another line or team', async () => {
+  it('includes every active memory that applies to the run, and none of another line or team', async () => {
     const elsewhere = await writing(team.teamId.value, team.owner.value, {
       body: 'The default line ships on Fridays.',
       lineId: team.line.id.value,

@@ -28,7 +28,7 @@ const pooling = (
   admitted: AdmittedHost | null,
   stored: {
     pool?: RunnerPool | null;
-    standing?: readonly Runner[];
+    alive?: readonly Runner[];
     provisioning?: readonly RunnerPoolRecord[];
     platform?: boolean;
   } = {},
@@ -41,7 +41,7 @@ const pooling = (
   const pools = new RunnerPools(
     { find } as unknown as RunnerPoolRepository,
     {
-      standingIn: vi.fn(async () => stored.standing ?? []),
+      aliveIn: vi.fn(async () => stored.alive ?? []),
     } as unknown as RunnerRepository,
     {
       provisioningPools: vi.fn(async () => stored.provisioning ?? []),
@@ -152,8 +152,8 @@ describe('RunnerPools', () => {
   });
 
   describe('the room a pool has left', () => {
-    it('is what maxRuns leaves beside the runners standing in it', async () => {
-      const { pools } = pooling(null, { standing: [aRunner()] });
+    it('is what maxRuns leaves beside the runners that are alive in it', async () => {
+      const { pools } = pooling(null, { alive: [aRunner()] });
 
       await expect(pools.roomIn(POOL_ID.value, NOW)).resolves.toBe(1);
     });
@@ -161,7 +161,7 @@ describe('RunnerPools', () => {
     it('is unbounded for a pool without maxRuns', async () => {
       const { pools } = pooling(null, {
         pool: aPullPool(),
-        standing: [aRunner(), aRunner({ id: 'pooled_2' })],
+        alive: [aRunner(), aRunner({ id: 'pooled_2' })],
       });
 
       await expect(pools.roomIn(POOL_ID.value, NOW)).resolves.toBeNull();

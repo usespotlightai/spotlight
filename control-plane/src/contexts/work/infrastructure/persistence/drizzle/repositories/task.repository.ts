@@ -82,7 +82,7 @@ const toApproval = (row: ApprovalRow): Approval =>
     subject: toApprovalSubject(row.subject),
     at: StationId.of(row.stationId),
     because: row.because,
-    standing: row.standing,
+    status: row.status,
     decided:
       row.decidedBy && row.decidedAt
         ? {
@@ -101,7 +101,7 @@ const toApprovalRow = (approval: Approval): ApprovalRow => ({
   subject: toApprovalSubjectRow(approval.subject),
   stationId: approval.at.value,
   because: approval.because,
-  standing: approval.standing,
+  status: approval.status,
   decidedBy: approval.decided?.by.value ?? null,
   decidedAt: approval.decided?.at.toISOString() ?? null,
   reason: approval.decided?.reason ?? null,
@@ -467,7 +467,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     });
   }
 
-  async standingAt(stationId: StationId): Promise<Task[]> {
+  async allAtStation(stationId: StationId): Promise<Task[]> {
     const found = await this.context.db
       .select()
       .from(task)
@@ -478,17 +478,17 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   async settingUpFor(teamId: TeamId): Promise<Task | null> {
-    const [found] = await this.standingSetups(eq(line.teamId, teamId.value));
+    const [found] = await this.openSetups(eq(line.teamId, teamId.value));
 
     return found ?? null;
   }
 
   async settingUpIn(workspaceId: WorkspaceId): Promise<readonly Task[]> {
-    return this.standingSetups(eq(task.workspaceId, workspaceId.value));
+    return this.openSetups(eq(task.workspaceId, workspaceId.value));
   }
 
   async settingUp(): Promise<readonly Task[]> {
-    return this.standingSetups();
+    return this.openSetups();
   }
 
   async awaitingConnection(
@@ -520,7 +520,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     return this.whole(found);
   }
 
-  private async standingSetups(of?: ReturnType<typeof eq>): Promise<Task[]> {
+  private async openSetups(of?: ReturnType<typeof eq>): Promise<Task[]> {
     const closing = alias(taskNote, 'closing');
 
     const open = notExists(
@@ -551,8 +551,8 @@ export class DrizzleTaskRepository implements TaskRepository {
       ...new Map(found.map((each) => [each.task.id, each.task])).values(),
     ];
 
-    return (await this.whole(unique)).filter((standing) =>
-      openSetupList(standing.notes),
+    return (await this.whole(unique)).filter((each) =>
+      openSetupList(each.notes),
     );
   }
 
@@ -567,9 +567,9 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(inArray(taskNote.taskId, taskIds))
       .orderBy(taskNote.position);
 
-    return rows.reduce((standing, row) => {
-      standing.set(row.taskId, [...(standing.get(row.taskId) ?? []), row]);
-      return standing;
+    return rows.reduce((byTask, row) => {
+      byTask.set(row.taskId, [...(byTask.get(row.taskId) ?? []), row]);
+      return byTask;
     }, new Map<string, NoteRow[]>());
   }
 

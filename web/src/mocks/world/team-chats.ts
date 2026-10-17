@@ -359,7 +359,7 @@ const quarterChat = (): ChatRecord => {
     },
     {
       kind: 'said',
-      text: 'Most of last quarter went to incidents on the worker fleet. Three themes stand out for next quarter:\n\n1. **Queues**: retries, dead letters and alerts on queue age.\n2. **Postgres**: the driver upgrade and connection pooling.\n3. **Public API**: rate limits and published docs.',
+      text: 'Most of last quarter went to incidents on the worker fleet. Three themes are important for next quarter:\n\n1. **Queues**: retries, dead letters and alerts on queue age.\n2. **Postgres**: the driver upgrade and connection pooling.\n3. **Public API**: rate limits and published docs.',
     },
   ]);
 

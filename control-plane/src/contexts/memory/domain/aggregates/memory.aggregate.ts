@@ -1,5 +1,5 @@
+import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
-import { MemoryStood } from '@memory/domain/events/memory-stood.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import type { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -11,7 +11,7 @@ import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
-import type { MemoryStanding } from '@memory/domain/value-objects/memory-standing';
+import type { MemoryStatus } from '@memory/domain/value-objects/memory-status';
 import type { RunSite } from '@memory/domain/value-objects/run-site';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -34,7 +34,7 @@ interface State {
   readonly version: number;
 }
 
-interface Standing {
+interface NewMemory {
   readonly id: MemoryId;
   readonly handle: MemoryHandle;
   readonly workspaceId: WorkspaceId;
@@ -52,7 +52,7 @@ export class Memory extends EventRecorder {
     super();
   }
 
-  static stood(input: {
+  static create(input: {
     id: MemoryId;
     handle: MemoryHandle;
     workspaceId: WorkspaceId;
@@ -66,9 +66,9 @@ export class Memory extends EventRecorder {
   }): Memory {
     const { supersedes } = input;
 
-    return Memory.standing({
+    return Memory.make({
       ...input,
-      supersedes: supersedes?.stands ? supersedes.id : null,
+      supersedes: supersedes?.isActive ? supersedes.id : null,
     });
   }
 
@@ -82,7 +82,7 @@ export class Memory extends EventRecorder {
     grounds: MemoryGrounds | null;
     by: MemoryDecision;
   }): Memory {
-    return Memory.standing({
+    return Memory.make({
       ...input,
       source: 'person',
       supersedes: null,
@@ -90,12 +90,12 @@ export class Memory extends EventRecorder {
     });
   }
 
-  private static standing(input: Standing): Memory {
+  private static make(input: NewMemory): Memory {
     if (input.supersedes?.equals(input.id)) {
       throw new InvalidMemoryError('cannot supersede itself');
     }
 
-    const stood = new Memory({
+    const created = new Memory({
       id: input.id,
       handle: input.handle,
       workspaceId: input.workspaceId,
@@ -109,8 +109,8 @@ export class Memory extends EventRecorder {
       retirement: null,
       version: 0,
     });
-    stood.record(new MemoryStood(input.id, input.supersedes));
-    return stood;
+    created.record(new MemoryCreated(input.id, input.supersedes));
+    return created;
   }
 
   static rehydrate(state: State): Memory {
@@ -168,11 +168,11 @@ export class Memory extends EventRecorder {
     return this.state.retirement;
   }
 
-  get standing(): MemoryStanding {
-    return this.state.retirement ? 'retired' : 'stands';
+  get status(): MemoryStatus {
+    return this.state.retirement ? 'retired' : 'active';
   }
 
-  get stands(): boolean {
+  get isActive(): boolean {
     return this.state.retirement === null;
   }
 
@@ -180,15 +180,15 @@ export class Memory extends EventRecorder {
     return this.state.version;
   }
 
-  standsOn(teamId: TeamId): boolean {
-    return this.stands && this.isTeams(teamId);
+  isActiveOn(teamId: TeamId): boolean {
+    return this.isActive && this.isTeams(teamId);
   }
 
   isTeams(teamId: TeamId): boolean {
     return this.state.scope.teamId.equals(teamId);
   }
 
-  stoodAt(at: Date): boolean {
+  activeAt(at: Date): boolean {
     const retired = this.state.retirement?.at ?? null;
 
     return (
@@ -197,12 +197,12 @@ export class Memory extends EventRecorder {
     );
   }
 
-  stoodOn(teamId: TeamId, at: Date): boolean {
-    return this.isTeams(teamId) && this.stoodAt(at);
+  activeOn(teamId: TeamId, at: Date): boolean {
+    return this.isTeams(teamId) && this.activeAt(at);
   }
 
   appliesAt(site: RunSite): boolean {
-    return this.stands && this.state.scope.appliesAt(site);
+    return this.isActive && this.state.scope.appliesAt(site);
   }
 
   supersedeWith(successor: MemoryId, at: Date): Memory {
@@ -225,7 +225,7 @@ export class Memory extends EventRecorder {
       throw new MemoryAlreadyRetiredError(this.state.id.value);
     }
 
-    return Memory.standing({
+    return Memory.make({
       ...input,
       workspaceId: this.state.workspaceId,
       grounds: this.state.grounds,

@@ -110,7 +110,7 @@ export interface SearchCauseDto extends ReflectedTaskDto {
 }
 
 export interface SearchReflectionDto {
-  readonly standing: string | null;
+  readonly incumbent: string | null;
   readonly tasks: readonly ReflectedTaskDto[];
   readonly causes: readonly SearchCauseDto[];
   readonly outcome: string | null;

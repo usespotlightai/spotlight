@@ -6,11 +6,11 @@ import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
-export const APPROVAL_STANDINGS = ['asked', 'granted', 'refused'] as const;
+export const APPROVAL_STATUSES = ['asked', 'granted', 'refused'] as const;
 
-export type ApprovalStanding = (typeof APPROVAL_STANDINGS)[number];
+export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 
-export type ApprovalDecision = Exclude<ApprovalStanding, 'asked'>;
+export type ApprovalDecision = Exclude<ApprovalStatus, 'asked'>;
 
 export type ApprovalEdits = Readonly<Record<string, string>>;
 
@@ -25,7 +25,7 @@ export class Approval {
     readonly subject: ApprovalSubject,
     readonly at: StationId,
     readonly because: string,
-    readonly standing: ApprovalStanding,
+    readonly status: ApprovalStatus,
     readonly decided: Decided | null,
     readonly spent: boolean,
     readonly edited: ToolCall | null,
@@ -57,7 +57,7 @@ export class Approval {
     subject: ApprovalSubject;
     at: StationId;
     because: string;
-    standing: ApprovalStanding;
+    status: ApprovalStatus;
     decided: Decided | null;
     spent: boolean;
     edited: ToolCall | null;
@@ -68,7 +68,7 @@ export class Approval {
       input.subject,
       input.at,
       input.because,
-      input.standing,
+      input.status,
       input.decided,
       input.spent,
       input.edited,
@@ -78,11 +78,11 @@ export class Approval {
   }
 
   get open(): boolean {
-    return this.standing === 'asked';
+    return this.status === 'asked';
   }
 
   get grants(): boolean {
-    return this.standing === 'granted' && !this.spent;
+    return this.status === 'granted' && !this.spent;
   }
 
   grantedFor(askedOf: UserId | null): boolean {
@@ -93,14 +93,14 @@ export class Approval {
   }
 
   get refuses(): boolean {
-    return this.standing === 'refused';
+    return this.status === 'refused';
   }
 
   get goesAheadWith(): ToolInputs | null {
     return this.edited?.inputs ?? null;
   }
 
-  standsFor(subject: ApprovalSubject, at: StationId): boolean {
+  appliesTo(subject: ApprovalSubject, at: StationId): boolean {
     return (
       this.at.equals(at) &&
       (this.subject.equals(subject) ||
@@ -116,7 +116,7 @@ export class Approval {
   ): Approval {
     if (!this.open) {
       throw new InvalidApprovalAnswerError(
-        `Approval request was already ${this.standing === 'granted' ? 'approved' : 'dismissed'}.`,
+        `Approval request was already ${this.status === 'granted' ? 'approved' : 'dismissed'}.`,
       );
     }
 
@@ -189,7 +189,7 @@ export class Approval {
   }
 
   returned(): Approval {
-    return this.standing === 'granted' && this.spent
+    return this.status === 'granted' && this.spent
       ? this.withSpent(false)
       : this;
   }
@@ -199,7 +199,7 @@ export class Approval {
       this.subject,
       this.at,
       this.because,
-      this.standing,
+      this.status,
       this.decided,
       spent,
       this.edited,

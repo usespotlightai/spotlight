@@ -1,7 +1,7 @@
 import type {
   GradeResponseDto,
+  JudgeCalibrationResponseDto,
   JudgeScoreResponseDto,
-  JudgeStandingResponseDto,
   RunScoresResponseDto,
   StationAlertCrossingResponseDto,
 } from '@/lib/api';
@@ -46,7 +46,7 @@ const judgeOf = (stationId: string) =>
 const rubricBodyOf = (stationId: string): string | null =>
   judgeOf(stationId)?.rubric?.replace(/^##[^\n]*\n+/, '') ?? null;
 
-const TRUSTED: JudgeStandingResponseDto = {
+const TRUSTED: JudgeCalibrationResponseDto = {
   trusted: true,
   measure: 'kappa',
   agreement: 0.71,
@@ -55,7 +55,7 @@ const TRUSTED: JudgeStandingResponseDto = {
   hiddenBecause: null,
 };
 
-const NEW_JUDGE: JudgeStandingResponseDto = {
+const NEW_JUDGE: JudgeCalibrationResponseDto = {
   trusted: false,
   measure: 'kappa',
   agreement: null,
@@ -64,7 +64,7 @@ const NEW_JUDGE: JudgeStandingResponseDto = {
   hiddenBecause: 'too-few-pairs',
 };
 
-const NO_JUDGE: JudgeStandingResponseDto = {
+const NO_JUDGE: JudgeCalibrationResponseDto = {
   trusted: false,
   measure: null,
   agreement: null,
@@ -198,7 +198,7 @@ const JUDGED: Record<string, Pick<RunScoresResponseDto, 'judge' | 'grades'>> = {
   },
 };
 
-const standingOf = (stationId: string): JudgeStandingResponseDto => {
+const calibrationOf = (stationId: string): JudgeCalibrationResponseDto => {
   if (stationId === JUDGED_STATION) {
     return TRUSTED;
   }
@@ -221,7 +221,7 @@ const scoresOf = (runId: string): RunScoresResponseDto => {
     claims,
     judged: Boolean(found?.judge),
     judge: found?.judge ?? null,
-    standing: standingOf(stationId),
+    calibration: calibrationOf(stationId),
     grades: found?.grades ?? [],
   };
 };
@@ -372,7 +372,7 @@ export const pastScoresOf = (run: HistoryRun): RunScoresResponseDto => {
     claims: [],
     judged: judge !== null,
     judge,
-    standing: judged ? TRUSTED : NO_JUDGE,
+    calibration: judged ? TRUSTED : NO_JUDGE,
     grades: [],
   };
 };

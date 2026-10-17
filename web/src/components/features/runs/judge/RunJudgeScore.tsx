@@ -6,7 +6,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useRunScores } from '@/hooks/api/useRunScores';
 import { notFound } from '@/lib/error';
-import { formatScore, formatStanding } from '@/lib/judge';
+import { formatCalibration, formatScore } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 
 type RunJudgeScoreProps = {
@@ -52,7 +52,7 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
     return null;
   }
 
-  const { judge, standing, grades, claims } = scores;
+  const { judge, calibration, grades, claims } = scores;
   const unclaimed = judge?.marks
     ? judge.reasons.filter((each) => each.claim === null)
     : (judge?.reasons ?? []);
@@ -79,9 +79,9 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
           )}
         </dl>
 
-        {!standing.trusted && (
+        {!calibration.trusted && (
           <p className="text-muted-foreground text-xs leading-5">
-            {formatStanding(standing)}
+            {formatCalibration(calibration)}
           </p>
         )}
 

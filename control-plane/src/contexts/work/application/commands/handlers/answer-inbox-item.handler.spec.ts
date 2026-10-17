@@ -141,7 +141,7 @@ const tasks = (found: Task) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     findByMarks: vi.fn(async () => found),
     settingUpFor: vi.fn(async () => null),
@@ -263,7 +263,7 @@ describe('AnswerInboxItem', () => {
     );
 
     const decided = saved?.notes.find((note) => note.approval)?.approval;
-    expect(decided?.standing).toBe('granted');
+    expect(decided?.status).toBe('granted');
     expect(decided?.decided?.by.value).toBe('user_1');
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Approved.');
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
@@ -357,7 +357,7 @@ describe('AnswerInboxItem', () => {
       ),
     );
 
-    expect(saved?.notes.find((note) => note.approval)?.approval?.standing).toBe(
+    expect(saved?.notes.find((note) => note.approval)?.approval?.status).toBe(
       'refused',
     );
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
@@ -375,7 +375,7 @@ describe('AnswerInboxItem', () => {
       ),
     );
 
-    expect(saved?.notes.find((note) => note.approval)?.approval?.standing).toBe(
+    expect(saved?.notes.find((note) => note.approval)?.approval?.status).toBe(
       'asked',
     );
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(

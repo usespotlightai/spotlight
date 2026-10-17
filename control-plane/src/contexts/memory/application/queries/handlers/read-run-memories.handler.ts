@@ -98,15 +98,15 @@ export class ReadRunMemoriesHandler
 
     return Promise.all(
       review.memories.map(async (proposal) => {
-        const stood =
+        const memory =
           proposal.state === 'approved'
             ? await this.memories.find(MemoryId.of(proposal.id))
             : null;
 
         return {
           ...proposal,
-          handle: stood?.handle.value ?? null,
-          standing: stood?.standing ?? null,
+          handle: memory?.handle.value ?? null,
+          status: memory?.status ?? null,
         };
       }),
     );

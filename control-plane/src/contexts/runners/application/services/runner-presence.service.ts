@@ -11,10 +11,10 @@ export class RunnerPresence implements RunnerPresencePort {
 
   async seen(runnerId: RunnerId, at: Date): Promise<SeenRunner | null> {
     const runner = await reviseRunner(this.runners, runnerId, (found) =>
-      found.standsAt(at) ? found.seen(at) : found,
+      found.isAlive(at) ? found.seen(at) : found,
     );
 
-    return runner?.standsAt(at)
+    return runner?.isAlive(at)
       ? {
           workspaceId: runner.workspaceId,
           harnesses: runner.harnesses,

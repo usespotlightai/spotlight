@@ -1,9 +1,7 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type {
-  Membership,
-  PeoplePort,
-} from '@outcomes/application/ports/people.port';
+import type { PeoplePort } from '@outcomes/application/ports/people.port';
+import type { Membership } from '@outcomes/domain/services/team-access';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 

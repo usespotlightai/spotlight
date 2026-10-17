@@ -29,7 +29,7 @@ const RUN = {
 
 const storedMemory = (
   handle: MemoryHandle,
-  stands: boolean,
+  active: boolean,
   applies: boolean,
 ) => {
   const memory = Memory.write({
@@ -46,12 +46,12 @@ const storedMemory = (
     by: MemoryDecision.of({ by: ADA, at: NOW }),
   });
 
-  return stands ? memory : memory.retire({ by: ADA, reason: 'Gone.', at: NOW });
+  return active ? memory : memory.retire({ by: ADA, reason: 'Gone.', at: NOW });
 };
 
 const noting = (
   referenced: readonly string[] | null,
-  standing: (handle: string) => boolean = () => true,
+  isActive: (handle: string) => boolean = () => true,
   applies: (handle: string) => boolean = () => true,
 ) => {
   const record = vi.fn(async () => undefined);
@@ -81,7 +81,7 @@ const noting = (
       withHandles: async (teamId: TeamId, handles: MemoryHandle[]) => {
         asked.push({ teamId, handles: handles.map((each) => each.value) });
         return handles.map((each) =>
-          storedMemory(each, standing(each.value), applies(each.value)),
+          storedMemory(each, isActive(each.value), applies(each.value)),
         );
       },
     } as unknown as MemoryRepository,
@@ -125,7 +125,7 @@ describe('NoteMemoryUses, when a run ends', () => {
     }
   });
 
-  it('never counts a memory that no longer stands, whatever file the run wrote', async () => {
+  it('never counts a memory that is no longer active, whatever file the run wrote', async () => {
     const { record, service } = noting(
       ['.spotlight/memory/team/M-3.md', '.spotlight/memory/team/M-42.md'],
       (handle) => handle !== 'M-42',

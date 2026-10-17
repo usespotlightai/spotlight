@@ -173,15 +173,15 @@ export const reactionsRefused = (
       };
     }
 
-    const standing = `${reaction.happening}@${reaction.from ?? '*'}`;
+    const claim = `${reaction.happening}@${reaction.from ?? '*'}`;
 
-    if (claimed.has(standing)) {
+    if (claimed.has(claim)) {
       return {
         reason: `must send each happening to one station, but two wait for "${reaction.happening}"`,
         part: reactionAt(at, null),
       };
     }
-    claimed.add(standing);
+    claimed.add(claim);
   }
 
   return null;

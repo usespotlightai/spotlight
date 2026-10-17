@@ -3,7 +3,7 @@ import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
-import { APPROVAL_STANDINGS } from '@work/domain/value-objects/approval.vo';
+import { APPROVAL_STATUSES } from '@work/domain/value-objects/approval.vo';
 import {
   APPROVAL_SUBJECT_KINDS,
   type ApprovalSubjectKind,
@@ -15,7 +15,7 @@ import { VOICES } from '@work/domain/value-objects/voice.vo';
 export const NOTE_KINDS = TASK_NOTE_KINDS;
 export const NOTE_FORMS = TASK_NOTE_FORMS;
 export const NOTE_VOICES = VOICES;
-export const APPROVAL_STANDING = APPROVAL_STANDINGS;
+export const INBOX_APPROVAL_STATUSES = APPROVAL_STATUSES;
 export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
 export const INBOX_ASIDE_FORMS = ASIDE_FORMS;
 export const INBOX_NOTICE_FORMS = NOTICE_FORMS;
@@ -30,7 +30,7 @@ export interface InboxApprovalDto {
   readonly name: string;
   readonly because: string;
   readonly inputs: readonly InboxApprovalInputDto[];
-  readonly standing: string;
+  readonly status: string;
   readonly edited: readonly InboxApprovalInputDto[] | null;
   readonly intent: string | null;
   readonly askedOf: { readonly id: string; readonly name: string } | null;
@@ -98,7 +98,7 @@ export interface InboxItemDto {
   readonly stationPosition: number;
   readonly stationCount: number;
   readonly raisedAt: InboxStationDto;
-  readonly standsAt: InboxStationDto;
+  readonly currentStation: InboxStationDto;
   readonly createdAt: string;
   readonly askedAt: string;
   readonly resolved: boolean;

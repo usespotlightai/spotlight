@@ -112,7 +112,7 @@ const tasks = () =>
     save: vi.fn(),
     find: vi.fn(async () => null),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),

@@ -141,7 +141,7 @@ describe('ListRunnersHandler', () => {
     expect(inWorkspace).toHaveBeenCalledWith(MEMBER.workspaceId);
   });
 
-  it('lists the runners standing now, with the host each runs on', async () => {
+  it('lists the runners that are alive now, with the host each runs on', async () => {
     const fleet = await handle({
       runners: [
         runner(),

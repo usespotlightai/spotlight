@@ -55,12 +55,12 @@ export class ReadInsightsChangesHandler
         teamId: access.teamId,
         period,
       });
-      const standings = await this.judges.standings(
+      const calibrations = await this.judges.calibrations(
         access,
         placesOf(changes.map((each) => each.marker)),
       );
       const trustedStations = new Set(
-        standings.judges
+        calibrations.judges
           .filter((each) => each.trusted)
           .map((each) => each.stationId),
       );
@@ -69,7 +69,8 @@ export class ReadInsightsChangesHandler
       );
       const markers: ChangeMarkerDto[] = changes.map((change) => {
         const { marker } = change;
-        const trustedRubric = standings.trusted.get(marker.stationId) ?? null;
+        const trustedRubric =
+          calibrations.trusted.get(marker.stationId) ?? null;
         const judgeBefore = trustedStations.has(marker.stationId)
           ? judgeShareFrom(change.judgedBefore, trustedRubric)
           : null;
@@ -97,7 +98,9 @@ export class ReadInsightsChangesHandler
       return {
         period: periodOf(period),
         markers,
-        judges: standings.judges.map(({ rubricVersion: _, ...each }) => each),
+        judges: calibrations.judges.map(
+          ({ rubricVersion: _, ...each }) => each,
+        ),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

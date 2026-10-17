@@ -30,7 +30,7 @@ export function ApprovalCard({
   const [mode, setMode] = useState<ApprovalMode>('viewing');
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [reason, setReason] = useState('');
-  const deciding = approval.standing === 'asked' ? onDecide : undefined;
+  const deciding = approval.status === 'asked' ? onDecide : undefined;
   const changed = differs(approval.inputs, edits);
   const onlyFor = approvedOnlyBy(approval, viewerId);
 

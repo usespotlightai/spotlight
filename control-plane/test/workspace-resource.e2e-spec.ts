@@ -192,7 +192,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const workspaces = app.get(DrizzleWorkspaceRepository);
     const teamId = randomUUID();
-    const standing = await workspaces.find(WorkspaceId.of(made.body.id));
+    const existing = await workspaces.find(WorkspaceId.of(made.body.id));
 
     await db.insert(schema.team).values({
       id: teamId,
@@ -203,7 +203,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
 
     await expect(
       workspaces.save(
-        standing?.close(
+        existing?.close(
           [],
           [],
           [],

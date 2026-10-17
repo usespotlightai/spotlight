@@ -144,7 +144,7 @@ export const stationJudge = (
     return {
       stationId,
       judge: null,
-      standing: {
+      calibration: {
         trusted: false,
         measure: null,
         agreement: null,
@@ -174,7 +174,7 @@ export const stationJudge = (
     return {
       stationId,
       judge: settings,
-      standing: {
+      calibration: {
         trusted: false,
         measure: 'kappa',
         agreement: null,
@@ -190,7 +190,7 @@ export const stationJudge = (
   return {
     stationId,
     judge: settings,
-    standing: {
+    calibration: {
       trusted: 0.63 >= judge.trust,
       measure: 'kappa',
       agreement: 0.63,

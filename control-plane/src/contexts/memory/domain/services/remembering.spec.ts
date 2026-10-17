@@ -56,7 +56,7 @@ const asked = (change: Partial<Remembered> = {}): Remembered => ({
   ...change,
 });
 
-const standing = (teamId = TEAM) =>
+const active = (teamId = TEAM) =>
   Memory.write({
     id: MemoryId.of('memory_old'),
     handle: MemoryHandle.of(7),
@@ -209,14 +209,14 @@ describe('Remembering, what an agent asks its team to keep', () => {
     );
   });
 
-  it('corrects only a memory still standing in the run’s team', () => {
-    const existing = standing();
+  it('corrects only a memory still active in the run’s team', () => {
+    const existing = active();
 
     expect(
       proposed({ supersedes: existing }).supersedes?.equals(existing.id),
     ).toBe(true);
     expect(() =>
-      proposed({ supersedes: standing(TeamId.of('team_other')) }),
+      proposed({ supersedes: active(TeamId.of('team_other')) }),
     ).toThrow(/M-7 is not one/);
     expect(() =>
       proposed({

@@ -23,7 +23,7 @@ export interface InviteOffer {
   readonly invitedBy: string | null;
   readonly role: InvitableRoleName;
   readonly teamNames: readonly string[];
-  readonly standing: InviteStatus;
+  readonly status: InviteStatus;
 }
 
 export interface InviteReaderPort {

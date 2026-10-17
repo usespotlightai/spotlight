@@ -80,7 +80,7 @@ const taking = (
 };
 
 describe('ClaimsTaken', () => {
-  it('records that the runner took the run, and leaves the claim standing', async () => {
+  it('records that the runner took the run, and leaves the claim in place', async () => {
     const { taken, runners, saved } = taking();
 
     await taken.run(claimed(), RUNNER);

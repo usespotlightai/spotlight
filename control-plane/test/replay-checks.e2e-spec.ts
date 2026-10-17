@@ -725,7 +725,7 @@ describe('a replay check', () => {
     });
   });
 
-  it('starts another attempt once the earlier one is undecided, the threshold changed or the set changed, and answers the one that stands', async () => {
+  it('starts another attempt once the earlier one is undecided, the threshold changed or the set changed, and returns the attempt that still applies', async () => {
     const change = planned({ prompt: 'Build it, attempted.' });
     const first = await startCheck(change);
     expect(first.attempt).toBe(1);
@@ -747,10 +747,10 @@ describe('a replay check', () => {
         .where(eq(schema.line.id, DELIVERY));
     }
 
-    const standing = await bearing(planToken)
+    const current = await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(change))
       .expect(200);
-    expect(standing.body.id).toBe(second.id);
+    expect(current.body.id).toBe(second.id);
 
     await owner()
       .patch(`${teamPath()}/replay-sets/${guardingSet}`)

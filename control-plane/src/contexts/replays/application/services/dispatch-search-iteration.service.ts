@@ -30,7 +30,7 @@ const UNBRIEFED: SearchRunQueued = {
 };
 
 interface ReflectionFocus {
-  readonly standing: CandidateId;
+  readonly incumbent: CandidateId;
   readonly tasks: readonly ReflectedTask[];
 }
 
@@ -165,7 +165,7 @@ export class DispatchSearchIteration {
       return null;
     }
 
-    const seed = search.seed.candidateId.equals(focus.standing);
+    const seed = search.seed.candidateId.equals(focus.incumbent);
 
     return ReflectionBriefing.of({
       stationKey: station.key,
@@ -173,10 +173,10 @@ export class DispatchSearchIteration {
       lineKey: station.lineKey,
       iteration: iteration.number,
       iterations: search.budget.iterations,
-      standing: seed
+      incumbentName: seed
         ? SEED_NAME
         : (search.proposals.find((each) =>
-            each.candidateId.equals(focus.standing),
+            each.candidateId.equals(focus.incumbent),
           )?.name.value ?? SEED_NAME),
       seed,
       tasks: focus.tasks,
@@ -197,8 +197,8 @@ export class DispatchSearchIteration {
       if (!search || !current?.ownsActiveRun) {
         return null;
       }
-      if (current.standing) {
-        return { standing: current.standing, tasks: current.reflectedOn };
+      if (current.incumbent) {
+        return { incumbent: current.incumbent, tasks: current.reflectedOn };
       }
 
       const failing = failingSearchedTasksOf(search, replays, minGain);
@@ -213,8 +213,8 @@ export class DispatchSearchIteration {
 
       await this.searches.save(reflecting);
 
-      return after?.ownsActiveRun && after.standing
-        ? { standing: after.standing, tasks: after.reflectedOn }
+      return after?.ownsActiveRun && after.incumbent
+        ? { incumbent: after.incumbent, tasks: after.reflectedOn }
         : null;
     });
   }

@@ -36,7 +36,7 @@ const memory = (over: Partial<TeamMemory>): TeamMemory => ({
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',
-  standing: 'stands',
+  status: 'active',
   reach: 'team',
   lineId: null,
   stationId: null,
@@ -67,7 +67,7 @@ const proposal = (over: Partial<RunProposal>): RunProposal => ({
   steps: [],
   notes: [],
   handle: null,
-  standing: null,
+  status: null,
   ...over,
 });
 
@@ -79,7 +79,7 @@ const REMEMBERED: RunMemories = {
       id: 'memory_r',
       handle: 'M-4',
       body: 'Recalled one.',
-      standing: 'retired',
+      status: 'retired',
       retirement: {
         at: '2026-09-27T11:00:00.000Z',
         by: { id: 'user_2', name: 'Maya Chen', image: null },
@@ -95,7 +95,7 @@ const REMEMBERED: RunMemories = {
       body: 'Kept one.',
       state: 'approved',
       handle: 'M-5',
-      standing: 'stands',
+      status: 'active',
     }),
   ],
   reviewItemId: 'aside_1',
@@ -216,7 +216,7 @@ describe('RunRemembered', () => {
     ).toHaveLength(2);
   });
 
-  it('offers to retire a memory that stands as wrong, never one already retired or still proposed', async () => {
+  it('offers to retire an active memory as wrong, never one already retired or still proposed', async () => {
     rememberedState.data = REMEMBERED;
 
     await opened();

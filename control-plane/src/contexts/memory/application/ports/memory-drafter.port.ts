@@ -21,7 +21,7 @@ export interface MemoryDraftAsk {
   readonly stepsLeftOut: number;
   readonly notes: readonly EvidenceNote[];
   readonly changed: readonly ChangedPath[];
-  readonly standing: readonly KnownMemory[];
+  readonly active: readonly KnownMemory[];
   readonly proposed: readonly KnownMemory[];
   readonly rejected: readonly KnownMemory[];
 }

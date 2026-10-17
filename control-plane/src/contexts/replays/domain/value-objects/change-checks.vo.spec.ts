@@ -1,15 +1,15 @@
 import {
   ChangeChecks,
-  type StackStanding,
+  type StackStatus,
 } from '@replays/domain/value-objects/change-checks.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { describe, expect, it } from 'vitest';
 
 const stack = (
   repository: string,
-  state: StackStanding['state'],
-  more: Partial<StackStanding> = {},
-): StackStanding => ({
+  state: StackStatus['state'],
+  more: Partial<StackStatus> = {},
+): StackStatus => ({
   repository,
   state,
   skip: null,

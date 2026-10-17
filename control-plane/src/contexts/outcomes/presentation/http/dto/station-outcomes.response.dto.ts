@@ -140,7 +140,7 @@ export class StationRunOutcomeResponseDto {
   @ApiProperty({
     enum: [...DELIVERY_STATES, null],
     nullable: true,
-    description: 'Where the task’s pull request stands, if it opened one',
+    description: 'The status of the task’s pull request, if it opened one',
   })
   readonly delivery: string | null;
 

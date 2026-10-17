@@ -49,7 +49,7 @@ const teams = {
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
 
-const standingAt = (version: number) =>
+const storedAt = (version: number) =>
   SkillDefinition.rehydrate({
     id: SkillDefinitionId.of('skill_1'),
     teamId: TEAM,
@@ -59,9 +59,9 @@ const standingAt = (version: number) =>
   });
 
 const definitions = (
-  over: { standing?: SkillDefinition | null; refusing?: Error } = {},
+  over: { stored?: SkillDefinition | null; refusing?: Error } = {},
 ) => {
-  const read = vi.fn(async () => over.standing ?? null);
+  const read = vi.fn(async () => over.stored ?? null);
 
   return {
     withId: read,
@@ -146,7 +146,7 @@ describe('CreateSkillHandler', () => {
 
 describe('UpdateSkillHandler', () => {
   const updating = () => {
-    const kept = definitions({ standing: standingAt(3) });
+    const kept = definitions({ stored: storedAt(3) });
     const handler = new UpdateSkillHandler(
       access(),
       new SkillCompiler(),
@@ -206,7 +206,7 @@ describe('UpdateSkillHandler', () => {
 
 describe('DeleteSkillHandler', () => {
   const deleting = (given = StationUses.none()) => {
-    const kept = definitions({ standing: standingAt(3) });
+    const kept = definitions({ stored: storedAt(3) });
     const handler = new DeleteSkillHandler(
       access(),
       kept,

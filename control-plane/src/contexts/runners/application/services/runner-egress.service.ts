@@ -72,7 +72,7 @@ export class RunnerEgress implements RunnerEgressPort {
     at: Date,
   ): Promise<SharedEgressFor | null> {
     return this.through(egress, proxyCredential, (runner) =>
-      runner.standsAt(at) ? { work: runner.work } : null,
+      runner.isAlive(at) ? { work: runner.work } : null,
     );
   }
 

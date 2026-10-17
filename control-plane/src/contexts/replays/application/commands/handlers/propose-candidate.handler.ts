@@ -74,8 +74,8 @@ export class ProposeCandidateHandler
   ): Promise<ResourceCreated | null> {
     try {
       const station = await this.work.keyed(command.lineId, command.stationKey);
-      const standing = station
-        ? await this.people.standingOn(
+      const membership = station
+        ? await this.people.membershipOn(
             station.teamId.value,
             command.actor.principal,
           )
@@ -88,11 +88,11 @@ export class ProposeCandidateHandler
           ? StationAddress.of(teamKey, station.lineKey, station.key)
           : null;
 
-      if (!station || !standing || !address) {
+      if (!station || !membership || !address) {
         return null;
       }
 
-      if (!standing.mayPlan) {
+      if (!membership.mayPlan) {
         return forbiddenTo('plan');
       }
 

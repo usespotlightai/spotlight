@@ -35,7 +35,7 @@ interface IterationState {
   readonly proposals: readonly SearchProposal[];
   readonly attempts: number;
   readonly agentSpent: ModelSpent | null;
-  readonly standing: CandidateId | null;
+  readonly incumbent: CandidateId | null;
   readonly reflectedOn: readonly ReflectedTask[];
   readonly causes: readonly SearchCause[];
   readonly outcome: ReflectionOutcome | null;
@@ -57,7 +57,7 @@ export class SearchIteration {
       proposals: [],
       attempts: 0,
       agentSpent: null,
-      standing: null,
+      incumbent: null,
       reflectedOn: [],
       causes: [],
       outcome: null,
@@ -80,7 +80,7 @@ export class SearchIteration {
     if (
       state.kind === 'reflect'
         ? state.attempts > 0
-        : state.standing !== null ||
+        : state.incumbent !== null ||
           state.outcome !== null ||
           state.reflectedOn.length > 0 ||
           state.causes.length > 0
@@ -90,7 +90,7 @@ export class SearchIteration {
         'either proposes candidates or looks into failing tasks, not both',
       );
     }
-    if (state.standing === null && state.reflectedOn.length > 0) {
+    if (state.incumbent === null && state.reflectedOn.length > 0) {
       throw new InconsistentStateError(
         'search iteration',
         'looks into failing tasks without knowing whose failures they are',
@@ -133,8 +133,8 @@ export class SearchIteration {
     return this.state.kind === 'reflect';
   }
 
-  get standing(): CandidateId | null {
-    return this.state.standing;
+  get incumbent(): CandidateId | null {
+    return this.state.incumbent;
   }
 
   get outcome(): ReflectionOutcome | null {
@@ -245,21 +245,21 @@ export class SearchIteration {
   }
 
   reflectingOn(
-    standing: CandidateId,
+    incumbent: CandidateId,
     tasks: readonly ReflectedTask[],
   ): SearchIteration {
     if (
       !this.reflects ||
       this.state.state !== 'wanted' ||
-      this.state.standing !== null
+      this.state.incumbent !== null
     ) {
       return this;
     }
 
     return tasks.length > 0
-      ? this.with({ standing, reflectedOn: [...tasks] })
+      ? this.with({ incumbent, reflectedOn: [...tasks] })
       : this.with({
-          standing,
+          incumbent,
           state: 'ended',
           agentSpent: ModelSpent.of([], 0),
           outcome: 'no-failures',

@@ -16,10 +16,10 @@ import {
   trendOf,
 } from '@outcomes/domain/services/judge-agreement';
 import {
-  type JudgeStanding,
-  standingOf,
-  unreadableRubricStanding,
-} from '@outcomes/domain/services/judge-standing';
+  calibrationOf,
+  type JudgeCalibration,
+  unreadableRubricCalibration,
+} from '@outcomes/domain/services/judge-calibration';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 
 export interface RubricReport {
@@ -183,22 +183,22 @@ export const judgeReportOf = (input: {
   };
 };
 
-export const standingIn = (
+export const calibrationIn = (
   report: JudgeReport,
   current: CurrentJudge | null,
-): JudgeStanding => {
+): JudgeCalibration => {
   if (!current) {
-    return standingOf(null);
+    return calibrationOf(null);
   }
   if (!current.scale) {
-    return unreadableRubricStanding(current.trust);
+    return unreadableRubricCalibration(current.trust);
   }
 
   const version = report.versions.find(
     (each) => each.rubricVersion === current.rubricVersion,
   );
 
-  return standingOf({
+  return calibrationOf({
     trust: current.trust,
     scale: current.scale,
     agreement:

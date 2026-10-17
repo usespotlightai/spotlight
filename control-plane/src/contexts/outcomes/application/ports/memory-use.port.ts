@@ -12,7 +12,7 @@ interface FlaggedMemoryView {
 }
 
 export interface TeamMemoryUseView {
-  readonly standing: number;
+  readonly activeCount: number;
   readonly flagged: readonly FlaggedMemoryView[];
 }
 

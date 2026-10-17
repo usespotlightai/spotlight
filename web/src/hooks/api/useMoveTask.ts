@@ -34,23 +34,23 @@ export function useMoveTask() {
 
     onMutate: ({ teamId, taskId, stationId, afterTaskId }) => {
       const key = taskKeys.forTeam(teamId);
-      const standing = queryClient.getQueryData<Task[]>(key);
+      const previous = queryClient.getQueryData<Task[]>(key);
 
-      if (standing) {
+      if (previous) {
         queryClient.setQueryData(
           key,
-          placed(standing, taskId, stationId, afterTaskId),
+          placed(previous, taskId, stationId, afterTaskId),
         );
       }
 
       void queryClient.cancelQueries({ queryKey: key });
 
-      return { standing };
+      return { previous };
     },
 
     onError: (_error, { teamId }, context) => {
-      if (context?.standing) {
-        queryClient.setQueryData(taskKeys.forTeam(teamId), context.standing);
+      if (context?.previous) {
+        queryClient.setQueryData(taskKeys.forTeam(teamId), context.previous);
       }
     },
 

@@ -214,11 +214,11 @@ export class Runner extends EventRecorder {
     );
   }
 
-  standsAt(now: Date): boolean {
-    return !this.hasEnded && now.getTime() < this.standsUntil.getTime();
+  isAlive(now: Date): boolean {
+    return !this.hasEnded && now.getTime() < this.leaseExpiresAt.getTime();
   }
 
-  private get standsUntil(): Date {
+  private get leaseExpiresAt(): Date {
     const { work, lastSeenAt, claimBy } = this.state;
 
     return work !== null && lastSeenAt
@@ -235,7 +235,7 @@ export class Runner extends EventRecorder {
   }
 
   workEgressActsFor(now: Date): RunnerWork | null {
-    return this.state.egressTokenHash !== null && this.standsAt(now)
+    return this.state.egressTokenHash !== null && this.isAlive(now)
       ? this.state.work
       : null;
   }
@@ -243,7 +243,7 @@ export class Runner extends EventRecorder {
   workEgressRecordsFor(now: Date): RunnerWork | null {
     const { endedAt, work } = this.state;
     const recordsStill =
-      this.standsAt(now) ||
+      this.isAlive(now) ||
       (endedAt !== null &&
         now.getTime() <= endedAt.getTime() + RECORDS_AFTER_ENDING_MS);
 
@@ -251,7 +251,7 @@ export class Runner extends EventRecorder {
   }
 
   claimsAt(now: Date): RunnerClaims {
-    return this.state.work === null && this.standsAt(now)
+    return this.state.work === null && this.isAlive(now)
       ? 'reserved'
       : 'nothing';
   }
@@ -269,7 +269,7 @@ export class Runner extends EventRecorder {
   }
 
   took(work: RunnerWork, at: Date): Runner {
-    if (this.state.work !== null || !this.standsAt(at)) {
+    if (this.state.work !== null || !this.isAlive(at)) {
       throw new RunnerSpentError(this.state.id.value);
     }
 

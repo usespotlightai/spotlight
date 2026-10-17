@@ -5,10 +5,10 @@ import {
   formatRun,
   type Host,
   hiddenFromViewer,
+  hostStatus,
   leasedRunPath,
-  runnerStanding,
+  runnerStatus,
   seenAt,
-  standing,
   through,
   withActivity,
 } from '@/lib/runner';
@@ -66,13 +66,15 @@ describe('seenAt', () => {
   });
 });
 
-describe('standing', () => {
+describe('hostStatus', () => {
   it('counts what a host runs against what it can', () => {
-    expect(standing(hosted({ running: ['runner_1'] }))).toBe('Running 1 of 4');
-    expect(standing(hosted())).toBe('Idle');
-    expect(standing(hosted({ answering: false, running: ['runner_1'] }))).toBe(
-      'Not answering',
+    expect(hostStatus(hosted({ running: ['runner_1'] }))).toBe(
+      'Running 1 of 4',
     );
+    expect(hostStatus(hosted())).toBe('Idle');
+    expect(
+      hostStatus(hosted({ answering: false, running: ['runner_1'] })),
+    ).toBe('Not answering');
   });
 });
 
@@ -141,16 +143,14 @@ describe('formatRun', () => {
   });
 });
 
-describe('runnerStanding', () => {
+describe('runnerStatus', () => {
   it('says a runner is starting, running, or waiting on a person', () => {
     const active = runner();
 
-    expect(runnerStanding({ ...active, currentRun: null })).toBe('Starting');
-    expect(runnerStanding({ ...active, currentRun: LEASED_RUN })).toBe(
-      'Running',
-    );
+    expect(runnerStatus({ ...active, currentRun: null })).toBe('Starting');
+    expect(runnerStatus({ ...active, currentRun: LEASED_RUN })).toBe('Running');
     expect(
-      runnerStanding({
+      runnerStatus({
         ...active,
         currentRun: { ...LEASED_RUN, state: 'waiting' },
       }),

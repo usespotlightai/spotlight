@@ -4,7 +4,7 @@ import {
   MEMORY_SOURCE_NAMES,
 } from '@memory/application/dto/memory-review.dto';
 import {
-  MEMORY_STANDING_NAMES,
+  MEMORY_STATUS_NAMES,
   type MemoryLinkDto,
   type MemoryRetirementDto,
   type TeamMemoryDetailDto,
@@ -95,8 +95,8 @@ export class TeamMemoryResponseDto {
   @ApiProperty({ enum: MEMORY_SOURCE_NAMES, example: 'person' })
   readonly source: string;
 
-  @ApiProperty({ enum: MEMORY_STANDING_NAMES, example: 'stands' })
-  readonly standing: string;
+  @ApiProperty({ enum: MEMORY_STATUS_NAMES, example: 'active' })
+  readonly status: string;
 
   @ApiProperty({ enum: MEMORY_REACH_NAMES, example: 'team' })
   readonly reach: string;
@@ -151,7 +151,7 @@ export class TeamMemoryResponseDto {
     this.kind = memory.kind;
     this.body = memory.body;
     this.source = memory.source;
-    this.standing = memory.standing;
+    this.status = memory.status;
     this.reach = memory.reach;
     this.lineId = memory.lineId;
     this.stationId = memory.stationId;

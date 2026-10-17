@@ -378,7 +378,7 @@ describe('RunChangeStack', () => {
       decided.mockReturnValue({
         runId: 'run_1',
         drafting: false,
-        standing: 'proposed',
+        status: 'proposed',
         merge: null,
         decisions: [
           {

@@ -87,9 +87,9 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(judged.standing.trusted).toBe(true);
+    expect(judged.calibration.trusted).toBe(true);
     expect(judged.versions[0]?.current).toBe(true);
-    expect(unjudged.standing.hiddenBecause).toBe('no-judge');
+    expect(unjudged.calibration.hiddenBecause).toBe('no-judge');
   });
 
   it('lists the station’s replay sets and the team’s', async () => {

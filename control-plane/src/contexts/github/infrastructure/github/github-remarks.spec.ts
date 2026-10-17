@@ -69,7 +69,7 @@ describe('GitHubRemarks', () => {
 
   const remarks = () => new GitHubRemarks(access);
 
-  it('answers within the thread the remark stands in', async () => {
+  it('answers within the thread that holds the remark', async () => {
     replies = [
       answered([
         thread({ id: 'PRRT_other', comments: { nodes: [] } }),
@@ -104,7 +104,7 @@ describe('GitHubRemarks', () => {
     expect(named('resolveReviewThread')).toHaveLength(0);
   });
 
-  it('says nothing twice where the same answer already stands', async () => {
+  it('says nothing twice where the same answer is already there', async () => {
     replies = [
       answered([
         thread({
@@ -133,7 +133,7 @@ describe('GitHubRemarks', () => {
       expect(asked[1]?.body).toEqual({ body: 'Split out in 4a1c2b0.' });
     });
 
-    it('refuses to resolve what stands in no thread', async () => {
+    it('refuses to resolve what is in no thread', async () => {
       replies = [answered([])];
 
       await expect(

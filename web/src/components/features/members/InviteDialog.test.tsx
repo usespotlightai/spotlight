@@ -4,16 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InviteDialog } from '@/components/features/members/InviteDialog';
 
 const invite = vi.fn();
-const standing = vi.fn();
+const mutationState = vi.fn();
 
 vi.mock('@/hooks/api/useInviteToWorkspace', () => ({
   useInviteToWorkspace: () => ({
     mutate: invite,
     reset: vi.fn(),
-    isPending: standing() === 'pending',
-    isError: standing() === 'failed',
+    isPending: mutationState() === 'pending',
+    isError: mutationState() === 'failed',
     error:
-      standing() === 'failed'
+      mutationState() === 'failed'
         ? new Error('Sorry, those teams are not in this workspace.')
         : null,
   }),
@@ -51,7 +51,7 @@ const send = (dialog: HTMLElement) =>
 
 beforeEach(() => {
   invite.mockReset();
-  standing.mockReturnValue('idle');
+  mutationState.mockReturnValue('idle');
 });
 
 describe('InviteDialog', () => {
@@ -201,7 +201,7 @@ describe('InviteDialog', () => {
   });
 
   it('says why the invites could not be sent', () => {
-    standing.mockReturnValue('failed');
+    mutationState.mockReturnValue('failed');
     const dialog = opened();
 
     expect(within(dialog).getByRole('alert')).toHaveTextContent(
@@ -210,7 +210,7 @@ describe('InviteDialog', () => {
   });
 
   it('locks the form while the invites are sent', () => {
-    standing.mockReturnValue('pending');
+    mutationState.mockReturnValue('pending');
     const dialog = opened();
 
     expect(

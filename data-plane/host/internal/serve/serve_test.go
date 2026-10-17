@@ -537,15 +537,15 @@ func (p *pool) answered(id string) (protocol.HostCallAnswer, bool) {
 	return answer, ok
 }
 
-func (p *pool) Present(_ context.Context, presence protocol.HostPresence) (protocol.HostStanding, error) {
+func (p *pool) Present(_ context.Context, presence protocol.HostPresence) (protocol.HeartbeatResponse, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.taken {
-		return protocol.HostStanding{}, fmt.Errorf("report presence: %w",
+		return protocol.HeartbeatResponse{}, fmt.Errorf("report presence: %w",
 			&control.Rejection{Status: 409, Reason: "host-taken", Err: errors.New("taken")})
 	}
 	p.presence = append(p.presence, presence)
-	return protocol.HostStanding{Workspace: "workspace_1"}, nil
+	return protocol.HeartbeatResponse{Workspace: "workspace_1"}, nil
 }
 
 func (p *pool) Leave(context.Context) error {

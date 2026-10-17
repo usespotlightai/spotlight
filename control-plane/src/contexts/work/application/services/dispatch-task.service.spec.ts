@@ -328,7 +328,7 @@ let memoryFails = false;
 
 const dispatch = async (
   station: Station,
-  standing?: Task,
+  given?: Task,
   repositories?: readonly Worked[],
 ) => {
   const service = new DispatchTask(
@@ -362,7 +362,7 @@ const dispatch = async (
     { inSavepoint: (work) => work() },
     new Sha256ContentDigest(),
   );
-  const working = standing ?? task(station.id.value);
+  const working = given ?? task(station.id.value);
   const line = lineWith(station, repositories);
   const runId = await service.runIdFor({ task: working, line });
 
@@ -759,7 +759,7 @@ describe('DispatchTask', () => {
     expect(queued).toHaveLength(0);
   });
 
-  it('gives a run the standing of the station it serves', async () => {
+  it('gives a run the priority of the station it serves', async () => {
     await dispatch(stations[2] as Station);
 
     expect(queued[0]?.priority.value).toBe(2);

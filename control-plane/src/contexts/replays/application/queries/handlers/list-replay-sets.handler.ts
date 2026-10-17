@@ -33,7 +33,7 @@ export class ListReplaySetsHandler
       const sets = (await this.sets.atStation(station.stationId)).filter(
         (each) => access.sees(each.station),
       );
-      const replayable = await this.work.standing(
+      const replayable = await this.work.runSummaries(
         access.workspaceId,
         sets.flatMap((each) => each.runs),
       );

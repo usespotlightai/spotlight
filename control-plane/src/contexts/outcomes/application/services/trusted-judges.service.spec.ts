@@ -1,4 +1,4 @@
-import type { JudgeStandingShape } from '@outcomes/application/ports/judge-standing.port';
+import type { JudgeCalibrationShape } from '@outcomes/application/ports/judge-calibration.port';
 import { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import { TeamAccess } from '@outcomes/domain/services/team-access';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -12,8 +12,8 @@ const ACCESS = TeamAccess.onTeam('team_1', {
 
 const shapeOf = (
   stationId: string,
-  over: Partial<JudgeStandingShape>,
-): JudgeStandingShape => ({
+  over: Partial<JudgeCalibrationShape>,
+): JudgeCalibrationShape => ({
   stationId,
   rubricVersion: null,
   trusted: false,
@@ -26,10 +26,10 @@ const shapeOf = (
 });
 
 describe('TrustedJudges', () => {
-  it('gives each station its own standing, whatever order the standings come in', async () => {
+  it('gives each station its own calibration, whatever order the calibrations come in', async () => {
     const asked: unknown[] = [];
     const judges = new TrustedJudges({
-      standingsOf: async (team, stations) => {
+      calibrationsOf: async (team, stations) => {
         asked.push({ team, stations });
 
         return [
@@ -55,7 +55,7 @@ describe('TrustedJudges', () => {
       },
     });
 
-    const standings = await judges.standings(ACCESS, [
+    const calibrations = await judges.calibrations(ACCESS, [
       { lineId: 'line_1', stationId: 'station_a' },
       { lineId: 'line_1', stationId: 'station_b' },
       { lineId: 'line_2', stationId: 'station_c' },
@@ -71,7 +71,7 @@ describe('TrustedJudges', () => {
         ],
       },
     ]);
-    expect(standings.judges).toEqual([
+    expect(calibrations.judges).toEqual([
       {
         lineId: 'line_1',
         stationId: 'station_a',
@@ -95,6 +95,8 @@ describe('TrustedJudges', () => {
         hiddenBecause: 'below-trust',
       },
     ]);
-    expect(standings.trusted).toEqual(new Map([['station_a', 'a'.repeat(64)]]));
+    expect(calibrations.trusted).toEqual(
+      new Map([['station_a', 'a'.repeat(64)]]),
+    );
   });
 });

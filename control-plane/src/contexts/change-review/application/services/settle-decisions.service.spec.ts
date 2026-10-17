@@ -99,17 +99,17 @@ const settling = (
 };
 
 describe('settling a task’s decisions when its pull request closes', () => {
-  it('has them stand in the merge', async () => {
+  it('merges them with the pull request', async () => {
     const { service, stored } = settling();
 
     await service.closed(MERGED);
 
-    expect(stored()?.standing.stands).toBe(true);
-    expect(stored()?.standing.merge).toMatchObject({
+    expect(stored()?.status.isMerged).toBe(true);
+    expect(stored()?.status.merge).toMatchObject({
       commit: 'c'.repeat(40),
       at: CLOSED_AT,
     });
-    expect(stored()?.standing.merge?.repository.value).toBe('acme/api');
+    expect(stored()?.status.merge?.repository.value).toBe('acme/api');
     expect(stored()?.decisions).toHaveLength(1);
   });
 
@@ -121,13 +121,13 @@ describe('settling a task’s decisions when its pull request closes', () => {
     expect(stored()).toBeNull();
   });
 
-  it('keeps them once they stand, whatever closes later', async () => {
+  it('keeps them after they merge, whatever closes later', async () => {
     const { service, stored } = settling();
 
     await service.closed(MERGED);
     await service.closed({ ...MERGED, merge: null });
 
-    expect(stored()?.standing.stands).toBe(true);
+    expect(stored()?.status.isMerged).toBe(true);
   });
 
   it('leaves decisions alone for a pull request Spotlight only reviews', async () => {
@@ -135,7 +135,7 @@ describe('settling a task’s decisions when its pull request closes', () => {
 
     await service.closed({ ...MERGED, merge: null });
 
-    expect(stored()?.standing.stands).toBe(false);
+    expect(stored()?.status.isMerged).toBe(false);
     expect(stored()?.decisions).toHaveLength(1);
   });
 
@@ -144,6 +144,6 @@ describe('settling a task’s decisions when its pull request closes', () => {
 
     await service.closed(MERGED);
 
-    expect(stored()?.standing.stands).toBe(false);
+    expect(stored()?.status.isMerged).toBe(false);
   });
 });

@@ -122,7 +122,7 @@ const line = () =>
     ],
   });
 
-const standing = (stationId = 'station_2') =>
+const taskAt = (stationId = 'station_2') =>
   Task.add({
     line: line(),
     at: StationId.of(stationId),
@@ -144,7 +144,7 @@ const tasks = (found: Task | null) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     findByMarks: vi.fn(async () => found),
     settingUpFor: vi.fn(async () => null),
@@ -214,14 +214,14 @@ describe('ReactToHappenings', () => {
   });
 
   it('takes the task to the station waiting for it', async () => {
-    await heard(CHANGES_REQUESTED, standing(), 'Handle the empty case.');
+    await heard(CHANGES_REQUESTED, taskAt(), 'Handle the empty case.');
 
     expect(saved?.stationId).toEqual(StationId.of('station_1'));
     expect(saved?.notes[0]?.body.value).toContain('Handle the empty case.');
   });
 
   it('has no second effect when the same delivery is heard again', async () => {
-    const stored = tasks(standing());
+    const stored = tasks(taskAt());
     const reactions = new ReactToHappenings(
       stored,
       stored,
@@ -245,7 +245,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('hears what a poll with no cursor says each time, since only a cursor tells news apart', async () => {
-    const stored = tasks(standing());
+    const stored = tasks(taskAt());
     const reactions = new ReactToHappenings(
       stored,
       stored,
@@ -268,7 +268,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('hears a later delivery saying the same thing as news of its own', async () => {
-    const stored = tasks(standing());
+    const stored = tasks(taskAt());
     const reactions = new ReactToHappenings(
       stored,
       stored,
@@ -291,14 +291,14 @@ describe('ReactToHappenings', () => {
   });
 
   it('starts the work at the station it was taken to', async () => {
-    await heard(CHANGES_REQUESTED, standing(), 'Handle the empty case.');
+    await heard(CHANGES_REQUESTED, taskAt(), 'Handle the empty case.');
 
     expect(dispatched).toHaveLength(1);
     expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
   });
 
-  it('leaves a task where it stands when that is where it belongs', async () => {
-    await heard(COMMENTED, standing(), 'This retries forever.');
+  it('leaves a task where it is when that is where it belongs', async () => {
+    await heard(COMMENTED, taskAt(), 'This retries forever.');
 
     expect(saved?.stationId).toEqual(StationId.of('station_2'));
     expect(saved?.notes.map((each) => each.kind)).toEqual(['said']);
@@ -307,7 +307,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('keeps what the world said on the note, whole', async () => {
-    await heard(COMMENTED, standing(), 'pin this to a version.');
+    await heard(COMMENTED, taskAt(), 'pin this to a version.');
 
     const note = saved?.notes[0];
 
@@ -320,7 +320,7 @@ describe('ReactToHappenings', () => {
   it('waits to be handed to the agent already working the task', async () => {
     await heard(
       COMMENTED,
-      standing().handedTo(RunId.of('run_1'), line()),
+      taskAt().handedTo(RunId.of('run_1'), line()),
       'Look.',
     );
 
@@ -328,7 +328,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('takes a reviewer’s word as the answer a person was owed', async () => {
-    const asked = standing().askedAbout(
+    const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
         station: StationName.of('Code Review'),
@@ -349,7 +349,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('takes an unruled spoken word as the answer a task was owed', async () => {
-    const asked = standing().askedAbout(
+    const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
         station: StationName.of('Code Review'),
@@ -400,7 +400,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('takes a Slack thread reply as the answer a paused run waits for, so that same run is taken up', async () => {
-    const paused = standing()
+    const paused = taskAt()
       .handedTo(RunId.of('run_1'), line())
       .putToAPerson(RunId.of('run_1'), {
         voice: Voice.station(RunId.of('run_1')),
@@ -456,7 +456,7 @@ describe('ReactToHappenings', () => {
 
   describe('a word carrying files', () => {
     const asked = () =>
-      standing().askedAbout(
+      taskAt().askedAbout(
         {
           voice: Voice.station(),
           station: StationName.of('Code Review'),
@@ -530,7 +530,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('leaves a person owed where the world merely reports itself', async () => {
-    const asked = standing().askedAbout(
+    const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
         station: StationName.of('Code Review'),
@@ -548,7 +548,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('says nothing of a review submitted with nothing written on it', async () => {
-    await heard(COMMENTED, standing(), null);
+    await heard(COMMENTED, taskAt(), null);
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(0);
@@ -558,8 +558,8 @@ describe('ReactToHappenings', () => {
     vi.mocked(logger.warn).mockClear();
 
     await new ReactToHappenings(
-      tasks(standing()),
-      tasks(standing()),
+      tasks(taskAt()),
+      tasks(taskAt()),
       lines(),
       dispatch,
       transaction,
@@ -589,24 +589,21 @@ describe('ReactToHappenings', () => {
   });
 
   it('says nothing to a station nobody set to wait for it', async () => {
-    await heard(
-      Happening.of('github.pull_request.closed-unmerged'),
-      standing(),
-    );
+    await heard(Happening.of('github.pull_request.closed-unmerged'), taskAt());
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(0);
   });
 
   it('leaves a task that has landed at the end of the line alone', async () => {
-    await heard(MERGED, standing('station_3'));
+    await heard(MERGED, taskAt('station_3'));
 
     expect(saved).toBeUndefined();
   });
 
   it('takes work back up where the world speaks after a run finished it', async () => {
     const ended = Task.rehydrate({
-      ...standing(),
+      ...taskAt(),
       notes: [
         TaskNote.of({
           position: NotePosition.of(0),
@@ -638,7 +635,7 @@ describe('ReactToHappenings', () => {
   it('starts nothing where the task already has a current run', async () => {
     await heard(
       COMMENTED,
-      standing().handedTo(RunId.of('run_1'), line()),
+      taskAt().handedTo(RunId.of('run_1'), line()),
       'One more thing.',
     );
 
@@ -648,13 +645,13 @@ describe('ReactToHappenings', () => {
 
   describe('a happening that would move a task that has a current run', () => {
     const handed = (stationId: string) => {
-      const task = standing(stationId).handedTo(RunId.of('run_1'), line());
+      const task = taskAt(stationId).handedTo(RunId.of('run_1'), line());
       task.pullEvents();
       return task;
     };
 
     const paused = (stationId: string) => {
-      const task = standing(stationId)
+      const task = taskAt(stationId)
         .handedTo(RunId.of('run_1'), line())
         .putToAPerson(RunId.of('run_1'), {
           station: StationName.of('Implementation'),
@@ -666,7 +663,7 @@ describe('ReactToHappenings', () => {
       return task;
     };
 
-    it('leaves the task where it stands and its current run', async () => {
+    it('leaves the task where it is and its current run', async () => {
       await heard(COMMENTED, handed('station_1'), 'This retries forever.');
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
@@ -712,7 +709,7 @@ describe('ReactToHappenings', () => {
       expect(dispatched).toHaveLength(0);
     });
 
-    it('keeps a stored-back move when a later happening leaves the task where it stands', async () => {
+    it('keeps a stored-back move when a later happening leaves the task where it is', async () => {
       await heard(COMMENTED, handed('station_1'), 'This retries forever.');
       const noted = saved as Task;
 
@@ -724,7 +721,7 @@ describe('ReactToHappenings', () => {
     });
 
     it('moves the same task once it has no current run', async () => {
-      await heard(COMMENTED, standing('station_1'), 'This retries forever.');
+      await heard(COMMENTED, taskAt('station_1'), 'This retries forever.');
 
       expect(saved?.stationId).toEqual(StationId.of('station_2'));
       expect(saved?.notes[0]?.body.value).toBe(
@@ -735,7 +732,7 @@ describe('ReactToHappenings', () => {
     });
 
     describe('when the pull request merges', () => {
-      it('stops the run and keeps the task where it stands', async () => {
+      it('stops the run and keeps the task where it is', async () => {
         await heard(MERGED, handed('station_2'));
 
         expect(saved?.stationId).toEqual(StationId.of('station_2'));
@@ -796,7 +793,7 @@ describe('ReactToHappenings', () => {
       });
 
       it('finishes a task that has no current run, as before', async () => {
-        await heard(MERGED, standing('station_1'));
+        await heard(MERGED, taskAt('station_1'));
 
         expect(saved?.stationId).toEqual(StationId.of('station_3'));
         expect(saved?.finished).toBe(true);
@@ -805,7 +802,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('looks for the task only in the workspace the word came from', async () => {
-    const stored = tasks(standing());
+    const stored = tasks(taskAt());
 
     await new ReactToHappenings(
       stored,
@@ -849,7 +846,7 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      standingAt: vi.fn(async () => []),
+      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
       findByMarks: vi.fn(async () => null),
       settingUpFor: vi.fn(async () => null),
@@ -930,7 +927,7 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      standingAt: vi.fn(async () => []),
+      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
       findByMarks: vi.fn(async () => null),
       settingUpFor: vi.fn(async () => null),
@@ -1010,7 +1007,7 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      standingAt: vi.fn(async () => []),
+      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
       findByMarks: vi.fn(async () => null),
       settingUpFor: vi.fn(async () => null),
@@ -1093,7 +1090,7 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      standingAt: vi.fn(async () => []),
+      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
       findByMarks: vi.fn(async () => null),
       settingUpFor: vi.fn(async () => null),

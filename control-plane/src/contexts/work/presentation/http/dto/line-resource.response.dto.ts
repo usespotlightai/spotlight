@@ -20,7 +20,7 @@ export class LineResourceResponseDto extends ResourceResponseDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The line as it stands now, stations in order, with every field a definition may leave out filled in',
+      'The current line, stations in order, with every field a definition may leave out filled in',
     example: {
       key: 'delivery',
       name: 'Delivery',

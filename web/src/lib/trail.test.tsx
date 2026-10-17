@@ -111,7 +111,7 @@ describe('useTrail', () => {
     );
   });
 
-  it('hands its own crumb on, linked to where it stands', () => {
+  it('hands its own crumb on, linked to where it is', () => {
     at({ pathname: '/w/a/team/t/tasks/x' });
 
     expect(screen.getByTestId('forward')).toHaveTextContent(

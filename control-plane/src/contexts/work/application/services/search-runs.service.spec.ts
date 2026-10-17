@@ -112,7 +112,7 @@ describe('SearchRuns', () => {
       (
         await new SearchRuns({} as RunRepository, {
           of: async () => facts,
-        }).standing(facts.map((each) => each.runId))
+        }).statuses(facts.map((each) => each.runId))
       ).map((each) => [each.runId, each.phase, each.failed, each.started]),
     ).toEqual([
       ['waiting', 'queued', true, false],

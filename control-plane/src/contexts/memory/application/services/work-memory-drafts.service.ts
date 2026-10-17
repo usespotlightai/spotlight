@@ -142,7 +142,7 @@ export class WorkMemoryDrafts implements OwedWorkPort {
             stepsLeftOut: evidence.stepsLeftOut,
             notes: evidence.notes,
             changed: evidence.changed,
-            standing: evidence.standing.map(known),
+            active: evidence.active.map(known),
             proposed: draft.stillRemembered.map(known),
             rejected: rejectionsHeededAt(rejected, site).map(
               ({ id, kind, body }) => ({ id, kind, body }),

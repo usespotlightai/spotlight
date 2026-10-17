@@ -23,8 +23,8 @@ import type { ReplayRepository } from '@replays/domain/repositories/replay.repos
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import {
+  currentBaselineFor,
   needsBaseline,
-  standingBaselineFor,
 } from '@replays/domain/services/baseline';
 import {
   type ScoringField,
@@ -317,7 +317,7 @@ export class StartReplayCheckHandler
         repeats: planned.repeats,
         pairsWith: wanting
           ? wanting.id
-          : (standingBaselineFor(
+          : (currentBaselineFor(
               set,
               setReplays,
               examined.liveDigests.scoring,

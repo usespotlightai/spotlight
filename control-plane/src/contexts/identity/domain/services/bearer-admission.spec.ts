@@ -85,14 +85,14 @@ describe('BearerAdmission', () => {
     ).toBe(false);
   });
 
-  it('admits a token issued by hand while it stands, needing no trust', () => {
+  it('admits a token issued by hand while it is valid, needing no trust', () => {
     expect(BearerAdmission.admits(ISSUED, null, LATER)).toBe(true);
     expect(
       BearerAdmission.admits(ISSUED.revoke(attributedIn('ws_1')), null, NOW),
     ).toBe(false);
   });
 
-  it('admits a minted token only while its trust stands as it was when it was minted', () => {
+  it('admits a minted token only while its trust is the same as when the token was minted', () => {
     expect(BearerAdmission.admits(MINTED, trustAt(1), NOW)).toBe(true);
     expect(BearerAdmission.admits(MINTED, trustAt(2), NOW)).toBe(false);
     expect(BearerAdmission.admits(MINTED, null, NOW)).toBe(false);

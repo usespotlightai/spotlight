@@ -4,9 +4,9 @@ import type {
   PersonDto,
   ProposedMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
-import { MEMORY_STANDINGS } from '@memory/domain/value-objects/memory-standing';
+import { MEMORY_STATUSES } from '@memory/domain/value-objects/memory-status';
 
-export const MEMORY_STANDING_NAMES = MEMORY_STANDINGS;
+export const MEMORY_STATUS_NAMES = MEMORY_STATUSES;
 
 export interface MemoryRetirementDto {
   readonly at: string;
@@ -26,7 +26,7 @@ export interface TeamMemoryDto {
   readonly kind: string;
   readonly body: string;
   readonly source: string;
-  readonly standing: string;
+  readonly status: string;
   readonly reach: string;
   readonly lineId: string | null;
   readonly stationId: string | null;
@@ -56,7 +56,7 @@ export interface TeamMemoryDetailDto extends TeamMemoryDto {
 
 export interface RunProposalDto extends ProposedMemoryDto {
   readonly handle: string | null;
-  readonly standing: string | null;
+  readonly status: string | null;
 }
 
 export interface RunMemoriesDto {

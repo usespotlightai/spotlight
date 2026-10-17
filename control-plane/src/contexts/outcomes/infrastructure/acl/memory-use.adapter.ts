@@ -17,7 +17,7 @@ export class MemoryUse implements MemoryUsePort {
     });
 
     return {
-      standing: use.standing,
+      activeCount: use.activeCount,
       flagged: use.flagged.map((each) => ({ ...each })),
     };
   }

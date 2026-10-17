@@ -129,34 +129,34 @@ describe('the mock inbox', () => {
 
     const approval = (await itemIn('task_latency:0'))?.notes[0]?.approval;
 
-    expect(approval?.standing).toBe('granted');
+    expect(approval?.status).toBe('granted');
     expect(approval?.edited).toEqual([{ name: 'for', value: '20m' }]);
   });
 
-  it('asks for approvals in every standing', async () => {
+  it('asks for approvals in every status', async () => {
     expect(await approvalIn('task_checkout:0')).toMatchObject({
       kind: 'harness-permission',
-      standing: 'asked',
+      status: 'asked',
       askedOf: null,
     });
     expect(await approvalIn('task_signup_survey:0')).toMatchObject({
       kind: 'tool-call',
       name: 'linear.comment',
-      standing: 'asked',
+      status: 'asked',
       askedOf: null,
     });
     expect(await approvalIn('task_pricing_toggle:0')).toMatchObject({
-      standing: 'asked',
+      status: 'asked',
       askedOf: { name: 'Priya Nair' },
     });
     expect(await approvalIn('task_disk:0')).toMatchObject({
       kind: 'harness-permission',
-      standing: 'refused',
+      status: 'refused',
     });
 
     const edited = await approvalIn('task_referral:0');
 
-    expect(edited?.standing).toBe('granted');
+    expect(edited?.status).toBe('granted');
     expect(edited?.edited?.[1]?.value).not.toBe(edited?.inputs[1]?.value);
   });
 
@@ -222,7 +222,7 @@ describe('the mock inbox', () => {
     expect(data.series.at(-1)?.runId).toBe(data.runId);
   });
 
-  it('raises a cost alert that still stands beside one that recovered', async () => {
+  it('raises a cost alert that is still active beside one that recovered', async () => {
     const { data: cost } = await readStationAlert({
       path: { teamId: PLATFORM_ID, alertId: COST_ALERT_ID },
       throwOnError: true,

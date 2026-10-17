@@ -656,7 +656,7 @@ describe('a stalled search looking into why', () => {
   };
 
   it('briefs its agent with the searched tasks the best config still fails, takes one cause each, never for a held-out task, and ends stalled telling who started it', async () => {
-    work.standing = async (_workspace, runs) =>
+    work.runSummaries = async (_workspace, runs) =>
       runs.map((runId) => ({
         runId,
         taskId: null,
@@ -1144,7 +1144,7 @@ describe('AdvanceSearches', () => {
       replayedAs(replay as never, () => 'completed', 0.5),
     );
     memory.events.splice(0);
-    work.runStandings.set(first, {
+    work.runStatuses.set(first, {
       run: theSearch().activeRun as never,
       phase: 'ended',
       failed: false,
@@ -1164,7 +1164,7 @@ describe('AdvanceSearches', () => {
 
     const second = theSearch().activeRun;
 
-    work.runStandings.set(second?.value ?? '', {
+    work.runStatuses.set(second?.value ?? '', {
       run: second as never,
       phase: 'queued',
       failed: true,
@@ -1196,7 +1196,7 @@ describe('AdvanceSearches', () => {
     await seeded({ ...BUDGET, iterations: 3 });
     const first = activeRun();
 
-    work.runStandings.set(first, {
+    work.runStatuses.set(first, {
       run: theSearch().activeRun as never,
       phase: 'queued',
       failed: true,

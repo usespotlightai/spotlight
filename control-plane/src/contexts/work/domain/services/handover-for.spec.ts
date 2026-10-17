@@ -100,7 +100,7 @@ describe('HandoverFor.declared', () => {
     );
   });
 
-  it('will not pass a task where work does not pass to from where it stands', () => {
+  it('will not pass a task where work does not pass to from where it is', () => {
     const handover = declared('code-review', 'Looks done.');
 
     expect(handover.kind).toBe('review');
@@ -140,7 +140,7 @@ describe('HandoverFor.declared', () => {
     expect(handover.body.value).toContain('This line has no such station.');
   });
 
-  it('asks a person where the task stands on no line', () => {
+  it('asks a person where the task is on no line', () => {
     const handover = HandoverFor.declared(
       Declaration.of({ next: 'spec' }),
       null,
@@ -150,7 +150,7 @@ describe('HandoverFor.declared', () => {
     expect(handover.kind).toBe('review');
   });
 
-  it('stands in a body of its own where the run left the note empty', () => {
+  it('writes a body of its own where the run left the note empty', () => {
     expect(declared('spec').body.value).toBe('Passed on to Spec.');
     expect(declared('review').body.value).toContain('someone to look');
     expect(declared('done', undefined, 'station_2').body.value).toBe(
@@ -159,12 +159,12 @@ describe('HandoverFor.declared', () => {
   });
 });
 
-describe('HandoverFor.declared, at the station it stands at', () => {
+describe('HandoverFor.declared, at the station it is at', () => {
   it('asks a person instead of starting the same work again', () => {
     const handover = declared('triage', 'more of the same');
 
     expect(passedTo(handover)).toBeNull();
-    expect(handover.body.value).toContain('already stands');
+    expect(handover.body.value).toContain('is already there');
   });
 
   it('still passes a task on to a different station', () => {
@@ -174,7 +174,7 @@ describe('HandoverFor.declared, at the station it stands at', () => {
 
 describe('HandoverFor.after', () => {
   const declared = Declaration.of({ next: 'spec' });
-  const standingAt = StationId.of('station_1');
+  const currentStation = StationId.of('station_1');
 
   it('hands a stopped run back to a person, whatever it declared', () => {
     expect(
@@ -182,7 +182,7 @@ describe('HandoverFor.after', () => {
         outcome: RunOutcome.stopped(0),
         declared,
         line: LINE,
-        standingAt,
+        currentStation,
       }),
     ).toEqual(HandoverFor.stopped());
   });
@@ -193,7 +193,7 @@ describe('HandoverFor.after', () => {
         outcome: RunOutcome.of({ exitCode: 0, failed: false }),
         declared,
         line: LINE,
-        standingAt,
+        currentStation,
       }).kind,
     ).toBe('pass');
   });
@@ -203,14 +203,19 @@ describe('HandoverFor.after', () => {
     const silent = RunOutcome.of({ exitCode: 0, failed: false });
 
     expect(
-      HandoverFor.after({ outcome: failed, declared, line: LINE, standingAt }),
+      HandoverFor.after({
+        outcome: failed,
+        declared,
+        line: LINE,
+        currentStation,
+      }),
     ).toEqual(HandoverFor.outcome(failed));
     expect(
       HandoverFor.after({
         outcome: silent,
         declared: null,
         line: LINE,
-        standingAt,
+        currentStation,
       }),
     ).toEqual(HandoverFor.outcome(silent));
   });

@@ -134,7 +134,7 @@ describe('ProposedMemories', () => {
       screen.getByRole('button', { name: 'Edit memory 1' }),
     );
     const editor = screen.getByRole('textbox', {
-      name: 'The memory as it should stand',
+      name: 'The memory as it should be',
     });
     await userEvent.clear(editor);
     await userEvent.type(editor, 'One, edited.');
@@ -181,7 +181,7 @@ describe('ProposedMemories', () => {
       screen.getByRole('button', { name: 'Edit memory 1' }),
     );
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'The memory as it should stand' }),
+      screen.getByRole('textbox', { name: 'The memory as it should be' }),
       ' More.',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -197,7 +197,7 @@ describe('ProposedMemories', () => {
       screen.getByRole('button', { name: 'Edit memory 1' }),
     );
     await userEvent.clear(
-      screen.getByRole('textbox', { name: 'The memory as it should stand' }),
+      screen.getByRole('textbox', { name: 'The memory as it should be' }),
     );
 
     expect(

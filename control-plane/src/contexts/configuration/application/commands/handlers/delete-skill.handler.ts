@@ -28,15 +28,15 @@ export class DeleteSkillHandler
     const id = SkillDefinitionId.of(command.skillId);
 
     try {
-      const standing = await this.definitions.withId(id);
-      const permissions = standing
+      const existing = await this.definitions.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -44,13 +44,13 @@ export class DeleteSkillHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
-      const given = await this.given.onTeam(standing.teamId, 'skill');
+      const given = await this.given.onTeam(existing.teamId, 'skill');
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          standing.retire(
+          existing.retire(
             given,
             Attribution.of(command.actor, permissions.workspaceId),
           ),

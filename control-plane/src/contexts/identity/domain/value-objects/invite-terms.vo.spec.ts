@@ -25,7 +25,7 @@ describe('InviteTerms', () => {
     expect(terms.joins(TeamId.of('team_3'))).toBe(false);
   });
 
-  it('refuses to stand as offering to make an owner', () => {
+  it('refuses to offer to make an owner', () => {
     expect(() => InviteTerms.of(WorkspaceRole.owner, [])).toThrow(
       /offers to make an owner/,
     );

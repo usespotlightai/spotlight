@@ -1,6 +1,6 @@
 import type { PeriodDto } from '@outcomes/application/dto/insights.dto';
 import type { ConfigPart } from '@outcomes/application/ports/work.port';
-import type { StationJudgeStanding } from '@outcomes/application/services/trusted-judges.service';
+import type { StationJudgeCalibration } from '@outcomes/application/services/trusted-judges.service';
 import type { MeasureVerdict } from '@outcomes/domain/services/change-verdict';
 import type { JudgeShare } from '@outcomes/domain/services/judge-shares';
 import type { SizeBound } from '@outcomes/domain/services/run-size';
@@ -11,7 +11,10 @@ import type {
 } from '@outcomes/domain/services/setup-comparison';
 import type { Change } from '@outcomes/domain/value-objects/change.vo';
 
-export type StationStandingDto = Omit<StationJudgeStanding, 'rubricVersion'>;
+export type StationJudgeCalibrationDto = Omit<
+  StationJudgeCalibration,
+  'rubricVersion'
+>;
 
 export interface ChangeMarkerDto {
   readonly lineId: string;
@@ -32,7 +35,7 @@ export interface ChangeMarkerDto {
 export interface InsightsChangesDto {
   readonly period: PeriodDto;
   readonly markers: readonly ChangeMarkerDto[];
-  readonly judges: readonly StationStandingDto[];
+  readonly judges: readonly StationJudgeCalibrationDto[];
 }
 
 export type SetupOutcomeDto = SetupOutcome;
@@ -46,5 +49,5 @@ export interface InsightsSetupsDto {
   readonly currency: string | null;
   readonly setups: readonly SetupOutcomeDto[];
   readonly judgeWithheld: JudgeWithheld | null;
-  readonly judges: readonly StationStandingDto[];
+  readonly judges: readonly StationJudgeCalibrationDto[];
 }

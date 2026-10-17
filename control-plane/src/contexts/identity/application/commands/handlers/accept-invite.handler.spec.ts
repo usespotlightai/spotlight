@@ -30,7 +30,7 @@ const workspace = Workspace.rehydrate({
   version: 0,
 });
 
-const standing = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
+const sentInvite = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
   const offered = WorkspaceInvite.offer({
     id: InviteId.of('invite_1'),
     workspaceId: workspace.id,
@@ -53,7 +53,7 @@ const standing = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
   return invite;
 };
 
-const accepting = (invite: WorkspaceInvite | null = standing()) => {
+const accepting = (invite: WorkspaceInvite | null = sentInvite()) => {
   const dispatched: DomainEvent[] = [];
   const save = vi.fn(async (saved: WorkspaceInvite) => {
     dispatched.push(...saved.pullEvents());
@@ -111,7 +111,7 @@ describe('AcceptInviteHandler', () => {
     ]);
   });
 
-  it('is nothing to a link that stands for no invite', async () => {
+  it('is nothing to a link that points to no invite', async () => {
     const { handler, save } = accepting(null);
 
     await expect(handler.execute(accept())).resolves.toBeNull();
@@ -131,7 +131,7 @@ describe('AcceptInviteHandler', () => {
   });
 
   it('refuses an invite that has been taken back', async () => {
-    const { handler, save } = accepting(standing({ revoked: true }));
+    const { handler, save } = accepting(sentInvite({ revoked: true }));
 
     await expect(handler.execute(accept())).rejects.toThrow(/been revoked/);
     expect(save).not.toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe('AcceptInviteHandler', () => {
 
   it('refuses an invite that has run out', async () => {
     const { handler, save } = accepting(
-      standing({ sentAt: new Date('2026-08-01T09:00:00.000Z') }),
+      sentInvite({ sentAt: new Date('2026-08-01T09:00:00.000Z') }),
     );
 
     await expect(handler.execute(accept())).rejects.toThrow(/has expired/);

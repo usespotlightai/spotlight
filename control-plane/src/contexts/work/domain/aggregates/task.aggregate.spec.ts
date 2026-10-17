@@ -142,7 +142,7 @@ const saying = {
 };
 
 describe('Task', () => {
-  it('stands at the station it was added to', () => {
+  it('is at the station it was added to', () => {
     expect(added().stationId).toEqual(StationId.of('station_1'));
   });
 
@@ -200,7 +200,7 @@ describe('Task', () => {
     expect(added().id.value).toBe('task_1');
   });
 
-  it('stands at the station it was moved to', () => {
+  it('is at the station it was moved to', () => {
     const moved = added().react(
       LINE,
       StationId.of('station_2'),
@@ -224,14 +224,14 @@ describe('Task', () => {
     expect(moved.description?.value).toBe('## Steps');
   });
 
-  it('leaves the task it was moved from where it stood', () => {
+  it('leaves the task it was moved from where it was', () => {
     const task = added();
     task.react(LINE, StationId.of('station_2'), TaskRank.of('m'), saying);
 
     expect(task.stationId).toEqual(StationId.of('station_1'));
   });
 
-  it('takes a new place in the station it already stands at', () => {
+  it('takes a new place in the station it is already at', () => {
     const reordered = added().reorderTo(TaskRank.of('m'));
 
     expect(reordered.rank.value).toBe('m');
@@ -427,7 +427,7 @@ describe('Task, what it is doing', () => {
       expect(answered.stationId).toEqual(StationId.of('station_1'));
     });
 
-    it('survives being reordered where it stands', () => {
+    it('survives being reordered where it is', () => {
       const reordered = added()
         .recordSession(session, runner)
         .reorderTo(TaskRank.of('m'));
@@ -590,7 +590,7 @@ describe('Task, what it is doing', () => {
     const here = StationId.of('station_1');
     const aloud = { ...saying, voice: Voice.person(UserId.of('user_1')) };
 
-    it('joins the trail where the task still stands', () => {
+    it('joins the trail where the task still is', () => {
       const told = added().heard(aloud, here);
 
       expect(told.notes[0]?.kind).toBe('said');
@@ -839,7 +839,7 @@ describe('Task, what it is doing', () => {
       ).toThrow(InvalidTaskTransitionError);
     });
 
-    it('will not be passed to the station it already stands at', () => {
+    it('will not be passed to the station it is already at', () => {
       expect(() =>
         added().react(
           LINE,
@@ -862,7 +862,7 @@ describe('Task, what it is doing', () => {
       expect(carried.answer(NotePosition.of(2), saying).notes).toHaveLength(4);
     });
 
-    it('will not be moved to the station it already stands at', () => {
+    it('will not be moved to the station it is already at', () => {
       expect(() =>
         added().react(
           LINE,
@@ -1067,7 +1067,7 @@ describe('Task, what it is doing', () => {
       ).toEqual(StationId.of('station_2'));
     });
 
-    it('is passed on only where the line leads from where it stands', () => {
+    it('is passed on only where the line leads from where it is', () => {
       expect(() =>
         handed().passedOn(
           RUN,
@@ -1131,7 +1131,7 @@ describe('Task, what it is doing', () => {
       ],
     });
 
-    it('will not be moved by a line it does not stand on', () => {
+    it('will not be moved by a line it is not on', () => {
       expect(() =>
         added().react(
           ELSEWHERE,
@@ -1345,7 +1345,7 @@ describe('Task, what it is doing', () => {
   });
 
   describe('its trail', () => {
-    it('will not stand with a gap in it', () => {
+    it('refuses a gap in it', () => {
       expect(() =>
         Task.rehydrate({
           ...added(),
@@ -1573,7 +1573,7 @@ describe('Task, a failure reported on it', () => {
     ]);
   });
 
-  it('says which team’s line the failed task stands on', () => {
+  it('says which team’s line the failed task is on', () => {
     const [raised] = worked()
       .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
       .pullEvents()
@@ -1582,7 +1582,7 @@ describe('Task, a failure reported on it', () => {
     expect(raised?.teamId).toEqual(LINE.teamId);
   });
 
-  it('tells no team of a failure raised while the task stands on no line', () => {
+  it('tells no team of a failure raised while the task is on no line', () => {
     expect(
       worked()
         .failed(RUN_EXITED, failure('It exited 1.'), RUN, null)
@@ -1622,7 +1622,7 @@ describe('Task, a failure reported on it', () => {
     expect(asked?.at).toEqual(NOW);
   });
 
-  it('knows it has moved on from a station it no longer stands at', () => {
+  it('knows it has moved on from a station it is no longer at', () => {
     expect(added().movedOnFrom(HERE)).toBe(false);
     expect(added().movedOnFrom(StationId.of('station_2'))).toBe(true);
     expect(added().movedOnFrom(null)).toBe(false);
@@ -1640,7 +1640,7 @@ describe('Task, its revision', () => {
 
     expect(added().revision.value).toBe(0);
     expect(moved.revision.value).toBe(1);
-    expect(moved.standsAt(TaskRevision.of(1))).toBe(true);
+    expect(moved.isAtRevision(TaskRevision.of(1))).toBe(true);
   });
 
   it('counts being finished as a move', () => {
@@ -1692,7 +1692,7 @@ describe('Task and the happenings heard while it has a current run', () => {
     expect(letGo(moved)).toEqual([]);
   });
 
-  it('defers a move only while it has a current run, and never to where it stands', () => {
+  it('defers a move only while it has a current run, and never to where it is', () => {
     expect(() => added().deferMove(LINE, SPEC, world)).toThrow(
       InvalidTaskTransitionError,
     );

@@ -84,7 +84,7 @@ const CANDIDATES: readonly Memory[] = [
   kept('memory_elsewhere', MemoryScope.of({ teamId: TEAM, lineId: 'line_2' })),
 ];
 
-const STANDING: readonly KnownMemory[] = [
+const ACTIVE: readonly KnownMemory[] = [
   { id: 'memory_old', kind: 'preference', body: 'Retry twice.' },
 ];
 
@@ -239,7 +239,7 @@ describe('drafting what a run should leave the team remembering', () => {
       stepsLeftOut: 0,
       notes: SPOKEN,
       changed: CHANGED,
-      standing: STANDING,
+      active: ACTIVE,
       proposed: [],
       rejected: REJECTED,
     });

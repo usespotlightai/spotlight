@@ -167,7 +167,7 @@ describe('routeAfterRun', () => {
     });
   });
 
-  it('asks a person where the task stands on no line', () => {
+  it('asks a person where the task is on no line', () => {
     expect(routeAfterRun(Handover.done(said), null, working(BUILD))).toEqual({
       kind: 'ask',
       failure: null,

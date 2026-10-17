@@ -29,7 +29,7 @@ export function RememberedMemory({
         />,
       ]}
       retirable={
-        memory.standing === 'stands' ? { teamId, memoryId: memory.id } : null
+        memory.status === 'active' ? { teamId, memoryId: memory.id } : null
       }
       footer={
         memory.retirement && <RetirementNote retirement={memory.retirement} />

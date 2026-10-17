@@ -54,7 +54,7 @@ const tally = (over: Record<string, unknown> = {}) => ({
 
 const MEMORY = {
   period: { name: '30d' },
-  standing: 12,
+  activeCount: 12,
   memoriesBriefed: 7,
   memoriesRecalled: 2,
   runsBriefed: 30,
@@ -128,7 +128,7 @@ describe('memory in Insights', () => {
   it('leads to the team’s memory where it keeps none', () => {
     answer.memory = queried({
       ...MEMORY,
-      standing: 0,
+      activeCount: 0,
       memoriesBriefed: 0,
       memoriesRecalled: 0,
       flagged: [],
@@ -145,10 +145,10 @@ describe('memory in Insights', () => {
     showing();
 
     const tiles = screen.getByLabelText('Memory use');
-    const standing = within(tiles)
-      .getByText('Standing memories')
+    const active = within(tiles)
+      .getByText('Active memories')
       .closest('[data-slot="insights-tile"]') as HTMLElement;
-    expect(standing).toHaveTextContent('12');
+    expect(active).toHaveTextContent('12');
     expect(within(tiles).getByText('to 30 runs')).toBeInTheDocument();
 
     const compared = screen.getByRole('list', {

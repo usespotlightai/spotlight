@@ -38,7 +38,7 @@ type HostPresence struct {
 	Images   []HostImage `json:"images"`
 }
 
-type HostStanding struct {
+type HeartbeatResponse struct {
 	Workspace string `json:"workspace"`
 }
 

@@ -25,7 +25,7 @@ export const frontierOf = <Point extends FrontierPoint>(
   points: readonly Point[],
   objective: SearchObjective,
 ): readonly Point[] => {
-  const standing = points.filter(
+  const eligible = points.filter(
     (each) =>
       each.seed ||
       (each.finished &&
@@ -34,9 +34,9 @@ export const frontierOf = <Point extends FrontierPoint>(
           isSuccess(each.searchedVerdict, each.seed))),
   );
 
-  return standing
+  return eligible
     .filter(
-      (each) => each.seed || !standing.some((other) => dominates(other, each)),
+      (each) => each.seed || !eligible.some((other) => dominates(other, each)),
     )
     .sort(
       (one, other) =>

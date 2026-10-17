@@ -158,7 +158,7 @@ export class ChatProposalResponseDto {
     type: Number,
     nullable: true,
     example: 2,
-    description: 'Where the station stands on its line, from 0',
+    description: 'The position of the station on its line, from 0',
   })
   readonly stationPosition: number | null;
 

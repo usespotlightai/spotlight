@@ -132,23 +132,23 @@ describe('a line that drops a station', () => {
     return { whole, without, reviewId };
   };
 
-  it('refuses to drop one work still stands at, rather than deleting the work', async () => {
+  it('refuses to drop a station that still has work, and keeps the work', async () => {
     const { whole, without, reviewId } = await withReview();
-    const standing = added(whole, reviewId);
-    await tasks.add(standing);
+    const task = added(whole, reviewId);
+    await tasks.add(task);
 
     await expect(
       new DrizzleLineRepository(context, quiet).save(without),
     ).rejects.toBeInstanceOf(StrandedWorkError);
-    await expect(tasks.find(standing.id)).resolves.not.toBeNull();
+    await expect(tasks.find(task.id)).resolves.not.toBeNull();
   });
 
-  it('tallies what stands there while it locks the stations', async () => {
+  it('counts the tasks at each station while it locks the stations', async () => {
     const { whole, reviewId } = await withReview();
     await tasks.add(added(whole, reviewId));
 
     const tally = await context.inTransaction(() =>
-      new DrizzleStationTallies(context).lockedStandingAt([reviewId]),
+      new DrizzleStationTallies(context).lockedTaskCountsAt([reviewId]),
     );
 
     expect(tally.get(reviewId.value)).toBe(1);

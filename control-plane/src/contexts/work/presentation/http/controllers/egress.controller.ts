@@ -244,7 +244,7 @@ export class EgressController {
     operationId: 'recordEgressConnections',
     summary: 'Records the connections a shared egress made for its runs',
     description:
-      'Called by a shared egress with its egress token. Spotlight keeps each record with its run for 30 days. It keeps a record only when the run still names the runner of the proxy credential, and that runner stands or ended at most 2 minutes before.',
+      'Called by a shared egress with its egress token. Spotlight keeps each record with its run for 30 days. It keeps a record only when the run still names the runner of the proxy credential, and that runner is active, or ended at most 2 minutes before.',
   })
   @ApiNoContentResponse({ description: 'The records were taken' })
   @ApiUnprocessableEntityResponse({

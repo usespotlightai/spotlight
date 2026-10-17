@@ -12,7 +12,7 @@ export class DraftChangeStackRequestDto {
 
   @ApiProperty({
     nullable: true,
-    description: 'The commit the checkout stood at when the run began',
+    description: 'The commit of the checkout when the run began',
   })
   readonly base!: string | null;
 }

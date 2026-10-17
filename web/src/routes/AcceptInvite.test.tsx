@@ -54,7 +54,7 @@ const offered = (over: Record<string, unknown> = {}) => ({
     invitedBy: 'Leon Liang',
     role: 'member',
     teamNames: ['Platform'],
-    standing: 'open',
+    status: 'open',
     ...over,
   },
   isPending: false,
@@ -182,8 +182,8 @@ describe('AcceptInvite', () => {
     ['accepted', 'This invitation is already accepted.'],
     ['revoked', 'This invitation is withdrawn.'],
     ['expired', 'This invitation has expired. Please ask for a new one.'],
-  ])('says an invitation that is %s is no longer open', (standing, said) => {
-    invite.mockReturnValue(offered({ standing }));
+  ])('says an invitation that is %s is no longer open', (status, said) => {
+    invite.mockReturnValue(offered({ status }));
     session.mockReturnValue({
       data: { user: { email: 'ada@example.com' } },
       isPending: false,
@@ -196,7 +196,7 @@ describe('AcceptInvite', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says so when the link stands for no invitation', () => {
+  it('says so when the link matches no invitation', () => {
     invite.mockReturnValue({
       data: null,
       isPending: false,

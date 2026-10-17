@@ -64,7 +64,7 @@ const bearers = (
   );
 
 describe('TokenBearers', () => {
-  it('knows a minted token while its trust stands as it was', async () => {
+  it('knows a minted token while its trust is the same as when the token was minted', async () => {
     expect(await bearers(MINTED, trustAt(1)).identify('bearer')).toMatchObject({
       mintedThrough: WorkspaceTokenTrustId.of('trust_1'),
     });

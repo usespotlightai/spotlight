@@ -3,8 +3,8 @@ import type { ReviewsPort } from '@memory/application/ports/reviews.port';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
+import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
-import { MemoryStood } from '@memory/domain/events/memory-stood.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -110,19 +110,19 @@ describe('reacting to memories being proposed and decided', () => {
     expect(reviews.settle).toHaveBeenCalledWith(TASK, RUN);
   });
 
-  it('keeps an approved memory standing, once however often it hears so', async () => {
+  it('keeps an approved memory active, once however often it hears so', async () => {
     const { reactions, memories, stored } = reacting();
 
     await reactions.onApproved(approved());
     await reactions.onApproved(approved());
 
     expect(memories.add).toHaveBeenCalledTimes(1);
-    expect(stored[0]?.standing).toBe('stands');
+    expect(stored[0]?.status).toBe('active');
     expect(stored[0]?.approval.equals(ADA)).toBe(true);
   });
 
-  it('keeps an approved memory without claiming to replace one that no longer stands', async () => {
-    const gone = Memory.stood({
+  it('keeps an approved memory without claiming to replace one that is no longer active', async () => {
+    const gone = Memory.create({
       id: OLD,
       handle: MemoryHandle.of(1),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -141,8 +141,8 @@ describe('reacting to memories being proposed and decided', () => {
     expect(stored.find((each) => each.id.equals(NEW))?.supersedes).toBeNull();
   });
 
-  it('retires the memory a newly standing one supersedes', async () => {
-    const old = Memory.stood({
+  it('retires the memory that a newly active one supersedes', async () => {
+    const old = Memory.create({
       id: OLD,
       handle: MemoryHandle.of(2),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -156,14 +156,14 @@ describe('reacting to memories being proposed and decided', () => {
     });
     const { reactions, stored } = reacting([old]);
 
-    await reactions.onStood(new MemoryStood(NEW, OLD));
+    await reactions.onCreated(new MemoryCreated(NEW, OLD));
 
-    expect(stored[0]?.standing).toBe('retired');
+    expect(stored[0]?.status).toBe('retired');
     expect(stored[0]?.retirement?.supersededBy?.equals(NEW)).toBe(true);
   });
 
-  it('leaves a memory already superseded by another standing as it was', async () => {
-    const old = Memory.stood({
+  it('leaves a memory already superseded by another active one as it was', async () => {
+    const old = Memory.create({
       id: OLD,
       handle: MemoryHandle.of(3),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -177,7 +177,7 @@ describe('reacting to memories being proposed and decided', () => {
     }).supersedeWith(MemoryId.of('memory_first'), NOW);
     const { reactions, memories, stored } = reacting([old]);
 
-    await reactions.onStood(new MemoryStood(NEW, OLD));
+    await reactions.onCreated(new MemoryCreated(NEW, OLD));
 
     expect(memories.save).not.toHaveBeenCalled();
     expect(

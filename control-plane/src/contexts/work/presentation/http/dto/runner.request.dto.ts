@@ -29,7 +29,7 @@ export class DeclaredOutcomeDto {
   @ApiProperty({
     example: 'code-review',
     description:
-      'The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task where it stands. Anything this line does not know is treated as a question for a person.',
+      'The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task at its current station. Anything this line does not know is treated as a question for a person.',
   })
   readonly next!: string;
 

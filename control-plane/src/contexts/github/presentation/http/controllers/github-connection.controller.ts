@@ -1,8 +1,8 @@
 import { ConnectGitHubCommand } from '@github/application/commands/connect-github.command';
-import type { GitHubStandingDto } from '@github/application/dto/github-standing.dto';
+import type { GitHubConnectionStatusDto } from '@github/application/dto/github-connection-status.dto';
 import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { ConnectGitHubRequestDto } from '@github/presentation/http/dto/connect-github.request.dto';
-import { GitHubStandingResponseDto } from '@github/presentation/http/dto/github-standing.response.dto';
+import { GitHubConnectionStatusResponseDto } from '@github/presentation/http/dto/github-connection-status.response.dto';
 import {
   Body,
   Controller,
@@ -44,22 +44,25 @@ export class GitHubConnectionController {
       'Whether this workspace is connected to GitHub, and where to install the App',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
-  @ApiOkResponse({ type: GitHubStandingResponseDto })
+  @ApiOkResponse({ type: GitHubConnectionStatusResponseDto })
   @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
   async read(
     @Param('slug') slug: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<GitHubStandingResponseDto> {
+  ): Promise<GitHubConnectionStatusResponseDto> {
     const read = await this.queryBus.execute<
       ReadGitHubQuery,
-      GitHubStandingDto | null
+      GitHubConnectionStatusDto | null
     >(new ReadGitHubQuery(slug, user.id));
 
     if (!read) {
       throw new NotFoundException();
     }
 
-    return new GitHubStandingResponseDto(read.connected, read.installUrl);
+    return new GitHubConnectionStatusResponseDto(
+      read.connected,
+      read.installUrl,
+    );
   }
 
   @Post()

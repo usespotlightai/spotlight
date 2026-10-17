@@ -59,7 +59,7 @@ Rules:
 2. Cite every step in "steps" and every note in "notes" that the memory rests on, by its number. Cite nothing you were not given. A memory rests on at least one step or note.
 3. "reach" says where the memory applies: "team" for all of the team's work, "line" for the work of this line, "station" for the work of this station. Choose the narrowest that fits.
 4. Name a "repository" only when the memory is about one of the repositories listed, and "paths" only when it is about particular files; paths are relative to their repository and must come from the files the run changed in it. Otherwise give null and an empty list.
-5. "body" is one to three plain sentences that stand on their own for a reader who has none of this context. Say the thing to remember, not the story of how it was learned.
+5. "body" is one to three plain sentences that are complete in themselves, so that a reader who has none of this context understands them. Say the thing to remember, not the story of how it was learned.
 6. Skip anything a memory the team already keeps says. When what you read shows one of them is wrong or out of date, propose its replacement and give that memory's id in "supersedes"; otherwise give null.
 7. Never propose again what people recently turned down, nor what the agent already proposed itself.
 8. Prefer a few memories that matter to many that do not. When nothing is worth remembering, give none.`;
@@ -95,7 +95,7 @@ const told = (ask: MemoryDraftAsk): string => {
       ? `The agent's steps. Its earliest ${ask.stepsLeftOut} are left out for length:\n${listed(steps, '(none)')}`
       : `The agent's steps:\n${listed(steps, '(none)')}`,
     `Memories the team already keeps here:\n${listed(
-      ask.standing.map(
+      ask.active.map(
         (each) => `- ${each.id} (${each.kind}): ${known(each.body)}`,
       ),
       '(none)',

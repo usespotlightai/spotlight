@@ -29,7 +29,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
 
-const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
+const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
@@ -38,7 +38,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     name: LineName.of('Delivery'),
     stations: [
       Station.of({
-        id: StationId.of(standsAt),
+        id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
@@ -78,7 +78,7 @@ const binding = (found: Line | null = line) =>
   } as unknown as LineRepository);
 
 describe('TaskBindings', () => {
-  it('says where a task stands, in words an outside host can use', async () => {
+  it('says where a task is, in words an outside host can use', async () => {
     await expect(binding().of(task())).resolves.toEqual({
       taskId: 'task_1',
       workspaceId: 'ws_1',

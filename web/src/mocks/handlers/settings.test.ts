@@ -140,7 +140,7 @@ describe('the mock settings', () => {
 
     expect(
       configuration.integrations.find((each) => each.source === 'linear'),
-    ).toMatchObject({ standing: 'linked', handle: '@acme-bot' });
+    ).toMatchObject({ connectionStatus: 'linked', handle: '@acme-bot' });
     expect(
       configuration.integrations.flatMap(({ source, described }) =>
         described
@@ -175,7 +175,8 @@ describe('the mock settings', () => {
 
     expect(connections.mine).toEqual([]);
     expect(
-      data.integrations.find((each) => each.source === 'linear')?.standing,
+      data.integrations.find((each) => each.source === 'linear')
+        ?.connectionStatus,
     ).toBe('linked');
   });
 

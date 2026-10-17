@@ -67,7 +67,7 @@ const station = (key: string): StationPlan => ({
   ends: false,
 });
 
-const asStanding = (existing: Line): LinePlan =>
+const asPlan = (existing: Line): LinePlan =>
   LinePlan.of({
     key: existing.key,
     name: existing.name,
@@ -103,7 +103,7 @@ const TEAM_PROFILE: TeamProfile = {
 const applying = (
   plan: LinePlan,
   over: {
-    standing?: readonly Line[];
+    teamLines?: readonly Line[];
     tasks?: Record<string, number>;
     existing?: Line;
   } = {},
@@ -113,8 +113,8 @@ const applying = (
   const add = vi.fn(async () => {});
 
   const lines = {
-    ofWorkspace: vi.fn(async () => over.standing ?? [existing]),
-    ofTeam: vi.fn(async () => over.standing ?? [existing]),
+    ofWorkspace: vi.fn(async () => over.teamLines ?? [existing]),
+    ofTeam: vi.fn(async () => over.teamLines ?? [existing]),
     save,
     add,
     find: vi.fn(),
@@ -133,8 +133,8 @@ const applying = (
     );
 
   const tallies = {
-    standingAt: vi.fn(tally),
-    lockedStandingAt: vi.fn(tally),
+    taskCountsAt: vi.fn(tally),
+    lockedTaskCountsAt: vi.fn(tally),
   } satisfies StationTalliesPort;
 
   let next = 100;
@@ -160,7 +160,7 @@ describe('ApplyLines', () => {
   it('makes the line say what its definition says', async () => {
     const existing = line();
     const { applied, save } = applying(
-      like(asStanding(existing), { name: LineName.of('Renamed') }),
+      like(asPlan(existing), { name: LineName.of('Renamed') }),
       { existing },
     );
 
@@ -176,7 +176,7 @@ describe('ApplyLines', () => {
   it('hands back the line as it applied it', async () => {
     const existing = line();
     const { applied } = applying(
-      like(asStanding(existing), { name: LineName.of('Renamed') }),
+      like(asPlan(existing), { name: LineName.of('Renamed') }),
       { existing },
     );
 
@@ -190,7 +190,7 @@ describe('ApplyLines', () => {
 
   it('leaves every station the station it was', async () => {
     const existing = line();
-    const { applied, save } = applying(asStanding(existing), { existing });
+    const { applied, save } = applying(asPlan(existing), { existing });
 
     await applied();
 
@@ -205,7 +205,7 @@ describe('ApplyLines', () => {
 
   it('changes nothing where the plan would strand somebody’s work', async () => {
     const existing = line();
-    const plan = asStanding(existing);
+    const plan = asPlan(existing);
     const going = plan.stations[1]?.key.value as string;
 
     const { applied, save } = applying(
@@ -220,17 +220,17 @@ describe('ApplyLines', () => {
 
   it('locks the stations it tallies until the change is written', async () => {
     const existing = line();
-    const { applied, tallies } = applying(asStanding(existing), { existing });
+    const { applied, tallies } = applying(asPlan(existing), { existing });
 
     await applied();
 
-    expect(tallies.lockedStandingAt).toHaveBeenCalledTimes(1);
-    expect(tallies.standingAt).not.toHaveBeenCalled();
+    expect(tallies.lockedTaskCountsAt).toHaveBeenCalledTimes(1);
+    expect(tallies.taskCountsAt).not.toHaveBeenCalled();
   });
 
   it('refuses a change that would strand work that arrived after the tally', async () => {
     const existing = line();
-    const { applied, save } = applying(asStanding(existing), { existing });
+    const { applied, save } = applying(asPlan(existing), { existing });
 
     save.mockRejectedValueOnce(new StrandedWorkError(['station_2']));
 
@@ -242,7 +242,7 @@ describe('ApplyLines', () => {
   it('opens a line the team does not have from its definition', async () => {
     const existing = line();
     const { applied, add, save } = applying(
-      like(asStanding(existing), { key: LineKey.of('release') }),
+      like(asPlan(existing), { key: LineKey.of('release') }),
       { existing },
     );
 
@@ -259,7 +259,7 @@ describe('ApplyLines', () => {
 
   it('opens no line under a key the team already has', async () => {
     const existing = line();
-    const { add } = applying(asStanding(existing), { existing });
+    const { add } = applying(asPlan(existing), { existing });
     const applier = new ApplyLines(
       {
         ofTeam: vi.fn(async () => [existing]),
@@ -270,14 +270,14 @@ describe('ApplyLines', () => {
     );
 
     await expect(
-      applier.open(TEAM_PROFILE, asStanding(existing), attributedIn()),
+      applier.open(TEAM_PROFILE, asPlan(existing), attributedIn()),
     ).rejects.toThrow(LineAlreadyOpenedError);
     expect(add).not.toHaveBeenCalled();
   });
 
   it('opens no line that claims a role another line already has', async () => {
     const existing = line();
-    const base = asStanding(existing);
+    const base = asPlan(existing);
     const claiming = like(base, {
       key: LineKey.of('one'),
       role: LineRole.REVIEW,
@@ -285,10 +285,10 @@ describe('ApplyLines', () => {
     const withRole = applying(like(base, { role: LineRole.REVIEW }), {
       existing,
     });
-    const standing = await withRole.applied();
+    const reviewLine = await withRole.applied();
     const { applied, add } = applying(
       like(claiming, { key: LineKey.of('two') }),
-      { existing, standing: [standing] },
+      { existing, teamLines: [reviewLine] },
     );
 
     await expect(applied()).rejects.toThrow(LineRoleTakenError);
@@ -299,13 +299,13 @@ describe('ApplyLines', () => {
   it('lets a line keep the role it already claims', async () => {
     const existing = line();
     const withRole = applying(
-      like(asStanding(existing), { role: LineRole.REVIEW }),
+      like(asPlan(existing), { role: LineRole.REVIEW }),
       { existing },
     );
-    const standing = await withRole.applied();
+    const reviewLine = await withRole.applied();
     const { applied, save } = applying(
-      like(asStanding(standing), { role: LineRole.REVIEW }),
-      { existing: standing, standing: [standing] },
+      like(asPlan(reviewLine), { role: LineRole.REVIEW }),
+      { existing: reviewLine, teamLines: [reviewLine] },
     );
 
     await applied();
@@ -315,7 +315,7 @@ describe('ApplyLines', () => {
 
   it('gives a station nobody had before an identity of its own', async () => {
     const existing = line();
-    const plan = asStanding(existing);
+    const plan = asPlan(existing);
 
     const { applied, save } = applying(
       like(plan, {

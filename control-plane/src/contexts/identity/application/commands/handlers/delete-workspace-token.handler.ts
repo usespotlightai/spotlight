@@ -28,15 +28,15 @@ export class DeleteWorkspaceTokenHandler
     const id = WorkspaceTokenId.of(command.tokenId);
 
     try {
-      const standing = await this.tokens.find(id);
-      const permissions = standing
+      const existing = await this.tokens.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -44,11 +44,11 @@ export class DeleteWorkspaceTokenHandler
         return forbiddenTo('administer');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(() =>
         this.tokens.save(
-          standing.revoke(Attribution.of(command.actor, standing.workspaceId)),
+          existing.revoke(Attribution.of(command.actor, existing.workspaceId)),
         ),
       );
 

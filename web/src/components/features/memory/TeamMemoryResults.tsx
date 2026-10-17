@@ -89,11 +89,7 @@ export function TeamMemoryResults({
     );
   }
 
-  if (
-    listed.length === 0 &&
-    !narrowed(filter) &&
-    filter.standing === 'stands'
-  ) {
+  if (listed.length === 0 && !narrowed(filter) && filter.status === 'active') {
     return (
       <Notice>
         <EmptyState
@@ -112,7 +108,7 @@ export function TeamMemoryResults({
     return (
       <Notice>
         <p className="text-muted-foreground text-sm">
-          {filter.standing === 'retired'
+          {filter.status === 'retired'
             ? 'No retired memories match.'
             : 'No memories match.'}
         </p>

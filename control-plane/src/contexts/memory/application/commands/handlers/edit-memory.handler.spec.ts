@@ -7,7 +7,7 @@ import { MemoryAccess } from '@memory/application/services/memory-access.service
 import { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import { MemoryStood } from '@memory/domain/events/memory-stood.event';
+import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -83,7 +83,7 @@ const editing = (member = true) => {
 };
 
 describe('EditMemoryHandler', () => {
-  it('stands a successor to supersede the memory, leaving its retirement to the successor standing', async () => {
+  it('makes a successor active to supersede the memory, and lets the successor retire it', async () => {
     const { added, memories, edit } = editing();
 
     const edited = await edit();
@@ -92,7 +92,7 @@ describe('EditMemoryHandler', () => {
     expect(memories.save).not.toHaveBeenCalled();
     expect(added).toHaveLength(1);
     expect(added[0]?.pullEvents()).toEqual([
-      new MemoryStood(MemoryId.of('memory_new'), OLD.id),
+      new MemoryCreated(MemoryId.of('memory_new'), OLD.id),
     ]);
   });
 

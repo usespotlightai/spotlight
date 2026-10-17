@@ -489,7 +489,7 @@ describe('how often the judge agrees with people', () => {
       );
     }
 
-    const { report, standing } = await reports.at({
+    const { report, calibration } = await reports.at({
       workspaceId: WORKSPACE,
       teamId: TEAM,
       lineId: 'line_1',
@@ -505,15 +505,15 @@ describe('how often the judge agrees with people', () => {
       [1, 6],
     ]);
     expect(report.coverage.runs).toBe(12);
-    expect(standing).toMatchObject({ trusted: true, measure: 'kappa' });
+    expect(calibration).toMatchObject({ trusted: true, measure: 'kappa' });
     expect(
-      await reports.standingAt({
+      await reports.calibrationAt({
         workspaceId: WORKSPACE,
         teamId: TEAM,
         lineId: 'line_1',
         stationId: 'station_1',
       }),
-    ).toEqual({ rubricVersion: VERSION, standing });
+    ).toEqual({ rubricVersion: VERSION, calibration });
   });
 
   it('forgets a deleted task’s judgings and scores', async () => {
@@ -651,7 +651,7 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
     expect(kept?.marks).toEqual([true, true]);
     expect(kept?.reasons.map((each) => each.claim)).toEqual([0, 1]);
 
-    const { report, standing } = await reports.at({
+    const { report, calibration } = await reports.at({
       workspaceId: WORKSPACE,
       teamId: TEAM,
       lineId: 'line_1',
@@ -669,7 +669,7 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
     });
     expect(version?.agreement.claims[1]?.observed).toBeCloseTo(7 / 12);
     expect(version?.agreement.observed).toBeCloseTo(19 / 24);
-    expect(standing).toMatchObject({
+    expect(calibration).toMatchObject({
       measure: 'kappa',
       pairs: 12,
       agreement: version?.agreement.kappa,

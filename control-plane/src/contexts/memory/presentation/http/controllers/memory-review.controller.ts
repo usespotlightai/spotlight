@@ -82,7 +82,7 @@ export class MemoryReviewController {
   @ApiOperation({
     operationId: 'approveMemories',
     summary:
-      'Let proposed memories stand, as proposed or as edited, keeping what they rest on',
+      'Make proposed memories active, as proposed or as edited, and keep what they rest on',
   })
   @ApiBody({ type: ApproveMemoriesRequestDto })
   @ApiOkResponse({ type: MemoryReviewResponseDto })

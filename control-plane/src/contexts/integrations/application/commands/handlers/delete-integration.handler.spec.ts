@@ -6,7 +6,7 @@ import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import {
   access,
   definitions,
-  standingAt,
+  storedAt,
   toolsGiven,
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
@@ -20,7 +20,7 @@ const deleting = (
     given?: ToolUses;
   } & Parameters<typeof definitions>[0] = {},
 ) => {
-  const kept = definitions({ standing: standingAt(3), ...over });
+  const kept = definitions({ stored: storedAt(3), ...over });
   const handler = new DeleteIntegrationHandler(
     access(over.administers),
     kept,
@@ -65,7 +65,7 @@ describe('DeleteIntegrationHandler', () => {
   it('names the version that won when a change got there first', async () => {
     const { remove } = deleting({
       refusing: new IntegrationDefinitionVersionConflictError('linear'),
-      thenAt: standingAt(4),
+      thenAt: storedAt(4),
     });
 
     expect(await remove()).toEqual({
@@ -76,7 +76,7 @@ describe('DeleteIntegrationHandler', () => {
 
   it('will not delete an integration whose tools a station gives', async () => {
     const { remove, kept } = deleting({
-      standing: standingAt(3, ['linear.comment']),
+      stored: storedAt(3, ['linear.comment']),
       given: ToolUses.of([
         { tool: 'linear.comment', by: 'the station delivery/implementation' },
       ]),
@@ -87,7 +87,7 @@ describe('DeleteIntegrationHandler', () => {
   });
 
   it('answers nothing for an integration it cannot find, and forbids one it may not delete', async () => {
-    expect(await deleting({ standing: null }).remove()).toBeNull();
+    expect(await deleting({ stored: null }).remove()).toBeNull();
     expect(await deleting({ administers: false }).remove()).toEqual(
       forbiddenTo('configure'),
     );

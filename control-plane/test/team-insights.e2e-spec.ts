@@ -577,7 +577,7 @@ describe('the team’s insights (e2e)', () => {
 
     expect(answer.status).toBe(200);
     expect(answer.body).toMatchObject({
-      standing: 0,
+      activeCount: 0,
       memoriesBriefed: 0,
       flagged: [],
       benchmark: null,

@@ -34,11 +34,11 @@ export class DeleteWorkspaceHandler
     const id = WorkspaceId.of(command.workspaceId);
 
     try {
-      const standing = await this.workspaces.find(id);
+      const existing = await this.workspaces.find(id);
 
-      const permissions = standing?.permissionsFor(command.actor.principal);
+      const permissions = existing?.permissionsFor(command.actor.principal);
 
-      if (!standing || !permissions?.reads) {
+      if (!existing || !permissions?.reads) {
         return null;
       }
 
@@ -46,7 +46,7 @@ export class DeleteWorkspaceHandler
         return forbiddenTo('administer');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const remaining = Dependents.of(await this.dependents.of(id));
 
@@ -57,7 +57,7 @@ export class DeleteWorkspaceHandler
         const minting = await this.resources.mintingTrustKeysIn(id);
 
         await this.workspaces.save(
-          standing.close(
+          existing.close(
             teams.map((each) => TeamKey.of(each)),
             tokens.map((each) => TokenName.of(each)),
             trusts.map((each) => TokenTrustKey.of(each)),

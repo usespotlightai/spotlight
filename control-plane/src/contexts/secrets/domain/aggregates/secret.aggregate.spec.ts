@@ -114,7 +114,7 @@ describe('Secret', () => {
   });
 
   describe('redefined', () => {
-    it('keeps its old value while valueWoVersion stands, whatever value is sent', () => {
+    it('keeps its old value while valueWoVersion does not change, whatever value is sent', () => {
       const redefined = kept().redefinedAs(
         definition({ value: 'lin_api_ignored' }),
         BY,
@@ -143,7 +143,7 @@ describe('Secret', () => {
       ]);
     });
 
-    it('refuses a new valueWoVersion without the value it stands for', () => {
+    it('refuses a new valueWoVersion without the value of that version', () => {
       expect(() =>
         kept().redefinedAs(
           definition({ value: null, valueVersion: 2 }),
@@ -310,7 +310,7 @@ describe('Secret', () => {
       ]);
     });
 
-    it('stands for the grant a run needs to wear it toward an address', () => {
+    it('gives the grant a run needs to wear it toward an address', () => {
       const grant = kept().grantToward(
         RunId.of('run_1'),
         'https://api.linear.app/graphql',

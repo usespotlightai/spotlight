@@ -25,13 +25,13 @@ const query = (data: unknown, failing = false, refetch = vi.fn()) => ({
   refetch,
 });
 
-const mutation = (mutate: (...args: unknown[]) => void, standing: string) => ({
+const mutation = (mutate: (...args: unknown[]) => void, state: string) => ({
   mutate,
   reset: vi.fn(),
-  isPending: standing === 'pending',
-  isError: standing === 'failed',
-  isSuccess: standing === 'done',
-  error: standing === 'failed' ? new Error('') : null,
+  isPending: state === 'pending',
+  isError: state === 'failed',
+  isSuccess: state === 'done',
+  error: state === 'failed' ? new Error('') : null,
   variables: undefined,
 });
 

@@ -57,7 +57,7 @@ const proposal = (
   steps: [],
   notes: [],
   handle: null,
-  standing: null,
+  status: null,
   ...over,
 });
 
@@ -84,7 +84,7 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
         state: 'approved',
         decision: { by: MAYA.id, name: MAYA.name, at: GONE.approvedAt },
         handle: GONE.handle,
-        standing: 'stands',
+        status: 'active',
         steps: [
           groundStep('run_retries_2', GONE_THOUGHT),
           groundStep('run_retries_2', GONE_REMEMBER, 'remember'),
@@ -115,7 +115,7 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
 
 const MAX_BRIEFED = 4;
 
-const standsAt = (memory: MemoryRecord, at: string): boolean =>
+const activeAt = (memory: MemoryRecord, at: string): boolean =>
   memory.approvedAt <= at &&
   (memory.retirement === null || memory.retirement.at > at);
 
@@ -155,7 +155,7 @@ const briefedFor = (runId: string): TeamMemoryResponseDto[] => {
   return run
     ? (MEMORY_SEED[run.teamId] ?? [])
         .filter(
-          (memory) => standsAt(memory, run.startedAt) && reaches(memory, run),
+          (memory) => activeAt(memory, run.startedAt) && reaches(memory, run),
         )
         .slice(0, MAX_BRIEFED)
         .map(briefedOf)

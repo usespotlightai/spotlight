@@ -15,7 +15,7 @@ export interface TaskRepository {
 
   remove(task: Task): Promise<void>;
 
-  standingAt(stationId: StationId): Promise<Task[]>;
+  allAtStation(stationId: StationId): Promise<Task[]>;
 
   // Locks the task until the transaction ends.
   findByMarks(

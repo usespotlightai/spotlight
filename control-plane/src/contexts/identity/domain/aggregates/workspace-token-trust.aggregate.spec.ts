@@ -121,7 +121,7 @@ describe('WorkspaceTokenTrust', () => {
     ).toThrow(WorkloadNotAdmittedError);
   });
 
-  it('still grants a token only while it stands as it was when the token was minted', () => {
+  it('still grants a token only while it is the same as when the token was minted', () => {
     const token = minted(kept(2));
 
     expect(token.mintedUnder).toBe(2);
@@ -133,10 +133,10 @@ describe('WorkspaceTokenTrust', () => {
   });
 
   it('changes nothing, and so cuts no token, when redefined as it already is', () => {
-    const standing = kept();
+    const trust = kept();
 
-    expect(standing.redefinedAs(terms(), Grantor.unlimited, BY)).toBe(standing);
-    expect(standing.pullEvents()).toEqual([]);
+    expect(trust.redefinedAs(terms(), Grantor.unlimited, BY)).toBe(trust);
+    expect(trust.pullEvents()).toEqual([]);
     expect(
       kept()
         .redefinedAs(terms({ minutes: 5 }), Grantor.unlimited, BY)

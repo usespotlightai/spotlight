@@ -28,7 +28,12 @@ interface Turn {
 }
 
 const handoverOf = (task: Task, { outcome, declared, line }: Turn) =>
-  HandoverFor.after({ outcome, declared, line, standingAt: task.stationId });
+  HandoverFor.after({
+    outcome,
+    declared,
+    line,
+    currentStation: task.stationId,
+  });
 
 const asksAPerson = (turn: Turn): boolean => {
   const { run, task, line, outcome } = turn;

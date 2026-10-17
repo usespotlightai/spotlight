@@ -325,7 +325,7 @@ describe('Workspace', () => {
       ).toThrow(LastOwnerError);
     });
 
-    it('is no change where they already stand there', () => {
+    it('is no change where they already have that role', () => {
       const workspace = staff();
 
       expect(workspace.changeRole(MEMBER, WorkspaceRole.member, ADMIN)).toBe(
@@ -333,7 +333,7 @@ describe('Workspace', () => {
       );
     });
 
-    it('says whose standing changed, and from what to what', () => {
+    it('says whose role changed, and from what to what', () => {
       const changed = staff().changeRole(MEMBER, WorkspaceRole.admin, OWNER);
 
       expect(changed.pullEvents()).toMatchObject([

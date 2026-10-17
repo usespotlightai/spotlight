@@ -56,10 +56,10 @@ const groundsOf = (row: Row): MemoryGrounds | null => {
 };
 
 const toMemory = (row: Row): Memory => {
-  if ((row.standing === 'retired') !== (row.retiredAt !== null)) {
+  if ((row.status === 'retired') !== (row.retiredAt !== null)) {
     throw new InconsistentStateError(
       'memory',
-      'stands while retired, or is retired without saying when',
+      'has a retirement date but is not retired, or is retired without a date',
     );
   }
 
@@ -96,20 +96,20 @@ const toMemory = (row: Row): Memory => {
 };
 
 const changedColumnsOf = (stored: Memory) => ({
-  standing: stored.standing,
+  status: stored.status,
   retiredAt: stored.retirement?.at ?? null,
   retiredBy: stored.retirement?.by?.value ?? null,
   retireReason: stored.retirement?.reason ?? null,
   supersededBy: stored.retirement?.supersededBy?.value ?? null,
 });
 
-export const standingWhen = (at: Date | null) =>
+export const activeAsOf = (at: Date | null) =>
   at
     ? and(
         lte(memory.approvedAt, at),
         or(isNull(memory.retiredAt), gt(memory.retiredAt, at)),
       )
-    : eq(memory.standing, 'stands');
+    : eq(memory.status, 'active');
 
 @Injectable()
 export class DrizzleMemoryRepository implements MemoryRepository {
@@ -186,7 +186,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
       .where(
         and(
           eq(memory.teamId, teamId.value),
-          eq(memory.standing, criteria.standing),
+          eq(memory.status, criteria.status),
           criteria.kind ? eq(memory.kind, criteria.kind) : undefined,
           criteria.lineId ? eq(memory.lineId, criteria.lineId) : undefined,
           criteria.stationId
@@ -201,7 +201,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
         ),
       )
       .orderBy(
-        criteria.standing === 'retired'
+        criteria.status === 'retired'
           ? desc(memory.retiredAt)
           : desc(memory.approvedAt),
       )
@@ -226,7 +226,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
 
   async mayReach(
     site: RunSite,
-    standingAt: Date | null = null,
+    asOf: Date | null = null,
   ): Promise<readonly Memory[]> {
     const repositories = site.repositories.map((each) => each.value);
     const rows = await this.context.db
@@ -235,7 +235,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
       .where(
         and(
           eq(memory.teamId, site.teamId.value),
-          standingWhen(standingAt),
+          activeAsOf(asOf),
           site.lineId
             ? or(isNull(memory.lineId), eq(memory.lineId, site.lineId))
             : isNull(memory.lineId),

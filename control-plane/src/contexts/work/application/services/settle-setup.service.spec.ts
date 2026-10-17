@@ -5,7 +5,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
-import type { SetupStanding } from '@work/application/services/setup-standing.service';
+import type { SetupStatus } from '@work/application/services/setup-status.service';
 import { listed } from '@work/application/services/setup-steps';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -95,7 +95,7 @@ const settling = (given: { task?: Task; state?: SetupState } = {}) => {
 
   const setup = {
     of: vi.fn(async () => ({ state: given.state ?? done, chat: null })),
-  } as unknown as SetupStanding;
+  } as unknown as SetupStatus;
 
   const lines = {
     findByStation: vi.fn(async () => DELIVERY),
@@ -135,7 +135,7 @@ describe('SettleSetup', () => {
     expect(task.notes[task.notes.length - 1]?.kind).toBe('passed');
   });
 
-  it('leaves the task otherwise exactly as it stands', async () => {
+  it('leaves the task otherwise exactly as it is', async () => {
     const working = Task.rehydrate({
       ...list(),
       currentRunId: RunId.of('123e4567-e89b-42d3-a456-426614174009'),
@@ -161,7 +161,7 @@ describe('SettleSetup', () => {
     );
   });
 
-  it('leaves it standing while a step is still to be taken', async () => {
+  it('leaves it open while a step is still to be taken', async () => {
     const { service, save } = settling({
       state: { ...done, hasHarness: false },
     });
@@ -186,7 +186,7 @@ describe('SettleSetup', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('goes through every list still standing', async () => {
+  it('goes through every list that is still open', async () => {
     const { service, tasks, save } = settling();
 
     await service.wherever();
@@ -195,7 +195,7 @@ describe('SettleSetup', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it('asks after the workspace the list stands in', async () => {
+  it('asks after the workspace the list is in', async () => {
     const { service, setup } = settling();
 
     await service.wherever();

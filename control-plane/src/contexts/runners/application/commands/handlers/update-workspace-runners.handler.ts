@@ -32,15 +32,15 @@ export class UpdateWorkspaceRunnersHandler
     const id = WorkspaceRunnersId.of(command.declarationId);
 
     try {
-      const standing = await this.declarations.find(id);
-      const permissions = standing
+      const existing = await this.declarations.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -48,7 +48,7 @@ export class UpdateWorkspaceRunnersHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.workspaceRunners(command.definition);
 
@@ -58,7 +58,7 @@ export class UpdateWorkspaceRunnersHandler
 
       await this.transaction.inTransaction(() =>
         this.declarations.save(
-          standing.redeclaredAs(
+          existing.redeclaredAs(
             compiled,
             Attribution.of(command.actor, permissions.workspaceId),
           ),

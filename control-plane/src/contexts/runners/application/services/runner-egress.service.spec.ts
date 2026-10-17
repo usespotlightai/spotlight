@@ -152,7 +152,7 @@ describe('RunnerEgress', () => {
   });
 
   describe('admitting a runner through a shared egress', () => {
-    it('admits a standing runner whose pool names the egress, before it claims and with its work after', async () => {
+    it('admits an alive runner whose pool names the egress, before it claims and with its work after', async () => {
       const pool = throughShared();
       const waiting = proxied(pool);
       const egress = { egressId: EGRESS_ID.value };
@@ -193,7 +193,7 @@ describe('RunnerEgress', () => {
       ).resolves.toMatchObject({ egressId: 'spotlight', work: null });
     });
 
-    it('refuses an unknown credential, a runner that no longer stands, and a pool that names another egress', async () => {
+    it('refuses an unknown credential, a runner that is no longer alive, and a pool that names another egress', async () => {
       const pool = throughShared();
       const runner = proxied(pool);
       const egress = { egressId: EGRESS_ID.value };

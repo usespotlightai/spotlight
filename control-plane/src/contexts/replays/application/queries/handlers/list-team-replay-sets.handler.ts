@@ -39,7 +39,7 @@ export class ListTeamReplaySetsHandler
           access.sees(each.station) &&
           (!at || each.station.stationId === at.stationId),
       );
-      const standing = await this.work.standing(
+      const summaries = await this.work.runSummaries(
         access.workspaceId,
         sets.flatMap((each) => each.runs),
       );
@@ -55,7 +55,7 @@ export class ListTeamReplaySetsHandler
       return sets.map((each) =>
         setView(
           each,
-          standing,
+          summaries,
           turnouts,
           healths.get(each.id.value) ?? UNREAD_HEALTH,
           standards.get(each.station.stationId)?.minGain ?? DEFAULT_MIN_GAIN,

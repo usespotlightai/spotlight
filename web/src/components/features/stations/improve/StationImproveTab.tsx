@@ -38,7 +38,7 @@ export function StationImproveTab({
 
   return (
     <>
-      <ImproveSection title="What stands out">
+      <ImproveSection title="What needs attention">
         <WorthImproving
           teamId={teamId}
           stationId={station.id}

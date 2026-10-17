@@ -1,8 +1,8 @@
 import type { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import {
-  type JudgeStanding,
+  type JudgeCalibration,
   showsJudgeOf,
-} from '@outcomes/domain/services/judge-standing';
+} from '@outcomes/domain/services/judge-calibration';
 import type { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 
@@ -31,14 +31,14 @@ export const latestJudgeOf = (scores: readonly Score[]): Score | null =>
 
 export const visibleJudgeOf = (
   scores: readonly Score[],
-  standing: JudgeStanding,
+  calibration: JudgeCalibration,
   current: string | null,
 ): Score | null => {
   const judge = latestJudgeOf(
     scores.filter((each) => each.rubricVersion === current),
   );
 
-  return judge && showsJudgeOf(standing, current, judge.rubricVersion)
+  return judge && showsJudgeOf(calibration, current, judge.rubricVersion)
     ? judge
     : null;
 };

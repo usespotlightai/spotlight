@@ -21,7 +21,7 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
     sample: 0.2,
     trust: 0.6,
   },
-  standing: {
+  calibration: {
     trusted: true,
     measure: 'kappa',
     agreement: 0.71,

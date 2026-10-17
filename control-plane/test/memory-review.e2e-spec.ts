@@ -151,7 +151,7 @@ describe('reviewing the memories a run proposed', () => {
     ).toEqual(['One.', 'Two.', 'Three.']);
   });
 
-  it('lets approved memories stand, edited or not, and settles the item once all are decided', async () => {
+  it('makes approved memories active, edited or not, and settles the item once all are decided', async () => {
     const runId = await proposing(['Keep me.', 'Edit me.', 'Drop me.']);
     await eventually(async () =>
       asideFor(await inbox(team.owner.value), runId),
@@ -188,21 +188,21 @@ describe('reviewing the memories a run proposed', () => {
       ['rejected', 'Drop me.', 'Ada'],
     ]);
 
-    const standing = await eventually(async () => {
+    const active = await eventually(async () => {
       const rows = await db
         .select()
         .from(schema.memory)
         .where(eq(schema.memory.runId, runId.value));
       return rows.length === 2 && rows;
     });
-    expect(standing.map((each) => each.body).sort()).toEqual([
+    expect(active.map((each) => each.body).sort()).toEqual([
       'Edited.',
       'Keep me.',
     ]);
-    expect(standing.every((each) => each.approvedBy === team.owner.value)).toBe(
+    expect(active.every((each) => each.approvedBy === team.owner.value)).toBe(
       true,
     );
-    expect(standing.every((each) => each.steps?.join() === '5')).toBe(true);
+    expect(active.every((each) => each.steps?.join() === '5')).toBe(true);
 
     const settled = await eventually(async () => {
       const item = asideFor(await inbox(team.owner.value), runId);

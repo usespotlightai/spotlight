@@ -51,7 +51,7 @@ export function AcceptInvite() {
     );
   }
 
-  const closed = invite.standing !== 'open';
+  const closed = invite.status !== 'open';
 
   return (
     <AuthScreen className={WIDTH}>
@@ -63,7 +63,7 @@ export function AcceptInvite() {
 
       {closed ? (
         <p role="alert" className="text-center text-muted-foreground text-sm">
-          {SAYS[invite.standing]}
+          {SAYS[invite.status]}
         </p>
       ) : session?.user ? (
         <AcceptAsSignedIn

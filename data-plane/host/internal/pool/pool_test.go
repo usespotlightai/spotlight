@@ -95,10 +95,10 @@ func TestPresenceIsReportedUnderTheHostAndAnswersItsWorkspace(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		method, path = r.Method, r.URL.Path
 		_ = json.NewDecoder(r.Body).Decode(&reported)
-		_ = json.NewEncoder(w).Encode(protocol.HostStanding{Workspace: "workspace_1"})
+		_ = json.NewEncoder(w).Encode(protocol.HeartbeatResponse{Workspace: "workspace_1"})
 	})
 
-	standing, err := client.Present(context.Background(), protocol.HostPresence{
+	heartbeat, err := client.Present(context.Background(), protocol.HostPresence{
 		Name: "build-box", Capacity: 2, Running: []string{"runner_1"},
 	})
 	if err != nil {
@@ -111,8 +111,8 @@ func TestPresenceIsReportedUnderTheHostAndAnswersItsWorkspace(t *testing.T) {
 	if reported.Name != "build-box" || reported.Capacity != 2 || len(reported.Running) != 1 {
 		t.Errorf("reported %+v", reported)
 	}
-	if standing.Workspace != "workspace_1" {
-		t.Errorf("standing %+v", standing)
+	if heartbeat.Workspace != "workspace_1" {
+		t.Errorf("heartbeat %+v", heartbeat)
 	}
 }
 

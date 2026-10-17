@@ -3,23 +3,23 @@ import type {
   StationJudge,
 } from '@outcomes/application/ports/evidence.port';
 import type {
-  JudgeStandingPort,
-  JudgeStandingShape,
+  JudgeCalibrationPort,
+  JudgeCalibrationShape,
   StationOnLine,
   TeamOfStations,
-} from '@outcomes/application/ports/judge-standing.port';
+} from '@outcomes/application/ports/judge-calibration.port';
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
+import type { JudgeCalibration } from '@outcomes/domain/services/judge-calibration';
 import {
+  calibrationIn,
   type JudgeReport,
   judgeReportOf,
-  standingIn,
 } from '@outcomes/domain/services/judge-report';
-import type { JudgeStanding } from '@outcomes/domain/services/judge-standing';
 import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
 import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -42,15 +42,15 @@ export type CurrentStationJudge = StationJudge & {
   readonly rubricBody: string | null;
 };
 
-export interface CurrentStanding {
+export interface CurrentCalibration {
   readonly rubricVersion: string | null;
-  readonly standing: JudgeStanding;
+  readonly calibration: JudgeCalibration;
 }
 
 export interface StationJudgement {
   readonly judge: CurrentStationJudge | null;
   readonly report: JudgeReport;
-  readonly standing: JudgeStanding;
+  readonly calibration: JudgeCalibration;
 }
 
 interface Labels {
@@ -85,14 +85,14 @@ const currentOf = (
   };
 };
 
-const standingFrom = (
+const calibrationFrom = (
   judged: readonly Score[],
   labels: Labels,
   judge: CurrentStationJudge | null,
-): JudgeStanding =>
-  standingIn(judgeReportOf({ judged, covering: [], ...labels }), judge);
+): JudgeCalibration =>
+  calibrationIn(judgeReportOf({ judged, covering: [], ...labels }), judge);
 
-export class StationJudgeReports implements JudgeStandingPort {
+export class StationJudgeReports implements JudgeCalibrationPort {
   constructor(
     private readonly evidence: EvidencePort,
     private readonly scores: ScoreRepository,
@@ -112,15 +112,15 @@ export class StationJudgeReports implements JudgeStandingPort {
     });
     const report = await this.reportOf(judged, recent);
 
-    return { judge, report, standing: standingIn(report, judge) };
+    return { judge, report, calibration: calibrationIn(report, judge) };
   }
 
-  async standingAt(station: StationPlace): Promise<CurrentStanding> {
+  async calibrationAt(station: StationPlace): Promise<CurrentCalibration> {
     const judge = await this.currentJudge(station);
 
     return {
       rubricVersion: judge?.rubricVersion ?? null,
-      standing: await this.standingFor(station, judge),
+      calibration: await this.calibrationFor(station, judge),
     };
   }
 
@@ -132,10 +132,10 @@ export class StationJudgeReports implements JudgeStandingPort {
     return currentOf(station, await this.evidence.judgeAt(station.stationId));
   }
 
-  async standingsOf(
+  async calibrationsOf(
     team: TeamOfStations,
     stations: readonly StationOnLine[],
-  ): Promise<readonly JudgeStandingShape[]> {
+  ): Promise<readonly JudgeCalibrationShape[]> {
     const teamId = TeamId.of(team.teamId);
     const judges = await this.evidence.judgesOnTeam(team.teamId);
     const current = stations.map((station) => ({
@@ -166,7 +166,7 @@ export class StationJudgeReports implements JudgeStandingPort {
     return current.map(({ station, judge }) => ({
       stationId: station.stationId,
       rubricVersion: judge?.rubricVersion ?? null,
-      ...standingFrom(
+      ...calibrationFrom(
         judged.filter(
           (each) =>
             each.place.lineId === station.lineId &&
@@ -178,10 +178,10 @@ export class StationJudgeReports implements JudgeStandingPort {
     }));
   }
 
-  private async standingFor(
+  private async calibrationFor(
     station: StationPlace,
     judge: CurrentStationJudge | null,
-  ): Promise<JudgeStanding> {
+  ): Promise<JudgeCalibration> {
     const judged = judge?.scale
       ? await this.scores.judgedAtStation({
           ...station,
@@ -190,7 +190,7 @@ export class StationJudgeReports implements JudgeStandingPort {
         })
       : [];
 
-    return standingFrom(judged, await this.labelsFor(judged, []), judge);
+    return calibrationFrom(judged, await this.labelsFor(judged, []), judge);
   }
 
   private async reportOf(

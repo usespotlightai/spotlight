@@ -27,7 +27,7 @@ export const waitsOnPerson = (run: Pick<Run, 'state'>): boolean =>
 export const owesYou = (run: Pick<Run, 'state' | 'review'>): boolean =>
   waitsOnPerson(run) || run.review?.state === 'owed';
 
-export const standing = (run: Run): string | null => {
+export const runStatus = (run: Run): string | null => {
   if (waitsOnPerson(run)) {
     return 'Waiting for you';
   }

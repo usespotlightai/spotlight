@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 const MARKER = '<!-- spotlight:change-stack -->';
 
-const answering = (standing: { id: number; body: string }[]) => {
+const answering = (existing: { id: number; body: string }[]) => {
   const asked: { url: string; method: string; body: unknown }[] = [];
   const fetch = (async (url: string, init: RequestInit = {}) => {
     asked.push({
@@ -15,7 +15,7 @@ const answering = (standing: { id: number; body: string }[]) => {
       body: init.body ? JSON.parse(String(init.body)) : null,
     });
     return (init.method ?? 'GET') === 'GET'
-      ? new Response(JSON.stringify(standing), { status: 200 })
+      ? new Response(JSON.stringify(existing), { status: 200 })
       : new Response('{}', { status: 201 });
   }) as unknown as typeof globalThis.fetch;
 

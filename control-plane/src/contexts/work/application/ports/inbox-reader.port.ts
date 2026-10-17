@@ -4,7 +4,7 @@ import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
-import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
+import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { AsideForm } from '@work/domain/value-objects/aside-form';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
@@ -31,7 +31,7 @@ export interface InboxApproval {
   readonly name: string;
   readonly because: string;
   readonly inputs: readonly InboxApprovalInput[];
-  readonly standing: ApprovalStanding;
+  readonly status: ApprovalStatus;
   readonly edited: readonly InboxApprovalInput[] | null;
   readonly intent: string | null;
   readonly askedOf: InboxPerson | null;
@@ -94,7 +94,7 @@ export interface InboxItemSummary {
   readonly stationPosition: number;
   readonly stationCount: number;
   readonly raisedAt: InboxStation;
-  readonly standsAt: InboxStation;
+  readonly currentStation: InboxStation;
   readonly createdAt: Date;
   readonly askedAt: Date;
   readonly resolved: boolean;

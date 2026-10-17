@@ -7,7 +7,7 @@ import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type {
-  LeasedRunStanding,
+  LeasedRunFacts,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
 import type { SearchSightPort } from '@work/application/ports/search-sight.port';
@@ -37,7 +37,7 @@ export class ReadRunnerTraceHandler
       const target = TaskId.of(query.taskId);
 
       const [leased, theirs] = await Promise.all([
-        this.traces.leasedRunStanding(
+        this.traces.leasedRunFacts(
           RunId.of(query.runId),
           RunnerId.of(query.runnerId),
         ),
@@ -95,7 +95,7 @@ export class ReadRunnerTraceHandler
 
   private async sightedBy(
     runId: string,
-    leased: LeasedRunStanding | null,
+    leased: LeasedRunFacts | null,
   ): Promise<SightedHistory> {
     return leased?.isSearch
       ? SightedHistory.through(await this.sights.of(runId))

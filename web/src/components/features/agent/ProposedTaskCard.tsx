@@ -8,7 +8,7 @@ import { DecisionPill } from '@/components/shared/DecisionPill';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import {
   type Proposal,
-  proposalStandingOf,
+  proposalStatusOf,
   proposalText,
   proposalTitleOf,
 } from '@/lib/chat';
@@ -41,7 +41,7 @@ export function ProposedTaskCard({
     >
       <DecisionHeader
         title={
-          <DecisionTitle standing={proposalStandingOf(proposal)}>
+          <DecisionTitle status={proposalStatusOf(proposal)}>
             {proposalTitleOf(proposal)}
           </DecisionTitle>
         }

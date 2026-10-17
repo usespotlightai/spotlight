@@ -46,15 +46,15 @@ export function useRunRefresh({
 
   useRunStream(runId, state === 'claimed', bump);
 
-  const stood = useRef(state);
+  const previous = useRef(state);
 
   useEffect(() => {
-    if (stood.current && state && stood.current !== state) {
+    if (previous.current && state && previous.current !== state) {
       bump();
       void queryClient.invalidateQueries({
         queryKey: runScoreKeys.forRun(runId),
       });
     }
-    stood.current = state;
+    previous.current = state;
   }, [state, bump, queryClient, runId]);
 }

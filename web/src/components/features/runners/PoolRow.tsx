@@ -6,13 +6,13 @@ import {
 import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
 import { PoolWayOut } from '@/components/features/runners/PoolWayOut';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
-import { StandingDot } from '@/components/features/runners/StandingDot';
+import { StatusDot } from '@/components/features/runners/StatusDot';
 import {
   type NamedHarness,
   type PushPool,
   poolHarnesses,
   poolName,
-  poolStanding,
+  poolStatus,
 } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
@@ -32,13 +32,13 @@ export function PoolRow({ slug, pool, harnesses }: PoolRowProps) {
 
         <PoolWayOut slug={slug} poolKey={pool.through.key} />
 
-        <StandingDot
+        <StatusDot
           tone={
             pool.runners.some((runner) => runner.currentRun) ? 'busy' : 'ready'
           }
         >
-          {poolStanding(pool)}
-        </StandingDot>
+          {poolStatus(pool)}
+        </StatusDot>
 
         <span />
 

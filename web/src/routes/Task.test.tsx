@@ -260,7 +260,7 @@ describe('Task', () => {
     );
   });
 
-  it('names the station it stands at', () => {
+  it('names the station it is at', () => {
     renderAt('task_1');
 
     expect(screen.getByRole('button', { name: /Station/ })).toHaveTextContent(
@@ -286,7 +286,7 @@ describe('Task', () => {
     });
   });
 
-  it('offers only the backlog, completed and where it stands to a task at a work station', async () => {
+  it('offers only the backlog, completed and its current station to a task at a work station', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 

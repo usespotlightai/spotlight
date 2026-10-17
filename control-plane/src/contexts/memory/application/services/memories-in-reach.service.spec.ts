@@ -94,7 +94,7 @@ describe('MemoriesInReach', () => {
     expect(handles(await memories.at(SITE))).toEqual(['M-1']);
   });
 
-  it('leaves out a memory whose correction already stands, even one reaching elsewhere', async () => {
+  it('leaves out a memory whose correction is already active, even one reaching elsewhere', async () => {
     const old = kept(1);
     const { memories } = inReach({
       reached: [old, kept(2)],
@@ -104,7 +104,7 @@ describe('MemoriesInReach', () => {
     expect(handles(await memories.at(SITE))).toEqual(['M-2']);
   });
 
-  it('recalls in the order of relevance, only what stands on the team and is not yet corrected', async () => {
+  it('recalls in the order of relevance, only what is active on the team and is not yet corrected', async () => {
     const old = kept(1);
     const correction = correcting(old, 2);
     const retired = kept(3).retire({
@@ -130,7 +130,7 @@ describe('MemoriesInReach', () => {
     expect(recall).toHaveBeenCalledWith(TEAM, words, 10, null);
   });
 
-  it('recalls for a replay only what stood when the run it replays started', async () => {
+  it('recalls for a replay only what was active when the run it replays started', async () => {
     const later = (hours: number) =>
       new Date(AT.getTime() + hours * 60 * 60_000);
     const old = kept(1);

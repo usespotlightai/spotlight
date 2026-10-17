@@ -32,7 +32,7 @@ const reflection = (
     proposals: [],
     attempts: 0,
     agentSpent: null,
-    standing: CandidateId.of('candidate_live'),
+    incumbent: CandidateId.of('candidate_live'),
     outcome,
     reflectedOn: tasks,
     causes: causes.map((cause, at) =>

@@ -72,7 +72,7 @@ export class TeamMemoryViews {
       kind: memory.kind,
       body: memory.body.value,
       source: memory.source,
-      standing: memory.standing,
+      status: memory.status,
       reach: scope.reach,
       lineId: scope.lineId,
       stationId: scope.stationId,

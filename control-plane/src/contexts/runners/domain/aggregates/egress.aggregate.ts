@@ -122,7 +122,7 @@ export class Egress extends EventRecorder {
     given: GivenEgressToken,
     by: Attribution,
   ): Egress {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
       throw new EgressKeyFixedError(
@@ -164,7 +164,7 @@ export class Egress extends EventRecorder {
   }
 
   retire(namedBy: readonly PoolKey[], by: Attribution): Egress {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (namedBy.length > 0) {
       throw new EgressInUseError(
@@ -195,7 +195,7 @@ export class Egress extends EventRecorder {
     };
   }
 
-  private guardStanding(): void {
+  private assertNotDeleted(): void {
     if (this.isRetired) {
       throw new InconsistentStateError(
         'egress',

@@ -199,7 +199,7 @@ export const searchDetailView = (
       agentSpent: modelSpentView(each.agentSpent),
       reflection: each.reflects
         ? {
-            standing: each.standing?.value ?? null,
+            incumbent: each.incumbent?.value ?? null,
             tasks: each.reflectedOn.map(reflectedTaskView),
             causes: each.causes.map((cause) => ({
               ...reflectedTaskView(cause),

@@ -95,14 +95,14 @@ export class DrizzleWorkspaceTokenRepository
 
   async save(saved: WorkspaceToken): Promise<void> {
     await this.context.inTransaction(async () => {
-      const standing = and(
+      const sameVersion = and(
         eq(workspaceToken.id, saved.id.value),
         eq(workspaceToken.version, saved.version),
       );
       const written = saved.isRevoked
         ? await this.context.db
             .delete(workspaceToken)
-            .where(standing)
+            .where(sameVersion)
             .returning({ id: workspaceToken.id })
         : await this.context.db
             .update(workspaceToken)
@@ -110,7 +110,7 @@ export class DrizzleWorkspaceTokenRepository
               description: saved.description.value,
               version: saved.version + 1,
             })
-            .where(standing)
+            .where(sameVersion)
             .returning({ id: workspaceToken.id });
 
       if (written.length === 0) {

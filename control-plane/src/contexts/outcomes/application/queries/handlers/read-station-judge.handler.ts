@@ -19,7 +19,7 @@ export class ReadStationJudgeHandler
   async execute(query: ReadStationJudgeQuery): Promise<StationJudgeDto> {
     try {
       const access = await this.access.forTeam(query.teamId, query.viewerId);
-      const { judge, report, standing } = await this.reports.at({
+      const { judge, report, calibration } = await this.reports.at({
         workspaceId: access.workspaceId,
         teamId: access.teamId,
         lineId: query.lineId,
@@ -39,9 +39,9 @@ export class ReadStationJudgeHandler
               trust: judge.trust,
             }
           : null,
-        standing,
+        calibration,
         versions: report.versions.map((each) =>
-          rubricVersionOf(each, current, standing),
+          rubricVersionOf(each, current, calibration),
         ),
         coverage: report.coverage,
       };

@@ -33,15 +33,15 @@ export class UpdateWorkspaceTokenHandler
     const id = WorkspaceTokenId.of(command.tokenId);
 
     try {
-      const standing = await this.tokens.find(id);
-      const permissions = standing
+      const existing = await this.tokens.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -49,7 +49,7 @@ export class UpdateWorkspaceTokenHandler
         return forbiddenTo('administer');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.workspaceToken(command.definition);
 
@@ -59,9 +59,9 @@ export class UpdateWorkspaceTokenHandler
 
       await this.transaction.inTransaction(() =>
         this.tokens.save(
-          standing.redescribe(
+          existing.redescribe(
             compiled.terms,
-            Attribution.of(command.actor, standing.workspaceId),
+            Attribution.of(command.actor, existing.workspaceId),
           ),
         ),
       );

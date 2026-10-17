@@ -14,7 +14,7 @@ export const actsAsEachPerson = (integration: Integration): boolean =>
   integration.holderRule === 'requester';
 
 export const usesTeamAccount = (integration: Integration): boolean =>
-  integration.standing !== 'listens';
+  integration.connectionStatus !== 'listens';
 
 const formatTools = ({ described }: Integration): string | null => {
   if (!described || described.problem) {

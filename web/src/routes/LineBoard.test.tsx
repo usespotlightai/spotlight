@@ -47,7 +47,7 @@ vi.mock('@/hooks/api/useAssignTask', () => ({
   useAssignTask: () => ({ mutate: vi.fn() }),
 }));
 
-const standing = [
+const tasks = [
   {
     id: 'task_1',
     stationId: 'station_1',
@@ -135,7 +135,7 @@ describe('LineBoard', () => {
     lined.mockReturnValue([line]);
     linesFailing.mockReturnValue(false);
     refetchLines.mockClear();
-    listed.mockReturnValue(standing);
+    listed.mockReturnValue(tasks);
     tasksFailing.mockReturnValue(false);
     refetchTasks.mockClear();
   });
@@ -281,7 +281,7 @@ describe('LineBoard', () => {
     });
   });
 
-  it('stands each task at the station it belongs to', () => {
+  it('puts each task at the station it belongs to', () => {
     renderAt('line_1');
 
     const [triage, spec] = sections();
@@ -296,7 +296,7 @@ describe('LineBoard', () => {
     expect(sections()[0]?.textContent).toContain('2');
   });
 
-  it('fills each station’s icon by how far along the line it stands', () => {
+  it('fills each station’s icon by how far along the line it is', () => {
     renderAt('line_1');
 
     expect(
@@ -315,7 +315,7 @@ describe('LineBoard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('offers the backlog to a task standing further along', async () => {
+  it('offers the backlog to a task further along', async () => {
     const user = userEvent.setup();
     renderAt('line_1');
 
@@ -346,7 +346,7 @@ describe('LineBoard', () => {
   it('offers no move for a task that is completed', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue([
-      ...standing,
+      ...tasks,
       {
         id: 'task_5',
         stationId: 'station_5',

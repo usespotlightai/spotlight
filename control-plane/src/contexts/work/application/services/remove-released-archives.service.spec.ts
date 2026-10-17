@@ -1,4 +1,4 @@
-import type { ArchiveStandingsPort } from '@work/application/ports/archive-standings.port';
+import type { ArchiveReferencesPort } from '@work/application/ports/archive-references.port';
 import { RemoveReleasedArchives } from '@work/application/services/remove-released-archives.service';
 import {
   InMemoryArchiveStore,
@@ -15,7 +15,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const DAY = 24 * 60 * 60_000;
 
-const setUp = async (due: ArchiveStandingsPort['due']) => {
+const setUp = async (due: ArchiveReferencesPort['due']) => {
   const archives = new InMemoryArchives();
   const store = new InMemoryArchiveStore();
   const logger = { error: vi.fn() };

@@ -58,7 +58,7 @@ type Pool interface {
 	Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Handed, error)
 	ClaimCall(ctx context.Context) (*protocol.HostCall, error)
 	AnswerCall(ctx context.Context, id string, answer protocol.HostCallAnswer) error
-	Present(ctx context.Context, presence protocol.HostPresence) (protocol.HostStanding, error)
+	Present(ctx context.Context, presence protocol.HostPresence) (protocol.HeartbeatResponse, error)
 	Leave(ctx context.Context) error
 	Seat(handed protocol.Handed) (Worker, error)
 }
@@ -171,8 +171,8 @@ func (h *Host) Serve(ctx context.Context) error {
 	h.log.Info("reached the container runtime", "engine", h.engineIs)
 
 	if err := retried(ctx, h.log, "could not report to the control plane, still trying", func() error {
-		standing, err := h.pool.Present(ctx, h.presence())
-		h.workspace = standing.Workspace
+		heartbeat, err := h.pool.Present(ctx, h.presence())
+		h.workspace = heartbeat.Workspace
 		return err
 	}); err != nil {
 		return quiet(ctx, err)

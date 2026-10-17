@@ -1,5 +1,5 @@
 import { insightsReaderInMemory } from '@outcomes/application/ports/insights-reader.fake-spec';
-import type { JudgeStandingPort } from '@outcomes/application/ports/judge-standing.port';
+import type { JudgeCalibrationPort } from '@outcomes/application/ports/judge-calibration.port';
 import type { MemoryUsePort } from '@outcomes/application/ports/memory-use.port';
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
@@ -97,8 +97,8 @@ const WORK: WorkPort = {
   alertsAt: async () => null,
 };
 
-const standing = (trusted: boolean): JudgeStandingPort => ({
-  standingsOf: async (_team, stations) =>
+const calibrated = (trusted: boolean): JudgeCalibrationPort => ({
+  calibrationsOf: async (_team, stations) =>
     stations.map((station) => ({
       stationId: station.stationId,
       rubricVersion: 'c'.repeat(64),
@@ -170,7 +170,7 @@ describe('ReadInsightsChangesHandler', () => {
     const handler = new ReadInsightsChangesHandler(
       scopes,
       reader,
-      new TrustedJudges(standing(true)),
+      new TrustedJudges(calibrated(true)),
       {
         ...WORK,
         configsInOrder: (fingerprints) => {
@@ -216,7 +216,7 @@ describe('ReadInsightsChangesHandler', () => {
     const handler = new ReadInsightsChangesHandler(
       scopes,
       reader,
-      new TrustedJudges(standing(true)),
+      new TrustedJudges(calibrated(true)),
       {
         ...WORK,
         configsInOrder: (fingerprints) => {
@@ -255,7 +255,7 @@ describe('ReadInsightsChangesHandler', () => {
     const handler = new ReadInsightsChangesHandler(
       scopes,
       reader,
-      new TrustedJudges(standing(false)),
+      new TrustedJudges(calibrated(false)),
       WORK,
     );
 
@@ -278,7 +278,7 @@ describe('ReadInsightsChangesHandler', () => {
     const handler = new ReadInsightsChangesHandler(
       scopes,
       reader,
-      new TrustedJudges(standing(true)),
+      new TrustedJudges(calibrated(true)),
       WORK,
     );
 
@@ -294,7 +294,7 @@ describe('ReadInsightsSetupsHandler', () => {
     const handler = new ReadInsightsSetupsHandler(
       scopes,
       reader,
-      new TrustedJudges(standing(true)),
+      new TrustedJudges(calibrated(true)),
     );
 
     const all = await handler.execute(
@@ -327,7 +327,7 @@ describe('ReadInsightsSetupsHandler', () => {
     const handler = new ReadInsightsSetupsHandler(
       scopes,
       reader,
-      new TrustedJudges(standing(true)),
+      new TrustedJudges(calibrated(true)),
     );
 
     await expect(
@@ -346,7 +346,7 @@ describe('ReadInsightsMemoryHandler', () => {
       between: async (window) => {
         asked.push(window.teamId.value);
         return {
-          standing: 5,
+          activeCount: 5,
           flagged: [
             {
               memoryId: 'mem_1',
@@ -384,7 +384,7 @@ describe('ReadInsightsMemoryHandler', () => {
     );
 
     expect(asked).toEqual(['team_1']);
-    expect(read.standing).toBe(5);
+    expect(read.activeCount).toBe(5);
     expect(read.memoriesBriefed).toBe(2);
     expect(read.memoriesRecalled).toBe(1);
     expect(read.runsBriefed).toBe(1);

@@ -261,7 +261,7 @@ export class HistoryCandidateRunResponseDto {
     nullable: true,
     type: () => RunCostResponseDto,
     description:
-      'What the replay cost; a replay run has no outcome of its own, so its cost stands beside the run',
+      'What the replay cost; a replay run has no outcome of its own, so the response gives its cost beside the run',
   })
   readonly cost: RunCostResponseDto | null;
 

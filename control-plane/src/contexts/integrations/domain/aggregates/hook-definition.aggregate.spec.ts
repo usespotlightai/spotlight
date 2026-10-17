@@ -89,7 +89,7 @@ const defined = () =>
     by: BY,
   });
 
-const standing = (version = 3) =>
+const rehydrated = (version = 3) =>
   HookDefinition.rehydrate({
     id: ID,
     workspaceId: WORKSPACE,
@@ -202,7 +202,7 @@ describe('HookDefinition', () => {
   });
 
   it('keeps its secret when redefined at the same version', () => {
-    const redefined = standing().redefinedAs(
+    const redefined = rehydrated().redefinedAs(
       compiled(),
       { kind: 'kept', version: 1 },
       OFFERED,
@@ -222,7 +222,7 @@ describe('HookDefinition', () => {
   });
 
   it('takes a new secret when its version moves', () => {
-    const redefined = standing().redefinedAs(
+    const redefined = rehydrated().redefinedAs(
       compiled(),
       given('b', 2),
       OFFERED,
@@ -235,7 +235,7 @@ describe('HookDefinition', () => {
 
   it('refuses a moved version without its new secret', () => {
     expect(() =>
-      standing().redefinedAs(
+      rehydrated().redefinedAs(
         compiled(),
         { kind: 'kept', version: 2 },
         OFFERED,
@@ -245,7 +245,7 @@ describe('HookDefinition', () => {
   });
 
   it('forgets its secret when it stops signing with HMAC', () => {
-    const redefined = standing().redefinedAs(
+    const redefined = rehydrated().redefinedAs(
       compiled({ signing: 'oidc' }),
       { kind: 'none' },
       { ...OFFERED, signsTokens: true },
@@ -257,7 +257,7 @@ describe('HookDefinition', () => {
 
   it('keeps its key for life', () => {
     expect(() =>
-      standing().redefinedAs(
+      rehydrated().redefinedAs(
         compiled({ key: 'other' }),
         { kind: 'none' },
         OFFERED,
@@ -267,13 +267,13 @@ describe('HookDefinition', () => {
   });
 
   it('refuses a stale version', () => {
-    expect(() => standing(3).assertVersion(2)).toThrow(
+    expect(() => rehydrated(3).assertVersion(2)).toThrow(
       HookDefinitionVersionConflictError,
     );
   });
 
   it('is retired once', () => {
-    const retired = standing().retire(BY);
+    const retired = rehydrated().retire(BY);
 
     expect(retired.isRetired).toBe(true);
     expect(retired.pullEvents()).toEqual([

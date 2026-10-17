@@ -29,11 +29,11 @@ export class UpdateWorkspaceHandler
     const id = WorkspaceId.of(command.workspaceId);
 
     try {
-      const standing = await this.workspaces.find(id);
+      const existing = await this.workspaces.find(id);
 
-      const permissions = standing?.permissionsFor(command.actor.principal);
+      const permissions = existing?.permissionsFor(command.actor.principal);
 
-      if (!standing || !permissions?.reads) {
+      if (!existing || !permissions?.reads) {
         return null;
       }
 
@@ -41,7 +41,7 @@ export class UpdateWorkspaceHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.workspace(command.definition);
 
@@ -51,7 +51,7 @@ export class UpdateWorkspaceHandler
 
       await this.transaction.inTransaction(() =>
         this.workspaces.save(
-          standing.redefinedAs(compiled, Attribution.of(command.actor, id)),
+          existing.redefinedAs(compiled, Attribution.of(command.actor, id)),
         ),
       );
 

@@ -6,7 +6,7 @@ import type {
 } from '@work/application/ports/team-provisioning.port';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
-import type { SetupStanding } from '@work/application/services/setup-standing.service';
+import type { SetupStatus } from '@work/application/services/setup-status.service';
 import { SETUP_STEPS, type SetupState } from '@work/domain/services/setup-list';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -44,7 +44,7 @@ const handler = (given: Given = {}) => {
       hasAWayOut: given.hasAWayOut ?? false,
       chat: given.chat ?? null,
     }),
-  } as unknown as SetupStanding;
+  } as unknown as SetupStatus;
 
   const provisioning: TeamProvisioningPort = {
     of: vi.fn().mockResolvedValue(given.provisioning ?? 'done'),

@@ -29,11 +29,11 @@ const setUp = (state: SetupState): boolean =>
 const SETTLED = 'Everything on this list is done.';
 
 export const openSetupList = (notes: readonly TaskNote[]): TaskNote | null => {
-  const standing = conversationsOf(notes.map((each) => each.kind)).find(
+  const openConversation = conversationsOf(notes.map((each) => each.kind)).find(
     stillOpen,
   );
 
-  const opened = standing ? notes[standing.from] : undefined;
+  const opened = openConversation ? notes[openConversation.from] : undefined;
 
   return opened?.form === 'setup' ? opened : null;
 };

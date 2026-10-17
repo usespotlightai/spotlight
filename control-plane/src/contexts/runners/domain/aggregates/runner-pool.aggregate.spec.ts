@@ -179,7 +179,7 @@ describe('RunnerPool', () => {
     expect(aPullPool().retire(BY).roomFor(0)).toBe(0);
   });
 
-  it('lets a runner start only in its own mode, while it stands and has room', () => {
+  it('lets a runner start only in its own mode, while it is not retired and has room', () => {
     const pulled = aPullPool({ maxRuns: 1 });
 
     expect(pulled.startVerdict('pull', 0)).toBe('open');

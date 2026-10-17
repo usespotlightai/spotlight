@@ -1,4 +1,4 @@
-import type { StandingRun } from '@replays/application/ports/work.port';
+import type { RunSummary } from '@replays/application/ports/work.port';
 import { ReadReplayHandler } from '@replays/application/queries/handlers/read-replay.handler';
 import { ReadReplayQuery } from '@replays/application/queries/read-replay.query';
 import {
@@ -51,7 +51,7 @@ let world: ReplayedWorld;
 
 let STANDARDS: ReadonlyMap<string, SetStandard>;
 
-const ended = (original: number, at: string | null): StandingRun => ({
+const ended = (original: number, at: string | null): RunSummary => ({
   runId: RunId.of(`original_${original}`),
   taskId: null,
   stationId: STATION.stationId,
@@ -77,7 +77,7 @@ const seenIn = (
   baselines: world.replays.filter((each) => each.baseline),
   candidates: world.candidates,
   pullRequests: [],
-  standing: [],
+  summaries: [],
   standards: STANDARDS,
   ...more,
 });
@@ -254,10 +254,10 @@ describe('replayedCandidatesView', () => {
     expect(candidateNamed('Shorter prompt').charted).toBe('priced');
   });
 
-  it('tells how the set stands from its oldest and newest run ends and its last addition', () => {
+  it('tells the health of the set from its oldest and newest run ends and its last addition', () => {
     expect(
       onlySet({
-        standing: [
+        summaries: [
           ended(0, '2026-08-03T10:00:00.000Z'),
           ended(1, '2026-09-28T16:20:00.000Z'),
           ended(2, '2026-07-14T10:00:00.000Z'),
@@ -513,7 +513,7 @@ describe('replayedCandidatesView', () => {
         baselines: world.replays,
         candidates: world.candidates,
         pullRequests: [],
-        standing: [],
+        summaries: [],
         standards: STANDARDS,
       }),
     ).toMatchObject({ truncated: true, stations: [] });

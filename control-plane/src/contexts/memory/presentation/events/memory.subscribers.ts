@@ -4,8 +4,8 @@ import type { ForgetMemoryDraft } from '@memory/application/services/forget-memo
 import type { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
+import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import type { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
-import type { MemoryStood } from '@memory/domain/events/memory-stood.event';
 import {
   RUN_BRIEFED,
   type RunBriefedIntegrationEvent,
@@ -60,10 +60,10 @@ export const memorySubscribers = (
     ['memory-draft.approved'],
     (event) => reactions.onApproved(event),
   ),
-  subscribing<MemoryStood>(
+  subscribing<MemoryCreated>(
     'memory.retire-superseded-memory',
-    ['memory.stood'],
-    (event) => reactions.onStood(event),
+    ['memory.created'],
+    (event) => reactions.onCreated(event),
   ),
   subscribing<RunEndedIntegrationEvent>(
     'memory.note-memories-read',

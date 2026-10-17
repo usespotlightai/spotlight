@@ -24,7 +24,7 @@ import type {
   InboxReaderPort,
 } from '@work/application/ports/inbox-reader.port';
 import {
-  type AsideStanding,
+  type AsideAccess,
   TaskAside,
 } from '@work/domain/aggregates/task-aside.aggregate';
 import {
@@ -58,7 +58,7 @@ import { and, eq, gte, inArray, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 const FORMS_FOR_TEAM_READERS = ASIDE_FORMS.filter(
-  (form) => TaskAside.standingToAttend(form) === 'readsTeamOutcomes',
+  (form) => TaskAside.requiredAccess(form) === 'readsTeamOutcomes',
 );
 
 @Injectable()
@@ -109,9 +109,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
         raisedStation: raised.name,
         raisedColor: raised.color,
         raisedPosition: raised.position,
-        standsAtStation: station.name,
-        standsAtColor: station.color,
-        standsAtPosition: station.position,
+        currentStationName: station.name,
+        currentStationColor: station.color,
+        currentStationPosition: station.position,
         createdAt: task.createdAt,
         working: task.currentRunId,
       })
@@ -192,10 +192,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
             color: row.raisedColor ?? note.stationColor,
             position: row.raisedPosition ?? note.stationPosition,
           },
-          standsAt: {
-            name: row.standsAtStation,
-            color: row.standsAtColor,
-            position: row.standsAtPosition,
+          currentStation: {
+            name: row.currentStationName,
+            color: row.currentStationColor,
+            position: row.currentStationPosition,
           },
           createdAt: row.createdAt,
           askedAt: last?.at ?? note.at,
@@ -236,9 +236,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
         title: task.title,
         description: task.description,
         createdAt: task.createdAt,
-        standsAtStation: station.name,
-        standsAtColor: station.color,
-        standsAtPosition: station.position,
+        currentStationName: station.name,
+        currentStationColor: station.color,
+        currentStationPosition: station.position,
       })
       .from(taskAside)
       .leftJoin(
@@ -262,8 +262,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
         ),
       );
 
-    const needing = (standing: AsideStanding) =>
-      rows.filter((row) => TaskAside.standingToAttend(row.form) === standing);
+    const needing = (access: AsideAccess) =>
+      rows.filter((row) => TaskAside.requiredAccess(row.form) === access);
 
     const onTeam = new Map(
       await Promise.all(
@@ -322,10 +322,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
     );
 
     return attending.map((row) => {
-      const standsAt = {
-        name: row.standsAtStation,
-        color: row.standsAtColor,
-        position: row.standsAtPosition,
+      const currentStation = {
+        name: row.currentStationName,
+        color: row.currentStationColor,
+        position: row.currentStationPosition,
       };
 
       return {
@@ -336,12 +336,12 @@ export class DrizzleInboxReader implements InboxReaderPort {
         title: row.title,
         description: row.description,
         attachments: attachmentsOf(attached, row.taskId).own,
-        station: standsAt.name,
-        stationColor: standsAt.color,
-        stationPosition: standsAt.position,
+        station: currentStation.name,
+        stationColor: currentStation.color,
+        stationPosition: currentStation.position,
         stationCount: stationCounts.get(row.lineId) ?? 1,
-        raisedAt: standsAt,
-        standsAt,
+        raisedAt: currentStation,
+        currentStation,
         createdAt: row.createdAt,
         askedAt: row.raisedAt,
         resolved: row.settledAt !== null,

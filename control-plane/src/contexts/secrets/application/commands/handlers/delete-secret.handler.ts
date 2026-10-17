@@ -29,15 +29,15 @@ export class DeleteSecretHandler
     const id = SecretId.of(command.secretId);
 
     try {
-      const standing = await this.secrets.withId(id);
-      const permissions = standing
+      const existing = await this.secrets.withId(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -45,20 +45,20 @@ export class DeleteSecretHandler
         return forbiddenTo('manage-secrets');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const uses = SecretUses.of(
         await this.uses.of({
-          workspaceId: standing.workspaceId.value,
-          name: standing.name.value,
+          workspaceId: existing.workspaceId.value,
+          name: existing.name.value,
         }),
       );
 
       await this.transaction.inTransaction(() =>
         this.secrets.save(
-          standing.deleted(
+          existing.deleted(
             uses,
-            Attribution.of(command.actor, standing.workspaceId),
+            Attribution.of(command.actor, existing.workspaceId),
           ),
         ),
       );

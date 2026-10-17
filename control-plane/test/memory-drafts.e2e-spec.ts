@@ -242,19 +242,19 @@ describe('reading what the team already knows', () => {
       line?: string | null;
       station?: string | null;
       repository?: string | null;
-      standing?: 'stands' | 'retired';
+      status?: 'active' | 'retired';
     },
   ) =>
     database.db.execute(sql`
       insert into memory (id, handle, workspace_id, kind, body, team_id, line_id, station_id, repository, paths,
-        task_id, run_id, steps, notes, source, standing, approved_by, approved_at)
+        task_id, run_id, steps, notes, source, status, approved_by, approved_at)
       values (${id}, nextval('memory_handle_seq'), 'ws_1', 'preference', ${`Memory ${id}`}, ${scope.team ?? 'team_1'},
         ${scope.line ?? null}, ${scope.station ?? null}, ${scope.repository ?? null}, '[]'::jsonb,
         'task_1', 'run_1', '[]'::jsonb, '[2]'::jsonb, 'person',
-        ${scope.standing ?? 'stands'}, 'user_ada', ${NOW.toISOString()})
+        ${scope.status ?? 'active'}, 'user_ada', ${NOW.toISOString()})
     `);
 
-  it('reads the standing memories that reach this station, and none that do not', async () => {
+  it('reads the active memories that reach this station, and none that do not', async () => {
     await keeping('team_wide', {});
     await keeping('this_line', { line: 'line_1' });
     await keeping('this_station', { line: 'line_1', station: 'station_1' });
@@ -263,13 +263,13 @@ describe('reading what the team already knows', () => {
     await keeping('other_line', { line: 'line_2' });
     await keeping('other_station', { line: 'line_1', station: 'station_2' });
     await keeping('other_repository', { repository: 'acme/web' });
-    await keeping('retired', { standing: 'retired' });
+    await keeping('retired', { status: 'retired' });
 
-    const standing = (await memories.mayReach(SITE)).filter((each) =>
+    const active = (await memories.mayReach(SITE)).filter((each) =>
       each.appliesAt(SITE),
     );
 
-    expect(standing.map((each) => each.id.value).sort()).toEqual([
+    expect(active.map((each) => each.id.value).sort()).toEqual([
       'team_wide',
       'this_line',
       'this_repository',

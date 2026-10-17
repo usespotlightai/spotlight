@@ -24,7 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 const MERGED = Happening.of('github.pull_request.merged');
 
-const standing = () => {
+const existingLine = () => {
   let next = 0;
 
   return Line.open({
@@ -64,7 +64,7 @@ const station = (
   ...over,
 });
 
-const asStanding = (line: Line): LinePlan =>
+const asPlan = (line: Line): LinePlan =>
   LinePlan.of({
     key: line.key,
     name: line.name,
@@ -88,7 +88,7 @@ const like = (
 
 const reconciling = (
   plan: LinePlan,
-  line = standing(),
+  line = existingLine(),
   tasks: Record<string, number> = {},
 ) => {
   let next = 100;
@@ -97,9 +97,9 @@ const reconciling = (
     line,
     result: reconcileLine({
       by: attributedIn(),
-      standing: line,
+      existing: line,
       plan,
-      tasksStanding: new Map(
+      taskCounts: new Map(
         line.stations.map((each) => [
           each.id.value,
           tasks[each.key.value] ?? 0,
@@ -112,20 +112,20 @@ const reconciling = (
 
 describe('reconciling a line with the plan describing it', () => {
   it('keeps every station that is still described', () => {
-    const { result } = reconciling(asStanding(standing()));
+    const { result } = reconciling(asPlan(existingLine()));
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.line.stations).toHaveLength(
-      standing().stations.length,
+      existingLine().stations.length,
     );
   });
 
   it('leaves a renamed station the same station it was', () => {
-    const line = standing();
+    const line = existingLine();
     const [first] = [...line.stations].sort(
       (one, other) => one.position - other.position,
     );
-    const plan = asStanding(line);
+    const plan = asPlan(line);
 
     const { result } = reconciling(
       like(plan, {
@@ -144,8 +144,8 @@ describe('reconciling a line with the plan describing it', () => {
   });
 
   it('leaves a station the same station when the line is reordered', () => {
-    const line = standing();
-    const plan = asStanding(line);
+    const line = existingLine();
+    const plan = asPlan(line);
     const moved = [...plan.stations];
     const [taken] = moved.splice(1, 1);
     moved.splice(2, 0, taken as StationPlan);
@@ -162,8 +162,8 @@ describe('reconciling a line with the plan describing it', () => {
   });
 
   it('gives a station nobody had before an identity of its own', () => {
-    const line = standing();
-    const plan = asStanding(line);
+    const line = existingLine();
+    const plan = asPlan(line);
 
     const { result } = reconciling(
       like(plan, {
@@ -184,9 +184,9 @@ describe('reconciling a line with the plan describing it', () => {
     ).toMatch(/^new_/);
   });
 
-  it('lets a station nobody stands at go quietly', () => {
-    const line = standing();
-    const plan = asStanding(line);
+  it('lets a station with no tasks go quietly', () => {
+    const line = existingLine();
+    const plan = asPlan(line);
 
     const { result } = reconciling(
       like(plan, { stations: plan.stations.filter((_, at) => at !== 1) }),
@@ -199,9 +199,9 @@ describe('reconciling a line with the plan describing it', () => {
     );
   });
 
-  it('refuses to remove a station with tasks standing at it', () => {
-    const line = standing();
-    const plan = asStanding(line);
+  it('refuses to remove a station with tasks at it', () => {
+    const line = existingLine();
+    const plan = asPlan(line);
     const going = plan.stations[1]?.key.value as string;
 
     const { result } = reconciling(
@@ -217,8 +217,8 @@ describe('reconciling a line with the plan describing it', () => {
   });
 
   it('names every station it would have stranded, not just the first', () => {
-    const line = standing();
-    const plan = asStanding(line);
+    const line = existingLine();
+    const plan = asPlan(line);
     const going = plan.stations.slice(1, 3).map((each) => each.key.value);
 
     const { result } = reconciling(
@@ -237,8 +237,8 @@ describe('reconciling a line with the plan describing it', () => {
   });
 
   it('resolves where work passes to, including to a new station', () => {
-    const line = standing();
-    const plan = asStanding(line);
+    const line = existingLine();
+    const plan = asPlan(line);
     const [first, second] = plan.stations;
 
     const { result } = reconciling(
@@ -262,8 +262,8 @@ describe('reconciling a line with the plan describing it', () => {
   });
 
   it('resolves every reaction onto the line it describes', () => {
-    const line = standing();
-    const plan = asStanding(line);
+    const line = existingLine();
+    const plan = asPlan(line);
     const to = plan.stations[plan.stations.length - 1] as StationPlan;
 
     const { result } = reconciling(
@@ -281,10 +281,10 @@ describe('reconciling a line with the plan describing it', () => {
   });
 
   it('takes the line’s own name from the plan', () => {
-    const line = standing();
+    const line = existingLine();
 
     const { result } = reconciling(
-      like(asStanding(line), { name: LineName.of('Release') }),
+      like(asPlan(line), { name: LineName.of('Release') }),
       line,
     );
 
@@ -293,10 +293,10 @@ describe('reconciling a line with the plan describing it', () => {
   });
 
   it('keeps the line’s key, which a plan cannot change', () => {
-    const line = standing();
+    const line = existingLine();
 
     expect(() =>
-      reconciling(like(asStanding(line), { key: LineKey.of('release') }), line),
+      reconciling(like(asPlan(line), { key: LineKey.of('release') }), line),
     ).toThrow(LineKeyFixedError);
   });
 });

@@ -8,7 +8,7 @@ import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import {
   MAX_MEMORY_BODY,
   type ProposedMemory,
-  proposalStandingOf,
+  proposalStatusOf,
   proposalTitleOf,
   undecided,
 } from '@/lib/memory';
@@ -41,7 +41,7 @@ export function ProposedMemoryCard({
     <DecisionCard as="li" data-slot="proposed-memory">
       <DecisionHeader
         title={
-          <DecisionTitle standing={proposalStandingOf(memory)}>
+          <DecisionTitle status={proposalStatusOf(memory)}>
             {proposalTitleOf(memory)}
           </DecisionTitle>
         }

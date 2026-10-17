@@ -275,15 +275,15 @@ const inviteHandlers = [
     if (!found) {
       return notFound();
     }
-    if (found.standing !== 'open') {
-      return problem(409, CLOSED_BECAUSE[found.standing]);
+    if (found.status !== 'open') {
+      return problem(409, CLOSED_BECAUSE[found.status]);
     }
 
     const store = membersWorld();
     const pending = store.invites.find((each) =>
       sameAddress(each.email, found.email),
     );
-    found.standing = 'accepted';
+    found.status = 'accepted';
     if (pending) {
       store.invites = store.invites.filter((each) => each !== pending);
       store.closed[pending.id] = 'accepted';

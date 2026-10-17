@@ -41,7 +41,7 @@ const reading = (found: TaskRunSummary[]) => {
 };
 
 describe('ListTaskRunsHandler', () => {
-  it('carries the station a run worked, not the one its task stands at', async () => {
+  it('carries the station a run worked, not the one its task is at now', async () => {
     const { runs } = reading([summary()]);
 
     const [only] = await new ListTaskRunsHandler(runs).execute(

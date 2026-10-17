@@ -11,7 +11,7 @@ import { DecisionGrounds } from '@change-review/domain/value-objects/decision-gr
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
-import { DecisionStanding } from '@change-review/domain/value-objects/decision-standing.vo';
+import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { MAX_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
@@ -185,13 +185,13 @@ describe('a decision set, asked to draft', () => {
     expect(asked.draft?.isFor(SECOND)).toBe(true);
   });
 
-  it('hears no later run once its decisions stand in a merge', () => {
-    const stood = drafting(opened().asked(FIRST, NOW), FIRST, [
+  it('hears no later run after its decisions merge', () => {
+    const merged = drafting(opened().asked(FIRST, NOW), FIRST, [
       proposed(),
-    ]).stood(MERGE);
-    stood.pullEvents();
+    ]).merge(MERGE);
+    merged.pullEvents();
 
-    const asked = stood.asked(SECOND, NOW);
+    const asked = merged.asked(SECOND, NOW);
 
     expect(asked.owesWork).toBe(false);
     expect(asked.decidedIn?.equals(FIRST)).toBe(true);
@@ -275,7 +275,7 @@ describe('a decision set, drafted', () => {
         decidedIn: FIRST,
         decisions: [decision, decision],
         draft: null,
-        standing: DecisionStanding.proposed(),
+        status: DecisionStatus.proposed(),
         version: 1,
       }),
     ).toThrow(InconsistentStateError);
@@ -328,29 +328,29 @@ describe('a decision set, failing to draft', () => {
 });
 
 describe('a decision set, merged', () => {
-  it('stands in the merge, keeping its commit', () => {
-    const stood = drafting(opened().asked(FIRST, NOW), FIRST, [
+  it('merges, and keeps the commit of the merge', () => {
+    const merged = drafting(opened().asked(FIRST, NOW), FIRST, [
       proposed(),
-    ]).stood(MERGE);
+    ]).merge(MERGE);
 
-    expect(stood.standing.stands).toBe(true);
-    expect(stood.standing.merge?.commit).toBe('a'.repeat(40));
-    expect(stood.standing.merge?.repository.value).toBe('acme/api');
-    expect(stood.pullEvents()).toContainEqual(
+    expect(merged.status.isMerged).toBe(true);
+    expect(merged.status.merge?.commit).toBe('a'.repeat(40));
+    expect(merged.status.merge?.repository.value).toBe('acme/api');
+    expect(merged.pullEvents()).toContainEqual(
       expect.objectContaining({
-        kind: 'decisions.stood',
+        kind: 'decisions.merged',
         commit: 'a'.repeat(40),
       }),
     );
   });
 
-  it('stands once', () => {
-    const stood = opened().stood(MERGE);
-    stood.pullEvents();
+  it('merges once', () => {
+    const merged = opened().merge(MERGE);
+    merged.pullEvents();
 
     expect(
       kinds(
-        stood.stood(
+        merged.merge(
           DecisionMerge.of({
             repository: Repository.of('acme/api'),
             commit: 'b'.repeat(40),
@@ -361,7 +361,7 @@ describe('a decision set, merged', () => {
     ).toEqual([]);
   });
 
-  it('stands only in a merge named by its full hash', () => {
+  it('merges only with a merge commit named by its full hash', () => {
     expect(() =>
       DecisionMerge.of({
         repository: Repository.of('acme/api'),
@@ -382,11 +382,11 @@ describe('a decision set, closed without a merge', () => {
     expect(kinds(discarded)).toContain('decisions.discarded');
   });
 
-  it('keeps what already stands in a merge', () => {
-    const stood = opened().stood(MERGE);
-    stood.pullEvents();
+  it('keeps what is already merged', () => {
+    const merged = opened().merge(MERGE);
+    merged.pullEvents();
 
-    const closed = stood.closeUnmerged();
+    const closed = merged.closeUnmerged();
 
     expect(closed.discarded).toBe(false);
     expect(kinds(closed)).toEqual([]);

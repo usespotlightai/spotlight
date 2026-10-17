@@ -17,7 +17,7 @@ import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressToken } from '@runners/domain/value-objects/egress-token.vo';
-import { EgressTokenStanding } from '@runners/domain/value-objects/egress-token-standing.vo';
+import { EgressTokenUsage } from '@runners/domain/value-objects/egress-token-usage.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
@@ -33,7 +33,7 @@ import {
 } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { PoolToken } from '@runners/domain/value-objects/pool-token.vo';
-import { PoolTokenStanding } from '@runners/domain/value-objects/pool-token-standing.vo';
+import { PoolTokenUsage } from '@runners/domain/value-objects/pool-token-usage.vo';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -54,7 +54,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   EgressReference,
   EgressTraffic,
   EgressToken,
-  EgressTokenStanding,
+  EgressTokenUsage,
   EgressUrl,
   HarnessVersion,
   HostId,
@@ -65,7 +65,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   MaxRuns,
   PoolKey,
   PoolToken,
-  PoolTokenStanding,
+  PoolTokenUsage,
   RunnerWork,
   ProvisionSecret,
   ProvisionUrl,

@@ -31,7 +31,7 @@ const memoryIds = async (query: Record<string, string> = {}) => {
 describe('the mock team memories', () => {
   serveMockApi();
 
-  it('lists what each team remembers, standing by default', async () => {
+  it('lists what each team remembers, active by default', async () => {
     const { data: growth } = await listTeamMemories({
       path: { teamId: GROWTH_ID },
       throwOnError: true,
@@ -48,8 +48,8 @@ describe('the mock team memories', () => {
     expect(growth.length).toBeGreaterThan(0);
   });
 
-  it('narrows by standing, kind, line, station, repository and path', async () => {
-    expect(await memoryIds({ standing: 'retired' })).toEqual([
+  it('narrows by status, kind, line, station, repository and path', async () => {
+    expect(await memoryIds({ status: 'retired' })).toEqual([
       'memory_flaky',
       'memory_branches',
     ]);
@@ -129,7 +129,7 @@ describe('the mock team memories', () => {
     expect(await memoryIds()).toEqual(
       expect.arrayContaining([written.id, edited.id]),
     );
-    expect(await memoryIds({ standing: 'retired' })).toEqual(
+    expect(await memoryIds({ status: 'retired' })).toEqual(
       expect.arrayContaining(['memory_gone', 'memory_staging']),
     );
   });

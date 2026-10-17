@@ -34,18 +34,18 @@ export class WithdrawCandidateHandler
 
     try {
       const seen = await this.candidates.find(id);
-      const standing = seen
-        ? await this.people.standingOn(
+      const membership = seen
+        ? await this.people.membershipOn(
             seen.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!seen || !standing) {
+      if (!seen || !membership) {
         return null;
       }
 
-      if (!standing.mayPlan) {
+      if (!membership.mayPlan) {
         return forbiddenTo('plan');
       }
 

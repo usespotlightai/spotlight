@@ -137,7 +137,7 @@ describe('the work of a replay', () => {
     await expect(work.deliverUpTo()).rejects.toThrow(KeptFromReplaysError);
   });
 
-  it('records a permission it would have asked a person for on the run as it now stands, and ends its turn there', async () => {
+  it('records a permission it would have asked a person for on the run as it is now, and ends its turn there', async () => {
     const { work, saved } = working();
 
     expect(await work.clearPermission()).toBe('asked');

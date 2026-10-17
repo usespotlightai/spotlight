@@ -7,9 +7,9 @@ import type {
   WriteMemoryRequestDto,
 } from '@/lib/api';
 import {
-  type DecisionStanding,
+  type ApprovalStatus,
   WAITING_FOR_APPROVAL,
-} from '@/lib/decision-standing';
+} from '@/lib/approval-status';
 import { teamSectionPath } from '@/lib/team';
 
 export type ProposedMemory = ProposedMemoryResponseDto;
@@ -140,14 +140,14 @@ export const proposalTitleOf = (memory: ProposedMemory): string => {
   return who ? `${outcome} by ${who}` : outcome;
 };
 
-const PROPOSAL_STANDINGS: Record<ProposedMemory['state'], DecisionStanding> = {
+const PROPOSAL_STATUSES: Record<ProposedMemory['state'], ApprovalStatus> = {
   proposed: 'waiting',
   approved: 'approved',
   rejected: 'declined',
 };
 
-export const proposalStandingOf = (memory: ProposedMemory): DecisionStanding =>
-  PROPOSAL_STANDINGS[memory.state];
+export const proposalStatusOf = (memory: ProposedMemory): ApprovalStatus =>
+  PROPOSAL_STATUSES[memory.state];
 
 export type MemoryKind = WriteMemoryRequestDto['kind'];
 
@@ -168,15 +168,15 @@ export const KIND_OPTIONS = KINDS.map((value) => ({
   label: KIND_LABELS[value],
 }));
 
-export const STANDING_VIEWS = [
-  { id: 'stands', label: 'Standing' },
+export const STATUS_VIEWS = [
+  { id: 'active', label: 'Active' },
   { id: 'retired', label: 'Retired' },
 ] as const;
 
-type MemoryStanding = (typeof STANDING_VIEWS)[number]['id'];
+type MemoryStatus = (typeof STATUS_VIEWS)[number]['id'];
 
 export type MemoryFilter = {
-  readonly standing: MemoryStanding;
+  readonly status: MemoryStatus;
   readonly kind: string | null;
   readonly lineId: string | null;
   readonly stationId: string | null;
@@ -187,7 +187,7 @@ export type MemoryFilter = {
 const FILTERED = ['kind', 'lineId', 'stationId', 'repository', 'path'] as const;
 
 export const filterOf = (params: URLSearchParams): MemoryFilter => ({
-  standing: params.get('standing') === 'retired' ? 'retired' : 'stands',
+  status: params.get('status') === 'retired' ? 'retired' : 'active',
   kind: params.get('kind'),
   lineId: params.get('lineId'),
   stationId: params.get('stationId'),
@@ -197,9 +197,7 @@ export const filterOf = (params: URLSearchParams): MemoryFilter => ({
 
 export const paramsOf = (filter: MemoryFilter): Record<string, string> =>
   Object.fromEntries([
-    ...(filter.standing === 'retired'
-      ? [['standing', 'retired'] as const]
-      : []),
+    ...(filter.status === 'retired' ? [['status', 'retired'] as const] : []),
     ...FILTERED.flatMap((key) => {
       const value = filter[key];
       return value ? [[key, value] as const] : [];
@@ -213,7 +211,7 @@ export const narrowed = (filter: MemoryFilter): boolean =>
   narrowedBy(filter) > 0;
 
 export const unnarrowed = (filter: MemoryFilter): MemoryFilter => ({
-  standing: filter.standing,
+  status: filter.status,
   kind: null,
   lineId: null,
   stationId: null,
@@ -238,7 +236,7 @@ export const proposalStateOf = (proposal: RunProposal): string => {
   }
 
   if (proposal.state === 'approved') {
-    return proposal.standing === 'retired' ? 'Kept, now retired' : 'Kept';
+    return proposal.status === 'retired' ? 'Kept, now retired' : 'Kept';
   }
 
   return 'Waiting for you';

@@ -1,7 +1,7 @@
 import type { Egress } from '@runners/domain/aggregates/egress.aggregate';
 import { EgressTokenSpentError } from '@runners/domain/exceptions/egress-token-spent.error';
 import { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
-import type { EgressTokenStanding } from '@runners/domain/value-objects/egress-token-standing.vo';
+import type { EgressTokenUsage } from '@runners/domain/value-objects/egress-token-usage.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export const egressTokenGivenTo = (
@@ -13,14 +13,12 @@ export const egressTokenGivenTo = (
   return current && !before?.tokenHash.equals(current) ? current : null;
 };
 
-export const refuseEgressTokenGivenBefore = (
-  standing: EgressTokenStanding,
-): void => {
-  if (standing.inUse) {
+export const refuseEgressTokenGivenBefore = (usage: EgressTokenUsage): void => {
+  if (usage.inUse) {
     throw new EgressTokenTakenError();
   }
 
-  if (standing.given) {
+  if (usage.given) {
     throw new EgressTokenSpentError();
   }
 };

@@ -852,7 +852,7 @@ describe('replayed candidates beside live runs', () => {
     expect(set?.baseline?.replayId).not.toBeNull();
   }, 120_000);
 
-  it('reads each set’s standing baseline as the replay page picks it, past newer stopped ones', async () => {
+  it('reads each set’s current baseline as the replay page picks it, past newer stopped ones', async () => {
     const replays = app.get(DrizzleReplayRepository);
     const sets = await db
       .selectDistinct({ setId: schema.replay.setId })

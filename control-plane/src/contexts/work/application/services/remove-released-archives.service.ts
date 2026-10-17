@@ -1,6 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { ArchiveStandingsPort } from '@work/application/ports/archive-standings.port';
+import type { ArchiveReferencesPort } from '@work/application/ports/archive-references.port';
 import type { WorkspaceArchiveStorePort } from '@work/application/ports/workspace-archive-store.port';
 import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
 import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
@@ -12,7 +12,7 @@ export class RemoveReleasedArchives {
   readonly name = 'Removing workspace archives no later run will restore';
 
   constructor(
-    private readonly standings: ArchiveStandingsPort,
+    private readonly references: ArchiveReferencesPort,
     private readonly archives: WorkspaceArchiveRepository,
     private readonly store: WorkspaceArchiveStorePort,
     private readonly clock: ClockPort,
@@ -22,7 +22,7 @@ export class RemoveReleasedArchives {
   async workDue(): Promise<void> {
     const now = this.clock.now();
 
-    const due = await this.standings.due(
+    const due = await this.references.due(
       WorkspaceArchive.removalCutoffs(now),
       MAX_AT_ONCE,
     );

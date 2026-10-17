@@ -42,7 +42,7 @@ export class SettleDecisions {
 
       await this.sets.save(
         closed.merge
-          ? set.stood(
+          ? set.merge(
               DecisionMerge.of({
                 repository: closed.repository,
                 commit: closed.merge.commit,

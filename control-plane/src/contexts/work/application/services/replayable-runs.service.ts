@@ -8,7 +8,7 @@ import type {
   RecentRun,
   Replayability,
   ReplayableRunsPort,
-  StandingRun,
+  RunSummary,
 } from '@work/application/ports/replayable-runs.port';
 import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
@@ -16,7 +16,7 @@ import type { DispatchReplay } from '@work/application/services/dispatch-replay.
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { standingOf } from '@work/domain/services/replay-standing';
+import { replayBlockOf } from '@work/domain/services/replay-block';
 
 export class ReplayableRuns implements ReplayableRunsPort {
   constructor(
@@ -44,23 +44,23 @@ export class ReplayableRuns implements ReplayableRunsPort {
     return checked;
   }
 
-  async standing(
+  async summaries(
     workspaceId: string,
     runIds: readonly string[],
-  ): Promise<readonly StandingRun[]> {
+  ): Promise<readonly RunSummary[]> {
     const known = await this.facts.of(workspaceId, runIds);
 
     return [...new Set(runIds)].map((runId) => {
       const facts = known.get(runId) ?? null;
-      const standing = standingOf(facts);
+      const block = replayBlockOf(facts);
       const placed = facts?.inWorkspace ? facts : null;
 
       return {
         runId,
         taskId: placed?.taskId ?? null,
         stationId: placed?.stationId ?? null,
-        refusal: standing?.refusal ?? null,
-        reason: standing?.reason ?? null,
+        refusal: block?.refusal ?? null,
+        reason: block?.reason ?? null,
         title: placed?.title ?? null,
         state: placed?.state ?? null,
         endedAt: placed?.endedAt ?? null,
@@ -101,7 +101,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
     });
     const checked = new Map(
       (
-        await this.standing(
+        await this.summaries(
           workspaceId,
           ended.map((each) => each.runId),
         )

@@ -32,15 +32,15 @@ export class UpdateSecretHandler
     const id = SecretId.of(command.secretId);
 
     try {
-      const standing = await this.secrets.withId(id);
-      const permissions = standing
+      const existing = await this.secrets.withId(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -48,7 +48,7 @@ export class UpdateSecretHandler
         return forbiddenTo('manage-secrets');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.secret(command.definition);
 
@@ -56,9 +56,9 @@ export class UpdateSecretHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const redefined = standing.redefinedAs(
+      const redefined = existing.redefinedAs(
         compiled,
-        Attribution.of(command.actor, standing.workspaceId),
+        Attribution.of(command.actor, existing.workspaceId),
         this.clock.now(),
       );
 

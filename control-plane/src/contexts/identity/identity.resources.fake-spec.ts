@@ -47,13 +47,13 @@ export const teamAt = (version: number, key = 'core') =>
 
 export const workspaces = (
   over: {
-    standing?: Workspace | null;
+    existing?: Workspace | null;
     refusing?: Error;
     thenAt?: Workspace | null;
     taken?: boolean;
   } = {},
 ) => {
-  const find = vi.fn(async () => over.standing ?? null);
+  const find = vi.fn(async () => over.existing ?? null);
 
   return {
     find,
@@ -71,13 +71,13 @@ export const workspaces = (
 
 export const teams = (
   over: {
-    standing?: Team | null;
+    existing?: Team | null;
     inWorkspace?: readonly Team[];
     refusing?: Error;
     thenAt?: Team | null;
   } = {},
 ) => {
-  const find = vi.fn(async () => over.standing ?? null);
+  const find = vi.fn(async () => over.existing ?? null);
 
   return {
     find,

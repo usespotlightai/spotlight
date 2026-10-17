@@ -40,15 +40,15 @@ export const raisedOn = (createdAt: string): string => {
 
 export const startsAgainWhenTold = (
   task: Task | undefined,
-  standing:
+  currentStation:
     | { readonly id: string; readonly harness: string | null }
     | undefined,
   ranAt: string | undefined,
 ): boolean =>
   Boolean(
     task &&
-      standing?.harness &&
-      standing.id === ranAt &&
+      currentStation?.harness &&
+      currentStation.id === ranAt &&
       !task.running &&
       !task.awaitingReview,
   );

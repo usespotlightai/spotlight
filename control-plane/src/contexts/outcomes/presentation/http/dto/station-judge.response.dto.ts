@@ -20,11 +20,11 @@ import type {
 import {
   AGREEMENT_MEASURES,
   HIDING_REASONS,
-  type JudgeStanding,
-} from '@outcomes/domain/services/judge-standing';
+  type JudgeCalibration,
+} from '@outcomes/domain/services/judge-calibration';
 import { SCORE_KINDS } from '@outcomes/domain/value-objects/score-scale.vo';
 
-export class JudgeStandingResponseDto {
+export class JudgeCalibrationResponseDto {
   @ApiProperty({
     description:
       'Whether the judge agrees with people often enough for its scores to count',
@@ -59,13 +59,13 @@ export class JudgeStandingResponseDto {
   })
   readonly hiddenBecause: string | null;
 
-  constructor(standing: JudgeStanding) {
-    this.trusted = standing.trusted;
-    this.measure = standing.measure;
-    this.agreement = standing.agreement;
-    this.pairs = standing.pairs;
-    this.trust = standing.trust;
-    this.hiddenBecause = standing.hiddenBecause;
+  constructor(calibration: JudgeCalibration) {
+    this.trusted = calibration.trusted;
+    this.measure = calibration.measure;
+    this.agreement = calibration.agreement;
+    this.pairs = calibration.pairs;
+    this.trust = calibration.trust;
+    this.hiddenBecause = calibration.hiddenBecause;
   }
 }
 
@@ -452,8 +452,8 @@ export class StationJudgeAgreementResponseDto {
   @ApiProperty({ type: StationJudgeSettingsResponseDto, nullable: true })
   readonly judge: StationJudgeSettingsResponseDto | null;
 
-  @ApiProperty({ type: JudgeStandingResponseDto })
-  readonly standing: JudgeStandingResponseDto;
+  @ApiProperty({ type: JudgeCalibrationResponseDto })
+  readonly calibration: JudgeCalibrationResponseDto;
 
   @ApiProperty({
     type: RubricVersionResponseDto,
@@ -471,7 +471,7 @@ export class StationJudgeAgreementResponseDto {
     this.judge = judge.judge
       ? new StationJudgeSettingsResponseDto(judge.judge)
       : null;
-    this.standing = new JudgeStandingResponseDto(judge.standing);
+    this.calibration = new JudgeCalibrationResponseDto(judge.calibration);
     this.versions = judge.versions.map(
       (each) => new RubricVersionResponseDto(each),
     );

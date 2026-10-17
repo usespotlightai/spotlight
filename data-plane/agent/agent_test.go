@@ -140,7 +140,7 @@ func TestPuttingItToAPersonDoesNotSoundLikeAStation(t *testing.T) {
 	}
 }
 
-func TestClosingItWhereItStandsDoesNotSoundLikeAStation(t *testing.T) {
+func TestClosingItInPlaceDoesNotSoundLikeAStation(t *testing.T) {
 	server := inARun(t)
 	out := new(bytes.Buffer)
 
@@ -158,7 +158,7 @@ func TestClosingItWhereItStandsDoesNotSoundLikeAStation(t *testing.T) {
 
 	said := out.String()
 
-	if !strings.Contains(said, "Closed where it stands") {
+	if !strings.Contains(said, "Closed at its current station") {
 		t.Errorf("did not say it was closed: %q", said)
 	}
 	if strings.Contains(said, "Handed over") {

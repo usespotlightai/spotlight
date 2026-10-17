@@ -66,10 +66,10 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
         ranColor: ranAt.color,
         ranPosition: ranAt.position,
         ranLineId: ranAt.lineId,
-        standsName: station.name,
-        standsColor: station.color,
-        standsPosition: station.position,
-        standsLineId: station.lineId,
+        currentStationName: station.name,
+        currentStationColor: station.color,
+        currentStationPosition: station.position,
+        currentLineId: station.lineId,
         workspaceId: run.workspaceId,
       })
       .from(run)
@@ -108,7 +108,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
     const stationCounts = await stationsPerLine(
       this.db,
       worked.flatMap((row) =>
-        [row.ranLineId, row.standsLineId].flatMap((each) =>
+        [row.ranLineId, row.currentLineId].flatMap((each) =>
           each ? [each] : [],
         ),
       ),
@@ -151,18 +151,18 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       }
       passed.set(taskId, marks);
 
-      const standing = traces.get(taskId);
+      const existing = traces.get(taskId);
 
-      if (!standing) {
+      if (!existing) {
         traces.set(taskId, {
           taskId: TaskId.of(taskId),
           title: row.title,
           runIds: [RunId.of(row.runId)],
           station: stationOf(
-            row.standsName,
-            row.standsColor,
-            row.standsPosition,
-            row.standsLineId,
+            row.currentStationName,
+            row.currentStationColor,
+            row.currentStationPosition,
+            row.currentLineId,
           ),
           stations: [],
           harness: HarnessName.of(row.harness),
@@ -177,9 +177,9 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       }
 
       traces.set(taskId, {
-        ...standing,
-        runIds: [...standing.runIds, RunId.of(row.runId)],
-        runs: standing.runs + 1,
+        ...existing,
+        runIds: [...existing.runIds, RunId.of(row.runId)],
+        runs: existing.runs + 1,
         startedAt: row.startedAt,
       });
     }

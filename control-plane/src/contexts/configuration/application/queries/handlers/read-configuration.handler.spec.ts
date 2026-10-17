@@ -93,7 +93,7 @@ describe('ConfigurationHandler', () => {
     const read = await asking({ connects: true }).execute(query());
 
     expect(read?.integrations[0]).toMatchObject({
-      standing: 'unlinked',
+      connectionStatus: 'unlinked',
       handle: null,
     });
   });
@@ -105,7 +105,7 @@ describe('ConfigurationHandler', () => {
     }).execute(query());
 
     expect(read?.integrations[0]).toMatchObject({
-      standing: 'linked',
+      connectionStatus: 'linked',
       handle: 'Acme',
     });
   });
@@ -113,7 +113,7 @@ describe('ConfigurationHandler', () => {
   it('says a host that does not link that way only listens', async () => {
     const read = await asking().execute(query());
 
-    expect(read?.integrations[0]?.standing).toBe('listens');
+    expect(read?.integrations[0]?.connectionStatus).toBe('listens');
   });
 
   it('lists nothing where the team listens to nothing', async () => {

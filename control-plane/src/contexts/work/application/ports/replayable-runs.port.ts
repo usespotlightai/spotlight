@@ -10,7 +10,7 @@ export interface Replayability {
   readonly reason: string | null;
 }
 
-export interface StandingRun extends Replayability {
+export interface RunSummary extends Replayability {
   readonly title: string | null;
   readonly state: string | null;
   readonly endedAt: Date | null;
@@ -30,10 +30,10 @@ export interface ReplayableRunsPort {
     runIds: readonly string[],
   ): Promise<readonly Replayability[]>;
 
-  standing(
+  summaries(
     workspaceId: string,
     runIds: readonly string[],
-  ): Promise<readonly StandingRun[]>;
+  ): Promise<readonly RunSummary[]>;
 
   durations(runIds: readonly string[]): Promise<ReadonlyMap<string, number>>;
 

@@ -32,7 +32,7 @@ const ASK: MemoryDraftAsk = {
   stepsLeftOut: 0,
   notes: [{ position: 4, by: 'person', text: 'Never retry on a 403.' }],
   changed: [{ repository: Repository.of('acme/api'), path: 'src/uploads.ts' }],
-  standing: [{ id: 'memory_old', kind: 'preference', body: 'Retry twice.' }],
+  active: [{ id: 'memory_old', kind: 'preference', body: 'Retry twice.' }],
   proposed: [
     { id: 'memory_asked', kind: 'rationale', body: 'Retry in the request.' },
   ],

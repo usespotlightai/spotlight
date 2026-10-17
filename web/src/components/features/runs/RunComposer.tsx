@@ -29,8 +29,8 @@ export function RunComposer({
 }: RunComposerProps) {
   const say = useSayToRun();
   const stop = useStopRun();
-  const { line, station: standing, task } = useTaskStation(teamId, taskId);
-  const restarts = !answering && startsAgainWhenTold(task, standing, stationId);
+  const { line, station: currentStation, task } = useTaskStation(teamId, taskId);
+  const restarts = !answering && startsAgainWhenTold(task, currentStation, stationId);
 
   return (
     <ChatInput
@@ -51,7 +51,7 @@ export function RunComposer({
       }
       pending={say.isPending}
       running={running}
-      settings={<FixedAgent agent={standing} />}
+      settings={<FixedAgent agent={currentStation} />}
       below={
         <FixedRepositories
           slug={slug}

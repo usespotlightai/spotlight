@@ -10,7 +10,7 @@ import { inArray, sql } from 'drizzle-orm';
 export class DrizzleStationTallies implements StationTalliesPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async standingAt(
+  async taskCountsAt(
     stationIds: readonly StationId[],
   ): Promise<ReadonlyMap<string, number>> {
     if (stationIds.length === 0) {
@@ -20,7 +20,7 @@ export class DrizzleStationTallies implements StationTalliesPort {
     const rows = await this.context.db
       .select({
         stationId: task.stationId,
-        standing: sql<number>`count(*)::int`,
+        tasks: sql<number>`count(*)::int`,
       })
       .from(task)
       .where(
@@ -31,10 +31,10 @@ export class DrizzleStationTallies implements StationTalliesPort {
       )
       .groupBy(task.stationId);
 
-    return new Map(rows.map((row) => [row.stationId, Number(row.standing)]));
+    return new Map(rows.map((row) => [row.stationId, Number(row.tasks)]));
   }
 
-  async lockedStandingAt(
+  async lockedTaskCountsAt(
     stationIds: readonly StationId[],
   ): Promise<ReadonlyMap<string, number>> {
     if (stationIds.length === 0) {
@@ -53,6 +53,6 @@ export class DrizzleStationTallies implements StationTalliesPort {
       .orderBy(station.id)
       .for('update');
 
-    return this.standingAt(stationIds);
+    return this.taskCountsAt(stationIds);
   }
 }

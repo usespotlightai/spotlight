@@ -70,9 +70,9 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
       item.raisedAt.position,
     ),
     new InboxStationResponseDto(
-      item.standsAt.name,
-      item.standsAt.color,
-      item.standsAt.position,
+      item.currentStation.name,
+      item.currentStation.color,
+      item.currentStation.position,
     ),
     item.createdAt,
     item.askedAt,

@@ -3,9 +3,9 @@ import type {
   CitedHunkResponseDto,
   ClaimAgreementResponseDto,
   GradeResponseDto,
+  JudgeCalibrationResponseDto,
   JudgeCoverageResponseDto,
   JudgeReasonResponseDto,
-  JudgeStandingResponseDto,
   RubricVersionResponseDto,
   RunScoresResponseDto,
   ScoreCountResponseDto,
@@ -18,7 +18,7 @@ export type StationJudgeAgreement = StationJudgeAgreementResponseDto;
 
 export type RubricVersion = RubricVersionResponseDto;
 
-export type JudgeStanding = JudgeStandingResponseDto;
+export type JudgeCalibration = JudgeCalibrationResponseDto;
 
 export type JudgeCoverage = JudgeCoverageResponseDto;
 
@@ -143,12 +143,12 @@ const RUNS_COLUMN = 'Runs';
 
 export const YOUR_GRADE = 'Your grade';
 
-const MEASURES: Record<NonNullable<JudgeStanding['measure']>, string> = {
+const MEASURES: Record<NonNullable<JudgeCalibration['measure']>, string> = {
   kappa: 'Cohen’s kappa',
   spearman: 'Spearman’s ρ',
 };
 
-export const formatMeasure = (measure: JudgeStanding['measure']): string =>
+export const formatMeasure = (measure: JudgeCalibration['measure']): string =>
   measure ? MEASURES[measure] : 'Agreement';
 
 export const formatStat = (value: number | null): string =>
@@ -162,20 +162,20 @@ const PERCENT = new Intl.NumberFormat('en', {
 export const formatPercent = (share: number | null): string =>
   share === null ? '–' : PERCENT.format(share);
 
-export const formatStanding = (standing: JudgeStanding): string => {
-  switch (standing.hiddenBecause) {
+export const formatCalibration = (calibration: JudgeCalibration): string => {
+  switch (calibration.hiddenBecause) {
     case null:
-      return `Trusted. ${formatMeasure(standing.measure)}: ${formatStat(standing.agreement)} over ${standing.pairs} runs. Minimum required: ${formatStat(standing.trust)}`;
+      return `Trusted. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)} over ${calibration.pairs} runs. Minimum required: ${formatStat(calibration.trust)}`;
     case 'no-judge':
       return 'This station has no judge. There are no scores to trust.';
     case 'unreadable-rubric':
       return 'Hidden. The rubric names a scale that cannot be read.';
     case 'too-few-pairs':
-      return `Hidden until more runs have scores from both the judge and people. Runs so far: ${standing.pairs}`;
+      return `Hidden until more runs have scores from both the judge and people. Runs so far: ${calibration.pairs}`;
     case 'no-agreement':
       return 'Hidden. Agreement can’t be measured while all scores are identical.';
     case 'below-trust':
-      return `Hidden. ${formatMeasure(standing.measure)}: ${formatStat(standing.agreement)}. Minimum required: ${formatStat(standing.trust)}`;
+      return `Hidden. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.trust)}`;
   }
 };
 
@@ -209,16 +209,16 @@ export type JudgeTile = {
 };
 
 export const judgeTiles = (
-  standing: JudgeStanding,
+  calibration: JudgeCalibration,
   coverage: JudgeCoverage,
 ): JudgeTile[] => [
   {
     id: 'agreement',
-    label: formatMeasure(standing.measure),
-    value: formatStat(standing.agreement),
-    detail: standing.trusted
-      ? `Trusted. Minimum required: ${formatStat(standing.trust)}`
-      : formatStanding(standing),
+    label: formatMeasure(calibration.measure),
+    value: formatStat(calibration.agreement),
+    detail: calibration.trusted
+      ? `Trusted. Minimum required: ${formatStat(calibration.trust)}`
+      : formatCalibration(calibration),
   },
   ...COVERAGE_PARTS.map((part) => ({
     id: part.label,

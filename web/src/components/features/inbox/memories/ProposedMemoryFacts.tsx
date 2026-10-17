@@ -38,7 +38,7 @@ export function ProposedMemoryFacts({
               autoFocus
               maxLength={MAX_MEMORY_BODY}
               onChange={(event) => onBody(event.target.value)}
-              aria-label="The memory as it should stand"
+              aria-label="The memory as it should be"
             />
           ) : (
             <p id={bodyId} className={FACT_VALUE}>

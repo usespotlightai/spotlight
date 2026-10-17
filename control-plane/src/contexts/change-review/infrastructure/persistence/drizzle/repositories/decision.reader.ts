@@ -1,12 +1,12 @@
 import type {
   DecisionDto,
-  StandingDecisionsDto,
+  MergedDecisionsDto,
   TaskDecisionsDto,
 } from '@change-review/application/dto/decision.dto';
 import { ranked } from '@change-review/application/mappers/ranked-decisions';
 import type {
   DecisionReaderPort,
-  StandingSought,
+  MergedSought,
 } from '@change-review/application/ports/decision-reader.port';
 import {
   type DecisionSetRow,
@@ -110,20 +110,20 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
     return {
       runId: set.decidedIn,
       drafting: draftedRunOf(set) !== null,
-      standing: set.standing,
+      status: set.status,
       merge: mergeRowOf(set),
       decisions: decisionsIn(set, decisions, disputes),
     };
   }
 
-  async standing(sought: StandingSought): Promise<StandingDecisionsDto[]> {
+  async merged(sought: MergedSought): Promise<MergedDecisionsDto[]> {
     const sets = await this.context.db
       .select()
       .from(decisionSet)
       .where(
         and(
           eq(decisionSet.workspaceId, sought.workspaceId.value),
-          eq(decisionSet.standing, 'stands'),
+          eq(decisionSet.status, 'merged'),
           sought.repository
             ? eq(decisionSet.mergedRepository, sought.repository.value)
             : undefined,

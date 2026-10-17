@@ -60,19 +60,19 @@ export class ReadInsightsSetupsHandler
         { stationId: query.stationId, size },
       );
       const judgeWithheld = judgeWithheldFrom(query.stationId);
-      const standings =
+      const calibrations =
         query.stationId === null
           ? null
           : {
               stationId: query.stationId,
-              ...(await this.judges.standings(access, counts.stations)),
+              ...(await this.judges.calibrations(access, counts.stations)),
             };
       const compared = setupsFrom(
         counts.setups,
-        standings
+        calibrations
           ? {
               withheld: false,
-              trusted: standings.trusted.get(standings.stationId) ?? null,
+              trusted: calibrations.trusted.get(calibrations.stationId) ?? null,
             }
           : { withheld: true },
       );
@@ -86,7 +86,7 @@ export class ReadInsightsSetupsHandler
         currency: compared.currency,
         setups: compared.setups,
         judgeWithheld,
-        judges: (standings?.judges ?? []).map(
+        judges: (calibrations?.judges ?? []).map(
           ({ rubricVersion: _, ...each }) => each,
         ),
       };

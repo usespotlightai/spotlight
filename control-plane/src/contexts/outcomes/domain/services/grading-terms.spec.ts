@@ -9,7 +9,7 @@ import {
   latestJudgeOf,
   visibleJudgeOf,
 } from '@outcomes/domain/services/grading-terms';
-import type { JudgeStanding } from '@outcomes/domain/services/judge-standing';
+import type { JudgeCalibration } from '@outcomes/domain/services/judge-calibration';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -80,7 +80,7 @@ describe('gradingTermsOf', () => {
   });
 });
 
-const TRUSTED: JudgeStanding = {
+const TRUSTED: JudgeCalibration = {
   trusted: true,
   measure: 'kappa',
   agreement: 0.9,

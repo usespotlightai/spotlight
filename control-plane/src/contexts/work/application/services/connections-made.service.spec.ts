@@ -87,17 +87,17 @@ const waiting = () => {
 };
 
 const answering = (fails = 0) => {
-  let standing = waiting();
+  let current = waiting();
   const saved: Task[] = [];
   const tasks = {
-    awaitingConnection: vi.fn(async () => [standing]),
-    find: vi.fn(async () => standing),
+    awaitingConnection: vi.fn(async () => [current]),
+    find: vi.fn(async () => current),
     save: vi.fn(async (task: Task) => {
       if (fails > 0) {
         fails--;
         throw new TaskVersionConflictError('task_1');
       }
-      standing = task;
+      current = task;
       saved.push(task);
     }),
   } as unknown as TaskRepository;

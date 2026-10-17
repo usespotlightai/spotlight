@@ -16,7 +16,7 @@ interface MemoryBody {
   readonly kind: string;
   readonly body: string;
   readonly source: string;
-  readonly standing: string;
+  readonly status: string;
   readonly reach: string;
   readonly lineId: string | null;
   readonly stationId: string | null;
@@ -102,7 +102,7 @@ afterAll(async () => {
 });
 
 describe('the team’s memory', () => {
-  it('stands a memory written on the page at once, as the writer’s own', async () => {
+  it('makes a memory written on the page active at once, as the writer’s own', async () => {
     const written = await writing({
       kind: 'environment',
       body: 'Staging needs a restart after deploys.',
@@ -112,7 +112,7 @@ describe('the team’s memory', () => {
     expect(written.body).toMatchObject({
       kind: 'environment',
       source: 'person',
-      standing: 'stands',
+      status: 'active',
       reach: 'team',
       approvedBy: { id: team.owner.value, name: 'Ada' },
       retirement: null,
@@ -209,13 +209,13 @@ describe('the team’s memory', () => {
           .get(`${memories()}/${old.id}`)
           .set(TEST_USER_HEADER, team.owner.value)
       ).body as MemoryBody;
-      return read.standing === 'retired' && read;
+      return read.status === 'retired' && read;
     });
     expect(retired.retirement?.supersededBy).toBe(replacement.id);
     expect(retired.successor?.id).toBe(replacement.id);
-    expect(
-      (await listing('?standing=retired')).map((each) => each.id),
-    ).toContain(old.id);
+    expect((await listing('?status=retired')).map((each) => each.id)).toContain(
+      old.id,
+    );
     expect((await listing()).map((each) => each.id)).not.toContain(old.id);
   });
 
@@ -262,10 +262,10 @@ describe('the team’s memory', () => {
 
     expect(answers.map((each) => each.status).sort()).toEqual([201, 409]);
     expect(later.status).toBe(409);
-    const standing = (await listing()).filter(
+    const active = (await listing()).filter(
       (each) => each.supersedes === old.id,
     );
-    expect(standing).toHaveLength(1);
+    expect(active).toHaveLength(1);
   });
 
   it('stops a retired memory reaching later runs', async () => {

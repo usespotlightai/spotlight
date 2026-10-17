@@ -5,7 +5,7 @@ export interface LeasedSearchRun {
   readonly iteration: number;
 }
 
-export interface SearchRunStanding {
+export interface SearchRunStatus {
   readonly runId: string;
   readonly phase: 'queued' | 'running' | 'ended';
   readonly failed: boolean;
@@ -20,5 +20,5 @@ export interface SearchRunsPort {
     runnerId: string,
   ): Promise<LeasedSearchRun | null>;
 
-  standing(runIds: readonly string[]): Promise<readonly SearchRunStanding[]>;
+  statuses(runIds: readonly string[]): Promise<readonly SearchRunStatus[]>;
 }

@@ -1,9 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { TerminalSpinner } from '@/components/shared/TerminalSpinner';
-import type { DecisionStanding } from '@/lib/decision-standing';
+import type { ApprovalStatus } from '@/lib/approval-status';
 
-const SETTLED: Record<DecisionStanding, 'filled' | 'faded' | null> = {
+const SETTLED: Record<ApprovalStatus, 'filled' | 'faded' | null> = {
   waiting: null,
   approved: 'filled',
   declined: 'faded',
@@ -13,8 +13,8 @@ type DecisionTitleProps = {
   as?: 'h2' | 'h3';
   children: ReactNode;
 } & (
-  | { icon: LucideIcon; standing?: never }
-  | { standing: DecisionStanding; icon?: never }
+  | { icon: LucideIcon; status?: never }
+  | { status: ApprovalStatus; icon?: never }
 );
 
 export function DecisionTitle({
@@ -26,8 +26,8 @@ export function DecisionTitle({
 
   return (
     <Heading className="flex min-w-0 items-center gap-2 font-medium text-foreground text-sm">
-      {marked.standing ? (
-        <TerminalSpinner settled={SETTLED[marked.standing]} />
+      {marked.status ? (
+        <TerminalSpinner settled={SETTLED[marked.status]} />
       ) : (
         Icon && <Icon aria-hidden className="size-4 shrink-0" />
       )}

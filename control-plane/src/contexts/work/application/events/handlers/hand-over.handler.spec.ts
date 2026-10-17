@@ -177,7 +177,7 @@ const tasks = (found: Task | null = task()) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
@@ -510,7 +510,7 @@ describe('HandOver', () => {
     );
 
     it.each(endings)(
-      'leaves the task where it stands when the run %s with nothing deferred',
+      'leaves the task where it is when the run %s with nothing deferred',
       async (_, ending) => {
         await handOver(ending());
 

@@ -1,5 +1,5 @@
 import type { ReportHostPresenceCommand } from '@runners/application/commands/host.commands';
-import type { HostStandingDto } from '@runners/application/dto/host-standing.dto';
+import type { HostHeartbeatDto } from '@runners/application/dto/host-heartbeat.dto';
 import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
 import { reviseHost } from '@runners/application/services/runner-host-revisions';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
@@ -14,7 +14,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
 export class ReportHostPresenceHandler
-  implements CommandHandlerPort<ReportHostPresenceCommand, HostStandingDto>
+  implements CommandHandlerPort<ReportHostPresenceCommand, HostHeartbeatDto>
 {
   constructor(
     private readonly admissions: RunnerAdmissionsPort,
@@ -22,7 +22,7 @@ export class ReportHostPresenceHandler
     private readonly clock: ClockPort,
   ) {}
 
-  async execute(command: ReportHostPresenceCommand): Promise<HostStandingDto> {
+  async execute(command: ReportHostPresenceCommand): Promise<HostHeartbeatDto> {
     try {
       const admitted = await this.admissions.admit(command.credential);
 

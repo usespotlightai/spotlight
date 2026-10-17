@@ -65,14 +65,14 @@ export class RunChangeChecks implements RunChangeChecksPort {
   ) {}
 
   ofRun(runId: string): Promise<readonly CheckedChange[]> {
-    return this.standings(runId, false);
+    return this.checkedChanges(runId, false);
   }
 
   rechecksOfRun(runId: string): Promise<readonly CheckedChange[]> {
-    return this.standings(runId, true);
+    return this.checkedChanges(runId, true);
   }
 
-  private async standings(
+  private async checkedChanges(
     runId: string,
     rechecks: boolean,
   ): Promise<readonly CheckedChange[]> {

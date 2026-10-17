@@ -7,6 +7,6 @@ export const BearerAdmission = {
     mintedThrough: WorkspaceTokenTrust | null,
     now: Date,
   ): boolean {
-    return token.admitsAt(now) && token.standsUnder(mintedThrough);
+    return token.admitsAt(now) && token.isStillValidFor(mintedThrough);
   },
 };

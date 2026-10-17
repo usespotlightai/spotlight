@@ -61,16 +61,16 @@ describe('a line reconciled with its definition (e2e)', () => {
     definition: T,
     by = seat.owner,
   ): Promise<ResourceCreated | ResourceUpdated | null> => {
-    const standing = (await lines.ofTeam(TeamId.of(workspaceId))).find(
+    const existing = (await lines.ofTeam(TeamId.of(workspaceId))).find(
       (each) => each.key.value === definition.key,
     );
 
-    return standing
+    return existing
       ? commands.execute<UpdateLineCommand, ResourceUpdated | null>(
           new UpdateLineCommand(
-            standing.id.value,
+            existing.id.value,
             actorFor(by),
-            standing.version,
+            existing.version,
             definition,
           ),
         )

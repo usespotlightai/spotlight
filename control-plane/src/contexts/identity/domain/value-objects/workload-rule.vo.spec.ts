@@ -47,7 +47,7 @@ describe('WorkloadRule', () => {
     );
   });
 
-  it('lets * stand for any run of characters', () => {
+  it('lets * match any run of characters', () => {
     const everyBranch = rule({
       subject: 'repo:acme/platform:ref:refs/heads/*',
     });

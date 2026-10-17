@@ -46,7 +46,7 @@ const DELIVERY = {
   ],
 };
 
-const standingAt = (version: number): Line => {
+const lineAt = (version: number): Line => {
   let next = 0;
   const opened = Line.open({
     by: attributedIn(),
@@ -126,8 +126,8 @@ const creates = () =>
     created: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
-const lines = (standing: Line | null, thenAt: Line | null = standing) => {
-  const find = vi.fn(async () => standing);
+const lines = (existing: Line | null, thenAt: Line | null = existing) => {
+  const find = vi.fn(async () => existing);
 
   return {
     find,
@@ -150,7 +150,7 @@ describe('CreateLineHandler', () => {
         throw over.refusing;
       }
 
-      return standingAt(0);
+      return lineAt(0);
     });
     const handler = new CreateLineHandler(
       access(over.administers),
@@ -266,7 +266,7 @@ describe('UpdateLineHandler', () => {
   const updating = (
     over: { administers?: boolean; refusing?: Error; thenAt?: Line } = {},
   ) => {
-    const kept = lines(standingAt(3));
+    const kept = lines(lineAt(3));
     const reconcile = vi.fn(async (line: Line) => {
       if (over.refusing) {
         kept.find.mockResolvedValue(over.thenAt ?? line);
@@ -319,7 +319,7 @@ describe('UpdateLineHandler', () => {
     expect(
       await updating({
         refusing: new LineVersionConflictError('line_1'),
-        thenAt: standingAt(4),
+        thenAt: lineAt(4),
       }).update(DELIVERY),
     ).toEqual({ outcome: 'version-conflict', currentVersion: 4 });
   });
@@ -355,14 +355,14 @@ describe('UpdateLineHandler', () => {
 
 describe('DeleteLineHandler', () => {
   const deleting = (tasks: Record<string, number> = {}) => {
-    const standing = standingAt(3);
-    const kept = lines(standing, null);
+    const existing = lineAt(3);
+    const kept = lines(existing, null);
     const tallies = {
-      standingAt: vi.fn(),
-      lockedStandingAt: vi.fn(
+      taskCountsAt: vi.fn(),
+      lockedTaskCountsAt: vi.fn(
         async () =>
           new Map(
-            standing.stations.map((each) => [
+            existing.stations.map((each) => [
               each.id.value,
               tasks[each.key.value] ?? 0,
             ]),
@@ -377,20 +377,20 @@ describe('DeleteLineHandler', () => {
           new DeleteLineCommand('line_1', actorFor('user_1'), version),
         ),
       kept,
-      standing,
+      existing,
     };
   };
 
-  it('retires a line no task stands on', async () => {
+  it('retires a line that has no tasks', async () => {
     const { remove, kept } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
     expect((kept.save.mock.calls[0] as [Line])[0].isRetired).toBe(true);
   });
 
-  it('will not retire a line while a task stands on it', async () => {
-    const { remove, kept, standing } = deleting();
-    const [, working] = standing.stations;
+  it('will not retire a line while a task is on it', async () => {
+    const { remove, kept, existing } = deleting();
+    const [, working] = existing.stations;
     const busy = deleting({ [working?.key.value ?? '']: 1 });
 
     expect(await busy.remove()).toMatchObject({ outcome: 'in-use' });

@@ -101,7 +101,7 @@ const memory = (over: Partial<Memory> = {}): Memory => ({
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',
-  standing: 'stands',
+  status: 'active',
   reach: 'team',
   lineId: null,
   stationId: null,
@@ -158,7 +158,7 @@ beforeEach(() => {
 });
 
 describe('TeamMemory', () => {
-  it('lists every standing memory, saying where it applies and who kept it', () => {
+  it('lists every active memory, saying where it applies and who kept it', () => {
     memoriesState.data = [
       memory(),
       memory({
@@ -182,13 +182,13 @@ describe('TeamMemory', () => {
       'Delivery › Implementation › acme/api › src/uploads.ts',
     );
     expect(screen.getAllByText('Maya Chen')).toHaveLength(2);
-    expect(asked[0]?.standing).toBe('stands');
+    expect(asked[0]?.status).toBe('active');
   });
 
   it('asks for the retired memories, and says why each was retired', async () => {
     memoriesState.data = [
       memory({
-        standing: 'retired',
+        status: 'retired',
         retirement: {
           at: '2026-09-27T11:00:00.000Z',
           by: { id: 'user_2', name: 'Maya Chen', image: null },
@@ -198,9 +198,9 @@ describe('TeamMemory', () => {
       }),
     ];
 
-    showing('/w/acme/team/team_1/memory?standing=retired');
+    showing('/w/acme/team/team_1/memory?status=retired');
 
-    expect(asked[0]?.standing).toBe('retired');
+    expect(asked[0]?.status).toBe('retired');
     await userEvent.click(
       screen.getByRole('button', { name: /Name branches after the ticket/ }),
     );
@@ -217,7 +217,7 @@ describe('TeamMemory', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Retired' }));
 
     expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent(
-      '?standing=retired',
+      '?status=retired',
     );
   });
 
@@ -370,14 +370,14 @@ describe('TeamMemory', () => {
     ).toBeVisible();
   });
 
-  it('still offers the retired memories when none stands', async () => {
+  it('still offers the retired memories when none is active', async () => {
     memoriesState.data = [];
     showing();
 
     await userEvent.click(screen.getByRole('link', { name: 'Retired' }));
 
     expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent(
-      '?standing=retired',
+      '?status=retired',
     );
   });
 

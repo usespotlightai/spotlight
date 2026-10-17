@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   comparisonStats,
+  formatCalibration,
   formatScore,
-  formatStanding,
   gradeOptions,
   judgeTiles,
   type RubricVersion,
   valueOfGrade,
 } from '@/lib/judge';
 
-const STANDING = {
+const CALIBRATION = {
   trusted: false,
   measure: 'spearman' as const,
   agreement: 0.3,
@@ -45,17 +45,19 @@ describe('judge', () => {
   });
 
   it('says why a judge’s scores are hidden', () => {
-    expect(formatStanding(STANDING)).toBe(
+    expect(formatCalibration(CALIBRATION)).toBe(
       'Hidden until more runs have scores from both the judge and people. Runs so far: 4',
     );
-    expect(formatStanding({ ...STANDING, hiddenBecause: 'no-agreement' })).toBe(
+    expect(
+      formatCalibration({ ...CALIBRATION, hiddenBecause: 'no-agreement' }),
+    ).toBe(
       'Hidden. Agreement can’t be measured while all scores are identical.',
     );
   });
 
   it('says so when the station’s rubric cannot be read', () => {
     expect(
-      formatStanding({ ...STANDING, hiddenBecause: 'unreadable-rubric' }),
+      formatCalibration({ ...CALIBRATION, hiddenBecause: 'unreadable-rubric' }),
     ).toMatch(/cannot be read/);
   });
 });

@@ -113,7 +113,7 @@ export class LineResourceController {
     );
   }
 
-  @LineResource.Read('lines/:id', 'Read a line as it stands')
+  @LineResource.Read('lines/:id', 'Read the current form of a line')
   @ID
   read(
     @Param('id') id: string,
@@ -143,7 +143,7 @@ export class LineResourceController {
     );
   }
 
-  @LineResource.Delete('lines/:id', 'Delete a line no task stands on')
+  @LineResource.Delete('lines/:id', 'Delete a line that has no tasks')
   @ID
   async delete(
     @Param('id') id: string,
@@ -179,7 +179,7 @@ export class LineResourceController {
 
   @LineResource.List(
     'workspaces/:workspaceId/lines',
-    'List every line in a workspace, across its teams, each as it stands',
+    'List every line in a workspace, across its teams, each in its current form',
   )
   @WORKSPACE
   async list(

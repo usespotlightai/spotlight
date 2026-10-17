@@ -24,13 +24,13 @@ export class ApplyLines {
     plan: LinePlan,
     by: Attribution,
   ): Promise<Line> {
-    const standing = await this.lines.ofTeam(team.id);
+    const existing = await this.lines.ofTeam(team.id);
 
-    if (standing.some((each) => each.key.equals(plan.key))) {
+    if (existing.some((each) => each.key.equals(plan.key))) {
       throw new LineAlreadyOpenedError(plan.key.value);
     }
 
-    this.guardRoles(standing, plan);
+    this.guardRoles(existing, plan);
 
     const opened = openLine({
       identity: {
@@ -57,9 +57,9 @@ export class ApplyLines {
     );
 
     const reconciled = reconcileLine({
-      standing: line,
+      existing: line,
       plan,
-      tasksStanding: await this.tallies.lockedStandingAt(
+      taskCounts: await this.tallies.lockedTaskCountsAt(
         line.stations.map((each) => each.id),
       ),
       newId: () => this.ids.generate(),
@@ -75,8 +75,8 @@ export class ApplyLines {
     return reconciled.line;
   }
 
-  private guardRoles(standing: readonly Line[], plan: LinePlan): void {
-    const [claimed] = rolesClaimedTwice(standing, [plan]);
+  private guardRoles(existing: readonly Line[], plan: LinePlan): void {
+    const [claimed] = rolesClaimedTwice(existing, [plan]);
 
     if (claimed) {
       throw new LineRoleTakenError(claimed);

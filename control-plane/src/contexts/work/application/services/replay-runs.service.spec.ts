@@ -61,7 +61,7 @@ const replayRuns = () =>
     runs,
     claiming,
     {
-      standing: async () => ({ line: {}, station: {}, kept: {} }),
+      live: async () => ({ line: {}, station: {}, kept: {} }),
       withStation: async () => ({ ok: true, line: {}, station: {} }),
     } as unknown as CandidateLines,
     {

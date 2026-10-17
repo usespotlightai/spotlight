@@ -75,7 +75,7 @@ export class ReadReplayCheckHandler
       ]);
       const titles = new Map(
         (
-          await this.work.standing(
+          await this.work.runSummaries(
             check.workspaceId,
             reading.regressions.flatMap((each) =>
               each.candidate.map((copy) => copy.original),

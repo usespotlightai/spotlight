@@ -10,9 +10,9 @@ import {
 import {
   formatCauseAction,
   formatCauseTitle,
+  formatIncumbent,
   formatReflectionIteration,
   formatReflectionOutcome,
-  formatStanding,
   formatWhyItStalled,
   OPEN_FAILED_REPLAY,
   REFLECTION_KIND,
@@ -263,7 +263,7 @@ const reflection = (
         recordedAt: '2026-10-01T11:00:00.000Z',
       },
     ],
-    standing: 'tests',
+    incumbent: 'tests',
     outcome: 'no-config-cause',
     endedSearch: true,
     ...over,
@@ -658,8 +658,10 @@ describe('Search', () => {
       const why = screen.getByRole('region', { name: formatWhyItStalled(3) });
       expect(why).toBe(whyAt(container, 3));
       expect(
-        why.querySelector('[data-slot="reflection-standing"]'),
-      ).toHaveTextContent(formatStanding({ seed: false, name: 'tests-first' }));
+        why.querySelector('[data-slot="reflection-incumbent"]'),
+      ).toHaveTextContent(
+        formatIncumbent({ seed: false, name: 'tests-first' }),
+      );
       expect(
         why.querySelector('[data-slot="reflection-outcome"]'),
       ).toHaveTextContent(formatReflectionOutcome('no-config-cause'));
@@ -834,7 +836,7 @@ describe('Search', () => {
         iterations: [
           ...DETAIL.iterations,
           reflection(
-            { causes: [], standing: 'seed', outcome: 'did-not-run' },
+            { causes: [], incumbent: 'seed', outcome: 'did-not-run' },
             'failed',
           ),
         ],
@@ -844,8 +846,8 @@ describe('Search', () => {
 
       const why = whyAt(container, 3);
       expect(
-        why.querySelector('[data-slot="reflection-standing"]'),
-      ).toHaveTextContent(formatStanding({ seed: true, name: 'seed' }));
+        why.querySelector('[data-slot="reflection-incumbent"]'),
+      ).toHaveTextContent(formatIncumbent({ seed: true, name: 'seed' }));
       expect(
         why.querySelector('[data-slot="reflection-outcome"]'),
       ).toHaveTextContent(formatReflectionOutcome('did-not-run'));

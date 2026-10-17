@@ -46,7 +46,7 @@ export class ReadInsightsMemoryHandler
 
       return {
         period: periodOf(period),
-        standing: use.standing,
+        activeCount: use.activeCount,
         memoriesBriefed: compared.memoriesBriefed,
         memoriesRecalled: compared.memoriesRecalled,
         runsBriefed: compared.runsBriefed,

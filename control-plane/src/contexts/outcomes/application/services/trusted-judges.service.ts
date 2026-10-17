@@ -1,25 +1,27 @@
-import type { JudgeStandingPort } from '@outcomes/application/ports/judge-standing.port';
-import type { JudgeStanding } from '@outcomes/domain/services/judge-standing';
+import type { JudgeCalibrationPort } from '@outcomes/application/ports/judge-calibration.port';
+import type { JudgeCalibration } from '@outcomes/domain/services/judge-calibration';
 import type { TeamAccess } from '@outcomes/domain/services/team-access';
 import type { StationPlace } from '@outcomes/domain/services/team-history';
 
-export interface StationJudgeStanding extends StationPlace, JudgeStanding {
+export interface StationJudgeCalibration
+  extends StationPlace,
+    JudgeCalibration {
   readonly rubricVersion: string | null;
 }
 
-export interface JudgeStandings {
-  readonly judges: readonly StationJudgeStanding[];
+export interface JudgeCalibrations {
+  readonly judges: readonly StationJudgeCalibration[];
   readonly trusted: ReadonlyMap<string, string>;
 }
 
 export class TrustedJudges {
-  constructor(private readonly standing: JudgeStandingPort) {}
+  constructor(private readonly judges: JudgeCalibrationPort) {}
 
-  async standings(
+  async calibrations(
     access: TeamAccess,
     stations: readonly StationPlace[],
-  ): Promise<JudgeStandings> {
-    const shapes = await this.standing.standingsOf(
+  ): Promise<JudgeCalibrations> {
+    const shapes = await this.judges.calibrationsOf(
       {
         workspaceId: access.workspaceId.value,
         teamId: access.teamId.value,

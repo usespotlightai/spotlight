@@ -19,7 +19,7 @@ import type { Handover } from '@work/domain/value-objects/handover.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
-interface Standing {
+interface WaitingTask {
   readonly task: Task;
   readonly line: Line | null;
 }
@@ -35,19 +35,19 @@ export class HandOver implements RunOutcomes {
   ) {}
 
   async onRunCompleted(event: RunCompleted): Promise<void> {
-    const standing = await this.waiting(event);
-    if (!standing) {
+    const found = await this.waiting(event);
+    if (!found) {
       await this.superseded(event.runId, event.taskId);
       return;
     }
 
-    const { task, line } = standing;
+    const { task, line } = found;
 
     const handover = HandoverFor.after({
       outcome: event.outcome,
       declared: event.declared,
       line,
-      standingAt: task.stationId,
+      currentStation: task.stationId,
     });
 
     const worked = event.session
@@ -58,8 +58,8 @@ export class HandOver implements RunOutcomes {
   }
 
   async onRunAbandoned(event: RunAbandoned): Promise<void> {
-    const standing = await this.waiting(event);
-    if (!standing) {
+    const found = await this.waiting(event);
+    if (!found) {
       await this.superseded(event.runId, event.taskId);
       return;
     }
@@ -67,8 +67,8 @@ export class HandOver implements RunOutcomes {
     await this.saved(
       await this.applied(
         HandoverFor.exhausted(event.lapses, event.failure ?? 'runner-lost'),
-        standing.task,
-        standing.line,
+        found.task,
+        found.line,
         event.runId,
       ),
     );
@@ -94,7 +94,7 @@ export class HandOver implements RunOutcomes {
 
   private async waiting(
     ended: RunCompleted | RunAbandoned,
-  ): Promise<Standing | null> {
+  ): Promise<WaitingTask | null> {
     const revision = ended.subject?.revision ?? null;
 
     if (!ended.taskId || revision === null) {
@@ -106,7 +106,7 @@ export class HandOver implements RunOutcomes {
       return null;
     }
 
-    if (!task.standsAt(revision)) {
+    if (!task.isAtRevision(revision)) {
       throw new InconsistentStateError(
         'task',
         'has a current run with a revision that the task has since moved on from',

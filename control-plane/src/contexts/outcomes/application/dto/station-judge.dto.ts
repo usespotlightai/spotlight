@@ -4,12 +4,12 @@ import type {
   Coverage,
   TrendPoint,
 } from '@outcomes/domain/services/judge-agreement';
-import type { RubricReport } from '@outcomes/domain/services/judge-report';
 import {
-  type JudgeStanding,
+  type JudgeCalibration,
   showsJudgeOf,
   trendShownOf,
-} from '@outcomes/domain/services/judge-standing';
+} from '@outcomes/domain/services/judge-calibration';
+import type { RubricReport } from '@outcomes/domain/services/judge-report';
 import type { ScoreKind } from '@outcomes/domain/value-objects/score-scale.vo';
 
 export interface ClaimAgreementDto {
@@ -69,7 +69,7 @@ export interface StationJudgeSettingsDto {
 export interface StationJudgeDto {
   readonly stationId: string;
   readonly judge: StationJudgeSettingsDto | null;
-  readonly standing: JudgeStanding;
+  readonly calibration: JudgeCalibration;
   readonly versions: readonly RubricVersionDto[];
   readonly coverage: Coverage;
 }
@@ -89,7 +89,7 @@ const labelOf =
 export const rubricVersionOf = (
   report: RubricReport,
   current: string | null,
-  standing: JudgeStanding,
+  calibration: JudgeCalibration,
 ): RubricVersionDto => ({
   rubricVersion: report.rubricVersion,
   kind: report.scale.kind,
@@ -118,7 +118,7 @@ export const rubricVersionOf = (
   })),
   trend: trendShownOf(
     report.trend,
-    showsJudgeOf(standing, current, report.rubricVersion),
+    showsJudgeOf(calibration, current, report.rubricVersion),
   ),
   firstAt: report.firstAt.toISOString(),
   lastAt: report.lastAt.toISOString(),

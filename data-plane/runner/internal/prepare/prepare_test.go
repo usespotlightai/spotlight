@@ -226,7 +226,7 @@ func TestLeavesARestoredCheckoutAloneWhenItsBranchMovedOnBothHereAndOnTheRemote(
 	}
 }
 
-func TestLeavesARestoredCheckoutBehindWhenUncommittedWorkStandsInTheWay(t *testing.T) {
+func TestLeavesARestoredCheckoutBehindWhenUncommittedWorkBlocksIt(t *testing.T) {
 	f := setUp(t)
 	checkout := f.restored(t, "spotlight/task-1")
 	before := git(t, f.tree(), "rev-parse", "HEAD")
@@ -245,7 +245,7 @@ func TestLeavesARestoredCheckoutBehindWhenUncommittedWorkStandsInTheWay(t *testi
 	if body, _ := os.ReadFile(filepath.Join(f.tree(), "README.md")); string(body) != "halfway through a rewrite\n" {
 		t.Errorf("the work left halfway now reads %q", body)
 	}
-	if !strings.Contains(said, "stands in the way") {
+	if !strings.Contains(said, "uncommitted changes here block the fast-forward") {
 		t.Errorf("said %q", said)
 	}
 }

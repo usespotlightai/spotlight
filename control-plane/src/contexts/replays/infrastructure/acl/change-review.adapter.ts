@@ -4,12 +4,12 @@ import type {
   RunChangeChecksPort,
 } from '@change-review/application/ports/run-change-checks.port';
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
-import type { StackStanding } from '@replays/domain/value-objects/change-checks.vo';
+import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const standingOf = (each: CheckedChange): StackStanding => ({
+const statusOf = (each: CheckedChange): StackStatus => ({
   repository: each.repository,
   state: each.state,
   skip: each.skip,
@@ -26,12 +26,12 @@ export class ChangeReview implements ChangeReviewPort {
     private readonly rechecks: ReplayRechecksPort,
   ) {}
 
-  async stacksOf(run: RunId): Promise<readonly StackStanding[]> {
-    return (await this.checks.ofRun(run.value)).map(standingOf);
+  async stacksOf(run: RunId): Promise<readonly StackStatus[]> {
+    return (await this.checks.ofRun(run.value)).map(statusOf);
   }
 
-  async rechecksOf(run: RunId): Promise<readonly StackStanding[]> {
-    return (await this.checks.rechecksOfRun(run.value)).map(standingOf);
+  async rechecksOf(run: RunId): Promise<readonly StackStatus[]> {
+    return (await this.checks.rechecksOfRun(run.value)).map(statusOf);
   }
 
   recheckable(run: RunId): Promise<readonly string[]> {

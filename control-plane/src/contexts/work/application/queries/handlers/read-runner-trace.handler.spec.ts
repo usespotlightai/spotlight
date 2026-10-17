@@ -42,7 +42,7 @@ const reading = (
   });
 
   const team = over.leasedBy === undefined ? 'team_1' : over.leasedBy;
-  const leasedRunStanding = vi.fn(async () =>
+  const leasedRunFacts = vi.fn(async () =>
     team
       ? {
           teamId: TeamId.of(team),
@@ -62,7 +62,7 @@ const reading = (
     teamOfTask,
     handler: new ReadRunnerTraceHandler(
       {
-        leasedRunStanding,
+        leasedRunFacts,
         teamOfTask,
         runsForTask,
         journalsForTask,

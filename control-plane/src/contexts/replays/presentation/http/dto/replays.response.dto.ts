@@ -351,7 +351,7 @@ export class OracleReadingResponseDto {
     enum: [...REPLAY_STATES, 'gone', null],
     type: String,
     description:
-      'How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be',
+      'The state of the replay that it is compared with: finished once they can be compared; stopped, over-budget or gone means they never will be',
   })
   readonly againstState: string | null;
 
@@ -1356,7 +1356,7 @@ export class ReplayResponseDto {
     nullable: true,
     type: String,
     description:
-      'The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none',
+      'The replay its changes are set beside, judged blind: the current baseline when it started, or its search’s seed; null for a baseline, a probe or a replay that had none',
   })
   readonly pairedWith: string | null;
 

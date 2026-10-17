@@ -109,17 +109,17 @@ beforeAll(async () => {
     `memory-${randomUUID().slice(0, 8)}`,
   );
 
-  const standing = await remembered({});
+  const active = await remembered({});
   const wrong = await remembered({
-    standing: 'retired',
+    status: 'retired',
     retiredAt: ago(5),
     retiredBy: team.owner.value,
     retireReason: 'We stopped doing this',
   });
   await remembered({
-    standing: 'retired',
+    status: 'retired',
     retiredAt: ago(5),
-    supersededBy: standing,
+    supersededBy: active,
   });
 
   const [x, y, z] = [
@@ -130,8 +130,8 @@ beforeAll(async () => {
   for (const runId of [x, y, z]) {
     await ran(runId);
   }
-  await used(x, 'briefed', standing);
-  await used(x, 'recalled', standing);
+  await used(x, 'briefed', active);
+  await used(x, 'recalled', active);
   await used(y, 'briefed', wrong);
   await app.get(RecordMemoryUses).recorded(
     {
@@ -161,14 +161,14 @@ afterAll(async () => {
 });
 
 describe('the team’s memory on Insights (e2e)', () => {
-  it('counts standing memories, their use by the period’s runs only, the ones flagged wrong, and runs with memories against runs without', async () => {
+  it('counts active memories, their use by the period’s runs only, the ones flagged wrong, and runs with memories against runs without', async () => {
     const answer = await served(app)
       .get(`/api/teams/${team.teamId.value}/insights/memory?period=7d`)
       .set(TEST_USER_HEADER, team.owner.value);
 
     expect(answer.status).toBe(200);
     expect(answer.body).toMatchObject({
-      standing: 1,
+      activeCount: 1,
       memoriesBriefed: 2,
       memoriesRecalled: 1,
       runsBriefed: 2,

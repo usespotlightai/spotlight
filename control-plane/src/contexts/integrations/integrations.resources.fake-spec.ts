@@ -67,7 +67,7 @@ const compiler: IntegrationCompilerPort = {
           },
 };
 
-export const standingAt = (
+export const storedAt = (
   version: number,
   offers: string[] = [],
 ): IntegrationDefinition =>
@@ -122,17 +122,17 @@ export const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 export const definitions = (
   over: {
-    standing?: IntegrationDefinition | null;
+    stored?: IntegrationDefinition | null;
     refusing?: Error;
     thenAt?: IntegrationDefinition | null;
   } = {},
 ) => {
-  const read = vi.fn(async () => over.standing ?? null);
+  const read = vi.fn(async () => over.stored ?? null);
 
   return {
     withId: read,
     of: read,
-    ofTeam: vi.fn(async () => (over.standing ? [over.standing] : [])),
+    ofTeam: vi.fn(async () => (over.stored ? [over.stored] : [])),
     save: vi.fn(async (_: IntegrationDefinition) => {
       if (over.refusing) {
         read.mockResolvedValue(over.thenAt ?? null);

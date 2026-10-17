@@ -84,7 +84,7 @@ const LINE = Line.rehydrate({
   ],
 });
 
-const standing = (stationId: string) =>
+const taskAt = (stationId: string) =>
   Task.add({
     line: LINE,
     at: StationId.of(stationId),
@@ -115,7 +115,7 @@ const destination = (outcome: Outcome) =>
     ? outcome.to.id
     : null;
 
-const handed = (stationId: string) => standing(stationId).handedTo(RUN, LINE);
+const handed = (stationId: string) => taskAt(stationId).handedTo(RUN, LINE);
 
 const paused = (stationId: string) =>
   handed(stationId).putToAPerson(RUN, {
@@ -127,20 +127,20 @@ const paused = (stationId: string) =>
 
 describe('ReactionFor.happened', () => {
   it('moves a task with no current run to the station the rule names', () => {
-    const outcome = reaction(standing('station_1'), commented);
+    const outcome = reaction(taskAt('station_1'), commented);
 
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
   });
 
   it('moves a task with no current run to the end of the line when the pull request merges', () => {
-    const outcome = reaction(standing('station_1'), merged);
+    const outcome = reaction(taskAt('station_1'), merged);
 
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(StationId.of('station_3'));
   });
 
-  it('defers a move while the task has a current run, noted where the task stands', () => {
+  it('defers a move while the task has a current run, noted where the task is', () => {
     const outcome = reaction(
       handed('station_1'),
       commented,
@@ -233,7 +233,7 @@ describe('ReactionFor.happened', () => {
     );
   });
 
-  it('names no station of the line when the task a merge interrupts stands on none of it', () => {
+  it('names no station of the line when the task a merge interrupts is on none of it', () => {
     const elsewhere = Line.rehydrate({
       id: LineId.of('line_9'),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -262,14 +262,14 @@ describe('ReactionFor.happened', () => {
     );
   });
 
-  it('keeps a task where the rule names the station it stands at, run or no run', () => {
+  it('keeps a task where the rule names the station it is at, run or no run', () => {
     const said = Said.of({ body: 'Pin it to a version.' });
 
-    expect(reaction(standing('station_2'), commented, said).kind).toBe('stays');
+    expect(reaction(taskAt('station_2'), commented, said).kind).toBe('stays');
     expect(reaction(handed('station_2'), commented, said).kind).toBe('stays');
   });
 
   it('says nothing to a task that has landed at the end of the line', () => {
-    expect(reaction(standing('station_3'), merged).kind).toBe('nothing');
+    expect(reaction(taskAt('station_3'), merged).kind).toBe('nothing');
   });
 });

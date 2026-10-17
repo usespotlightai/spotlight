@@ -117,7 +117,7 @@ export type StationResponseDto = {
 export type ReactionResponseDto = {
   happening: string;
   /**
-   * Where the task must stand for this to count. Null is wherever it is.
+   * The station where the task must be for this to count. Null means any station.
    */
   from: string | null;
   to: string;
@@ -233,7 +233,7 @@ export type LineResourceResponseDto = {
    */
   key: string;
   /**
-   * The line as it stands now, stations in order, with every field a definition may leave out filled in
+   * The current line, stations in order, with every field a definition may leave out filled in
    */
   definition: {
     [key: string]: unknown;
@@ -379,7 +379,7 @@ export type StepLocationResponseDto = {
 export type StepChangeResponseDto = {
   path: string | null;
   /**
-   * The file as it stood
+   * The file before the agent changed it
    */
   before: string;
   /**
@@ -642,7 +642,7 @@ export type HistoryCandidateRunResponseDto = {
   startedAt: string;
   endedAt: string;
   /**
-   * What the replay cost; a replay run has no outcome of its own, so its cost stands beside the run
+   * What the replay cost; a replay run has no outcome of its own, so the response gives its cost beside the run
    */
   cost: RunCostResponseDto | null;
   changes: Array<FileChangeResponseDto>;
@@ -830,7 +830,7 @@ export type AnswerRemarkRequestDto = {
 
 export type DeclaredOutcomeDto = {
   /**
-   * The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task where it stands. Anything this line does not know is treated as a question for a person.
+   * The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task at its current station. Anything this line does not know is treated as a question for a person.
    */
   next: string;
   /**
@@ -932,7 +932,7 @@ export type PoolQueueResponseDto = {
    */
   pending: number;
   /**
-   * The pool’s runners standing now: with a lease on a run or check, or started and yet to claim
+   * The pool’s runners that are active now: with a lease on a run or check, or started and yet to claim
    */
   running: number;
   /**
@@ -1326,10 +1326,10 @@ export type InboxApprovalResponseDto = {
    */
   because: string;
   /**
-   * What it would go ahead with, exactly as it stands
+   * What it would go ahead with, exactly as it is now
    */
   inputs: Array<InboxApprovalInputResponseDto>;
-  standing: 'asked' | 'granted' | 'refused';
+  status: 'asked' | 'granted' | 'refused';
   /**
    * What it was approved to run with instead, where the person changed it
    */
@@ -1435,9 +1435,9 @@ export type InboxItemResponseDto = {
    */
   raisedAt: InboxStationResponseDto;
   /**
-   * Where the task stands now, which is where it ended up
+   * Where the task is now, which is where it ended up
    */
-  standsAt: InboxStationResponseDto;
+  currentStation: InboxStationResponseDto;
   createdAt: string;
   askedAt: string;
   /**
@@ -1640,7 +1640,7 @@ export type TaskResponseDto = {
    */
   running: boolean;
   /**
-   * Where a standing question is answered, or null for none
+   * Where an open question is answered, or null for none
    */
   awaitingReview: TaskReviewResponseDto | null;
   /**
@@ -2201,7 +2201,7 @@ export type ChatProposalResponseDto = {
   stationName: string | null;
   stationColor: string | null;
   /**
-   * Where the station stands on its line, from 0
+   * The position of the station on its line, from 0
    */
   stationPosition: number | null;
   /**
@@ -2487,7 +2487,7 @@ export type WorkspaceTokenTrustResourceResponseDto = {
    */
   audience: string;
   /**
-   * The subject the workload’s token must carry; * stands for any run of characters
+   * The subject the workload’s token must carry; * matches any run of characters
    */
   subject: string;
   /**
@@ -2762,7 +2762,7 @@ export type InviteOfferResponseDto = {
   /**
    * Whether it is still worth following.
    */
-  standing: 'open' | 'accepted' | 'revoked' | 'expired';
+  status: 'open' | 'accepted' | 'revoked' | 'expired';
 };
 
 export type JoinedWorkspaceResponseDto = {
@@ -2906,7 +2906,7 @@ export type RepositoryResponseDto = {
   fullName: string;
 };
 
-export type GitHubStandingResponseDto = {
+export type GitHubConnectionStatusResponseDto = {
   /**
    * Whether the App is installed for this workspace
    */
@@ -2955,7 +2955,7 @@ export type HostPresenceRequestDto = {
   images?: Array<Array<unknown>>;
 };
 
-export type HostStandingResponseDto = {
+export type HostHeartbeatResponseDto = {
   /**
    * The workspace the host serves, which it keeps its mirrors under
    */
@@ -3296,7 +3296,7 @@ export type IntegrationViewResponseDto = {
   /**
    * Whether the team is linked to the host: it only listens, it links by authorizing and has not, or it has
    */
-  standing: 'listens' | 'unlinked' | 'linked';
+  connectionStatus: 'listens' | 'unlinked' | 'linked';
   /**
    * Whose connection its tools act with: the team’s, or that of the person who started the task
    */
@@ -3667,9 +3667,9 @@ export type TaskDecisionsResponseDto = {
    * Whether a later run’s decisions are being drafted
    */
   drafting: boolean;
-  standing: 'proposed' | 'stands';
+  status: 'proposed' | 'merged';
   /**
-   * The merge the decisions stood in, once the pull request merged
+   * The merge that contains the decisions, after the pull request merges
    */
   merge: DecisionMergeResponseDto | null;
   /**
@@ -3689,7 +3689,7 @@ export type DisputeDecisionRequestDto = {
   path: string;
 };
 
-export type StandingDecisionsResponseDto = {
+export type MergedDecisionsResponseDto = {
   taskId: string;
   runId: string | null;
   repository: string;
@@ -3704,11 +3704,11 @@ export type StandingDecisionsResponseDto = {
   decisions: Array<DecisionResponseDto>;
 };
 
-export type StandingDecisionListResponseDto = {
+export type MergedDecisionListResponseDto = {
   /**
    * Newest merge first, at most fifty
    */
-  merges: Array<StandingDecisionsResponseDto>;
+  merges: Array<MergedDecisionsResponseDto>;
 };
 
 export type DraftChangeStackRequestDto = {
@@ -3723,7 +3723,7 @@ export type DraftChangeStackRequestDto = {
     [key: string]: unknown;
   } | null;
   /**
-   * The commit the checkout stood at when the run began
+   * The commit of the checkout when the run began
    */
   base: {
     [key: string]: unknown;
@@ -4308,7 +4308,7 @@ export type MemoryDecisionResponseDto = {
 
 export type MemoryGroundStepResponseDto = {
   /**
-   * Where the step stands in its run
+   * The position of the step in its run
    */
   index: number;
   /**
@@ -4326,7 +4326,7 @@ export type MemoryPersonResponseDto = {
 
 export type MemoryGroundNoteResponseDto = {
   /**
-   * Where the note stands on its task
+   * The position of the note on its task
    */
   position: number;
   /**
@@ -4360,7 +4360,7 @@ export type ProposedMemoryResponseDto = {
   repository: string | null;
   paths: Array<string>;
   /**
-   * The standing memory it replaces once approved
+   * The active memory it replaces after approval
    */
   supersedes: string | null;
   /**
@@ -4390,7 +4390,7 @@ export type MemoryReviewResponseDto = {
 export type ApprovedMemoryRequestDto = {
   id: string;
   /**
-   * The memory as it should stand, where it was edited
+   * The memory as it should be, where it was edited
    */
   body?: string;
 };
@@ -4429,7 +4429,7 @@ export type TeamMemoryResponseDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
   source: 'person' | 'run' | 'outside';
-  standing: 'stands' | 'retired';
+  status: 'active' | 'retired';
   reach: 'team' | 'line' | 'station';
   lineId: string | null;
   stationId: string | null;
@@ -4485,7 +4485,7 @@ export type TeamMemoryDetailResponseDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
   source: 'person' | 'run' | 'outside';
-  standing: 'stands' | 'retired';
+  status: 'active' | 'retired';
   reach: 'team' | 'line' | 'station';
   lineId: string | null;
   stationId: string | null;
@@ -4546,7 +4546,7 @@ export type RunProposalResponseDto = {
   repository: string | null;
   paths: Array<string>;
   /**
-   * The standing memory it replaces once approved
+   * The active memory it replaces after approval
    */
   supersedes: string | null;
   /**
@@ -4570,9 +4570,9 @@ export type RunProposalResponseDto = {
    */
   handle: string | null;
   /**
-   * Once approved, whether it still stands: stands or retired
+   * After approval, whether it is still active: active or retired
    */
-  standing: string | null;
+  status: string | null;
 };
 
 export type RunMemoriesResponseDto = {
@@ -4617,7 +4617,7 @@ export type RememberRequestDto = {
    */
   paths?: Array<string>;
   /**
-   * The standing memory it corrects, by handle
+   * The active memory it corrects, by handle
    */
   supersedes?: string | null;
 };
@@ -4677,7 +4677,7 @@ export type StationRunOutcomeResponseDto = {
    */
   handedOn: HandedOnResponseDto | null;
   /**
-   * Where the task’s pull request stands, if it opened one
+   * The status of the task’s pull request, if it opened one
    */
   delivery: 'open' | 'merged' | 'closed' | null;
 };
@@ -4838,7 +4838,7 @@ export type StationJudgeSettingsResponseDto = {
   trust: number;
 };
 
-export type JudgeStandingResponseDto = {
+export type JudgeCalibrationResponseDto = {
   /**
    * Whether the judge agrees with people often enough for its scores to count
    */
@@ -5000,7 +5000,7 @@ export type JudgeCoverageResponseDto = {
 export type StationJudgeAgreementResponseDto = {
   stationId: string;
   judge: StationJudgeSettingsResponseDto | null;
-  standing: JudgeStandingResponseDto;
+  calibration: JudgeCalibrationResponseDto;
   /**
    * How the judge agreed with people under each rubric, the latest first
    */
@@ -5100,7 +5100,7 @@ export type RunScoresResponseDto = {
    * The judge’s score and its reasons; none where it did not score the run, or where its scores are hidden
    */
   judge: JudgeScoreResponseDto | null;
-  standing: JudgeStandingResponseDto;
+  calibration: JudgeCalibrationResponseDto;
   /**
    * What people graded the run, the latest first
    */
@@ -6145,7 +6145,7 @@ export type ChangeMarkerResponseDto = {
   changes: Array<ConfigChangeResponseDto>;
 };
 
-export type StationStandingResponseDto = {
+export type StationJudgeCalibrationResponseDto = {
   /**
    * Whether the judge agrees with people often enough for its scores to count
    */
@@ -6177,7 +6177,7 @@ export type InsightsChangesResponseDto = {
   /**
    * How far each changed station’s judge is trusted, where it has one
    */
-  judges: Array<StationStandingResponseDto>;
+  judges: Array<StationJudgeCalibrationResponseDto>;
 };
 
 export type SizeBoundResponseDto = {
@@ -6278,7 +6278,7 @@ export type InsightsSetupsResponseDto = {
   /**
    * How far the station’s judge is trusted, where one station is picked and it has a judge
    */
-  judges: Array<StationStandingResponseDto>;
+  judges: Array<StationJudgeCalibrationResponseDto>;
 };
 
 export type FlaggedMemoryResponseDto = {
@@ -6312,7 +6312,7 @@ export type InsightsMemoryResponseDto = {
   /**
    * Memories the team keeps now
    */
-  standing: number;
+  activeCount: number;
   /**
    * Memories briefed to at least one run in the period
    */
@@ -7276,7 +7276,7 @@ export type OracleReadingResponseDto = {
    */
   againstReplayId: string | null;
   /**
-   * How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be
+   * The state of the replay that it is compared with: finished once they can be compared; stopped, over-budget or gone means they never will be
    */
   againstState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | 'gone' | null;
   /**
@@ -7375,7 +7375,7 @@ export type ReplaySetEntryResponseDto = {
    */
   title: string | null;
   /**
-   * How the run stands now; null where there is no such run
+   * The current state of the run; null where there is no such run
    */
   state: string | null;
   /**
@@ -7384,7 +7384,7 @@ export type ReplaySetEntryResponseDto = {
   endedAt: string | null;
   addedAt: string;
   /**
-   * Why the run can no longer be replayed, as it stands now; null while it can
+   * Why the run can no longer be replayed; null while it can
    */
   refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
@@ -7856,7 +7856,7 @@ export type ReplayResponseDto = {
    */
   comparedWith: ReplayCounterpartResponseDto | null;
   /**
-   * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   * The replay its changes are set beside, judged blind: the current baseline when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
    */
   pairedWith: string | null;
   /**
@@ -8007,7 +8007,7 @@ export type ReplayDetailResponseDto = {
    */
   comparedWith: ReplayCounterpartResponseDto | null;
   /**
-   * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   * The replay its changes are set beside, judged blind: the current baseline when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
    */
   pairedWith: string | null;
   /**
@@ -8436,7 +8436,7 @@ export type SearchReflectionResponseDto = {
   /**
    * The candidate whose failures it looked into: the best config before it, the seed’s id when nothing beat the live config; none until it looked
    */
-  standing: string | null;
+  incumbent: string | null;
   /**
    * The searched tasks the best config so far still failed, which it looked into; never a held-out one
    */
@@ -8685,7 +8685,7 @@ export type ConfigPullRequestResponseDto = {
   stationId: string;
   stationKey: string;
   /**
-   * The repository the line’s source names, as it stood when it was picked; null when the line named none
+   * The repository that the line’s source named when it was picked; null when the line named none
    */
   repository: string | null;
   path: string | null;
@@ -9260,11 +9260,11 @@ export type ReplayedSetResponseDto = {
    */
   guardsChanges: boolean;
   /**
-   * How the set stands now, whatever the period
+   * The current health of the set, whatever the period
    */
   health: ReplaySetHealthResponseDto;
   /**
-   * The live config replayed over the set, its newest standing baseline whatever the period; null while it has none
+   * The live config replayed over the set, its newest valid baseline whatever the period; null while it has none
    */
   baseline: ReplayedBaselineResponseDto | null;
   /**
@@ -11089,7 +11089,7 @@ export type SayToRunErrors = {
 
 export type SayToRunResponses = {
   /**
-   * It joined the task’s trail, and starts the station again if the task stood idle there
+   * It joined the task’s trail, and starts the station again if the task was idle there
    */
   204: void;
 };
@@ -14002,7 +14002,7 @@ export type ReadGitHubErrors = {
 };
 
 export type ReadGitHubResponses = {
-  200: GitHubStandingResponseDto;
+  200: GitHubConnectionStatusResponseDto;
 };
 
 export type ReadGitHubResponse = ReadGitHubResponses[keyof ReadGitHubResponses];
@@ -14102,7 +14102,7 @@ export type ReportHostPresenceErrors = {
 };
 
 export type ReportHostPresenceResponses = {
-  200: HostStandingResponseDto;
+  200: HostHeartbeatResponseDto;
 };
 
 export type ReportHostPresenceResponse = ReportHostPresenceResponses[keyof ReportHostPresenceResponses];
@@ -16539,7 +16539,7 @@ export type DisputeDecisionResponses = {
 
 export type DisputeDecisionResponse = DisputeDecisionResponses[keyof DisputeDecisionResponses];
 
-export type ListStandingDecisionsData = {
+export type ListMergedDecisionsData = {
   body?: never;
   path: {
     slug: string;
@@ -16562,7 +16562,7 @@ export type ListStandingDecisionsData = {
   url: '/workspaces/{slug}/decisions';
 };
 
-export type ListStandingDecisionsErrors = {
+export type ListMergedDecisionsErrors = {
   /**
    * Paths without their repository, or a time that is no date
    */
@@ -16577,11 +16577,11 @@ export type ListStandingDecisionsErrors = {
   404: unknown;
 };
 
-export type ListStandingDecisionsResponses = {
-  200: StandingDecisionListResponseDto;
+export type ListMergedDecisionsResponses = {
+  200: MergedDecisionListResponseDto;
 };
 
-export type ListStandingDecisionsResponse = ListStandingDecisionsResponses[keyof ListStandingDecisionsResponses];
+export type ListMergedDecisionsResponse = ListMergedDecisionsResponses[keyof ListMergedDecisionsResponses];
 
 export type DraftChangeStackData = {
   body: DraftChangeStackRequestDto;
@@ -17851,7 +17851,7 @@ export type ListTeamMemoriesData = {
     stationId?: string;
     lineId?: string;
     kind?: string;
-    standing?: 'stands' | 'retired';
+    status?: 'active' | 'retired';
   };
   url: '/teams/{teamId}/memories';
 };
@@ -17866,7 +17866,7 @@ export type ListTeamMemoriesErrors = {
    */
   404: unknown;
   /**
-   * A standing or kind no memory has
+   * A status or kind that no memory has
    */
   422: unknown;
 };
@@ -18805,7 +18805,7 @@ export type ListInsightsRunsData = {
      */
     next?: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
     /**
-     * Only runs of tasks whose pull request stands this way
+     * Only runs of tasks whose pull request has this status
      */
     delivery?: 'open' | 'merged' | 'closed';
     /**

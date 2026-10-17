@@ -78,7 +78,7 @@ export class InsightsMemoryResponseDto {
   readonly period: InsightsPeriodResponseDto;
 
   @ApiProperty({ example: 14, description: 'Memories the team keeps now' })
-  readonly standing: number;
+  readonly activeCount: number;
 
   @ApiProperty({
     example: 9,
@@ -135,7 +135,7 @@ export class InsightsMemoryResponseDto {
 
   constructor(memory: InsightsMemoryDto) {
     this.period = new InsightsPeriodResponseDto(memory.period);
-    this.standing = memory.standing;
+    this.activeCount = memory.activeCount;
     this.memoriesBriefed = memory.memoriesBriefed;
     this.memoriesRecalled = memory.memoriesRecalled;
     this.runsBriefed = memory.runsBriefed;

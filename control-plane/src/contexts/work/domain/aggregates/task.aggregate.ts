@@ -106,7 +106,7 @@ export interface Saying {
   readonly connectionAsk?: ConnectionAsk | null;
 }
 
-export interface StandingApproval {
+export interface CurrentApproval {
   readonly at: NotePosition;
   readonly approval: Approval;
 }
@@ -282,7 +282,7 @@ export class Task extends EventRecorder {
     return this;
   }
 
-  standsAt(revision: TaskRevision): boolean {
+  isAtRevision(revision: TaskRevision): boolean {
     return this.revision.equals(revision);
   }
 
@@ -334,7 +334,7 @@ export class Task extends EventRecorder {
 
     if (this.stationId.equals(to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} already stands at that station.`,
+        `Task ${this.id.value} is already at that station.`,
       );
     }
 
@@ -453,7 +453,7 @@ export class Task extends EventRecorder {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
 
-    this.refuseStandingStill(into.id);
+    this.refuseSameStation(into.id);
 
     const takesOwnership =
       handMove !== null && !this.assignee && from.isBacklog && into.isWorked;
@@ -1107,27 +1107,25 @@ export class Task extends EventRecorder {
   ): Cleared {
     this.refuseAnotherRun(by, 'use a tool on it');
 
-    const standing = this.approvalFor(subject);
+    const current = this.approvalFor(subject);
 
-    if (standing?.approval.refuses) {
+    if (current?.approval.refuses) {
       return {
         task: this,
         check: {
           kind: 'refused',
-          reason: standing.approval.decided?.reason ?? '',
+          reason: current.approval.decided?.reason ?? '',
         },
       };
     }
 
-    if (standing?.approval.grantedFor(needed.askedOf)) {
+    if (current?.approval.grantedFor(needed.askedOf)) {
       return {
-        task: this.withApprovalAt(standing.at, (note) =>
-          note.approvalClaimed(),
-        ),
+        task: this.withApprovalAt(current.at, (note) => note.approvalClaimed()),
         check: {
           kind: 'given',
-          claimed: standing.at,
-          edited: standing.approval.goesAheadWith,
+          claimed: current.at,
+          edited: current.approval.goesAheadWith,
         },
       };
     }
@@ -1211,12 +1209,12 @@ export class Task extends EventRecorder {
     return this.withApprovalAt(at, (note) => note.returnApproval());
   }
 
-  approvalFor(subject: ApprovalSubject): StandingApproval | null {
+  approvalFor(subject: ApprovalSubject): CurrentApproval | null {
     for (let at = this.notes.length - 1; at >= 0; at--) {
       const note = this.notes[at];
       const approval = note?.approval;
 
-      if (note && approval?.standsFor(subject, this.stationId)) {
+      if (note && approval?.appliesTo(subject, this.stationId)) {
         return { at: note.position, approval };
       }
     }
@@ -1371,10 +1369,10 @@ export class Task extends EventRecorder {
     }
   }
 
-  private refuseStandingStill(stationId: StationId): void {
+  private refuseSameStation(stationId: StationId): void {
     if (this.stationId.equals(stationId)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} already stands at station ${stationId.value}.`,
+        `Task ${this.id.value} is already at station ${stationId.value}.`,
       );
     }
   }

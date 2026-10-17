@@ -51,7 +51,7 @@ type RecalledMemory struct {
 	Kind       string            `json:"kind"`
 	Body       string            `json:"body"`
 	Source     string            `json:"source"`
-	Standing   string            `json:"standing"`
+	Status     string            `json:"status"`
 	Reach      string            `json:"reach"`
 	Repository *string           `json:"repository"`
 	Paths      []string          `json:"paths"`

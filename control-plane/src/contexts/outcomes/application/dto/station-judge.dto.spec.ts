@@ -1,7 +1,7 @@
 import { rubricVersionOf } from '@outcomes/application/dto/station-judge.dto';
 import { agreementOf } from '@outcomes/domain/services/judge-agreement';
+import type { JudgeCalibration } from '@outcomes/domain/services/judge-calibration';
 import type { RubricReport } from '@outcomes/domain/services/judge-report';
-import type { JudgeStanding } from '@outcomes/domain/services/judge-standing';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -9,7 +9,7 @@ const CURRENT = 'c'.repeat(64);
 
 const EARLIER = 'd'.repeat(64);
 
-const TRUSTED: JudgeStanding = {
+const TRUSTED: JudgeCalibration = {
   trusted: true,
   measure: 'kappa',
   agreement: 0.9,
@@ -32,9 +32,9 @@ const reportOf = (rubricVersion: string): RubricReport => ({
 
 const judgeOnTrend = (
   rubricVersion: string,
-  standing: JudgeStanding,
+  calibration: JudgeCalibration,
 ): (number | null)[] =>
-  rubricVersionOf(reportOf(rubricVersion), CURRENT, standing).trend.map(
+  rubricVersionOf(reportOf(rubricVersion), CURRENT, calibration).trend.map(
     (each) => each.judge,
   );
 

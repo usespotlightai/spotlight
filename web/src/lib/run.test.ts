@@ -6,7 +6,7 @@ import {
   formatImage,
   inRunFilter,
   type Run,
-  standing,
+  runStatus,
   waitsOnPerson,
   working,
 } from '@/lib/run';
@@ -140,31 +140,31 @@ describe('waitsOnPerson', () => {
   });
 });
 
-describe('standing', () => {
+describe('runStatus', () => {
   const run = (state: Run['state'], exitCode: number | null = null) =>
     ({ state, exitCode }) as Run;
 
   it('says nothing of a claimed run', () => {
-    expect(standing(run('claimed'))).toBeNull();
+    expect(runStatus(run('claimed'))).toBeNull();
   });
 
   it('reads a queued run as queued', () => {
-    expect(standing(run('queued'))).toBe('Queued');
+    expect(runStatus(run('queued'))).toBe('Queued');
   });
 
   it('reads a run that asked a person as waiting for you, parked or not', () => {
-    expect(standing(run('waiting'))).toBe('Waiting for you');
-    expect(standing(run('parked'))).toBe('Waiting for you');
+    expect(runStatus(run('waiting'))).toBe('Waiting for you');
+    expect(runStatus(run('parked'))).toBe('Waiting for you');
   });
 
   it('reads a superseded run as superseded', () => {
-    expect(standing(run('superseded'))).toBe('Superseded');
+    expect(runStatus(run('superseded'))).toBe('Superseded');
   });
 
   it('says nothing of a run that has ended, however it ended', () => {
-    expect(standing(run('completed', 0))).toBeNull();
-    expect(standing(run('completed', 1))).toBeNull();
-    expect(standing(run('failed', -1))).toBeNull();
+    expect(runStatus(run('completed', 0))).toBeNull();
+    expect(runStatus(run('completed', 1))).toBeNull();
+    expect(runStatus(run('failed', -1))).toBeNull();
   });
 });
 

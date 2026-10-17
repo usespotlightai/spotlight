@@ -10,7 +10,7 @@ import type {
 } from '@outcomes/application/dto/run-scores.dto';
 import { CITATION_KINDS } from '@outcomes/domain/value-objects/citation.vo';
 import { SCORE_KINDS } from '@outcomes/domain/value-objects/score-scale.vo';
-import { JudgeStandingResponseDto } from '@outcomes/presentation/http/dto/station-judge.response.dto';
+import { JudgeCalibrationResponseDto } from '@outcomes/presentation/http/dto/station-judge.response.dto';
 
 export class CitedStepResponseDto {
   @ApiProperty({
@@ -238,8 +238,8 @@ export class RunScoresResponseDto {
   })
   readonly judge: JudgeScoreResponseDto | null;
 
-  @ApiProperty({ type: JudgeStandingResponseDto })
-  readonly standing: JudgeStandingResponseDto;
+  @ApiProperty({ type: JudgeCalibrationResponseDto })
+  readonly calibration: JudgeCalibrationResponseDto;
 
   @ApiProperty({
     type: GradeResponseDto,
@@ -257,7 +257,7 @@ export class RunScoresResponseDto {
     this.claims = [...scores.claims];
     this.judged = scores.judged;
     this.judge = scores.judge ? new JudgeScoreResponseDto(scores.judge) : null;
-    this.standing = new JudgeStandingResponseDto(scores.standing);
+    this.calibration = new JudgeCalibrationResponseDto(scores.calibration);
     this.grades = scores.grades.map((each) => new GradeResponseDto(each));
   }
 }

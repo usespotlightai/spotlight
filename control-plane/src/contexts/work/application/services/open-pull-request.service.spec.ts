@@ -42,7 +42,7 @@ const NOW = new Date('2026-08-31T09:00:00.000Z');
 
 const RUN = RunId.of('run_1');
 
-const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
+const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
@@ -59,7 +59,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
         kind: 'backlog',
       }),
       Station.of({
-        id: StationId.of(standsAt),
+        id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 1,
@@ -316,7 +316,7 @@ describe('OpenPullRequest', () => {
     expect(saved).toEqual([]);
   });
 
-  it('records it on the task as it stands once GitHub answers, not as it was read before', async () => {
+  it('records it on the task as it is when GitHub answers, not as it was read before', async () => {
     const { open, saved } = opening({
       meanwhile: (task) =>
         task.heard({

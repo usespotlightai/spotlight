@@ -137,7 +137,7 @@ func catchUp(checkout protocol.Checkout, git func(args ...string) bool, out *sai
 	case !git("merge-base", "--is-ancestor", "HEAD", pushed):
 		out.say("left %s as the last run left it: %s has moved on both here and on the remote", checkout.Path, checkout.Branch)
 	case !git("merge", "--quiet", "--ff-only", pushed):
-		out.say("left %s behind the remote's %s: what is not committed here stands in the way", checkout.Path, checkout.Branch)
+		out.say("left %s behind the remote's %s: uncommitted changes here block the fast-forward", checkout.Path, checkout.Branch)
 	default:
 		out.say("caught %s up with what was pushed to %s", checkout.Path, checkout.Branch)
 	}

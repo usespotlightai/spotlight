@@ -3,9 +3,9 @@ import {
   type DecisionKind,
 } from '@change-review/domain/entities/decision.entity';
 import {
-  DECISION_STANDINGS,
-  type DecisionStandingState,
-} from '@change-review/domain/value-objects/decision-standing.vo';
+  DECISION_STATUSES,
+  type DecisionStatusValue,
+} from '@change-review/domain/value-objects/decision-status.vo';
 import {
   index,
   integer,
@@ -18,7 +18,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const decisionKind = pgEnum('decision_kind', DECISION_KINDS);
-export const decisionStanding = pgEnum('decision_standing', DECISION_STANDINGS);
+export const decisionStatus = pgEnum('decision_status', DECISION_STATUSES);
 
 export const decisionSet = pgTable(
   'decision_set',
@@ -31,8 +31,8 @@ export const decisionSet = pgTable(
     draftAskedAt: timestamp('draft_asked_at'),
     workAttempts: integer('work_attempts').notNull().default(0),
     workDueAt: timestamp('work_due_at'),
-    standing: decisionStanding('standing')
-      .$type<DecisionStandingState>()
+    status: decisionStatus('status')
+      .$type<DecisionStatusValue>()
       .notNull()
       .default('proposed'),
     mergedRepository: text('merged_repository'),

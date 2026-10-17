@@ -109,7 +109,7 @@ export class WorkspaceRunners extends EventRecorder {
   }
 
   redeclaredAs(declaration: Declaration, by: Attribution): WorkspaceRunners {
-    this.guardStanding();
+    this.assertNotDeleted();
     refuseRepeats(declaration);
 
     const redeclared = this.with({
@@ -129,7 +129,7 @@ export class WorkspaceRunners extends EventRecorder {
   }
 
   drop(by: Attribution): WorkspaceRunners {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     const dropped = this.with({ dropped: true });
 
@@ -152,7 +152,7 @@ export class WorkspaceRunners extends EventRecorder {
     };
   }
 
-  private guardStanding(): void {
+  private assertNotDeleted(): void {
     if (this.isDropped) {
       throw new InconsistentStateError(
         'workspace runners',

@@ -205,7 +205,7 @@ describe('ClaimRunHandler', () => {
     expect(overTheWire.run.spec.command.executable).toBe('claude-agent-acp');
   });
 
-  it('refuses a runner that is not standing', async () => {
+  it('refuses a runner that is not alive', async () => {
     await expect(
       claiming(undefined, undefined, { seen: null }).execute(
         new ClaimRunCommand('runner_1'),

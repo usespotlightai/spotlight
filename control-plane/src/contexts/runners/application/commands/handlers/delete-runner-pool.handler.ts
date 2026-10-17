@@ -27,15 +27,15 @@ export class DeleteRunnerPoolHandler
     const id = RunnerPoolId.of(command.poolId);
 
     try {
-      const standing = await this.pools.find(id);
-      const permissions = standing
+      const existing = await this.pools.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -43,11 +43,11 @@ export class DeleteRunnerPoolHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(() =>
         this.pools.save(
-          standing.retire(
+          existing.retire(
             Attribution.of(command.actor, permissions.workspaceId),
           ),
         ),

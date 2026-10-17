@@ -4,7 +4,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
-import type { StandingComment } from '@github/application/ports/pull-request-comments.port';
+import type { StickyComment } from '@github/application/ports/pull-request-comments.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -76,7 +76,7 @@ const announcing = (
     replay?: boolean;
   } = {},
 ) => {
-  const kept: StandingComment[] = [];
+  const kept: StickyComment[] = [];
   const pullRequest =
     over.pullRequest === undefined
       ? 'https://github.com/acme/widgets/pull/66'

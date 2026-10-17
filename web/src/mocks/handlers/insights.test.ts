@@ -277,7 +277,7 @@ describe('the mock insights of a fresh workspace', () => {
     expect(flow.data.flow.stations).toEqual([]);
     expect(people.data.adoption.people).toEqual([]);
     expect(tools.data.skills).toEqual([]);
-    expect(memory.data.standing).toBe(0);
+    expect(memory.data.activeCount).toBe(0);
     expect(setups.data.setups).toEqual([]);
   });
 });

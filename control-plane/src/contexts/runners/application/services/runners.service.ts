@@ -400,8 +400,8 @@ export class Runners implements RunnersPort {
         return { outcome: 'gone' };
       }
 
-      const standing = await this.runners.standingIn(pool.id, at);
-      const verdict = pool.startVerdict(mode, standing.length);
+      const alive = await this.runners.aliveIn(pool.id, at);
+      const verdict = pool.startVerdict(mode, alive.length);
 
       if (verdict !== 'open') {
         return { outcome: verdict };

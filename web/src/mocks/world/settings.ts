@@ -72,7 +72,7 @@ const integration = (
   source,
   name,
   path: `integrations/${source}`,
-  standing: 'linked',
+  connectionStatus: 'linked',
   holderRule: 'team',
   handle: null,
   described: null,
@@ -97,9 +97,9 @@ const INTEGRATIONS: Record<string, IntegrationViewResponseDto[]> = {
     SENTRY,
     SLACK,
     integration('grafana', 'Grafana', { handle: 'acme.grafana.net' }),
-    integration('pagerduty', 'PagerDuty', { standing: 'listens' }),
+    integration('pagerduty', 'PagerDuty', { connectionStatus: 'listens' }),
     integration('payments-api', 'Payments API', {
-      standing: 'listens',
+      connectionStatus: 'listens',
       described: {
         kind: 'openapi',
         tools: 14,
@@ -125,7 +125,7 @@ const INTEGRATIONS: Record<string, IntegrationViewResponseDto[]> = {
       },
     }),
     integration('statuspage', 'Statuspage', {
-      standing: 'unlinked',
+      connectionStatus: 'unlinked',
       described: {
         kind: 'mcp',
         tools: 0,

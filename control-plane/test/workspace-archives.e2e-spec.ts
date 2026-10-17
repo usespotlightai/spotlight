@@ -15,7 +15,7 @@ import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
-import { DrizzleArchiveStandings } from '@work/infrastructure/persistence/drizzle/readers/archive-standings.reader';
+import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -35,7 +35,7 @@ const STORED: StoredArchive = {
 let database: TestDatabase;
 let db: DrizzleDatabase;
 let archives: DrizzleWorkspaceArchiveRepository;
-let standings: DrizzleArchiveStandings;
+let references: DrizzleArchiveReferences;
 let stationId: string;
 let otherStationId: string;
 
@@ -45,7 +45,7 @@ beforeAll(async () => {
   archives = new DrizzleWorkspaceArchiveRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
-  standings = new DrizzleArchiveStandings(db);
+  references = new DrizzleArchiveReferences(db);
 
   const lineId = randomUUID();
   stationId = randomUUID();
@@ -149,7 +149,7 @@ const kept = async (
 
 const dueNow = async () =>
   new Map(
-    (await standings.due(WorkspaceArchive.removalCutoffs(NOW), 500)).map(
+    (await references.due(WorkspaceArchive.removalCutoffs(NOW), 500)).map(
       (each) => [each.id.value, each.facts],
     ),
   );

@@ -141,9 +141,7 @@ describe('MemoryFilterMenu', () => {
   });
 
   it('clears every filter at once, keeping which memories are shown', async () => {
-    showing(
-      '/w/acme/team/team_1/memory?standing=retired&kind=failure&path=src',
-    );
+    showing('/w/acme/team/team_1/memory?status=retired&kind=failure&path=src');
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Filter memories, 2 applied' }),
@@ -152,7 +150,7 @@ describe('MemoryFilterMenu', () => {
       await screen.findByRole('button', { name: 'Clear filters' }),
     );
 
-    expect(where()).toHaveTextContent('?standing=retired');
+    expect(where()).toHaveTextContent('?status=retired');
     expect(
       screen.getByRole('button', { name: 'Filter memories' }),
     ).toBeInTheDocument();

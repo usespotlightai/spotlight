@@ -84,7 +84,7 @@ describe('ReviewPolicy', () => {
     }
   });
 
-  it('hears a mention only of its own handle, standing on its own', () => {
+  it('hears a mention only of its own handle, as a separate word', () => {
     const policy = ReviewPolicy.of({ mention: '@reviewer' });
 
     expect(policy.takes(mentioned('Could @Reviewer look?'))).toBe(true);

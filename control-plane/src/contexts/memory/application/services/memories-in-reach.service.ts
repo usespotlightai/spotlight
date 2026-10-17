@@ -12,34 +12,34 @@ export class MemoriesInReach {
     private readonly relevance: MemoryRelevancePort,
   ) {}
 
-  async at(site: RunSite, standingAt: Date | null = null): Promise<Memory[]> {
-    const applying = (await this.memories.mayReach(site, standingAt)).filter(
-      (each) => each.appliesAt(site),
+  async at(site: RunSite, asOf: Date | null = null): Promise<Memory[]> {
+    const applying = (await this.memories.mayReach(site, asOf)).filter((each) =>
+      each.appliesAt(site),
     );
 
-    return this.current(applying, standingAt);
+    return this.current(applying, asOf);
   }
 
   async recalled(
     teamId: TeamId,
     words: RecallWords,
     max: number,
-    standingAt: Date | null = null,
+    asOf: Date | null = null,
   ): Promise<Memory[]> {
     const found = (
       await this.memories.findAll(
-        await this.relevance.recall(teamId, words, max, standingAt),
+        await this.relevance.recall(teamId, words, max, asOf),
       )
     ).filter((each) =>
-      standingAt ? each.stoodOn(teamId, standingAt) : each.standsOn(teamId),
+      asOf ? each.activeOn(teamId, asOf) : each.isActiveOn(teamId),
     );
 
-    return this.current(found, standingAt);
+    return this.current(found, asOf);
   }
 
   private async current(
     memories: readonly Memory[],
-    standingAt: Date | null,
+    asOf: Date | null,
   ): Promise<Memory[]> {
     const successors = await this.memories.successorsOf(
       memories.map((each) => each.id),
@@ -47,9 +47,7 @@ export class MemoriesInReach {
 
     return withoutSuperseded(
       memories,
-      standingAt
-        ? successors.filter((each) => each.stoodAt(standingAt))
-        : successors,
+      asOf ? successors.filter((each) => each.activeAt(asOf)) : successors,
     );
   }
 }

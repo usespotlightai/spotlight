@@ -71,7 +71,7 @@ func TestMirrorsARepositoryThenKeepsItUpToDate(t *testing.T) {
 	}
 }
 
-func TestACheckoutBorrowsFromTheMirrorAndStandsAlone(t *testing.T) {
+func TestACheckoutBorrowsFromTheMirrorAndIsIndependent(t *testing.T) {
 	source := upstream(t)
 	mirrors := mirror.At(t.TempDir())
 

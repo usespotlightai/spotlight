@@ -106,7 +106,7 @@ export class WorkspaceTokenTrust extends EventRecorder {
     grantor: Grantor,
     by: Attribution,
   ): WorkspaceTokenTrust {
-    this.guardStanding();
+    this.assertNotDeleted();
     this.guardWithin(grantor);
 
     if (!grantor.covers(terms.scopes)) {
@@ -143,7 +143,7 @@ export class WorkspaceTokenTrust extends EventRecorder {
   }
 
   withdraw(grantor: Grantor, by: Attribution): WorkspaceTokenTrust {
-    this.guardStanding();
+    this.assertNotDeleted();
     this.guardWithin(grantor);
 
     const withdrawn = this.with({ withdrawn: true });
@@ -259,7 +259,7 @@ export class WorkspaceTokenTrust extends EventRecorder {
     }
   }
 
-  private guardStanding(): void {
+  private assertNotDeleted(): void {
     if (this.isWithdrawn) {
       throw new InconsistentStateError(
         'workspace token trust',

@@ -73,7 +73,7 @@ const elsewhere = () =>
     ],
   });
 
-const standing = (stationId = 'station_2', on = line()) =>
+const taskAt = (stationId = 'station_2', on = line()) =>
   Task.add({
     line: on,
     at: StationId.of(stationId),
@@ -112,7 +112,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
 
 let saved: Task | undefined;
 
-const tasks = (found: Task | null = standing()) =>
+const tasks = (found: Task | null = taskAt()) =>
   ({
     add: vi.fn(),
     save: vi.fn(async (task: Task) => {
@@ -120,7 +120,7 @@ const tasks = (found: Task | null = standing()) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
@@ -221,13 +221,13 @@ describe('MoveTaskHandler', () => {
     });
   });
 
-  it('stands the task at the station it was moved to', async () => {
+  it('puts the task at the station it was moved to', async () => {
     await move('station_1');
 
     expect(saved?.stationId).toEqual(StationId.of('station_1'));
   });
 
-  it('hands back the task as it now stands', async () => {
+  it('hands back the task as it is now', async () => {
     await expect(move('station_1')).resolves.toMatchObject({
       id: 'task_1',
       stationId: 'station_1',
@@ -236,7 +236,7 @@ describe('MoveTaskHandler', () => {
   });
 
   it('hands the task over when it arrives at a worked station', async () => {
-    await move('station_2', lines(), tasks(standing('station_1')));
+    await move('station_2', lines(), tasks(taskAt('station_1')));
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]).toMatchObject({ harness: 'dev', priority: 1 });
@@ -246,7 +246,7 @@ describe('MoveTaskHandler', () => {
 
   it('lets go of the run working it, so that run is stopped, before handing it to a new one', async () => {
     const working = Task.rehydrate({
-      ...standing('station_1'),
+      ...taskAt('station_1'),
       currentRunId: RunId.of('run_0'),
     });
 
@@ -271,13 +271,13 @@ describe('MoveTaskHandler', () => {
   });
 
   it('hands nothing over for a move within the same station', async () => {
-    await move('station_2', lines(), tasks(standing('station_2')));
+    await move('station_2', lines(), tasks(taskAt('station_2')));
 
     expect(dispatched).toEqual([]);
   });
 
   it('keeps work back at a station no runners answer for', async () => {
-    await move('station_1', lines(), tasks(standing('station_2')));
+    await move('station_1', lines(), tasks(taskAt('station_2')));
 
     expect(dispatched).toEqual([]);
     expect(saved?.currentRunId).toBeNull();
@@ -285,7 +285,7 @@ describe('MoveTaskHandler', () => {
 
   it('refuses a person moving work between work stations, and saves nothing', async () => {
     await expect(
-      move('station_4', lines(), tasks(standing('station_2'))),
+      move('station_4', lines(), tasks(taskAt('station_2'))),
     ).rejects.toMatchObject({
       kind: 'invalid',
       message: expect.stringContaining('from Triage to Spec'),
@@ -296,14 +296,14 @@ describe('MoveTaskHandler', () => {
 
   it('refuses a person moving a completed task back out', async () => {
     await expect(
-      move('station_1', lines(), tasks(standing('station_3'))),
+      move('station_1', lines(), tasks(taskAt('station_3'))),
     ).rejects.toMatchObject({ kind: 'invalid' });
     expect(saved).toBeUndefined();
   });
 
   it('lets a person close a task from the backlog', async () => {
     await expect(
-      move('station_3', lines(), tasks(standing('station_1'))),
+      move('station_3', lines(), tasks(taskAt('station_1'))),
     ).resolves.toMatchObject({ stationId: 'station_3' });
   });
 
@@ -311,12 +311,12 @@ describe('MoveTaskHandler', () => {
     await expect(move('station_elsewhere')).rejects.toThrow(ApplicationError);
   });
 
-  it('refuses to move a task standing on another line', async () => {
+  it('refuses to move a task on another line', async () => {
     await expect(
       move(
         'station_1',
         lines(),
-        tasks(standing('station_elsewhere', elsewhere())),
+        tasks(taskAt('station_elsewhere', elsewhere())),
       ),
     ).rejects.toThrow(ApplicationError);
   });
@@ -327,7 +327,7 @@ describe('MoveTaskHandler', () => {
     );
   });
 
-  it('refuses a line of a team the mover does not stand on', async () => {
+  it('refuses a line of a team the mover is not a member of', async () => {
     await expect(move('station_1', lines(), tasks(), 'team_2')).rejects.toThrow(
       ApplicationError,
     );
@@ -341,13 +341,13 @@ describe('MoveTaskHandler', () => {
   });
 
   it('gives unclaimed work to whoever moves it from the backlog into active', async () => {
-    await move('station_2', lines(), tasks(standing('station_1').unassign()));
+    await move('station_2', lines(), tasks(taskAt('station_1').unassign()));
 
     expect(saved?.assignee?.value).toBe('user_mover');
   });
 
   it('leaves work its owner already has with them when moved active', async () => {
-    const owned = standing('station_1').assign(UserId.of('user_other'));
+    const owned = taskAt('station_1').assign(UserId.of('user_other'));
 
     await move('station_2', lines(), tasks(owned));
 
@@ -355,7 +355,7 @@ describe('MoveTaskHandler', () => {
   });
 
   it('assigns nobody when the move is not out of the backlog', async () => {
-    await move('station_3', lines(), tasks(standing('station_2').unassign()));
+    await move('station_3', lines(), tasks(taskAt('station_2').unassign()));
 
     expect(saved?.assignee).toBeNull();
   });

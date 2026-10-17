@@ -109,7 +109,7 @@ describe('CreateWorkspaceHandler', () => {
 
 describe('UpdateWorkspaceHandler', () => {
   const updating = (over: Parameters<typeof workspaces>[0] = {}) => {
-    const kept = workspaces({ standing: workspaceAt(3), ...over });
+    const kept = workspaces({ existing: workspaceAt(3), ...over });
     const handler = new UpdateWorkspaceHandler(
       new IdentityDefinitions(),
       kept,
@@ -172,7 +172,7 @@ describe('UpdateWorkspaceHandler', () => {
     expect(await updating().update(ACME, { by: MEMBER })).toEqual(
       forbiddenTo('configure'),
     );
-    expect(await updating({ standing: null }).update(ACME)).toBeNull();
+    expect(await updating({ existing: null }).update(ACME)).toBeNull();
   });
 });
 
@@ -186,7 +186,7 @@ describe('DeleteWorkspaceHandler', () => {
       dependents?: readonly string[];
     } = {},
   ) => {
-    const kept = workspaces({ standing: workspaceAt(3) });
+    const kept = workspaces({ existing: workspaceAt(3) });
     const registry = new DependentsRegistry<WorkspaceId>();
     registry.register({ dependentsOf: async () => over.dependents ?? [] });
     const handler = new DeleteWorkspaceHandler(

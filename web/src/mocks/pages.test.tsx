@@ -16,7 +16,7 @@ vi.mock('@/hooks/api/useSession', async () => ({
 }));
 
 const EMPTY =
-  /^(No [a-z’' ]+ (yet|match)|Nobody has|Nothing (here|to show|stands out))|could not be loaded|couldn’t be loaded|not found|no longer here/i;
+  /^(No [a-z’' ]+ (yet|match)|Nobody has|Nothing (here|to show|needs attention))|could not be loaded|couldn’t be loaded|not found|no longer here/i;
 
 const NOT_REPLAYED_YET = 'set_docs';
 

@@ -25,9 +25,9 @@ const STATION = FieldPath.of(['station']);
 
 const LINE = FieldPath.of(['line']);
 
-const NO_TASKS_STANDING: ReadonlyMap<string, number> = new Map();
+const NO_TASK_COUNTS: ReadonlyMap<string, number> = new Map();
 
-export interface StandingStation {
+export interface StationInLine {
   readonly line: Line;
   readonly station: Station;
   readonly kept: LineRecord;
@@ -78,10 +78,7 @@ export class CandidateLines {
     private readonly ids: IdGeneratorPort,
   ) {}
 
-  async standing(
-    lineId: string,
-    stationId: string,
-  ): Promise<StandingStation | null> {
+  async live(lineId: string, stationId: string): Promise<StationInLine | null> {
     const line = await this.lines.find(LineId.of(lineId));
     const station = line?.stationAt(StationId.of(stationId));
     const kept = station ? await this.resources.withId(lineId) : null;
@@ -89,7 +86,7 @@ export class CandidateLines {
     return line && station && kept ? { line, station, kept } : null;
   }
 
-  async keyed(lineId: string, key: string): Promise<StandingStation | null> {
+  async keyed(lineId: string, key: string): Promise<StationInLine | null> {
     const line = await this.lines.find(LineId.of(lineId));
     const parsed = StationKey.parsed(key);
     const station = line && parsed ? line.stationKeyed(parsed) : null;
@@ -98,10 +95,7 @@ export class CandidateLines {
     return line && station && kept ? { line, station, kept } : null;
   }
 
-  liveBlockOf({
-    station,
-    kept,
-  }: StandingStation): LineDefinitionStation | null {
+  liveBlockOf({ station, kept }: StationInLine): LineDefinitionStation | null {
     return (
       kept.definition.stations.find((each) => each.key === station.key.value) ??
       null
@@ -109,7 +103,7 @@ export class CandidateLines {
   }
 
   async withStation(
-    { line, station, kept }: StandingStation,
+    { line, station, kept }: StationInLine,
     block: unknown,
     repositories?: unknown,
   ): Promise<CandidateLine> {
@@ -159,9 +153,9 @@ export class CandidateLines {
     }
 
     const reconciled = reconcileLine({
-      standing: line,
+      existing: line,
       plan: compiled.line,
-      tasksStanding: NO_TASKS_STANDING,
+      taskCounts: NO_TASK_COUNTS,
       newId: () => this.ids.generate(),
       by: Attribution.spotlight(line.workspaceId),
     });

@@ -9,7 +9,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type { TaskRunSummary } from '@work/application/ports/run-reader.port';
 import type {
-  LeasedRunStanding,
+  LeasedRunFacts,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
 import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
@@ -38,10 +38,10 @@ const replayed = alias(run, 'replayed');
 export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async leasedRunStanding(
+  async leasedRunFacts(
     runId: RunId,
     runnerId: RunnerId,
-  ): Promise<LeasedRunStanding | null> {
+  ): Promise<LeasedRunFacts | null> {
     const [row] = await this.db
       .select({
         teamId: sql<

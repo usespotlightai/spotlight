@@ -1,5 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import { JudgeStandings } from '@/components/features/insights/changes/JudgeStandings';
+import { JudgeCalibrations } from '@/components/features/insights/changes/JudgeCalibrations';
 import { ReplayedOverlayNote } from '@/components/features/insights/changes/ReplayedOverlayNote';
 import { ReplayedSetupTable } from '@/components/features/insights/changes/ReplayedSetupTable';
 import { SetupFilters } from '@/components/features/insights/changes/SetupFilters';
@@ -87,7 +87,7 @@ export function SetupComparison({
         candidates={candidates}
       />
 
-      <JudgeStandings
+      <JudgeCalibrations
         slug={slug}
         teamId={teamId}
         judges={setups.judges}

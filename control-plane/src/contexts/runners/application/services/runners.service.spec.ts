@@ -67,7 +67,7 @@ const PLATFORM: PlatformEgressSettings = {
 const running = (
   pool: RunnerPool | null,
   given: {
-    standing?: readonly Runner[];
+    alive?: readonly Runner[];
     existing?: Runner | null;
     answer?: ProvisionAnswer;
     unsaved?: Error;
@@ -95,7 +95,7 @@ const running = (
     } as unknown as RunnerTrustRepository,
     hosts,
     {
-      standingIn: vi.fn(async () => given.standing ?? []),
+      aliveIn: vi.fn(async () => given.alive ?? []),
       add: vi.fn(async (runner: Runner) => {
         added.push(runner);
       }),
@@ -209,7 +209,7 @@ describe('Runners', () => {
 
     it('starts none past maxRuns', async () => {
       const { service, added } = running(aPullPool({ maxRuns: 1 }), {
-        standing: [aRunner()],
+        alive: [aRunner()],
       });
 
       await expect(
@@ -320,11 +320,11 @@ describe('Runners', () => {
       );
     });
 
-    it('starts one however many already stand, since a trust sets no maxRuns', async () => {
+    it('starts one however many are already alive, since a trust sets no maxRuns', async () => {
       const { service, added } = running(null, {
         trust: aTrust(),
         host: aHost({ through: aTrust() }),
-        standing: [aRunner(), aRunner({ id: 'pooled_2' })],
+        alive: [aRunner(), aRunner({ id: 'pooled_2' })],
       });
 
       await expect(
@@ -595,7 +595,7 @@ describe('Runners', () => {
 
     it('calls nobody when the pool is full', async () => {
       const { service, called } = running(aPushPool({ maxRuns: 1 }), {
-        standing: [aRunner()],
+        alive: [aRunner()],
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({

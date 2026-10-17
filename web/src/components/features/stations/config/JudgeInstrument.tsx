@@ -70,7 +70,7 @@ export function JudgeInstrument({
         ) : loading(agreement) || !agreement.data ? (
           <Skeleton className="h-9 w-full rounded-md" />
         ) : (
-          <AgreementMeter standing={agreement.data.standing} />
+          <AgreementMeter calibration={agreement.data.calibration} />
         )}
 
         {judge.claims.length > 0 && (

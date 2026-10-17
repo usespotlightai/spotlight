@@ -25,7 +25,7 @@ export class RecallMemoryHandler
 
       if (
         !memory ||
-        (run.replaysFrom && !memory.stoodOn(run.teamId, run.replaysFrom))
+        (run.replaysFrom && !memory.activeOn(run.teamId, run.replaysFrom))
       ) {
         throw new UnknownMemoryError(handle.value);
       }

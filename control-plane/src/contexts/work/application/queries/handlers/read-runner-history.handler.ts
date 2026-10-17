@@ -21,7 +21,7 @@ import type {
   RunOutcomesPort,
 } from '@work/application/ports/run-outcomes.port';
 import type {
-  LeasedRunStanding,
+  LeasedRunFacts,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
 import type { SearchSightPort } from '@work/application/ports/search-sight.port';
@@ -97,7 +97,7 @@ export class ReadRunnerHistoryHandler
 
   async execute(query: ReadRunnerHistoryQuery): Promise<RunnerHistoryAnswer> {
     try {
-      const leased = await this.traces.leasedRunStanding(
+      const leased = await this.traces.leasedRunFacts(
         RunId.of(query.runId),
         RunnerId.of(query.runnerId),
       );
@@ -193,7 +193,7 @@ export class ReadRunnerHistoryHandler
 
   private async sightedBy(
     runId: string,
-    leased: LeasedRunStanding,
+    leased: LeasedRunFacts,
   ): Promise<SightedHistory> {
     return leased.isSearch
       ? SightedHistory.through(await this.sights.of(runId))

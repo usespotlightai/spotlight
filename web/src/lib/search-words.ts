@@ -295,7 +295,7 @@ export const OPEN_FAILED_REPLAY = 'Open the failed replay run';
 const tasksCounted = (count: number): string =>
   `${count} ${count === 1 ? 'task' : 'tasks'}`;
 
-export const formatStanding = (candidate: {
+export const formatIncumbent = (candidate: {
   readonly seed: boolean;
   readonly name: string;
 }): string =>

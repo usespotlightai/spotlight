@@ -7,8 +7,8 @@ import { DecisionDisputed } from '@change-review/domain/events/decision-disputed
 import { DecisionDraftingFailed } from '@change-review/domain/events/decision-drafting-failed.event';
 import { DecisionsAsked } from '@change-review/domain/events/decisions-asked.event';
 import { DecisionsDiscarded } from '@change-review/domain/events/decisions-discarded.event';
+import { DecisionsMerged } from '@change-review/domain/events/decisions-merged.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
-import { DecisionsStood } from '@change-review/domain/events/decisions-stood.event';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import type { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
@@ -17,7 +17,7 @@ import type { DecisionGrounds } from '@change-review/domain/value-objects/decisi
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import type { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import type { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
-import { DecisionStanding } from '@change-review/domain/value-objects/decision-standing.vo';
+import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -38,7 +38,7 @@ export class DecisionSet
     readonly decidedIn: RunId | null,
     readonly decisions: readonly Decision[],
     readonly draft: DecisionDraft | null,
-    readonly standing: DecisionStanding,
+    readonly status: DecisionStatus,
     readonly discarded: boolean,
     readonly version: number,
   ) {
@@ -57,7 +57,7 @@ export class DecisionSet
       null,
       [],
       null,
-      DecisionStanding.proposed(),
+      DecisionStatus.proposed(),
       false,
       0,
     );
@@ -70,7 +70,7 @@ export class DecisionSet
     decidedIn: RunId | null;
     decisions: readonly Decision[];
     draft: DecisionDraft | null;
-    standing: DecisionStanding;
+    status: DecisionStatus;
     version: number;
   }): DecisionSet {
     if (input.decisions.length > 0 && !input.decidedIn) {
@@ -97,7 +97,7 @@ export class DecisionSet
       input.decidedIn,
       input.decisions,
       input.draft,
-      input.standing,
+      input.status,
       false,
       input.version,
     );
@@ -113,7 +113,7 @@ export class DecisionSet
 
   asked(runId: RunId, now: Date): DecisionSet {
     if (
-      this.standing.stands ||
+      this.status.isMerged ||
       this.draft?.isFor(runId) ||
       this.decidedIn?.equals(runId)
     ) {
@@ -237,18 +237,18 @@ export class DecisionSet
     return changed;
   }
 
-  stood(merge: DecisionMerge): DecisionSet {
-    if (this.standing.stands) {
+  merge(merge: DecisionMerge): DecisionSet {
+    if (this.status.isMerged) {
       return this;
     }
 
-    const stood = this.with({ standing: DecisionStanding.stood(merge) });
-    stood.record(new DecisionsStood(this.id, this.taskId, merge.commit));
-    return stood;
+    const merged = this.with({ status: DecisionStatus.merged(merge) });
+    merged.record(new DecisionsMerged(this.id, this.taskId, merge.commit));
+    return merged;
   }
 
   closeUnmerged(): DecisionSet {
-    if (this.standing.stands || this.discarded) {
+    if (this.status.isMerged || this.discarded) {
       return this;
     }
 
@@ -261,7 +261,7 @@ export class DecisionSet
     decidedIn?: RunId;
     decisions?: readonly Decision[];
     draft?: DecisionDraft | null;
-    standing?: DecisionStanding;
+    status?: DecisionStatus;
     discarded?: boolean;
   }): DecisionSet {
     const next = new DecisionSet(
@@ -271,7 +271,7 @@ export class DecisionSet
       change.decidedIn ?? this.decidedIn,
       change.decisions ?? this.decisions,
       change.draft !== undefined ? change.draft : this.draft,
-      change.standing ?? this.standing,
+      change.status ?? this.status,
       change.discarded ?? this.discarded,
       this.version,
     );

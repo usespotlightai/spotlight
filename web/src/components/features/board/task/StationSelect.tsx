@@ -35,9 +35,9 @@ export function StationSelect({
       stations.length,
     );
 
-  const standing = stations.find((each) => each.id === value);
-  const offered = standing
-    ? stations.filter((each) => movableByHand(standing, each))
+  const currentStation = stations.find((each) => each.id === value);
+  const offered = currentStation
+    ? stations.filter((each) => movableByHand(currentStation, each))
     : [];
 
   return (
@@ -48,10 +48,10 @@ export function StationSelect({
       >
         <StationIcon
           share={shareOf(value)}
-          color={standing?.color}
+          color={currentStation?.color}
           className="transition-[filter] group-hover/station:brightness-90"
         />
-        <span className="truncate text-foreground">{standing?.name}</span>
+        <span className="truncate text-foreground">{currentStation?.name}</span>
         <ChevronsUpDown
           className="ml-auto size-3 shrink-0 text-muted-foreground"
           aria-hidden

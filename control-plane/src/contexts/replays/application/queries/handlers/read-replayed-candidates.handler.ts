@@ -82,7 +82,7 @@ export class ReadReplayedCandidatesHandler
         this.replays.baselinesOfSets(seen.map((each) => each.id)),
         this.pullRequests.ofSearches(searches.map((each) => each.id)),
       ]);
-      const [candidates, standing] = await Promise.all([
+      const [candidates, summaries] = await Promise.all([
         this.candidates.findMany(
           distinct([
             ...recent.map((each) => each.candidateId.value),
@@ -92,7 +92,7 @@ export class ReadReplayedCandidatesHandler
             ),
           ]).map((each) => CandidateId.of(each)),
         ),
-        this.work.standing(
+        this.work.runSummaries(
           access.workspaceId,
           seen.flatMap((each) => each.runs),
         ),
@@ -123,7 +123,7 @@ export class ReadReplayedCandidatesHandler
         baselines,
         candidates,
         pullRequests,
-        standing,
+        summaries,
         standards,
       });
     } catch (error) {

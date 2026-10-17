@@ -26,8 +26,8 @@ const created: NewTeam = {
   owner: UserId.of('user_1'),
 };
 
-const provisioning = (over: { standing?: Line[]; setup?: boolean } = {}) => {
-  const seeded: Line[] = [...(over.standing ?? [])];
+const provisioning = (over: { existing?: Line[]; setup?: boolean } = {}) => {
+  const seeded: Line[] = [...(over.existing ?? [])];
   const raised: Task[] = [];
   const provision = new ProvisionTeam(
     {

@@ -29,15 +29,15 @@ export class DeleteLineHandler
     const id = LineId.of(command.lineId);
 
     try {
-      const standing = await this.lines.find(id);
-      const permissions = standing
+      const existing = await this.lines.find(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -45,17 +45,17 @@ export class DeleteLineHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(async () => {
-        const tasks = await this.tallies.lockedStandingAt(
-          standing.stations.map((each) => each.id),
+        const tasks = await this.tallies.lockedTaskCountsAt(
+          existing.stations.map((each) => each.id),
         );
 
         await this.lines.save(
-          standing.retire(
+          existing.retire(
             tasks,
-            Attribution.of(command.actor, standing.workspaceId),
+            Attribution.of(command.actor, existing.workspaceId),
           ),
         );
       });

@@ -29,15 +29,15 @@ export class DeleteEgressHandler
     const id = EgressId.of(command.egressId);
 
     try {
-      const standing = await this.egresses.find(id);
-      const permissions = standing
+      const existing = await this.egresses.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -45,10 +45,10 @@ export class DeleteEgressHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(async () => {
-        const locked = (await this.egresses.findToRetire(id)) ?? standing;
+        const locked = (await this.egresses.findToRetire(id)) ?? existing;
 
         locked.assertVersion(command.expectedVersion);
 

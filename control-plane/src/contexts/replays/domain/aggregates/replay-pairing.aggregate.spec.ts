@@ -381,7 +381,7 @@ describe('pairOutcomeOf and pairTallyOf', () => {
     });
   });
 
-  it('keeps its verdicts though a newer baseline stands for comparison', () => {
+  it('keeps its verdicts though a newer baseline is available for comparison', () => {
     const paired = pairedAs(
       concludedAll(judging('replay_1')),
       concludedAll(baseline()),

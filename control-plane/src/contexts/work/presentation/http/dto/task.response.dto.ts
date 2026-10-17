@@ -92,7 +92,7 @@ export class TaskResponseDto {
   @ApiProperty({
     type: TaskReviewResponseDto,
     nullable: true,
-    description: 'Where a standing question is answered, or null for none',
+    description: 'Where an open question is answered, or null for none',
   })
   readonly awaitingReview: TaskReviewResponseDto | null;
 

@@ -82,7 +82,7 @@ describe('CreateTeamHandler', () => {
 
 describe('UpdateTeamHandler', () => {
   const updating = (administers = true) => {
-    const kept = teams({ standing: teamAt(3) });
+    const kept = teams({ existing: teamAt(3) });
     const handler = new UpdateTeamHandler(
       access(administers),
       new IdentityDefinitions(),
@@ -141,7 +141,7 @@ describe('UpdateTeamHandler', () => {
 
 describe('DeleteTeamHandler', () => {
   const deleting = (names: readonly string[] = []) => {
-    const kept = teams({ standing: teamAt(3) });
+    const kept = teams({ existing: teamAt(3) });
     const handler = new DeleteTeamHandler(
       access(),
       kept,

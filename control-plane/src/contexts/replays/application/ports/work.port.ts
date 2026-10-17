@@ -42,7 +42,7 @@ export interface RunReplayability {
   readonly reason: string | null;
 }
 
-export interface StandingRun extends RunReplayability {
+export interface RunSummary extends RunReplayability {
   readonly title: string | null;
   readonly state: string | null;
   readonly endedAt: Date | null;
@@ -120,7 +120,7 @@ export interface LeasedSearchRun {
   readonly iteration: number;
 }
 
-export interface SearchRunStanding {
+export interface SearchRunStatus {
   readonly run: RunId;
   readonly phase: 'queued' | 'running' | 'ended';
   readonly failed: boolean;
@@ -149,10 +149,10 @@ export interface WorkPort {
     runs: readonly RunId[],
   ): Promise<readonly RunReplayability[]>;
 
-  standing(
+  runSummaries(
     workspaceId: WorkspaceId,
     runs: readonly RunId[],
-  ): Promise<readonly StandingRun[]>;
+  ): Promise<readonly RunSummary[]>;
 
   recentAt(
     workspaceId: WorkspaceId,
@@ -192,9 +192,9 @@ export interface WorkPort {
     runnerId: string,
   ): Promise<LeasedSearchRun | null>;
 
-  searchRunStandings(
+  searchRunStatuses(
     runs: readonly RunId[],
-  ): Promise<readonly SearchRunStanding[]>;
+  ): Promise<readonly SearchRunStatus[]>;
 
   hold(
     holder: string,

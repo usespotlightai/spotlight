@@ -8,7 +8,7 @@ const REVIEW = StationId.of('station_review');
 const SPEC = StationId.of('station_spec');
 
 describe('Reaction', () => {
-  it('applies wherever the task stands when it names no station', () => {
+  it('applies wherever the task is when it names no station', () => {
     const anywhere = Reaction.of({ happening: COMMENTED, to: REVIEW });
 
     expect(anywhere.isEverywhere).toBe(true);
@@ -28,7 +28,7 @@ describe('Reaction', () => {
     expect(fromSpec.appliesAt(REVIEW)).toBe(false);
   });
 
-  it('takes a null from as wherever it stands', () => {
+  it('takes a null from as wherever it is', () => {
     expect(
       Reaction.of({ happening: COMMENTED, from: null, to: REVIEW })
         .isEverywhere,

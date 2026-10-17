@@ -86,7 +86,7 @@ export class RunGrants extends EventRecorder {
 
   allows(lease: RunLease, grant: SecretGrant): boolean {
     return (
-      this.isStandingAt(lease) &&
+      this.isActiveFor(lease) &&
       grant.workspaceId.equals(this.workspaceId) &&
       this.includes(grant)
     );
@@ -209,7 +209,7 @@ export class RunGrants extends EventRecorder {
       : this.with({ lease, grants: [], redeemer: null, leaseLost: false });
   }
 
-  private isStandingAt(lease: RunLease): boolean {
+  private isActiveFor(lease: RunLease): boolean {
     return (
       !this.isEnded && !this.state.leaseLost && lease.equals(this.state.lease)
     );

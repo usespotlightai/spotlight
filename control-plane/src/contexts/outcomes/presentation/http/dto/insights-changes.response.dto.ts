@@ -4,7 +4,7 @@ import type {
   InsightsChangesDto,
   InsightsSetupsDto,
   SetupOutcomeDto,
-  StationStandingDto,
+  StationJudgeCalibrationDto,
 } from '@outcomes/application/dto/insights-changes.dto';
 import type { JudgeShare } from '@outcomes/domain/services/judge-shares';
 import { RUN_SIZES, type SizeBound } from '@outcomes/domain/services/run-size';
@@ -19,20 +19,20 @@ import {
 } from '@outcomes/presentation/http/dto/insights-common.response.dto';
 import { MeasureVerdictResponseDto } from '@outcomes/presentation/http/dto/measure-verdict.response.dto';
 import { ConfigChangeResponseDto } from '@outcomes/presentation/http/dto/station-config.response.dto';
-import { JudgeStandingResponseDto } from '@outcomes/presentation/http/dto/station-judge.response.dto';
+import { JudgeCalibrationResponseDto } from '@outcomes/presentation/http/dto/station-judge.response.dto';
 import { RunTallyResponseDto } from '@outcomes/presentation/http/dto/station-outcomes.response.dto';
 
-export class StationStandingResponseDto extends JudgeStandingResponseDto {
+export class StationJudgeCalibrationResponseDto extends JudgeCalibrationResponseDto {
   @ApiProperty({ example: 'b0c7e1f4-1a2b-4c3d-9e8f-7a6b5c4d3e2f' })
   readonly lineId: string;
 
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
   readonly stationId: string;
 
-  constructor(standing: StationStandingDto) {
-    super(standing);
-    this.lineId = standing.lineId;
-    this.stationId = standing.stationId;
+  constructor(calibration: StationJudgeCalibrationDto) {
+    super(calibration);
+    this.lineId = calibration.lineId;
+    this.stationId = calibration.stationId;
   }
 }
 
@@ -172,12 +172,12 @@ export class InsightsChangesResponseDto {
   readonly markers: readonly ChangeMarkerResponseDto[];
 
   @ApiProperty({
-    type: StationStandingResponseDto,
+    type: StationJudgeCalibrationResponseDto,
     isArray: true,
     description:
       'How far each changed station’s judge is trusted, where it has one',
   })
-  readonly judges: readonly StationStandingResponseDto[];
+  readonly judges: readonly StationJudgeCalibrationResponseDto[];
 
   constructor(changes: InsightsChangesDto) {
     this.period = new InsightsPeriodResponseDto(changes.period);
@@ -185,7 +185,7 @@ export class InsightsChangesResponseDto {
       (each) => new ChangeMarkerResponseDto(each),
     );
     this.judges = changes.judges.map(
-      (each) => new StationStandingResponseDto(each),
+      (each) => new StationJudgeCalibrationResponseDto(each),
     );
   }
 }
@@ -406,12 +406,12 @@ export class InsightsSetupsResponseDto {
   readonly judgeWithheld: string | null;
 
   @ApiProperty({
-    type: StationStandingResponseDto,
+    type: StationJudgeCalibrationResponseDto,
     isArray: true,
     description:
       'How far the station’s judge is trusted, where one station is picked and it has a judge',
   })
-  readonly judges: readonly StationStandingResponseDto[];
+  readonly judges: readonly StationJudgeCalibrationResponseDto[];
 
   constructor(setups: InsightsSetupsDto) {
     this.period = new InsightsPeriodResponseDto(setups.period);
@@ -425,7 +425,7 @@ export class InsightsSetupsResponseDto {
     );
     this.judgeWithheld = setups.judgeWithheld;
     this.judges = setups.judges.map(
-      (each) => new StationStandingResponseDto(each),
+      (each) => new StationJudgeCalibrationResponseDto(each),
     );
   }
 }

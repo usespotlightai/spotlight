@@ -145,8 +145,8 @@ const reading = (
 const REQUEST = CheckRequest.of('npm test', null);
 
 describe('RunChangeChecks', () => {
-  it('says where each of a run’s stacks stands, by its repository', async () => {
-    const standing = await reading(
+  it('says the state of each stack of a run, by its repository', async () => {
+    const changes = await reading(
       [
         stackOf('drafting', REQUEST, 'drafting'),
         stackOf('undrafted', REQUEST, 'failed'),
@@ -159,7 +159,7 @@ describe('RunChangeChecks', () => {
     );
 
     expect(
-      standing.map((each) => [each.repository, each.state, each.failedAt]),
+      changes.map((each) => [each.repository, each.state, each.failedAt]),
     ).toEqual([
       ['drafting', 'drafting', []],
       ['undrafted', 'undrafted', []],
@@ -171,13 +171,13 @@ describe('RunChangeChecks', () => {
   });
 
   it('says nobody checked a stack whose check waited too long', async () => {
-    const [standing] = await reading(
+    const [change] = await reading(
       [stackOf('lapsed', REQUEST)],
       [checkOf('lapsed', null)],
       new Date(NOW.getTime() + WAITING_LIMIT_MS + 1),
     );
 
-    expect(standing).toMatchObject({
+    expect(change).toMatchObject({
       state: 'skipped',
       skip: 'nobody-checked',
     });
@@ -192,7 +192,7 @@ describe('RunChangeChecks, with rechecks', () => {
     checkOf('flipped', checked(false), NOW, true),
   ];
 
-  it('reads a run’s first checks as they stood, whatever a recheck found', async () => {
+  it('reads the first checks of a run as they were, whatever a recheck found', async () => {
     expect(
       (await readingOf(stacks, checks).ofRun(RUN.value)).map((each) => [
         each.repository,

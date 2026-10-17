@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const FOUND: TaskDecisionsDto = {
   runId: 'run_1',
   drafting: false,
-  standing: 'proposed',
+  status: 'proposed',
   merge: null,
   decisions: [
     {

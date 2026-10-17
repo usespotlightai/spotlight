@@ -43,10 +43,10 @@ export class ProvisionTeam {
   }
 
   private async openLines(team: NewTeam): Promise<void> {
-    const standing = await this.lines.ofTeam(team.teamId);
+    const existing = await this.lines.ofTeam(team.teamId);
 
     for (const opening of BUILT_IN_LINES) {
-      if (standing.some((each) => each.key.equals(opening.key))) {
+      if (existing.some((each) => each.key.equals(opening.key))) {
         continue;
       }
 

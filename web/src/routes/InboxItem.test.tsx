@@ -99,7 +99,7 @@ const item = (notes: unknown[], description: string | null = null) => [
     stationColor: '#5c66d9',
     stationPosition: 2,
     stationCount: 4,
-    standsAt: { name: 'Code Review', color: '#56b98d', position: 3 },
+    currentStation: { name: 'Code Review', color: '#56b98d', position: 3 },
     raisedAt: { name: 'Triage', color: '#edc12b', position: 0 },
     createdAt: '2026-08-29T09:02:00.000Z',
     askedAt: '2026-08-29T12:00:00.000Z',
@@ -518,7 +518,7 @@ describe('InboxItem', () => {
       {
         ...only,
         resolved: true,
-        standsAt: { name: only.station, color: '#56b98d', position: 3 },
+        currentStation: { name: only.station, color: '#56b98d', position: 3 },
       },
     ]);
 

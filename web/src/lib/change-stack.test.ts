@@ -133,7 +133,7 @@ describe('settling', () => {
 });
 
 describe('layerAt', () => {
-  it('finds the layer asked for, with where it stands in its cohort', () => {
+  it('finds the layer asked for, with its position in its cohort', () => {
     const found = layerAt(stack(), 'c1.l2');
 
     expect(found?.layer.title).toBe('Mount the invitation routes');

@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
 
-const standing = (): Line => {
+const existingLine = (): Line => {
   let next = 0;
   const opened = Line.open({
     by: attributedIn(),
@@ -36,7 +36,7 @@ const standing = (): Line => {
 };
 
 const abandoning = (tasks: number) => {
-  const line = standing();
+  const line = existingLine();
   const save = vi.fn(async (_: Line) => {});
   const warn = vi.fn();
   const tally = async () =>
@@ -44,8 +44,8 @@ const abandoning = (tasks: number) => {
   const service = new AbandonTeamLines(
     { ofTeam: vi.fn(async () => [line]), save } as unknown as LineRepository,
     {
-      standingAt: vi.fn(tally),
-      lockedStandingAt: vi.fn(tally),
+      taskCountsAt: vi.fn(tally),
+      lockedTaskCountsAt: vi.fn(tally),
     } satisfies StationTalliesPort,
     { inTransaction: (work) => work() },
     { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() },
@@ -63,7 +63,7 @@ describe('AbandonTeamLines', () => {
     expect((save.mock.calls[0] as [Line])[0].isRetired).toBe(true);
   });
 
-  it('keeps a line tasks still stand on, and says so', async () => {
+  it('keeps a line that still has tasks, and says so', async () => {
     const { service, save, warn } = abandoning(2);
 
     await service.of(TEAM);

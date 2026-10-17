@@ -68,7 +68,7 @@ describe('IntegrationSources', () => {
         actions: { ping: { request: { url: 'https://api.linear.app' } } },
       },
       teamId: TEAM,
-      standing: null,
+      current: null,
     });
 
     expect(sourced.compiled.ok).toBe(true);
@@ -81,7 +81,7 @@ describe('IntegrationSources', () => {
     const { compiled, reading } = await sources.compiled({
       definition: PETSTORE,
       teamId: TEAM,
-      standing: null,
+      current: null,
     });
 
     expect(
@@ -97,10 +97,10 @@ describe('IntegrationSources', () => {
 
   it('reuses what it read while the description is read from the same place', async () => {
     const first = sourcing();
-    const { reading: standing } = await first.sources.compiled({
+    const { reading: current } = await first.sources.compiled({
       definition: PETSTORE,
       teamId: TEAM,
-      standing: null,
+      current: null,
     });
 
     first.reader.read.mockClear();
@@ -108,7 +108,7 @@ describe('IntegrationSources', () => {
     const again = await first.sources.compiled({
       definition: { ...PETSTORE, name: 'Pets' },
       teamId: TEAM,
-      standing,
+      current,
     });
 
     expect(first.reader.read).not.toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe('IntegrationSources', () => {
         openapi: { ...PETSTORE.openapi, revision: '2' },
       },
       teamId: TEAM,
-      standing,
+      current,
     });
 
     expect(first.reader.read).toHaveBeenCalledTimes(1);
@@ -132,7 +132,7 @@ describe('IntegrationSources', () => {
     await first.sources.compiled({
       definition: PETSTORE,
       teamId: TEAM,
-      standing,
+      current,
       rereading: true,
     });
 
@@ -141,10 +141,10 @@ describe('IntegrationSources', () => {
 
   it('keeps offering what it read before when reading again fails, saying why', async () => {
     const { sources, reader } = sourcing();
-    const { reading: standing } = await sources.compiled({
+    const { reading: current } = await sources.compiled({
       definition: PETSTORE,
       teamId: TEAM,
-      standing: null,
+      current: null,
     });
 
     reader.read.mockResolvedValue({
@@ -155,7 +155,7 @@ describe('IntegrationSources', () => {
     const reread = await sources.compiled({
       definition: PETSTORE,
       teamId: TEAM,
-      standing,
+      current,
       rereading: true,
     });
 
@@ -179,7 +179,7 @@ describe('IntegrationSources', () => {
     const updated = await sources.compiled({
       definition: { ...PETSTORE, name: 'Pets' },
       teamId: TEAM,
-      standing: reread.reading,
+      current: reread.reading,
     });
 
     expect(reader.read).toHaveBeenCalledTimes(1);
@@ -194,7 +194,7 @@ describe('IntegrationSources', () => {
     const { compiled, reading } = await sources.compiled({
       definition: PETSTORE,
       teamId: TEAM,
-      standing: null,
+      current: null,
     });
 
     expect(compiled.ok && compiled.integration.offers).toEqual([]);

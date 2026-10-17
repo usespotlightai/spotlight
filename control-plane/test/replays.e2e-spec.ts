@@ -576,7 +576,7 @@ describe('a replay claimed by a runner', () => {
 });
 
 describe('a replay ending', () => {
-  it('records its handover as its own result, leaving the original task as it stood', async () => {
+  it('records its handover as its own result, and leaves the original task as it was', async () => {
     const { original, replayId, token } = await aClaimedReplay();
     const before = await taskRow(original.taskId);
     const notesBefore = await notesOf(original.taskId);

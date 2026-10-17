@@ -3,7 +3,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TeamStanding {
+export interface Membership {
   readonly workspaceId: WorkspaceId;
   readonly by: UserId;
 }
@@ -15,11 +15,15 @@ export class TeamAccess {
     readonly by: UserId,
   ) {}
 
-  static onTeam(teamId: string, standing: TeamStanding | null): TeamAccess {
-    if (!standing) {
+  static onTeam(teamId: string, membership: Membership | null): TeamAccess {
+    if (!membership) {
       throw new NotOnTeamError(teamId);
     }
 
-    return new TeamAccess(TeamId.of(teamId), standing.workspaceId, standing.by);
+    return new TeamAccess(
+      TeamId.of(teamId),
+      membership.workspaceId,
+      membership.by,
+    );
   }
 }

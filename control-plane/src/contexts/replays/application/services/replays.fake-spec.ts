@@ -18,7 +18,7 @@ import type {
   RunReplayability,
   SearchRunOrder,
   SearchRunQueued,
-  SearchRunStanding,
+  SearchRunStatus,
   StationView,
   UnclaimedWithdrawal,
   WorkPort,
@@ -50,7 +50,7 @@ import type { SearchRepository } from '@replays/domain/repositories/search.repos
 import { baselineOf } from '@replays/domain/services/baseline';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import type { StackStanding } from '@replays/domain/value-objects/change-checks.vo';
+import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -340,7 +340,7 @@ export class FakeWork implements WorkPort {
       return found ? [found] : [];
     });
 
-  standing = async (workspace: unknown, runs: readonly RunId[]) =>
+  runSummaries = async (workspace: unknown, runs: readonly RunId[]) =>
     (await this.replayable(workspace, runs)).map((each) => ({
       ...each,
       title: null as string | null,
@@ -455,12 +455,12 @@ export class FakeWork implements WorkPort {
     return this.unclaimed;
   };
 
-  readonly runStandings = new Map<string, SearchRunStanding>();
+  readonly runStatuses = new Map<string, SearchRunStatus>();
 
-  searchRunStandings = async (runs: readonly RunId[]) =>
+  searchRunStatuses = async (runs: readonly RunId[]) =>
     runs.flatMap((run) => {
-      const standing = this.runStandings.get(run.value);
-      return standing ? [standing] : [];
+      const status = this.runStatuses.get(run.value);
+      return status ? [status] : [];
     });
 
   hold = async (
@@ -480,7 +480,7 @@ export class FakeWork implements WorkPort {
 }
 
 export const peopleWho = (mayPlan: boolean | null): PeoplePort => ({
-  standingOn: async () =>
+  membershipOn: async () =>
     mayPlan === null ? null : { workspaceId: STATION.workspaceId, mayPlan },
   teamKey: async () => 'core',
   workspaceSlug: async () => 'acme',
@@ -510,16 +510,16 @@ export const accessFor = (
   );
 
 export class FakeChangeReview implements ChangeReviewPort {
-  readonly stacks = new Map<string, StackStanding[]>();
-  readonly rechecks = new Map<string, StackStanding[]>();
+  readonly stacks = new Map<string, StackStatus[]>();
+  readonly rechecks = new Map<string, StackStatus[]>();
   readonly recheckAsked: string[] = [];
   recheckableStacks: readonly string[] = ['stack_1'];
 
-  async stacksOf(run: RunId): Promise<readonly StackStanding[]> {
+  async stacksOf(run: RunId): Promise<readonly StackStatus[]> {
     return this.stacks.get(run.value) ?? [];
   }
 
-  async rechecksOf(run: RunId): Promise<readonly StackStanding[]> {
+  async rechecksOf(run: RunId): Promise<readonly StackStatus[]> {
     return this.rechecks.get(run.value) ?? [];
   }
 

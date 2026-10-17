@@ -156,7 +156,7 @@ describe('UpdateSecretHandler', () => {
     expect(await keptValue()).toBe('lin_api_2');
   });
 
-  it('leaves the value alone while valueWoVersion stands', async () => {
+  it('leaves the value alone while valueWoVersion does not change', async () => {
     const { update, keptValue } = await created();
 
     await update({ ...LINEAR, valueWo: 'lin_api_ignored' });

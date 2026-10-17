@@ -29,15 +29,15 @@ export class UpdateSkillHandler
     const id = SkillDefinitionId.of(command.skillId);
 
     try {
-      const standing = await this.definitions.withId(id);
-      const permissions = standing
+      const existing = await this.definitions.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -45,7 +45,7 @@ export class UpdateSkillHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.compiler.compile(command.definition);
 
@@ -55,7 +55,7 @@ export class UpdateSkillHandler
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          standing.redefinedAs(
+          existing.redefinedAs(
             compiled,
             Attribution.of(command.actor, permissions.workspaceId),
           ),

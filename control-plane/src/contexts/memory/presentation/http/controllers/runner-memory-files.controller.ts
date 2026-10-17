@@ -28,7 +28,7 @@ export class RunnerMemoryFilesController {
   @ApiOperation({
     operationId: 'readMemoryFiles',
     summary:
-      'Every standing memory that applies to the run, as files to lay in its workspace',
+      'Every active memory that applies to the run, as files to lay in its workspace',
   })
   @ApiOkResponse({ type: MemoryFileResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such run leased by this runner' })

@@ -31,15 +31,15 @@ export class DeleteHarnessProfileHandler
     const id = HarnessProfileId.of(command.profileId);
 
     try {
-      const standing = await this.profiles.withId(id);
-      const permissions = standing
+      const existing = await this.profiles.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -47,13 +47,13 @@ export class DeleteHarnessProfileHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
-      const named = await this.given.onTeam(standing.teamId, 'profile');
+      const named = await this.given.onTeam(existing.teamId, 'profile');
 
       await this.transaction.inTransaction(() =>
         this.profiles.save(
-          standing.retire(
+          existing.retire(
             named,
             Attribution.of(command.actor, permissions.workspaceId),
           ),

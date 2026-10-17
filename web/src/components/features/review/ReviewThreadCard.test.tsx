@@ -65,7 +65,7 @@ beforeEach(() => {
 });
 
 describe('ReviewThreadCard', () => {
-  it('shows a thread with who said what and where each stands', () => {
+  it('shows a thread with who said what and the status of each', () => {
     render(
       within_(
         REVIEW,

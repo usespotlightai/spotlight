@@ -182,30 +182,30 @@ describe('WorkspaceInvite', () => {
     expect(acceptedBy(offered()).isClosedAt(LATER)).toBe(true);
   });
 
-  it('refuses to stand as both accepted and revoked', () => {
+  it('refuses to rehydrate as both accepted and revoked', () => {
     expect(() =>
       kept({ acceptedAt: LATER, acceptedBy: ada, revokedAt: LATER }),
     ).toThrow(/both accepted and revoked/);
   });
 
-  it('stands as accepted by an account since deleted', () => {
+  it('rehydrates as accepted by an account since deleted', () => {
     const read = kept({ acceptedAt: LATER, acceptedBy: null });
 
     expect(read.statusAt(LATER)).toBe('accepted');
     expect(read.isClosedAt(LATER)).toBe(true);
   });
 
-  it('stands with an inviter whose account was since deleted', () => {
+  it('rehydrates with an inviter whose account was since deleted', () => {
     expect(kept({ invitedBy: null }).statusAt(NOW)).toBe('open');
   });
 
-  it('refuses to stand as accepted by somebody at no time', () => {
+  it('refuses to rehydrate as accepted by somebody at no time', () => {
     expect(() => kept({ acceptedBy: ada })).toThrow(
       /accepted by somebody at no time/,
     );
   });
 
-  it('refuses to stand as kept without ever being written', () => {
+  it('refuses to rehydrate as kept without ever being written', () => {
     expect(() => kept({ version: 0 })).toThrow(/without ever being written/);
   });
 
@@ -252,9 +252,9 @@ describe('WorkspaceInvite', () => {
     expect(invite.statusAt(LATER)).toBe('open');
   });
 
-  it('tells its standing from when it was accepted, revoked and runs out', () => {
-    const standing = (over: { acceptedAt?: Date; revokedAt?: Date }) =>
-      WorkspaceInvite.standingOf(
+  it('tells its status from when it was accepted, revoked and runs out', () => {
+    const status = (over: { acceptedAt?: Date; revokedAt?: Date }) =>
+      WorkspaceInvite.statusOf(
         {
           acceptedAt: over.acceptedAt ?? null,
           revokedAt: over.revokedAt ?? null,
@@ -263,11 +263,11 @@ describe('WorkspaceInvite', () => {
         NOW,
       );
 
-    expect(standing({})).toBe('open');
-    expect(standing({ acceptedAt: NOW })).toBe('accepted');
-    expect(standing({ revokedAt: NOW })).toBe('revoked');
+    expect(status({})).toBe('open');
+    expect(status({ acceptedAt: NOW })).toBe('accepted');
+    expect(status({ revokedAt: NOW })).toBe('revoked');
     expect(
-      WorkspaceInvite.standingOf(
+      WorkspaceInvite.statusOf(
         { acceptedAt: null, revokedAt: null, expiresAt: NOW },
         NOW,
       ),

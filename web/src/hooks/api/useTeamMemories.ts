@@ -23,7 +23,7 @@ export function useTeamMemories(
       const { data } = await listTeamMemories({
         path: { teamId: teamId as string },
         query: {
-          standing: filter.standing,
+          status: filter.status,
           ...(filter.kind ? { kind: filter.kind } : {}),
           ...(filter.lineId ? { lineId: filter.lineId } : {}),
           ...(filter.stationId ? { stationId: filter.stationId } : {}),

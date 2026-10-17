@@ -68,7 +68,7 @@ describe('the setup list', () => {
 });
 
 describe('settling', () => {
-  it('settles a standing list with nothing left on it', () => {
+  it('settles an open list with nothing left on it', () => {
     const saying = settling([note('asked', 'setup')], done, NOW);
 
     expect(saying?.body).toEqual(

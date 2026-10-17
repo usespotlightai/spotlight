@@ -112,7 +112,7 @@ describe('TeamNav', () => {
     expect(linesOf(0)).toBeInTheDocument();
   });
 
-  it('marks the line a task stands on, on the task and on its trace', () => {
+  it('marks the line a task is on, on the task and on its trace', () => {
     lines.mockReturnValue([
       { id: 'line_1', name: 'Default', stations: [{ id: 'station_1' }] },
     ]);

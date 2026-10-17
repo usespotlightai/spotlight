@@ -52,7 +52,7 @@ export function GradeRun({ slug, teamId, runId }: GradeRunProps) {
     <DecisionCard data-slot="grade-run" aria-label="Grade this run">
       <DecisionHeader
         title={
-          <DecisionTitle standing={mine ? 'approved' : 'waiting'}>
+          <DecisionTitle status={mine ? 'approved' : 'waiting'}>
             {gradeHeading(kind, rubricBody !== null)}
           </DecisionTitle>
         }

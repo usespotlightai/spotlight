@@ -84,13 +84,13 @@ import {
   WORKSPACES,
   type WorkspacesPort,
 } from '@change-review/application/ports/workspaces.port';
+import { ListMergedDecisionsHandler } from '@change-review/application/queries/handlers/list-merged-decisions.handler';
 import { ListRunChangeStacksHandler } from '@change-review/application/queries/handlers/list-run-change-stacks.handler';
-import { ListStandingDecisionsHandler } from '@change-review/application/queries/handlers/list-standing-decisions.handler';
 import { ReadRunReviewHandler } from '@change-review/application/queries/handlers/read-run-review.handler';
 import { ReadTaskChangeStackHandler } from '@change-review/application/queries/handlers/read-task-change-stack.handler';
 import { ReadTaskDecisionsHandler } from '@change-review/application/queries/handlers/read-task-decisions.handler';
+import { ListMergedDecisionsQuery } from '@change-review/application/queries/list-merged-decisions.query';
 import { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
-import { ListStandingDecisionsQuery } from '@change-review/application/queries/list-standing-decisions.query';
 import { ReadRunReviewQuery } from '@change-review/application/queries/read-run-review.query';
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
 import { ReadTaskDecisionsQuery } from '@change-review/application/queries/read-task-decisions.query';
@@ -142,9 +142,9 @@ import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persi
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
 import { ChangeStackController } from '@change-review/presentation/http/controllers/change-stack.controller';
 import { DecisionController } from '@change-review/presentation/http/controllers/decision.controller';
+import { MergedDecisionController } from '@change-review/presentation/http/controllers/merged-decision.controller';
 import { ReviewController } from '@change-review/presentation/http/controllers/review.controller';
 import { RunnerChangeStackController } from '@change-review/presentation/http/controllers/runner-change-stack.controller';
-import { StandingDecisionController } from '@change-review/presentation/http/controllers/standing-decision.controller';
 import { ReviewSyncWorker } from '@change-review/presentation/workers/review-sync.worker';
 import {
   PULL_REQUEST_COMMENTS,
@@ -223,7 +223,7 @@ const CHANGE_REVIEW_EVENTS = Symbol('CHANGE_REVIEW_EVENTS');
 export const CHANGE_REVIEW_CONTROLLERS: readonly Type[] = [
   ChangeStackController,
   DecisionController,
-  StandingDecisionController,
+  MergedDecisionController,
   RunnerChangeStackController,
   ReviewController,
 ];
@@ -790,11 +790,11 @@ const handlers: Provider[] = [
     ID_GENERATOR,
     CLOCK,
   ]),
-  ...bindQueryHandler(
-    ListStandingDecisionsQuery,
-    ListStandingDecisionsHandler,
-    [WORKSPACES, DECISION_READER, PEOPLE],
-  ),
+  ...bindQueryHandler(ListMergedDecisionsQuery, ListMergedDecisionsHandler, [
+    WORKSPACES,
+    DECISION_READER,
+    PEOPLE,
+  ]),
   ...bindQueryHandler(ReadTaskDecisionsQuery, ReadTaskDecisionsHandler, [
     DecisionAccess,
     DECISION_READER,

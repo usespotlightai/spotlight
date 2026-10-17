@@ -126,13 +126,13 @@ export class RunScoresViews {
 
   async of(access: TeamAccess, run: ScoredRun): Promise<RunScoresDto> {
     const scores = await this.scores.ofRuns([run.record.runId]);
-    const { rubricVersion, standing } = await this.reports.standingAt({
+    const { rubricVersion, calibration } = await this.reports.calibrationAt({
       workspaceId: access.workspaceId,
       teamId: access.teamId,
       lineId: run.end.place.lineId,
       stationId: run.end.place.stationId,
     });
-    const judge = visibleJudgeOf(scores, standing, rubricVersion);
+    const judge = visibleJudgeOf(scores, calibration, rubricVersion);
     const terms = await this.gradingTerms(run, scores);
 
     return {
@@ -144,7 +144,7 @@ export class RunScoresViews {
       claims: [...terms.claims],
       judged: latestJudgeOf(scores) !== null,
       judge: judge ? judgeOf(judge) : null,
-      standing,
+      calibration,
       grades: scores
         .filter((each) => !each.fromJudge)
         .sort((one, other) => other.at.getTime() - one.at.getTime())

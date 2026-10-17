@@ -79,7 +79,7 @@ const compiled = (
   };
 };
 
-const standing = (
+const rehydrated = (
   offers: string[] = [],
   version = 3,
   reading: SourceReading | null = null,
@@ -143,7 +143,7 @@ describe('IntegrationDefinition', () => {
   });
 
   it('takes a new definition of its own host, keeping its id and version', () => {
-    const redefined = standing().redefinedAs(
+    const redefined = rehydrated().redefinedAs(
       compiled('linear', { offers: ['comment'] }),
       null,
       ToolUses.none(),
@@ -167,7 +167,7 @@ describe('IntegrationDefinition', () => {
 
   it('keeps the host it was defined for, pointing at the field that tried to move it', () => {
     const moved = () =>
-      standing().redefinedAs(compiled('slack'), null, ToolUses.none(), BY);
+      rehydrated().redefinedAs(compiled('slack'), null, ToolUses.none(), BY);
 
     expect(moved).toThrow(IntegrationHostFixedError);
     expect(moved).toThrow(expect.objectContaining({ field: 'integration' }));
@@ -175,7 +175,7 @@ describe('IntegrationDefinition', () => {
 
   it('will not stop offering a tool a station gives', () => {
     expect(() =>
-      standing(['linear.comment']).redefinedAs(
+      rehydrated(['linear.comment']).redefinedAs(
         compiled('linear'),
         null,
         GIVEN,
@@ -183,7 +183,7 @@ describe('IntegrationDefinition', () => {
       ),
     ).toThrow(IntegrationToolsInUseError);
     expect(() =>
-      standing(['linear.comment']).redefinedAs(
+      rehydrated(['linear.comment']).redefinedAs(
         compiled('linear', { offers: ['comment'] }),
         null,
         GIVEN,
@@ -193,11 +193,11 @@ describe('IntegrationDefinition', () => {
   });
 
   it('is retired only once no station gives what it offers', () => {
-    expect(() => standing(['linear.comment']).retire(GIVEN, BY)).toThrow(
+    expect(() => rehydrated(['linear.comment']).retire(GIVEN, BY)).toThrow(
       /linear.comment \(used by the station delivery\/implementation\)/,
     );
 
-    const retired = standing(['linear.comment']).retire(ToolUses.none(), BY);
+    const retired = rehydrated(['linear.comment']).retire(ToolUses.none(), BY);
 
     expect(retired.isRetired).toBe(true);
     expect(retired.pullEvents()).toEqual([
@@ -212,7 +212,7 @@ describe('IntegrationDefinition', () => {
   });
 
   it('changes nothing once retired', () => {
-    const retired = standing().retire(ToolUses.none(), BY);
+    const retired = rehydrated().retire(ToolUses.none(), BY);
 
     expect(() =>
       retired.redefinedAs(compiled('linear'), null, ToolUses.none(), BY),
@@ -223,14 +223,14 @@ describe('IntegrationDefinition', () => {
   });
 
   it('refuses a change based on a version that is no longer current', () => {
-    expect(() => standing([], 3).assertVersion(3)).not.toThrow();
-    expect(() => standing([], 3).assertVersion(2)).toThrow(
+    expect(() => rehydrated([], 3).assertVersion(3)).not.toThrow();
+    expect(() => rehydrated([], 3).assertVersion(2)).toThrow(
       IntegrationDefinitionVersionConflictError,
     );
   });
 
   it('will not be read back without a version, or under a host it does not define', () => {
-    expect(() => standing([], 0)).toThrow(/without a version/);
+    expect(() => rehydrated([], 0)).toThrow(/without a version/);
     expect(() =>
       IntegrationDefinition.rehydrate({
         id: ID,
@@ -312,7 +312,7 @@ describe('IntegrationDefinition', () => {
   });
 
   it('is reread from upstream, stranding the tools upstream no longer offers', () => {
-    const existing = standing(
+    const existing = rehydrated(
       ['linear.issue-create', 'linear.issue-delete'],
       3,
       readingOf(),
@@ -354,7 +354,7 @@ describe('IntegrationDefinition', () => {
   });
 
   it('keeps its tools when reading again fails, recording only why', () => {
-    const existing = standing(['linear.issue-create'], 3, readingOf());
+    const existing = rehydrated(['linear.issue-create'], 3, readingOf());
     const failed = readingOf().stillAfter(
       'could not be read: api.linear.app: ENOTFOUND',
     );
@@ -376,14 +376,14 @@ describe('IntegrationDefinition', () => {
 
   it('is reread only from the definition it keeps', () => {
     expect(() =>
-      standing([], 3, readingOf()).reread(
+      rehydrated([], 3, readingOf()).reread(
         compiled('linear', { named: 'linear', generated: ['issue-create'] }),
         readingOf(),
         BY,
       ),
     ).not.toThrow();
     expect(() =>
-      standing([], 3, readingOf()).reread(
+      rehydrated([], 3, readingOf()).reread(
         {
           ...compiled('linear', { generated: ['issue-create'] }),
           document: DefinitionDocument.of({ integration: 'linear', name: 'X' }),
@@ -395,7 +395,7 @@ describe('IntegrationDefinition', () => {
   });
 
   it('is abandoned with its team, whatever its tools are given to', () => {
-    const abandoned = standing(['linear.comment']).abandon(BY);
+    const abandoned = rehydrated(['linear.comment']).abandon(BY);
 
     expect(abandoned.isRetired).toBe(true);
     expect(abandoned.pullEvents()).toEqual([

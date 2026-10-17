@@ -21,7 +21,7 @@ export interface MemoryBenchmarkDto {
 
 export interface InsightsMemoryDto {
   readonly period: PeriodDto;
-  readonly standing: number;
+  readonly activeCount: number;
   readonly memoriesBriefed: number;
   readonly memoriesRecalled: number;
   readonly runsBriefed: number;

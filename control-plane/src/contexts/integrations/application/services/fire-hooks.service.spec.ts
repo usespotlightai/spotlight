@@ -184,14 +184,14 @@ const setUp = (
   {
     matches = () => true,
     stored = null,
-    standing = TASK,
+    task = TASK,
     repeats = 0,
     heard = 'reported',
     movedOn = false,
   }: {
     matches?: () => boolean;
     stored?: HookFiring | null;
-    standing?: HookedTask | null;
+    task?: HookedTask | null;
     repeats?: number;
     heard?: HookFailureHeard;
     movedOn?: boolean;
@@ -209,8 +209,8 @@ const setUp = (
     chainOf: vi.fn(async () => null),
   } satisfies HookFiringHistoryPort;
   const tasks = {
-    of: vi.fn(async () => standing),
-    ofPullRequest: vi.fn(async () => standing),
+    of: vi.fn(async () => task),
+    ofPullRequest: vi.fn(async () => task),
   } satisfies TasksForHooksPort;
   const notes = {
     noted: vi.fn(async () => true),
@@ -612,7 +612,7 @@ describe('FireHooks.workOne', () => {
     const { hooked, last, runtime } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
-      { stored: stored(), standing: null },
+      { stored: stored(), task: null },
     );
 
     await hooked.workOne();

@@ -226,7 +226,7 @@ describe('Line', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('stands where it was opened', () => {
+  it('belongs to the workspace and team that opened it', () => {
     const line = opened();
 
     expect(line.workspaceId).toEqual(WorkspaceId.of('ws_1'));
@@ -241,7 +241,7 @@ describe('Line', () => {
       expect(line.backlog.isBacklog).toBe(true);
     });
 
-    it('stands it first, where a task waits to be started', () => {
+    it('puts it first, where a task waits to be started', () => {
       expect(opened().backlog.position).toBe(0);
     });
 
@@ -293,7 +293,7 @@ describe('Line', () => {
       );
     });
 
-    it('refuses one that does not stand first', () => {
+    it('refuses one that is not first', () => {
       expect(() => of([at(0), backlog(1)])).toThrow(InvalidStationLayoutError);
     });
   });
@@ -306,7 +306,7 @@ describe('Line', () => {
       expect(line.completed.isCompleted).toBe(true);
     });
 
-    it('stands it last, where a merged task lands', () => {
+    it('puts it last, where a merged task lands', () => {
       const line = opened();
 
       expect(line.completed.position).toBe(line.stations.length - 1);
@@ -350,7 +350,7 @@ describe('Line', () => {
       );
     });
 
-    it('refuses one that does not stand last', () => {
+    it('refuses one that is not last', () => {
       expect(() => of([backlog(), completed(1), at(2)])).toThrow(
         InvalidStationLayoutError,
       );
@@ -413,7 +413,7 @@ describe('Line', () => {
     });
   });
 
-  describe('how far downstream a station stands', () => {
+  describe('how far downstream a station is', () => {
     const depth = (line: Line, name: string) => {
       const station = line.stations.find((each) => each.name.value === name);
       return station ? line.depthOf(station.id) : -1;
@@ -428,7 +428,7 @@ describe('Line', () => {
       expect(depth(line, 'Code Review')).toBe(3);
     });
 
-    it('stands a fork’s branches at the same depth', () => {
+    it('puts a fork’s branches at the same depth', () => {
       const line = opened();
 
       expect(depth(line, 'Implementation')).toBe(depth(line, 'Spec'));
@@ -440,7 +440,7 @@ describe('Line', () => {
       expect(depth(line, 'Implementation')).toBe(2);
     });
 
-    it('stands what finishes the line last of all', () => {
+    it('puts what finishes the line last of all', () => {
       const line = opened();
       const furthest = Math.max(
         ...line.worked.map((each) => line.depthOf(each.id)),
@@ -503,7 +503,7 @@ describe('Line', () => {
       ).toThrow(InvalidStationLayoutError);
     });
 
-    it('lets a rule name where the task stands, and prefers it', () => {
+    it('lets a rule name where the task is, and prefers it', () => {
       const line = lineOf(
         [at(1, 'Triage'), at(2, 'Spec')],
         [sends('station_1'), sends('station_2', 'station_1')],
@@ -580,7 +580,7 @@ describe('Line', () => {
     expect(() => lineOf([at(1), at(1)])).toThrow(InvalidStationLayoutError);
   });
 
-  it('refuses a station standing before the start of the board', () => {
+  it('refuses a station before the start of the board', () => {
     expect(() => lineOf([at(-1, 'Before', { key: 'before' }), at(1)])).toThrow(
       InvalidStationLayoutError,
     );
@@ -674,12 +674,12 @@ describe('Line, where work may be handed on to', () => {
     ).toBeNull();
   });
 
-  it('refuses to pass work back to where it already stands', () => {
+  it('refuses to pass work back to where it already is', () => {
     const line = running();
 
     expect(
       line.refusalToPass(keyed(line, 'triage').id, keyed(line, 'triage')),
-    ).toBe('standing-there');
+    ).toBe('already-there');
   });
 
   it('refuses to pass work to a station nothing runs at', () => {
@@ -772,10 +772,10 @@ describe('Line, where work may be handed on to', () => {
 });
 
 describe('Line, what it records of its changes', () => {
-  const standing = () => of([backlog(), at(1, 'Build'), completed(2)]);
+  const built = () => of([backlog(), at(1, 'Build'), completed(2)]);
 
   it('records a station renamed, with what it was called', () => {
-    const renamed = standing().renameStation(
+    const renamed = built().renameStation(
       StationId.of('station_1'),
       StationName.of('Implement'),
     );
@@ -789,14 +789,14 @@ describe('Line, what it records of its changes', () => {
 
   it('records nothing where a station keeps the name it had', () => {
     expect(
-      standing()
+      built()
         .renameStation(StationId.of('station_1'), StationName.of('Build'))
         .pullEvents(),
     ).toEqual([]);
   });
 
   it('records the repositories it works in changing', () => {
-    const moved = standing().worksIn([
+    const moved = built().worksIn([
       WorkedRepository.of(Repository.of('acme/api')),
     ]);
 
@@ -843,7 +843,7 @@ describe('Line, what it records of its changes', () => {
   });
 
   it('records the harness a station runs on changing', () => {
-    const events = standing()
+    const events = built()
       .runsOn(HarnessId.of('claude-code'), null)
       .pullEvents();
 
@@ -855,7 +855,7 @@ describe('Line, what it records of its changes', () => {
   });
 
   it('keeps every change it records, one after another', () => {
-    const events = standing()
+    const events = built()
       .runsOn(HarnessId.of('claude-code'), null)
       .renameStation(StationId.of('station_1'), StationName.of('Implement'))
       .pullEvents();
@@ -867,7 +867,7 @@ describe('Line, what it records of its changes', () => {
   });
 
   it('records nothing for a line read back as it was stored', () => {
-    expect(standing().pullEvents()).toEqual([]);
+    expect(built().pullEvents()).toEqual([]);
   });
 
   it('keeps the version it was read at through its changes', () => {
@@ -877,7 +877,7 @@ describe('Line, what it records of its changes', () => {
       teamId: TeamId.of('team_1'),
       key: LineKey.of('default'),
       name: LineName.of('Default'),
-      stations: standing().stations,
+      stations: built().stations,
       version: 4,
     });
 
@@ -888,9 +888,9 @@ describe('Line, what it records of its changes', () => {
 
   it('says the harness it runs on is its first work station’s', () => {
     expect(
-      standing().runsOn(HarnessId.of('claude-code'), null).harness?.value,
+      built().runsOn(HarnessId.of('claude-code'), null).harness?.value,
     ).toBe('claude-code');
-    expect(standing().harness).toBeNull();
+    expect(built().harness).toBeNull();
   });
 
   describe('as a resource', () => {
@@ -997,7 +997,7 @@ describe('Line, what it records of its changes', () => {
       ).toThrow(LineKeyFixedError);
     });
 
-    it('retires once no task stands on it, and says so', () => {
+    it('retires once no task is on it, and says so', () => {
       const line = kept();
       const retired = line.retire(new Map(), attributedIn());
 
@@ -1018,7 +1018,7 @@ describe('Line, what it records of its changes', () => {
       expect(() => retired.worksIn([])).toThrow(/after it retired/);
     });
 
-    it('will not retire while tasks stand on it, naming where', () => {
+    it('will not retire while tasks are on it, naming where', () => {
       const line = kept();
       const [, working] = line.stations;
 

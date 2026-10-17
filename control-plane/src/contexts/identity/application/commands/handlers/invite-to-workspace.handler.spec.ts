@@ -67,7 +67,7 @@ const TEAMS = [team('team_1', 'Platform'), team('team_2', 'Mobile')];
 const kept = (invite: WorkspaceInvite): WorkspaceInvite =>
   WorkspaceInvite.rehydrate({ ...invite, version: invite.version + 1 });
 
-const standing = (
+const openInvite = (
   email = 'ada@example.com',
   sentAt = new Date('2026-09-01T09:00:00.000Z'),
 ) =>
@@ -256,7 +256,7 @@ describe('InviteToWorkspaceHandler', () => {
 
   it('sends an open invite again, on the terms asked now, rather than opening a second', async () => {
     const { handler, add, save, send } = inviting({
-      previous: () => standing(),
+      previous: () => openInvite(),
     });
 
     await expect(handler.execute(invite(['ada@example.com']))).resolves.toEqual(
@@ -275,7 +275,7 @@ describe('InviteToWorkspaceHandler', () => {
 
   it('sends a run-out invite again', async () => {
     const { handler, save } = inviting({
-      previous: () => standing('ada@example.com', new Date('2026-08-01')),
+      previous: () => openInvite('ada@example.com', new Date('2026-08-01')),
     });
 
     await handler.execute(invite(['ada@example.com']));
@@ -289,7 +289,7 @@ describe('InviteToWorkspaceHandler', () => {
       previous: (email) => opened.get(email) ?? null,
       add: async (added) => {
         if (added.email.value === 'ada@example.com') {
-          opened.set('ada@example.com', standing());
+          opened.set('ada@example.com', openInvite());
           throw new AlreadyInvitedError(added.email.value);
         }
       },
@@ -311,7 +311,7 @@ describe('InviteToWorkspaceHandler', () => {
   it('sends again from what the invite became, where another send wrote first', async () => {
     let saves = 0;
     const { handler, save, send } = inviting({
-      previous: () => standing(),
+      previous: () => openInvite(),
       save: async (saved) => {
         saves += 1;
         if (saves === 1) {

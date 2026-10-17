@@ -47,7 +47,7 @@ export function WorthImprovingList({
     >
       {stations.length === 0 ? (
         <p className="py-2 text-muted-foreground text-sm">
-          No station stands out this period.
+          No station needs attention this period.
         </p>
       ) : (
         <NestedTable

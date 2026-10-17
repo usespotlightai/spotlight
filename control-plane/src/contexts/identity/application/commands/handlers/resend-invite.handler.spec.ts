@@ -57,7 +57,7 @@ const PLATFORM = Team.rehydrate({
   version: 0,
 });
 
-const standing = (
+const sentInvite = (
   over: { workspaceId?: WorkspaceId; revoked?: boolean } = {},
 ) => {
   const offered = WorkspaceInvite.offer({
@@ -90,7 +90,8 @@ const resending = (
       findBySlug: async () => workspace(over.role),
     } as unknown as WorkspaceRepository),
     {
-      find: async () => (over.invite === undefined ? standing() : over.invite),
+      find: async () =>
+        over.invite === undefined ? sentInvite() : over.invite,
       save,
     } as unknown as WorkspaceInviteRepository,
     { ofWorkspace: async () => [PLATFORM] } as unknown as TeamRepository,
@@ -139,7 +140,7 @@ describe('ResendInviteHandler', () => {
     });
   });
 
-  it('lets another admin send it again, on its terms still standing, as its inviter now', async () => {
+  it('lets another admin send it again, on its current terms, as its inviter now', async () => {
     const { handler, save, send } = resending({ role: WorkspaceRole.admin });
 
     await expect(handler.execute(resend)).resolves.toMatchObject({
@@ -157,7 +158,7 @@ describe('ResendInviteHandler', () => {
 
   it('refuses an invite that was taken back, and sends nothing', async () => {
     const { handler, save, send } = resending({
-      invite: standing({ revoked: true }),
+      invite: sentInvite({ revoked: true }),
     });
 
     await expect(handler.execute(resend)).rejects.toMatchObject({
@@ -177,7 +178,7 @@ describe('ResendInviteHandler', () => {
   it('is nothing to an invite of another workspace, or none', async () => {
     await expect(
       resending({
-        invite: standing({ workspaceId: WorkspaceId.of('ws_2') }),
+        invite: sentInvite({ workspaceId: WorkspaceId.of('ws_2') }),
       }).handler.execute(resend),
     ).resolves.toBeNull();
     await expect(

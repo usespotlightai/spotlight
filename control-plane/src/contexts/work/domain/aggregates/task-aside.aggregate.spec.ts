@@ -190,10 +190,10 @@ describe('TaskAside', () => {
       ).toBe(false);
     });
 
-    it('needs only the standing its form asks for', () => {
-      expect(TaskAside.standingToAttend('memories')).toBe('seesTeam');
-      expect(TaskAside.standingToAttend('grade')).toBe('readsTeamOutcomes');
-      expect(TaskAside.standingToAttend('alert')).toBe('readsTeamOutcomes');
+    it('needs only the access its form asks for', () => {
+      expect(TaskAside.requiredAccess('memories')).toBe('seesTeam');
+      expect(TaskAside.requiredAccess('grade')).toBe('readsTeamOutcomes');
+      expect(TaskAside.requiredAccess('alert')).toBe('readsTeamOutcomes');
     });
   });
 });

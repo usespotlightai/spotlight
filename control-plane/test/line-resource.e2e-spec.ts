@@ -126,7 +126,7 @@ describe('a line, created through the resource API (e2e)', () => {
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${version}"`);
 
-  const standOn = async (lineId: string, key: string) => {
+  const putTaskAt = async (lineId: string, key: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const [station] = await db
       .select({ id: schema.station.id, workspaceId: schema.line.workspaceId })
@@ -141,7 +141,7 @@ describe('a line, created through the resource API (e2e)', () => {
       openedFrom: 'person',
       workspaceId: station?.workspaceId ?? '',
       stationId: station?.id ?? '',
-      title: 'Stand here',
+      title: 'Wait here',
     });
   };
 
@@ -161,7 +161,7 @@ describe('a line, created through the resource API (e2e)', () => {
     await fixture.close();
   });
 
-  it('reads back as it stands, every field a definition may leave out filled in', async () => {
+  it('reads back as it is now, with every optional field filled in', async () => {
     const made = await create(DELIVERY);
     const [station] = made.body.definition.stations;
 
@@ -522,11 +522,11 @@ describe('a line, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('will not be deleted, or drop a station, while a task stands on it', async () => {
+  it('will not be deleted, or drop a station, while a task is at it', async () => {
     const made = await create(DELIVERY);
     const going = DELIVERY.stations[1]?.key as string;
 
-    await standOn(made.body.id, going);
+    await putTaskAt(made.body.id, going);
 
     const dropped = await change(made.body.id, made.body.version, {
       ...DELIVERY,

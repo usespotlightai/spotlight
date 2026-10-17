@@ -5,7 +5,7 @@ import type {
   PeoplePort,
   ReadableTeam,
 } from '@replays/application/ports/people.port';
-import type { TeamStanding } from '@replays/domain/services/team-access';
+import type { Membership } from '@replays/domain/services/team-access';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -17,10 +17,10 @@ export class People implements PeoplePort {
     private readonly workspaces: WorkspaceReaderPort,
   ) {}
 
-  async standingOn(
+  async membershipOn(
     teamId: string,
     principal: Principal,
-  ): Promise<TeamStanding | null> {
+  ): Promise<Membership | null> {
     const permissions = await this.access.permissionsAsTeamReader(
       teamId,
       principal,

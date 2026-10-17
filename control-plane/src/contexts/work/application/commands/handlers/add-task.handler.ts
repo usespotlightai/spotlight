@@ -47,7 +47,7 @@ export class AddTaskHandler
       command.lineId,
       raisedBy.value,
     );
-    const standing = await this.placements.placementsAt(stationId);
+    const placed = await this.placements.placementsAt(stationId);
 
     const attachments = await this.files.handedOver(
       line.workspaceId,
@@ -62,7 +62,7 @@ export class AddTaskHandler
         ? TaskDescription.of(command.description)
         : null,
       attachments,
-      rank: Placement.atTheBack(standing.map((each) => each.rank)),
+      rank: Placement.atTheBack(placed.map((each) => each.rank)),
       raisedBy,
       now: this.clock.now(),
       newId: () => this.ids.generate(),

@@ -119,7 +119,7 @@ const isWholeLive = (
   );
 };
 
-const PROBE_STANDING: readonly ReplayState[] = [
+const VALID_PROBE_STATES: readonly ReplayState[] = [
   'queued',
   'running',
   'finished',
@@ -135,7 +135,7 @@ export const checksSet = (
   !replays.some(
     (each) =>
       each.probe &&
-      PROBE_STANDING.includes(each.current) &&
+      VALID_PROBE_STATES.includes(each.current) &&
       isWholeLive(each, configs, liveFingerprint),
   );
 

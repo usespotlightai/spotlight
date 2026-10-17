@@ -5,7 +5,7 @@ import {
   type Approval,
   copyText,
   editable,
-  standingOf,
+  cardStatusOf,
   titleOf,
 } from '@/lib/approval';
 
@@ -25,7 +25,7 @@ export function ApprovalHeader({
   return (
     <DecisionHeader
       title={
-        <DecisionTitle standing={standingOf(approval)}>
+        <DecisionTitle status={cardStatusOf(approval)}>
           {titleOf(approval)}
         </DecisionTitle>
       }

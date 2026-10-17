@@ -100,12 +100,12 @@ describe('an approval a run asked for', () => {
     return { task: await readBack(settled), owner, runId };
   };
 
-  it('is read back with the call it stands for, still open', async () => {
+  it('is read back with the call it is for, still open', async () => {
     const { task } = await asking();
-    const standing = task.approvalFor(CALL);
+    const current = task.approvalFor(CALL);
 
-    expect(standing?.approval.open).toBe(true);
-    expect(standing?.approval.because).toBe(NEEDED.because);
+    expect(current?.approval.open).toBe(true);
+    expect(current?.approval.because).toBe(NEEDED.because);
     expect(task.awaitingReview).toBe(true);
   });
 
@@ -120,10 +120,10 @@ describe('an approval a run asked for', () => {
       }),
     );
     const { task } = await asking(permission);
-    const standing = task.approvalFor(permission);
+    const current = task.approvalFor(permission);
 
-    expect(standing?.approval.subject.kind).toBe('harness-permission');
-    expect(standing?.approval.subject.name).toBe('claude-code execute');
+    expect(current?.approval.subject.kind).toBe('harness-permission');
+    expect(current?.approval.subject.name).toBe('claude-code execute');
     expect(
       task.approvalFor(
         ApprovalSubject.toolCall(

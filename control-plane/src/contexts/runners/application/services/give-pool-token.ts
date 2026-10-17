@@ -5,7 +5,7 @@ import {
   refuseTokenGivenBefore,
   tokenGivenTo,
 } from '@runners/domain/services/token-giving';
-import { PoolTokenStanding } from '@runners/domain/value-objects/pool-token-standing.vo';
+import { PoolTokenUsage } from '@runners/domain/value-objects/pool-token-usage.vo';
 
 export const givePoolToken = async (
   given: GivenPoolTokensRepository,
@@ -22,7 +22,7 @@ export const givePoolToken = async (
   const holder = await pools.findByTokenHash(token);
 
   refuseTokenGivenBefore(
-    PoolTokenStanding.of({
+    PoolTokenUsage.of({
       given: await given.wasGiven(token),
       inUse: holder !== null && !holder.id.equals(pool.id),
     }),

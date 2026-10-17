@@ -48,9 +48,7 @@ export function RememberedProposal({
         )
       }
       retirable={
-        proposal.standing === 'stands'
-          ? { teamId, memoryId: proposal.id }
-          : null
+        proposal.status === 'active' ? { teamId, memoryId: proposal.id } : null
       }
     />
   );

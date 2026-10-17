@@ -99,7 +99,7 @@ export type InviteOffer = InviteOfferResponseDto & { token: string };
 const offer = (
   token: string,
   email: string,
-  standing: InviteOffer['standing'],
+  status: InviteOffer['status'],
   role: InviteOffer['role'],
   teamIds: readonly string[],
   by: typeof SAM | null,
@@ -110,7 +110,7 @@ const offer = (
   invitedBy: by?.name ?? null,
   role,
   teamNames: teamIds.map((teamId) => team(teamId).name),
-  standing,
+  status,
 });
 
 const OFFERS: InviteOffer[] = [

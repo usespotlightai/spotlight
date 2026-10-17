@@ -28,15 +28,15 @@ export class DeleteWorkspaceRunnersHandler
     const id = WorkspaceRunnersId.of(command.declarationId);
 
     try {
-      const standing = await this.declarations.find(id);
-      const permissions = standing
+      const existing = await this.declarations.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -44,11 +44,11 @@ export class DeleteWorkspaceRunnersHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(() =>
         this.declarations.save(
-          standing.drop(Attribution.of(command.actor, permissions.workspaceId)),
+          existing.drop(Attribution.of(command.actor, permissions.workspaceId)),
         ),
       );
 

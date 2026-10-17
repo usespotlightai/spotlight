@@ -1,4 +1,4 @@
-import type { JudgeStanding } from '@outcomes/domain/services/judge-standing';
+import type { JudgeCalibration } from '@outcomes/domain/services/judge-calibration';
 import type { CitationKind } from '@outcomes/domain/value-objects/citation.vo';
 import type { ScoreKind } from '@outcomes/domain/value-objects/score-scale.vo';
 
@@ -58,6 +58,6 @@ export interface RunScoresDto {
   readonly claims: readonly (string | null)[];
   readonly judged: boolean;
   readonly judge: JudgeScoreDto | null;
-  readonly standing: JudgeStanding;
+  readonly calibration: JudgeCalibration;
   readonly grades: readonly GradeDto[];
 }

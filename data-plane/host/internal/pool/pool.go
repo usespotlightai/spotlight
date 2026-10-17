@@ -69,13 +69,13 @@ func (c *Client) AnswerCall(ctx context.Context, id string, answer protocol.Host
 	return c.control.AnswerCall(ctx, id, answer)
 }
 
-func (c *Client) Present(ctx context.Context, presence protocol.HostPresence) (protocol.HostStanding, error) {
-	var standing protocol.HostStanding
-	if _, err := c.control.Request(ctx, http.MethodPut, c.path(), presence, &standing); err != nil {
-		return protocol.HostStanding{}, fmt.Errorf("report presence: %w", err)
+func (c *Client) Present(ctx context.Context, presence protocol.HostPresence) (protocol.HeartbeatResponse, error) {
+	var response protocol.HeartbeatResponse
+	if _, err := c.control.Request(ctx, http.MethodPut, c.path(), presence, &response); err != nil {
+		return protocol.HeartbeatResponse{}, fmt.Errorf("report presence: %w", err)
 	}
 
-	return standing, nil
+	return response, nil
 }
 
 func (c *Client) Leave(ctx context.Context) error {

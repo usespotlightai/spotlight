@@ -74,7 +74,7 @@ export class GitHubRemarks implements RemarksPort {
       if (answer.resolve) {
         throw new UpstreamRefusedError(
           'resolving a remark',
-          'it was not said on a line, so it stands in no thread',
+          'it was not said on a line, so it is in no thread',
         );
       }
 

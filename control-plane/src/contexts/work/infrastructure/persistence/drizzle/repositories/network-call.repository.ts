@@ -64,7 +64,7 @@ const progressOf = (row: Row): NetworkCallProgress => {
   ) {
     throw new InconsistentStateError(
       'network call',
-      `stands in no state it could be in (${row.id})`,
+      `is in no state it could be in (${row.id})`,
     );
   }
 

@@ -55,7 +55,7 @@ describe('RunSubject', () => {
     );
   });
 
-  it('keeps a workspace for its task, wherever the task stands, or for its chat', () => {
+  it('keeps a workspace for its task, wherever the task is, or for its chat', () => {
     expect(
       RunSubject.task(
         TaskId.of('task_1'),
@@ -107,7 +107,7 @@ describe('RunSubject', () => {
     ).toThrow(InconsistentStateError);
   });
 
-  it('never stands at a station with no task', () => {
+  it('is never at a station with no task', () => {
     expect(() =>
       RunSubject.rehydrate({
         taskId: null,

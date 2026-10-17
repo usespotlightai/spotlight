@@ -32,7 +32,7 @@ import {
   setupRefused,
   stationsRefused,
 } from '@work/domain/services/line-layout';
-import type { TasksStanding } from '@work/domain/services/reconcile-line';
+import type { TaskCounts } from '@work/domain/services/reconcile-line';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
@@ -292,12 +292,12 @@ export class Line extends EventRecorder {
     return relaid;
   }
 
-  retire(standing: TasksStanding, by: Attribution): Line {
+  retire(taskCounts: TaskCounts, by: Attribution): Line {
     const stranded = this.stations
       .map((each) => ({
         key: each.key.value,
         name: each.name.value,
-        tasks: standing.get(each.id.value) ?? 0,
+        tasks: taskCounts.get(each.id.value) ?? 0,
       }))
       .filter((each) => each.tasks > 0);
 
@@ -511,9 +511,10 @@ export class Line extends EventRecorder {
     );
   }
 
-  reactionTo(happening: Happening, standingAt: StationId): Reaction | null {
+  reactionTo(happening: Happening, currentStation: StationId): Reaction | null {
     const applies = this.reactions.filter(
-      (each) => each.happening.equals(happening) && each.appliesAt(standingAt),
+      (each) =>
+        each.happening.equals(happening) && each.appliesAt(currentStation),
     );
 
     return applies.find((each) => !each.isEverywhere) ?? applies[0] ?? null;
@@ -577,27 +578,27 @@ export class Line extends EventRecorder {
   }
 
   get completed(): Station {
-    const standing = this.stations.find((each) => each.isCompleted);
+    const station = this.stations.find((each) => each.isCompleted);
 
-    if (!standing) {
+    if (!station) {
       throw new InvalidStationLayoutError(
         'must include exactly one completed station, not 0',
       );
     }
 
-    return standing;
+    return station;
   }
 
   get backlog(): Station {
-    const standing = this.stations.find((each) => each.isBacklog);
+    const station = this.stations.find((each) => each.isBacklog);
 
-    if (!standing) {
+    if (!station) {
       throw new InvalidStationLayoutError(
         'must include exactly one backlog, not 0',
       );
     }
 
-    return standing;
+    return station;
   }
 
   get worked(): readonly Station[] {
@@ -636,7 +637,7 @@ export class Line extends EventRecorder {
 
   refusalToPass(from: StationId, to: Station): PassRefusal | null {
     if (to.id.equals(from)) {
-      return 'standing-there';
+      return 'already-there';
     }
     if (!to.harness) {
       return 'nothing-runs';

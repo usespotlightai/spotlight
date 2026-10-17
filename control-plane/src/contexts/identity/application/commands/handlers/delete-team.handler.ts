@@ -29,15 +29,15 @@ export class DeleteTeamHandler
     const id = TeamId.of(command.teamId);
 
     try {
-      const standing = await this.teams.find(id);
-      const permissions = standing
+      const existing = await this.teams.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -45,15 +45,15 @@ export class DeleteTeamHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const remaining = Dependents.of(await this.dependents.of(id));
 
       await this.transaction.inTransaction(() =>
         this.teams.save(
-          standing.disband(
+          existing.disband(
             remaining,
-            Attribution.of(command.actor, standing.workspaceId),
+            Attribution.of(command.actor, existing.workspaceId),
           ),
         ),
       );

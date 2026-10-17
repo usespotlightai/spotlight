@@ -148,7 +148,7 @@ const reading = ({
     alertsAt: async () => null,
   };
   const traces = {
-    leasedRunStanding: vi
+    leasedRunFacts: vi
       .fn()
       .mockResolvedValue(
         team ? { teamId: team, replaysFrom, isSearch: sight !== null } : null,

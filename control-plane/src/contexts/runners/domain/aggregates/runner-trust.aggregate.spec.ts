@@ -28,7 +28,7 @@ const defined = () =>
     by: BY,
   });
 
-const standing = () => {
+const persisted = () => {
   const trust = defined();
   trust.pullEvents();
   return trust;
@@ -44,7 +44,7 @@ describe('RunnerTrust', () => {
 
   it('admits a token from its issuer, for its subject and audience', () => {
     expect(
-      standing().admits({
+      persisted().admits({
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['sts.amazonaws.com', 'spotlight'],
@@ -54,7 +54,7 @@ describe('RunnerTrust', () => {
   });
 
   it('admits no token issued elsewhere, to another workload or for another audience', () => {
-    const trust = standing();
+    const trust = persisted();
 
     expect(
       trust.admits({
@@ -83,7 +83,7 @@ describe('RunnerTrust', () => {
   });
 
   it('admits nothing once withdrawn, and says it was withdrawn', () => {
-    const withdrawn = standing().withdraw(BY);
+    const withdrawn = persisted().withdraw(BY);
 
     expect(
       withdrawn.admits({
@@ -97,14 +97,14 @@ describe('RunnerTrust', () => {
     expect(() => withdrawn.withdraw(BY)).toThrow(InconsistentStateError);
   });
 
-  it('lets runners start through it only by pulling, and only while it stands', () => {
-    expect(standing().startVerdict('pull')).toBe('open');
-    expect(standing().startVerdict('push')).toBe('gone');
-    expect(standing().withdraw(BY).startVerdict('pull')).toBe('gone');
+  it('lets runners start through it only by pulling, and only while it is not withdrawn', () => {
+    expect(persisted().startVerdict('pull')).toBe('open');
+    expect(persisted().startVerdict('push')).toBe('gone');
+    expect(persisted().withdraw(BY).startVerdict('pull')).toBe('gone');
   });
 
   it('takes another workload and labels under the same key', () => {
-    const redefined = standing().redefinedAs(
+    const redefined = persisted().redefinedAs(
       {
         key: TrustKey.of('production'),
         workload: workload('system:serviceaccount:spotlight:other'),
@@ -121,7 +121,7 @@ describe('RunnerTrust', () => {
 
   it('keeps its key for its whole life', () => {
     expect(() =>
-      standing().redefinedAs(
+      persisted().redefinedAs(
         {
           key: TrustKey.of('staging'),
           workload: workload(),
@@ -133,7 +133,7 @@ describe('RunnerTrust', () => {
   });
 
   it('refuses a change to a version no longer current', () => {
-    expect(() => standing().assertVersion(3)).toThrow(
+    expect(() => persisted().assertVersion(3)).toThrow(
       RunnerTrustVersionConflictError,
     );
   });

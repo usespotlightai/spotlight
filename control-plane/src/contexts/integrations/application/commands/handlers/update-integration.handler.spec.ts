@@ -9,7 +9,7 @@ import {
   LINEAR,
   SLACK,
   sources,
-  standingAt,
+  storedAt,
   toolsGiven,
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
@@ -24,7 +24,7 @@ const updating = (
     given?: ToolUses;
   } & Parameters<typeof definitions>[0] = {},
 ) => {
-  const kept = definitions({ standing: standingAt(3), ...over });
+  const kept = definitions({ stored: storedAt(3), ...over });
   const handler = new UpdateIntegrationHandler(
     access(over.administers),
     sources,
@@ -75,7 +75,7 @@ describe('UpdateIntegrationHandler', () => {
   it('names the version that won when another change got there first', async () => {
     const { update } = updating({
       refusing: new IntegrationDefinitionVersionConflictError('linear'),
-      thenAt: standingAt(4),
+      thenAt: storedAt(4),
     });
 
     expect(await update(LINEAR)).toEqual({
@@ -105,7 +105,7 @@ describe('UpdateIntegrationHandler', () => {
 
   it('will not stop offering a tool a station gives', async () => {
     const { update, kept } = updating({
-      standing: standingAt(3, ['linear.comment']),
+      stored: storedAt(3, ['linear.comment']),
       given: ToolUses.of([
         { tool: 'linear.comment', by: 'the station delivery/implementation' },
       ]),
@@ -127,7 +127,7 @@ describe('UpdateIntegrationHandler', () => {
   });
 
   it('answers nothing for an integration it cannot find, and forbids one it may not change', async () => {
-    expect(await updating({ standing: null }).update(LINEAR)).toBeNull();
+    expect(await updating({ stored: null }).update(LINEAR)).toBeNull();
     expect(await updating({ administers: false }).update(LINEAR)).toEqual(
       forbiddenTo('configure'),
     );

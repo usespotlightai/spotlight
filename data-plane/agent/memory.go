@@ -173,7 +173,7 @@ func inBrief(memory protocol.RecalledMemory) string {
 func inFull(memory protocol.RecalledMemory) string {
 	var shown strings.Builder
 
-	fmt.Fprintf(&shown, "%s · %s · %s\n\n%s\n\n", memory.Handle, strings.ReplaceAll(memory.Kind, "-", " "), memory.Standing, memory.Body)
+	fmt.Fprintf(&shown, "%s · %s · %s\n\n%s\n\n", memory.Handle, strings.ReplaceAll(memory.Kind, "-", " "), memory.Status, memory.Body)
 	fmt.Fprintf(&shown, "Applies to the %s.\n", reachOf(memory.Reach, memory.Repository, memory.Paths))
 	fmt.Fprintf(&shown, "%s.\n", groundsOf(memory))
 

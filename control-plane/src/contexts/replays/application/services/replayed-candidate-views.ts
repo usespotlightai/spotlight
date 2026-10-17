@@ -8,7 +8,7 @@ import type {
   ReplayedStationDto,
   ReplaySetHealthDto,
 } from '@replays/application/dto/replayed-candidates.dto';
-import type { StandingRun } from '@replays/application/ports/work.port';
+import type { RunSummary } from '@replays/application/ports/work.port';
 import { candidatePullRequestView } from '@replays/application/services/config-pull-request-views';
 import {
   gainView,
@@ -50,7 +50,7 @@ export interface ReplayedCandidatesSeen {
   readonly baselines: readonly Replay[];
   readonly candidates: readonly Candidate[];
   readonly pullRequests: readonly ConfigPullRequest[];
-  readonly standing: readonly StandingRun[];
+  readonly summaries: readonly RunSummary[];
   readonly standards: ReadonlyMap<string, SetStandard>;
 }
 
@@ -107,11 +107,11 @@ const extremes = (
 
 const healthOf = (
   set: ReplaySet,
-  standing: readonly StandingRun[],
+  summaries: readonly RunSummary[],
   standard: SetStandard,
 ): ReplaySetHealthDto => {
   const ended = extremes(
-    standing.flatMap((each) =>
+    summaries.flatMap((each) =>
       each.endedAt && set.runs.some((run) => run.equals(each.runId))
         ? [each.endedAt]
         : [],
@@ -513,7 +513,7 @@ export const replayedCandidatesView = (
               name: set.name.value,
               stationGone: set.isAtGoneStation,
               guardsChanges: set.guardsChanges,
-              health: healthOf(set, seen.standing, standardOf(set.id.value)),
+              health: healthOf(set, seen.summaries, standardOf(set.id.value)),
               ...chartedSet(
                 baseline ? baselineView(baseline, seen.candidates) : null,
                 placed.map((each) => each.candidate),

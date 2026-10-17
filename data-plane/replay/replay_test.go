@@ -611,9 +611,9 @@ func TestStatusNamesTheReplayItIsComparedWithAndFollowsIt(t *testing.T) {
 		want                string
 	}{
 		{"paired", "proposed", "replay_earlier", false, "an earlier baseline"},
-		{"paired with the standing baseline", "proposed", "replay_base", false, "the baseline"},
+		{"paired with the current baseline", "proposed", "replay_base", false, "the baseline"},
 		{"with the answer", "oracle", "replay_live", false, "the live config"},
-		{"with the answer against the standing baseline", "oracle", "replay_base", false, "the baseline"},
+		{"with the answer against the current baseline", "oracle", "replay_base", false, "the baseline"},
 		{"searched", "searched", "replay_seed", false, "the search's starting config"},
 		{"searched in a set with no baseline", "searched", "replay_seed", true, "the search's starting config"},
 	} {

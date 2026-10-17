@@ -182,15 +182,15 @@ export class NetworkCall extends EventRecorder {
   }
 
   claimedBy(host: CallingHost, now: Date): NetworkCall {
-    const standing = this.stateAt(now);
+    const phase = this.stateAt(now);
 
-    if (standing === 'given-up') {
+    if (phase === 'given-up') {
       throw new InvalidNetworkCallTransitionError(givenUp(this.state.id.value));
     }
 
-    if (standing !== 'waiting') {
+    if (phase !== 'waiting') {
       throw new InvalidNetworkCallTransitionError(
-        `Network call ${this.state.id.value} is ${standing}. It cannot be claimed.`,
+        `Network call ${this.state.id.value} is ${phase}. It cannot be claimed.`,
       );
     }
 
@@ -199,19 +199,19 @@ export class NetworkCall extends EventRecorder {
 
   answerWith(host: CallingHost, answer: NetworkAnswer, now: Date): NetworkCall {
     const { progress } = this.state;
-    const standing = this.stateAt(now);
+    const phase = this.stateAt(now);
 
-    if (standing === 'answered') {
+    if (phase === 'answered') {
       throw new InvalidNetworkCallTransitionError(
         `Network call ${this.state.id.value} was already answered.`,
       );
     }
 
-    if (standing === 'given-up') {
+    if (phase === 'given-up') {
       throw new InvalidNetworkCallTransitionError(givenUp(this.state.id.value));
     }
 
-    if (standing === 'lapsed') {
+    if (phase === 'lapsed') {
       throw new InvalidNetworkCallTransitionError(
         `Network call ${this.state.id.value} lapsed before it was answered.`,
       );

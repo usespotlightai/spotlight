@@ -148,10 +148,10 @@ export class Remembering {
 
     if (
       supersedes &&
-      (!supersedes.stands || !supersedes.scope.teamId.equals(at.site.teamId))
+      (!supersedes.isActive || !supersedes.scope.teamId.equals(at.site.teamId))
     ) {
       throw new InvalidMemoryError(
-        `supersedes only a memory standing in the run's team, and ${supersedes.handle.value} is not one`,
+        `supersedes only an active memory in the run's team, and ${supersedes.handle.value} is not one`,
       );
     }
 

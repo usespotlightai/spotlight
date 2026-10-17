@@ -241,7 +241,7 @@ export class ReactionResponseDto {
     nullable: true,
     type: String,
     description:
-      'Where the task must stand for this to count. Null is wherever it is.',
+      'The station where the task must be for this to count. Null means any station.',
   })
   readonly from: string | null;
 

@@ -47,15 +47,15 @@ export class UpdateRunnerPoolHandler
     const id = RunnerPoolId.of(command.poolId);
 
     try {
-      const standing = await this.pools.find(id);
-      const permissions = standing
+      const existing = await this.pools.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -63,7 +63,7 @@ export class UpdateRunnerPoolHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.pool(command.definition);
 
@@ -71,9 +71,9 @@ export class UpdateRunnerPoolHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const redefined = standing.redefinedAs(
+      const redefined = existing.redefinedAs(
         compiled,
-        await givenAccess(compiled.access, standing, this.tokens, this.secrets),
+        await givenAccess(compiled.access, existing, this.tokens, this.secrets),
         Attribution.of(command.actor, permissions.workspaceId),
       );
 
@@ -81,14 +81,14 @@ export class UpdateRunnerPoolHandler
         if (compiled.access.mode === 'push') {
           await refuseUnknownEgress(
             compiled.access.egress,
-            standing.workspaceId,
+            existing.workspaceId,
             this.egresses,
             this.platform,
           );
         }
 
         await this.pools.save(redefined);
-        await givePoolToken(this.given, this.pools, redefined, standing);
+        await givePoolToken(this.given, this.pools, redefined, existing);
       });
 
       return { outcome: 'updated', id: id.value };

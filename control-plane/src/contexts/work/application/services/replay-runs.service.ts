@@ -129,12 +129,9 @@ export class ReplayRuns implements ReplayDispatchPort {
       return unreplayable('unknown-run', 'there is no such run');
     }
 
-    const standing = await this.candidates.standing(
-      order.lineId,
-      order.stationId,
-    );
+    const current = await this.candidates.live(order.lineId, order.stationId);
 
-    if (!standing) {
+    if (!current) {
       return unreplayable(
         'not-at-the-station',
         'the line no longer has the station it worked at',
@@ -142,7 +139,7 @@ export class ReplayRuns implements ReplayDispatchPort {
     }
 
     const built = await this.candidates.withStation(
-      standing,
+      current,
       order.station,
       order.repositories,
     );
@@ -150,7 +147,7 @@ export class ReplayRuns implements ReplayDispatchPort {
     if (!built.ok) {
       return unreplayable(
         'candidate-unfit',
-        'the candidate no longer fits the line as it stands',
+        'the candidate no longer fits the current line',
       );
     }
 

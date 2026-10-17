@@ -88,11 +88,11 @@ describe('proposalTitleOf', () => {
 describe('filterOf and paramsOf', () => {
   it('reads a filter from the address and writes back only what narrows it', () => {
     const filter = filterOf(
-      new URLSearchParams('standing=retired&kind=failure&path=src'),
+      new URLSearchParams('status=retired&kind=failure&path=src'),
     );
 
     expect(filter).toEqual({
-      standing: 'retired',
+      status: 'retired',
       kind: 'failure',
       lineId: null,
       stationId: null,
@@ -101,7 +101,7 @@ describe('filterOf and paramsOf', () => {
     });
     expect(narrowed(filter)).toBe(true);
     expect(paramsOf(filter)).toEqual({
-      standing: 'retired',
+      status: 'retired',
       kind: 'failure',
       path: 'src',
     });
@@ -237,7 +237,7 @@ describe('what a run remembered', () => {
   const proposal = (over: Partial<RunProposal>): RunProposal => ({
     ...memory(),
     handle: null,
-    standing: null,
+    status: null,
     ...over,
   });
 
@@ -269,14 +269,14 @@ describe('what a run remembered', () => {
     ).toEqual([{ what: 'Proposed', count: 1 }]);
   });
 
-  it('says where a proposal stands', () => {
+  it('says the state of a proposal', () => {
     expect(proposalStateOf(proposal({}))).toBe('Waiting for you');
     expect(proposalStateOf(proposal({ state: 'rejected' }))).toBe('Rejected');
     expect(
-      proposalStateOf(proposal({ state: 'approved', standing: 'stands' })),
+      proposalStateOf(proposal({ state: 'approved', status: 'active' })),
     ).toBe('Kept');
     expect(
-      proposalStateOf(proposal({ state: 'approved', standing: 'retired' })),
+      proposalStateOf(proposal({ state: 'approved', status: 'retired' })),
     ).toBe('Kept, now retired');
   });
 

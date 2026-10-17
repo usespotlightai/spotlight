@@ -108,7 +108,7 @@ export class InviteOfferResponseDto {
     enum: ['open', 'accepted', 'revoked', 'expired'],
     example: 'open',
   })
-  readonly standing!: 'open' | 'accepted' | 'revoked' | 'expired';
+  readonly status!: 'open' | 'accepted' | 'revoked' | 'expired';
 }
 
 export class JoinedWorkspaceResponseDto {

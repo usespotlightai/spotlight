@@ -13,7 +13,7 @@ import type {
 } from '@work/application/ports/replay-candidates.port';
 import type {
   CandidateLines,
-  StandingStation,
+  StationInLine,
 } from '@work/application/services/candidate-lines.service';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
@@ -54,7 +54,7 @@ const thresholdOf = (
     minGain: policy.minGain,
   };
 
-const stationOf = ({ line, station }: StandingStation): ReplayStation => ({
+const stationOf = ({ line, station }: StationInLine): ReplayStation => ({
   workspaceId: line.workspaceId.value,
   teamId: line.teamId.value,
   lineId: line.id.value,
@@ -104,15 +104,15 @@ export class ReplayCandidates implements ReplayCandidatesPort {
     lineId: string,
     stationId: string,
   ): Promise<ReplayStation | null> {
-    const standing = await this.candidates.standing(lineId, stationId);
+    const current = await this.candidates.live(lineId, stationId);
 
-    return standing ? stationOf(standing) : null;
+    return current ? stationOf(current) : null;
   }
 
   async keyed(lineId: string, key: string): Promise<ReplayStation | null> {
-    const standing = await this.candidates.keyed(lineId, key);
+    const current = await this.candidates.keyed(lineId, key);
 
-    return standing ? stationOf(standing) : null;
+    return current ? stationOf(current) : null;
   }
 
   async examine(
@@ -121,14 +121,14 @@ export class ReplayCandidates implements ReplayCandidatesPort {
     station: unknown,
     repositories?: unknown,
   ): Promise<ExaminedCandidate | null> {
-    const standing = await this.candidates.standing(lineId, stationId);
+    const current = await this.candidates.live(lineId, stationId);
 
-    if (!standing) {
+    if (!current) {
       return null;
     }
 
     const built = await this.candidates.withStation(
-      standing,
+      current,
       station,
       repositories,
     );
@@ -138,10 +138,7 @@ export class ReplayCandidates implements ReplayCandidatesPort {
     }
 
     const config = await this.candidates.configOf(built.line, built.station);
-    const live = await this.candidates.configOf(
-      standing.line,
-      standing.station,
-    );
+    const live = await this.candidates.configOf(current.line, current.station);
     const normalised = this.rendering
       .definitionOf(built.line)
       .stations.find((each) => each.key === built.station.key.value);
@@ -151,7 +148,7 @@ export class ReplayCandidates implements ReplayCandidatesPort {
           ok: true,
           fingerprint: config.fingerprint,
           digests: this.digestsOf(built.line, built.station, config),
-          liveDigests: this.digestsOf(standing.line, standing.station, live),
+          liveDigests: this.digestsOf(current.line, current.station, live),
           scoring: scoringOf(built.station, config),
           live: live.fingerprint,
           changes: config.changesFrom(live),
@@ -161,20 +158,20 @@ export class ReplayCandidates implements ReplayCandidatesPort {
   }
 
   async live(lineId: string, stationId: string): Promise<LiveStation | null> {
-    const standing = await this.candidates.standing(lineId, stationId);
-    const block = standing ? this.candidates.liveBlockOf(standing) : null;
-    const config = standing
-      ? await this.candidates.configOf(standing.line, standing.station)
+    const current = await this.candidates.live(lineId, stationId);
+    const block = current ? this.candidates.liveBlockOf(current) : null;
+    const config = current
+      ? await this.candidates.configOf(current.line, current.station)
       : null;
 
-    return standing && block && config
+    return current && block && config
       ? {
-          lineKey: standing.line.key.value,
+          lineKey: current.line.key.value,
           station: block,
           fingerprint: config.fingerprint,
-          scoring: scoringOf(standing.station, config),
-          digests: this.digestsOf(standing.line, standing.station, config),
-          replayCheck: thresholdOf(standing.line.replayCheck),
+          scoring: scoringOf(current.station, config),
+          digests: this.digestsOf(current.line, current.station, config),
+          replayCheck: thresholdOf(current.line.replayCheck),
         }
       : null;
   }

@@ -13,7 +13,7 @@ const NOW = new Date('2026-09-21T10:00:00Z');
 const STORED: TaskDecisionsDto = {
   runId: 'run_1',
   drafting: false,
-  standing: 'proposed',
+  status: 'proposed',
   merge: null,
   decisions: [
     {

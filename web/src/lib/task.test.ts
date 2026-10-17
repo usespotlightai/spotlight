@@ -94,7 +94,7 @@ describe('movableByHand', () => {
     expect(movableByHand(build, backlog)).toBe(true);
   });
 
-  it('reorders work within the station it stands at', () => {
+  it('reorders work within the station it is at', () => {
     expect(movableByHand(spec, spec)).toBe(true);
     expect(movableByHand(completed, completed)).toBe(true);
   });

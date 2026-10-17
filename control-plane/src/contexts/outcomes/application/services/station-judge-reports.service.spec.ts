@@ -18,8 +18,8 @@ import {
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
 import {
+  calibrationIn,
   judgeReportOf,
-  standingIn,
 } from '@outcomes/domain/services/judge-report';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
@@ -209,7 +209,7 @@ const oneByOne = async (
   return {
     stationId: station.stationId,
     rubricVersion: judge?.rubricVersion ?? null,
-    ...standingIn(
+    ...calibrationIn(
       judgeReportOf({ judged, grades, records, covering: [], deliveries }),
       judge && {
         rubricVersion: judge.rubricVersion,
@@ -221,7 +221,7 @@ const oneByOne = async (
 };
 
 describe('StationJudgeReports', () => {
-  it('gives each station of a team the standing it has alone, with one look at the team’s judges', async () => {
+  it('gives each station of a team the calibration it has alone, with one look at the team’s judges', async () => {
     const fixture = await judgedAcross();
     const reports = new StationJudgeReports(
       fixture.evidence,
@@ -230,15 +230,15 @@ describe('StationJudgeReports', () => {
       fixture.deliveries,
     );
 
-    const standings = await reports.standingsOf(
+    const calibrations = await reports.calibrationsOf(
       { workspaceId: WORKSPACE.value, teamId: 'team_1' },
       STATIONS,
     );
 
-    expect(standings).toEqual(
+    expect(calibrations).toEqual(
       await Promise.all(STATIONS.map((each) => oneByOne(fixture, each))),
     );
-    expect(standings.map((each) => each.hiddenBecause)).toEqual([
+    expect(calibrations.map((each) => each.hiddenBecause)).toEqual([
       null,
       expect.not.stringMatching(/no-judge|unreadable-rubric/),
       'no-judge',
@@ -246,12 +246,14 @@ describe('StationJudgeReports', () => {
       'no-judge',
       'no-judge',
     ]);
-    expect(standings[1]?.pairs).toBe(10);
+    expect(calibrations[1]?.pairs).toBe(10);
     expect(fixture.asked).toEqual(['team_1']);
   });
 
   it('reports how often the station’s judge agrees with people, and trusts it once it agrees enough', async () => {
-    const { judge, report, standing } = await (await reporting()).at(STATION);
+    const { judge, report, calibration } = await (await reporting()).at(
+      STATION,
+    );
 
     expect(judge?.scale?.kind).toBe('yes-no');
     expect(report.versions[0]?.agreement.kappa).toBe(1);
@@ -263,16 +265,16 @@ describe('StationJudgeReports', () => {
       neither: 0,
       shares: { both: 12 / 13, judgeOnly: 0, peopleOnly: 1 / 13, neither: 0 },
     });
-    expect(standing.trusted).toBe(true);
+    expect(calibration.trusted).toBe(true);
   });
 
   it('answers Insights whether a station’s judge is trusted', async () => {
-    const [standing] = await (await reporting()).standingsOf(
+    const [calibration] = await (await reporting()).calibrationsOf(
       { workspaceId: 'ws_1', teamId: 'team_1' },
       [{ lineId: 'line_1', stationId: 'station_1' }],
     );
 
-    expect(standing).toMatchObject({
+    expect(calibration).toMatchObject({
       stationId: 'station_1',
       rubricVersion: RUBRIC_VERSION,
       trusted: true,
@@ -282,26 +284,26 @@ describe('StationJudgeReports', () => {
   });
 
   it('knows no judge of a station on another team', async () => {
-    const { judge, standing } = await (
+    const { judge, calibration } = await (
       await reporting({ ...JUDGE, teamId: 'team_2' })
     ).at(STATION);
 
     expect(judge).toBeNull();
-    expect(standing.hiddenBecause).toBe('no-judge');
+    expect(calibration.hiddenBecause).toBe('no-judge');
   });
 
   it('says so, rather than guessing a scale, where the station’s rubric cannot be read', async () => {
-    const { standing } = await (
+    const { calibration } = await (
       await reporting({ ...JUDGE, rubric: 'scores: stars\nHow well?' })
-    ).standingAt(STATION);
+    ).calibrationAt(STATION);
 
-    expect(standing.hiddenBecause).toBe('unreadable-rubric');
+    expect(calibration.hiddenBecause).toBe('unreadable-rubric');
   });
 
-  it('weighs only the current rubric’s scores for the run page’s standing, and names that rubric', async () => {
-    expect(await (await reporting()).standingAt(STATION)).toMatchObject({
+  it('weighs only the current rubric’s scores for the run page’s calibration, and names that rubric', async () => {
+    expect(await (await reporting()).calibrationAt(STATION)).toMatchObject({
       rubricVersion: RUBRIC_VERSION,
-      standing: { trusted: true, pairs: 12 },
+      calibration: { trusted: true, pairs: 12 },
     });
   });
 });

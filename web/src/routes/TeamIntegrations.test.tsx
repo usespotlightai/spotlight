@@ -87,7 +87,7 @@ const integration = (over: Record<string, unknown> = {}) => ({
   source: 'pagerduty',
   name: 'PagerDuty',
   path: 'integrations/pagerduty.tf',
-  standing: 'listens',
+  connectionStatus: 'listens',
   holderRule: 'team',
   handle: null,
   described: null,
@@ -99,7 +99,7 @@ const personal = (over: Record<string, unknown> = {}) =>
     source: 'linear',
     name: 'Linear',
     path: 'integrations/linear.tf',
-    standing: 'linked',
+    connectionStatus: 'linked',
     holderRule: 'requester',
     handle: '@acme-bot',
     ...over,
@@ -275,7 +275,7 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(
       read([
         integration({
-          standing: 'unlinked',
+          connectionStatus: 'unlinked',
           name: 'Grafana',
           source: 'grafana',
         }),
@@ -301,7 +301,7 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(
       read([
         integration({
-          standing: 'unlinked',
+          connectionStatus: 'unlinked',
           name: 'Grafana',
           source: 'grafana',
         }),
@@ -319,7 +319,7 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(
       read([
         integration({
-          standing: 'linked',
+          connectionStatus: 'linked',
           handle: 'acme-production',
           name: 'Honeycomb',
           source: 'honeycomb',
@@ -510,7 +510,7 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(
       read([
         integration({
-          standing: 'unlinked',
+          connectionStatus: 'unlinked',
           name: 'Grafana',
           source: 'grafana',
         }),

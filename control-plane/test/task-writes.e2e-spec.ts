@@ -190,7 +190,7 @@ describe('a person moving a task by hand', () => {
     await app?.close();
   });
 
-  const standingAt = async (stationId: string) => {
+  const taskAt = async (stationId: string) => {
     const id = randomUUID();
 
     await app.get<DrizzleDatabase>(DRIZZLE).insert(schema.task).values({
@@ -216,7 +216,7 @@ describe('a person moving a task by hand', () => {
       .send({ stationId, revision: 0 });
 
   it('refuses a move from one work station to another, saying why', async () => {
-    const taskId = await standingAt(BUILD);
+    const taskId = await taskAt(BUILD);
 
     const refused = await moving(taskId, SHIP).expect(422);
 
@@ -228,7 +228,7 @@ describe('a person moving a task by hand', () => {
   });
 
   it('parks work from a work station back in the backlog', async () => {
-    const taskId = await standingAt(BUILD);
+    const taskId = await taskAt(BUILD);
 
     const parked = await moving(taskId, BACKLOG).expect(200);
 

@@ -38,14 +38,14 @@ const turnsOf = (item: Conversing): Turn[] => {
 };
 
 const marksIn = (item: Conversing): Set<number> => {
-  let standing = openedAt(item.createdAt);
+  let current = openedAt(item.createdAt);
   const marked = new Set<number>();
 
   for (const note of item.notes) {
     const reads = openedAt(note.at);
 
-    if (reads !== standing) {
-      standing = reads;
+    if (reads !== current) {
+      current = reads;
       marked.add(note.position);
     }
   }

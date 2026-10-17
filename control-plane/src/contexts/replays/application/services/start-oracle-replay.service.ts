@@ -21,7 +21,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const STANDING: readonly ReplayState[] = ['queued', 'running', 'finished'];
+const VALID_STATES: readonly ReplayState[] = ['queued', 'running', 'finished'];
 
 export class StartOracleReplay {
   constructor(
@@ -142,11 +142,11 @@ export class StartOracleReplay {
     set: ReplaySet,
     fingerprint: StationFingerprint,
   ): Promise<boolean> {
-    const standing = (await this.replays.ofSet(set.id)).filter((each) =>
-      STANDING.includes(each.current),
+    const valid = (await this.replays.ofSet(set.id)).filter((each) =>
+      VALID_STATES.includes(each.current),
     );
     const configs = await this.candidates.findMany(
-      standing.map((each) => each.candidateId),
+      valid.map((each) => each.candidateId),
     );
 
     return configs.some(

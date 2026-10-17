@@ -35,15 +35,15 @@ export class UpdateHarnessProfileHandler
     const id = HarnessProfileId.of(command.profileId);
 
     try {
-      const standing = await this.profiles.withId(id);
-      const permissions = standing
+      const existing = await this.profiles.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -51,7 +51,7 @@ export class UpdateHarnessProfileHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.compiler.compile(command.definition);
 
@@ -61,10 +61,10 @@ export class UpdateHarnessProfileHandler
 
       await this.transaction.inTransaction(async () =>
         this.profiles.save(
-          standing.redefinedAs(
+          existing.redefinedAs(
             compiled,
             Attribution.of(command.actor, permissions.workspaceId),
-            await this.secrets.ofTeam(standing.teamId),
+            await this.secrets.ofTeam(existing.teamId),
           ),
         ),
       );

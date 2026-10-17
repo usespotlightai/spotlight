@@ -67,7 +67,7 @@ export class AdvanceSearches implements OwedWorkPort {
   }
 
   private async runsOf(search: Search): Promise<readonly SeenRun[]> {
-    const runs = await this.work.searchRunStandings(runsToSee(search));
+    const runs = await this.work.searchRunStatuses(runsToSee(search));
     const at = this.clock.now();
     const overdue = search.isActive ? unclaimedTooLong(search, runs, at) : null;
 

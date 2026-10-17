@@ -67,12 +67,12 @@ export class MoveTaskHandler
         throw new UnknownStationError(command.stationId);
       }
 
-      const standing = (await this.placements.placementsAt(stationId)).filter(
+      const others = (await this.placements.placementsAt(stationId)).filter(
         (each) => !each.id.equals(task.id),
       );
 
       const after = command.afterTaskId
-        ? standing.find((each) => each.id.value === command.afterTaskId)
+        ? others.find((each) => each.id.value === command.afterTaskId)
         : null;
 
       if (command.afterTaskId && !after) {
@@ -80,7 +80,7 @@ export class MoveTaskHandler
       }
 
       const rank = Placement.below(
-        standing.map((each) => each.rank),
+        others.map((each) => each.rank),
         after?.rank ?? null,
       );
 

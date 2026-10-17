@@ -78,7 +78,7 @@ export function MemoryDetails({
         </p>
       )}
 
-      {memory.standing === 'stands' && !retiring && !editing && (
+      {memory.status === 'active' && !retiring && !editing && (
         <div className="flex flex-wrap items-center gap-2">
           <PillButton onClick={onEdit}>Edit</PillButton>
           <PillButton
@@ -102,7 +102,7 @@ export function MemoryDetails({
 
       <RetireReply
         open={retiring}
-        retirable={memory.standing === 'stands' ? { teamId, memoryId } : null}
+        retirable={memory.status === 'active' ? { teamId, memoryId } : null}
         onCancel={() => setRetiring(false)}
       />
     </div>

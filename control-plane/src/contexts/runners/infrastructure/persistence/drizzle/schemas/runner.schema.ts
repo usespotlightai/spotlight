@@ -161,13 +161,13 @@ export const runner = pgTable(
     uniqueIndex('runner_proxy_credential_hash_idx').on(
       table.proxyCredentialHash,
     ),
-    index('runner_pool_standing_idx')
+    index('runner_pool_active_idx')
       .on(table.poolId)
       .where(sql`${table.endedAt} is null`),
     index('runner_work_idx')
       .on(table.workKind, table.workId)
       .where(sql`${table.endedAt} is null`),
-    index('runner_workspace_standing_idx')
+    index('runner_workspace_active_idx')
       .on(table.workspaceId)
       .where(sql`${table.endedAt} is null`),
     check(

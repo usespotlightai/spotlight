@@ -24,7 +24,7 @@ const CLOSED_BECAUSE: Record<Exclude<InviteStatus, 'open'>, string> = {
   expired: 'has expired. Please ask for a new one',
 };
 
-interface Standing {
+interface State {
   readonly id: InviteId;
   readonly workspaceId: WorkspaceId;
   readonly email: EmailAddress;
@@ -39,7 +39,7 @@ interface Standing {
   readonly version: number;
 }
 
-export class WorkspaceInvite extends EventRecorder implements Standing {
+export class WorkspaceInvite extends EventRecorder implements State {
   readonly id: InviteId;
   readonly workspaceId: WorkspaceId;
   readonly email: EmailAddress;
@@ -53,20 +53,20 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
   readonly revokedAt: Date | null;
   readonly version: number;
 
-  private constructor(standing: Standing) {
+  private constructor(state: State) {
     super();
-    this.id = standing.id;
-    this.workspaceId = standing.workspaceId;
-    this.email = standing.email;
-    this.terms = standing.terms;
-    this.tokenHash = standing.tokenHash;
-    this.invitedBy = standing.invitedBy;
-    this.invitedAt = standing.invitedAt;
-    this.expiresAt = standing.expiresAt;
-    this.acceptedAt = standing.acceptedAt;
-    this.acceptedBy = standing.acceptedBy;
-    this.revokedAt = standing.revokedAt;
-    this.version = standing.version;
+    this.id = state.id;
+    this.workspaceId = state.workspaceId;
+    this.email = state.email;
+    this.terms = state.terms;
+    this.tokenHash = state.tokenHash;
+    this.invitedBy = state.invitedBy;
+    this.invitedAt = state.invitedAt;
+    this.expiresAt = state.expiresAt;
+    this.acceptedAt = state.acceptedAt;
+    this.acceptedBy = state.acceptedBy;
+    this.revokedAt = state.revokedAt;
+    this.version = state.version;
   }
 
   static offer(input: {
@@ -125,7 +125,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     return { invite: WorkspaceInvite.offer(input), again: false };
   }
 
-  static standingOf(
+  static statusOf(
     invite: {
       readonly acceptedAt: Date | null;
       readonly revokedAt: Date | null;
@@ -143,7 +143,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     return invite.expiresAt <= now ? 'expired' : 'open';
   }
 
-  static rehydrate(input: Standing): WorkspaceInvite {
+  static rehydrate(input: State): WorkspaceInvite {
     if (!Number.isInteger(input.version) || input.version < 1) {
       throw new InconsistentStateError(
         'invite',
@@ -167,7 +167,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
   }
 
   statusAt(now: Date): InviteStatus {
-    return WorkspaceInvite.standingOf(this, now);
+    return WorkspaceInvite.statusOf(this, now);
   }
 
   isClosedAt(now: Date): boolean {
@@ -252,15 +252,15 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     );
   }
 
-  private with(over: Partial<Standing>): WorkspaceInvite {
-    const next = new WorkspaceInvite({ ...this.standing, ...over });
+  private with(over: Partial<State>): WorkspaceInvite {
+    const next = new WorkspaceInvite({ ...this.state, ...over });
 
     next.inheritEvents(this);
 
     return next;
   }
 
-  private get standing(): Standing {
+  private get state(): State {
     return {
       id: this.id,
       workspaceId: this.workspaceId,

@@ -173,7 +173,7 @@ describe('inviting people to a workspace (e2e)', () => {
       invitedBy: 'Ada',
       role: 'admin',
       teamNames: expect.arrayContaining([workspaceId, 'Mobile']),
-      standing: 'open',
+      status: 'open',
     });
   });
 
@@ -204,7 +204,7 @@ describe('inviting people to a workspace (e2e)', () => {
     await http()
       .get(`/api/invites/${tokenFor(emailOf(ada))}`)
       .expect(200)
-      .expect((read) => expect(read.body.standing).toBe('accepted'));
+      .expect((read) => expect(read.body.status).toBe('accepted'));
     expect((await as(seat.owner).get(invites).expect(200)).body).toHaveLength(
       2,
     );
@@ -274,7 +274,7 @@ describe('inviting people to a workspace (e2e)', () => {
     await http()
       .get(`/api/invites/${tokenFor(emailOf(alan))}`)
       .expect(200)
-      .expect((read) => expect(read.body.standing).toBe('revoked'));
+      .expect((read) => expect(read.body.status).toBe('revoked'));
     await as(alan)
       .post(`/api/invites/${tokenFor(emailOf(alan))}/accept`)
       .expect(409);
@@ -356,7 +356,7 @@ describe('inviting people to a workspace (e2e)', () => {
     await http()
       .get(`/api/invites/${first}`)
       .expect(200)
-      .expect((read) => expect(read.body.standing).toBe('accepted'));
+      .expect((read) => expect(read.body.status).toBe('accepted'));
     await as(seat.owner).post(`/api/invites/${first}/accept`).expect(409);
     const answer = await as(seat.owner)
       .post(invites, { emails: [emailOf(kay)], role: 'member', teamIds: [] })

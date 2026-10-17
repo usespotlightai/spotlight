@@ -1,10 +1,10 @@
 import {
   DECISION_KIND_NAMES,
-  DECISION_STANDING_NAMES,
+  DECISION_STATUS_NAMES,
   type DecisionDto,
   type DecisionMergeDto,
   type DisputeDto,
-  type StandingDecisionsDto,
+  type MergedDecisionsDto,
   type TaskDecisionsDto,
 } from '@change-review/application/dto/decision.dto';
 import { ApiProperty } from '@nestjs/swagger';
@@ -122,14 +122,14 @@ export class TaskDecisionsResponseDto {
   })
   readonly drafting: boolean;
 
-  @ApiProperty({ enum: DECISION_STANDING_NAMES })
-  readonly standing: TaskDecisionsDto['standing'];
+  @ApiProperty({ enum: DECISION_STATUS_NAMES })
+  readonly status: TaskDecisionsDto['status'];
 
   @ApiProperty({
     nullable: true,
     type: DecisionMergeResponseDto,
     description:
-      'The merge the decisions stood in, once the pull request merged',
+      'The merge that contains the decisions, after the pull request merges',
   })
   readonly merge: DecisionMergeResponseDto | null;
 
@@ -142,7 +142,7 @@ export class TaskDecisionsResponseDto {
   constructor(found: TaskDecisionsDto) {
     this.runId = found.runId;
     this.drafting = found.drafting;
-    this.standing = found.standing;
+    this.status = found.status;
     this.merge = found.merge && new DecisionMergeResponseDto(found.merge);
     this.decisions = found.decisions.map(
       (each) => new DecisionResponseDto(each),
@@ -164,7 +164,7 @@ export class DisputeDecisionRequestDto {
   readonly path!: string;
 }
 
-export class StandingDecisionsResponseDto {
+export class MergedDecisionsResponseDto {
   @ApiProperty()
   readonly taskId: string;
 
@@ -187,7 +187,7 @@ export class StandingDecisionsResponseDto {
   })
   readonly decisions: DecisionResponseDto[];
 
-  constructor(found: StandingDecisionsDto) {
+  constructor(found: MergedDecisionsDto) {
     this.taskId = found.taskId;
     this.runId = found.runId;
     this.repository = found.repository;
@@ -199,14 +199,14 @@ export class StandingDecisionsResponseDto {
   }
 }
 
-export class StandingDecisionListResponseDto {
+export class MergedDecisionListResponseDto {
   @ApiProperty({
-    type: [StandingDecisionsResponseDto],
+    type: [MergedDecisionsResponseDto],
     description: 'Newest merge first, at most fifty',
   })
-  readonly merges: StandingDecisionsResponseDto[];
+  readonly merges: MergedDecisionsResponseDto[];
 
-  constructor(found: readonly StandingDecisionsDto[]) {
-    this.merges = found.map((each) => new StandingDecisionsResponseDto(each));
+  constructor(found: readonly MergedDecisionsDto[]) {
+    this.merges = found.map((each) => new MergedDecisionsResponseDto(each));
   }
 }

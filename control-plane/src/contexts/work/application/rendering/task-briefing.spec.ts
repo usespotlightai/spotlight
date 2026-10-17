@@ -130,7 +130,7 @@ const lineOf = (...stations: Station[]) =>
 
 const task = (stationId: string, description?: TaskDescription) =>
   Task.add({
-    line: lineOf(at(stationId, 'Standing', 0)),
+    line: lineOf(at(stationId, 'Current', 0)),
     at: StationId.of(stationId),
     title: TaskTitle.of('Fix the queue'),
     description,
@@ -175,7 +175,7 @@ const brief = (
   });
 
 describe('TaskBriefing', () => {
-  it('leads with the station’s standing instructions', () => {
+  it('leads with the station’s instructions', () => {
     const briefing = brief(
       at('station_1', 'Triage', 0, AgentPrompt.of('## Role\n\nSort it.')),
       task('station_1', TaskDescription.of('It hangs on restart.')),
@@ -335,7 +335,7 @@ describe('TaskBriefing', () => {
     expect(briefing).toContain('That is not a station');
   });
 
-  it('does not offer the station the task is standing at', () => {
+  it('does not offer the station the task is at', () => {
     expect(brief(triage())).not.toContain('"triage"');
   });
 

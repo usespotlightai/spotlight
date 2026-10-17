@@ -38,15 +38,15 @@ export class UpdateEgressHandler
     const id = EgressId.of(command.egressId);
 
     try {
-      const standing = await this.egresses.find(id);
-      const permissions = standing
+      const existing = await this.egresses.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -54,7 +54,7 @@ export class UpdateEgressHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.egress(command.definition);
 
@@ -62,7 +62,7 @@ export class UpdateEgressHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const redefined = standing.redefinedAs(
+      const redefined = existing.redefinedAs(
         compiled,
         {
           tokenHash: compiled.token
@@ -75,7 +75,7 @@ export class UpdateEgressHandler
 
       await this.transaction.inTransaction(async () => {
         await this.egresses.save(redefined);
-        await giveEgressToken(this.given, this.egresses, redefined, standing);
+        await giveEgressToken(this.given, this.egresses, redefined, existing);
       });
 
       return { outcome: 'updated', id: id.value };

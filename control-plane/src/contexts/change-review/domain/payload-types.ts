@@ -10,8 +10,8 @@ import { DecisionDisputed } from '@change-review/domain/events/decision-disputed
 import { DecisionDraftingFailed } from '@change-review/domain/events/decision-drafting-failed.event';
 import { DecisionsAsked } from '@change-review/domain/events/decisions-asked.event';
 import { DecisionsDiscarded } from '@change-review/domain/events/decisions-discarded.event';
+import { DecisionsMerged } from '@change-review/domain/events/decisions-merged.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
-import { DecisionsStood } from '@change-review/domain/events/decisions-stood.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
 import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
 import { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
@@ -33,7 +33,7 @@ import { DecisionGrounds } from '@change-review/domain/value-objects/decision-gr
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
-import { DecisionStanding } from '@change-review/domain/value-objects/decision-standing.vo';
+import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
@@ -82,12 +82,12 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   DecisionMerge,
   FilePath,
   DecisionSetId,
-  DecisionStanding,
+  DecisionStatus,
   DecisionDraftingFailed,
   DecisionsAsked,
   DecisionsDiscarded,
   DecisionsRecorded,
-  DecisionsStood,
+  DecisionsMerged,
   DecisionDisputeId,
   DecisionDisputed,
 ] as const;

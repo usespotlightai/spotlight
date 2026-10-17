@@ -324,7 +324,7 @@ export class TeamInsightsController {
   @ApiOperation({
     operationId: 'readInsightsMemory',
     summary:
-      'The team’s standing memories, how many runs were briefed or read them, which were flagged wrong, and how runs with memories went against runs without',
+      'The team’s active memories, how many runs were briefed or read them, which were flagged wrong, and how runs with memories went against runs without',
   })
   @PeriodQuery()
   @ApiOkResponse({ type: InsightsMemoryResponseDto })
@@ -557,7 +557,7 @@ export class TeamInsightsController {
     name: 'delivery',
     required: false,
     enum: DELIVERY_STATES,
-    description: 'Only runs of tasks whose pull request stands this way',
+    description: 'Only runs of tasks whose pull request has this status',
   })
   @ApiQuery({
     name: 'next',

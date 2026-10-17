@@ -4,8 +4,8 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import {
-  APPROVAL_STANDING,
   APPROVAL_SUBJECTS,
+  INBOX_APPROVAL_STATUSES,
   INBOX_ASIDE_FORMS,
   INBOX_NOTICE_FORMS,
   type InboxApprovalDto,
@@ -87,12 +87,12 @@ export class InboxApprovalResponseDto {
   @ApiProperty({
     type: InboxApprovalInputResponseDto,
     isArray: true,
-    description: 'What it would go ahead with, exactly as it stands',
+    description: 'What it would go ahead with, exactly as it is now',
   })
   readonly inputs: readonly InboxApprovalInputResponseDto[];
 
-  @ApiProperty({ example: 'asked', enum: [...APPROVAL_STANDING] })
-  readonly standing: string;
+  @ApiProperty({ example: 'asked', enum: [...INBOX_APPROVAL_STATUSES] })
+  readonly status: string;
 
   @ApiProperty({
     type: InboxApprovalInputResponseDto,
@@ -128,7 +128,7 @@ export class InboxApprovalResponseDto {
     this.inputs = approval.inputs.map(
       (input) => new InboxApprovalInputResponseDto(input.name, input.value),
     );
-    this.standing = approval.standing;
+    this.status = approval.status;
     this.edited =
       approval.edited?.map(
         (input) => new InboxApprovalInputResponseDto(input.name, input.value),
@@ -408,9 +408,9 @@ export class InboxItemResponseDto {
 
   @ApiProperty({
     type: InboxStationResponseDto,
-    description: 'Where the task stands now, which is where it ended up',
+    description: 'Where the task is now, which is where it ended up',
   })
-  readonly standsAt: InboxStationResponseDto;
+  readonly currentStation: InboxStationResponseDto;
 
   @ApiProperty({ example: '2026-08-28T09:02:00.000Z' })
   readonly createdAt: string;
@@ -482,7 +482,7 @@ export class InboxItemResponseDto {
     stationPosition: number,
     stationCount: number,
     raisedAt: InboxStationResponseDto,
-    standsAt: InboxStationResponseDto,
+    currentStation: InboxStationResponseDto,
     createdAt: string,
     askedAt: string,
     resolved: boolean,
@@ -505,7 +505,7 @@ export class InboxItemResponseDto {
     this.stationPosition = stationPosition;
     this.stationCount = stationCount;
     this.raisedAt = raisedAt;
-    this.standsAt = standsAt;
+    this.currentStation = currentStation;
     this.createdAt = createdAt;
     this.askedAt = askedAt;
     this.resolved = resolved;

@@ -1,4 +1,4 @@
-import { BASELINE_STANDINGS } from '@replays/domain/value-objects/baseline-standing';
+import { BASELINE_STATUSES } from '@replays/domain/value-objects/baseline-status';
 import { CANDIDATE_KINDS } from '@replays/domain/value-objects/candidate-kind';
 import type { WantedValue } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import {
@@ -430,7 +430,7 @@ export const replaySearchIteration = pgTable(
       .default(sql`'[]'::jsonb`),
     attempts: integer('attempts').notNull().default(0),
     agentSpent: jsonb('agent_spent').$type<StoredModelSpent>(),
-    standing: text('standing'),
+    incumbent: text('incumbent'),
     outcome: replaySearchReflectionOutcome('outcome'),
     reflectedOn: jsonb('reflected_on')
       .$type<StoredReflectedTask[]>()
@@ -449,7 +449,7 @@ export const replaySearchIteration = pgTable(
 
 export const replayCheckBaseline = pgEnum(
   'replay_check_baseline',
-  BASELINE_STANDINGS,
+  BASELINE_STATUSES,
 );
 
 export const replayCheck = pgTable(

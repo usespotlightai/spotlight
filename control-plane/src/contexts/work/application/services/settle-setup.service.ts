@@ -2,7 +2,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { SetupStanding } from '@work/application/services/setup-standing.service';
+import type { SetupStatus } from '@work/application/services/setup-status.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
@@ -14,7 +14,7 @@ export class SettleSetup {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly lines: LineRepository,
-    private readonly setup: SetupStanding,
+    private readonly setup: SetupStatus,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -27,9 +27,9 @@ export class SettleSetup {
 
   async forTeam(teamId: TeamId): Promise<void> {
     await this.looking(teamId.value, async () => {
-      const standing = await this.tasks.settingUpFor(teamId);
+      const task = await this.tasks.settingUpFor(teamId);
 
-      await this.each(standing ? [standing] : []);
+      await this.each(task ? [task] : []);
     });
   }
 
@@ -50,8 +50,8 @@ export class SettleSetup {
     }
   }
 
-  private async each(standing: readonly Task[]): Promise<void> {
-    for (const each of standing) {
+  private async each(tasks: readonly Task[]): Promise<void> {
+    for (const each of tasks) {
       await this.settle(each);
     }
   }

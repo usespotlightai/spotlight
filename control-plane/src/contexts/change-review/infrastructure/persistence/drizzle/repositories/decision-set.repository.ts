@@ -8,7 +8,7 @@ import { DecisionDraft } from '@change-review/domain/value-objects/decision-draf
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
-import { DecisionStanding } from '@change-review/domain/value-objects/decision-standing.vo';
+import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import {
   type DecisionSetRow,
@@ -61,11 +61,11 @@ const draftOf = (row: DecisionSetRow): DecisionDraft | null => {
   });
 };
 
-const standingOf = (row: DecisionSetRow): DecisionStanding => {
+const statusOf = (row: DecisionSetRow): DecisionStatus => {
   const merge = mergeRowOf(row);
 
-  return DecisionStanding.rehydrate({
-    state: row.standing,
+  return DecisionStatus.rehydrate({
+    state: row.status,
     merge: merge
       ? DecisionMerge.rehydrate({
           repository: Repository.of(merge.repository),
@@ -115,7 +115,7 @@ const toDecisionSet = (
       .sort((a, b) => a.position - b.position)
       .map((each) => toDecision(each, disputes)),
     draft: draftOf(row),
-    standing: standingOf(row),
+    status: statusOf(row),
     version: row.version,
   });
 
@@ -125,10 +125,10 @@ const columnsOf = (set: DecisionSet) => ({
   draftAskedAt: set.draft?.askedAt ?? null,
   workAttempts: set.draft?.work.attempts ?? 0,
   workDueAt: set.draft?.work.dueAt ?? null,
-  standing: set.standing.state,
-  mergedRepository: set.standing.merge?.repository.value ?? null,
-  mergedCommit: set.standing.merge?.commit ?? null,
-  mergedAt: set.standing.merge?.at ?? null,
+  status: set.status.state,
+  mergedRepository: set.status.merge?.repository.value ?? null,
+  mergedCommit: set.status.merge?.commit ?? null,
+  mergedAt: set.status.merge?.at ?? null,
 });
 
 const decisionRows = (set: DecisionSet) =>

@@ -5,7 +5,7 @@ import {
   egressTokenGivenTo,
   refuseEgressTokenGivenBefore,
 } from '@runners/domain/services/egress-token-giving';
-import { EgressTokenStanding } from '@runners/domain/value-objects/egress-token-standing.vo';
+import { EgressTokenUsage } from '@runners/domain/value-objects/egress-token-usage.vo';
 
 export const giveEgressToken = async (
   given: GivenEgressTokensRepository,
@@ -22,7 +22,7 @@ export const giveEgressToken = async (
   const holder = await egresses.findByTokenHash(token);
 
   refuseEgressTokenGivenBefore(
-    EgressTokenStanding.of({
+    EgressTokenUsage.of({
       given: await given.wasGiven(token),
       inUse: holder !== null && !holder.id.equals(egress.id),
     }),

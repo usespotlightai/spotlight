@@ -1108,7 +1108,7 @@ describe('StackCheck, rechecked', () => {
     return checked;
   };
 
-  it('checks a replay’s change again, from scratch, under the same request and layers, and leaves the first check as it stood', () => {
+  it('checks a replay’s change again, from scratch, under the same request and layers, and leaves the first check as it was', () => {
     const first = passedOnce();
     const again = first.rechecking(OVERDUE);
 

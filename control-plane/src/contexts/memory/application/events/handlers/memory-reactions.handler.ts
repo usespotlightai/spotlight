@@ -2,8 +2,8 @@ import type { ReviewsPort } from '@memory/application/ports/reviews.port';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
+import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import type { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
-import type { MemoryStood } from '@memory/domain/events/memory-stood.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -37,7 +37,7 @@ export class MemoryReactions {
         : null;
 
       await this.memories.add(
-        Memory.stood({
+        Memory.create({
           id: event.memoryId,
           handle: await this.memories.nextHandle(),
           workspaceId: event.workspaceId,
@@ -53,7 +53,7 @@ export class MemoryReactions {
     });
   }
 
-  async onStood(event: MemoryStood): Promise<void> {
+  async onCreated(event: MemoryCreated): Promise<void> {
     const { supersedes } = event;
 
     if (!supersedes) {
@@ -63,7 +63,7 @@ export class MemoryReactions {
     await this.transaction.inTransaction(async () => {
       const superseded = await this.memories.find(supersedes);
 
-      if (superseded?.stands) {
+      if (superseded?.isActive) {
         await this.memories.save(
           superseded.supersedeWith(event.memoryId, this.clock.now()),
         );

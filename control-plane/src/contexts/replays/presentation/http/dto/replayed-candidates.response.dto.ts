@@ -614,7 +614,7 @@ export class ReplayedSetResponseDto {
 
   @ApiProperty({
     type: ReplaySetHealthResponseDto,
-    description: 'How the set stands now, whatever the period',
+    description: 'The current health of the set, whatever the period',
   })
   readonly health: ReplaySetHealthResponseDto;
 
@@ -622,7 +622,7 @@ export class ReplayedSetResponseDto {
     type: ReplayedBaselineResponseDto,
     nullable: true,
     description:
-      'The live config replayed over the set, its newest standing baseline whatever the period; null while it has none',
+      'The live config replayed over the set, its newest valid baseline whatever the period; null while it has none',
   })
   readonly baseline: ReplayedBaselineResponseDto | null;
 

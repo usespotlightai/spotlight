@@ -16,7 +16,7 @@ export interface Stranded {
   readonly tasks: number;
 }
 
-export type TasksStanding = ReadonlyMap<string, number>;
+export type TaskCounts = ReadonlyMap<string, number>;
 
 export interface LineIdentity {
   readonly id: LineId;
@@ -29,23 +29,23 @@ export type Reconciled =
   | { readonly ok: false; readonly stranded: readonly Stranded[] };
 
 export const reconcileLine = (input: {
-  standing: Line;
+  existing: Line;
   plan: LinePlan;
-  tasksStanding: TasksStanding;
+  taskCounts: TaskCounts;
   newId: () => string;
   by: Attribution;
 }): Reconciled => {
-  const standing = new Map(
-    input.standing.stations.map((each) => [each.key.value, each]),
+  const existingByKey = new Map(
+    input.existing.stations.map((each) => [each.key.value, each]),
   );
   const planned = new Set(input.plan.stations.map((each) => each.key.value));
 
-  const stranded: Stranded[] = input.standing.stations
+  const stranded: Stranded[] = input.existing.stations
     .filter((each) => !planned.has(each.key.value))
     .map((each) => ({
       key: each.key.value,
       name: each.name.value,
-      tasks: input.tasksStanding.get(each.id.value) ?? 0,
+      tasks: input.taskCounts.get(each.id.value) ?? 0,
     }))
     .filter((each) => each.tasks > 0);
 
@@ -55,8 +55,12 @@ export const reconcileLine = (input: {
 
   return {
     ok: true,
-    line: input.standing.relaidAs(
-      assemble(input.plan, (key) => standing.get(key)?.id ?? null, input.newId),
+    line: input.existing.relaidAs(
+      assemble(
+        input.plan,
+        (key) => existingByKey.get(key)?.id ?? null,
+        input.newId,
+      ),
       input.by,
     ),
   };

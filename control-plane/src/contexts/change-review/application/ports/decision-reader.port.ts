@@ -1,5 +1,5 @@
 import type {
-  StandingDecisionsDto,
+  MergedDecisionsDto,
   TaskDecisionsDto,
 } from '@change-review/application/dto/decision.dto';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -8,7 +8,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const DECISION_READER = Symbol('DECISION_READER');
 
-export interface StandingSought {
+export interface MergedSought {
   readonly workspaceId: WorkspaceId;
   readonly repository: Repository | null;
   readonly within: readonly string[];
@@ -20,5 +20,5 @@ export interface StandingSought {
 export interface DecisionReaderPort {
   ofTask(taskId: TaskId): Promise<TaskDecisionsDto | null>;
 
-  standing(sought: StandingSought): Promise<StandingDecisionsDto[]>;
+  merged(sought: MergedSought): Promise<MergedDecisionsDto[]>;
 }

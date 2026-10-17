@@ -143,7 +143,7 @@ export class Secret extends EventRecorder {
   }
 
   redefinedAs(definition: SecretDefinition, by: Attribution, at: Date): Secret {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (!definition.name.equals(this.name)) {
       throw new SecretNameFixedError(
@@ -203,7 +203,7 @@ export class Secret extends EventRecorder {
   }
 
   deleted(uses: SecretUses, by: Attribution): Secret {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (!uses.isEmpty) {
       throw new SecretInUseError(this.name.value, uses);
@@ -224,7 +224,7 @@ export class Secret extends EventRecorder {
   }
 
   abandon(by: Attribution): Secret {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     const abandoned = this.removed();
 
@@ -293,7 +293,7 @@ export class Secret extends EventRecorder {
   }
 
   grantTo(runId: RunId): readonly SecretGrant[] {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (this.bindings.isEmpty) {
       throw new SecretNotBoundError(this.name.value, 'any host');
@@ -381,7 +381,7 @@ export class Secret extends EventRecorder {
     });
   }
 
-  private guardStanding(): void {
+  private assertNotDeleted(): void {
     if (this.isDeleted) {
       throw new InconsistentStateError(
         'secret',

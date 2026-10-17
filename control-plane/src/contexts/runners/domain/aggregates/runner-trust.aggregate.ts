@@ -104,7 +104,7 @@ export class RunnerTrust extends EventRecorder {
   }
 
   redefinedAs(definition: TrustDefinition, by: Attribution): RunnerTrust {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
       throw new RunnerTrustKeyFixedError(
@@ -131,7 +131,7 @@ export class RunnerTrust extends EventRecorder {
   }
 
   withdraw(by: Attribution): RunnerTrust {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     const withdrawn = this.with({ withdrawn: true });
 
@@ -155,7 +155,7 @@ export class RunnerTrust extends EventRecorder {
     };
   }
 
-  private guardStanding(): void {
+  private assertNotDeleted(): void {
     if (this.isWithdrawn) {
       throw new InconsistentStateError(
         'runner trust',

@@ -9,7 +9,7 @@ import {
   type ScoringField,
 } from '@replays/domain/services/live-scoring';
 import type { CheckVerdict } from '@replays/domain/services/replay-check-verdict';
-import type { BaselineStanding } from '@replays/domain/value-objects/baseline-standing';
+import type { BaselineStatus } from '@replays/domain/value-objects/baseline-status';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
@@ -45,7 +45,7 @@ interface State {
   readonly threshold: ReplayThreshold;
   readonly repeats: number;
   readonly keptLive: readonly ScoringField[];
-  readonly baseline: BaselineStanding;
+  readonly baseline: BaselineStatus;
   readonly createdAt: Date;
 }
 
@@ -185,7 +185,7 @@ export class ReplayCheck extends EventRecorder {
     return this.state.createdAt;
   }
 
-  get baseline(): BaselineStanding {
+  get baseline(): BaselineStatus {
     return this.state.baseline;
   }
 
@@ -201,7 +201,7 @@ export class ReplayCheck extends EventRecorder {
     return this.baselineSettled('unavailable');
   }
 
-  private baselineSettled(baseline: BaselineStanding): ReplayCheck {
+  private baselineSettled(baseline: BaselineStatus): ReplayCheck {
     return this.state.baseline === 'awaiting'
       ? new ReplayCheck({ ...this.state, baseline }, this.isAbandoned)
       : this;

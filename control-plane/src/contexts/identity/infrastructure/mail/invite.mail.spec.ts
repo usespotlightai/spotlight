@@ -31,7 +31,7 @@ const invite = {
 };
 
 describe('InviteByMail', () => {
-  it('points the link at the app, at the invite it stands for', async () => {
+  it('points the link at the app, at the invite it is for', async () => {
     const { mail, delivered } = sending();
 
     await mail.send(invite);

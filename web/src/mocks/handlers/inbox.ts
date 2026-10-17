@@ -99,7 +99,7 @@ const answer = (
   if (deciding && pending?.approval) {
     pending.approval = {
       ...pending.approval,
-      standing: said.approve ? 'granted' : 'refused',
+      status: said.approve ? 'granted' : 'refused',
       edited: said.approve && said.inputs ? said.inputs : null,
     };
   }

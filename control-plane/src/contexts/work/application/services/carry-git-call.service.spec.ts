@@ -66,7 +66,7 @@ const call: GitCall = {
   body: null,
 };
 
-const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
+const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
@@ -75,7 +75,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     name: LineName.of('Delivery'),
     stations: [
       Station.of({
-        id: StationId.of(standsAt),
+        id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
@@ -177,7 +177,7 @@ const claimedBy = (runner: string, subject?: RunSubject) =>
 
 const carrying = (
   run: Run | null,
-  standing: Task | null,
+  existing: Task | null,
   repositories: readonly string[] = ['acme/widgets'],
   checking = false,
 ) => {
@@ -188,7 +188,7 @@ const carrying = (
   const service = new CarryGitCall(
     new RunWorks(
       { findById: vi.fn(async () => run) } as unknown as RunRepository,
-      { find: vi.fn(async () => standing) } as unknown as TaskRepository,
+      { find: vi.fn(async () => existing) } as unknown as TaskRepository,
       { find: vi.fn(async () => chat()) } as unknown as ChatRepository,
       {
         findByStation: vi.fn(async () => lineWorking(repositories)),

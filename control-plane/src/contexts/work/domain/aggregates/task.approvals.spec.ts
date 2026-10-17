@@ -126,13 +126,13 @@ const decided = (
 const kindOf = (check: ApprovalCheck) => check.kind;
 
 describe('clearing a tool call that needs approval', () => {
-  it('asks the person, at the station the run stands at, the run keeping the task while it waits', () => {
+  it('asks the person, at the station the run is at, the run keeping the task while it waits', () => {
     const { task, check } = clear(working());
-    const standing = task.approvalFor(CALL);
+    const current = task.approvalFor(CALL);
 
     expect(kindOf(check)).toBe('asked');
-    expect(standing?.approval.open).toBe(true);
-    expect(standing?.approval.at.equals(IMPLEMENTATION)).toBe(true);
+    expect(current?.approval.open).toBe(true);
+    expect(current?.approval.at.equals(IMPLEMENTATION)).toBe(true);
     expect(task.awaitingReview).toBe(true);
     expect(task.hasCurrentRun(RUN)).toBe(true);
     expect(task.working).toBe(false);
@@ -279,7 +279,7 @@ describe('deciding an approval', () => {
     const { task } = decided('refused', 'Not before the release.');
     const approval = task.approvalFor(CALL)?.approval;
 
-    expect(approval?.standing).toBe('refused');
+    expect(approval?.status).toBe('refused');
     expect(approval?.decided?.by.value).toBe('user_1');
     expect(approval?.decided?.at).toEqual(NOW);
     expect(approval?.decided?.reason).toBe('Not before the release.');
@@ -323,12 +323,12 @@ describe('deciding an approval', () => {
     expect(
       asked
         .answer(at, person('Approved.', 'user_alice'), 'granted')
-        .approvalFor(CALL)?.approval.standing,
+        .approvalFor(CALL)?.approval.status,
     ).toBe('granted');
     expect(
       asked
         .answer(at, person('Not now.', 'user_bob'), 'refused')
-        .approvalFor(CALL)?.approval.standing,
+        .approvalFor(CALL)?.approval.status,
     ).toBe('refused');
   });
 

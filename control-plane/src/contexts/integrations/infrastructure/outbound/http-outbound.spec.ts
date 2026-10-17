@@ -374,7 +374,7 @@ actions:
       );
     });
 
-    it('refuses a page standing in for the file', async () => {
+    it('refuses a page in place of the file', async () => {
       const fetch = answering(
         '<html>Sign in</html>',
         'text/html; charset=utf-8',

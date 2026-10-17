@@ -167,7 +167,7 @@ describe('WorkLookup, looking up a run', () => {
 
   const placeAt = (key: string) => lookingUpAt(key).placeOf(RunId.of('run_1'));
 
-  it('hands a check the command its run was dispatched with, not the station’s as it stands now', async () => {
+  it('hands a check the command its run was dispatched with, not the station’s current command', async () => {
     expect((await runAt('implementation'))?.check).toBe('npm run verify');
     expect((await runAt('gone'))?.check).toBe('npm run verify');
   });
@@ -290,7 +290,7 @@ describe('WorkLookup, reading how a run reasoned', () => {
       } as unknown as RunJournalReaderPort,
     ).reasoning(RunId.of('run_1'));
 
-  it('offers what the agent said, thought and planned, where it stands in the journal', async () => {
+  it('offers what the agent said, thought and planned, where it is in the journal', async () => {
     const reasoned = await reading([
       step({ kind: 'planned', text: '[pending] Retry uploads' }),
       step({ kind: 'tool', text: 'Edit uploads.ts' }),

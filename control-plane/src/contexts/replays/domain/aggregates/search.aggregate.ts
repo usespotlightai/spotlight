@@ -463,7 +463,7 @@ export class Search extends EventRecorder {
 
   reflectingOn(
     run: RunId,
-    standing: CandidateId,
+    incumbent: CandidateId,
     tasks: readonly ReflectedTask[],
     at: Date,
     runIds: () => RunId,
@@ -490,8 +490,8 @@ export class Search extends EventRecorder {
     }
 
     if (
-      !standing.equals(this.state.seed.candidateId) &&
-      !this.proposals.some((each) => each.candidateId.equals(standing))
+      !incumbent.equals(this.state.seed.candidateId) &&
+      !this.proposals.some((each) => each.candidateId.equals(incumbent))
     ) {
       throw new InvalidSearchError(
         'can look only into failures of its seed or its candidates',
@@ -499,7 +499,7 @@ export class Search extends EventRecorder {
     }
 
     return this.changingIteration(run, (each) =>
-      each.reflectingOn(standing, tasks),
+      each.reflectingOn(incumbent, tasks),
     ).advancedAt(at, runIds);
   }
 

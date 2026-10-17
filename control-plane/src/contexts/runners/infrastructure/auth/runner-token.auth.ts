@@ -29,6 +29,6 @@ export class RunnerTokenAuth implements RunnerIdentityPort {
       TokenHash.of(this.tokens.hash(token)),
     );
 
-    return found?.standsAt(this.clock.now()) ? found.id : null;
+    return found?.isAlive(this.clock.now()) ? found.id : null;
   }
 }

@@ -226,7 +226,7 @@ describe('StartReplayHandler', () => {
     ).toBe(false);
   });
 
-  it('replays the live config plainly once a check of it stands', async () => {
+  it('replays the live config plainly once a valid check of it exists', async () => {
     memory.sets.set('set_1', aSet(5));
     await start('live');
     const again = await start('live');

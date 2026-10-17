@@ -2,7 +2,7 @@ import { NotOnTeamError } from '@replays/domain/exceptions/not-on-team.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TeamStanding {
+export interface Membership {
   readonly workspaceId: WorkspaceId;
   readonly mayPlan: boolean;
 }
@@ -19,15 +19,15 @@ export class TeamAccess {
     readonly mayPlan: boolean,
   ) {}
 
-  static onTeam(teamId: string, standing: TeamStanding | null): TeamAccess {
-    if (!standing) {
+  static onTeam(teamId: string, membership: Membership | null): TeamAccess {
+    if (!membership) {
       throw new NotOnTeamError(teamId);
     }
 
     return new TeamAccess(
       TeamId.of(teamId),
-      standing.workspaceId,
-      standing.mayPlan,
+      membership.workspaceId,
+      membership.mayPlan,
     );
   }
 

@@ -86,7 +86,7 @@ describe('whether an expression is true', () => {
 });
 
 describe('what an expression reads', () => {
-  it('reads text as it stands', () => {
+  it('reads text as it is', () => {
     expect(reads(compile('body.data.identifier'), delivery)).toBe('ENG-42');
   });
 

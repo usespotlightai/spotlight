@@ -26,7 +26,7 @@ export function InboxComposer({
 }: InboxComposerProps) {
   const answer = useAnswerInboxItem();
   const stop = useStopRun();
-  const { line, station: standing } = useTaskStation(teamId, taskId);
+  const { line, station: currentStation } = useTaskStation(teamId, taskId);
 
   return (
     <ChatInput
@@ -35,7 +35,7 @@ export function InboxComposer({
       placeholder="Reply…"
       pending={answer.isPending}
       running={running}
-      settings={<FixedAgent agent={standing} />}
+      settings={<FixedAgent agent={currentStation} />}
       below={
         <FixedRepositories
           slug={slug}

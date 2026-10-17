@@ -363,16 +363,16 @@ describe('the Changes tab', () => {
 
     expect(within(opus).getByLabelText('Best value')).toBeInTheDocument();
     expect(opus).toHaveTextContent('Judge score75%');
-    const standings = document.querySelector(
-      '[data-slot="judge-standings"]',
+    const calibrations = document.querySelector(
+      '[data-slot="judge-calibrations"]',
     ) as HTMLElement;
     expect(
-      within(standings).getByRole('link', { name: 'Implementation' }),
+      within(calibrations).getByRole('link', { name: 'Implementation' }),
     ).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
     );
-    expect(standings).toHaveTextContent('trusted');
+    expect(calibrations).toHaveTextContent('trusted');
     expect(
       screen.getByText(/Small: up to 50 changed lines/),
     ).toBeInTheDocument();

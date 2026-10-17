@@ -181,11 +181,11 @@ export class Review extends EventRecorder {
     );
   }
 
-  silentWith(standing: readonly ReviewComment[]): boolean {
+  silentWith(posted: readonly ReviewComment[]): boolean {
     return !says(
       this.verdict,
       this.body,
-      standing.filter((comment) => comment.belongsTo(this.id)).length,
+      posted.filter((comment) => comment.belongsTo(this.id)).length,
     );
   }
 
@@ -213,11 +213,11 @@ export class Review extends EventRecorder {
     return posted;
   }
 
-  withdraw(standing: readonly ReviewComment[]): Review {
+  withdraw(posted: readonly ReviewComment[]): Review {
     if (this.state !== 'submitted') {
       throw new InvalidReviewError('cannot be withdrawn after it is posted');
     }
-    if (!this.silentWith(standing)) {
+    if (!this.silentWith(posted)) {
       throw new InvalidReviewError('can only be withdrawn once it is empty');
     }
 

@@ -62,7 +62,7 @@ export class RunnerPools implements RunnerPoolsPort {
   }
 
   async running(poolId: string, now: Date): Promise<number> {
-    return (await this.runners.standingIn(RunnerPoolId.of(poolId), now)).length;
+    return (await this.runners.aliveIn(RunnerPoolId.of(poolId), now)).length;
   }
 
   async roomIn(poolId: string, now: Date): Promise<number | null> {
@@ -70,7 +70,7 @@ export class RunnerPools implements RunnerPoolsPort {
     const pool = await this.pools.find(id);
 
     return pool
-      ? pool.roomFor((await this.runners.standingIn(id, now)).length)
+      ? pool.roomFor((await this.runners.aliveIn(id, now)).length)
       : 0;
   }
 

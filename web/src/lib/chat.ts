@@ -6,9 +6,9 @@ import type {
   ChatTraceResponseDto,
 } from '@/lib/api';
 import {
-  type DecisionStanding,
+  type ApprovalStatus,
   WAITING_FOR_APPROVAL,
-} from '@/lib/decision-standing';
+} from '@/lib/approval-status';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
 import { teamSectionPath } from '@/lib/team';
 
@@ -160,15 +160,15 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
   return cut.filter((turn) => turn.said || turn.moments.length > 0);
 };
 
-const PROPOSAL_STANDINGS: Record<Proposal['state'], DecisionStanding> = {
+const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {
   open: 'waiting',
   accepted: 'approved',
   created: 'approved',
   dismissed: 'declined',
 };
 
-export const proposalStandingOf = (proposal: Proposal): DecisionStanding =>
-  PROPOSAL_STANDINGS[proposal.state];
+export const proposalStatusOf = (proposal: Proposal): ApprovalStatus =>
+  PROPOSAL_STATUSES[proposal.state];
 
 const PROPOSAL_TITLES: Record<Proposal['state'], string> = {
   open: WAITING_FOR_APPROVAL,

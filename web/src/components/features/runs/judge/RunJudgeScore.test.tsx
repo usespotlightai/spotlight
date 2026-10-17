@@ -116,7 +116,7 @@ describe('RunJudgeScore', () => {
     scores.mockReturnValue(
       runScoresOf('run_1', 'task_1', {
         judge: null,
-        standing: {
+        calibration: {
           trusted: false,
           measure: 'kappa',
           agreement: 0.38,

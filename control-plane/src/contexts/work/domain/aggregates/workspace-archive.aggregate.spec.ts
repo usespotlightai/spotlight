@@ -46,20 +46,20 @@ const owned: ArchiveFacts = {
   pinned: false,
 };
 
-const standing = (holder: HolderState): ArchiveFacts => ({
+const factsOf = (holder: HolderState): ArchiveFacts => ({
   holder,
   supersededAt: null,
   lastStartedFromAt: null,
   pinned: false,
 });
 
-const finished = standing({
+const finished = factsOf({
   kind: 'task',
   finished: true,
   changedAt: later(2 * DAY),
 });
 
-const leftItsConversation = standing({
+const leftItsConversation = factsOf({
   kind: 'chat',
   conversing: false,
   changedAt: later(2 * DAY),
@@ -171,14 +171,14 @@ describe('WorkspaceArchive', () => {
     expect(
       aSealedArchive().removableAt(
         later(365 * DAY),
-        standing({ ...carryingOn, changedAt: later(2 * DAY) }),
+        factsOf({ ...carryingOn, changedAt: later(2 * DAY) }),
       ),
     ).toBe(false);
   });
 
   it('is kept while its chat converses, and for a week after it left its conversation', () => {
     expect(
-      aSealedChatArchive().removableAt(later(365 * DAY), standing(conversing)),
+      aSealedChatArchive().removableAt(later(365 * DAY), factsOf(conversing)),
     ).toBe(false);
     expect(
       aSealedChatArchive().removableAt(later(9 * DAY - 1), leftItsConversation),

@@ -271,7 +271,7 @@ const OUTCOMES = {
   inForce: { tally: TALLY },
 };
 
-const STANDING = {
+const CALIBRATION = {
   trusted: true,
   measure: 'kappa',
   agreement: 0.71,
@@ -337,7 +337,7 @@ beforeEach(() => {
   outcomesFailing.mockReturnValue(false);
   outcomesError.mockReturnValue(null);
   refetchOutcomes.mockClear();
-  judged.mockReturnValue({ standing: STANDING });
+  judged.mockReturnValue({ calibration: CALIBRATION });
   worthImproving.mockReturnValue([]);
   judgeFailing.mockReturnValue(false);
   sets.mockReturnValue([]);
@@ -655,7 +655,7 @@ describe('Station', () => {
       renderAt('station_2');
 
       expect(
-        document.querySelector('[data-slot="judge-standing"]'),
+        document.querySelector('[data-slot="judge-calibration"]'),
       ).toHaveTextContent('Cohen’s kappa0.71Trusted above 0.60 over 24 runs');
       expect(
         screen.getByRole('link', { name: 'How it agrees with people' }),
@@ -672,14 +672,14 @@ describe('Station', () => {
       renderAt('station_2');
 
       expect(
-        document.querySelector('[data-slot="judge-standing"]'),
+        document.querySelector('[data-slot="judge-calibration"]'),
       ).not.toBeInTheDocument();
       expect(sectionTitled('Judge')).toHaveTextContent(
         'Trusted from 0.60 agreement',
       );
     });
 
-    it('shows no alerts and no judge standing where none are set', () => {
+    it('shows no alerts and no judge calibration where none are set', () => {
       renderAt('station_1');
 
       expect(
@@ -782,7 +782,7 @@ describe('Station', () => {
           .getAllByRole('heading', { level: 2 })
           .map((each) => each.textContent),
       ).toEqual([
-        'What stands out',
+        'What needs attention',
         'Worth improving',
         'Try a change',
         'Replay sets',
@@ -821,7 +821,7 @@ describe('Station', () => {
       ).toEqual([expect.stringMatching(/^Sent back 30%/)]);
     });
 
-    it('asks the agent about one signal, handing over the station and what stood out', async () => {
+    it('asks the agent about one signal, handing over the station and what needs attention', async () => {
       const user = userEvent.setup();
       worthImproving.mockReturnValue([
         {
@@ -868,7 +868,7 @@ describe('Station', () => {
       ).toMatchObject({ stationId: 'station_2' });
     });
 
-    it('says when nothing stands out', () => {
+    it('says when nothing needs attention', () => {
       renderAt('station_2', 'improve');
 
       expect(sectionTitled('Worth improving')).toHaveTextContent(
@@ -876,7 +876,7 @@ describe('Station', () => {
       );
     });
 
-    it('hands the station to the agent when nothing stands out', async () => {
+    it('hands the station to the agent when nothing needs attention', async () => {
       const user = userEvent.setup();
       renderAt('station_2', 'improve');
 

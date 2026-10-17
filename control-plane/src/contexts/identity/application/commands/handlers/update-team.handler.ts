@@ -29,15 +29,15 @@ export class UpdateTeamHandler
     const id = TeamId.of(command.teamId);
 
     try {
-      const standing = await this.teams.find(id);
-      const permissions = standing
+      const existing = await this.teams.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -45,7 +45,7 @@ export class UpdateTeamHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.team(command.definition);
 
@@ -55,9 +55,9 @@ export class UpdateTeamHandler
 
       await this.transaction.inTransaction(() =>
         this.teams.save(
-          standing.redefinedAs(
+          existing.redefinedAs(
             compiled,
-            Attribution.of(command.actor, standing.workspaceId),
+            Attribution.of(command.actor, existing.workspaceId),
           ),
         ),
       );

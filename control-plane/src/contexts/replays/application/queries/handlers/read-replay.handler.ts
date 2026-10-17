@@ -37,9 +37,9 @@ export class ReadReplayHandler
       const compared = comparedWith(replay, against);
       const { minGain } = await this.healths.standardAt(replay.station);
       const titles = new Map(
-        (await this.work.standing(access.workspaceId, replay.originals)).map(
-          (each) => [each.runId.value, each.title],
-        ),
+        (
+          await this.work.runSummaries(access.workspaceId, replay.originals)
+        ).map((each) => [each.runId.value, each.title]),
       );
 
       return {

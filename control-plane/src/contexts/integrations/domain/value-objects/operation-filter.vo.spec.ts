@@ -18,7 +18,7 @@ describe('OperationFilter', () => {
     expect(filter.admits('get-order')).toBe(false);
   });
 
-  it('matches a whole name, with * standing for any run of letters', () => {
+  it('matches a whole name, where * matches any run of letters', () => {
     expect(OperationFilter.of({ include: ['pet'] }).admits('get-pet')).toBe(
       false,
     );

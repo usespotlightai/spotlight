@@ -5,7 +5,7 @@ import {
 } from '@/components/features/runners/columns';
 import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
 import { HostImageCell } from '@/components/features/runners/HostImageCell';
-import { HostStanding } from '@/components/features/runners/HostStanding';
+import { HostStatus } from '@/components/features/runners/HostStatus';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import {
   type Host,
@@ -32,7 +32,7 @@ export function HostRow({ slug, host, harnesses }: HostRowProps) {
           {through(host.through)}
         </span>
 
-        <HostStanding host={host} />
+        <HostStatus host={host} />
 
         <HostImageCell images={host.images} />
 

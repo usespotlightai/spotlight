@@ -23,18 +23,18 @@ export type CheckPhase = (typeof CHECK_PHASES)[number];
 
 export const WAITING_LIMIT_MS = 60 * 60 * 1000;
 
-export interface CheckStanding {
+export interface CheckStatus {
   readonly phase: CheckPhase;
   readonly waitingSince: Date;
   readonly lease: CheckLease;
 }
 
-const waitedOutAt = (check: CheckStanding, now: Date): boolean =>
+const waitedOutAt = (check: CheckStatus, now: Date): boolean =>
   now.getTime() - check.waitingSince.getTime() > WAITING_LIMIT_MS &&
   !isLeaseActiveAt(check.lease, now);
 
 export const checkStateAt = (
-  check: CheckStanding,
+  check: CheckStatus,
   now: Date,
 ): StackCheckState => {
   switch (check.phase) {

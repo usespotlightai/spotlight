@@ -25,12 +25,12 @@ export class EnqueueRunHandler
 
   async execute(command: EnqueueRunCommand): Promise<EnqueuedRunDto | null> {
     try {
-      const standing = await this.access.inWorkspace(
+      const membership = await this.access.inWorkspace(
         command.slug,
         UserId.of(command.viewerId),
       );
 
-      if (!standing) {
+      if (!membership) {
         return null;
       }
 
@@ -45,7 +45,7 @@ export class EnqueueRunHandler
 
       const queued = Run.enqueue({
         id: RunId.of(this.ids.generate()),
-        workspaceId: standing.workspaceId,
+        workspaceId: membership.workspaceId,
         harness,
         spec: RunSpecContract.ordered(command.spec, started.started()),
       });

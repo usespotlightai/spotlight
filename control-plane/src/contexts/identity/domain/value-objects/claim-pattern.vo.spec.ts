@@ -12,7 +12,7 @@ describe('ClaimPattern', () => {
     expect(matching('refs/heads/main', '')).toBe(false);
   });
 
-  it('lets * stand for any run of characters, none included', () => {
+  it('lets * match any run of characters, none included', () => {
     expect(matching('refs/heads/*', 'refs/heads/')).toBe(true);
     expect(matching('refs/heads/*', 'refs/heads/release/1.2')).toBe(true);
     expect(matching('*/main', 'refs/heads/main')).toBe(true);

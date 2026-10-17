@@ -2,7 +2,7 @@ import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { RunOwedMarker } from '@/components/features/runs/RunOwedMarker';
 import { InProgress } from '@/components/shared/InProgress';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { type Run, standing, waitsOnPerson } from '@/lib/run';
+import { type Run, runStatus, waitsOnPerson } from '@/lib/run';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
@@ -25,7 +25,7 @@ export function RunRow({
   gutter,
 }: RunRowProps) {
   const waits = waitsOnPerson(run);
-  const stands = standing(run);
+  const status = runStatus(run);
 
   return (
     <li
@@ -63,8 +63,8 @@ export function RunRow({
 
         {run.state === 'claimed' && <InProgress />}
 
-        {stands && !waits && (
-          <span className="text-muted-foreground text-xs">{stands}</span>
+        {status && !waits && (
+          <span className="text-muted-foreground text-xs">{status}</span>
         )}
 
         <span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">

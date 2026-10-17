@@ -1,5 +1,5 @@
 import {
-  MEMORY_STANDING_NAMES,
+  MEMORY_STATUS_NAMES,
   type RunMemoriesDto,
   type RunProposalDto,
 } from '@memory/application/dto/team-memory.dto';
@@ -19,15 +19,15 @@ export class RunProposalResponseDto extends ProposedMemoryResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    example: 'stands',
-    description: `Once approved, whether it still stands: ${MEMORY_STANDING_NAMES.join(' or ')}`,
+    example: 'active',
+    description: `After approval, whether it is still active: ${MEMORY_STATUS_NAMES.join(' or ')}`,
   })
-  readonly standing: string | null;
+  readonly status: string | null;
 
   constructor(proposal: RunProposalDto) {
     super(proposal);
     this.handle = proposal.handle;
-    this.standing = proposal.standing;
+    this.status = proposal.status;
   }
 }
 

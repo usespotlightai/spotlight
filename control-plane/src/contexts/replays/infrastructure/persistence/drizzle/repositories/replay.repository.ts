@@ -6,7 +6,7 @@ import {
 } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import { STANDING_BASELINE_STATES } from '@replays/domain/services/baseline';
+import { VALID_BASELINE_STATES } from '@replays/domain/services/baseline';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
@@ -458,7 +458,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
               ...new Set(setIds.map((each) => each.value)),
             ]),
             eq(replay.baseline, true),
-            inArray(replay.state, [...STANDING_BASELINE_STATES]),
+            inArray(replay.state, [...VALID_BASELINE_STATES]),
           ),
         )
         .orderBy(asc(replay.setId), desc(replay.startedAt), asc(replay.id)),

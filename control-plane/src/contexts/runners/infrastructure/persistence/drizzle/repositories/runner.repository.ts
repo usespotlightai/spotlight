@@ -214,10 +214,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
     return found ? toRunner(found) : null;
   }
 
-  async standingIn(
-    poolId: RunnerPoolId,
-    now: Date,
-  ): Promise<readonly Runner[]> {
+  async aliveIn(poolId: RunnerPoolId, now: Date): Promise<readonly Runner[]> {
     const rows = await this.context.db
       .select()
       .from(runner)
@@ -235,7 +232,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         ),
       );
 
-    return rows.map(toRunner).filter((each) => each.standsAt(now));
+    return rows.map(toRunner).filter((each) => each.isAlive(now));
   }
 
   async findByWork(work: RunnerWork): Promise<readonly Runner[]> {

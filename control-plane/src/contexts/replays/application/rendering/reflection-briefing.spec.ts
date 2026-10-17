@@ -11,7 +11,7 @@ const briefing = (seed: boolean) =>
     lineKey: 'delivery',
     iteration: 3,
     iterations: 5,
-    standing: seed ? 'seed' : 'in-order',
+    incumbentName: seed ? 'seed' : 'in-order',
     seed,
     tasks: [
       ReflectedTask.of({

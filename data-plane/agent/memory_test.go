@@ -35,7 +35,7 @@ func remembering(t *testing.T, refusing error) *memoryChannel {
 		func(asked protocol.RecallRequest) (json.RawMessage, error) {
 			seen.recalled = append(seen.recalled, asked)
 			memory := protocol.RecalledMemory{
-				Handle: "M-12", Kind: "rejected-approach", Standing: "stands",
+				Handle: "M-12", Kind: "rejected-approach", Status: "active",
 				Body: "Uploads retry in the request,\nnot from a queue.", Source: "run", Reach: "line",
 				Repository: &repository, Paths: []string{"src/uploads"},
 				ApprovedBy: protocol.MemoryPerson{ID: "user_1", Name: &name},

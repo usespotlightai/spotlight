@@ -271,7 +271,7 @@ export class WorkspaceToken extends EventRecorder {
   }
 
   redescribe(terms: TokenTerms, by: Attribution): WorkspaceToken {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (this.isMinted) {
       throw new MintedTokenFixedError(this.name.value);
@@ -304,7 +304,7 @@ export class WorkspaceToken extends EventRecorder {
   }
 
   revoke(by: Attribution): WorkspaceToken {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     const revoked = this.with({ revoked: true });
 
@@ -321,7 +321,7 @@ export class WorkspaceToken extends EventRecorder {
   }
 
   lapsed(now: Date): WorkspaceToken {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (this.admitsAt(now)) {
       throw new InconsistentStateError(
@@ -419,7 +419,7 @@ export class WorkspaceToken extends EventRecorder {
     return this.state.mintedForAttempt;
   }
 
-  standsUnder(trust: WorkspaceTokenTrust | null): boolean {
+  isStillValidFor(trust: WorkspaceTokenTrust | null): boolean {
     return this.mintedThrough === null || trust?.stillGrants(this) === true;
   }
 
@@ -453,7 +453,7 @@ export class WorkspaceToken extends EventRecorder {
     return next;
   }
 
-  private guardStanding(): void {
+  private assertNotDeleted(): void {
     if (this.isRevoked) {
       throw new InconsistentStateError(
         'workspace token',

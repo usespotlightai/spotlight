@@ -530,7 +530,7 @@ describe('PullRequest', () => {
       ).toBeNull();
     });
 
-    it('was first approved at the earliest approval still standing', () => {
+    it('was first approved at the earliest approval that is still valid', () => {
       const reviewed = opened()
         .recordReview(review(1, 'approved', 9))
         .recordReview(review(2, 'changes-requested', 10))

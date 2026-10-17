@@ -14,6 +14,6 @@ export interface MemoryRelevancePort {
     teamId: TeamId,
     words: RecallWords,
     max: number,
-    standingAt?: Date | null,
+    asOf?: Date | null,
   ): Promise<readonly MemoryId[]>;
 }

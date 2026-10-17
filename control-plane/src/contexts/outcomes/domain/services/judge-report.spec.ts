@@ -5,11 +5,11 @@ import {
   RUBRIC_VERSION,
 } from '@outcomes/domain/judging.fake-spec';
 import { endedRecord } from '@outcomes/domain/outcomes.fake-spec';
+import { MIN_PAIRS } from '@outcomes/domain/services/judge-calibration';
 import {
+  calibrationIn,
   judgeReportOf,
-  standingIn,
 } from '@outcomes/domain/services/judge-report';
-import { MIN_PAIRS } from '@outcomes/domain/services/judge-standing';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { describe, expect, it } from 'vitest';
@@ -56,7 +56,7 @@ describe('judgeReportOf', () => {
     expect(report.coverage).toMatchObject({ runs: 12, both: 12 });
   });
 
-  it('lets a person’s grade stand for the run instead of what they did', () => {
+  it('uses a person’s grade for the run instead of what they did', () => {
     const report = judgeReportOf({
       judged: [judgeScore('run_1', YES_NO, 1)],
       grades: [personGrade('run_1', YES_NO, 0)],
@@ -99,9 +99,9 @@ describe('judgeReportOf', () => {
   });
 });
 
-describe('standingIn', () => {
+describe('calibrationIn', () => {
   it('trusts a judge that agrees with people as often as the station asks', () => {
-    expect(standingIn(reportOf(12, 12), CURRENT)).toMatchObject({
+    expect(calibrationIn(reportOf(12, 12), CURRENT)).toMatchObject({
       trusted: true,
       measure: 'kappa',
       hiddenBecause: null,
@@ -109,14 +109,14 @@ describe('standingIn', () => {
   });
 
   it('hides the scores of a judge that agrees too seldom', () => {
-    expect(standingIn(reportOf(12, 6), CURRENT)).toMatchObject({
+    expect(calibrationIn(reportOf(12, 6), CURRENT)).toMatchObject({
       trusted: false,
       hiddenBecause: 'below-trust',
     });
   });
 
   it('hides the scores until enough runs have both', () => {
-    expect(standingIn(reportOf(MIN_PAIRS - 1, 9), CURRENT)).toMatchObject({
+    expect(calibrationIn(reportOf(MIN_PAIRS - 1, 9), CURRENT)).toMatchObject({
       trusted: false,
       hiddenBecause: 'too-few-pairs',
     });
@@ -124,7 +124,7 @@ describe('standingIn', () => {
 
   it('counts only the station’s current rubric', () => {
     expect(
-      standingIn(reportOf(12, 12), {
+      calibrationIn(reportOf(12, 12), {
         ...CURRENT,
         rubricVersion: NEXT_RUBRIC_VERSION,
       }),
@@ -136,14 +136,16 @@ describe('standingIn', () => {
   });
 
   it('says a station without a judge has none to trust', () => {
-    expect(standingIn(reportOf(12, 12), null).hiddenBecause).toBe('no-judge');
+    expect(calibrationIn(reportOf(12, 12), null).hiddenBecause).toBe(
+      'no-judge',
+    );
   });
 });
 
-describe('standingIn, for a rubric it cannot read', () => {
+describe('calibrationIn, for a rubric it cannot read', () => {
   it('hides the scores and says the rubric cannot be read', () => {
     expect(
-      standingIn(reportOf(12, 12), { ...CURRENT, scale: null }),
+      calibrationIn(reportOf(12, 12), { ...CURRENT, scale: null }),
     ).toMatchObject({ trusted: false, hiddenBecause: 'unreadable-rubric' });
   });
 });

@@ -2,7 +2,7 @@ import type { ConfigurationDto } from '@configuration/application/dto/configurat
 import type { ConfigurationReaderPort } from '@configuration/application/ports/configuration-reader.port';
 import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import type { ConfigurationQuery } from '@configuration/application/queries/read-configuration.query';
-import { standingOf } from '@configuration/domain/services/integration-standing';
+import { connectionStatusOf } from '@configuration/domain/services/integration-connection-status';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -33,7 +33,7 @@ export class ConfigurationHandler
           source: each.source,
           path: each.path,
           name: each.name,
-          standing: standingOf(each.connectable, each.linked),
+          connectionStatus: connectionStatusOf(each.connectable, each.linked),
           holderRule: each.holderRule,
           handle: each.handle,
           described: each.described

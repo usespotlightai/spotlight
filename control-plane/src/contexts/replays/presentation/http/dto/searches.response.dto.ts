@@ -701,7 +701,7 @@ export class SearchReflectionResponseDto {
     description:
       'The candidate whose failures it looked into: the best config before it, the seed’s id when nothing beat the live config; none until it looked',
   })
-  readonly standing: string | null;
+  readonly incumbent: string | null;
 
   @ApiProperty({
     type: ReflectedTaskResponseDto,
@@ -734,7 +734,7 @@ export class SearchReflectionResponseDto {
   readonly endedSearch: boolean;
 
   constructor(reflection: SearchReflectionDto) {
-    this.standing = reflection.standing;
+    this.incumbent = reflection.incumbent;
     this.outcome = reflection.outcome;
     this.tasks = reflection.tasks.map(
       (each) => new ReflectedTaskResponseDto(each),

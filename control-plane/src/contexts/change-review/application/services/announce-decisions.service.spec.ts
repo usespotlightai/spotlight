@@ -9,8 +9,8 @@ import type {
 } from '@change-review/application/ports/work.port';
 import { AnnounceDecisions } from '@change-review/application/services/announce-decisions.service';
 import type {
-  StandingComment,
-  StandingPlace,
+  StickyComment,
+  StickyCommentPlace,
 } from '@github/application/ports/pull-request-comments.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -35,7 +35,7 @@ const LIMITED: DecisionDto = {
 const drafted = (decisions: readonly DecisionDto[]): TaskDecisionsDto => ({
   runId: 'run_1',
   drafting: false,
-  standing: 'proposed',
+  status: 'proposed',
   merge: null,
   decisions,
 });
@@ -44,8 +44,8 @@ const announcing = (
   stored: TaskDecisionsDto | null,
   task: Partial<ReviewedTask> = {},
 ) => {
-  const kept: StandingComment[] = [];
-  const withdrawn: StandingPlace[] = [];
+  const kept: StickyComment[] = [];
+  const withdrawn: StickyCommentPlace[] = [];
 
   const service = new AnnounceDecisions(
     { ofTask: async () => stored } as unknown as DecisionReaderPort,

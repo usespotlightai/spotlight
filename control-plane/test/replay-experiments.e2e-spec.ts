@@ -5,9 +5,9 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import {
-  ARCHIVE_STANDINGS,
-  type ArchiveStandingsPort,
-} from '@work/application/ports/archive-standings.port';
+  ARCHIVE_REFERENCES,
+  type ArchiveReferencesPort,
+} from '@work/application/ports/archive-references.port';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
@@ -606,12 +606,12 @@ describe('a replay set', () => {
   it('keeps the archives its runs started from while it holds them, and lets them go after', async () => {
     const original = await anOriginal();
     const setId = await openSet('Pinned', original);
-    const standings = app.get<ArchiveStandingsPort>(ARCHIVE_STANDINGS);
+    const references = app.get<ArchiveReferencesPort>(ARCHIVE_REFERENCES);
     const archives = app.get(DrizzleWorkspaceArchiveRepository);
     const archiveId = WorkspaceArchiveId.of(original.archiveId);
     const at = new Date(Date.now() + 60 * DAY);
     const due = async () =>
-      (await standings.due(WorkspaceArchive.removalCutoffs(at), 5_000)).find(
+      (await references.due(WorkspaceArchive.removalCutoffs(at), 5_000)).find(
         (each) => each.id.equals(archiveId),
       );
 

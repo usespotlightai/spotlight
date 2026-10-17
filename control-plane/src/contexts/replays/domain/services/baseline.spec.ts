@@ -144,7 +144,7 @@ describe('needsBaseline', () => {
 describe('baselineFor', () => {
   const runs = aSet(2).runs;
 
-  it('is the newest finished baseline of the live config covering the runs, else the newest standing one, else any', () => {
+  it('is the newest finished baseline of the live config covering the runs, else the newest valid one, else any', () => {
     const running = aBaseline('replay_running', 2);
     const stopped = aBaseline('replay_stopped', 3).stop(later(4), BY);
     const old = aReplay({

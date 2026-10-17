@@ -238,7 +238,7 @@ const awaitingProvision = async () =>
     })
   ).map((each) => each.id.value);
 
-const standingAt = (task: Task, station: string) =>
+const atStation = (task: Task, station: string) =>
   eventually(async () => {
     const each = await found(task.id);
     return each.stationId.equals(stationKeyed(station).id) && each;
@@ -312,7 +312,7 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
 
     await endedHandingOverTo(runId, 'implementation');
 
-    const passed = await standingAt(task, 'implementation');
+    const passed = await atStation(task, 'implementation');
     expect(passed.deferredMoveTo).toBeNull();
     expect(passed.currentRunId).not.toBeNull();
   });
@@ -324,7 +324,7 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
 
     await endedHandingOverTo(runId, 'review');
 
-    const moved = await standingAt(task, 'code-review');
+    const moved = await atStation(task, 'code-review');
     expect(moved.awaitingReview).toBe(false);
     expect(moved.currentRunId).not.toBeNull();
     expect(moved.currentRunId).not.toEqual(runId);
@@ -472,7 +472,7 @@ describe('a happening while the current run of the task waits on a person (e2e)'
     await eventually(async () => (await runOf(runId)).state === 'claimed');
     await endedHandingOverTo(runId, 'review');
 
-    const moved = await standingAt(task, 'code-review');
+    const moved = await atStation(task, 'code-review');
     expect(moved.awaitingReview).toBe(false);
     expect(moved.currentRunId).not.toEqual(runId);
   });
@@ -542,7 +542,7 @@ describe('a deferred move and what ends the run (e2e)', () => {
     );
     await endedHandingOverTo(runId, 'done');
 
-    const moved = await standingAt(task, 'code-review');
+    const moved = await atStation(task, 'code-review');
     expect(moved.awaitingReview).toBe(false);
   });
 

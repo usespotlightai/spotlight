@@ -119,7 +119,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
   task_postgres: {
     runId: POSTGRES_RUN,
     drafting: false,
-    standing: 'proposed',
+    status: 'proposed',
     merge: null,
     decisions: [
       {
@@ -174,7 +174,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
   task_search: {
     runId: SEARCH_RUN,
     drafting: false,
-    standing: 'stands',
+    status: 'merged',
     merge: {
       repository: 'acme/api',
       commit: '8f3c2a1d4b6e9f0a7c5d3e1b2a4f6c8d0e9b7a51',
@@ -196,7 +196,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
   task_retries: {
     runId: null,
     drafting: true,
-    standing: 'proposed',
+    status: 'proposed',
     merge: null,
     decisions: [],
   },
@@ -205,7 +205,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
 export const noDecisions = (): TaskDecisionsResponseDto => ({
   runId: null,
   drafting: false,
-  standing: 'proposed',
+  status: 'proposed',
   merge: null,
   decisions: [],
 });

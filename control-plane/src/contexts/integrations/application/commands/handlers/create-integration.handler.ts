@@ -82,7 +82,7 @@ export class CreateIntegrationHandler
       const { compiled, reading } = await this.sources.compiled({
         definition: command.definition,
         teamId: permissions.teamId,
-        standing: null,
+        current: null,
       });
 
       if (!compiled.ok) {

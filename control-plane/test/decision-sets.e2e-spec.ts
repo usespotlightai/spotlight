@@ -161,17 +161,17 @@ describe('storing a task’s decisions', () => {
     ).toBe(true);
   });
 
-  it('keeps the merge its decisions stood in', async () => {
+  it('keeps the merge of its decisions', async () => {
     const set = opened();
     await sets.add(set);
 
-    await sets.save(set.stood(merge('acme/api', NOW)));
+    await sets.save(set.merge(merge('acme/api', NOW)));
 
     const read = await sets.forTask(set.taskId);
 
-    expect(read?.standing.stands).toBe(true);
-    expect(read?.standing.merge?.repository.value).toBe('acme/api');
-    expect(read?.standing.merge?.at.toISOString()).toBe(NOW.toISOString());
+    expect(read?.status.isMerged).toBe(true);
+    expect(read?.status.merge?.repository.value).toBe('acme/api');
+    expect(read?.status.merge?.at.toISOString()).toBe(NOW.toISOString());
   });
 
   it('refuses to write over a set that changed since it was read', async () => {
@@ -326,7 +326,7 @@ describe('reading the decisions that shipped', () => {
         FIRST,
         decisions,
         DecisionGrounds.of({ steps: [3, 7], changed }),
-      ).stood(merge(repository, new Date(at))),
+      ).merge(merge(repository, new Date(at))),
     );
     return set;
   };
@@ -370,11 +370,11 @@ describe('reading the decisions that shipped', () => {
   });
 
   const titles = (
-    found: Awaited<ReturnType<DrizzleDecisionReader['standing']>>,
+    found: Awaited<ReturnType<DrizzleDecisionReader['merged']>>,
   ) => found.map((each) => each.decisions.map((d) => d.title));
 
-  it('lists what stood in a repository, newest merge first', async () => {
-    const found = await reader().standing({
+  it('lists the merged decisions of a repository, newest merge first', async () => {
+    const found = await reader().merged({
       workspaceId: WORKSPACE,
       repository: Repository.of('acme/api'),
       within: [],
@@ -390,7 +390,7 @@ describe('reading the decisions that shipped', () => {
   });
 
   it('keeps only the decisions bearing on a directory, never a lookalike name', async () => {
-    const found = await reader().standing({
+    const found = await reader().merged({
       workspaceId: WORKSPACE,
       repository: Repository.of('acme/api'),
       within: ['api/src/uploads'],
@@ -403,7 +403,7 @@ describe('reading the decisions that shipped', () => {
   });
 
   it('keeps only what merged within the window', async () => {
-    const found = await reader().standing({
+    const found = await reader().merged({
       workspaceId: WORKSPACE,
       repository: null,
       within: [],

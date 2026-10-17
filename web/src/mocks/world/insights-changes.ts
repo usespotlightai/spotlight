@@ -4,7 +4,7 @@ import type {
   InsightsSetupsResponseDto,
   JudgeShareResponseDto,
   SetupOutcomeResponseDto,
-  StationStandingResponseDto,
+  StationJudgeCalibrationResponseDto,
 } from '@/lib/api';
 import type { HistoryRun, RunSize } from '@/mocks/world/insights-history';
 import { runsOfTeam } from '@/mocks/world/insights-history';
@@ -29,7 +29,7 @@ import {
 } from '@/mocks/world/insights-tally';
 import { DELIVERY_ID } from '@/mocks/world/platform';
 
-const IMPLEMENTATION_JUDGE: StationStandingResponseDto = {
+const IMPLEMENTATION_JUDGE: StationJudgeCalibrationResponseDto = {
   lineId: DELIVERY_ID,
   stationId: IMPLEMENTATION_ID,
   trusted: true,
@@ -40,7 +40,9 @@ const IMPLEMENTATION_JUDGE: StationStandingResponseDto = {
   hiddenBecause: null,
 };
 
-const JUDGES: readonly StationStandingResponseDto[] = [IMPLEMENTATION_JUDGE];
+const JUDGES: readonly StationJudgeCalibrationResponseDto[] = [
+  IMPLEMENTATION_JUDGE,
+];
 
 const judgeOf = (runs: readonly HistoryRun[]): JudgeShareResponseDto => {
   const scores = runs.flatMap((run) => (run.judge === null ? [] : [run.judge]));

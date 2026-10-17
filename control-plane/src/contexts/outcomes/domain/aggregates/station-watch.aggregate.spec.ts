@@ -196,7 +196,7 @@ describe('StationWatch', () => {
     expect(settled.taskId.value).toBe('task_1');
   });
 
-  it('leaves an alert as it stands while there are too few runs to read', () => {
+  it('leaves an alert as it is while there are too few runs to read', () => {
     const next = ids();
     const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
 
@@ -318,7 +318,7 @@ describe('StationWatch', () => {
     expect(forgotten.withoutTask(TaskId.of('task_9'))).toBe(forgotten);
   });
 
-  it('refuses to stand crossed twice for one threshold', () => {
+  it('refuses two open crossings for one threshold', () => {
     const next = ids();
     const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     const open = raised.open[0];

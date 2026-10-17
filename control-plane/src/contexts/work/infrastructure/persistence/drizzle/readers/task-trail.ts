@@ -106,7 +106,7 @@ const asked = (
     name: subject.name,
     because: parts.because,
     inputs: subject.given,
-    standing: parts.standing,
+    status: parts.status,
     edited: toEditedCall(parts)?.given ?? null,
     intent: parts.intent ?? null,
     askedOf: parts.askedOf

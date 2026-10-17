@@ -37,7 +37,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   kind: 'rationale',
   body: 'Retry uploads in the request.',
   source: 'run',
-  standing: 'stands',
+  status: 'active',
   reach: 'team',
   lineId: null,
   stationId: null,
@@ -93,7 +93,7 @@ beforeEach(() => {
 });
 
 describe('MemoryDetails', () => {
-  it('offers to correct or retire a standing memory', () => {
+  it('offers to correct or retire an active memory', () => {
     memoryState.data = detail();
     showing();
 
@@ -137,7 +137,7 @@ describe('MemoryDetails', () => {
 
   it('offers nothing to do with a retired memory, and names what replaced it', () => {
     memoryState.data = detail({
-      standing: 'retired',
+      status: 'retired',
       retirement: {
         at: '2026-09-27T11:00:00.000Z',
         by: null,

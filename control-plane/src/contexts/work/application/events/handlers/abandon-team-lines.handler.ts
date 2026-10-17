@@ -19,7 +19,7 @@ export class AbandonTeamLines {
     for (const line of await this.lines.ofTeam(teamId)) {
       try {
         await this.transaction.inTransaction(async () => {
-          const tasks = await this.tallies.lockedStandingAt(
+          const tasks = await this.tallies.lockedTaskCountsAt(
             line.stations.map((each) => each.id),
           );
 

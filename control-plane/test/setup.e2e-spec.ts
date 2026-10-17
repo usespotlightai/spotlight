@@ -65,14 +65,14 @@ afterAll(async () => {
   await database?.close();
 });
 
-describe('the setup lists a team still has standing', () => {
+describe('the open setup lists of a team', () => {
   it('finds a team’s own', async () => {
     const { teamId, list } = await openTeam('acme');
 
-    const standing = await tasks.settingUpFor(teamId);
+    const open = await tasks.settingUpFor(teamId);
 
-    expect(standing?.id).toEqual(list.id);
-    expect(standing?.notes.map((each) => each.form)).toEqual(['setup']);
+    expect(open?.id).toEqual(list.id);
+    expect(open?.notes.map((each) => each.form)).toEqual(['setup']);
   });
 
   it('finds nothing for a team that has none', async () => {
@@ -81,13 +81,13 @@ describe('the setup lists a team still has standing', () => {
     ).resolves.toBeNull();
   });
 
-  it('finds every one still standing', async () => {
+  it('finds every open one', async () => {
     const mine = await openTeam('borden');
     const theirs = await openTeam('cutter');
 
-    const standing = await tasks.settingUp();
+    const open = await tasks.settingUp();
 
-    expect(standing.map((each) => each.id.value)).toEqual(
+    expect(open.map((each) => each.id.value)).toEqual(
       expect.arrayContaining([mine.list.id.value, theirs.list.id.value]),
     );
   });
@@ -111,10 +111,10 @@ describe('the setup lists a team still has standing', () => {
     const mine = await openTeam('hendricks');
     const theirs = await openTeam('sarah');
 
-    const standing = await tasks.settingUpIn(mine.workspaceId);
+    const open = await tasks.settingUpIn(mine.workspaceId);
 
-    expect(standing.map((each) => each.id.value)).toEqual([mine.list.id.value]);
-    expect(standing.map((each) => each.id.value)).not.toContain(
+    expect(open.map((each) => each.id.value)).toEqual([mine.list.id.value]);
+    expect(open.map((each) => each.id.value)).not.toContain(
       theirs.list.id.value,
     );
   });
@@ -152,7 +152,7 @@ describe('the setup lists a team still has standing', () => {
   });
 });
 
-describe('the inbox item a setup list stands as', () => {
+describe('the inbox item of a setup list', () => {
   const inbox = () =>
     new ListInboxHandler(
       new DrizzleInboxReader(
@@ -176,7 +176,7 @@ describe('the inbox item a setup list stands as', () => {
     waiting = await openTeam('nolan');
   });
 
-  it('stands owed while a step is still to be taken', async () => {
+  it('is owed while a step is still to be taken', async () => {
     const [item] = await inbox();
 
     expect(item?.title).toBe('Set up your team');

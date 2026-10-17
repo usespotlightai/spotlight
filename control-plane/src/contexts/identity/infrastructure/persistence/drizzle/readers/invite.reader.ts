@@ -101,7 +101,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
       invitedBy: found.invitedBy,
       role: invitable(found.role),
       teamNames: (teams.get(found.id) ?? []).map((each) => each.name),
-      standing: WorkspaceInvite.standingOf(found, now),
+      status: WorkspaceInvite.statusOf(found, now),
     };
   }
 

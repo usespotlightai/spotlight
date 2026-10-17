@@ -110,7 +110,7 @@ export class TaskController {
   @Get('tasks')
   @ApiOperation({
     operationId: 'listTasks',
-    summary: 'List the tasks standing at a team’s stations, oldest first',
+    summary: 'List the tasks at a team’s stations, oldest first',
   })
   @ApiOkResponse({ type: TaskResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
@@ -314,7 +314,7 @@ export class TaskController {
   @ApiParam({ name: 'runId', type: String })
   @ApiNoContentResponse({
     description:
-      'It joined the task’s trail, and starts the station again if the task stood idle there',
+      'It joined the task’s trail, and starts the station again if the task was idle there',
   })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   @ApiConflictResponse({

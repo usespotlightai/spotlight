@@ -32,7 +32,7 @@ export class WorkspaceTokenTrustResourceResponseDto extends ResourceResponseDto 
   @ApiProperty({
     example: 'repo:acme/platform:ref:refs/heads/main',
     description:
-      'The subject the workload’s token must carry; * stands for any run of characters',
+      'The subject the workload’s token must carry; * matches any run of characters',
   })
   readonly subject: string;
 

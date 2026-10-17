@@ -6,7 +6,7 @@ import type {
   JudgeShareResponseDto,
   SetupOutcomeResponseDto,
   SizeBoundResponseDto,
-  StationStandingResponseDto,
+  StationJudgeCalibrationResponseDto,
 } from '@/lib/api';
 import {
   changeDelta,
@@ -21,7 +21,7 @@ export type InsightsChanges = InsightsChangesResponseDto;
 export type ChangeMarker = ChangeMarkerResponseDto;
 export type InsightsSetups = InsightsSetupsResponseDto;
 export type SetupOutcome = SetupOutcomeResponseDto;
-export type StationStanding = StationStandingResponseDto;
+export type StationJudgeCalibration = StationJudgeCalibrationResponseDto;
 export type SizeBound = SizeBoundResponseDto;
 type JudgeShare = JudgeShareResponseDto;
 export type RunSize = SizeBound['size'];

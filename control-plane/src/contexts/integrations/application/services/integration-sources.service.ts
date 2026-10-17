@@ -35,7 +35,7 @@ export class IntegrationSources {
   async compiled(input: {
     definition: unknown;
     teamId: TeamId;
-    standing: SourceReading | null;
+    current: SourceReading | null;
     rereading?: boolean;
   }): Promise<SourcedIntegration> {
     const first = this.compiler.compile(input.definition);
@@ -50,8 +50,8 @@ export class IntegrationSources {
       source: first.source,
     };
     const sourced = input.rereading
-      ? await this.read({ ...located, standing: input.standing })
-      : await this.forDefinition({ ...located, standing: input.standing });
+      ? await this.read({ ...located, current: input.current })
+      : await this.forDefinition({ ...located, current: input.current });
     const compiled = this.compiler.compile(input.definition, sourced.described);
 
     return {
@@ -69,13 +69,13 @@ export class IntegrationSources {
     teamId: TeamId;
     integration: Integration;
     source: DescribedSource;
-    standing: SourceReading | null;
+    current: SourceReading | null;
   }): Promise<SourceForDefinition> {
-    const kept = await this.keptFor(input.standing, input.source);
+    const kept = await this.keptFor(input.current, input.source);
 
-    if (input.standing && kept && !input.standing.problem) {
+    if (input.current && kept && !input.current.problem) {
       return {
-        reading: input.standing.passingOver(kept.passedOver),
+        reading: input.current.passingOver(kept.passedOver),
         described: { hash: kept.hash, operations: kept.operations },
       };
     }
@@ -84,11 +84,11 @@ export class IntegrationSources {
   }
 
   private async keptFor(
-    standing: SourceReading | null,
+    current: SourceReading | null,
     source: DescribedSource,
   ): Promise<DescribedDocument | null> {
-    return standing?.isOf(source) && standing.hash
-      ? this.documents.withHash(standing.hash)
+    return current?.isOf(source) && current.hash
+      ? this.documents.withHash(current.hash)
       : null;
   }
 
@@ -96,7 +96,7 @@ export class IntegrationSources {
     teamId: TeamId;
     integration: Integration;
     source: DescribedSource;
-    standing: SourceReading | null;
+    current: SourceReading | null;
   }): Promise<SourceForDefinition> {
     const read = await this.reader.read(
       input.source,
@@ -105,11 +105,11 @@ export class IntegrationSources {
     const readAt = this.clock.now();
 
     if (read.kind === 'unread') {
-      const kept = await this.keptFor(input.standing, input.source);
+      const kept = await this.keptFor(input.current, input.source);
 
-      return input.standing && kept
+      return input.current && kept
         ? {
-            reading: input.standing
+            reading: input.current
               .stillAfter(read.problem)
               .passingOver(kept.passedOver),
             described: { hash: kept.hash, operations: kept.operations },

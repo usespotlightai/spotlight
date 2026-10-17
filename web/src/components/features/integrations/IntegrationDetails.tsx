@@ -43,11 +43,11 @@ export function IntegrationDetails({
           <dd className={FACT_VALUE}>
             <IntegrationAccount
               handle={integration.handle}
-              connected={integration.standing === 'linked'}
+              connected={integration.connectionStatus === 'linked'}
               purpose={teamAccountPurpose(integration)}
               action={
                 admin &&
-                (integration.standing === 'linked' ? (
+                (integration.connectionStatus === 'linked' ? (
                   <TeamAccountActions
                     integration={integration}
                     teamId={teamId}

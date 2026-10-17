@@ -150,7 +150,7 @@ export class Team extends EventRecorder {
     definition: { key: TeamKey; name: TeamName },
     by: Attribution,
   ): Team {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
       throw new TeamKeyFixedError(
@@ -174,7 +174,7 @@ export class Team extends EventRecorder {
   }
 
   disband(dependents: Dependents, by: Attribution): Team {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (!dependents.isEmpty) {
       throw new TeamInUseError(this.key.value, dependents);
@@ -206,7 +206,7 @@ export class Team extends EventRecorder {
     return this.id.equals(other.id);
   }
 
-  private guardStanding(): void {
+  private assertNotDeleted(): void {
     if (this.isDisbanded) {
       throw new InconsistentStateError(
         'team',

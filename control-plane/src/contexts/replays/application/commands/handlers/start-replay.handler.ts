@@ -13,8 +13,8 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import {
+  currentBaselineFor,
   needsBaseline,
-  standingBaselineFor,
 } from '@replays/domain/services/baseline';
 import { baselineTermsOf } from '@replays/domain/services/baseline-terms';
 import { checksSet } from '@replays/domain/services/set-health';
@@ -144,7 +144,7 @@ export class StartReplayHandler
               pairsWith: asBaseline
                 ? null
                 : (wanting?.id ??
-                  standingBaselineFor(
+                  currentBaselineFor(
                     set,
                     setReplays,
                     liveScoring,

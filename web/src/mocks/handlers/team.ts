@@ -79,7 +79,7 @@ const sinceOf = (memory: MemoryRecord): number =>
   Date.parse(memory.retirement?.at ?? memory.approvedAt);
 
 const listed = (memories: readonly MemoryRecord[], query: URLSearchParams) => {
-  const standing = query.get('standing') || 'stands';
+  const status = query.get('status') || 'active';
   const kind = query.get('kind');
   const lineId = query.get('lineId');
   const stationId = query.get('stationId');
@@ -89,7 +89,7 @@ const listed = (memories: readonly MemoryRecord[], query: URLSearchParams) => {
   return memories
     .filter(
       (memory) =>
-        memory.standing === standing &&
+        memory.status === status &&
         (!kind || memory.kind === kind) &&
         (!lineId || memory.lineId === lineId) &&
         (!stationId || memory.stationId === stationId) &&
@@ -159,7 +159,7 @@ const writtenBySam = (placed: Placed): MemoryRecord => ({
   id: mint('memory'),
   handle: nextHandle(),
   source: 'person',
-  standing: 'stands',
+  status: 'active',
   approvedBy: SAM,
   approvedAt: now(),
   supersedes: null,
@@ -180,13 +180,13 @@ const memoryHandlers = [
     }
 
     const query = new URL(request.url).searchParams;
-    const standing = query.get('standing');
+    const status = query.get('status');
     const kind = query.get('kind');
     if (
-      (standing && standing !== 'stands' && standing !== 'retired') ||
+      (status && status !== 'active' && status !== 'retired') ||
       (kind && !isKind(kind))
     ) {
-      return problem(422, 'Sorry, no memory has that standing or kind.');
+      return problem(422, 'Sorry, no memory has that status or kind.');
     }
 
     return json(listed(memories, query));
@@ -249,7 +249,7 @@ const memoryHandlers = [
         steps: old.steps,
         notes: old.notes,
       };
-      old.standing = 'retired';
+      old.status = 'retired';
       old.retirement = {
         at: successor.approvedAt,
         by: null,
@@ -283,7 +283,7 @@ const memoryHandlers = [
         );
       }
 
-      memory.standing = 'retired';
+      memory.status = 'retired';
       memory.retirement = {
         at: now(),
         by: SAM,

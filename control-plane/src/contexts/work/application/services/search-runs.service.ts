@@ -6,7 +6,7 @@ import type {
 } from '@work/application/ports/search-run-facts.port';
 import type {
   LeasedSearchRun,
-  SearchRunStanding,
+  SearchRunStatus,
   SearchRunsPort,
 } from '@work/application/ports/search-runs.port';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -19,7 +19,7 @@ const isRunning = (state: RunState): boolean =>
   (LEASED_RUN_STATES as readonly RunState[]).includes(state) ||
   state === 'parked';
 
-const standingOf = (fact: SearchRunFact): SearchRunStanding => ({
+const statusOf = (fact: SearchRunFact): SearchRunStatus => ({
   runId: fact.runId,
   phase:
     fact.state === 'queued'
@@ -39,10 +39,10 @@ export class SearchRuns implements SearchRunsPort {
     private readonly facts: SearchRunFactsPort,
   ) {}
 
-  async standing(
+  async statuses(
     runIds: readonly string[],
-  ): Promise<readonly SearchRunStanding[]> {
-    return (await this.facts.of(runIds)).map(standingOf);
+  ): Promise<readonly SearchRunStatus[]> {
+    return (await this.facts.of(runIds)).map(statusOf);
   }
 
   async leasedSearchRun(

@@ -122,7 +122,7 @@ export class ConfigPullRequestResponseDto extends CandidatePullRequestResponseDt
     type: String,
     example: 'acme/platform',
     description:
-      'The repository the line’s source names, as it stood when it was picked; null when the line named none',
+      'The repository that the line’s source named when it was picked; null when the line named none',
   })
   readonly repository: string | null;
 

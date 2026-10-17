@@ -126,9 +126,9 @@ export class NetworkCalls implements NetworkCallsPort {
       };
     }
 
-    const standing = call.stateAt(now);
+    const state = call.stateAt(now);
 
-    return standing === 'waiting' || standing === 'claimed'
+    return state === 'waiting' || state === 'claimed'
       ? { kind: 'waiting' }
       : { kind: 'lapsed' };
   }

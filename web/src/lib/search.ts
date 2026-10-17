@@ -361,12 +361,12 @@ export const reflectionsOf = (detail: SearchDetail): SearchIteration[] =>
 export const reflecting = (iteration: SearchIteration): boolean =>
   !iteration.reflection?.outcome;
 
-export const standingOf = (
+export const incumbentOf = (
   detail: SearchDetail,
   iteration: SearchIteration,
 ): SearchCandidate | null =>
   candidatesOf(detail).find(
-    (each) => each.candidateId === iteration.reflection?.standing,
+    (each) => each.candidateId === iteration.reflection?.incumbent,
   ) ?? null;
 
 export type CauseGroup = {

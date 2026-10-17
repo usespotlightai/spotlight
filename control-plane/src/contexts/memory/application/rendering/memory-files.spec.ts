@@ -30,7 +30,7 @@ const old = Memory.write({
   by: MemoryDecision.of({ by: ADA, at: AT }),
 });
 
-const replacing = Memory.stood({
+const replacing = Memory.create({
   id: MemoryId.of('memory_new'),
   handle: MemoryHandle.of(18),
   workspaceId: WorkspaceId.of('ws_1'),

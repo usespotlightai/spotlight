@@ -201,12 +201,12 @@ export class RunnerPool extends EventRecorder {
     return this.maxRuns ? this.maxRuns.roomAfter(running) : null;
   }
 
-  startVerdict(mode: PoolMode, standing: number): StartVerdict {
+  startVerdict(mode: PoolMode, running: number): StartVerdict {
     if (this.isRetired || mode !== this.mode) {
       return 'gone';
     }
 
-    return this.hasRoomFor(standing) ? 'open' : 'full';
+    return this.hasRoomFor(running) ? 'open' : 'full';
   }
 
   assertVersion(version: number): void {
@@ -220,7 +220,7 @@ export class RunnerPool extends EventRecorder {
     given: GivenAccess,
     by: Attribution,
   ): RunnerPool {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
       throw new RunnerPoolFixedError(
@@ -272,7 +272,7 @@ export class RunnerPool extends EventRecorder {
   }
 
   retire(by: Attribution): RunnerPool {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     const retired = this.with({ retired: true });
 
@@ -334,7 +334,7 @@ export class RunnerPool extends EventRecorder {
     };
   }
 
-  private guardStanding(): void {
+  private assertNotDeleted(): void {
     if (this.isRetired) {
       throw new InconsistentStateError(
         'runner pool',

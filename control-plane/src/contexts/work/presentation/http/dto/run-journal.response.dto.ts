@@ -18,7 +18,7 @@ export class StepChangeResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly path: string | null;
 
-  @ApiProperty({ description: 'The file as it stood' })
+  @ApiProperty({ description: 'The file before the agent changed it' })
   readonly before: string;
 
   @ApiProperty({ description: 'The file as the agent left it' })

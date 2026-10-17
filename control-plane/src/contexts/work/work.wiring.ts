@@ -207,8 +207,8 @@ import { NotifyOutsideTools } from '@work/application/events/handlers/notify-out
 import { ProvisionTeam } from '@work/application/events/handlers/provision-team.handler';
 import { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
-import type { ArchiveStandingsPort } from '@work/application/ports/archive-standings.port';
-import { ARCHIVE_STANDINGS } from '@work/application/ports/archive-standings.port';
+import type { ArchiveReferencesPort } from '@work/application/ports/archive-references.port';
+import { ARCHIVE_REFERENCES } from '@work/application/ports/archive-references.port';
 import { ATTACHMENT_READER } from '@work/application/ports/attachment-reader.port';
 import {
   ATTACHMENT_STORE,
@@ -550,7 +550,7 @@ import { RunnerLeases } from '@work/application/services/runner-leases.service';
 import { SearchRuns } from '@work/application/services/search-runs.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
 import { SetupPullRequestToolUse } from '@work/application/services/setup-pull-request.tool-use';
-import { SetupStanding } from '@work/application/services/setup-standing.service';
+import { SetupStatus } from '@work/application/services/setup-status.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import { StationRuns } from '@work/application/services/station-runs.service';
@@ -585,7 +585,7 @@ import { DrizzleReplayRunClaims } from '@work/infrastructure/persistence/drizzle
 import { DrizzleRunConnections } from '@work/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
-import { DrizzleArchiveStandings } from '@work/infrastructure/persistence/drizzle/readers/archive-standings.reader';
+import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleBriefedTasks } from '@work/infrastructure/persistence/drizzle/readers/briefed-tasks.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
@@ -933,7 +933,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ) => new ClaimsTaken(runs, checks, runners, clock, logger),
   },
 
-  { provide: ARCHIVE_STANDINGS, useClass: DrizzleArchiveStandings },
+  { provide: ARCHIVE_REFERENCES, useClass: DrizzleArchiveReferences },
   { provide: TEAM_PROVISIONING, useClass: OutboxTeamProvisioning },
   { provide: BRIEFED_TASKS, useClass: DrizzleBriefedTasks },
 
@@ -1031,13 +1031,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: LINE_COMPILER, useClass: LineCompiler },
 
   {
-    provide: SetupStanding,
+    provide: SetupStatus,
     inject: [WORKSPACE_CONNECTIONS, RUNNER_READER, CHAT_READER],
     useFactory: (
       connections: WorkspaceConnectionsPort,
       runners: RunnerReaderPort,
       chats: ChatReaderPort,
-    ) => new SetupStanding(connections, runners, chats),
+    ) => new SetupStatus(connections, runners, chats),
   },
 
   {
@@ -1146,14 +1146,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     inject: [
       DrizzleTaskRepository,
       DrizzleLineRepository,
-      SetupStanding,
+      SetupStatus,
       CLOCK,
       LOGGER,
     ],
     useFactory: (
       tasks: DrizzleTaskRepository,
       lines: LineRepository,
-      setup: SetupStanding,
+      setup: SetupStatus,
       clock: ClockPort,
       logger: LoggerPort,
     ) => new SettleSetup(tasks, lines, setup, clock, logger),
@@ -1823,19 +1823,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   {
     provide: RemoveReleasedArchives,
     inject: [
-      ARCHIVE_STANDINGS,
+      ARCHIVE_REFERENCES,
       DrizzleWorkspaceArchiveRepository,
       WORKSPACE_ARCHIVE_STORE,
       CLOCK,
       LOGGER,
     ],
     useFactory: (
-      standings: ArchiveStandingsPort,
+      references: ArchiveReferencesPort,
       archives: DrizzleWorkspaceArchiveRepository,
       store: WorkspaceArchiveStorePort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new RemoveReleasedArchives(standings, archives, store, clock, logger),
+    ) => new RemoveReleasedArchives(references, archives, store, clock, logger),
   },
 
   {
@@ -2066,7 +2066,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
     WORKSPACE_READER,
-    SetupStanding,
+    SetupStatus,
     TEAM_PROVISIONING,
   ]),
 

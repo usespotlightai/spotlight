@@ -6,7 +6,7 @@ import {
 import { FAILURE_BLAME } from '@replays/domain/services/failure-blame';
 import {
   ChangeChecks,
-  type StackStanding,
+  type StackStatus,
 } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
@@ -15,9 +15,9 @@ import { RUN_FAILURE_CODES } from '@shared-kernel/domain/value-objects/run-failu
 import { describe, expect, it } from 'vitest';
 
 const stack = (
-  state: StackStanding['state'],
-  more: Partial<StackStanding> = {},
-): StackStanding => ({
+  state: StackStatus['state'],
+  more: Partial<StackStatus> = {},
+): StackStatus => ({
   repository: 'api',
   state,
   skip: null,

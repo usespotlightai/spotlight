@@ -32,15 +32,15 @@ export class UpdateRunnerTrustHandler
     const id = RunnerTrustId.of(command.trustId);
 
     try {
-      const standing = await this.trusts.find(id);
-      const permissions = standing
+      const existing = await this.trusts.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -48,7 +48,7 @@ export class UpdateRunnerTrustHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.trust(command.definition);
 
@@ -58,7 +58,7 @@ export class UpdateRunnerTrustHandler
 
       await this.transaction.inTransaction(() =>
         this.trusts.save(
-          standing.redefinedAs(
+          existing.redefinedAs(
             compiled,
             Attribution.of(command.actor, permissions.workspaceId),
           ),

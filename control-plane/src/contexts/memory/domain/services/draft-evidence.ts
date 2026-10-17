@@ -23,7 +23,7 @@ const MAX_STEPS_TOLD = 100_000;
 
 const MAX_NOTES_TOLD = 20_000;
 
-const MAX_STANDING_TOLD = 50;
+const MAX_ACTIVE_TOLD = 50;
 
 export type NoteSpeaker = 'person' | 'world';
 
@@ -94,7 +94,7 @@ export class DraftEvidence {
     readonly notes: readonly EvidenceNote[],
     readonly changed: readonly ChangedPath[],
     private readonly changedKeys: ReadonlySet<string>,
-    readonly standing: readonly Memory[],
+    readonly active: readonly Memory[],
     private readonly fromOutside: boolean,
   ) {}
 
@@ -133,12 +133,12 @@ export class DraftEvidence {
         : [];
     });
 
-    const standing = input.known
+    const active = input.known
       .filter((each) => each.appliesAt(input.site))
       .sort(
         (one, other) => other.approval.at.getTime() - one.approval.at.getTime(),
       )
-      .slice(0, MAX_STANDING_TOLD);
+      .slice(0, MAX_ACTIVE_TOLD);
 
     return new DraftEvidence(
       input.taskId,
@@ -149,7 +149,7 @@ export class DraftEvidence {
       [...revisited, ...unread],
       changed.map(({ each }) => each),
       new Set(changed.map(({ key }) => key)),
-      standing,
+      active,
       input.fromOutside,
     );
   }
@@ -198,13 +198,8 @@ export class DraftEvidence {
       ? MemoryId.of(proposed.supersedes.trim())
       : null;
 
-    if (
-      supersedes &&
-      !this.standing.some((each) => each.id.equals(supersedes))
-    ) {
-      throw new InvalidMemoryError(
-        'supersedes only a memory standing in scope',
-      );
+    if (supersedes && !this.active.some((each) => each.id.equals(supersedes))) {
+      throw new InvalidMemoryError('supersedes only an active memory in scope');
     }
 
     return MemoryProposal.of({

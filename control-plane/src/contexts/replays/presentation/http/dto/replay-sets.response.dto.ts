@@ -36,7 +36,8 @@ export class ReplaySetEntryResponseDto {
     nullable: true,
     type: String,
     example: 'completed',
-    description: 'How the run stands now; null where there is no such run',
+    description:
+      'The current state of the run; null where there is no such run',
   })
   readonly state: string | null;
 
@@ -55,8 +56,7 @@ export class ReplaySetEntryResponseDto {
     enum: [...REPLAY_REFUSALS, null],
     nullable: true,
     type: String,
-    description:
-      'Why the run can no longer be replayed, as it stands now; null while it can',
+    description: 'Why the run can no longer be replayed; null while it can',
   })
   readonly refusal: string | null;
 

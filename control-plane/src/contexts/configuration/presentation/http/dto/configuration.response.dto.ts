@@ -1,6 +1,6 @@
 import {
+  CONFIGURED_INTEGRATION_CONNECTION_STATUSES,
   CONFIGURED_INTEGRATION_HOLDER_RULES,
-  CONFIGURED_INTEGRATION_STANDINGS,
   type DescriptionView,
   type IntegrationView,
 } from '@configuration/application/dto/configuration.dto';
@@ -62,10 +62,10 @@ export class IntegrationViewResponseDto {
   @ApiProperty({
     description:
       'Whether the team is linked to the host: it only listens, it links by authorizing and has not, or it has',
-    enum: CONFIGURED_INTEGRATION_STANDINGS,
+    enum: CONFIGURED_INTEGRATION_CONNECTION_STATUSES,
     example: 'linked',
   })
-  readonly standing: IntegrationView['standing'];
+  readonly connectionStatus: IntegrationView['connectionStatus'];
 
   @ApiProperty({
     description:
@@ -95,7 +95,7 @@ export class IntegrationViewResponseDto {
     this.source = integration.source;
     this.name = integration.name;
     this.path = integration.path;
-    this.standing = integration.standing;
+    this.connectionStatus = integration.connectionStatus;
     this.holderRule = integration.holderRule;
     this.handle = integration.handle;
     this.described = integration.described

@@ -165,7 +165,7 @@ describe('SetupSteps', () => {
     expect(screen.getByText('Install the GitHub App')).toBeInTheDocument();
   });
 
-  it('carries the opening rather than leaving it to stand alone', () => {
+  it('shows the opening heading and text itself', () => {
     onboardingState.data = onboarding();
     showing();
 

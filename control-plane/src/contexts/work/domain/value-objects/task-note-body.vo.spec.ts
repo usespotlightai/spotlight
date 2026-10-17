@@ -67,7 +67,7 @@ describe('TaskNoteBody.interrupted', () => {
   });
 });
 
-describe('TaskNoteBody for a task standing on no station of its line', () => {
+describe('TaskNoteBody for a task on no station of its line', () => {
   it('says its station was working or waiting', () => {
     expect(
       TaskNoteBody.interrupted('The pull request was merged.', null).value,

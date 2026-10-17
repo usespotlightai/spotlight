@@ -64,7 +64,7 @@ const conversation = ({
 }: Conversation): InboxItemResponseDto => {
   const task = seededTask(taskId);
   const at = placeOf(askedIn);
-  const standsAt = placeOf(task.stationId);
+  const currentStation = placeOf(task.stationId);
   const numberedNotes = numbered(notesOfTask(taskId));
 
   return {
@@ -80,10 +80,10 @@ const conversation = ({
     stationPosition: at.position,
     stationCount: at.count,
     raisedAt: placeOf(raisedIn),
-    standsAt: {
-      name: standsAt.name,
-      color: standsAt.color,
-      position: standsAt.position,
+    currentStation: {
+      name: currentStation.name,
+      color: currentStation.color,
+      position: currentStation.position,
     },
     createdAt: task.createdAt,
     askedAt: numberedNotes[numberedNotes.length - 1]?.at ?? task.createdAt,
@@ -116,11 +116,11 @@ const asideOf = ({
   ...over
 }: Aside): InboxItemResponseDto => {
   const task = pastTaskOf(taskId) ?? seededTask(taskId);
-  const standsAt = placeOf(task.stationId);
+  const currentStation = placeOf(task.stationId);
   const place = {
-    name: standsAt.name,
-    color: standsAt.color,
-    position: standsAt.position,
+    name: currentStation.name,
+    color: currentStation.color,
+    position: currentStation.position,
   };
 
   return {
@@ -134,9 +134,9 @@ const asideOf = ({
     station: place.name,
     stationColor: place.color,
     stationPosition: place.position,
-    stationCount: standsAt.count,
+    stationCount: currentStation.count,
     raisedAt: place,
-    standsAt: place,
+    currentStation: place,
     createdAt: task.createdAt,
     askedAt,
     resolved: false,
@@ -410,7 +410,7 @@ const setupItem = (
     stationPosition: place.position,
     stationCount: place.count,
     raisedAt: at,
-    standsAt: at,
+    currentStation: at,
     createdAt,
     askedAt: createdAt,
     resolved,

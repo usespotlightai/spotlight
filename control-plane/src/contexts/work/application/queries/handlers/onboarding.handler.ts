@@ -7,7 +7,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { OnboardingDto } from '@work/application/dto/onboarding.dto';
 import type { TeamProvisioningPort } from '@work/application/ports/team-provisioning.port';
 import type { OnboardingQuery } from '@work/application/queries/onboarding.query';
-import type { SetupStanding } from '@work/application/services/setup-standing.service';
+import type { SetupStatus } from '@work/application/services/setup-status.service';
 import { shownFor } from '@work/application/services/setup-steps';
 
 export class OnboardingHandler
@@ -15,7 +15,7 @@ export class OnboardingHandler
 {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
-    private readonly setup: SetupStanding,
+    private readonly setup: SetupStatus,
     private readonly provisioning: TeamProvisioningPort,
   ) {}
 

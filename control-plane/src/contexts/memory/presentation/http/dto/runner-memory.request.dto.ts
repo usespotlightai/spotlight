@@ -31,7 +31,7 @@ export class RememberRequestDto {
     nullable: true,
     type: String,
     example: 'M-7',
-    description: 'The standing memory it corrects, by handle',
+    description: 'The active memory it corrects, by handle',
   })
   readonly supersedes?: string | null;
 }

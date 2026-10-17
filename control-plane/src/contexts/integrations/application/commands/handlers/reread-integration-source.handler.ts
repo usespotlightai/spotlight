@@ -20,30 +20,30 @@ export class RereadIntegrationSourceHandler
 
   async execute(command: RereadIntegrationSourceCommand): Promise<void> {
     const teamId = TeamId.of(command.teamId);
-    const standing = await this.definitions.of(
+    const existing = await this.definitions.of(
       teamId,
       SourceKey.of(command.source),
     );
     const team = await this.teams.find(teamId);
 
-    if (!standing?.reading || !team) {
+    if (!existing?.reading || !team) {
       return;
     }
 
     const { compiled, reading } = await this.sources.compiled({
-      definition: standing.document.fields,
+      definition: existing.document.fields,
       teamId,
-      standing: standing.reading,
+      current: existing.reading,
       rereading: true,
     });
 
-    if (!compiled.ok || !reading || !standing.rereads(reading)) {
+    if (!compiled.ok || !reading || !existing.rereads(reading)) {
       return;
     }
 
     await this.transaction.inTransaction(() =>
       this.definitions.save(
-        standing.reread(
+        existing.reread(
           compiled,
           reading,
           Attribution.spotlight(team.workspaceId),

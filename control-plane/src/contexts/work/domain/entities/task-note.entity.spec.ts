@@ -20,7 +20,7 @@ const said = (over: Record<string, unknown> = {}) =>
   });
 
 describe('TaskNote', () => {
-  it('is the same note wherever it stands in the trail, however it has changed', () => {
+  it('is the same note wherever it is in the trail, however it has changed', () => {
     const note = said({ kind: 'asked' });
 
     expect(note.read(NOW).equals(note)).toBe(true);

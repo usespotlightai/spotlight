@@ -6,7 +6,7 @@ import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
-import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
+import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { sql } from 'drizzle-orm';
@@ -52,7 +52,7 @@ export interface ApprovalRow {
   readonly subject: ApprovalSubjectRow;
   readonly stationId: string;
   readonly because: string;
-  readonly standing: ApprovalStanding;
+  readonly status: ApprovalStatus;
   readonly decidedBy: string | null;
   readonly decidedAt: string | null;
   readonly reason: string | null;

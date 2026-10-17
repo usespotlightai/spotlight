@@ -56,7 +56,7 @@ export function JudgeAgreement({
     );
   }
 
-  const { standing, versions, coverage, judge } = query.data;
+  const { calibration, versions, coverage, judge } = query.data;
   const shown =
     versions.find((version) => version.rubricVersion === picked) ??
     versions.find((version) => version.current) ??
@@ -80,7 +80,7 @@ export function JudgeAgreement({
   return (
     <div data-slot="judge-agreement" className="flex flex-col gap-3">
       <InsightsTiles label="How far to trust the judge">
-        {judgeTiles(standing, coverage).map((tile) => (
+        {judgeTiles(calibration, coverage).map((tile) => (
           <InsightsTile
             key={tile.id}
             label={tile.label}
@@ -114,7 +114,7 @@ export function JudgeAgreement({
         key={shown.rubricVersion}
         version={shown}
         claims={shown.current && judge ? judge.claims : []}
-        trust={standing.trust}
+        trust={calibration.trust}
       />
     </div>
   );

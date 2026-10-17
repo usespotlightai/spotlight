@@ -32,15 +32,15 @@ export class UpdateLineHandler
     const id = LineId.of(command.lineId);
 
     try {
-      const standing = await this.lines.find(id);
-      const permissions = standing
+      const existing = await this.lines.find(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -48,7 +48,7 @@ export class UpdateLineHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.compiler.compile(command.definition);
 
@@ -57,7 +57,7 @@ export class UpdateLineHandler
       }
 
       const refused = await this.catalog.refusedIn(
-        standing.workspaceId,
+        existing.workspaceId,
         compiled.line,
       );
 
@@ -68,13 +68,13 @@ export class UpdateLineHandler
       try {
         await this.transaction.inTransaction(() =>
           this.applying.reconcile(
-            standing,
+            existing,
             compiled.line,
-            Attribution.of(command.actor, standing.workspaceId),
+            Attribution.of(command.actor, existing.workspaceId),
           ),
         );
       } catch (error) {
-        const refused = lineRefusal(standing.key.value, error);
+        const refused = lineRefusal(existing.key.value, error);
 
         if (refused) {
           return refused;

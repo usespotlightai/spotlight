@@ -4,7 +4,7 @@ import { RemarkHandle } from '@work/domain/value-objects/remark-handle.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('RemarkHandle', () => {
-  it('names a remark by where its note stands', () => {
+  it('names a remark by where its note is', () => {
     expect(RemarkHandle.for(NotePosition.of(3))).toBe('c3');
     expect(RemarkHandle.of('c3')).toEqual(NotePosition.of(3));
   });

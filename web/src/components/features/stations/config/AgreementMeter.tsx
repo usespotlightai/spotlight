@@ -2,42 +2,46 @@ import { ShieldCheck, ShieldQuestion } from 'lucide-react';
 import { MeterLabel } from '@/components/features/stations/config/MeterLabel';
 import { MeterBar } from '@/components/features/stations/MeterBar';
 import {
+  formatCalibration,
   formatMeasure,
-  formatStanding,
   formatStat,
-  type JudgeStanding,
+  type JudgeCalibration,
 } from '@/lib/judge';
 
-export function AgreementMeter({ standing }: { standing: JudgeStanding }) {
-  const Icon = standing.trusted ? ShieldCheck : ShieldQuestion;
-  const measured = standing.agreement !== null && standing.trust !== null;
+export function AgreementMeter({
+  calibration,
+}: {
+  calibration: JudgeCalibration;
+}) {
+  const Icon = calibration.trusted ? ShieldCheck : ShieldQuestion;
+  const measured = calibration.agreement !== null && calibration.trust !== null;
 
   return (
     <div
-      data-slot="judge-standing"
-      data-trusted={standing.trusted}
+      data-slot="judge-calibration"
+      data-trusted={calibration.trusted}
       className="flex flex-col gap-1.5"
     >
       {measured && (
         <>
           <MeterLabel
-            label={formatMeasure(standing.measure)}
-            value={formatStat(standing.agreement)}
+            label={formatMeasure(calibration.measure)}
+            value={formatStat(calibration.agreement)}
           />
           <MeterBar
-            share={standing.agreement ?? 0}
-            label={`${formatMeasure(standing.measure)} ${formatStat(standing.agreement)}. Minimum required: ${formatStat(standing.trust)}`}
-            mark={standing.trust ?? 0}
-            markTitle={`Minimum required: ${formatStat(standing.trust)}`}
+            share={calibration.agreement ?? 0}
+            label={`${formatMeasure(calibration.measure)} ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.trust)}`}
+            mark={calibration.trust ?? 0}
+            markTitle={`Minimum required: ${formatStat(calibration.trust)}`}
           />
         </>
       )}
 
       <p className="flex items-start gap-1.5 text-[0.7rem] text-muted-foreground leading-4">
         <Icon aria-hidden className="mt-px size-3 shrink-0" />
-        {standing.trusted && measured
-          ? `Trusted above ${formatStat(standing.trust)} over ${standing.pairs} runs`
-          : formatStanding(standing)}
+        {calibration.trusted && measured
+          ? `Trusted above ${formatStat(calibration.trust)} over ${calibration.pairs} runs`
+          : formatCalibration(calibration)}
       </p>
     </div>
   );

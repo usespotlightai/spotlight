@@ -15,7 +15,7 @@ import { profileOf } from '@/mocks/world/insights-profiles';
 import { runsIn, tallyOf, verdictsOf } from '@/mocks/world/insights-tally';
 import { type MemoryRecord, teamMemories } from '@/mocks/world/team-memories';
 
-const standingAt = (memory: MemoryRecord, at: number): boolean =>
+const activeAt = (memory: MemoryRecord, at: number): boolean =>
   Date.parse(memory.approvedAt) <= at &&
   (memory.retirement === null || at < Date.parse(memory.retirement.at));
 
@@ -33,9 +33,7 @@ const briefedWith = (
   memories: readonly MemoryRecord[],
   run: HistoryRun,
 ): MemoryRecord[] =>
-  memories.filter(
-    (memory) => standingAt(memory, run.at) && reaches(memory, run),
-  );
+  memories.filter((memory) => activeAt(memory, run.at) && reaches(memory, run));
 
 const recalled = (run: HistoryRun): boolean =>
   [...run.runId].reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % 9 < 2;
@@ -99,7 +97,7 @@ export const memoryOf = (
 
   return {
     period: span.period,
-    standing: memories.filter((memory) => memory.standing === 'stands').length,
+    activeCount: memories.filter((memory) => memory.status === 'active').length,
     memoriesBriefed: briefedIds.size,
     memoriesRecalled: recalledIds.size,
     runsBriefed: withMemories.length,

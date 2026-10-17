@@ -24,7 +24,7 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
+const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
@@ -33,7 +33,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     name: LineName.of('Delivery'),
     stations: [
       Station.of({
-        id: StationId.of(standsAt),
+        id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
@@ -51,7 +51,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     ],
   });
 
-const standing = () =>
+const existing = () =>
   Task.add({
     line: delivery(),
     at: StationId.of('station_1'),
@@ -62,13 +62,13 @@ const standing = () =>
     newId: () => 'task_1',
   });
 
-const tasks = (found: Task | null = standing()) =>
+const tasks = (found: Task | null = existing()) =>
   ({
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
     findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),

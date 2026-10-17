@@ -323,7 +323,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }
   });
 
-  it('checks the active runs of standing runners, and records their connections for the trace', async () => {
+  it('checks the active runs of live runners, and records their connections for the trace', async () => {
     const runId = await queue(['LINEAR_API_KEY']);
     const runner = await provisioned(runId);
     const credential = runner.egress?.credential ?? '';

@@ -97,7 +97,7 @@ func TestRefusesAWordThatIsNotOnOffer(t *testing.T) {
 	}
 }
 
-func TestLastWordStands(t *testing.T) {
+func TestLastWordWins(t *testing.T) {
 	server := serve(t)
 
 	post(t, server, server.Token(), `{"next":"spec","note":"first"}`)

@@ -158,7 +158,7 @@ describe('the mock members', () => {
       workspaceName: 'Acme',
       role: 'member',
       teamNames: ['Platform'],
-      standing: 'open',
+      status: 'open',
     });
     expect(joined).toEqual({ workspaceSlug: SLUG });
     expect(again.response?.status).toBe(409);

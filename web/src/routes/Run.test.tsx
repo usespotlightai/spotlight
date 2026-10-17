@@ -116,10 +116,10 @@ vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   useRunChangeStacks: () => ({ data: undefined }),
 }));
 
-const standing = vi.fn((): Record<string, unknown> => ({}));
+const taskStation = vi.fn((): Record<string, unknown> => ({}));
 
 vi.mock('@/hooks/api/useTaskStation', () => ({
-  useTaskStation: () => standing(),
+  useTaskStation: () => taskStation(),
 }));
 
 vi.mock('@/hooks/api/useSayToRun', () => ({
@@ -224,7 +224,7 @@ const renderRun = (client = new QueryClient()) =>
 
 describe('Run', () => {
   beforeEach(() => {
-    standing.mockReturnValue({});
+    taskStation.mockReturnValue({});
     runs.mockReturnValue([run()]);
     runsFailing.mockReturnValue(false);
     refetchRuns.mockReset();
@@ -535,14 +535,14 @@ describe('Run', () => {
     });
   });
 
-  describe('once the task stands idle at the station', () => {
+  describe('once the task is idle at the station', () => {
     const idle = {
       station: { id: 'station_3', harness: 'claude-code', kind: 'work' },
       task: { id: 'task_1', running: false, awaitingReview: null },
     };
 
     it('offers to send the work back to the station, which starts it again', () => {
-      standing.mockReturnValue(idle);
+      taskStation.mockReturnValue(idle);
 
       renderRun();
 
@@ -557,7 +557,7 @@ describe('Run', () => {
     });
 
     it('does not offer to send work back from a run at a station the task has left', () => {
-      standing.mockReturnValue({
+      taskStation.mockReturnValue({
         ...idle,
         station: { ...idle.station, id: 'station_4' },
       });
@@ -572,7 +572,7 @@ describe('Run', () => {
     });
 
     it('only says something to the station while a run still works the task', () => {
-      standing.mockReturnValue({
+      taskStation.mockReturnValue({
         ...idle,
         task: { ...idle.task, running: true },
       });
@@ -639,7 +639,7 @@ describe('Run', () => {
           name: 'linear.comment',
           because: 'It posts publicly, under the team’s name.',
           inputs: [{ name: 'body', value: 'Fixed.' }],
-          standing: 'asked' as const,
+          status: 'asked' as const,
           edited: null,
           intent: null,
         },

@@ -264,7 +264,7 @@ const teamHandlers = [
           },
         ];
       } else {
-        integration.standing = 'linked';
+        integration.connectionStatus = 'linked';
         integration.handle = 'Acme';
       }
 

@@ -233,7 +233,7 @@ describe('DraftEvidence', () => {
   });
 
   describe('superseding', () => {
-    it('supersedes a memory standing in scope', () => {
+    it('supersedes an active memory in scope', () => {
       expect(
         proposalOf(remembered({ supersedes: 'memory_old' })).supersedes?.value,
       ).toBe('memory_old');
@@ -245,7 +245,7 @@ describe('DraftEvidence', () => {
       ).toThrow(InvalidMemoryError);
     });
 
-    it('refuses to supersede a memory that does not apply where the run worked, or no longer stands', () => {
+    it('refuses to supersede a memory that does not apply where the run worked, or is no longer active', () => {
       for (const supersedes of ['memory_other_station', 'memory_retired']) {
         expect(() => proposalOf(remembered({ supersedes }))).toThrow(
           InvalidMemoryError,
@@ -253,7 +253,7 @@ describe('DraftEvidence', () => {
       }
     });
 
-    it('shows the drafter only what stands where the run worked, newest first', () => {
+    it('shows the drafter only what is active where the run worked, newest first', () => {
       const newer = kept(
         'memory_newer',
         MemoryScope.of({ teamId: TEAM }),
@@ -274,7 +274,7 @@ describe('DraftEvidence', () => {
         changed: [],
         known: [...KNOWN, newer],
         fromOutside: false,
-      }).standing.map((each) => each.id.value);
+      }).active.map((each) => each.id.value);
 
       expect(shown).toEqual(['memory_newer', 'memory_old']);
     });
