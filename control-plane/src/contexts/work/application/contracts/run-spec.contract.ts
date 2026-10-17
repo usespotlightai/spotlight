@@ -320,8 +320,10 @@ const read = (raw: unknown): RunSpec => {
     attachmentOf,
   );
 
-  const wears = optionalListAt(given.wears, 'the secrets it wears', (each) =>
-    stringAt(each, 'the secrets it wears'),
+  const injectedSecrets = optionalListAt(
+    given.injectedSecrets,
+    'the secrets that egress injects for it',
+    (each) => stringAt(each, 'the secrets that egress injects for it'),
   );
 
   const settingFiles = optionalListAt(
@@ -373,7 +375,7 @@ const read = (raw: unknown): RunSpec => {
         }),
     ...(harnessSetup ? { harnessSetup } : {}),
     ...(settingFiles ? { settingFiles } : {}),
-    ...(wears ? { wears } : {}),
+    ...(injectedSecrets ? { injectedSecrets } : {}),
     ...(spotlightApi ? { spotlightApi } : {}),
     ...(replay ? { replay } : {}),
     ...(search ? { search } : {}),

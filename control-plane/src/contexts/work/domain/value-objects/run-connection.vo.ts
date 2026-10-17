@@ -1,8 +1,8 @@
 import { InvalidRunConnectionError } from '@work/domain/exceptions/invalid-run-connection.error';
 
 export const CONNECTION_OUTCOMES = [
-  'tunnelled',
-  'forwarded',
+  'passthrough',
+  'injected',
   'blocked',
   'failed',
 ] as const;
@@ -23,21 +23,21 @@ export type ConnectionReason = (typeof CONNECTION_REASONS)[number];
 
 export const STOPPED_OUTCOMES = ['blocked', 'failed'] as const;
 
-export const REFUSED_STATUSES = [401, 403] as const;
+export const AUTH_FAILED_STATUSES = [401, 403] as const;
 
 export const SERVER_ERROR = 500;
 
-export const CONNECTION_TROUBLES = [
+export const CONNECTION_ERRORS = [
   ...STOPPED_OUTCOMES,
-  'refused',
+  'auth-failed',
   'server-error',
 ] as const;
 
-export type ConnectionTrouble = (typeof CONNECTION_TROUBLES)[number];
+export type ConnectionError = (typeof CONNECTION_ERRORS)[number];
 
 const REASONS_OF: Record<ConnectionOutcome, readonly ConnectionReason[]> = {
-  tunnelled: [],
-  forwarded: [],
+  passthrough: [],
+  injected: [],
   blocked: ['not-allowed', 'address-refused', 'not-bound'],
   failed: ['no-such-host', 'timed-out', 'tls-failed', 'unreachable'],
 };
@@ -91,7 +91,7 @@ export class RunConnection {
     readonly at: Date,
   ) {}
 
-  get trouble(): ConnectionTrouble | null {
+  get error(): ConnectionError | null {
     if (isStopped(this.outcome)) {
       return this.outcome;
     }
@@ -100,15 +100,15 @@ export class RunConnection {
       return null;
     }
 
-    if ((REFUSED_STATUSES as readonly number[]).includes(this.status)) {
-      return 'refused';
+    if ((AUTH_FAILED_STATUSES as readonly number[]).includes(this.status)) {
+      return 'auth-failed';
     }
 
     return this.status >= SERVER_ERROR ? 'server-error' : null;
   }
 
-  get wentWrong(): boolean {
-    return this.trouble !== null;
+  get isError(): boolean {
+    return this.error !== null;
   }
 
   static record(parts: Parts, now: Date): RunConnection {
@@ -156,10 +156,10 @@ export class RunConnection {
 
     const outcome = parts.outcome as ConnectionOutcome;
 
-    if (parts.status !== null && outcome !== 'forwarded') {
+    if (parts.status !== null && outcome !== 'injected') {
       throw new InvalidRunConnectionError(
         'status',
-        'can be given only for a forwarded request',
+        'can be given only for an injected request',
       );
     }
 

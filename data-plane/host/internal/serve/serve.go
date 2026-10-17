@@ -31,10 +31,10 @@ const (
 	HandedPath = "/run/spotlight/handed.json"
 	MirrorRoot = "/spotlight/mirrors"
 
-	AuthorityPath = protocol.SandboxAuthority
-	BundlePath    = protocol.SandboxBundle
-	EgressTrusts  = "/etc/spotlight/trust"
-	EgressAlias   = "egress"
+	AuthorityPath     = protocol.SandboxAuthority
+	BundlePath        = protocol.SandboxBundle
+	EgressCABundleDir = "/etc/spotlight/trust"
+	EgressAlias       = "egress"
 
 	presenceEvery   = 20 * time.Second
 	refreshEvery    = time.Minute
@@ -96,11 +96,11 @@ type Options struct {
 }
 
 type Egress struct {
-	Image string
-	Allow []string
-	Reads []string
-	Env   []string
-	Trust []byte
+	Image       string
+	Allow       []string
+	SecretAllow []string
+	Env         []string
+	CABundle    []byte
 }
 
 type Host struct {

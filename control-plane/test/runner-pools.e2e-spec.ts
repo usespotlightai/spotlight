@@ -983,7 +983,7 @@ describe('runner pools (e2e)', () => {
       }
     });
 
-    it('provisions nothing for a run wearing secrets, which only a host’s egress can wear', async () => {
+    it('provisions nothing for a run with injected secrets, which only the egress of a host can inject', async () => {
       const endpoint = await listening(() => 202);
 
       try {
@@ -992,9 +992,9 @@ describe('runner pools (e2e)', () => {
           labels: ['sandbox'],
           provision: { url: endpoint.url, secret: SECRET, secretVersion: 1 },
         }).expect(201);
-        const wearing = randomUUID();
+        const withSecrets = randomUUID();
         await db.insert(schema.run).values({
-          id: wearing,
+          id: withSecrets,
           workspaceId,
           harness: 'dev',
           state: 'queued',
@@ -1003,8 +1003,8 @@ describe('runner pools (e2e)', () => {
             command: { executable: 'sh', args: [] },
             briefing: 'do the thing',
             handover: { options: [], noteLimit: 0 },
-            continuity: { key: `task:${wearing}` },
-            wears: ['LINEAR_API_KEY'],
+            continuity: { key: `task:${withSecrets}` },
+            injectedSecrets: ['LINEAR_API_KEY'],
           },
         });
         const plain = await queue([['sandbox']]);
@@ -1017,14 +1017,14 @@ describe('runner pools (e2e)', () => {
 
         expect(
           endpoint.calls.map((call) => JSON.parse(call.body).data.runId),
-        ).not.toContain(wearing);
+        ).not.toContain(withSecrets);
         const [waiting] = await db
           .select({
             state: schema.run.state,
             reservedFor: schema.run.reservedFor,
           })
           .from(schema.run)
-          .where(eq(schema.run.id, wearing));
+          .where(eq(schema.run.id, withSecrets));
         expect(waiting).toEqual({ state: 'queued', reservedFor: null });
       } finally {
         endpoint.server.close();

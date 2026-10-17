@@ -47,7 +47,7 @@ const remember = (pane: Pane, width: number) => {
 export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   pane: Pane = WORKSPACE_SIDEBAR,
 ) {
-  const towards = pane.edge === 'left' ? -1 : 1;
+  const direction = pane.edge === 'left' ? -1 : 1;
   const [width, setWidth] = useState(() => readStoredWidth(pane));
   const [resizing, setResizing] = useState(false);
   const origin = useRef<{ x: number; width: number } | null>(null);
@@ -96,7 +96,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     if (!origin.current) {
       return;
     }
-    show(origin.current.width + towards * (event.clientX - origin.current.x));
+    show(origin.current.width + direction * (event.clientX - origin.current.x));
   };
 
   const onPointerUp = (event: PointerEvent<HTMLElement>) => {
@@ -109,9 +109,9 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'ArrowLeft') {
-      resize(width - towards * KEYBOARD_STEP);
+      resize(width - direction * KEYBOARD_STEP);
     } else if (event.key === 'ArrowRight') {
-      resize(width + towards * KEYBOARD_STEP);
+      resize(width + direction * KEYBOARD_STEP);
     } else if (event.key === 'Home') {
       resize(pane.initial);
     } else {

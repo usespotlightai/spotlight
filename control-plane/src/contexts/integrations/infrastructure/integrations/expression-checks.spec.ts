@@ -411,7 +411,7 @@ describe('the positions an expression is written at', () => {
   describe('against every expression an integration can contain', () => {
     const NOPE = e('nope');
     const FRESH = { at: NOPE, within: '300s' };
-    const WEARS = { secrets: ['secret.KITCHEN_KEY'] };
+    const INJECTS = { secrets: ['secret.KITCHEN_KEY'] };
     const VERIFIES = [
       { hmac: { secret: 'secret.SIGNING', signed: NOPE, freshness: FRESH } },
       {
@@ -429,7 +429,7 @@ describe('the positions an expression is written at', () => {
       query: { k: NOPE },
       headers: { k: NOPE },
       body: NOPE,
-      auth: WEARS,
+      auth: INJECTS,
       expect: { success: NOPE },
       capture: { k: NOPE },
     };

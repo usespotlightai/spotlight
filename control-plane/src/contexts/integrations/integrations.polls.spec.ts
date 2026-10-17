@@ -229,7 +229,7 @@ describe('ProcessDuePolls', () => {
     });
   });
 
-  it('lets the call wear the workspace’s secrets as Spotlight’s own', async () => {
+  it('lets the call inject the workspace’s secrets as Spotlight’s own', async () => {
     const { injection, forSpotlight } = injecting({
       LINEAR_TOKEN: { host: 'api.linear.app', value: 'lin-1' },
     });
@@ -250,7 +250,7 @@ describe('ProcessDuePolls', () => {
     ).processDue();
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
-    await credentials.wornToward('https://api.linear.app/issues', [
+    await credentials.injectedFor('https://api.linear.app/issues', [
       'LINEAR_TOKEN',
     ]);
 

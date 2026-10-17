@@ -6,15 +6,15 @@ import type {
 import { UnreadableSecretError } from '@secrets/domain/exceptions/unreadable-secret.error';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import {
-  opened,
-  sealed,
-  UnopenableEnvelopeError,
+  DecryptionFailedError,
+  decrypt,
+  encrypt,
 } from '@secrets/infrastructure/crypto/envelope';
 import type { WorkspaceKeys } from '@secrets/infrastructure/crypto/workspace-keys';
 import { secretValue } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import { eq } from 'drizzle-orm';
 
-const boundTo = (secret: SecretReference): string =>
+const aadFor = (secret: SecretReference): string =>
   ['spotlight:secret:v1', secret.workspaceId.value, secret.name.value].join(
     '\u0000',
   );
@@ -27,29 +27,29 @@ export class BuiltInSecretStore implements SecretSourcePort {
 
   async keep(secret: SecretReference, value: SecretValue): Promise<void> {
     const key = await this.keys.of(secret.workspaceId);
-    const written = sealed(
+    const ciphertext = encrypt(
       key,
       Buffer.from(value.revealed(), 'utf8'),
-      boundTo(secret),
+      aadFor(secret),
     );
 
     await this.context.db
       .insert(secretValue)
-      .values({ secretId: secret.id.value, sealed: written })
+      .values({ secretId: secret.id.value, ciphertext })
       .onConflictDoUpdate({
         target: secretValue.secretId,
-        set: { sealed: written, keptAt: new Date() },
+        set: { ciphertext, storedAt: new Date() },
       });
   }
 
   async read(secret: SecretReference): Promise<SecretValue> {
-    const [kept] = await this.context.db
-      .select({ sealed: secretValue.sealed })
+    const [stored] = await this.context.db
+      .select({ ciphertext: secretValue.ciphertext })
       .from(secretValue)
       .where(eq(secretValue.secretId, secret.id.value))
       .limit(1);
 
-    if (!kept) {
+    if (!stored) {
       throw new UnreadableSecretError(
         secret.name.value,
         'No value is stored for it.',
@@ -60,10 +60,10 @@ export class BuiltInSecretStore implements SecretSourcePort {
       const key = await this.keys.of(secret.workspaceId);
 
       return SecretValue.of(
-        opened(key, kept.sealed, boundTo(secret)).toString('utf8'),
+        decrypt(key, stored.ciphertext, aadFor(secret)).toString('utf8'),
       );
     } catch (error) {
-      if (error instanceof UnopenableEnvelopeError) {
+      if (error instanceof DecryptionFailedError) {
         throw new UnreadableSecretError(secret.name.value, error.message);
       }
 

@@ -14,22 +14,22 @@ import (
 	"time"
 
 	"usespotlight.ai/data-plane/control"
-	"usespotlight.ai/data-plane/egressing/wear"
+	"usespotlight.ai/data-plane/egressing/inject"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
 )
 
 const (
-	checkEvery   = 30 * time.Second
-	sweepEvery   = 10 * time.Second
-	recordEvery  = 5 * time.Second
-	unusedFor    = 2 * time.Minute
-	redeemAgain  = 5 * time.Second
-	redeemBudget = time.Minute
-	admitBudget  = 30 * time.Second
-	refusedFor   = 10 * time.Second
-	maxRefused   = 10_000
-	admitRate    = 50
+	checkEvery  = 30 * time.Second
+	sweepEvery  = 10 * time.Second
+	recordEvery = 5 * time.Second
+	unusedFor   = 2 * time.Minute
+	fetchAgain  = 5 * time.Second
+	fetchBudget = time.Minute
+	admitBudget = 30 * time.Second
+	refusedFor  = 10 * time.Second
+	maxRefused  = 10_000
+	admitRate   = 50
 )
 
 var errAdmitsTooFast = errors.New("egress admits too many sandboxes at once")
@@ -43,12 +43,12 @@ type run struct {
 	admitting    chan struct{}
 	failed       error
 
-	redeeming sync.Mutex
+	fetching sync.Mutex
 
 	mu        sync.Mutex
-	redeemed  bool
+	fetched   bool
 	triedAt   time.Time
-	wearing   *wear.Wearing
+	injector  *inject.Injector
 	bound     map[string]bool
 	allowed   reach.List
 	transport *http.Transport
@@ -169,30 +169,30 @@ func (e *Egress) leave(found *run) {
 	}
 }
 
-func (e *Egress) redeem(ctx context.Context, r *run) error {
-	return e.redeemed(ctx, r, false)
+func (e *Egress) fetchSecrets(ctx context.Context, r *run) error {
+	return e.fetchedSecrets(ctx, r, false)
 }
 
-func (e *Egress) redeemNow(ctx context.Context, r *run) error {
-	return e.redeemed(ctx, r, true)
+func (e *Egress) fetchSecretsNow(ctx context.Context, r *run) error {
+	return e.fetchedSecrets(ctx, r, true)
 }
 
-func (e *Egress) redeemed(ctx context.Context, r *run, now bool) error {
-	r.redeeming.Lock()
-	defer r.redeeming.Unlock()
+func (e *Egress) fetchedSecrets(ctx context.Context, r *run, now bool) error {
+	r.fetching.Lock()
+	defer r.fetching.Unlock()
 
 	at := e.now()
 	r.mu.Lock()
-	settled := r.redeemed || r.forgotten || (!now && !r.triedAt.IsZero() && at.Sub(r.triedAt) < redeemAgain)
+	settled := r.fetched || r.forgotten || (!now && !r.triedAt.IsZero() && at.Sub(r.triedAt) < fetchAgain)
 	r.mu.Unlock()
 	if settled {
 		return nil
 	}
 
-	redeeming, cancel := context.WithTimeout(context.WithoutCancel(ctx), redeemBudget)
+	fetching, cancel := context.WithTimeout(context.WithoutCancel(ctx), fetchBudget)
 	defer cancel()
 
-	redeemed, err := e.control.RedeemEgressFor(redeeming, r.credential, e.key.Recipient())
+	fetched, err := e.control.FetchRunSecretsFor(fetching, r.credential, e.key.Recipient())
 	if refused(err) {
 		r.mu.Lock()
 		r.triedAt = at
@@ -200,7 +200,7 @@ func (e *Egress) redeemed(ctx context.Context, r *run, now bool) error {
 		if refusedThisEgress(err) {
 			e.log.Warn("the control plane refused this egress a run's secrets; check its token", "error", err)
 		} else {
-			e.log.Info("the sandbox has no run to redeem yet", "error", err)
+			e.log.Info("the sandbox has no run to fetch secrets for yet", "error", err)
 		}
 		return nil
 	}
@@ -208,16 +208,16 @@ func (e *Egress) redeemed(ctx context.Context, r *run, now bool) error {
 		return err
 	}
 
-	log := e.log.With("run", redeemed.RunID)
-	wearing := wear.From(redeeming, redeemed, nil, wear.Limits{Hosts: e.settings.Allow, Reads: e.settings.Reads}, e.key, e.reader, log)
+	log := e.log.With("run", fetched.RunID)
+	injector := inject.From(fetching, fetched, nil, inject.Limits{Hosts: e.settings.Allow, SecretAllow: e.settings.SecretAllow}, e.key, e.reader, log)
 	controlPlane := &url.URL{Scheme: "https", Host: r.controlPlane}
-	if err := wearing.TowardControlPlane(redeemed.SpotlightAPI, controlPlane, redeemed.RunID, e.key); err != nil {
+	if err := injector.ForControlPlane(fetched.SpotlightAPI, controlPlane, fetched.RunID, e.key); err != nil {
 		log.Warn("could not keep the run's Spotlight token", "error", err)
 	}
 
-	allowed := e.settings.Allow.With(slices.Concat([]string{r.controlPlane}, r.reaches, redeemed.Reaches)...)
+	allowed := e.settings.Allow.With(slices.Concat([]string{r.controlPlane}, r.reaches, fetched.Reaches)...)
 	bound := map[string]bool{}
-	for _, host := range slices.Concat(redeemed.Bound, wearing.Hosts()) {
+	for _, host := range slices.Concat(fetched.Bound, injector.Hosts()) {
 		if host = reach.Normal(host); allowed.Admits(host) {
 			bound[host] = true
 		}
@@ -226,15 +226,15 @@ func (e *Egress) redeemed(ctx context.Context, r *run, now bool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.forgotten {
-		wearing.Forget()
+		injector.Forget()
 		return nil
 	}
 	r.allowed = allowed
 	r.bound = bound
-	r.wearing = wearing
+	r.injector = injector
 	r.transport = e.transportFor()
-	r.redeemed = true
-	log.Info("redeemed a run's secrets", "bound", r.boundHosts())
+	r.fetched = true
+	log.Info("fetched a run's secrets", "bound", r.boundHosts())
 
 	return nil
 }
@@ -267,14 +267,14 @@ func (r *run) admits(host, port string) (admits, named bool) {
 	if host == r.controlPlane {
 		return port == r.port, port == r.port
 	}
-	if !r.redeemed {
+	if !r.fetched {
 		return r.allowed.Names(host), r.allowed.Names(host)
 	}
 	return r.allowed.Admits(host), r.allowed.Names(host)
 }
 
 type forwarding struct {
-	wearing   *wear.Wearing
+	injector  *inject.Injector
 	transport *http.Transport
 	named     bool
 }
@@ -283,17 +283,17 @@ func (r *run) bindsFor(host string) (forwarding, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if !r.redeemed || r.forgotten || !r.bound[host] || (host == r.controlPlane && r.port != "443") {
+	if !r.fetched || r.forgotten || !r.bound[host] || (host == r.controlPlane && r.port != "443") {
 		return forwarding{}, false
 	}
-	return forwarding{wearing: r.wearing, transport: r.transport, named: r.allowed.Names(host)}, true
+	return forwarding{injector: r.injector, transport: r.transport, named: r.allowed.Names(host)}, true
 }
 
 func (r *run) boundList() ([]string, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	return r.boundHosts(), r.redeemed
+	return r.boundHosts(), r.fetched
 }
 
 func (r *run) boundHosts() []string {
@@ -314,8 +314,8 @@ func (r *run) forget() {
 	if r.transport != nil {
 		r.transport.CloseIdleConnections()
 	}
-	if r.active.Load() == 0 && r.wearing != nil {
-		r.wearing.Forget()
+	if r.active.Load() == 0 && r.injector != nil {
+		r.injector.Forget()
 	}
 }
 
@@ -323,8 +323,8 @@ func (r *run) letGoIfForgotten() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.forgotten && r.wearing != nil {
-		r.wearing.Forget()
+	if r.forgotten && r.injector != nil {
+		r.injector.Forget()
 	}
 }
 

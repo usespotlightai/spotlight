@@ -427,7 +427,7 @@ export class Run extends EventRecorder {
     return (
       this.state === 'queued' &&
       this.reservation === null &&
-      (withEgress || !this.wearsSecrets) &&
+      (withEgress || !this.injectsSecrets) &&
       this.provisioning.dueAt(now) &&
       this.handBacks.claimableAt(now)
     );
@@ -439,7 +439,7 @@ export class Run extends EventRecorder {
     now: Date,
     withEgress = false,
   ): Run {
-    if (this.wearsSecrets && !withEgress) {
+    if (this.injectsSecrets && !withEgress) {
       throw new InvalidRunTransitionError(
         `Run ${this.id.value} carries secrets or a Spotlight token. Only a sandbox with egress can run it: a host, or a push pool that names an egress.`,
       );
@@ -1193,8 +1193,10 @@ export class Run extends EventRecorder {
     }
   }
 
-  get wearsSecrets(): boolean {
-    return this.spec.wears.length > 0 || this.spec.wearsSpotlightApi;
+  get injectsSecrets(): boolean {
+    return (
+      this.spec.injectedSecrets.length > 0 || this.spec.injectsSpotlightApi
+    );
   }
 
   isLeasedBy(runner: RunnerId): boolean {
@@ -1205,12 +1207,12 @@ export class Run extends EventRecorder {
     return this.wasWorkedBy(runner) ? this.currentAttempt : null;
   }
 
-  secretsWornFor(runner: RunnerId): readonly SecretName[] {
-    return this.isLeasedBy(runner) ? this.spec.wears : [];
+  injectedSecretsFor(runner: RunnerId): readonly SecretName[] {
+    return this.isLeasedBy(runner) ? this.spec.injectedSecrets : [];
   }
 
   reachesSpotlightApiFor(runner: RunnerId): boolean {
-    return this.isLeasedBy(runner) && this.spec.wearsSpotlightApi;
+    return this.isLeasedBy(runner) && this.spec.injectsSpotlightApi;
   }
 
   wasGiven(tool: Tool): boolean {

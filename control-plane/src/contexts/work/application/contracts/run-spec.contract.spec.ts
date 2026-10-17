@@ -89,7 +89,7 @@ const representative = {
     { id: 'att_1', path: '.spotlight/attachments/att_1/screen.png' },
   ],
   settingFiles: ['claude/settings.json'],
-  wears: ['LINEAR_API_KEY'],
+  injectedSecrets: ['LINEAR_API_KEY'],
 };
 
 describe('RunSpecContract wire', () => {
@@ -117,9 +117,10 @@ describe('RunSpecContract wire', () => {
     );
   });
 
-  it('keeps no empty list of secrets worn', () => {
+  it('keeps no empty list of injected secrets', () => {
     expect(
-      RunSpecContract.from(parts({ wears: [] })).value.wears,
+      RunSpecContract.from(parts({ injectedSecrets: [] })).value
+        .injectedSecrets,
     ).toBeUndefined();
   });
 

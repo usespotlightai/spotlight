@@ -18,9 +18,9 @@ import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -434,8 +434,8 @@ describe('Run', () => {
     });
   });
 
-  describe('knowing the secrets it wears', () => {
-    const wearing = () =>
+  describe('knowing the secrets that egress injects for it', () => {
+    const injecting = () =>
       Run.enqueue({
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
@@ -445,25 +445,25 @@ describe('Run', () => {
           briefing: 'do the thing',
           handover: { options: [], noteLimit: 4_000 },
           continuity: { key: 'task:station' },
-          wears: ['LINEAR_API_KEY'],
+          injectedSecrets: ['LINEAR_API_KEY'],
         }),
       });
 
-    it('wears them for the runner that leases it', () => {
-      expect(wearing().claim(runner(), noon).secretsWornFor(runner())).toEqual([
-        SecretName.of('LINEAR_API_KEY'),
-      ]);
+    it('injects them for the runner that leases it', () => {
+      expect(
+        injecting().claim(runner(), noon).injectedSecretsFor(runner()),
+      ).toEqual([SecretName.of('LINEAR_API_KEY')]);
     });
 
-    it('wears nothing for another runner, while it waits, or once it has ended', () => {
-      const leased = wearing().claim(runner(), noon);
+    it('injects nothing for another runner, while it waits, or once it has ended', () => {
+      const leased = injecting().claim(runner(), noon);
 
-      expect(leased.secretsWornFor(runner('runner_2'))).toEqual([]);
-      expect(wearing().secretsWornFor(runner())).toEqual([]);
+      expect(leased.injectedSecretsFor(runner('runner_2'))).toEqual([]);
+      expect(injecting().injectedSecretsFor(runner())).toEqual([]);
       expect(
         leased
           .complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }))
-          .secretsWornFor(runner()),
+          .injectedSecretsFor(runner()),
       ).toEqual([]);
     });
 
@@ -498,7 +498,7 @@ describe('Run', () => {
       ).toBe(false);
     });
 
-    it('is never reserved for a pool runner when it reaches Spotlight’s API, since only egress wears its token', () => {
+    it('is never reserved for a pool runner when it reaches Spotlight’s API, since only egress injects its token', () => {
       const reaching = Run.enqueue({
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
@@ -524,25 +524,25 @@ describe('Run', () => {
       ).toBe(false);
     });
 
-    it('wears nothing its spec does not name', () => {
-      expect(claimed().secretsWornFor(runner())).toEqual([]);
+    it('injects nothing that its spec does not name', () => {
+      expect(claimed().injectedSecretsFor(runner())).toEqual([]);
     });
 
-    it('is never reserved for a runner a pool provisions, which has no egress to wear them', () => {
-      expect(wearing().wearsSecrets).toBe(true);
-      expect(wearing().provisionableAt(noon)).toBe(false);
+    it('is never reserved for a runner a pool provisions, which has no egress to inject them', () => {
+      expect(injecting().injectsSecrets).toBe(true);
+      expect(injecting().provisionableAt(noon)).toBe(false);
       expect(() =>
-        wearing().reservedFor(runner(), PoolId.of('pool_1'), noon),
+        injecting().reservedFor(runner(), PoolId.of('pool_1'), noon),
       ).toThrow(InvalidRunTransitionError);
       expect(
         queued().reservedFor(runner(), PoolId.of('pool_1'), noon).reservation,
       ).not.toBeNull();
     });
 
-    it('is reserved for a runner a pool provisions when the pool names an egress to wear them', () => {
-      expect(wearing().provisionableAt(noon, true)).toBe(true);
+    it('is reserved for a runner a pool provisions when the pool names an egress to inject them', () => {
+      expect(injecting().provisionableAt(noon, true)).toBe(true);
       expect(
-        wearing().reservedFor(runner(), PoolId.of('pool_1'), noon, true)
+        injecting().reservedFor(runner(), PoolId.of('pool_1'), noon, true)
           .reservation,
       ).not.toBeNull();
     });
@@ -580,7 +580,7 @@ describe('Run', () => {
 
   describe('being refused before a runner takes it up', () => {
     const LAPSED = RunOutcome.refused([
-      CatalogWithheld.of({
+      DeniedCatalogItem.of({
         id: 'catalog.web-search@1.1.0',
         reason: 'lapsed',
         because:
@@ -920,7 +920,7 @@ describe('Run', () => {
       expect(run.isReservedAt(later(5 * 60_000))).toBe(false);
     });
 
-    it('is provisionable only while queued, open, unreserved and wearing no secrets', () => {
+    it('is provisionable only while queued, open, unreserved and without injected secrets', () => {
       expect(queued().provisionableAt(noon)).toBe(true);
       expect(reserved().provisionableAt(noon)).toBe(false);
       expect(claimed().provisionableAt(noon)).toBe(false);

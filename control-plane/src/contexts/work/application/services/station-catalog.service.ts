@@ -16,9 +16,9 @@ import { LineProblems } from '@work/application/rendering/line-problems';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
-import { CatalogWithheldError } from '@work/domain/exceptions/catalog-withheld.error';
-import type { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
+import { CatalogItemDeniedError } from '@work/domain/exceptions/catalog-item-denied.error';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import type { LinePlan } from '@work/domain/value-objects/line-plan.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
@@ -66,10 +66,10 @@ const asked = (named: CatalogNamed): boolean =>
 export interface CatalogAtStation {
   readonly skills: readonly ReadySkillFolder[];
   readonly tools: readonly DeclaredTool[];
-  readonly withheld: readonly CatalogWithheld[];
+  readonly denied: readonly DeniedCatalogItem[];
 }
 
-const NOTHING: CatalogAtStation = { skills: [], tools: [], withheld: [] };
+const NOTHING: CatalogAtStation = { skills: [], tools: [], denied: [] };
 
 export class StationCatalog {
   constructor(private readonly catalog: CatalogPort) {}
@@ -86,7 +86,7 @@ export class StationCatalog {
     return {
       skills: given.skills.map(CatalogGivenMapper.toFolder),
       tools: given.tools.map(CatalogGivenMapper.toDeclared),
-      withheld: given.refused.map(CatalogGivenMapper.toWithheld),
+      denied: given.refused.map(CatalogGivenMapper.toDenied),
     };
   }
 
@@ -142,7 +142,7 @@ export class StationCatalog {
     const [refused] = given.refused;
 
     if (refused) {
-      throw new CatalogWithheldError(CatalogGivenMapper.toWithheld(refused));
+      throw new CatalogItemDeniedError(CatalogGivenMapper.toDenied(refused));
     }
 
     const found = given.tools.find((each) => each.id === pinned.value);
@@ -163,8 +163,8 @@ export class StationCatalog {
             });
 
             if (answer.kind === 'refused') {
-              throw new CatalogWithheldError(
-                CatalogGivenMapper.toWithheld(answer.refusal),
+              throw new CatalogItemDeniedError(
+                CatalogGivenMapper.toDenied(answer.refusal),
               );
             }
 

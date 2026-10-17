@@ -27,29 +27,29 @@ const (
 	RunParked
 	AgentExited
 	Drained
-	WentWrong
+	Errored
 )
 
 var transitions = map[State]map[Trigger]State{
 	Preparing: {
 		WorkspaceReady: Preparing,
 		AgentStarted:   Running,
-		WentWrong:      Failed,
+		Errored:        Failed,
 	},
 	Running: {
 		PersonAsked: Waiting,
 		AgentExited: Draining,
-		WentWrong:   Failed,
+		Errored:     Failed,
 	},
 	Waiting: {
 		PersonAnswered: Running,
 		RunParked:      Parked,
 		AgentExited:    Draining,
-		WentWrong:      Failed,
+		Errored:        Failed,
 	},
 	Draining: {
-		Drained:   Completed,
-		WentWrong: Failed,
+		Drained: Completed,
+		Errored: Failed,
 	},
 }
 
@@ -101,7 +101,7 @@ func (t Trigger) String() string {
 		return "exited"
 	case Drained:
 		return "drained"
-	case WentWrong:
+	case Errored:
 		return "failed"
 	}
 	return "unknown"

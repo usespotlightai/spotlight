@@ -248,9 +248,9 @@ import {
 import { API_PREFIX } from '@platform/http/routes';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
-  CREDENTIAL_SEALING,
-  type CredentialSealingPort,
-} from '@secrets/application/ports/credential-sealing.port';
+  CREDENTIAL_ENCRYPTION,
+  type CredentialEncryptionPort,
+} from '@secrets/application/ports/credential-encryption.port';
 import {
   SECRET_INJECTION,
   type SecretInjectionPort,
@@ -680,12 +680,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: HOST_CONNECTIONS,
-    inject: [DrizzleContext, DOMAIN_EVENT_DISPATCHER, CREDENTIAL_SEALING],
+    inject: [DrizzleContext, DOMAIN_EVENT_DISPATCHER, CREDENTIAL_ENCRYPTION],
     useFactory: (
       context: DrizzleContext,
       events: DomainEventDispatcher,
-      sealing: CredentialSealingPort,
-    ) => new DrizzleHostConnections(context, events, sealing),
+      encryption: CredentialEncryptionPort,
+    ) => new DrizzleHostConnections(context, events, encryption),
   },
 
   {
@@ -696,9 +696,11 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OAUTH2_CLIENT_REGISTRATIONS,
-    inject: [DrizzleContext, CREDENTIAL_SEALING],
-    useFactory: (context: DrizzleContext, sealing: CredentialSealingPort) =>
-      new DrizzleOAuth2ClientRegistrations(context, sealing),
+    inject: [DrizzleContext, CREDENTIAL_ENCRYPTION],
+    useFactory: (
+      context: DrizzleContext,
+      encryption: CredentialEncryptionPort,
+    ) => new DrizzleOAuth2ClientRegistrations(context, encryption),
   },
 
   {

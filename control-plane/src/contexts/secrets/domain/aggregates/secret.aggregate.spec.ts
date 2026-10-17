@@ -3,7 +3,7 @@ import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.er
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
 import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fixed.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
-import { SecretUnwearableError } from '@secrets/domain/exceptions/secret-unwearable.error';
+import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import { SecretChangeDetail } from '@secrets/domain/value-objects/secret-change-detail.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
@@ -223,7 +223,7 @@ describe('Secret', () => {
       );
     });
 
-    it('is not deleted while an integration still wears it', () => {
+    it('is not deleted while an integration still uses it', () => {
       expect(() =>
         kept().deleted(SecretUses.of(['integration core/linear']), BY),
       ).toThrow(SecretInUseError);
@@ -241,34 +241,36 @@ describe('Secret', () => {
     });
   });
 
-  describe('worn toward a host', () => {
+  describe('injected for a host', () => {
     const value = SecretValue.of('lin_api_1');
 
-    it('is worn in its header, after its prefix, toward a host it is bound to', () => {
+    it('is injected in its header, after its prefix, for a host it is bound to', () => {
       expect(
-        kept().wornToward('https://api.linear.app/graphql?x=1', value),
+        kept().injectedFor('https://api.linear.app/graphql?x=1', value),
       ).toEqual({
-        carrier: 'header',
+        location: 'header',
         name: 'authorization',
         value: 'Bearer lin_api_1',
         bare: 'lin_api_1',
       });
     });
 
-    it('is worn in its query parameter when bound to one', () => {
+    it('is injected in its query parameter when bound to one', () => {
       expect(
         kept({
-          bindings: [{ host: 'api.linear.app', carrier: 'query', name: 'key' }],
-        }).wornToward('https://api.linear.app/graphql', value),
+          bindings: [
+            { host: 'api.linear.app', location: 'query', name: 'key' },
+          ],
+        }).injectedFor('https://api.linear.app/graphql', value),
       ).toEqual({
-        carrier: 'query',
+        location: 'query',
         name: 'key',
         value: 'lin_api_1',
         bare: 'lin_api_1',
       });
     });
 
-    it('is never worn toward a host it is not bound to', () => {
+    it('is never injected for a host it is not bound to', () => {
       for (const url of [
         'https://api.linear.app.evil.test/graphql',
         'https://evil.test/?api.linear.app',
@@ -276,30 +278,30 @@ describe('Secret', () => {
         'https://sub.api.linear.app/graphql',
         'not a url',
       ]) {
-        expect(() => kept().wornToward(url, value), url).toThrow(
+        expect(() => kept().injectedFor(url, value), url).toThrow(
           SecretNotBoundError,
         );
       }
     });
 
-    it('is never worn over plain http, even to its host', () => {
+    it('is never injected over plain http, even to its host', () => {
       expect(() =>
-        kept().wornToward('http://api.linear.app/graphql', value),
+        kept().injectedFor('http://api.linear.app/graphql', value),
       ).toThrow(SecretNotBoundError);
     });
 
-    it('is never worn where its value would break the header', () => {
+    it('is never injected where its value would break the header', () => {
       expect(() =>
-        kept().wornToward(
+        kept().injectedFor(
           'https://api.linear.app/graphql',
           SecretValue.of('line\r\nx-evil: 1'),
         ),
-      ).toThrow(SecretUnwearableError);
+      ).toThrow(SecretNotInjectableError);
     });
   });
 
   describe('granted to a run', () => {
-    it('is granted toward each host it is bound to, for that run alone', () => {
+    it('is granted for each host it is bound to, for that run alone', () => {
       const grants = kept({
         bindings: [{ host: 'api.linear.app' }, { host: 'uploads.linear.app' }],
       }).grantTo(RunId.of('run_1'));
@@ -310,8 +312,8 @@ describe('Secret', () => {
       ]);
     });
 
-    it('gives the grant a run needs to wear it toward an address', () => {
-      const grant = kept().grantToward(
+    it('gives the grant a run needs to inject it for an address', () => {
+      const grant = kept().grantForUrl(
         RunId.of('run_1'),
         'https://api.linear.app/graphql',
       );
@@ -321,17 +323,17 @@ describe('Secret', () => {
         'api.linear.app',
       ]);
       expect(() =>
-        kept().grantToward(RunId.of('run_1'), 'https://sentry.io/'),
+        kept().grantForUrl(RunId.of('run_1'), 'https://sentry.io/'),
       ).toThrow(SecretNotBoundError);
     });
 
-    it('is granted toward nowhere when bound to no host', () => {
+    it('is granted for no host when bound to no host', () => {
       expect(() => kept({ bindings: [] }).grantTo(RunId.of('run_1'))).toThrow(
         SecretNotBoundError,
       );
     });
 
-    it('is worn the way it is bound toward the host a grant names', () => {
+    it('is injected the way it is bound for the host a grant names', () => {
       const secret = kept({
         bindings: [
           { host: 'api.linear.app', prefix: 'Bearer ' },
@@ -342,12 +344,12 @@ describe('Secret', () => {
 
       expect(uploads && secret.bindingFor(uploads)).toMatchObject({
         host: 'uploads.linear.app',
-        carrier: { kind: 'header', name: 'x-api-key' },
+        target: { location: 'header', name: 'x-api-key' },
         prefix: '',
       });
     });
 
-    it('honours no grant toward a host it is no longer bound to', () => {
+    it('honours no grant for a host it is no longer bound to', () => {
       const [grant] = kept({
         bindings: [{ host: 'api.linear.app' }, { host: 'old.linear.app' }],
       }).grantTo(RunId.of('run_1'));
@@ -358,11 +360,11 @@ describe('Secret', () => {
       );
     });
 
-    it('refuses a value it cannot wear in a header', () => {
-      expect(() => kept().wearable(SecretValue.of('one\ntwo'))).toThrow(
-        SecretUnwearableError,
+    it('refuses a value it cannot inject in a header', () => {
+      expect(() => kept().injectable(SecretValue.of('one\ntwo'))).toThrow(
+        SecretNotInjectableError,
       );
-      expect(kept().wearable(SecretValue.of('one')).revealed()).toBe('one');
+      expect(kept().injectable(SecretValue.of('one')).revealed()).toBe('one');
     });
   });
 });

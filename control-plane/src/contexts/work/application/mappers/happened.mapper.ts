@@ -2,8 +2,8 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import type {
   Arriving,
   Happened,
-  MarkWorn,
   ReviewPayload,
+  TaskMark,
 } from '@work/application/contracts/happenings.contract';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
@@ -50,8 +50,8 @@ const reviewOf = (
 };
 
 export const HappenedMapper = {
-  markOf(worn: MarkWorn): Mark {
-    return Mark.of(worn.kind, worn.value);
+  markOf(mark: TaskMark): Mark {
+    return Mark.of(mark.kind, mark.value);
   },
 
   toHeard(happened: Happened): Heard | null {

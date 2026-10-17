@@ -19,15 +19,15 @@ describe('RunSpec', () => {
     expect(RunSpec.of(parts()).value).toEqual(parts());
   });
 
-  it('wears secrets only by their names', () => {
+  it('injects secrets only by their names', () => {
     expect(
-      RunSpec.of(parts({ wears: ['LINEAR_API_KEY'] })).wears.map(
-        (each) => each.value,
-      ),
+      RunSpec.of(
+        parts({ injectedSecrets: ['LINEAR_API_KEY'] }),
+      ).injectedSecrets.map((each) => each.value),
     ).toEqual(['LINEAR_API_KEY']);
-    expect(() => RunSpec.of(parts({ wears: ['linear key'] }))).toThrow(
-      InvalidRunSpecError,
-    );
+    expect(() =>
+      RunSpec.of(parts({ injectedSecrets: ['linear key'] })),
+    ).toThrow(InvalidRunSpecError);
   });
 
   it('carries on the work its continuity names, and its conversation only once there is one', () => {
@@ -168,7 +168,7 @@ describe('RunSpec', () => {
 
     it('gives a replay no tools, MCP servers or secrets', () => {
       for (const given of [
-        { wears: ['LINEAR_API_KEY'] },
+        { injectedSecrets: ['LINEAR_API_KEY'] },
         {
           manifest: [
             {
@@ -256,7 +256,7 @@ describe('RunSpec', () => {
     it('gives a search no checkouts, tools, MCP servers, secrets, attachments, skills or harness settings', () => {
       for (const given of [
         { checkouts: [{ remote: 'spotlight:repository', path: 'api' }] },
-        { wears: ['LINEAR_API_KEY'] },
+        { injectedSecrets: ['LINEAR_API_KEY'] },
         {
           manifest: [
             {

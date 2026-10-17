@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestStandsInForAHostWithACertificateOnlyItsRunTrusts(t *testing.T) {
+func TestInterceptsTLSForAHostWithACertificateOnlyItsRunTrusts(t *testing.T) {
 	now := time.Now()
 	run, err := New(now, []string{"mcp.linear.app", "sentry.io"})
 	if err != nil {
@@ -45,7 +45,7 @@ func TestStandsInForAHostWithACertificateOnlyItsRunTrusts(t *testing.T) {
 		t.Error("another run's sandbox trusts it")
 	}
 	if _, err := parsed.Verify(x509.VerifyOptions{DNSName: "sentry.io", Roots: trusting(run)}); err == nil {
-		t.Error("it stands in for a host it was not made for")
+		t.Error("it intercepts TLS for a host it was not made for")
 	}
 
 	outside, err := run.For("api.github.com")
@@ -54,7 +54,7 @@ func TestStandsInForAHostWithACertificateOnlyItsRunTrusts(t *testing.T) {
 	}
 	stray, _ := x509.ParseCertificate(outside.Certificate[0])
 	if _, err := stray.Verify(x509.VerifyOptions{DNSName: "api.github.com", Roots: trusting(run)}); err == nil {
-		t.Error("the run's authority vouches for a host egress wears nothing toward")
+		t.Error("the run's authority vouches for a host egress injects nothing for")
 	}
 }
 
@@ -100,6 +100,6 @@ func TestMakesOneCertificatePerHostAndKeepsIt(t *testing.T) {
 	roots := x509.NewCertPool()
 	roots.AddCert(authority)
 	if _, err := parsed.Verify(x509.VerifyOptions{Roots: roots}); err != nil {
-		t.Errorf("an address it wears toward is not vouched for: %v", err)
+		t.Errorf("an address it injects for is not vouched for: %v", err)
 	}
 }

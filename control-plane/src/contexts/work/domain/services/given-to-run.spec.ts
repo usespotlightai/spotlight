@@ -114,7 +114,7 @@ describe('givenAt, for a station that names a harness profile', () => {
     rules: [],
     mcpServers: [],
     native: {},
-    wears: [],
+    injectedSecrets: [],
   };
 
   it('gives the run the profile the team has', () => {

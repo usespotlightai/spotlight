@@ -17,7 +17,7 @@ import {
 
 const DISCOVERY_PATH = '/.well-known/openid-configuration';
 
-const KEYS_KEPT_MS = 60 * 60_000;
+const KEYS_CACHE_MS = 60 * 60_000;
 
 const TIMEOUT_MS = 5_000;
 
@@ -111,7 +111,7 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
       timeoutDuration: TIMEOUT_MS,
     });
 
-    this.#discovered.set(issuer, { keys, until: Date.now() + KEYS_KEPT_MS });
+    this.#discovered.set(issuer, { keys, until: Date.now() + KEYS_CACHE_MS });
 
     return keys;
   }

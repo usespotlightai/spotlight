@@ -234,7 +234,7 @@ export class Told {
   #refused = new Set<string>();
   #saying: Building | null = null;
   #spent: RunSpent | null = null;
-  #egress: EgressEnforcement | null = null;
+  #egressEnforcement: EgressEnforcement | null = null;
   #spentBySession = new Map<string, RunSpent>();
   #tokens = Tokens.UNREPORTED;
   #first: Date | null = null;
@@ -377,7 +377,8 @@ export class Told {
   }
 
   private checked(event: Journalled): void {
-    this.#egress = enforcementTold(event.data) ?? this.#egress;
+    this.#egressEnforcement =
+      enforcementTold(event.data) ?? this.#egressEnforcement;
   }
 
   private ranHook(event: Journalled): void {
@@ -534,8 +535,8 @@ export class Told {
     return this.#spent;
   }
 
-  egress(): EgressEnforcement | null {
-    return this.#egress;
+  egressEnforcement(): EgressEnforcement | null {
+    return this.#egressEnforcement;
   }
 
   spentBySession(): ReadonlyMap<string, RunSpent> {

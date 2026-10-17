@@ -68,7 +68,7 @@ const journal: RunJournal = {
     endedAt: null,
   },
   spent: null,
-  egress: null,
+  egressEnforcement: null,
 };
 
 const TASK_RUN = {

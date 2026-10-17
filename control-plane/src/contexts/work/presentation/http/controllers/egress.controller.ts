@@ -25,30 +25,30 @@ import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decora
 import {
   AdmitThroughEgressCommand,
   CheckActiveRunsCommand,
+  FetchRunSecretsCommand,
+  FetchSharedRunSecretsCommand,
   RecordEgressConnectionsCommand,
-  RedeemEgressCommand,
-  RedeemThroughEgressCommand,
 } from '@work/application/commands/egress.commands';
 import type {
   EgressActiveRunsDto,
   EgressAdmissionDto,
 } from '@work/application/dto/egress-admission.dto';
 import type { EgressConnectionsRecordedDto } from '@work/application/dto/egress-connections.dto';
-import type { EgressRedemptionDto } from '@work/application/dto/egress-redemption.dto';
+import type { EgressSecretsDto } from '@work/application/dto/egress-secrets.dto';
 import {
   AdmitThroughEgressRequestDto,
   CheckActiveRunsRequestDto,
+  FetchRunSecretsRequestDto,
   RecordEgressConnectionsRequestDto,
-  SharedRedeemEgressRequestDto,
 } from '@work/presentation/http/dto/egress.request.dto';
 import {
+  DeniedSecretResponseDto,
   EgressActiveRunsResponseDto,
   EgressAdmissionResponseDto,
-  EgressRedemptionResponseDto,
-  ReadInNetworkResponseDto,
-  RedeemedSecretResponseDto,
+  EgressSecretsResponseDto,
+  ExternalSecretRefResponseDto,
+  FetchedSecretResponseDto,
   SpotlightApiResponseDto,
-  WithheldSecretResponseDto,
 } from '@work/presentation/http/dto/egress.response.dto';
 
 const REFUSED =
@@ -58,7 +58,7 @@ const tooMany = (max: number, what: string): string =>
   `The request has more than ${max} ${what}. Please send at most ${max} in one request.`;
 
 const WAITING =
-  'The runner of this proxy credential has no lease on a run yet. Please redeem again after it claims one';
+  'The runner of this proxy credential has no lease on a run yet. Please fetch the secrets again after it claims one';
 
 const texts = (given: unknown): readonly string[] =>
   Array.isArray(given)
@@ -94,70 +94,74 @@ const records = (
 export class EgressController {
   constructor(private readonly commandBus: CommandBus) {}
 
-  @Post('redeem')
+  @Post('secrets')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'redeemEgress',
+    operationId: 'fetchRunSecrets',
     summary:
-      'The secrets that the run in a sandbox may wear, for the egress beside it to inject toward their hosts',
+      'The secrets that egress injects into the run’s requests, for their bound hosts',
     description:
-      'Called by the egress beside a sandbox with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets the run wears; values Spotlight keeps come back sealed to the recipient, and values read from an external store come back as where egress reads them.',
+      'Called by the egress beside a sandbox with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight keeps come back sealed to the recipient. For a value in an external store, the answer gives the external reference that egress reads.',
   })
-  @ApiOkResponse({ type: EgressRedemptionResponseDto })
+  @ApiOkResponse({ type: EgressSecretsResponseDto })
   @ApiUnprocessableEntityResponse({
     description: 'The recipient is not an X25519 public key',
   })
   @ApiConflictResponse({ description: WAITING })
-  async redeem(
+  async fetchRunSecrets(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: SharedRedeemEgressRequestDto,
-  ): Promise<EgressRedemptionResponseDto> {
+    @Body() body: FetchRunSecretsRequestDto,
+  ): Promise<EgressSecretsResponseDto> {
     const token = bearerIn(authorization);
     const recipient = typeof body?.recipient === 'string' ? body.recipient : '';
-    const redeemed = await this.commandBus.execute<
-      RedeemEgressCommand | RedeemThroughEgressCommand,
-      EgressRedemptionDto
+    const fetched = await this.commandBus.execute<
+      FetchRunSecretsCommand | FetchSharedRunSecretsCommand,
+      EgressSecretsDto
     >(
       typeof body?.proxyCredential === 'string'
-        ? new RedeemThroughEgressCommand(token, body.proxyCredential, recipient)
-        : new RedeemEgressCommand(token, recipient),
+        ? new FetchSharedRunSecretsCommand(
+            token,
+            body.proxyCredential,
+            recipient,
+          )
+        : new FetchRunSecretsCommand(token, recipient),
     );
 
-    if (redeemed.outcome === 'refused') {
+    if (fetched.outcome === 'refused') {
       throw new UnauthorizedException(REFUSED);
     }
 
-    if (redeemed.outcome === 'waiting') {
+    if (fetched.outcome === 'waiting') {
       throw new ConflictException(WAITING);
     }
 
-    return new EgressRedemptionResponseDto(
-      redeemed.runId,
-      redeemed.reaches,
-      redeemed.bound,
-      redeemed.secrets.map(
+    return new EgressSecretsResponseDto(
+      fetched.runId,
+      fetched.reaches,
+      fetched.bound,
+      fetched.secrets.map(
         (each) =>
-          new RedeemedSecretResponseDto(
+          new FetchedSecretResponseDto(
             each.secret,
             each.host,
-            each.carrier,
+            each.location,
             each.name,
             each.prefix,
             each.sealed,
-            each.readInNetwork
-              ? new ReadInNetworkResponseDto(
-                  each.readInNetwork.kind,
-                  each.readInNetwork.secretId,
-                  each.readInNetwork.field,
+            each.externalRef
+              ? new ExternalSecretRefResponseDto(
+                  each.externalRef.kind,
+                  each.externalRef.secretId,
+                  each.externalRef.field,
                 )
               : null,
           ),
       ),
-      redeemed.withheld.map(
-        (each) => new WithheldSecretResponseDto(each.secret, each.reason),
+      fetched.denied.map(
+        (each) => new DeniedSecretResponseDto(each.secret, each.reason),
       ),
-      redeemed.spotlightApi
-        ? new SpotlightApiResponseDto(redeemed.spotlightApi.sealed)
+      fetched.spotlightApi
+        ? new SpotlightApiResponseDto(fetched.spotlightApi.sealed)
         : null,
     );
   }

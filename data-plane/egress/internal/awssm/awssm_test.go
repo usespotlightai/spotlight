@@ -24,14 +24,14 @@ func (c client) GetSecretValue(
 	return &secretsmanager.GetSecretValueOutput{SecretString: aws.String(value)}, nil
 }
 
-func source(id, field string) protocol.ReadInNetwork {
-	return protocol.ReadInNetwork{Kind: protocol.ReadFromAWSSecretsManager, SecretID: id, Field: field}
+func source(id, field string) protocol.ExternalSecretRef {
+	return protocol.ExternalSecretRef{Kind: protocol.ReadFromAWSSecretsManager, SecretID: id, Field: field}
 }
 
 func TestReadsASecretWholeOrOneFieldOfIt(t *testing.T) {
 	reader := With(client{"plain": "sntrys_1", "fielded": `{"token":"sntrys_2","other":3}`})
 
-	for asked, want := range map[protocol.ReadInNetwork]string{
+	for asked, want := range map[protocol.ExternalSecretRef]string{
 		source("plain", ""):        "sntrys_1",
 		source("fielded", "token"): "sntrys_2",
 	} {
@@ -44,7 +44,7 @@ func TestReadsASecretWholeOrOneFieldOfIt(t *testing.T) {
 func TestSaysWhyItCouldNotRead(t *testing.T) {
 	reader := With(client{"plain": "sntrys_1", "fielded": `{"other":3}`, "empty": ""})
 
-	for asked, said := range map[protocol.ReadInNetwork]string{
+	for asked, said := range map[protocol.ExternalSecretRef]string{
 		source("missing", ""):      "ResourceNotFoundException",
 		source("plain", "token"):   "not JSON",
 		source("fielded", "other"): "no text at other",

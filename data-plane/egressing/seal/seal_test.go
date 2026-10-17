@@ -53,7 +53,7 @@ func TestOpensNothingSealedForAnotherRunSecretOrKey(t *testing.T) {
 		"no envelope":    func() (string, error) { return key.Open("v1.nothing", "run_1", "LINEAR_API_KEY") },
 		"a later format": func() (string, error) { return key.Open("v2"+controlPlaneSealed[2:], "run_1", "LINEAR_API_KEY") },
 	} {
-		if opened, err := open(); !errors.Is(err, ErrUnopenable) || opened != "" {
+		if opened, err := open(); !errors.Is(err, ErrDecryptionFailed) || opened != "" {
 			t.Errorf("%s: opened %q (%v)", name, opened, err)
 		}
 	}

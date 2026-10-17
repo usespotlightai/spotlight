@@ -24,7 +24,7 @@ export interface RunReaching {
   readonly workspaceId: string;
   readonly runId: string;
   readonly attempt: number;
-  readonly wears: readonly string[];
+  readonly injectedSecrets: readonly string[];
 }
 
 export type ConnectionFound =
@@ -102,12 +102,12 @@ export class HostReach {
     run: RunReaching,
     connection: HostConnection | null,
   ): Promise<Reach> {
-    if (run.wears.length > 0) {
+    if (run.injectedSecrets.length > 0) {
       await this.injection.grant({
         workspaceId: run.workspaceId,
         runId: run.runId,
         attempt: run.attempt,
-        secrets: run.wears,
+        secrets: run.injectedSecrets,
       });
     }
 

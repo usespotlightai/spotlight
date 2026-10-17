@@ -301,7 +301,7 @@ const operationOf = (
     (at.url === null || hostOf(server) !== hostOf(at.url))
   ) {
     return passOver(
-      `It calls ${hostOf(server)}. The connection is worn only toward the host of the description or the host that baseUrl names`,
+      `It calls ${hostOf(server)}. Spotlight injects the token of the connection only for the host of the description or the host that baseUrl names`,
     );
   }
 

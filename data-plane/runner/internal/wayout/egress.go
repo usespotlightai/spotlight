@@ -46,7 +46,7 @@ func To(address, credential string, roots *x509.CertPool) (*Egress, error) {
 		return nil, fmt.Errorf("%s %q is not an address such as https://egress.example.com", protocol.EgressURLVar, address)
 	}
 	if credential == "" {
-		return nil, fmt.Errorf("%s is required with %s", protocol.EgressCredentialVar, protocol.EgressURLVar)
+		return nil, fmt.Errorf("%s is required with %s", protocol.EgressProxyCredentialVar, protocol.EgressURLVar)
 	}
 
 	port := at.Port()

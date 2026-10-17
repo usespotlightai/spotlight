@@ -118,7 +118,7 @@ const reachAs = (
       handle: '@ada',
       refused,
     },
-    credentials: { wornToward: vi.fn() },
+    credentials: { injectedFor: vi.fn() },
   };
 };
 

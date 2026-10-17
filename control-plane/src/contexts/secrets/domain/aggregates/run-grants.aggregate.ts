@@ -1,22 +1,22 @@
-import { RedemptionRecipientPinnedError } from '@secrets/domain/exceptions/redemption-recipient-pinned.error';
+import { RecipientPinnedError } from '@secrets/domain/exceptions/recipient-pinned.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
 import { RunLeaseOverError } from '@secrets/domain/exceptions/run-lease-over.error';
-import type { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
-import type { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
+import type { Recipient } from '@secrets/domain/value-objects/recipient.vo';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
+import type { SecretFetcher } from '@secrets/domain/value-objects/secret-fetcher.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const KEPT_MS = 7 * 24 * 60 * 60_000;
+const RETENTION_MS = 7 * 24 * 60 * 60_000;
 
 interface State {
   readonly lease: RunLease;
   readonly workspaceId: WorkspaceId;
   readonly grants: readonly SecretGrant[];
-  readonly redeemer: Redeemer | null;
+  readonly fetcher: SecretFetcher | null;
   readonly leaseLost: boolean;
   readonly endedAt: Date | null;
   readonly version: number;
@@ -35,7 +35,7 @@ export class RunGrants extends EventRecorder {
       lease,
       workspaceId,
       grants: [],
-      redeemer: null,
+      fetcher: null,
       leaseLost: false,
       endedAt: null,
       version: 0,
@@ -61,7 +61,7 @@ export class RunGrants extends EventRecorder {
   }
 
   static endedForgettablyBy(now: Date): Date {
-    return new Date(now.getTime() - KEPT_MS);
+    return new Date(now.getTime() - RETENTION_MS);
   }
 
   grant(lease: RunLease, grants: readonly SecretGrant[]): RunGrants {
@@ -92,19 +92,19 @@ export class RunGrants extends EventRecorder {
     );
   }
 
-  redeemFor(lease: RunLease, redeemer: Redeemer): RunGrants {
+  recordFetch(lease: RunLease, fetcher: SecretFetcher): RunGrants {
     const current = this.atLease(lease);
-    const pinned = current.state.redeemer;
+    const pinned = current.state.fetcher;
 
     if (!pinned) {
-      return current.with({ redeemer });
+      return current.with({ fetcher });
     }
 
-    if (!redeemer.mayFollow(pinned)) {
-      throw new RedemptionRecipientPinnedError(this.runId.value, lease.attempt);
+    if (!fetcher.matches(pinned)) {
+      throw new RecipientPinnedError(this.runId.value, lease.attempt);
     }
 
-    return pinned.equals(redeemer) ? current : current.with({ redeemer });
+    return pinned.equals(fetcher) ? current : current.with({ fetcher });
   }
 
   loseLease(lease: RunLease): RunGrants {
@@ -118,7 +118,7 @@ export class RunGrants extends EventRecorder {
       return this;
     }
 
-    return this.with({ lease, grants: [], redeemer: null, leaseLost: true });
+    return this.with({ lease, grants: [], fetcher: null, leaseLost: true });
   }
 
   end(now: Date): RunGrants {
@@ -128,7 +128,9 @@ export class RunGrants extends EventRecorder {
   isForgettableAt(now: Date): boolean {
     const endedAt = this.state.endedAt;
 
-    return endedAt !== null && now.getTime() >= endedAt.getTime() + KEPT_MS;
+    return (
+      endedAt !== null && now.getTime() >= endedAt.getTime() + RETENTION_MS
+    );
   }
 
   purge(now: Date): RunGrants {
@@ -162,12 +164,12 @@ export class RunGrants extends EventRecorder {
     return [...this.state.grants];
   }
 
-  get redeemer(): Redeemer | null {
-    return this.state.redeemer;
+  get fetcher(): SecretFetcher | null {
+    return this.state.fetcher;
   }
 
-  get recipient(): RedemptionRecipient | null {
-    return this.state.redeemer?.recipient ?? null;
+  get recipient(): Recipient | null {
+    return this.state.fetcher?.recipient ?? null;
   }
 
   get isLeaseLost(): boolean {
@@ -206,7 +208,7 @@ export class RunGrants extends EventRecorder {
 
     return lease.equals(this.state.lease)
       ? this
-      : this.with({ lease, grants: [], redeemer: null, leaseLost: false });
+      : this.with({ lease, grants: [], fetcher: null, leaseLost: false });
   }
 
   private isActiveFor(lease: RunLease): boolean {

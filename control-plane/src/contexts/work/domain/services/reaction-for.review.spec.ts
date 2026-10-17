@@ -114,7 +114,7 @@ describe('ReactionFor, asked for a review', () => {
     });
   });
 
-  it('does not count a pull request as Spotlight’s own because an earlier review of it wears its mark', () => {
+  it('does not count a pull request as Spotlight’s own because an earlier review of it has its mark', () => {
     expect(
       asked({
         pullRequestTask: taskOn(review).reviews(PULL, { outside: false }),

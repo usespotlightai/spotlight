@@ -439,7 +439,7 @@ describe('a replay claimed by a runner', () => {
       continuity: unknown;
       briefing: string;
       manifest?: unknown;
-      wears?: unknown;
+      injectedSecrets?: unknown;
       startingPoint?: unknown;
       diffs?: boolean;
     };
@@ -460,7 +460,7 @@ describe('a replay claimed by a runner', () => {
     expect(spec.briefing).toContain('## Drain the queue');
     expect(spec.briefing).toContain('Queues drain oldest first.');
     expect(spec.manifest).toBeUndefined();
-    expect(spec.wears).toBeUndefined();
+    expect(spec.injectedSecrets).toBeUndefined();
     expect(spec.startingPoint).toBeUndefined();
     expect(spec.diffs).toBe(true);
 

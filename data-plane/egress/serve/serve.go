@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"usespotlight.ai/data-plane/egressing/guard"
+	"usespotlight.ai/data-plane/egressing/inject"
 	"usespotlight.ai/data-plane/egressing/seal"
 	"usespotlight.ai/data-plane/egressing/tunnel"
-	"usespotlight.ai/data-plane/egressing/wear"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
 )
@@ -34,7 +34,7 @@ const (
 
 type ControlPlane interface {
 	AdmitEgress(ctx context.Context, proxyCredential string) (protocol.EgressAdmitted, error)
-	RedeemEgressFor(ctx context.Context, proxyCredential, recipient string) (protocol.EgressRedemption, error)
+	FetchRunSecretsFor(ctx context.Context, proxyCredential, recipient string) (protocol.EgressSecrets, error)
 	ActiveRuns(ctx context.Context, proxyCredentials []string) ([]string, error)
 	RecordConnections(ctx context.Context, records []protocol.EgressConnection) error
 }
@@ -43,7 +43,7 @@ type Egress struct {
 	settings Settings
 	control  ControlPlane
 	key      *seal.Key
-	reader   func() (wear.Reader, error)
+	reader   func() (inject.Reader, error)
 	limits   *limits
 	records  *records
 	log      *slog.Logger
@@ -61,7 +61,7 @@ type Egress struct {
 	tunnelled  sync.WaitGroup
 }
 
-func New(settings Settings, control ControlPlane, reader func() (wear.Reader, error), log *slog.Logger) (*Egress, error) {
+func New(settings Settings, control ControlPlane, reader func() (inject.Reader, error), log *slog.Logger) (*Egress, error) {
 	key, err := seal.NewKey()
 	if err != nil {
 		return nil, err
@@ -188,7 +188,7 @@ func (e *Egress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer e.leave(found)
 
-	if !e.towardControlPlane(r, found) {
+	if !e.forControlPlane(r, found) {
 		release, refusal := e.limits.take(found.workspace)
 		if refusal != "" {
 			http.Error(w, refusal, http.StatusTooManyRequests)
@@ -212,7 +212,7 @@ func (e *Egress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (e *Egress) towardControlPlane(r *http.Request, found *run) bool {
+func (e *Egress) forControlPlane(r *http.Request, found *run) bool {
 	if r.Method != http.MethodConnect {
 		return false
 	}
@@ -293,13 +293,13 @@ func proxyCredential(r *http.Request) (string, bool) {
 }
 
 func (e *Egress) bound(w http.ResponseWriter, r *http.Request, found *run) {
-	if err := e.redeemNow(r.Context(), found); err != nil {
-		e.couldNotRedeem(w, err)
+	if err := e.fetchSecretsNow(r.Context(), found); err != nil {
+		e.couldNotFetchSecrets(w, err)
 		return
 	}
 
-	hosts, redeemed := found.boundList()
-	if !redeemed {
+	hosts, fetched := found.boundList()
+	if !fetched {
 		http.Error(w, "Egress has no run for this sandbox yet. Please ask again after the claim.", http.StatusConflict)
 		return
 	}
@@ -308,8 +308,8 @@ func (e *Egress) bound(w http.ResponseWriter, r *http.Request, found *run) {
 	_ = json.NewEncoder(w).Encode(protocol.EgressBound{Hosts: hosts})
 }
 
-func (e *Egress) couldNotRedeem(w http.ResponseWriter, err error) {
-	e.log.Warn("could not redeem a run's secrets", "error", err)
+func (e *Egress) couldNotFetchSecrets(w http.ResponseWriter, err error) {
+	e.log.Warn("could not fetch a run's secrets", "error", err)
 	http.Error(w, "Egress could not get the run's secrets from the control plane. Please try again.", http.StatusBadGateway)
 }
 
@@ -318,8 +318,8 @@ func (e *Egress) connect(w http.ResponseWriter, r *http.Request, found *run) {
 	target := net.JoinHostPort(host, port)
 
 	if !found.controlPlaneAt(host, port) {
-		if err := e.redeem(r.Context(), found); err != nil {
-			e.couldNotRedeem(w, err)
+		if err := e.fetchSecrets(r.Context(), found); err != nil {
+			e.couldNotFetchSecrets(w, err)
 			return
 		}
 	}
@@ -359,7 +359,7 @@ func (e *Egress) connect(w http.ResponseWriter, r *http.Request, found *run) {
 	}
 
 	out, in := tunnel.Splice(client, buffered, upstream)
-	e.record(found, host, port, started, protocol.EgressConnection{BytesOut: out, BytesIn: in, Outcome: protocol.ConnectionTunnelled})
+	e.record(found, host, port, started, protocol.EgressConnection{BytesOut: out, BytesIn: in, Outcome: protocol.ConnectionPassthrough})
 }
 
 func (e *Egress) forward(w http.ResponseWriter, r *http.Request, found *run) {
@@ -371,8 +371,8 @@ func (e *Egress) forward(w http.ResponseWriter, r *http.Request, found *run) {
 	}
 	host = reach.Normal(host)
 
-	if err := e.redeem(r.Context(), found); err != nil {
-		e.couldNotRedeem(w, err)
+	if err := e.fetchSecrets(r.Context(), found); err != nil {
+		e.couldNotFetchSecrets(w, err)
 		return
 	}
 
@@ -397,7 +397,7 @@ func (e *Egress) forward(w http.ResponseWriter, r *http.Request, found *run) {
 			e.record(found, host, port, started, unreached(failure))
 		default:
 			e.record(found, host, port, started, protocol.EgressConnection{
-				BytesOut: metered.out.Load(), BytesIn: metered.in.Load(), Outcome: protocol.ConnectionForwarded, Status: status,
+				BytesOut: metered.out.Load(), BytesIn: metered.in.Load(), Outcome: protocol.ConnectionInjected, Status: status,
 			})
 		}
 	}()
@@ -411,23 +411,23 @@ func (e *Egress) forward(w http.ResponseWriter, r *http.Request, found *run) {
 			out.Out.Header.Del("Proxy-Authorization")
 			out.Out.Header.Del(protocol.EgressTargetHeader)
 			out.Out.Header.Del("Accept-Encoding")
-			way.wearing.Onto(host, out.Out)
+			way.injector.Inject(host, out.Out)
 		},
 		ModifyResponse: func(response *http.Response) error {
 			status = response.StatusCode
-			way.wearing.Unwear(host, response)
+			way.injector.Redact(host, response)
 			return nil
 		},
 		Transport:     metered,
 		FlushInterval: -1,
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			failure = err
-			e.failedToward(host)(w, r, err)
+			e.failedFor(host)(w, r, err)
 		},
 	}).ServeHTTP(w, r)
 }
 
-func (e *Egress) failedToward(host string) func(http.ResponseWriter, *http.Request, error) {
+func (e *Egress) failedFor(host string) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, _ *http.Request, err error) {
 		if errors.Is(err, context.Canceled) {
 			return

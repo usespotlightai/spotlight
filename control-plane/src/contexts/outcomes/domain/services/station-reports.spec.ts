@@ -87,7 +87,7 @@ describe('stationReportsOf', () => {
     expect(report?.runFailures).toEqual([]);
   });
 
-  it('reports a station whose only trouble this period was a looping hook', () => {
+  it('reports a station whose only failure this period was a looping hook', () => {
     const reports = stationReportsOf(
       historyOf({
         touches: [touchesOf('task_1', { lineId: 'line_2' })],

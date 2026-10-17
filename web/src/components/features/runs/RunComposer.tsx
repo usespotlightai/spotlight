@@ -29,8 +29,13 @@ export function RunComposer({
 }: RunComposerProps) {
   const say = useSayToRun();
   const stop = useStopRun();
-  const { line, station: currentStation, task } = useTaskStation(teamId, taskId);
-  const restarts = !answering && startsAgainWhenTold(task, currentStation, stationId);
+  const {
+    line,
+    station: currentStation,
+    task,
+  } = useTaskStation(teamId, taskId);
+  const restarts =
+    !answering && startsAgainWhenTold(task, currentStation, stationId);
 
   return (
     <ChatInput

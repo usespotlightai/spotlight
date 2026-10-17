@@ -12,7 +12,7 @@ import {
 
 export interface SecretBindingRow {
   readonly host: string;
-  readonly carrier: string;
+  readonly location: string;
   readonly name: string;
   readonly prefix: string;
 }
@@ -42,8 +42,8 @@ export const secretValue = pgTable('secret_value', {
   secretId: text('secret_id')
     .primaryKey()
     .references(() => secret.id, { onDelete: 'cascade' }),
-  sealed: text('sealed').notNull(),
-  keptAt: timestamp('kept_at').defaultNow().notNull(),
+  ciphertext: text('ciphertext').notNull(),
+  storedAt: timestamp('stored_at').defaultNow().notNull(),
 });
 
 export const secretDataKey = pgTable('secret_data_key', {
@@ -60,7 +60,7 @@ export const runGrants = pgTable(
     workspaceId: text('workspace_id').notNull(),
     attempt: integer('attempt').notNull(),
     recipient: text('recipient'),
-    redeemedThrough: text('redeemed_through'),
+    fetchedByEgressId: text('fetched_by_egress_id'),
     leaseLost: boolean('lease_lost').notNull().default(false),
     endedAt: timestamp('ended_at'),
     version: integer('version').notNull().default(1),

@@ -9,8 +9,8 @@ import { HostReach } from '@integrations/application/services/host-reach.service
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
-import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import type {
   RunGrant,
   RunRequest,
@@ -23,7 +23,7 @@ import { vi } from 'vitest';
 
 interface Bound {
   readonly host: string;
-  readonly carrier?: 'header' | 'query';
+  readonly location?: 'header' | 'query';
   readonly name?: string;
   readonly prefix?: string;
   readonly value: string;
@@ -35,8 +35,8 @@ const refused = (message: string) =>
 export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
   const granted = new Set<string>();
 
-  const worn = (request: SpotlightRequest, run: string | null) =>
-    WornSecrets.of(
+  const injected = (request: SpotlightRequest, run: string | null) =>
+    InjectedSecrets.of(
       request.secrets.map((name) => {
         const secret = bound[name];
         const host = new URL(request.url).hostname;
@@ -57,7 +57,7 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
         }
 
         return {
-          carrier: secret.carrier ?? 'header',
+          location: secret.location ?? 'header',
           name: secret.name ?? 'authorization',
           value: `${secret.prefix ?? ''}${secret.value}`,
           bare: secret.value,
@@ -75,10 +75,10 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
     }
   });
   const forRun = vi.fn(async (request: RunRequest) =>
-    worn(request, request.runId),
+    injected(request, request.runId),
   );
   const forSpotlight = vi.fn(async (request: SpotlightRequest) =>
-    worn(request, null),
+    injected(request, null),
   );
 
   const forVerifying = vi.fn(async (request: VerifyingRequest) => {

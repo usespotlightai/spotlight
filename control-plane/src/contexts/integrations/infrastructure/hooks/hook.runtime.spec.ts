@@ -120,7 +120,7 @@ const tool = (
       ],
       approval,
     },
-    wears: [],
+    injectedSecrets: [],
     defaultFor: () => undefined,
     call,
   }) as unknown as ReachableTool;

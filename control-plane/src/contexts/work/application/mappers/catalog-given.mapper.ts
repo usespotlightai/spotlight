@@ -5,8 +5,8 @@ import type {
 } from '@catalog/application/contracts/catalog.contract';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaration.mapper';
-import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 
 const SPOTLIGHT_CATALOG = 'the Spotlight catalog';
 
@@ -33,7 +33,7 @@ export const CatalogGivenMapper = {
     };
   },
 
-  toWithheld(refusal: CatalogRefusal): CatalogWithheld {
-    return CatalogWithheld.of(refusal);
+  toDenied(refusal: CatalogRefusal): DeniedCatalogItem {
+    return DeniedCatalogItem.of(refusal);
   },
 };

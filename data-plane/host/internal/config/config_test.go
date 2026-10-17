@@ -30,7 +30,7 @@ func isolated(t *testing.T) string {
 		"SPOTLIGHT_SANDBOX_ENV", "SPOTLIGHT_SANDBOX_NETWORK", "SPOTLIGHT_SANDBOX_HOSTS", "SPOTLIGHT_STATE",
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
 		"SPOTLIGHT_EGRESS_IMAGE", "SPOTLIGHT_EGRESS_ALLOW", "SPOTLIGHT_EGRESS_ENV", "SPOTLIGHT_EGRESS_PASS",
-		"SPOTLIGHT_EGRESS_TRUST", "SPOTLIGHT_EGRESS_READS", "SENTRY_DSN", "SENTRY_ENVIRONMENT",
+		"SPOTLIGHT_EGRESS_CA_BUNDLE", "SPOTLIGHT_EGRESS_SECRET_ALLOW", "SENTRY_DSN", "SENTRY_ENVIRONMENT",
 	} {
 		t.Setenv(name, "")
 	}
@@ -307,7 +307,7 @@ func TestReadsWhatSandboxesMayReachAndWhatEgressRunsWith(t *testing.T) {
 	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
 	t.Setenv("SPOTLIGHT_EGRESS_IMAGE", "spotlight-runner:dev")
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "api.anthropic.com, *.internal.acme.com")
-	t.Setenv("SPOTLIGHT_EGRESS_READS", "arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*")
+	t.Setenv("SPOTLIGHT_EGRESS_SECRET_ALLOW", "arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*")
 	t.Setenv("AWS_PROFILE", "egress")
 	t.Setenv("SPOTLIGHT_EGRESS_PASS", "AWS_PROFILE")
 	write(t, filepath.Join(dir, "egress.env"), "AWS_REGION=eu-west-1\n")
@@ -318,7 +318,7 @@ func TestReadsWhatSandboxesMayReachAndWhatEgressRunsWith(t *testing.T) {
 	}
 	if cfg.Egress.Image != "spotlight-runner:dev" ||
 		!slices.Equal(cfg.Egress.Allow, []string{"api.anthropic.com", "*.internal.acme.com"}) ||
-		!slices.Equal(cfg.Egress.Reads, []string{"arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*"}) ||
+		!slices.Equal(cfg.Egress.SecretAllow, []string{"arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*"}) ||
 		!slices.Equal(cfg.Egress.Env, []string{"AWS_PROFILE=egress", "AWS_REGION=eu-west-1"}) {
 		t.Errorf("egress %+v", cfg.Egress)
 	}
@@ -349,7 +349,7 @@ func TestReadsTheAuthoritiesEgressTrustsForPrivateHosts(t *testing.T) {
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
 	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
 	trust := filepath.Join(dir, "acme-ca.pem")
-	t.Setenv("SPOTLIGHT_EGRESS_TRUST", trust)
+	t.Setenv("SPOTLIGHT_EGRESS_CA_BUNDLE", trust)
 
 	write(t, trust, "not a certificate")
 	if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "no PEM certificate") {
@@ -359,8 +359,8 @@ func TestReadsTheAuthoritiesEgressTrustsForPrivateHosts(t *testing.T) {
 	authority := authorityPEM(t)
 	write(t, trust, authority)
 	cfg, err := config.Load("dev")
-	if err != nil || string(cfg.Egress.Trust) != authority {
-		t.Errorf("trust %q: %v", cfg.Egress.Trust, err)
+	if err != nil || string(cfg.Egress.CABundle) != authority {
+		t.Errorf("trust %q: %v", cfg.Egress.CABundle, err)
 	}
 }
 

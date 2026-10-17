@@ -45,39 +45,39 @@ type Config struct {
 }
 
 type Egress struct {
-	Image string
-	Allow []string
-	Reads []string
-	Env   []string
-	Trust []byte
+	Image       string
+	Allow       []string
+	SecretAllow []string
+	Env         []string
+	CABundle    []byte
 }
 
 const (
 	EnvConfig = "SPOTLIGHT_HOST_CONFIG"
 
-	envURL        = "SPOTLIGHT_URL"
-	envToken      = "SPOTLIGHT_TOKEN"
-	envTrust      = "SPOTLIGHT_TRUST"
-	envTokenFile  = "SPOTLIGHT_OIDC_TOKEN_FILE"
-	envCapacity   = "SPOTLIGHT_CAPACITY"
-	envImage      = "SPOTLIGHT_RUNNER_IMAGE"
-	envRegistry   = "SPOTLIGHT_REGISTRY_CONFIG"
-	envRunTimeout = "SPOTLIGHT_RUN_TIMEOUT"
-	envAnswerWait = protocol.AnswerWaitVar
-	envSandboxURL = "SPOTLIGHT_SANDBOX_URL"
-	envSandboxEnv = "SPOTLIGHT_SANDBOX_ENV"
-	envPass       = "SPOTLIGHT_SANDBOX_PASS"
-	envNetwork    = "SPOTLIGHT_SANDBOX_NETWORK"
-	envHosts      = "SPOTLIGHT_SANDBOX_HOSTS"
-	envEgressImg  = "SPOTLIGHT_EGRESS_IMAGE"
-	envEgressOK   = "SPOTLIGHT_EGRESS_ALLOW"
-	envEgressEnv  = "SPOTLIGHT_EGRESS_ENV"
-	envEgressPass = "SPOTLIGHT_EGRESS_PASS"
-	envEgressCA   = "SPOTLIGHT_EGRESS_TRUST"
-	envEgressRead = "SPOTLIGHT_EGRESS_READS"
-	envState      = "SPOTLIGHT_STATE"
-	envName       = "SPOTLIGHT_HOST_NAME"
-	envDocker     = "DOCKER_HOST"
+	envURL         = "SPOTLIGHT_URL"
+	envToken       = "SPOTLIGHT_TOKEN"
+	envTrust       = "SPOTLIGHT_TRUST"
+	envTokenFile   = "SPOTLIGHT_OIDC_TOKEN_FILE"
+	envCapacity    = "SPOTLIGHT_CAPACITY"
+	envImage       = "SPOTLIGHT_RUNNER_IMAGE"
+	envRegistry    = "SPOTLIGHT_REGISTRY_CONFIG"
+	envRunTimeout  = "SPOTLIGHT_RUN_TIMEOUT"
+	envAnswerWait  = protocol.AnswerWaitVar
+	envSandboxURL  = "SPOTLIGHT_SANDBOX_URL"
+	envSandboxEnv  = "SPOTLIGHT_SANDBOX_ENV"
+	envPass        = "SPOTLIGHT_SANDBOX_PASS"
+	envNetwork     = "SPOTLIGHT_SANDBOX_NETWORK"
+	envHosts       = "SPOTLIGHT_SANDBOX_HOSTS"
+	envEgressImg   = "SPOTLIGHT_EGRESS_IMAGE"
+	envEgressOK    = "SPOTLIGHT_EGRESS_ALLOW"
+	envEgressEnv   = "SPOTLIGHT_EGRESS_ENV"
+	envEgressPass  = "SPOTLIGHT_EGRESS_PASS"
+	envCABundle    = "SPOTLIGHT_EGRESS_CA_BUNDLE"
+	envSecretAllow = "SPOTLIGHT_EGRESS_SECRET_ALLOW"
+	envState       = "SPOTLIGHT_STATE"
+	envName        = "SPOTLIGHT_HOST_NAME"
+	envDocker      = "DOCKER_HOST"
 )
 
 const (
@@ -238,7 +238,7 @@ func withReporting(allow []string) []string {
 }
 
 func egressOf(get func(string) string, version, poolToken string) (Egress, error) {
-	egress := Egress{Image: get(envEgressImg), Allow: list(get(envEgressOK)), Reads: list(get(envEgressRead))}
+	egress := Egress{Image: get(envEgressImg), Allow: list(get(envEgressOK)), SecretAllow: list(get(envSecretAllow))}
 	if egress.Image == "" {
 		egress.Image = DefaultImage(version)
 	}
@@ -267,13 +267,13 @@ func egressOf(get func(string) string, version, poolToken string) (Egress, error
 		problems = append(problems, fmt.Errorf("egress: %w", err))
 	}
 
-	if path := get(envEgressCA); path != "" {
-		egress.Trust, err = os.ReadFile(path)
+	if path := get(envCABundle); path != "" {
+		egress.CABundle, err = os.ReadFile(path)
 		switch {
 		case err != nil:
-			problems = append(problems, fmt.Errorf("%s: %w", envEgressCA, err))
-		case !x509.NewCertPool().AppendCertsFromPEM(egress.Trust):
-			problems = append(problems, fmt.Errorf("%s: %s has no PEM certificate", envEgressCA, path))
+			problems = append(problems, fmt.Errorf("%s: %w", envCABundle, err))
+		case !x509.NewCertPool().AppendCertsFromPEM(egress.CABundle):
+			problems = append(problems, fmt.Errorf("%s: %s has no PEM certificate", envCABundle, path))
 		}
 	}
 

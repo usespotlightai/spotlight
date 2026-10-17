@@ -9,7 +9,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { CheckActiveRunsCommand } from '@work/application/commands/egress.commands';
 import type { EgressActiveRunsDto } from '@work/application/dto/egress-admission.dto';
-import type { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
+import type { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 
 export const MAX_RUNS_AT_ONCE = 500;
 
@@ -18,7 +18,7 @@ export class CheckActiveRunsHandler
 {
   constructor(
     private readonly egress: RunnerEgressPort,
-    private readonly redemptions: EgressRedemptions,
+    private readonly fetches: EgressSecretFetches,
     private readonly clock: ClockPort,
   ) {}
 
@@ -60,7 +60,7 @@ export class CheckActiveRunsHandler
     }
 
     return (
-      (await this.redemptions.leasedBy(
+      (await this.fetches.leasedBy(
         RunId.of(admitted.work.id),
         RunnerId.of(admitted.runnerId),
         admitted.workspaceId,

@@ -29,7 +29,7 @@ import {
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { ProvisionSecretUnopenableError } from '@runners/domain/exceptions/provision-secret-unopenable.error';
+import { ProvisionSecretDecryptionFailedError } from '@runners/domain/exceptions/provision-secret-decryption-failed.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
@@ -73,7 +73,7 @@ const running = (
     unsaved?: Error;
     trust?: RunnerTrust | null;
     host?: RunnerHost | null;
-    unopenable?: boolean;
+    decryptionFails?: boolean;
     insecureAllowed?: boolean;
     egress?: Egress | null;
     platform?: PlatformEgressSettings | null;
@@ -120,10 +120,10 @@ const running = (
       }),
     } as ProvisionCallsPort,
     {
-      sealed: vi.fn(),
-      opened: vi.fn(async () => {
-        if (given.unopenable) {
-          throw new ProvisionSecretUnopenableError(POOL_ID.value);
+      encrypt: vi.fn(),
+      decrypt: vi.fn(async () => {
+        if (given.decryptionFails) {
+          throw new ProvisionSecretDecryptionFailedError(POOL_ID.value);
         }
         return secretOf('s');
       }),
@@ -468,7 +468,7 @@ describe('Runners', () => {
       expect(platformless.called).toEqual([]);
     });
 
-    it('never sends a proxy credential toward an egress in the clear unless the deployment allows it', async () => {
+    it('never sends a proxy credential to an egress in the clear unless the deployment allows it', async () => {
       const pool = aPushPool({ egress: EgressReference.to(EGRESS_ID) });
       const egress = anEgress({ url: 'http://egress.example.com' });
       const refusing = running(pool, { egress });
@@ -542,7 +542,7 @@ describe('Runners', () => {
       expect(logged).toEqual([{ err: lost, runner: 'pooled_1' }]);
     });
 
-    it('signs the call with the pool’s secret, opened only to provision', async () => {
+    it('signs the call with the pool’s secret, decrypted only to provision', async () => {
       const { service, called } = running(aPushPool());
 
       await service.provision(request, STARTED_AT);
@@ -550,15 +550,16 @@ describe('Runners', () => {
       expect(called[0]?.secret.equals(secretOf('s'))).toBe(true);
     });
 
-    it('fails as unusable, calling nobody and letting the runner go, when the pool’s secret does not open here', async () => {
+    it('fails as unusable, calling nobody and letting the runner go, when the keys here cannot decrypt the pool’s secret', async () => {
       const { service, saved, called } = running(aPushPool(), {
-        unopenable: true,
+        decryptionFails: true,
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
         kind: 'unusable',
-        detail: 'Provision secret doesn’t open with this deployment’s keys.',
+        detail:
+          'Cannot decrypt the provision secret with the keys of this deployment.',
       });
       expect(called).toEqual([]);
       expect(saved[0]?.isDiscarded).toBe(true);

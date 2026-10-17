@@ -135,9 +135,9 @@ export class ThreadedSourceReader implements SourceReaderPort {
     connection: AccessToken | null,
   ): Promise<string> {
     const url = source.url ?? '';
-    const wearing = {
+    const injection = {
       apiHost: hostOf(source.kind === 'graphql' ? url : source.baseUrl),
-      secrets: source.wears.map((each) => each.value),
+      secrets: source.injectedSecrets.map((each) => each.value),
       connection: connection?.value ?? null,
       credentials: reach.credentials,
     };
@@ -150,7 +150,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
             accept: 'application/json',
             body: JSON.stringify({ query: getIntrospectionQuery() }),
           },
-          wearing,
+          injection,
         )
       : this.fetching.text(
           {
@@ -158,7 +158,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
             method: 'GET',
             accept: 'application/json, application/yaml;q=0.9, */*;q=0.1',
           },
-          wearing,
+          injection,
         );
   }
 

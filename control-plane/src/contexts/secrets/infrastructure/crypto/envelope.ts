@@ -6,30 +6,30 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const VERSION = 'v1';
 
-export class UnopenableEnvelopeError extends Error {
+export class DecryptionFailedError extends Error {
   constructor(because: string) {
-    super(`The envelope does not open: ${because}`);
-    this.name = 'UnopenableEnvelopeError';
+    super(`The envelope does not decrypt: ${because}`);
+    this.name = 'DecryptionFailedError';
   }
 }
 
 const keyOf = (key: Uint8Array): Buffer => {
   if (key.length !== KEY_BYTES) {
-    throw new UnopenableEnvelopeError(`the key is not ${KEY_BYTES} bytes`);
+    throw new DecryptionFailedError(`the key is not ${KEY_BYTES} bytes`);
   }
 
   return Buffer.from(key);
 };
 
-export const sealed = (
+export const encrypt = (
   key: Uint8Array,
   plain: Uint8Array,
-  bound: string,
+  aad: string,
 ): string => {
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv(ALGORITHM, keyOf(key), iv);
 
-  cipher.setAAD(Buffer.from(bound, 'utf8'));
+  cipher.setAAD(Buffer.from(aad, 'utf8'));
 
   const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
 
@@ -41,10 +41,10 @@ export const sealed = (
   ].join('.');
 };
 
-export const opened = (
+export const decrypt = (
   key: Uint8Array,
   envelope: string,
-  bound: string,
+  aad: string,
 ): Buffer => {
   const [version, iv, tag, encrypted, ...rest] = envelope.split('.');
 
@@ -55,13 +55,13 @@ export const opened = (
     encrypted === undefined ||
     rest.length > 0
   ) {
-    throw new UnopenableEnvelopeError('it was not sealed by this Spotlight');
+    throw new DecryptionFailedError('it was not encrypted by this Spotlight');
   }
 
   const given = Buffer.from(tag, 'base64');
 
   if (given.length !== TAG_BYTES) {
-    throw new UnopenableEnvelopeError('it has been tampered with');
+    throw new DecryptionFailedError('it has been tampered with');
   }
 
   const decipher = createDecipheriv(
@@ -70,7 +70,7 @@ export const opened = (
     Buffer.from(iv, 'base64'),
   );
 
-  decipher.setAAD(Buffer.from(bound, 'utf8'));
+  decipher.setAAD(Buffer.from(aad, 'utf8'));
   decipher.setAuthTag(given);
 
   try {
@@ -79,8 +79,8 @@ export const opened = (
       decipher.final(),
     ]);
   } catch {
-    throw new UnopenableEnvelopeError(
-      'it was sealed with another key, for something else, or has been tampered with',
+    throw new DecryptionFailedError(
+      'it was encrypted with another key, for something else, or has been tampered with',
     );
   }
 };

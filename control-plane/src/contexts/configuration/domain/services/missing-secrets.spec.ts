@@ -3,7 +3,7 @@ import { ProfileSettings } from '@configuration/domain/value-objects/profile-set
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it } from 'vitest';
 
-const wearing = ProfileSettings.written({
+const referring = ProfileSettings.written({
   permissions: { allow: [], ask: [], deny: [] },
   mcpServers: [
     {
@@ -22,26 +22,26 @@ const wearing = ProfileSettings.written({
   native: {},
 });
 
-describe('a profile’s worn secrets', () => {
+describe('a profile’s injected secrets', () => {
   it('are the secrets its MCP servers’ env refers to, where each is named', () => {
     expect(
-      wearing.wornSecrets.map(({ at, secret }) => [at, secret.value]),
+      referring.secretReferences.map(({ path, name }) => [path.segments, name]),
     ).toEqual([
       [['mcpServers', 0, 'env', 'LINEAR_API_KEY'], 'LINEAR_API_KEY'],
       [['mcpServers', 1, 'env', 'SENTRY_TOKEN'], 'SENTRY_TOKEN'],
     ]);
-    expect(wearing.wears(SecretName.of('SENTRY_TOKEN'))).toBe(true);
-    expect(wearing.wears(SecretName.of('LINEAR_TEAM'))).toBe(false);
+    expect(referring.uses(SecretName.of('SENTRY_TOKEN'))).toBe(true);
+    expect(referring.uses(SecretName.of('LINEAR_TEAM'))).toBe(false);
   });
 
   it('are missing where the workspace does not have them', () => {
     expect(
-      missingSecrets(wearing, [SecretName.of('LINEAR_API_KEY')]).map(
-        (each) => each.secret.value,
+      missingSecrets(referring, [SecretName.of('LINEAR_API_KEY')]).map(
+        (each) => each.name,
       ),
     ).toEqual(['SENTRY_TOKEN']);
     expect(
-      missingSecrets(wearing, [
+      missingSecrets(referring, [
         SecretName.of('LINEAR_API_KEY'),
         SecretName.of('SENTRY_TOKEN'),
       ]),

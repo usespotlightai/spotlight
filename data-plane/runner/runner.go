@@ -14,12 +14,12 @@ import (
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/account"
+	"usespotlight.ai/data-plane/runner/internal/cacerts"
 	"usespotlight.ai/data-plane/runner/internal/config"
 	"usespotlight.ai/data-plane/runner/internal/gitproxy"
 	"usespotlight.ai/data-plane/runner/internal/harness"
 	"usespotlight.ai/data-plane/runner/internal/session"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
-	"usespotlight.ai/data-plane/runner/internal/trust"
 	"usespotlight.ai/data-plane/runner/internal/wayout"
 	"usespotlight.ai/data-plane/telemetry"
 )
@@ -27,7 +27,7 @@ import (
 const Usage = `  spotlight runner            do the one run or check this sandbox was started for`
 
 func Main(args []string, version string) int {
-	if err := trust.Install(protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
+	if err := cacerts.Install(protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
 		slog.Warn("could not trust the egress authority, so TLS through egress may fail", "error", err)
 	}
 
@@ -203,7 +203,7 @@ func (r runner) openWayOut(ctx context.Context, egress *wayout.Egress) (opened, 
 		return opened{}, fmt.Errorf("the way out through egress did not open, so the agent cannot go out with its run's secrets: %w", err)
 	}
 
-	if err := trust.Trust(way.PEM(), protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
+	if err := cacerts.Add(way.PEM(), protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
 		r.log.Warn("could not trust the way out's authority, so TLS through it may fail", "error", err)
 	}
 

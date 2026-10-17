@@ -1,5 +1,5 @@
 import { ForgetRunGrants } from '@secrets/application/services/forget-run-grants.service';
-import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
+import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import {
@@ -31,7 +31,7 @@ const keeping = async () => {
 const forgettingBy = (grants: InMemoryGrants, logger = new RecordingLogger()) =>
   new ForgetRunGrants(
     grants,
-    new RunGrantsKept(grants),
+    new RunGrantsUnitOfWork(grants),
     clockAt(() => new Date(NOW.getTime() + WEEK)),
     logger,
   );
@@ -42,7 +42,7 @@ describe('ForgetRunGrants', () => {
     let now = new Date(NOW.getTime() + WEEK - 1);
     const forgetting = new ForgetRunGrants(
       grants,
-      new RunGrantsKept(grants),
+      new RunGrantsUnitOfWork(grants),
       clockAt(() => now),
       new RecordingLogger(),
     );

@@ -29,12 +29,12 @@ export const withSentRequest = (
     path: pathOf(request.url),
     status: response?.status ?? null,
   };
-  const carrier =
+  const failure =
     typeof thrown === 'object' && thrown !== null
       ? thrown
       : { message: typeof thrown === 'string' ? thrown : undefined };
 
-  return Object.assign(carrier, { [SENT]: sent });
+  return Object.assign(failure, { [SENT]: sent });
 };
 
 export const sentRequestOf = (thrown: unknown): SentRequest | null => {

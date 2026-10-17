@@ -6,7 +6,7 @@ import type {
   HookConfigMatch,
   HookConfigStep,
 } from '@configuration/application/ports/hook-configs.port';
-import type { WornSecret } from '@configuration/application/ports/integration-configs.port';
+import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import {
   attribute,
@@ -576,10 +576,10 @@ const replacedAt = (
 
 const withSecretReferences = (
   definition: unknown,
-  worn: readonly WornSecret[],
+  references: readonly SecretReferenceAt[],
   refer: Referring,
 ): unknown =>
-  worn.reduce<unknown>((written, each) => {
+  references.reduce<unknown>((written, each) => {
     const reference = refer.secret(each.name);
 
     return reference
@@ -597,7 +597,11 @@ const integration = (
     attribute(
       'definition',
       hclOf(
-        withSecretReferences(resource.definition, resource.secretsWorn, refer),
+        withSecretReferences(
+          resource.definition,
+          resource.secretReferences,
+          refer,
+        ),
       ),
     ),
   ]);
@@ -614,7 +618,11 @@ const profile = (
     attribute(
       'mcp_servers',
       hclOf(
-        withSecretReferences(resource.mcpServers, resource.secretsWorn, refer),
+        withSecretReferences(
+          resource.mcpServers,
+          resource.secretReferences,
+          refer,
+        ),
       ),
     ),
     attribute('native', hclOf(resource.native)),

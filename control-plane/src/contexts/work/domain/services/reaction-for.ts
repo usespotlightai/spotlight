@@ -153,7 +153,7 @@ export const ReactionFor = {
     return null;
   },
 
-  // pullRequestTask wears the mark of the pull request. reviewTask wears the mark of a review of the pull request.
+  // pullRequestTask has the mark of the pull request. reviewTask has the mark of a review of the pull request.
   reviewAsked(input: {
     lines: readonly Line[];
     opens: OpensWith;

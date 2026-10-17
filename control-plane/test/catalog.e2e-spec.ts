@@ -17,7 +17,7 @@ import {
   BUILT_IN_LINES,
   type LineOpening,
 } from '@work/domain/services/built-in-lines';
-import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
+import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
@@ -442,7 +442,7 @@ describe('a catalog call (e2e)', () => {
         }),
       }).refused(
         RunOutcome.refused([
-          CatalogWithheld.of({
+          DeniedCatalogItem.of({
             id: 'catalog.web-search@1.1.0',
             reason: 'lapsed',
             because:

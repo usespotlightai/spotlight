@@ -3,13 +3,13 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { takeWornMarks } from '@work/application/services/worn-marks';
+import { takeTaskMarks } from '@work/application/services/task-marks';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
-import { MarkWornElsewhereError } from '@work/domain/exceptions/mark-worn-elsewhere.error';
+import { MarkAlreadyClaimedError } from '@work/domain/exceptions/mark-already-claimed.error';
 import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -164,8 +164,8 @@ describe('a line that drops a station', () => {
   });
 });
 
-describe('a mark worn by one task and claimed by another', () => {
-  it('refuses a claim that skips the task wearing it', async () => {
+describe('a mark that one task has and another task claims', () => {
+  it('refuses a claim that skips the task with the mark', async () => {
     const { line, stationId } = await openTeam(db, tasks, `m-${randomUUID()}`);
     const thread = Mark.of('slack.thread', randomUUID());
 
@@ -173,10 +173,10 @@ describe('a mark worn by one task and claimed by another', () => {
 
     await expect(
       tasks.add(added(line, stationId, { marks: [thread] })),
-    ).rejects.toBeInstanceOf(MarkWornElsewhereError);
+    ).rejects.toBeInstanceOf(MarkAlreadyClaimedError);
   });
 
-  it('passes to the newest claim through the task that wore it', async () => {
+  it('passes to the newest claim through the task that had the mark', async () => {
     const { line, stationId, workspaceId } = await openTeam(
       db,
       tasks,
@@ -188,7 +188,7 @@ describe('a mark worn by one task and claimed by another', () => {
 
     const newest = added(line, stationId, { marks: [thread] });
     await context.inTransaction(async () => {
-      await takeWornMarks(tasks, newest);
+      await takeTaskMarks(tasks, newest);
       await tasks.add(newest);
     });
 

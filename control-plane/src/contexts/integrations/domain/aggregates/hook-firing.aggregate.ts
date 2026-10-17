@@ -73,7 +73,7 @@ interface State extends Fired {
 
 const LEASE_MS = 10 * 60 * 1000;
 
-const KEPT_MS = 30 * 24 * 60 * 60 * 1000;
+const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 const frozenEvent = (
   event: Readonly<Record<string, unknown>>,
@@ -142,7 +142,7 @@ export class HookFiring extends EventRecorder {
   }
 
   static finishedForgettablyBefore(now: Date): Date {
-    return new Date(now.getTime() - KEPT_MS);
+    return new Date(now.getTime() - RETENTION_MS);
   }
 
   get id(): string {
@@ -381,7 +381,7 @@ export class HookFiring extends EventRecorder {
   isForgettableAt(now: Date): boolean {
     const at = this.finishedAt;
 
-    return at !== null && at.getTime() + KEPT_MS <= now.getTime();
+    return at !== null && at.getTime() + RETENTION_MS <= now.getTime();
   }
 
   forgotten(now: Date): HookFiring {

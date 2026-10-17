@@ -155,7 +155,9 @@ export class DispatchTask implements TaskDispatching {
       memoryFolder: memories.folder,
       tools: described,
     });
-    const worn = (order.given.profile?.wears ?? []).map((each) => each.value);
+    const injected = (order.given.profile?.injectedSecrets ?? []).map(
+      (each) => each.value,
+    );
     const catalog = order.given.pinned.map((each) => each.value);
 
     const queued = Run.enqueue({
@@ -180,7 +182,7 @@ export class DispatchTask implements TaskDispatching {
         manifest: described.map(toolManifestOf),
         ...(catalog.length > 0 ? { catalog } : {}),
         startingPoint: true,
-        ...(worn.length > 0 ? { wears: worn } : {}),
+        ...(injected.length > 0 ? { injectedSecrets: injected } : {}),
       }),
     });
 

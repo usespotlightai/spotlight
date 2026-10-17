@@ -30,7 +30,7 @@ import type {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { SECRET_CARRIERS } from '@shared-kernel/domain/value-objects/secret-carriers';
+import { SECRET_LOCATIONS } from '@shared-kernel/domain/value-objects/secret-locations';
 
 const KIND = 'secret';
 
@@ -68,15 +68,15 @@ const DEFINITION = ApiBody({
           required: ['host'],
           properties: {
             host: { type: 'string', example: 'api.linear.app' },
-            carrier: {
+            location: {
               type: 'string',
-              enum: [...SECRET_CARRIERS],
+              enum: [...SECRET_LOCATIONS],
               default: 'header',
             },
             name: {
               type: 'string',
               description:
-                'The header or query parameter it is worn in; authorization when a header is not named',
+                'The header or query parameter that Spotlight injects it in. The default header is authorization',
               example: 'authorization',
             },
             prefix: { type: 'string', default: '', example: 'Bearer ' },

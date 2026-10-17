@@ -57,7 +57,7 @@ const byFactory = (named: string) => {
 };
 
 describe('markedSources', () => {
-  it('contains every provider wearing the mark', () => {
+  it('contains every provider that has the mark', () => {
     const sources = markedSources(
       discovering([asClass('github'), asClass('sentry')]),
     );

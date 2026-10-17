@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 const bindingSchema = z.object({
   host: z.string(),
-  carrier: z.string().optional(),
+  location: z.string().optional(),
   name: z.string().optional(),
   prefix: z.string().optional(),
 });

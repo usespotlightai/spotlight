@@ -1,9 +1,9 @@
 import type { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import type { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import {
+  FAILED_REDIRECT,
   OAuth2ConnectionController,
   type Redirectable,
-  WENT_WRONG,
 } from '@integrations/presentation/http/controllers/oauth2-connection.controller';
 import {
   OAUTH2_NONCE_COOKIE,
@@ -106,7 +106,7 @@ describe('OAuth2ConnectionController', () => {
     await controller.callback('s', 'c', { headers: {} }, response);
 
     expect(execute).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith(WENT_WRONG);
+    expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
   it('refuses a browser with no session', async () => {
@@ -116,7 +116,7 @@ describe('OAuth2ConnectionController', () => {
     await controller.callback('s', 'c', withCookie('n-1'), response);
 
     expect(execute).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith(WENT_WRONG);
+    expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
   it('connects the team unless asked to connect the caller', async () => {

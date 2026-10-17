@@ -17,7 +17,7 @@ import { reviseRunner } from '@runners/application/services/runner-revisions';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { ProvisionSecretUnopenableError } from '@runners/domain/exceptions/provision-secret-unopenable.error';
+import { ProvisionSecretDecryptionFailedError } from '@runners/domain/exceptions/provision-secret-decryption-failed.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
@@ -307,12 +307,13 @@ export class Runners implements RunnersPort {
     let secret: ProvisionSecret;
 
     try {
-      secret = await this.secrets.opened(pool, access.secret);
+      secret = await this.secrets.decrypt(pool, access.secret);
     } catch (error) {
-      if (error instanceof ProvisionSecretUnopenableError) {
+      if (error instanceof ProvisionSecretDecryptionFailedError) {
         return {
           outcome: 'unusable',
-          detail: 'Provision secret doesn’t open with this deployment’s keys.',
+          detail:
+            'Cannot decrypt the provision secret with the keys of this deployment.',
         };
       }
 

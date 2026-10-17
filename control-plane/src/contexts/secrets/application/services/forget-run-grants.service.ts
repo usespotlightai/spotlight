@@ -1,4 +1,4 @@
-import type { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
+import type { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -13,7 +13,7 @@ export class ForgetRunGrants {
 
   constructor(
     private readonly grants: RunGrantsRepository,
-    private readonly kept: RunGrantsKept,
+    private readonly unitOfWork: RunGrantsUnitOfWork,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -44,7 +44,9 @@ export class ForgetRunGrants {
   async ofWorkspace(workspaceId: WorkspaceId): Promise<void> {
     for (const runId of await this.grants.runsIn(workspaceId)) {
       if (await this.readable(runId)) {
-        await this.kept.changedIfExists(runId, (kept) => kept.abandon());
+        await this.unitOfWork.changedIfExists(runId, (current) =>
+          current.abandon(),
+        );
       }
     }
   }
@@ -56,7 +58,7 @@ export class ForgetRunGrants {
       return false;
     }
 
-    return this.kept.settled(existing, existing.purge(now));
+    return this.unitOfWork.settled(existing, existing.purge(now));
   }
 
   private async readable(runId: RunId): Promise<RunGrants | null> {

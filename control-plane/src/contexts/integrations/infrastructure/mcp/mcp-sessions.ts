@@ -24,22 +24,22 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OnModuleDestroy } from '@nestjs/common';
 import {
-  type WornRequest,
-  WornSecrets,
-} from '@secrets/application/contracts/worn-secrets.contract';
+  InjectedSecrets,
+  type InjectionRequest,
+} from '@secrets/application/contracts/injected-secrets.contract';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 
 type Fetch = typeof globalThis.fetch;
 
-export interface McpWearing {
+export interface McpInjection {
   readonly connection: string | null;
   readonly secrets: readonly string[];
   readonly credentials: Credentials;
 }
 
-interface Worn extends McpWearing {
+interface InjectedSession extends McpInjection {
   readonly server: string;
-  seen: WornSecrets;
+  seen: InjectedSecrets;
 }
 
 interface Session {
@@ -61,24 +61,24 @@ const NO_STREAM = 405;
 
 const SPOTLIGHT = { name: 'spotlight', version: '1.0.0' };
 
-const unechoedIn = (error: unknown, worn: WornSecrets): void => {
+const unechoedIn = (error: unknown, injected: InjectedSecrets): void => {
   if (!(error instanceof Error)) {
     return;
   }
 
-  error.message = worn.redact(error.message);
+  error.message = injected.redact(error.message);
 
   const { cause } = error as { cause?: unknown };
 
   if (cause instanceof Error) {
-    cause.message = worn.redact(cause.message);
+    cause.message = injected.redact(cause.message);
   }
 };
 
 export class McpSessions implements OnModuleDestroy {
   readonly #idle = new Map<string, Session[]>();
   readonly #busy = new Set<Session>();
-  readonly #worn = new AsyncLocalStorage<Worn>();
+  readonly #injected = new AsyncLocalStorage<InjectedSession>();
   readonly #fetch: PolicedFetch;
 
   constructor(
@@ -87,7 +87,7 @@ export class McpSessions implements OnModuleDestroy {
     private readonly idleMs = IDLE_MS,
   ) {
     const policed = policedFetch(fetch, policy, (hop, request) =>
-      this.wear(hop.url, request),
+      this.inject(hop.url, request),
     );
 
     this.#fetch = async (url, init) => {
@@ -111,11 +111,15 @@ export class McpSessions implements OnModuleDestroy {
     };
   }
 
-  tools(server: string, wearing: McpWearing): Promise<readonly Tool[]> {
-    const worn: Worn = { ...wearing, server, seen: WornSecrets.none() };
+  tools(server: string, injection: McpInjection): Promise<readonly Tool[]> {
+    const injected: InjectedSession = {
+      ...injection,
+      server,
+      seen: InjectedSecrets.none(),
+    };
 
-    return this.#worn.run(worn, () =>
-      this.unechoed(worn, () => this.listing(server)),
+    return this.#injected.run(injected, () =>
+      this.unechoed(injected, () => this.listing(server)),
     );
   }
 
@@ -124,14 +128,18 @@ export class McpSessions implements OnModuleDestroy {
     server: string,
     tool: string,
     args: Readonly<Record<string, unknown>>,
-    wearing: McpWearing,
+    injection: McpInjection,
   ): Promise<CallToolResult> {
     const pool = `${server} ${key}`;
 
-    const worn: Worn = { ...wearing, server, seen: WornSecrets.none() };
+    const injected: InjectedSession = {
+      ...injection,
+      server,
+      seen: InjectedSecrets.none(),
+    };
 
-    return this.#worn.run(worn, async () =>
-      this.unechoed(worn, () => this.calling(pool, server, tool, args)),
+    return this.#injected.run(injected, async () =>
+      this.unechoed(injected, () => this.calling(pool, server, tool, args)),
     );
   }
 
@@ -202,16 +210,16 @@ export class McpSessions implements OnModuleDestroy {
   }
 
   private async unechoed<T>(
-    worn: Worn,
+    injected: InjectedSession,
     answering: () => Promise<T>,
   ): Promise<T> {
     try {
       const answer = await answering();
 
-      return worn.seen.redactedIn(answer) as T;
+      return injected.seen.redactedIn(answer) as T;
     } catch (error) {
-      if (!worn.seen.isEmpty) {
-        unechoedIn(error, worn.seen);
+      if (!injected.seen.isEmpty) {
+        unechoedIn(error, injected.seen);
       }
 
       throw error;
@@ -356,24 +364,30 @@ export class McpSessions implements OnModuleDestroy {
       : error;
   }
 
-  private async wear(url: string, request: WornRequest): Promise<WornSecrets> {
-    const worn = this.#worn.getStore();
+  private async inject(
+    url: string,
+    request: InjectionRequest,
+  ): Promise<InjectedSecrets> {
+    const injected = this.#injected.getStore();
 
-    if (!worn || !sameHost(url, worn.server)) {
-      return WornSecrets.none();
+    if (!injected || !sameHost(url, injected.server)) {
+      return InjectedSecrets.none();
     }
 
-    if (worn.connection) {
-      request.headers.authorization = `Bearer ${worn.connection}`;
+    if (injected.connection) {
+      request.headers.authorization = `Bearer ${injected.connection}`;
     }
 
-    if (worn.secrets.length === 0) {
-      return WornSecrets.none();
+    if (injected.secrets.length === 0) {
+      return InjectedSecrets.none();
     }
 
-    const secrets = await worn.credentials.wornToward(url, worn.secrets);
+    const secrets = await injected.credentials.injectedFor(
+      url,
+      injected.secrets,
+    );
     secrets.applyTo(request);
-    worn.seen = secrets;
+    injected.seen = secrets;
 
     return secrets;
   }

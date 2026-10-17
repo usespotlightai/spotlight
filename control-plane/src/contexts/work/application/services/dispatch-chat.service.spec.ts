@@ -155,14 +155,14 @@ describe('DispatchChat', () => {
       ),
     );
 
-    expect(run.spec.wearsSpotlightApi).toBe(true);
+    expect(run.spec.injectsSpotlightApi).toBe(true);
     expect(run.spec.gives(SETUP_PULL_REQUEST)).toBe(true);
   });
 
   it('gives any other chat’s run neither', async () => {
     const run = await enqueued(chatIn([API]));
 
-    expect(run.spec.wearsSpotlightApi).toBe(false);
+    expect(run.spec.injectsSpotlightApi).toBe(false);
     expect(run.spec.gives(SETUP_PULL_REQUEST)).toBe(false);
   });
 

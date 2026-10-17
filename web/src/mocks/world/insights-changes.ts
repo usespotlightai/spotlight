@@ -234,7 +234,7 @@ export const setupsOf = (
         onFrontier(setup, setups, outcome),
       ),
     })),
-    judgeWithheld: stationId === null ? 'no_station' : null,
+    judgeOmitted: stationId === null ? 'no_station' : null,
     judges: judged && runs.length > 0 ? [IMPLEMENTATION_JUDGE] : [],
   };
 };

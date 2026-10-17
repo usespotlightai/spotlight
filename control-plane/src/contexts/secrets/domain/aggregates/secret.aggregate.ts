@@ -6,11 +6,11 @@ import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.er
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
 import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fixed.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
-import { SecretUnwearableError } from '@secrets/domain/exceptions/secret-unwearable.error';
+import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import type {
+  InjectedSecret,
   SecretBinding,
-  WornSecret,
 } from '@secrets/domain/value-objects/secret-binding.vo';
 import type { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretChangeDetail } from '@secrets/domain/value-objects/secret-change-detail.vo';
@@ -240,38 +240,38 @@ export class Secret extends EventRecorder {
     return abandoned;
   }
 
-  bindingToward(url: string): SecretBinding {
-    const toward = parsed(url);
-    const binding = toward ? this.bindings.toward(toward) : null;
+  bindingForUrl(url: string): SecretBinding {
+    const address = parsed(url);
+    const binding = address ? this.bindings.forUrl(address) : null;
 
-    if (!toward || !binding) {
+    if (!address || !binding) {
       throw new SecretNotBoundError(
         this.name.value,
-        toward ? `${toward.protocol}//${toward.host}` : 'that address',
+        address ? `${address.protocol}//${address.host}` : 'that address',
       );
     }
 
     return binding;
   }
 
-  wornToward(url: string, value: SecretValue): WornSecret {
-    return this.bindingToward(url).wear(this.wearable(value));
+  injectedFor(url: string, value: SecretValue): InjectedSecret {
+    return this.bindingForUrl(url).inject(this.injectable(value));
   }
 
-  wearable(value: SecretValue): SecretValue {
+  injectable(value: SecretValue): SecretValue {
     if (!value.fitsOneLine) {
-      throw new SecretUnwearableError(this.name.value);
+      throw new SecretNotInjectableError(this.name.value);
     }
 
     return value;
   }
 
-  grantToward(runId: RunId, url: string): SecretGrant {
+  grantForUrl(runId: RunId, url: string): SecretGrant {
     return SecretGrant.of({
       runId,
       workspaceId: this.workspaceId,
       secretId: this.id,
-      host: this.bindingToward(url).host,
+      host: this.bindingForUrl(url).host,
     });
   }
 

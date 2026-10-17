@@ -109,7 +109,7 @@ const CHANGED = {
 };
 
 describe('HookDefinition', () => {
-  it('is defined with the tools it uses and its secret to seal', () => {
+  it('is defined with the tools it uses and its secret to encrypt', () => {
     const hook = defined();
 
     expect(hook.tools.map((tool) => tool.value)).toEqual([

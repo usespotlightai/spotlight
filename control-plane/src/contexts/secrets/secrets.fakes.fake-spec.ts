@@ -122,7 +122,7 @@ export const definition = (
     source: SecretSource;
     bindings: {
       host: string;
-      carrier?: string;
+      location?: string;
       name?: string;
       prefix?: string;
     }[];
@@ -224,7 +224,7 @@ const keptCopy = (grants: RunGrants, version: number): RunGrants =>
     lease: grants.lease,
     workspaceId: grants.workspaceId,
     grants: grants.grants,
-    redeemer: grants.redeemer,
+    fetcher: grants.fetcher,
     leaseLost: grants.isLeaseLost,
     endedAt: grants.endedAt,
     version,

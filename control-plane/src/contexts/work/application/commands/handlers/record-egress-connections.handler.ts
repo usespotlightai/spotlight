@@ -10,7 +10,7 @@ import type {
   EgressConnectionsRecordedDto,
 } from '@work/application/dto/egress-connections.dto';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
-import type { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
+import type { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 import { InvalidRunConnectionError } from '@work/domain/exceptions/invalid-run-connection.error';
 import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 
@@ -48,7 +48,7 @@ export class RecordEgressConnectionsHandler
 {
   constructor(
     private readonly egress: RunnerEgressPort,
-    private readonly redemptions: EgressRedemptions,
+    private readonly fetches: EgressSecretFetches,
     private readonly connections: RunConnectionsPort,
     private readonly clock: ClockPort,
   ) {}
@@ -85,7 +85,7 @@ export class RecordEgressConnectionsHandler
         );
         const attempt =
           recording?.work?.kind === 'run'
-            ? await this.redemptions.attemptWorkedBy(
+            ? await this.fetches.attemptWorkedBy(
                 RunId.of(recording.work.id),
                 RunnerId.of(recording.runnerId),
                 recording.workspaceId,

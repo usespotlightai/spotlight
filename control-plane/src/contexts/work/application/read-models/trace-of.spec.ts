@@ -57,7 +57,7 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
     endedAt: at(60_000),
   },
   spent: null,
-  egress: null,
+  egressEnforcement: null,
   ...part,
 });
 
@@ -352,7 +352,7 @@ describe('traceOf', () => {
       steps: [step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 })],
     });
 
-    it('puts a connection that went wrong under the step that was open when it started', () => {
+    it('puts a connection with an error under the step that was open when it started', () => {
       const trace = traceOf([
         worked({
           journal: npmTest,
@@ -369,7 +369,7 @@ describe('traceOf', () => {
           name: 'paste.example.net',
           tone: 'failed',
           from: at(21_000),
-          connection: { times: 1 },
+          connection: { count: 1 },
         },
       ]);
       expect(trace.faults).toBe(0);
@@ -412,7 +412,7 @@ describe('traceOf', () => {
       ]);
     });
 
-    it('draws the same failure in one place as one row, and counts the times', () => {
+    it('draws the same failure in one place as one row, and counts it', () => {
       const trace = traceOf([
         worked({
           journal: npmTest,
@@ -430,33 +430,37 @@ describe('traceOf', () => {
       expect(rows[0]).toMatchObject({
         from: at(21_000),
         to: at(23_500),
-        connection: { times: 3 },
+        connection: { count: 3 },
       });
       expect(rows[1]?.connection?.connection.reason).toBe('address-refused');
     });
 
-    it('leaves out connections that did not go wrong', () => {
+    it('leaves out connections without an error', () => {
       const trace = traceOf([
         worked({
           journal: npmTest,
           connections: [
-            connection({ at: at(21_000), outcome: 'tunnelled', reason: null }),
+            connection({
+              at: at(21_000),
+              outcome: 'passthrough',
+              reason: null,
+            }),
             connection({
               at: at(21_200),
-              outcome: 'forwarded',
+              outcome: 'injected',
               reason: null,
               status: 429,
             }),
             connection({
               at: at(21_500),
-              outcome: 'forwarded',
+              outcome: 'injected',
               reason: null,
               status: 404,
             }),
             connection({
               at: at(22_000),
               host: 'api.linear.app',
-              outcome: 'forwarded',
+              outcome: 'injected',
               reason: null,
               status: 401,
             }),
@@ -484,10 +488,13 @@ describe('traceOf', () => {
 
   it('tells on the run row whether egress was enforced', () => {
     expect(
-      traceOf([worked({ journal: journal({ egress: 'not-enforced' }) })])
-        .roots[0]?.egress,
+      traceOf([
+        worked({ journal: journal({ egressEnforcement: 'not-enforced' }) }),
+      ]).roots[0]?.egressEnforcement,
     ).toBe('not-enforced');
-    expect(traceOf([worked({ journal: null })]).roots[0]?.egress).toBeNull();
+    expect(
+      traceOf([worked({ journal: null })]).roots[0]?.egressEnforcement,
+    ).toBeNull();
   });
 });
 

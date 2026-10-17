@@ -67,14 +67,14 @@ const task = () =>
     newId: fresh,
   });
 
-const lookingUp = (wearers: readonly Task[]) =>
+const lookingUp = (markedTasks: readonly Task[]) =>
   new WorkLookup(
     {} as RunRepository,
     {
       findByMarks: async (_at: WorkspaceId, concerns: Concerns) =>
-        wearers.find((each) =>
+        markedTasks.find((each) =>
           concerns.marks.some((mark) =>
-            each.marks.some((worn) => worn.equals(mark)),
+            each.marks.some((marked) => marked.equals(mark)),
           ),
         ) ?? null,
     } as unknown as TaskRepository,

@@ -56,7 +56,7 @@ import { bound } from '@platform/expressions/bindings';
 import { reads, value } from '@platform/expressions/readings';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { MarkWorn } from '@work/application/contracts/happenings.contract';
+import type { TaskMark } from '@work/application/contracts/happenings.contract';
 
 const MAX_SAID = 500;
 
@@ -266,7 +266,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       capture: result.capture,
     };
 
-    const marks: MarkWorn[] = [];
+    const marks: TaskMark[] = [];
     for (const mark of binding.mark) {
       const read = reads(mark.value, beside);
       if (read) {
@@ -316,7 +316,8 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     return {
       integration: readable.integration,
       offered,
-      wears: action.auth?.kind === 'secrets' ? action.auth.secrets : [],
+      injectedSecrets:
+        action.auth?.kind === 'secrets' ? action.auth.secrets : [],
       declared: ToolDeclarationMapper.toDeclaration(
         offered,
         readable.integration.name,
@@ -365,7 +366,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     return {
       integration: readable.integration,
       offered,
-      wears: auth?.kind === 'secrets' ? auth.secrets : [],
+      injectedSecrets: auth?.kind === 'secrets' ? auth.secrets : [],
       declared: ToolDeclarationMapper.toDeclaration(
         offered,
         readable.integration.name,
@@ -428,7 +429,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     return {
       integration: readable.integration,
       offered,
-      wears: secrets,
+      injectedSecrets: secrets,
       declared: ToolDeclarationMapper.toDeclaration(
         offered,
         readable.integration.name,

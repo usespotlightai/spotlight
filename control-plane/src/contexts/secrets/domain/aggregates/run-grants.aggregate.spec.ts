@@ -1,10 +1,10 @@
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
-import { RedemptionRecipientPinnedError } from '@secrets/domain/exceptions/redemption-recipient-pinned.error';
+import { RecipientPinnedError } from '@secrets/domain/exceptions/recipient-pinned.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
 import { RunLeaseOverError } from '@secrets/domain/exceptions/run-lease-over.error';
-import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
-import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
+import { Recipient } from '@secrets/domain/value-objects/recipient.vo';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
+import { SecretFetcher } from '@secrets/domain/value-objects/secret-fetcher.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -16,18 +16,15 @@ const RUN = RunId.of('run_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const FIRST = RunLease.of(RUN, 1);
 const SECOND = RunLease.of(RUN, 2);
-const EGRESS = Redeemer.beside(RedemptionRecipient.of('recipient-key'));
-const RESTARTED = Redeemer.beside(RedemptionRecipient.of('another-key'));
-const SHARED = Redeemer.shared(
-  RedemptionRecipient.of('recipient-key'),
+const SIDECAR = SecretFetcher.sidecar(Recipient.of('recipient-key'));
+const RESTARTED = SecretFetcher.sidecar(Recipient.of('another-key'));
+const SHARED = SecretFetcher.shared(Recipient.of('recipient-key'), 'egress_1');
+const ANOTHER_NODE = SecretFetcher.shared(
+  Recipient.of('another-key'),
   'egress_1',
 );
-const ANOTHER_NODE = Redeemer.shared(
-  RedemptionRecipient.of('another-key'),
-  'egress_1',
-);
-const ANOTHER_EGRESS = Redeemer.shared(
-  RedemptionRecipient.of('another-key'),
+const ANOTHER_EGRESS = SecretFetcher.shared(
+  Recipient.of('another-key'),
   'egress_2',
 );
 const ENDED_AT = new Date('2026-09-23T12:00:00.000Z');
@@ -49,7 +46,7 @@ const begun = () => RunGrants.start(FIRST, WORKSPACE);
 const endedAfter = (ms: number) => new Date(ENDED_AT.getTime() + ms);
 
 describe('RunGrants', () => {
-  it('allows a secret toward each host its lease was granted, once however often granted', () => {
+  it('allows a secret for each host its lease was granted, once however often granted', () => {
     const granted = begun().grant(FIRST, [
       grant(),
       grant(),
@@ -79,57 +76,57 @@ describe('RunGrants', () => {
     ).toThrow(InconsistentStateError);
   });
 
-  it('pins the recipient a lease first redeems for, answering it again and refusing any other', () => {
-    const pinned = begun().redeemFor(FIRST, EGRESS);
+  it('pins the recipient a lease first fetches for, answering it again and refusing any other', () => {
+    const pinned = begun().recordFetch(FIRST, SIDECAR);
 
-    expect(pinned.redeemer).toEqual(EGRESS);
-    expect(pinned.redeemFor(FIRST, EGRESS)).toBe(pinned);
-    expect(() => pinned.redeemFor(FIRST, RESTARTED)).toThrow(
-      RedemptionRecipientPinnedError,
+    expect(pinned.fetcher).toEqual(SIDECAR);
+    expect(pinned.recordFetch(FIRST, SIDECAR)).toBe(pinned);
+    expect(() => pinned.recordFetch(FIRST, RESTARTED)).toThrow(
+      RecipientPinnedError,
     );
-    expect(() => pinned.redeemFor(FIRST, SHARED)).toThrow(
-      RedemptionRecipientPinnedError,
+    expect(() => pinned.recordFetch(FIRST, SHARED)).toThrow(
+      RecipientPinnedError,
     );
   });
 
-  it('pins a shared egress, not its key, so another node of that egress can redeem again', () => {
-    const pinned = begun().redeemFor(FIRST, SHARED);
+  it('pins a shared egress, not its key, so another node of that egress can fetch again', () => {
+    const pinned = begun().recordFetch(FIRST, SHARED);
 
-    expect(pinned.redeemFor(FIRST, SHARED)).toBe(pinned);
-    expect(pinned.redeemFor(FIRST, ANOTHER_NODE).recipient).toEqual(
-      RedemptionRecipient.of('another-key'),
+    expect(pinned.recordFetch(FIRST, SHARED)).toBe(pinned);
+    expect(pinned.recordFetch(FIRST, ANOTHER_NODE).recipient).toEqual(
+      Recipient.of('another-key'),
     );
-    expect(() => pinned.redeemFor(FIRST, ANOTHER_EGRESS)).toThrow(
-      RedemptionRecipientPinnedError,
+    expect(() => pinned.recordFetch(FIRST, ANOTHER_EGRESS)).toThrow(
+      RecipientPinnedError,
     );
-    expect(() => pinned.redeemFor(FIRST, EGRESS)).toThrow(
-      RedemptionRecipientPinnedError,
+    expect(() => pinned.recordFetch(FIRST, SIDECAR)).toThrow(
+      RecipientPinnedError,
     );
   });
 
   it('starts afresh when the run is leased again, dropping the grants and pin of the earlier lease', () => {
-    const pinned = begun().grant(FIRST, [grant()]).redeemFor(FIRST, EGRESS);
+    const pinned = begun().grant(FIRST, [grant()]).recordFetch(FIRST, SIDECAR);
 
-    const again = pinned.redeemFor(SECOND, RESTARTED);
+    const again = pinned.recordFetch(SECOND, RESTARTED);
 
     expect(again.lease).toEqual(SECOND);
-    expect(again.redeemer).toEqual(RESTARTED);
+    expect(again.fetcher).toEqual(RESTARTED);
     expect(again.grants).toEqual([]);
     expect(again.grant(SECOND, [grant()]).allows(SECOND, grant())).toBe(true);
   });
 
-  it('allows nothing to, and grants and redeems nothing for, a lease the run has moved past', () => {
+  it('allows nothing to, and grants and fetches nothing for, a lease the run has moved past', () => {
     const moved = begun().grant(FIRST, [grant()]).grant(SECOND, [grant()]);
 
     expect(moved.allows(FIRST, grant())).toBe(false);
     expect(() => moved.grant(FIRST, [grant()])).toThrow(RunLeaseOverError);
-    expect(() => moved.redeemFor(FIRST, EGRESS)).toThrow(RunLeaseOverError);
+    expect(() => moved.recordFetch(FIRST, SIDECAR)).toThrow(RunLeaseOverError);
   });
 
   it('lets the grants of a lost lease go without ending the run, so its next lease is granted afresh', () => {
     const lost = begun()
       .grant(FIRST, [grant()])
-      .redeemFor(FIRST, EGRESS)
+      .recordFetch(FIRST, SIDECAR)
       .loseLease(FIRST);
 
     expect(lost.isLeaseLost).toBe(true);
@@ -138,10 +135,10 @@ describe('RunGrants', () => {
     expect(lost.allows(FIRST, grant())).toBe(false);
     expect(lost.loseLease(FIRST)).toBe(lost);
     expect(() => lost.grant(FIRST, [grant()])).toThrow(RunLeaseOverError);
-    expect(() => lost.redeemFor(FIRST, EGRESS)).toThrow(RunLeaseOverError);
+    expect(() => lost.recordFetch(FIRST, SIDECAR)).toThrow(RunLeaseOverError);
 
     const regranted = lost
-      .redeemFor(SECOND, RESTARTED)
+      .recordFetch(SECOND, RESTARTED)
       .grant(SECOND, [grant()]);
 
     expect(regranted.isLeaseLost).toBe(false);
@@ -154,10 +151,10 @@ describe('RunGrants', () => {
     expect(later.loseLease(FIRST)).toBe(later);
   });
 
-  it('lets every grant go once its run ends, and grants and redeems nothing after, whatever the lease', () => {
+  it('lets every grant go once its run ends, and grants and fetches nothing after, whatever the lease', () => {
     const ended = begun()
       .grant(FIRST, [grant()])
-      .redeemFor(FIRST, EGRESS)
+      .recordFetch(FIRST, SIDECAR)
       .end(ENDED_AT);
 
     expect(ended.isEnded).toBe(true);
@@ -166,7 +163,7 @@ describe('RunGrants', () => {
     expect(ended.end(endedAfter(1))).toBe(ended);
     expect(ended.loseLease(SECOND)).toBe(ended);
     expect(() => ended.grant(SECOND, [grant()])).toThrow(RunGrantsEndedError);
-    expect(() => ended.redeemFor(SECOND, RESTARTED)).toThrow(
+    expect(() => ended.recordFetch(SECOND, RESTARTED)).toThrow(
       RunGrantsEndedError,
     );
   });
@@ -191,7 +188,7 @@ describe('RunGrants', () => {
     const kept = {
       lease: FIRST,
       workspaceId: WORKSPACE,
-      redeemer: null,
+      fetcher: null,
       leaseLost: false,
       endedAt: null,
     };

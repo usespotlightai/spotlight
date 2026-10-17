@@ -178,7 +178,7 @@ export class CompleteRunHandler
     });
 
     return verdict.kind === 'refused'
-      ? declared.withheld(verdict.reason)
+      ? declared.sentToReview(verdict.reason)
       : declared;
   }
 }

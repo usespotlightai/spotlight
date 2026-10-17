@@ -312,10 +312,10 @@ describe('ReadInsightsSetupsHandler', () => {
 
     expect(all.setups.map((each) => each.model)).toEqual(['opus', 'sonnet']);
     expect(all.setups.map((each) => each.judge)).toEqual([null, null]);
-    expect(all.judgeWithheld).toBe('no_station');
+    expect(all.judgeOmitted).toBe('no_station');
     expect(all.judges).toEqual([]);
     expect(atStation.setups.map((each) => each.judge?.judged)).toEqual([1, 1]);
-    expect(atStation.judgeWithheld).toBeNull();
+    expect(atStation.judgeOmitted).toBeNull();
     expect(atStation.judges).toHaveLength(1);
     expect(large.setups.map((each) => each.model)).toEqual(['opus']);
     expect(large.size).toBe('large');

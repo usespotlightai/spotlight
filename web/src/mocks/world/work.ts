@@ -20,7 +20,7 @@ import {
   teamOfPastTask,
 } from '@/mocks/world/past-work';
 import { SAM } from '@/mocks/world/people';
-import { egressOf, wentWrongIn } from '@/mocks/world/run-network';
+import { egressEnforcementOf, errorsIn } from '@/mocks/world/run-network';
 import {
   changeStacksOf,
   endOf,
@@ -222,7 +222,7 @@ const node = (
   step: null,
   span: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children: [],
   ...over,
   startedAt: new Date(over.startedAt).toISOString(),
@@ -248,14 +248,14 @@ const connectionNodes = (
   run: TaskRunResponseDto,
   from: number,
 ): TraceNodeResponseDto[] =>
-  wentWrongIn(run.id).map((connection, index) =>
+  errorsIn(run.id).map((connection, index) =>
     node({
       id: `${run.id}:connection:${index}`,
       kind: 'connection',
       name: connection.host,
       tone: 'failed',
       startedAt: from + index * SECOND,
-      ms: connection.times * 200,
+      ms: connection.count * 200,
       connection,
     }),
   );
@@ -300,7 +300,7 @@ const runNode = (run: TaskRunResponseDto): TraceNodeResponseDto => {
     tone: run.state === 'failed' ? 'failed' : 'agent',
     cost,
     currency,
-    egress: egressOf(run.id),
+    egressEnforcement: egressEnforcementOf(run.id),
     children: [
       node({
         id: `${run.id}:prepare`,

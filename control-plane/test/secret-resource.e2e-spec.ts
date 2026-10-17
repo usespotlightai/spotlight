@@ -123,7 +123,7 @@ describe('a secret, set through the resource API (e2e)', () => {
 
   const admin = () => as(fixture.admin);
 
-  const worn = async (url = 'https://api.linear.app/graphql') => {
+  const injected = async (url = 'https://api.linear.app/graphql') => {
     const headers: Record<string, string> = {};
 
     (
@@ -180,7 +180,7 @@ describe('a secret, set through the resource API (e2e)', () => {
       bindings: [
         {
           host: 'api.linear.app',
-          carrier: 'header',
+          location: 'header',
           name: 'authorization',
           prefix: 'Bearer ',
         },
@@ -189,7 +189,7 @@ describe('a secret, set through the resource API (e2e)', () => {
     });
   });
 
-  it('keeps its value sealed under the workspace’s own data key', async () => {
+  it('keeps its value encrypted under the data key of the workspace', async () => {
     const made = await admin().create(LINEAR);
     const [kept] = await db
       .select()
@@ -200,37 +200,37 @@ describe('a secret, set through the resource API (e2e)', () => {
       .from(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, workspaceId));
 
-    expect(kept?.sealed).toMatch(/^v1\./);
-    expect(kept?.sealed).not.toContain(VALUE);
+    expect(kept?.ciphertext).toMatch(/^v1\./);
+    expect(kept?.ciphertext).not.toContain(VALUE);
     expect(
-      Buffer.from(kept?.sealed.split('.')[3] ?? '', 'base64').toString(),
+      Buffer.from(kept?.ciphertext.split('.')[3] ?? '', 'base64').toString(),
     ).not.toContain(VALUE);
     expect(keys).toHaveLength(1);
     expect(keys[0]?.keyId).toBe('local');
   });
 
-  it('is worn toward its host as soon as it is set', async () => {
+  it('is injected for its host as soon as it is set', async () => {
     await admin().create(LINEAR);
 
-    expect(await worn()).toEqual({ authorization: `Bearer ${VALUE}` });
+    expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}` });
   });
 
-  it('is never worn toward a host it is not bound to', async () => {
+  it('is never injected for a host it is not bound to', async () => {
     await admin().create(LINEAR);
 
-    await expect(worn('https://attacker.example/collect')).rejects.toThrow(
+    await expect(injected('https://attacker.example/collect')).rejects.toThrow(
       /not bound to https:\/\/attacker\.example/,
     );
   });
 
-  it('rotates through valueWoVersion, worn from the next request on', async () => {
+  it('rotates through valueWoVersion, injected from the next request on', async () => {
     const made = await admin().create(LINEAR);
 
     const kept = await admin().update(made.body.id, made.body.version, {
       ...LINEAR,
       valueWo: `${VALUE}_ignored`,
     });
-    expect(await worn()).toEqual({ authorization: `Bearer ${VALUE}` });
+    expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}` });
 
     const rotated = await admin().update(made.body.id, kept.body.version, {
       ...LINEAR,
@@ -240,7 +240,7 @@ describe('a secret, set through the resource API (e2e)', () => {
 
     expect(rotated.status).toBe(200);
     expect(rotated.body.valueWoVersion).toBe(2);
-    expect(await worn()).toEqual({ authorization: `Bearer ${VALUE}_2` });
+    expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}_2` });
   });
 
   it('refuses a new valueWoVersion that comes without its value', async () => {
@@ -255,7 +255,7 @@ describe('a secret, set through the resource API (e2e)', () => {
     expect(refused.body.errors).toContainEqual(
       expect.objectContaining({ path: 'valueWo' }),
     );
-    expect(await worn()).toEqual({ authorization: `Bearer ${VALUE}` });
+    expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}` });
   });
 
   it('lets only a workspace admin, or a token with the secrets scope, set, rotate or delete it', async () => {
@@ -284,7 +284,7 @@ describe('a secret, set through the resource API (e2e)', () => {
     expect(
       (await stranger.remove(made.body.id, made.body.version)).status,
     ).toBe(404);
-    expect(await worn()).toEqual({ authorization: `Bearer ${VALUE}` });
+    expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}` });
   });
 
   it('records every change as a configuration change: who made it and what moved, never the value', async () => {
@@ -358,7 +358,7 @@ describe('a secret, set through the resource API (e2e)', () => {
         .from(schema.secretValue)
         .where(eq(schema.secretValue.secretId, made.body.id)),
     ).toEqual([]);
-    await expect(worn()).rejects.toThrow(/Secret [A-Z_]* not found/);
+    await expect(injected()).rejects.toThrow(/Secret [A-Z_]* not found/);
   });
 
   it('records no value in the outbox', async () => {

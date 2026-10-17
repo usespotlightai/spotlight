@@ -1,7 +1,7 @@
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
 import { contentsOf, reported } from '@/lib/detail';
 import { counted, spentOn, spokenAt, took } from '@/lib/inbox';
-import { REASON_LABELS, TROUBLE_LABELS } from '@/lib/run-network';
+import { ERROR_LABELS, REASON_LABELS } from '@/lib/run-network';
 import type { TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
@@ -48,9 +48,9 @@ export function DetailHeader({ node }: { node: TraceNode }) {
         {node.step?.tool && (
           <DetailProperty name="Tool">{node.step.tool}</DetailProperty>
         )}
-        {node.connection?.trouble && (
+        {node.connection?.error && (
           <DetailProperty name="Outcome" failed>
-            {TROUBLE_LABELS[node.connection.trouble]}
+            {ERROR_LABELS[node.connection.error]}
           </DetailProperty>
         )}
         {node.connection?.status != null && (
@@ -63,8 +63,8 @@ export function DetailHeader({ node }: { node: TraceNode }) {
             {REASON_LABELS[node.connection.reason]}
           </DetailProperty>
         )}
-        {node.connection && node.connection.times > 1 && (
-          <DetailProperty name="Times">{node.connection.times}</DetailProperty>
+        {node.connection && node.connection.count > 1 && (
+          <DetailProperty name="Count">{node.connection.count}</DetailProperty>
         )}
         {model && <DetailProperty name="Model">{model}</DetailProperty>}
         {tokens && <DetailProperty name="Tokens">{tokens}</DetailProperty>}

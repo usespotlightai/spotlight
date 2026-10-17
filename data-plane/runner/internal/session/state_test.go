@@ -66,7 +66,7 @@ func TestAWaitingRunNobodyAnsweredIsParkedAndOver(t *testing.T) {
 		t.Fatalf("a run let go while waiting is %s", state)
 	}
 
-	for _, trigger := range []session.Trigger{session.PersonAnswered, session.AgentExited, session.WentWrong} {
+	for _, trigger := range []session.Trigger{session.PersonAnswered, session.AgentExited, session.Errored} {
 		if _, err := session.Next(state, trigger); err == nil {
 			t.Errorf("a parked run could still be %s", trigger)
 		}
@@ -81,7 +81,7 @@ func TestAWaitingRunStoppedDrainsLikeAnyOther(t *testing.T) {
 
 func TestAnythingCanGoWrongUntilItIsOver(t *testing.T) {
 	for _, from := range []session.State{session.Preparing, session.Running, session.Waiting, session.Draining} {
-		next, err := session.Next(from, session.WentWrong)
+		next, err := session.Next(from, session.Errored)
 		if err != nil {
 			t.Fatalf("failing while %s: %v", from, err)
 		}
@@ -107,7 +107,7 @@ func TestNextRefusesWhatCannotHappen(t *testing.T) {
 		{session.Waiting, session.Drained},
 		{session.Draining, session.AgentExited},
 		{session.Completed, session.Drained},
-		{session.Failed, session.WentWrong},
+		{session.Failed, session.Errored},
 	} {
 		if _, err := session.Next(impossible.from, impossible.trigger); err == nil {
 			t.Errorf("%s while %s should be refused", impossible.trigger, impossible.from)

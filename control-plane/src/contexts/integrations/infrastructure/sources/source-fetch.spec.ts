@@ -3,7 +3,7 @@ import {
   DescriptionUnauthorized,
   MAX_READ_BYTES,
   SourceFetch,
-  type SourceWearing,
+  type SourceInjection,
 } from '@integrations/infrastructure/sources/source-fetch';
 import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
@@ -16,7 +16,7 @@ const GET = {
   accept: 'application/json',
 };
 
-const wearing = (over: Partial<SourceWearing> = {}): SourceWearing => ({
+const injection = (over: Partial<SourceInjection> = {}): SourceInjection => ({
   apiHost: 'api.linear.app',
   secrets: ['LINEAR_API_KEY'],
   connection: 'oauth-token',
@@ -49,16 +49,16 @@ const answering = (...replies: Response[]) => {
 };
 
 describe('SourceFetch', () => {
-  it('reads a description, wearing nothing toward a host that is not the API’s', async () => {
+  it('reads a description, and injects nothing for a host that is not the API’s', async () => {
     const { fetching, headersAt } = answering(
       new Response('{"openapi":"3.1.0"}'),
     );
 
-    expect(await fetching.text(GET, wearing())).toBe('{"openapi":"3.1.0"}');
+    expect(await fetching.text(GET, injection())).toBe('{"openapi":"3.1.0"}');
     expect(headersAt(0)).toEqual({ accept: 'application/json' });
   });
 
-  it('wears the connection and the secrets toward the API’s own host', async () => {
+  it('injects the connection and the secrets for the API’s own host', async () => {
     const { fetching, headersAt } = answering(new Response('{}'));
 
     await fetching.text(
@@ -68,7 +68,7 @@ describe('SourceFetch', () => {
         method: 'POST',
         body: '{}',
       },
-      wearing(),
+      injection(),
     );
 
     expect(headersAt(0)).toEqual({
@@ -78,7 +78,7 @@ describe('SourceFetch', () => {
     });
   });
 
-  it('follows a redirect only to a host the deployment allows, and wears nothing past the API’s host', async () => {
+  it('follows a redirect only to a host the deployment allows, and injects nothing past the API’s host', async () => {
     const moved = answering(
       new Response(null, {
         status: 302,
@@ -89,7 +89,7 @@ describe('SourceFetch', () => {
 
     await moved.fetching.text(
       { ...GET, url: 'https://api.linear.app/spec.json' },
-      wearing({ secrets: [] }),
+      injection({ secrets: [] }),
     );
 
     expect(moved.headersAt(0).authorization).toBe('Bearer oauth-token');
@@ -105,18 +105,18 @@ describe('SourceFetch', () => {
       }),
     );
 
-    await expect(astray.fetching.text(GET, wearing())).rejects.toThrow(
+    await expect(astray.fetching.text(GET, injection())).rejects.toThrow(
       /not on the allowed list/,
     );
   });
 
   it('reads a description keyed in its query, never taking the key past the API’s host', async () => {
-    const keyed = wearing({
+    const keyed = injection({
       connection: null,
       credentials: credentialsFor({
         LINEAR_API_KEY: {
           host: 'api.linear.app',
-          carrier: 'query',
+          location: 'query',
           name: 'key',
           value: 'lin_api_1',
         },
@@ -152,7 +152,7 @@ describe('SourceFetch', () => {
       }),
     );
 
-    await expect(fetching.text(GET, wearing())).rejects.toThrow(/plain http/);
+    await expect(fetching.text(GET, injection())).rejects.toThrow(/plain http/);
   });
 
   it('asks again without the body after a 303', async () => {
@@ -166,7 +166,7 @@ describe('SourceFetch', () => {
 
     await fetching.text(
       { ...GET, method: 'POST', body: '{"query":"{}"}' },
-      wearing(),
+      injection(),
     );
 
     expect(fetch.mock.calls[1]?.[1]).toMatchObject({ method: 'GET' });
@@ -185,7 +185,7 @@ describe('SourceFetch', () => {
       }) as unknown as typeof globalThis.fetch,
     );
 
-    await expect(fetching.text(GET, wearing())).rejects.toThrow(
+    await expect(fetching.text(GET, injection())).rejects.toThrow(
       'could not be read: specs.example: ECONNREFUSED',
     );
   });
@@ -194,7 +194,10 @@ describe('SourceFetch', () => {
     const { fetching, fetch } = answering();
 
     await expect(
-      fetching.text({ ...GET, url: 'https://elsewhere.example/x' }, wearing()),
+      fetching.text(
+        { ...GET, url: 'https://elsewhere.example/x' },
+        injection(),
+      ),
     ).rejects.toThrow(/not on the allowed list/);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -202,7 +205,7 @@ describe('SourceFetch', () => {
   it('says what the host answered when it would not hand the description over', async () => {
     const { fetching } = answering(new Response('nope', { status: 404 }));
 
-    await expect(fetching.text(GET, wearing())).rejects.toThrow(
+    await expect(fetching.text(GET, injection())).rejects.toThrow(
       'could not be read: specs.example answered 404',
     );
   });
@@ -210,7 +213,7 @@ describe('SourceFetch', () => {
   it('says a host refused the credentials apart from any other refusal', async () => {
     const { fetching } = answering(new Response('nope', { status: 401 }));
 
-    await expect(fetching.text(GET, wearing())).rejects.toBeInstanceOf(
+    await expect(fetching.text(GET, injection())).rejects.toBeInstanceOf(
       DescriptionUnauthorized,
     );
   });
@@ -222,7 +225,7 @@ describe('SourceFetch', () => {
       }),
     );
 
-    await expect(fetching.text(GET, wearing())).rejects.toThrow(
+    await expect(fetching.text(GET, injection())).rejects.toThrow(
       'is larger than the 64 MB Spotlight reads',
     );
   });

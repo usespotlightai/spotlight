@@ -37,7 +37,7 @@ func With(client Client) *Reader {
 	return &Reader{client: client}
 }
 
-func (r *Reader) Read(ctx context.Context, source protocol.ReadInNetwork) (string, error) {
+func (r *Reader) Read(ctx context.Context, source protocol.ExternalSecretRef) (string, error) {
 	if source.Kind != protocol.ReadFromAWSSecretsManager {
 		return "", fmt.Errorf("egress reads no %s", source.Kind)
 	}

@@ -2,8 +2,8 @@ import { EGRESS_ID } from '@runners/domain/aggregates/egress.fake-spec';
 import {
   aPullPool,
   aPushPool,
+  encryptedOf,
   hashOf,
-  sealedOf,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerPoolDefined } from '@runners/domain/events/runner-pool-defined.event';
 import { RunnerPoolRedefined } from '@runners/domain/events/runner-pool-redefined.event';
@@ -147,14 +147,14 @@ describe('RunnerPool', () => {
       {
         mode: 'push',
         url,
-        secret: sealedOf('t'),
+        secret: encryptedOf('t'),
         secretVersion: 2,
         egress: null,
       },
       BY,
     );
 
-    expect(rotated.provision?.secret.equals(sealedOf('t'))).toBe(true);
+    expect(rotated.provision?.secret.equals(encryptedOf('t'))).toBe(true);
     expect(changeOf(rotated)?.detail?.recorded()).toEqual({
       mode: 'push',
       secretRotated: true,
@@ -190,7 +190,7 @@ describe('RunnerPool', () => {
     expect(pulled.retire(BY).startVerdict('pull', 0)).toBe('gone');
   });
 
-  it('always keeps its provision secret sealed, even when kept from a redefinition that gave none', () => {
+  it('always keeps its provision secret encrypted, even when kept from a redefinition that gave none', () => {
     const kept = aPushPool().redefinedAs(
       keeping('sandboxes'),
       {
@@ -203,7 +203,7 @@ describe('RunnerPool', () => {
       BY,
     );
 
-    expect(kept.provision?.secret.equals(sealedOf('s'))).toBe(true);
+    expect(kept.provision?.secret.equals(encryptedOf('s'))).toBe(true);
     expect(kept.provision?.url.value).toBe('https://provision.example.com/v2');
   });
 

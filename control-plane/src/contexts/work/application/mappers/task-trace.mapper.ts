@@ -25,10 +25,10 @@ const nodeToDto = (node: TraceNode): TraceNodeDto => ({
     outcome: node.connection.connection.outcome,
     status: node.connection.connection.status,
     reason: node.connection.connection.reason,
-    trouble: node.connection.connection.trouble,
-    times: node.connection.times,
+    error: node.connection.connection.error,
+    count: node.connection.count,
   },
-  egress: node.egress,
+  egressEnforcement: node.egressEnforcement,
   children: node.children.map(nodeToDto),
 });
 

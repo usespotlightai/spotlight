@@ -58,7 +58,7 @@ const said = (span: Exported): SpanAttribute[] =>
     return each?.key && value !== null ? [{ name: each.key, value }] : [];
   });
 
-const wentWrong = (span: Exported): boolean =>
+const isError = (span: Exported): boolean =>
   span.status?.code === 2 || span.status?.code === 'STATUS_CODE_ERROR';
 
 export class Reported {
@@ -89,7 +89,7 @@ export class Reported {
       name: sent.name ?? 'a span',
       startedAt: new Date(Number(from / NS_PER_MS)),
       ms: to === null ? 0 : Number((to - from) / NS_PER_MS),
-      failed: wentWrong(sent),
+      failed: isError(sent),
       attributes: said(sent),
     });
   }

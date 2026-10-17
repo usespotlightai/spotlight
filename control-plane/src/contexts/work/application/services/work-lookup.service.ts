@@ -306,13 +306,13 @@ export class WorkLookup implements WorkLookupPort {
     pullRequest: PullRequestUrl,
   ): Promise<TaskLookup | null> {
     const task =
-      (await this.wearing(workspaceId, Mark.pullRequest(pullRequest))) ??
-      (await this.wearing(workspaceId, Mark.review(pullRequest)));
+      (await this.taskWithMark(workspaceId, Mark.pullRequest(pullRequest))) ??
+      (await this.taskWithMark(workspaceId, Mark.review(pullRequest)));
 
     return task ? this.lookup(task) : null;
   }
 
-  private async wearing(
+  private async taskWithMark(
     workspaceId: WorkspaceId,
     mark: Mark,
   ): Promise<Task | null> {

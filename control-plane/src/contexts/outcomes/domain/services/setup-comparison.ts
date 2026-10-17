@@ -38,13 +38,13 @@ const LOWER_IS_BETTER: ReadonlySet<OutcomeMeasure> = new Set(['sent_back']);
 
 export const MIN_SETUP_RUNS = 3;
 
-export const JUDGE_WITHHELD_REASONS = ['no_station'] as const;
+export const JUDGE_OMITTED_REASONS = ['no_station'] as const;
 
-export type JudgeWithheld = (typeof JUDGE_WITHHELD_REASONS)[number];
+export type JudgeOmittedReason = (typeof JUDGE_OMITTED_REASONS)[number];
 
-export const judgeWithheldFrom = (
+export const judgeOmittedFor = (
   stationId: string | null,
-): JudgeWithheld | null => (stationId === null ? 'no_station' : null);
+): JudgeOmittedReason | null => (stationId === null ? 'no_station' : null);
 
 interface Setup {
   readonly harness: string;
@@ -186,8 +186,8 @@ const mostUsed = (currencies: readonly string[]): string | null => {
 };
 
 export type SetupJudging =
-  | { readonly withheld: true }
-  | { readonly withheld: false; readonly trusted: string | null };
+  | { readonly omitted: true }
+  | { readonly omitted: false; readonly trusted: string | null };
 
 export const setupsFrom = (
   setups: readonly SetupCounts[],
@@ -195,7 +195,7 @@ export const setupsFrom = (
 ): SetupComparison => {
   const measured = setups.map((each) => {
     const tally = tallyOf(each.counts.tally);
-    const judge = judging.withheld
+    const judge = judging.omitted
       ? null
       : judgeShareFrom(each.rubrics, judging.trusted);
     const setup: Setup = {

@@ -77,9 +77,9 @@ import {
   type RunGrantsPort,
 } from '@secrets/application/ports/run-grants.port';
 import {
-  RUN_REDEMPTIONS,
-  type RunRedemptionsPort,
-} from '@secrets/application/ports/run-redemptions.port';
+  RUN_SECRET_FETCHES,
+  type RunSecretFetchesPort,
+} from '@secrets/application/ports/run-secret-fetches.port';
 import {
   CLOCK,
   type ClockPort,
@@ -121,9 +121,9 @@ import { DeliverSaidCommand } from '@work/application/commands/deliver-said.comm
 import {
   AdmitThroughEgressCommand,
   CheckActiveRunsCommand,
+  FetchRunSecretsCommand,
+  FetchSharedRunSecretsCommand,
   RecordEgressConnectionsCommand,
-  RedeemEgressCommand,
-  RedeemThroughEgressCommand,
 } from '@work/application/commands/egress.commands';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
@@ -146,6 +146,8 @@ import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-ta
 import { DeliverSaidHandler } from '@work/application/commands/handlers/deliver-said.handler';
 import { DismissProposalHandler } from '@work/application/commands/handlers/dismiss-proposal.handler';
 import { EnqueueRunHandler } from '@work/application/commands/handlers/enqueue-run.handler';
+import { FetchRunSecretsHandler } from '@work/application/commands/handlers/fetch-run-secrets.handler';
+import { FetchSharedRunSecretsHandler } from '@work/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
@@ -155,8 +157,6 @@ import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-i
 import { RecordEgressConnectionsHandler } from '@work/application/commands/handlers/record-egress-connections.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
-import { RedeemEgressHandler } from '@work/application/commands/handlers/redeem-egress.handler';
-import { RedeemThroughEgressHandler } from '@work/application/commands/handlers/redeem-through-egress.handler';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
@@ -510,7 +510,7 @@ import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { DispatchSearch } from '@work/application/services/dispatch-search.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
-import { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
+import { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
 import { ForgetRunConnections } from '@work/application/services/forget-run-connections.service';
@@ -2319,10 +2319,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   {
-    provide: EgressRedemptions,
+    provide: EgressSecretFetches,
     inject: [
       DrizzleRunRepository,
-      RUN_REDEMPTIONS,
+      RUN_SECRET_FETCHES,
       RUN_GRANTS,
       SANDBOX_REACH,
       DrizzleChatRepository,
@@ -2332,7 +2332,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       runs: DrizzleRunRepository,
-      redemptions: RunRedemptionsPort,
+      runSecretFetches: RunSecretFetchesPort,
       grants: RunGrantsPort,
       reach: SandboxReachPort,
       chats: DrizzleChatRepository,
@@ -2340,9 +2340,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       controlPlaneHost: string,
     ) =>
-      new EgressRedemptions(
+      new EgressSecretFetches(
         runs,
-        redemptions,
+        runSecretFetches,
         grants,
         reach,
         chats,
@@ -2384,16 +2384,16 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       new RunConnectionsWorker(forgetting, logger),
   },
 
-  ...bindCommandHandler(RedeemEgressCommand, RedeemEgressHandler, [
+  ...bindCommandHandler(FetchRunSecretsCommand, FetchRunSecretsHandler, [
     RUNNER_EGRESS,
-    EgressRedemptions,
+    EgressSecretFetches,
     CLOCK,
   ]),
 
   ...bindCommandHandler(
-    RedeemThroughEgressCommand,
-    RedeemThroughEgressHandler,
-    [RUNNER_EGRESS, EgressRedemptions, CLOCK],
+    FetchSharedRunSecretsCommand,
+    FetchSharedRunSecretsHandler,
+    [RUNNER_EGRESS, EgressSecretFetches, CLOCK],
   ),
 
   ...bindCommandHandler(AdmitThroughEgressCommand, AdmitThroughEgressHandler, [
@@ -2406,14 +2406,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(CheckActiveRunsCommand, CheckActiveRunsHandler, [
     RUNNER_EGRESS,
-    EgressRedemptions,
+    EgressSecretFetches,
     CLOCK,
   ]),
 
   ...bindCommandHandler(
     RecordEgressConnectionsCommand,
     RecordEgressConnectionsHandler,
-    [RUNNER_EGRESS, EgressRedemptions, RUN_CONNECTIONS, CLOCK],
+    [RUNNER_EGRESS, EgressSecretFetches, RUN_CONNECTIONS, CLOCK],
   ),
 
   ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [

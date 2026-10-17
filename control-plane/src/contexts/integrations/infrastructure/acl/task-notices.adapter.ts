@@ -9,7 +9,7 @@ import type { HostReach } from '@integrations/application/services/host-reach.se
 import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { MarkWorn } from '@work/application/contracts/happenings.contract';
+import type { TaskMark } from '@work/application/contracts/happenings.contract';
 import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
 import type { TaskNoticesPort } from '@work/application/ports/task-notices.port';
 
@@ -36,7 +36,7 @@ export class TaskNotices implements TaskNoticesPort {
   async notify(
     task: BoundTaskDto,
     event: string,
-  ): Promise<readonly MarkWorn[]> {
+  ): Promise<readonly TaskMark[]> {
     const teamId = TeamId.of(task.teamId);
     const definitions = await this.defined.ofTeam(teamId);
     const posting = this.runtime
@@ -49,7 +49,7 @@ export class TaskNotices implements TaskNoticesPort {
 
     const bound = BoundTaskMapper.toBound(task);
     const payload: TaskPayload = { task: bound, ask: await this.asking(bound) };
-    const kept: MarkWorn[] = [];
+    const kept: TaskMark[] = [];
 
     for (const integration of posting) {
       try {

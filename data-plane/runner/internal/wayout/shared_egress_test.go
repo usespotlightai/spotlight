@@ -72,26 +72,26 @@ func (f *fakeControlPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(protocol.EgressAdmitted{
 			RunnerID: "runner_" + asked.ProxyCredential, WorkspaceID: "ws_1", ControlPlaneHost: controlPlaneHost, ControlPlanePort: 80,
 		})
-	case "/api/egress/redeem":
-		var asked protocol.EgressRedeem
+	case "/api/egress/secrets":
+		var asked protocol.EgressSecretsRequest
 		_ = json.NewDecoder(r.Body).Decode(&asked)
 		if !f.active[asked.ProxyCredential] {
 			http.Error(w, `{"message":"no run"}`, http.StatusConflict)
 			return
 		}
 		runID := "run_" + asked.ProxyCredential
-		redeemed := protocol.EgressRedemption{RunID: runID, Reaches: []string{}, Secrets: []protocol.RedeemedSecret{}, Withheld: []protocol.WithheldSecret{}}
+		fetched := protocol.EgressSecrets{RunID: runID, Reaches: []string{}, Secrets: []protocol.FetchedSecret{}, Denied: []protocol.DeniedSecret{}}
 		for host, value := range f.grants[asked.ProxyCredential] {
 			sealed, err := sealtest.Seal(asked.Recipient, value, runID, "LINEAR_API_KEY")
 			if err != nil {
 				f.t.Error(err)
 			}
-			redeemed.Secrets = append(redeemed.Secrets, protocol.RedeemedSecret{
-				Secret: "LINEAR_API_KEY", Host: host, Carrier: protocol.CarriedInHeader, Name: "Authorization", Prefix: "Bearer ", Sealed: sealed,
+			fetched.Secrets = append(fetched.Secrets, protocol.FetchedSecret{
+				Secret: "LINEAR_API_KEY", Host: host, Location: protocol.LocationHeader, Name: "Authorization", Prefix: "Bearer ", Sealed: sealed,
 			})
-			redeemed.Bound = append(redeemed.Bound, host)
+			fetched.Bound = append(fetched.Bound, host)
 		}
-		_ = json.NewEncoder(w).Encode(redeemed)
+		_ = json.NewEncoder(w).Encode(fetched)
 	case "/api/egress/active-runs":
 		var asked protocol.ActiveRunsRequest
 		_ = json.NewDecoder(r.Body).Decode(&asked)
@@ -290,7 +290,7 @@ func (s *sandbox) get(t *testing.T, address string) (int, string) {
 	return response.StatusCode, string(body)
 }
 
-func TestTheSharedEgressWearsABoundHostsSecretAndTunnelsTheRestUnopened(t *testing.T) {
+func TestTheSharedEgressInjectsABoundHostsSecretAndTunnelsTheRestUnopened(t *testing.T) {
 	s := sharedEgress(t)
 	one := s.sandbox(t, "one")
 
@@ -307,7 +307,7 @@ func TestTheSharedEgressWearsABoundHostsSecretAndTunnelsTheRestUnopened(t *testi
 		t.Errorf("the other host got %q (%d: %s)", s.upstream.last(), status, body)
 	}
 
-	want := []string{"forwarded mcp.example.com", "tunnelled api.example.com"}
+	want := []string{"injected mcp.example.com", "passthrough api.example.com"}
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
 		one.client.CloseIdleConnections()
 		if got := s.control.outcomes()["one"]; slices.Equal(slices.Sorted(slices.Values(got)), want) {
@@ -389,5 +389,5 @@ func TestTheSharedEgressForgetsARunThatIsNoLongerActive(t *testing.T) {
 			return
 		}
 	}
-	t.Error("still wears the secret of a run that is not active")
+	t.Error("still injects the secret of a run that is not active")
 }

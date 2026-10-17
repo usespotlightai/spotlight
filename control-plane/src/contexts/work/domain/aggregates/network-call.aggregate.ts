@@ -34,7 +34,7 @@ interface State {
   readonly version: number;
 }
 
-const KEPT_MS = 7 * 24 * 60 * 60_000;
+const RETENTION_MS = 7 * 24 * 60 * 60_000;
 
 const givenUp = (id: string): string =>
   `Network call ${id} was given up. The hook stopped waiting for it.`;
@@ -155,13 +155,15 @@ export class NetworkCall extends EventRecorder {
   }
 
   static settledForgettablyBy(now: Date): Date {
-    return new Date(now.getTime() - KEPT_MS);
+    return new Date(now.getTime() - RETENTION_MS);
   }
 
   isForgettableAt(now: Date): boolean {
     const settledAt = this.settledAt;
 
-    return settledAt !== null && now.getTime() >= settledAt.getTime() + KEPT_MS;
+    return (
+      settledAt !== null && now.getTime() >= settledAt.getTime() + RETENTION_MS
+    );
   }
 
   forgotten(now: Date): NetworkCall {

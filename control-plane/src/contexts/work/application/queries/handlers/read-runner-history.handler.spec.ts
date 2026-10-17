@@ -95,7 +95,7 @@ const journal = (runId: string): RunJournal => ({
     endedAt: null,
   },
   spent: null,
-  egress: null,
+  egressEnforcement: null,
 });
 
 const outcomeOf = (

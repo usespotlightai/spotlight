@@ -14,7 +14,7 @@ const node = (
   step: null,
   span: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children: [],
   ...part,
 });

@@ -1,10 +1,10 @@
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
-export type JudgingTrouble = 'refused' | 'unreadable';
+export type JudgingErrorKind = 'refused' | 'unreadable';
 
 export class JudgingError extends Error {
   constructor(
-    readonly trouble: JudgingTrouble,
+    readonly kind: JudgingErrorKind,
     reason: string,
     readonly usage: ModelCall | null,
   ) {

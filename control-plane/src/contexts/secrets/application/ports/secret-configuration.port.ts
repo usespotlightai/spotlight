@@ -14,7 +14,7 @@ export interface SecretView {
   };
   readonly bindings: readonly {
     readonly host: string;
-    readonly carrier: string;
+    readonly location: string;
     readonly name: string;
     readonly prefix: string;
   }[];

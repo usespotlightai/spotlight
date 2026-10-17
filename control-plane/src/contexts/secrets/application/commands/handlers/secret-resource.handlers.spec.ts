@@ -248,7 +248,7 @@ describe('DeleteSecretHandler', () => {
     });
   });
 
-  it('will not delete a secret an integration still wears, and says which', async () => {
+  it('will not delete a secret an integration still uses, and says which', async () => {
     const { remove, keptValue, uses } = await created();
 
     uses.push('integration core/linear');

@@ -13,9 +13,9 @@ export class Concerns {
     marks?: readonly (Mark | null)[];
   }): Concerns | null {
     const named = input.branch ? Branch.of(input.branch).taskId : null;
-    const worn = (input.marks ?? []).filter((each): each is Mark => !!each);
+    const marked = (input.marks ?? []).filter((each): each is Mark => !!each);
 
-    return named || worn.length > 0 ? new Concerns(named, worn) : null;
+    return named || marked.length > 0 ? new Concerns(named, marked) : null;
   }
 
   equals(other: Concerns): boolean {

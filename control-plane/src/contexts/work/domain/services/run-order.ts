@@ -8,8 +8,8 @@ import {
   checkoutsOf,
   type TaskCheckout,
 } from '@work/domain/services/task-checkouts';
-import type { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import type { Continuity } from '@work/domain/value-objects/continuity.vo';
+import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type { Harness } from '@work/domain/value-objects/harness.vo';
@@ -48,7 +48,7 @@ interface Ordering {
   harnesses: HarnessCatalog;
   ready: readonly ReadySkill[];
   profiles: readonly ReadyProfile[];
-  withheld?: readonly CatalogWithheld[];
+  denied?: readonly DeniedCatalogItem[];
 }
 
 export const orderAt = ({
@@ -57,7 +57,7 @@ export const orderAt = ({
   harnesses,
   ready,
   profiles,
-  withheld = [],
+  denied = [],
 }: Ordering & { at: OrderedAt }): RunOrder | null => {
   const station = line.stationAt(at.stationId);
 
@@ -72,7 +72,7 @@ export const orderAt = ({
   }
 
   const given = givenAt(station, ready, profiles);
-  const refusals = [...withheld, ...given.refusals];
+  const refusals = [...denied, ...given.refusals];
 
   return {
     harness,

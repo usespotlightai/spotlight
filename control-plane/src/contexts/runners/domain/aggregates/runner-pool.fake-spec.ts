@@ -7,6 +7,7 @@ import type { RunnerHostRepository } from '@runners/domain/repositories/runner-h
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { HostSession } from '@runners/domain/value-objects/host-session.vo';
@@ -18,7 +19,6 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
-import { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
@@ -68,8 +68,8 @@ export const aPullPool = (
     by: attributedIn(),
   });
 
-export const sealedOf = (character: string): SealedProvisionSecret =>
-  SealedProvisionSecret.of(`sealed:${character}`);
+export const encryptedOf = (character: string): EncryptedProvisionSecret =>
+  EncryptedProvisionSecret.of(`encrypted:${character}`);
 
 export const aPushPool = (
   input: {
@@ -89,7 +89,7 @@ export const aPushPool = (
     access: {
       mode: 'push',
       url: ProvisionUrl.of(input.url ?? 'https://provision.example.com/runs'),
-      secret: sealedOf('s'),
+      secret: encryptedOf('s'),
       secretVersion: 1,
       egress: input.egress ?? null,
       egressTraffic: input.egressTraffic,

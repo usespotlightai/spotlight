@@ -58,7 +58,7 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-const wearsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'wears'), 0) = 0
+const injectsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'injectedSecrets'), 0) = 0
   AND coalesce((${run.spec} ->> 'spotlightApi')::boolean, false) = false`;
 
 const noEarlierRunStillLeased = sql`NOT EXISTS (
@@ -259,7 +259,7 @@ export class DrizzleRunRepository implements RunRepository {
           eq(run.workspaceId, workspaceId.value),
           eq(run.state, 'queued'),
           isNull(run.reservedFor),
-          page.withSecrets ? undefined : wearsNoSecrets,
+          page.withSecrets ? undefined : injectsNoSecrets,
           or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
           noEarlierRunStillLeased,

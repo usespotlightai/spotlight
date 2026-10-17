@@ -14,7 +14,7 @@ import { DrizzleOAuth2ClientRegistrations } from '@integrations/infrastructure/p
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
-import type { CredentialSealingPort } from '@secrets/application/ports/credential-sealing.port';
+import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -34,16 +34,16 @@ import { openTeam } from './support/team';
 const NOW = new Date('2026-10-05T10:00:00.000Z');
 const LINEAR = SourceKey.of('linear');
 
-const labelled: CredentialSealingPort = {
-  seal: async (_workspaceId, label, credential) =>
+const labelled: CredentialEncryptionPort = {
+  encrypt: async (_workspaceId, label, credential) =>
     Buffer.from(`${label}\n${credential.revealed()}`).toString('base64'),
-  open: async (_workspaceId, label, sealed) => {
-    const [sealedFor, plain] = Buffer.from(sealed, 'base64')
+  decrypt: async (_workspaceId, label, ciphertext) => {
+    const [encryptedFor, plain] = Buffer.from(ciphertext, 'base64')
       .toString('utf8')
       .split('\n');
 
-    if (sealedFor !== label) {
-      throw new Error(`sealed for ${sealedFor}, opened as ${label}`);
+    if (encryptedFor !== label) {
+      throw new Error(`encrypted for ${encryptedFor}, decrypted as ${label}`);
     }
 
     return Credential.of(plain ?? '');
@@ -125,7 +125,7 @@ describe('host connections kept per holder', () => {
     ).toEqual([['user_alice', '@alice']]);
   });
 
-  it('cannot open one person’s sealed token as another’s', async () => {
+  it('cannot decrypt the encrypted token of one person as the token of another', async () => {
     const teamId = TeamId.of(randomUUID());
     const alice = ConnectionHolder.person(UserId.of('user_alice'));
     const bob = ConnectionHolder.person(UserId.of('user_bob'));
@@ -153,7 +153,7 @@ describe('host connections kept per holder', () => {
       );
 
     await expect(connections.of(teamId, LINEAR, bob)).rejects.toThrow(
-      /opened as/,
+      /decrypted as/,
     );
   });
 
@@ -218,7 +218,7 @@ describe('OAuth client registrations', () => {
       secretExpiresAt: null,
     });
 
-  it('keeps the first registration, sealed, and refuses a second made at the same time', async () => {
+  it('keeps the first registration, encrypted, and refuses a second made at the same time', async () => {
     const teamId = TeamId.of(randomUUID());
 
     await registrations.save(registered(teamId, 'client-1'));

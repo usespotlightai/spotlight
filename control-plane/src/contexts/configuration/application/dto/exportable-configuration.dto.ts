@@ -3,7 +3,7 @@ import type {
   HookConfigSigning,
   HookConfigStep,
 } from '@configuration/application/ports/hook-configs.port';
-import type { WornSecret } from '@configuration/application/ports/integration-configs.port';
+import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
 import {
   CONFIGURED_RESOURCES,
   type ConfiguredResource,
@@ -66,7 +66,7 @@ export type ExportableResourceDto =
       };
       readonly bindings: readonly {
         readonly host: string;
-        readonly carrier: string;
+        readonly location: string;
         readonly name: string;
         readonly prefix: string;
       }[];
@@ -129,7 +129,7 @@ export type ExportableResourceDto =
       readonly kind: 'integration';
       readonly source: string;
       readonly definition: Readonly<Record<string, unknown>>;
-      readonly secretsWorn: readonly WornSecret[];
+      readonly secretReferences: readonly SecretReferenceAt[];
     })
   | (TeamOwned & {
       readonly kind: 'hook';
@@ -158,7 +158,7 @@ export type ExportableResourceDto =
         readonly env: Readonly<Record<string, string>>;
       }[];
       readonly native: Readonly<Record<string, unknown>>;
-      readonly secretsWorn: readonly WornSecret[];
+      readonly secretReferences: readonly SecretReferenceAt[];
     });
 
 export interface ExportableConfigurationDto {

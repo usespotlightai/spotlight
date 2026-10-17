@@ -25,7 +25,7 @@ const nodeToResponse = (node: TraceNodeDto): TraceNodeResponseDto =>
     node.step && stepToResponse(node.step),
     node.span && spanToResponse(node.span),
     node.connection && new TraceConnectionResponseDto(node.connection),
-    node.egress,
+    node.egressEnforcement,
     node.children.map(nodeToResponse),
   );
 

@@ -18,7 +18,7 @@ import type { HappeningReactionsPort } from '@work/application/ports/happening-r
 import type { HeardHappeningsPort } from '@work/application/ports/heard-happenings.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { takeWornMarks } from '@work/application/services/worn-marks';
+import { takeTaskMarks } from '@work/application/services/task-marks';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
@@ -341,7 +341,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       : null;
 
     const stored = runId ? opened.handedTo(runId, line) : opened;
-    await takeWornMarks(this.tasks, stored);
+    await takeTaskMarks(this.tasks, stored);
     await this.tasks.add(stored);
   }
 

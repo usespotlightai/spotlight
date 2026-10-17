@@ -23,7 +23,7 @@ const REACH: Reach = {
     handle: null,
     refused: async () => null,
   },
-  credentials: { wornToward: vi.fn() },
+  credentials: { injectedFor: vi.fn() },
 };
 
 const tool = (name: string): Tool => ({

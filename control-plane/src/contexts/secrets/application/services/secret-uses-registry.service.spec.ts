@@ -5,7 +5,7 @@ describe('SecretUsesRegistry', () => {
   it('gathers every use each registered user knows of', async () => {
     const registry = new SecretUsesRegistry();
     registry.register({
-      usesOf: async ({ name }) => [`integration core/linear wears ${name}`],
+      usesOf: async ({ name }) => [`integration core/linear uses ${name}`],
     });
     registry.register({ usesOf: async () => [] });
     registry.register({
@@ -15,7 +15,7 @@ describe('SecretUsesRegistry', () => {
     await expect(
       registry.of({ workspaceId: 'ws_1', name: 'LINEAR_API_KEY' }),
     ).resolves.toEqual([
-      'integration core/linear wears LINEAR_API_KEY',
+      'integration core/linear uses LINEAR_API_KEY',
       'harness profile in ws_1',
     ]);
   });

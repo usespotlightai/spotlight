@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { RunNetworkDto } from '@work/application/dto/run-network.dto';
 import {
+  CONNECTION_ERRORS,
   CONNECTION_OUTCOMES,
   CONNECTION_REASONS,
-  CONNECTION_TROUBLES,
 } from '@work/domain/value-objects/run-connection.vo';
 
 export class RunConnectionResponseDto {
@@ -25,7 +25,7 @@ export class RunConnectionResponseDto {
   @ApiProperty({
     enum: CONNECTION_OUTCOMES,
     description:
-      'tunnelled: egress did not decrypt it. forwarded: egress decrypted it to add a secret. blocked: egress stopped it. failed: egress could not open it',
+      'passthrough: egress did not decrypt it. injected: egress decrypted it to inject a secret. blocked: egress stopped it. failed: egress could not open it',
   })
   readonly outcome: string;
 
@@ -34,7 +34,7 @@ export class RunConnectionResponseDto {
     nullable: true,
     example: 401,
     description:
-      'The status the host answered a forwarded request with. null for a tunnel, because egress cannot read it',
+      'The status the host answered an injected request with. null for a passthrough connection, because egress cannot read it',
   })
   readonly status: number | null;
 
@@ -46,12 +46,12 @@ export class RunConnectionResponseDto {
   readonly reason: string | null;
 
   @ApiProperty({
-    enum: [...CONNECTION_TROUBLES, null],
+    enum: [...CONNECTION_ERRORS, null],
     nullable: true,
     description:
-      'What went wrong. blocked: egress stopped it. failed: egress could not open it. refused: the host answered a forwarded request with 401 or 403. server-error: the host answered it with 500 or more. null: nothing went wrong',
+      'The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error',
   })
-  readonly trouble: string | null;
+  readonly error: string | null;
 
   @ApiProperty({ format: 'date-time' })
   readonly at: string;
@@ -65,7 +65,7 @@ export class RunConnectionResponseDto {
     this.outcome = connection.outcome;
     this.status = connection.status;
     this.reason = connection.reason;
-    this.trouble = connection.trouble;
+    this.error = connection.error;
     this.at = connection.at;
   }
 }
@@ -83,7 +83,7 @@ export class RunNetworkResponseDto {
     description:
       'What the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check, for example on a host. The sandbox itself makes this report, so a compromised sandbox can report enforced',
   })
-  readonly egress: 'enforced' | 'not-enforced' | null;
+  readonly egressEnforcement: 'enforced' | 'not-enforced' | null;
 
   @ApiProperty({
     type: [RunConnectionResponseDto],
@@ -94,7 +94,7 @@ export class RunNetworkResponseDto {
   constructor(network: RunNetworkDto) {
     this.runId = network.runId;
     this.attempt = network.attempt;
-    this.egress = network.egress;
+    this.egressEnforcement = network.egressEnforcement;
     this.connections = network.connections.map(
       (each) => new RunConnectionResponseDto(each),
     );

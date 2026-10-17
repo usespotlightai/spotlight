@@ -43,17 +43,17 @@ const (
 const usage = "usage: spotlight runner [harnesses <json>]"
 
 const (
-	envURL         = "SPOTLIGHT_URL"
-	envToken       = "SPOTLIGHT_TOKEN"
-	envHanded      = "SPOTLIGHT_HANDED"
-	envWorkspace   = "SPOTLIGHT_WORKSPACE"
-	envAgentUser   = "SPOTLIGHT_AGENT_USER"
-	envAuthorName  = "SPOTLIGHT_GIT_AUTHOR_NAME"
-	envAuthorEmail = "SPOTLIGHT_GIT_AUTHOR_EMAIL"
-	envAnswerWait  = protocol.AnswerWaitVar
-	envEgressURL   = protocol.EgressURLVar
-	envCredential  = protocol.EgressCredentialVar
-	envTraffic     = protocol.EgressTrafficVar
+	envURL             = "SPOTLIGHT_URL"
+	envToken           = "SPOTLIGHT_TOKEN"
+	envHanded          = "SPOTLIGHT_HANDED"
+	envWorkspace       = "SPOTLIGHT_WORKSPACE"
+	envAgentUser       = "SPOTLIGHT_AGENT_USER"
+	envAuthorName      = "SPOTLIGHT_GIT_AUTHOR_NAME"
+	envAuthorEmail     = "SPOTLIGHT_GIT_AUTHOR_EMAIL"
+	envAnswerWait      = protocol.AnswerWaitVar
+	envEgressURL       = protocol.EgressURLVar
+	envProxyCredential = protocol.EgressProxyCredentialVar
+	envTraffic         = protocol.EgressTrafficVar
 )
 
 func Load(args []string) (Config, error) {
@@ -101,10 +101,10 @@ func Load(args []string) (Config, error) {
 	cfg.Workspace = or(cfg.Workspace, DefaultWorkspace)
 
 	if cfg.Token != "" {
-		cfg.Egress = Egress{URL: get(envEgressURL), Credential: get(envCredential)}
+		cfg.Egress = Egress{URL: get(envEgressURL), Credential: get(envProxyCredential)}
 		switch {
 		case (cfg.Egress.URL == "") != (cfg.Egress.Credential == ""):
-			note(fmt.Errorf("%s and %s go together; give both or neither", envEgressURL, envCredential))
+			note(fmt.Errorf("%s and %s go together; give both or neither", envEgressURL, envProxyCredential))
 		case cfg.Egress.Given():
 			direct, err := directFrom(get(envTraffic))
 			note(err)

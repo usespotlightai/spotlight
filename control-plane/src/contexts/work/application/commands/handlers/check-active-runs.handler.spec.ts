@@ -11,7 +11,7 @@ import {
   SHARED_TOKEN,
   sharedEgress,
 } from '@work/application/commands/handlers/egress-handlers.fake-spec';
-import type { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
+import type { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 import { describe, expect, it } from 'vitest';
 
 const checker = (
@@ -20,7 +20,7 @@ const checker = (
 ) =>
   new CheckActiveRunsHandler(
     sharedEgress(admitted),
-    leasing(leased) as unknown as EgressRedemptions,
+    leasing(leased) as unknown as EgressSecretFetches,
     { now: () => NOW } as ClockPort,
   );
 

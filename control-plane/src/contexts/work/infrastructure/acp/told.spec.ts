@@ -341,7 +341,7 @@ describe('Told', () => {
     const checked = (data: string | null) => {
       const told = new Told();
       told.take({ type: 'egress.checked', at: clock(1), message: null, data });
-      return told.egress();
+      return told.egressEnforcement();
     };
     const said = (value: unknown) =>
       Buffer.from(JSON.stringify(value)).toString('base64');
@@ -350,7 +350,7 @@ describe('Told', () => {
     expect(checked(said({ enforced: false }))).toBe('not-enforced');
     expect(checked(said({ enforced: 'yes' }))).toBeNull();
     expect(checked(null)).toBeNull();
-    expect(new Told().egress()).toBeNull();
+    expect(new Told().egressEnforcement()).toBeNull();
   });
 
   it('knows no tokens where no turn reported any', () => {

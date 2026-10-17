@@ -6,9 +6,9 @@ import {
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import {
-  type WornRequest,
-  WornSecrets,
-} from '@secrets/application/contracts/worn-secrets.contract';
+  InjectedSecrets,
+  type InjectionRequest,
+} from '@secrets/application/contracts/injected-secrets.contract';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 
 type Fetch = typeof globalThis.fetch;
@@ -18,7 +18,10 @@ export type PolicedFetch = (
   init?: RequestInit,
 ) => Promise<Response>;
 
-export type Wearing = (hop: Hop, request: WornRequest) => Promise<WornSecrets>;
+export type Injecting = (
+  hop: Hop,
+  request: InjectionRequest,
+) => Promise<InjectedSecrets>;
 
 const bodyOf = (body: RequestInit['body']): string | undefined =>
   body === undefined || body === null ? undefined : String(body);
@@ -27,11 +30,11 @@ export const policedFetch =
   (
     fetch: Fetch,
     policy: OutboundPolicy,
-    wearing: Wearing = async () => WornSecrets.none(),
+    inject: Injecting = async () => InjectedSecrets.none(),
   ): PolicedFetch =>
   async (url, init) => {
     const given = Object.fromEntries(new Headers(init?.headers));
-    let worn = WornSecrets.none();
+    let injected = InjectedSecrets.none();
 
     try {
       const { reply } = await followed(
@@ -44,16 +47,16 @@ export const policedFetch =
         },
         async (hop): Promise<Dressed> => {
           const request = { url: new URL(hop.url), headers: { ...given } };
-          const wearingNow = await wearing(hop, request);
+          const injectedNow = await inject(hop, request);
 
-          if (wearingNow.isEmpty) {
+          if (injectedNow.isEmpty) {
             return {
-              url: worn.redact(request.url.href),
+              url: injected.redact(request.url.href),
               headers: request.headers,
             };
           }
 
-          worn = wearingNow;
+          injected = injectedNow;
 
           return { url: request.url.href, headers: request.headers };
         },
@@ -62,13 +65,13 @@ export const policedFetch =
 
       return reply;
     } catch (error) {
-      if (worn.isEmpty || error instanceof OutboundRefusedError) {
+      if (injected.isEmpty || error instanceof OutboundRefusedError) {
         throw error;
       }
 
       throw new UpstreamRefusedError(
         `reaching ${new URL(url.toString()).host}`,
-        worn.redact(error instanceof Error ? error.message : String(error)),
+        injected.redact(error instanceof Error ? error.message : String(error)),
       );
     }
   };
