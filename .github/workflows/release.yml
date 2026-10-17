@@ -2,7 +2,10 @@ name: release
 
 on:
   push:
-    tags: ["**"]
+    tags:
+      - "**"
+      # Do not start a build for a commit tag. Build Images makes these tags for staging.
+      - "![0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]"
 
 concurrency:
   group: release-${{ github.ref }}
