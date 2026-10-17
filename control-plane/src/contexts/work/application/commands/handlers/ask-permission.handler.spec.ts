@@ -145,7 +145,7 @@ const asking = (start: Task, subject?: RunSubject) => {
             body: ChatMessageBody.of('Plan the queue.'),
             now: NOW,
             newId: () => 'chat_1',
-          }).handedTo(RunId.of('run_1'), NOW),
+          }).assignRun(RunId.of('run_1'), NOW),
       } as unknown as ChatRepository,
       { findByStation: async () => LINE } as unknown as LineRepository,
       { of: async () => null },
@@ -252,7 +252,7 @@ describe('AskPermissionHandler', () => {
     await expect(ask()).resolves.toBe('reject');
   });
 
-  it('refuses a run its task has let go of', async () => {
+  it('refuses a run its task detached', async () => {
     const { ask } = asking(withRun('run_other'));
 
     await expect(ask()).resolves.toBe('reject');

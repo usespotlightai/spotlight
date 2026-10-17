@@ -28,7 +28,7 @@ import {
 
 const keptAttempt = or(
   eq(run.attempt, runJournalEntry.attempt),
-  sql`${runJournalEntry.attempt} = any(${run.parkedAttempts})`,
+  sql`${runJournalEntry.attempt} = any(${run.suspendedAttempts})`,
 );
 
 export function journalsOfTask(

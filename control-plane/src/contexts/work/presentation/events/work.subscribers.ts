@@ -37,6 +37,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
 import type { AbandonTeamLines } from '@work/application/events/handlers/abandon-team-lines.handler';
+import type { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import type { DigestRun } from '@work/application/events/handlers/digest-run.handler';
 import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
@@ -46,7 +47,6 @@ import {
   PROVISION_TEAM,
   type ProvisionTeam,
 } from '@work/application/events/handlers/provision-team.handler';
-import type { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
 import type { ConnectionsMade } from '@work/application/services/connections-made.service';
 import type { Notices } from '@work/application/services/notices.service';
 import type { PauseMarks } from '@work/application/services/pause-marks.service';
@@ -56,21 +56,21 @@ import type { ReconcileSetup } from '@work/application/services/reconcile-setup.
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { RunnerLeases } from '@work/application/services/runner-leases.service';
 import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
-import type { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
-import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
+import type { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunLapsed } from '@work/domain/events/run-lapsed.event';
-import type { RunParked } from '@work/domain/events/run-parked.event';
+import type { RunDetached } from '@work/domain/events/run-detached.event';
+import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
+import type { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import type { RunPaused } from '@work/domain/events/run-paused.event';
 import type { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
-import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import type { RunSuspended } from '@work/domain/events/run-suspended.event';
 import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
-import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
-import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
+import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ToolUsed } from '@work/domain/events/tool-used.event';
 
@@ -100,8 +100,8 @@ const reactingToOutcomes = (
   subscribing<RunCompleted>(`${name}.completed`, ['run.completed'], (event) =>
     outcomes.onRunCompleted(event),
   ),
-  subscribing<RunAbandoned>(`${name}.abandoned`, ['run.abandoned'], (event) =>
-    outcomes.onRunAbandoned(event),
+  subscribing<RunExhausted>(`${name}.exhausted`, ['run.exhausted'], (event) =>
+    outcomes.onRunExhausted(event),
   ),
 ];
 
@@ -115,7 +115,7 @@ export const workSubscribers = (reactions: {
   acceptances: ProposalAcceptances;
   outsideTools: NotifyOutsideTools;
   taskRuns: EnqueueTaskRun;
-  letGoRuns: StopLetGoRun;
+  detachedRuns: CancelDetachedRun;
   chatRuns: EnqueueChatRun;
   setup: ReconcileSetup;
   abandoning: AbandonTeamLines;
@@ -126,14 +126,14 @@ export const workSubscribers = (reactions: {
   notices: Notices;
   connections: ConnectionsMade;
 }): readonly DomainEventSubscriber[] => [
-  subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
+  subscribing<RunCompleted | RunExhausted | RunCancelled>(
     'work.end-secret-grants-of-ended-run',
-    ['run.completed', 'run.abandoned', 'run.withdrawn'],
+    ['run.completed', 'run.exhausted', 'run.cancelled'],
     (event) => reactions.runGrants.endedFor(leaseOf(event)),
   ),
-  subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
+  subscribing<RunCompleted | RunExhausted | RunCancelled>(
     'work.revoke-tokens-of-ended-run',
-    ['run.completed', 'run.abandoned', 'run.withdrawn'],
+    ['run.completed', 'run.exhausted', 'run.cancelled'],
     (event) =>
       reactions.runTokens.revokeFor(
         event.workspaceId.value,
@@ -141,14 +141,14 @@ export const workSubscribers = (reactions: {
         null,
       ),
   ),
-  subscribing<RunLapsed | RunParked>(
+  subscribing<RunLeaseExpired | RunSuspended>(
     'work.lose-secret-lease-of-ended-attempt',
-    ['run.lapsed', 'run.parked'],
+    ['run.lease-expired', 'run.suspended'],
     (event) => reactions.runGrants.leaseLost(leaseOf(event)),
   ),
-  subscribing<RunLapsed | RunParked>(
+  subscribing<RunLeaseExpired | RunSuspended>(
     'work.revoke-tokens-of-ended-attempt',
-    ['run.lapsed', 'run.parked'],
+    ['run.lease-expired', 'run.suspended'],
     (event) =>
       reactions.runTokens.revokeFor(
         event.workspaceId.value,
@@ -156,9 +156,9 @@ export const workSubscribers = (reactions: {
         event.attempt,
       ),
   ),
-  subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
+  subscribing<RunCompleted | RunExhausted | RunCancelled>(
     'work.end-runner-of-ended-run',
-    ['run.completed', 'run.abandoned', 'run.withdrawn'],
+    ['run.completed', 'run.exhausted', 'run.cancelled'],
     (event) => reactions.runners.runEnded(event.runId),
   ),
   subscribing<ToolUsed>(
@@ -166,9 +166,9 @@ export const workSubscribers = (reactions: {
     ['run.tool-used'],
     (event) => reactions.toolUsedHooks.on(event),
   ),
-  subscribing<RunLapsed | RunParked>(
-    'work.let-go-of-runner-that-left-its-run',
-    ['run.lapsed', 'run.parked'],
+  subscribing<RunLeaseExpired | RunSuspended>(
+    'work.release-runner-that-left-its-run',
+    ['run.lease-expired', 'run.suspended'],
     (event) => reactions.runners.runLeft(event.runner, event.at),
   ),
   subscribing<RunPaused>(
@@ -193,7 +193,7 @@ export const workSubscribers = (reactions: {
       }),
   ),
   subscribing<RunReservationDropped>(
-    'work.let-go-of-reserved-runner',
+    'work.release-reserved-runner',
     ['run.reservation-dropped'],
     (event) => reactions.runners.reservationDropped(event.runner.value),
   ),
@@ -214,10 +214,10 @@ export const workSubscribers = (reactions: {
     ['run.completed'],
     (event) => reactions.digests.onRunCompleted(event),
   ),
-  subscribing<RunAbandoned>(
-    'work.digest-run.abandoned',
-    ['run.abandoned'],
-    (event) => reactions.digests.onRunAbandoned(event),
+  subscribing<RunExhausted>(
+    'work.digest-run.exhausted',
+    ['run.exhausted'],
+    (event) => reactions.digests.onRunExhausted(event),
   ),
   subscribing<TeamCreatedIntegrationEvent>(
     PROVISION_TEAM,
@@ -250,19 +250,19 @@ export const workSubscribers = (reactions: {
     BINDABLE_TASK_EVENTS,
     (event) => reactions.outsideTools.on(event),
   ),
-  subscribing<TaskHandedToRun>(
+  subscribing<TaskDispatched>(
     'work.enqueue-task-run',
-    ['task.handed-to-run'],
+    ['task.dispatched'],
     (event) => reactions.taskRuns.on(event),
   ),
-  subscribing<TaskLetGoOfRun>(
-    'work.stop-let-go-run',
-    ['task.let-go-of-run'],
-    (event) => reactions.letGoRuns.on(event),
+  subscribing<RunDetached>(
+    'work.cancel-detached-run',
+    ['task.run-detached'],
+    (event) => reactions.detachedRuns.on(event),
   ),
-  subscribing<ChatHandedToRun>(
+  subscribing<ChatDispatched>(
     'work.enqueue-chat-run',
-    ['chat.handed-to-run'],
+    ['chat.dispatched'],
     (event) => reactions.chatRuns.on(event),
   ),
   subscribing<RunnerWayInOpenedIntegrationEvent>(

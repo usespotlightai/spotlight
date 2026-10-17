@@ -12,6 +12,7 @@ import { WorkspaceRunnersDeclared } from '@runners/domain/events/workspace-runne
 import { WorkspaceRunnersDropped } from '@runners/domain/events/workspace-runners-dropped.event';
 import { WorkspaceRunnersRedeclared } from '@runners/domain/events/workspace-runners-redeclared.event';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { EgressChangeDetail } from '@runners/domain/value-objects/egress-change-detail.vo';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
@@ -25,7 +26,6 @@ import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
@@ -61,7 +61,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   HostId,
   HostImage,
   HostReport,
-  HostSession,
+  BootId,
   InstalledHarness,
   MaxRuns,
   PoolKey,

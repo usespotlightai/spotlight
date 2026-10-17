@@ -84,23 +84,23 @@ describe('ClaimOrder', () => {
     ).toBe('older');
   });
 
-  it('hands out another waiting run while one handed back waits out its back-off', () => {
-    const handedBack = waiting('handed_back', {
+  it('hands out another waiting run while one requeued waits out its back-off', () => {
+    const requeued = waiting('requeued', {
       priority: 3,
       queuedAt: '2026-09-17T08:00:00.000Z',
     });
     const backingOff = {
-      ...handedBack,
-      run: handedBack.run
+      ...requeued,
+      run: requeued.run
         .claim(BY.runner, NOW)
-        .handedBack(BY.runner, NOW, 'connect ECONNREFUSED'),
+        .requeue(BY.runner, NOW, 'connect ECONNREFUSED'),
     };
 
     expect(next(backingOff, waiting('other', { priority: 1 }))).toBe('other');
     expect(
       ClaimOrder.next([backingOff], BY, new Date(NOW.getTime() + 5_000))?.id
         .value,
-    ).toBe('handed_back');
+    ).toBe('requeued');
   });
 
   it('never hands a runner a harness it does not have', () => {
@@ -160,7 +160,7 @@ describe('ClaimOrder', () => {
       ).toBe('mine');
     });
 
-    it('hands a provisioned runner nothing once its reservation lapsed', () => {
+    it('hands a provisioned runner nothing once its reservation expired', () => {
       expect(
         ClaimOrder.next(
           [reservedFor(waiting('mine'), 'pooled_1', FIVE_MINUTES_AGO)],
@@ -179,10 +179,10 @@ describe('ClaimOrder', () => {
       ).toBe('open');
     });
 
-    it('hands another runner a run whose reservation lapsed', () => {
+    it('hands another runner a run whose reservation expired', () => {
       expect(
-        next(reservedFor(waiting('lapsed'), 'pooled_1', FIVE_MINUTES_AGO)),
-      ).toBe('lapsed');
+        next(reservedFor(waiting('expired'), 'pooled_1', FIVE_MINUTES_AGO)),
+      ).toBe('expired');
     });
   });
 });

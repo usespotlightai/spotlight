@@ -52,7 +52,7 @@ const provisioning = (
     stored.set(check.stackId.value, check);
   });
   const awaitingProvision = vi.fn(async () => listed);
-  const withLapsedReservations = vi.fn(async () => listed);
+  const withExpiredReservations = vi.fn(async () => listed);
 
   return {
     find,
@@ -63,7 +63,7 @@ const provisioning = (
       open: find,
       save,
       awaitingProvision,
-      withLapsedReservations,
+      withExpiredReservations,
     } as unknown as StackCheckRepository),
   };
 };
@@ -141,7 +141,7 @@ describe('ProvisionChangeStackChecks', () => {
     expect(find).toHaveBeenCalledTimes(3);
   });
 
-  it('lets a reservation go, and leaves alone a check that has none', async () => {
+  it('drops a reservation, and leaves alone a check that has none', async () => {
     const { service, save, check } = provisioning([
       waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
       waiting('stack_2'),
@@ -154,7 +154,7 @@ describe('ProvisionChangeStackChecks', () => {
     expect(save).toHaveBeenCalledOnce();
   });
 
-  it('keeps a reservation another runner lets go of', async () => {
+  it('keeps a reservation another runner drops', async () => {
     const { service, save, check } = provisioning([
       waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
     ]);
@@ -225,15 +225,15 @@ describe('ProvisionChangeStackChecks', () => {
     expect(check('stack_1').provisioning.failures).toBe(0);
   });
 
-  it('lists only the reservations that lapsed, with the runner each was for', async () => {
-    const lapsing = waiting('stack_1').reservedFor(
+  it('lists only the reservations that expired, with the runner each was for', async () => {
+    const expiring = waiting('stack_1').reservedFor(
       RUNNER,
       PoolId.of('pool_burst'),
       NOW,
     );
     const later = new Date(UNTIL.getTime() + 1);
     const { service } = provisioning([
-      lapsing,
+      expiring,
       waiting('stack_2').reservedFor(
         RunnerId.of('pooled_9'),
         PoolId.of('pool_a'),
@@ -242,7 +242,7 @@ describe('ProvisionChangeStackChecks', () => {
       waiting('stack_3'),
     ]);
 
-    await expect(service.lapsed(later)).resolves.toEqual([
+    await expect(service.expired(later)).resolves.toEqual([
       { stackId: 'stack_1', runner: RUNNER, until: UNTIL },
     ]);
   });

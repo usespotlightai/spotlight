@@ -6,8 +6,8 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { KeptFromSearchesError } from '@work/domain/exceptions/kept-from-searches.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -120,16 +120,16 @@ describe('a search run', () => {
     ).toBe(false);
   });
 
-  it('gives up rather than going back on the queue once it has asked a person', () => {
-    const lapsed = claimed()
+  it('is exhausted rather than going back on the queue once it has asked a person', () => {
+    const expired = claimed()
       .askedAPersonBy(RUNNER)
-      .requeue(new Date(NOW.getTime() + 120_000));
-    const [abandoned] = lapsed
+      .expireLease(new Date(NOW.getTime() + 120_000));
+    const [exhausted] = expired
       .pullEvents()
-      .filter((each): each is RunAbandoned => each instanceof RunAbandoned);
+      .filter((each): each is RunExhausted => each instanceof RunExhausted);
 
-    expect(lapsed.hasEnded).toBe(true);
-    expect(abandoned?.asked).toBe(true);
+    expect(expired.hasEnded).toBe(true);
+    expect(exhausted?.asked).toBe(true);
   });
 
   it('reaches nothing beyond itself, and hears no hook', () => {

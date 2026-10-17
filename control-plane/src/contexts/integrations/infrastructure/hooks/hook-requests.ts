@@ -302,7 +302,7 @@ export class HookRequests {
       patience,
     );
 
-    if (request.waiting === 'hand-back') {
+    if (request.waiting === 'suspend') {
       return {
         outcome: {
           name: request.step,

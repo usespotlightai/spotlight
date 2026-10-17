@@ -105,7 +105,7 @@ import { ClaimChangeStackCheck } from '@change-review/application/services/claim
 import { DecisionAccess } from '@change-review/application/services/decision-access.service';
 import { DecisionsForBriefing } from '@change-review/application/services/decisions-for-briefing.service';
 import { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
-import { ExpireOverdueChecks } from '@change-review/application/services/expire-overdue-checks.service';
+import { ExpireWaitingChecks } from '@change-review/application/services/expire-waiting-checks.service';
 import { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
 import { ProvisionChangeStackChecks } from '@change-review/application/services/provision-change-stack-checks.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
@@ -549,7 +549,7 @@ const services: Provider[] = [
       logger: LoggerPort,
     ) =>
       new OwedWorkWorker(
-        [stacks, decisions, new ExpireOverdueChecks(checks, clock, logger)],
+        [stacks, decisions, new ExpireWaitingChecks(checks, clock, logger)],
         logger,
       ),
   },

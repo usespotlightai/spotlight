@@ -295,7 +295,7 @@ func (w *Injector) injectHeader(host string, secrets []*injected, header http.He
 	for name, values := range header {
 		if slices.ContainsFunc(values, containsStandIn) {
 			delete(header, name)
-			w.log.Warn("took a stand-in that egress has no value for off a request", "host", host, "header", name)
+			w.log.Warn("removed from a request a stand-in that egress has no value for", "host", host, "header", name)
 		}
 	}
 	for _, each := range matched {
@@ -320,7 +320,7 @@ func (w *Injector) injectQuery(host string, secrets []*injected, target *url.URL
 
 		index := slices.IndexFunc(secrets, func(each *injected) bool { return each.hasPlaceholder(name, value) })
 		if index < 0 {
-			w.log.Warn("took a stand-in that egress has no value for off a request", "host", host, "parameter", name)
+			w.log.Warn("removed from a request a stand-in that egress has no value for", "host", host, "parameter", name)
 			continue
 		}
 

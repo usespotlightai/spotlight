@@ -96,8 +96,8 @@ export class RunTurnedOutResponseDto {
       'completed',
       'failed',
       'stopped',
-      'abandoned',
-      'withdrawn',
+      'exhausted',
+      'cancelled',
       'superseded',
     ],
   })

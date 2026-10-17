@@ -85,7 +85,7 @@ const working = () =>
     now: NOW,
     newId: () => 'task_1',
   })
-    .handedTo(RUN, DELIVERY)
+    .assignRun(RUN, DELIVERY)
     .recordPullRequest(RUN, PullRequestUrl.of(PULL), NOW, DELIVERY);
 
 const dispatched: Task[] = [];
@@ -327,7 +327,7 @@ describe('HookedTasks', () => {
         code: 'loop',
       });
       expect(moved.pullEvents().map((each) => each.kind)).toContain(
-        'task.let-go-of-run',
+        'task.run-detached',
       );
       expect(dispatched).toEqual([]);
     });

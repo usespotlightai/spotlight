@@ -95,7 +95,7 @@ export class DispatchSearchIteration {
     });
 
     if (queued.queued && !stillWanted) {
-      await this.work.withdrawSearch(iteration.runId);
+      await this.work.cancelSearchRun(iteration.runId);
     }
   }
 

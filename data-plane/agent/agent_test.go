@@ -135,7 +135,7 @@ func TestPuttingItToAPersonDoesNotSoundLikeAStation(t *testing.T) {
 	if !strings.Contains(said, "person") {
 		t.Errorf("did not say who it went to: %q", said)
 	}
-	if strings.Contains(said, "Handed over") {
+	if strings.Contains(said, "Passed to") {
 		t.Errorf("read as a station handover: %q", said)
 	}
 }
@@ -161,7 +161,7 @@ func TestClosingItInPlaceDoesNotSoundLikeAStation(t *testing.T) {
 	if !strings.Contains(said, "Closed at its current station") {
 		t.Errorf("did not say it was closed: %q", said)
 	}
-	if strings.Contains(said, "Handed over") {
+	if strings.Contains(said, "Passed to") {
 		t.Errorf("read as a station handover: %q", said)
 	}
 }

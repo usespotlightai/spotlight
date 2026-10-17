@@ -123,18 +123,18 @@ const scored = (ended: ReplayRunEnded) =>
   );
 
 describe('how a replay run’s ending reaches its score, from Work’s events to Replays (e2e)', () => {
-  it('leaves unscored a replay run no runner finished, which Work gave up on', async () => {
+  it('leaves unscored a replay run no runner finished, after Work used all its attempts', async () => {
     let run = replayRun();
     for (let attempt = 0; attempt < 3; attempt += 1) {
       run = run
         .claim(RUNNER, NOW)
-        .requeue(new Date(NOW.getTime() + (attempt + 1) * 600_000));
+        .expireLease(new Date(NOW.getTime() + (attempt + 1) * 600_000));
     }
 
     const ended = await heardBy(run.pullEvents());
 
     expect(ended).toMatchObject({
-      outcome: 'abandoned',
+      outcome: 'exhausted',
       failure: 'runner-lost',
     });
     expect(scored(ended)).toMatchObject({
@@ -143,7 +143,7 @@ describe('how a replay run’s ending reaches its score, from Work’s events to
     });
   });
 
-  it('leaves unscored a replay run that failed before its agent was handed it', async () => {
+  it('leaves unscored a replay run that failed before its agent received it', async () => {
     const run = replayRun()
       .claim(RUNNER, NOW)
       .complete(
@@ -242,7 +242,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     ).toEqual({ succeeded: false, reasons: [['asked-a-person', null]] });
   });
 
-  it('stores a run that failed before its agent was handed it as unscored', async () => {
+  it('stores a run that failed before its agent received it as unscored', async () => {
     expect(
       await storedAfter((run) =>
         run.complete(
@@ -254,20 +254,25 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
   });
 
   it('stores a run no runner finished as unscored, and one that kept running past its time as failed', async () => {
-    const lapsing = (lose: (run: Run, at: Date) => Run) => (run: Run) => {
-      let lapsed = lose(run, NOW);
-      for (let attempt = 1; attempt < 3; attempt += 1) {
-        lapsed = lose(lapsed.claim(RUNNER, NOW), NOW);
-      }
-      return lapsed;
-    };
+    const losingEveryAttempt =
+      (lose: (run: Run, at: Date) => Run) => (run: Run) => {
+        let lost = lose(run, NOW);
+        for (let attempt = 1; attempt < 3; attempt += 1) {
+          lost = lose(lost.claim(RUNNER, NOW), NOW);
+        }
+        return lost;
+      };
     const later = (at: Date) => new Date(at.getTime() + 3_600_000);
 
     expect(
-      await storedAfter(lapsing((run, at) => run.requeue(later(at)))),
+      await storedAfter(
+        losingEveryAttempt((run, at) => run.expireLease(later(at))),
+      ),
     ).toEqual({ succeeded: null, reasons: [['run-failed', 'runner-lost']] });
     expect(
-      await storedAfter(lapsing((run, at) => run.timedOut(RUNNER, at))),
+      await storedAfter(
+        losingEveryAttempt((run, at) => run.timedOut(RUNNER, at)),
+      ),
     ).toEqual({ succeeded: false, reasons: [['run-failed', 'timed-out']] });
   });
 });

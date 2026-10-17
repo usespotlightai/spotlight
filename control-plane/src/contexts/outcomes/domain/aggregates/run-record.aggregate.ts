@@ -2,7 +2,6 @@ import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
 import { RunRecordEnriched } from '@outcomes/domain/events/run-record-enriched.event';
 import { InvalidOutcomeError } from '@outcomes/domain/exceptions/invalid-outcome.error';
 import type { CheckVerdict } from '@outcomes/domain/value-objects/check-verdict';
-import type { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import type { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import type { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
@@ -14,6 +13,7 @@ import {
 } from '@outcomes/domain/value-objects/run-memories.vo';
 import type { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import type { RunTurnout } from '@outcomes/domain/value-objects/run-turnout';
+import type { StationPass } from '@outcomes/domain/value-objects/station-pass.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -31,7 +31,7 @@ export class RunRecord extends EventRecorder {
     readonly next: NextAct | null,
     readonly approvalAnsweredAt: Date | null,
     readonly cost: RunCost | null,
-    readonly handedOn: HandedOn | null,
+    readonly passed: StationPass | null,
     readonly tools: RunTools | null,
     readonly refusals: readonly Refusal[],
     readonly memories: RunMemories,
@@ -75,7 +75,7 @@ export class RunRecord extends EventRecorder {
     next: NextAct | null;
     approvalAnsweredAt: Date | null;
     cost: RunCost | null;
-    handedOn: HandedOn | null;
+    passed: StationPass | null;
     tools: RunTools | null;
     refusals: readonly Refusal[];
     memories: RunMemories;
@@ -110,7 +110,7 @@ export class RunRecord extends EventRecorder {
       input.next,
       input.approvalAnsweredAt,
       input.cost,
-      input.handedOn,
+      input.passed,
       input.tools,
       input.refusals,
       input.memories,
@@ -138,7 +138,7 @@ export class RunRecord extends EventRecorder {
       known(this.next?.at) ? this.next : null,
       known(this.approvalAnsweredAt) ? this.approvalAnsweredAt : null,
       this.cost,
-      known(this.handedOn?.at) ? this.handedOn : null,
+      known(this.passed?.at) ? this.passed : null,
       this.tools,
       this.refusals,
       this.memories,
@@ -159,7 +159,9 @@ export class RunRecord extends EventRecorder {
       return null;
     }
 
-    return this.superseded ? 'superseded' : this.end.ending;
+    return this.superseded && this.end.ending !== 'cancelled'
+      ? 'superseded'
+      : this.end.ending;
   }
 
   get turnout(): RunTurnout {
@@ -246,8 +248,8 @@ export class RunRecord extends EventRecorder {
     );
   }
 
-  handedOnTo(handedOn: HandedOn): RunRecord {
-    return this.handedOn ? this : this.with({ handedOn });
+  passTo(pass: StationPass): RunRecord {
+    return this.passed ? this : this.with({ passed: pass });
   }
 
   private assertSameTask(taskId: TaskId): void {
@@ -284,7 +286,7 @@ export class RunRecord extends EventRecorder {
     next?: NextAct;
     approvalAnsweredAt?: Date;
     cost?: RunCost;
-    handedOn?: HandedOn;
+    passed?: StationPass;
     tools?: RunTools;
     refusals?: readonly Refusal[];
     memories?: RunMemories;
@@ -300,7 +302,7 @@ export class RunRecord extends EventRecorder {
       change.next ?? this.next,
       change.approvalAnsweredAt ?? this.approvalAnsweredAt,
       change.cost ?? this.cost,
-      change.handedOn ?? this.handedOn,
+      change.passed ?? this.passed,
       change.tools ?? this.tools,
       change.refusals ?? this.refusals,
       change.memories ?? this.memories,

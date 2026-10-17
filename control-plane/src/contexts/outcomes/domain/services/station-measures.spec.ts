@@ -38,7 +38,7 @@ describe('measureOf', () => {
       sentBack('run_1', 1),
       accepted('run_2', 2),
       endedRecord('run_3', { endedAt: at(3), ending: 'failed' }),
-      endedRecord('run_4', { endedAt: at(4), ending: 'withdrawn' }),
+      endedRecord('run_4', { endedAt: at(4), ending: 'cancelled' }),
     ];
 
     expect(measureOf('sent_back_rate', records, [])).toBeCloseTo(1 / 3);
@@ -99,12 +99,12 @@ describe('readingOf', () => {
     over: 2,
   });
 
-  it('reads the last runs against as many runs before them, skipping withdrawn runs', () => {
+  it('reads the last runs against as many runs before them, skipping cancelled runs', () => {
     const reading = readingOf(
       RISING,
       [
         sentBack('run_4', 4),
-        endedRecord('run_x', { endedAt: at(5), ending: 'withdrawn' }),
+        endedRecord('run_x', { endedAt: at(5), ending: 'cancelled' }),
         sentBack('run_3', 3),
         accepted('run_2', 2),
         accepted('run_1', 1),

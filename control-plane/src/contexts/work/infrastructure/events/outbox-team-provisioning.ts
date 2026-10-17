@@ -12,12 +12,12 @@ export class OutboxTeamProvisioning implements TeamProvisioningPort {
   constructor(private readonly reactions: EventReactions) {}
 
   async of(teamId: TeamId): Promise<Provisioning> {
-    const { owed, givenUp } = await this.reactions.owedBy(PROVISION_TEAM, {
+    const { owed, deadLettered } = await this.reactions.owedBy(PROVISION_TEAM, {
       teamId: teamId.value,
       origin: 'sign-up',
     });
 
-    if (givenUp > 0) {
+    if (deadLettered > 0) {
       return 'failed';
     }
 

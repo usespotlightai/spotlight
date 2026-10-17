@@ -28,7 +28,7 @@ describe('memoryCountsOf', () => {
     ]),
     endedRecord('run_4', {
       taskId: 'task_4',
-      ending: 'withdrawn',
+      ending: 'cancelled',
     }).recordMemories('briefed', ['mem_3']),
     endedRecord('run_5', {
       taskId: 'task_5',
@@ -49,12 +49,12 @@ describe('memoryCountsOf', () => {
     expect(compared.runsRecalled).toBe(1);
   });
 
-  it('counts the memories a withdrawn run used, but not the run, and nothing outside the window', () => {
+  it('counts the memories a cancelled run used, but not the run, and nothing outside the window', () => {
     const counts = memoryCountsOf(historyOf({ records }), WINDOW);
 
     expect(counts.memoriesBriefed).toBe(3);
     expect(counts.memoriesRecalled).toBe(1);
-    expect(counts.withMemories.tally.withdrawn).toBe(0);
+    expect(counts.withMemories.tally.cancelled).toBe(0);
   });
 });
 
@@ -85,7 +85,7 @@ describe('verdicts from counts', () => {
             ? costedRecord(runId, {
                 taskId,
                 endedAt,
-                ending: pick(['completed', 'failed', 'stopped', 'withdrawn']),
+                ending: pick(['completed', 'failed', 'stopped', 'cancelled']),
                 amount:
                   random() < 0.85 ? Math.round(random() * 1000) / 7 : null,
                 currency: seed % 3 === 0 && random() < 0.2 ? 'EUR' : 'USD',

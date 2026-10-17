@@ -71,11 +71,11 @@ const described = (
   image: string | null,
   terms: RunnerTerms,
 ): string =>
-  `${JSON.stringify(clauses)} in ${image ?? 'the usual image'} / ${JSON.stringify(
+  `${JSON.stringify(clauses)} in ${image ?? 'the default image'} / ${JSON.stringify(
     terms.values,
   )} running ${
     terms.running
-      ? `${terms.running.image.value}${terms.running.usual ? ' (usual)' : ''}`
+      ? `${terms.running.image.value}${terms.running.isDefault ? ' (default)' : ''}`
       : 'nothing named'
   }`;
 
@@ -108,17 +108,19 @@ describe('placement said in SQL', () => {
     expect(disagreements).toEqual([]);
   });
 
-  it('claims work naming an image only for a runner running that image, and work naming none only for one running the usual image', async () => {
+  it('claims work naming an image only for a runner running that image, and work naming none only for one running the default image', async () => {
     const widgets = RunnerImage.of(WIDGETS);
-    const usual = RunnerTerms.none().runningIn(RunningImage.of(widgets, true));
+    const inDefaultImage = RunnerTerms.none().runningIn(
+      RunningImage.of(widgets, true),
+    );
     const offered = RunnerTerms.none().runningIn(
       RunningImage.of(RunnerImage.of(GADGETS), false),
     );
 
-    expect(await admittedInSql([], WIDGETS, usual)).toBe(true);
+    expect(await admittedInSql([], WIDGETS, inDefaultImage)).toBe(true);
     expect(await admittedInSql([], WIDGETS, offered)).toBe(false);
     expect(await admittedInSql([], GADGETS, offered)).toBe(true);
-    expect(await admittedInSql([], null, usual)).toBe(true);
+    expect(await admittedInSql([], null, inDefaultImage)).toBe(true);
     expect(await admittedInSql([], null, offered)).toBe(false);
   });
 });

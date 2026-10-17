@@ -441,7 +441,7 @@ describe('configMarkersAlong', () => {
     ]);
   });
 
-  it('starts no change at a withdrawn run', () => {
+  it('starts no change at a cancelled run', () => {
     expect(
       configMarkersAlong([
         endedRecord('run_1', {
@@ -451,7 +451,7 @@ describe('configMarkersAlong', () => {
         }),
         endedRecord('run_2', {
           fingerprint: SECOND_CONFIG,
-          ending: 'withdrawn',
+          ending: 'cancelled',
           endedAt: day('2026-09-28', 10),
         }),
         endedRecord('run_3', {

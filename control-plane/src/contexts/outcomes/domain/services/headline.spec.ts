@@ -54,7 +54,7 @@ describe('headlineOf', () => {
         endedRecord('run_4', {
           taskId: 'task_4',
           endedAt: day('2026-09-28'),
-          ending: 'withdrawn',
+          ending: 'cancelled',
         }),
       ],
       deliveries: [

@@ -2,14 +2,14 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { UpdateEgressCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
-import { giveEgressToken } from '@runners/application/services/give-egress-token';
+import { recordEgressTokenUse } from '@runners/application/services/record-egress-token-use';
 import { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
-import { EgressTokenSpentError } from '@runners/domain/exceptions/egress-token-spent.error';
-import { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-token-already-used.error';
+import { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { GivenEgressTokensRepository } from '@runners/domain/repositories/given-egress-tokens.repository';
+import type { UsedEgressTokensRepository } from '@runners/domain/repositories/used-egress-tokens.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import {
   forbiddenTo,
@@ -29,7 +29,7 @@ export class UpdateEgressHandler
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
     private readonly egresses: EgressRepository,
-    private readonly given: GivenEgressTokensRepository,
+    private readonly usedTokens: UsedEgressTokensRepository,
     private readonly tokens: TokenMintPort,
     private readonly transaction: TransactionPort,
   ) {}
@@ -75,7 +75,12 @@ export class UpdateEgressHandler
 
       await this.transaction.inTransaction(async () => {
         await this.egresses.save(redefined);
-        await giveEgressToken(this.given, this.egresses, redefined, existing);
+        await recordEgressTokenUse(
+          this.usedTokens,
+          this.egresses,
+          redefined,
+          existing,
+        );
       });
 
       return { outcome: 'updated', id: id.value };
@@ -90,8 +95,8 @@ export class UpdateEgressHandler
 
       if (
         error instanceof EgressKeyFixedError ||
-        error instanceof EgressTokenTakenError ||
-        error instanceof EgressTokenSpentError ||
+        error instanceof EgressTokenInUseError ||
+        error instanceof EgressTokenAlreadyUsedError ||
         error instanceof InvalidEgressError
       ) {
         return {

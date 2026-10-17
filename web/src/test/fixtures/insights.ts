@@ -155,7 +155,7 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
 
   return {
     runs,
-    withdrawn: 0,
+    cancelled: 0,
     failed,
     failedShare: runs > 0 ? failed / runs : null,
     stopped: 0,
@@ -163,7 +163,7 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
     checksFailed: 0,
     accepted: 0,
     sentBack: 0,
-    handedOn: 0,
+    passed: 0,
     merged: 0,
     cost: null,
     unpriced: 0,
@@ -219,7 +219,7 @@ const STATION_REPORTS: InsightsStations['stations'] = [
     {
       runs: 58,
       failed: 2,
-      handedOn: 55,
+      passed: 55,
       cost: { amount: 11.4, currency: 'USD' },
       medianMs: 95_000,
       p90Ms: 190_000,
@@ -247,7 +247,7 @@ const STATION_REPORTS: InsightsStations['stations'] = [
     runs: 61,
     sentBack: 9,
     accepted: 30,
-    handedOn: 40,
+    passed: 40,
     cost: { amount: 38.7, currency: 'USD' },
     medianMs: 240_000,
     p90Ms: 520_000,
@@ -262,7 +262,7 @@ const STATION_REPORTS: InsightsStations['stations'] = [
       checksFailed: 9,
       sentBack: 13,
       accepted: 40,
-      handedOn: 45,
+      passed: 45,
       merged: 23,
       cost: { amount: 124.9, currency: 'USD' },
       medianMs: 780_000,
@@ -305,9 +305,9 @@ const COUNTED = [
   'checksFailed',
   'accepted',
   'sentBack',
-  'handedOn',
+  'passed',
   'merged',
-  'withdrawn',
+  'cancelled',
 ] as const;
 
 const countedOf = (
@@ -327,7 +327,7 @@ const STATIONS: InsightsStations = {
     checksFailed: 9,
     accepted: 70,
     sentBack: 22,
-    handedOn: 140,
+    passed: 140,
     merged: 23,
     cost: { amount: 184.32, currency: 'USD' },
     medianMs: 240_000,

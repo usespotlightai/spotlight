@@ -38,7 +38,7 @@ export const added = (
 
 type PastShape =
   | 'accepted'
-  | 'handed'
+  | 'passed'
   | 'sent-back'
   | 'failed'
   | 'stopped'
@@ -83,7 +83,7 @@ export const IMPLEMENTATION_HISTORY: readonly PastRun[] = [
     'task_ledger',
     'Backfill the ledger after the currency fix',
     52,
-    'handed',
+    'passed',
   ),
   past(
     'run_flaky_billing_3',

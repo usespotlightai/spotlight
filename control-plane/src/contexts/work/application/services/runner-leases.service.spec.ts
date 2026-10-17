@@ -9,17 +9,22 @@ const NOW = new Date('2026-09-24T12:00:00.000Z');
 
 const ending = () => {
   const workEnded = vi.fn(async () => {});
-  const letGo = vi.fn(async () => {});
-  const took = vi.fn(async () => {});
+  const release = vi.fn(async () => {});
+  const claim = vi.fn(async () => {});
   const reservationDropped = vi.fn(async () => {});
 
   return {
     workEnded,
-    letGo,
-    took,
+    release,
+    claim,
     reservationDropped,
     endings: new RunnerLeases(
-      { workEnded, letGo, took, reservationDropped } as unknown as RunnersPort,
+      {
+        workEnded,
+        release,
+        claim,
+        reservationDropped,
+      } as unknown as RunnersPort,
       { now: () => NOW } as ClockPort,
     ),
   };
@@ -56,12 +61,12 @@ describe('RunnerLeases', () => {
     );
   });
 
-  it('lets go of the runner a run lapsed on', async () => {
-    const { endings, letGo } = ending();
-    const lapsedAt = new Date('2026-09-24T11:59:00.000Z');
+  it('releases the runner whose lease on a run expired', async () => {
+    const { endings, release } = ending();
+    const expiredAt = new Date('2026-09-24T11:59:00.000Z');
 
-    await endings.runLeft(RunnerId.of('runner_1'), lapsedAt);
+    await endings.runLeft(RunnerId.of('runner_1'), expiredAt);
 
-    expect(letGo).toHaveBeenCalledWith(RunnerId.of('runner_1'), lapsedAt);
+    expect(release).toHaveBeenCalledWith(RunnerId.of('runner_1'), expiredAt);
   });
 });

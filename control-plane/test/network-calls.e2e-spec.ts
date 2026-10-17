@@ -23,7 +23,7 @@ let calls: DrizzleNetworkCallRepository;
 let ids = 0;
 
 const queued = async (
-  over: { workspace?: string; at?: Date; lapsesAt?: Date } = {},
+  over: { workspace?: string; at?: Date; expiresAt?: Date } = {},
 ): Promise<NetworkCall> => {
   const at = over.at ?? NOW;
   const call = NetworkCall.queue({
@@ -36,7 +36,7 @@ const queued = async (
       body: new TextEncoder().encode(`{"call":${ids}}`),
       timeoutMs: 10_000,
     }),
-    lapsesAt: over.lapsesAt ?? new Date(at.getTime() + 15_000),
+    expiresAt: over.expiresAt ?? new Date(at.getTime() + 15_000),
     now: at,
   });
 
@@ -84,7 +84,7 @@ describe('DrizzleNetworkCallRepository', () => {
       `{"call":${ids}}`,
     );
     expect(found?.stateAt(NOW)).toBe('waiting');
-    expect(found?.lapsesAt).toEqual(call.lapsesAt);
+    expect(found?.expiresAt).toEqual(call.expiresAt);
   });
 
   it('hands the oldest waiting call of the workspace to a host', async () => {
@@ -102,8 +102,8 @@ describe('DrizzleNetworkCallRepository', () => {
     });
   });
 
-  it('never hands out a call that lapsed', async () => {
-    await queued({ at: later(-20_000), lapsesAt: later(-1) });
+  it('never hands out a call that expired', async () => {
+    await queued({ at: later(-20_000), expiresAt: later(-1) });
 
     expect(await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW)).toBeNull();
   });
@@ -123,9 +123,9 @@ describe('DrizzleNetworkCallRepository', () => {
       ),
     );
 
-    const handed = claimed.flatMap((each) => (each ? [each.id.value] : []));
-    expect(handed).toHaveLength(3);
-    expect(new Set(handed).size).toBe(3);
+    const claimedIds = claimed.flatMap((each) => (each ? [each.id.value] : []));
+    expect(claimedIds).toHaveLength(3);
+    expect(new Set(claimedIds).size).toBe(3);
   });
 
   it('keeps the answer, and does not write over a call that changed', async () => {
@@ -168,7 +168,7 @@ describe('DrizzleNetworkCallRepository', () => {
     });
   });
 
-  it('keeps no header or body of a call once it is answered or lapsed', async () => {
+  it('keeps no header or body of a call once it is answered or expired', async () => {
     const answered = await queued();
     await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW);
     const claimed = await calls.find(answered.id);
@@ -184,13 +184,13 @@ describe('DrizzleNetworkCallRepository', () => {
         later(1_000),
       ),
     );
-    const overdue = await queued({ at: later(-20_000), lapsesAt: later(-1) });
-    const [lapsing, ...more] = await calls.lapsingBy(NOW, 10);
+    const expired = await queued({ at: later(-20_000), expiresAt: later(-1) });
+    const [expiring, ...more] = await calls.expiringBy(NOW, 10);
 
-    expect(lapsing?.id).toEqual(overdue.id);
+    expect(expiring?.id).toEqual(expired.id);
     expect(more).toEqual([]);
 
-    await calls.save((lapsing as NetworkCall).lapsed(NOW));
+    await calls.save((expiring as NetworkCall).expire(NOW));
 
     const kept = await database.db
       .select({
@@ -214,8 +214,8 @@ describe('DrizzleNetworkCallRepository', () => {
           answerStatus: 204,
         },
         {
-          id: overdue.id.value,
-          state: 'lapsed',
+          id: expired.id.value,
+          state: 'expired',
           headers: {},
           body: '',
           url: 'http://audit.internal:8080/hooks',
@@ -223,15 +223,15 @@ describe('DrizzleNetworkCallRepository', () => {
         },
       ].sort((one, other) => one.id.localeCompare(other.id)),
     );
-    expect((await calls.find(overdue.id))?.stateAt(NOW)).toBe('lapsed');
+    expect((await calls.find(expired.id))?.stateAt(NOW)).toBe('expired');
   });
 
-  it('keeps a call given up on as given up, and forgets completed calls a week on', async () => {
+  it('keeps a cancelled call as cancelled, and forgets completed calls a week on', async () => {
     const waited = await queued();
-    await calls.save(waited.givenUp(later(1_000)));
+    await calls.save(waited.cancel(later(1_000)));
 
     const read = await calls.find(waited.id);
-    expect(read?.progress).toEqual({ kind: 'given-up', at: later(1_000) });
+    expect(read?.progress).toEqual({ kind: 'cancelled', at: later(1_000) });
 
     const week = 7 * 24 * 60 * 60_000;
     expect(await calls.completedBy(later(1_000 - 1), 10)).toEqual([]);

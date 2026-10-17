@@ -35,14 +35,14 @@ export class RunEnd {
     if (this.asked) {
       return 'asked';
     }
-    if (this.stopped || this.outcome === 'withdrawn') {
+    if (this.stopped || this.outcome === 'cancelled') {
       return 'stopped';
     }
     return this.outcome === 'completed' ? 'completed' : 'failed';
   }
 
   get isDigested(): boolean {
-    return this.outcome !== 'withdrawn';
+    return this.outcome !== 'cancelled';
   }
 
   equals(other: RunEnd): boolean {

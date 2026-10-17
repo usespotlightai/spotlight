@@ -115,7 +115,7 @@ describe('SignedProvisionCalls', () => {
     });
   });
 
-  it('names no image when the work asks for the usual one', async () => {
+  it('names no image when the work asks for the default one', async () => {
     const { fetch, provision } = calls(
       async () => new Response(null, { status: 202 }),
     );

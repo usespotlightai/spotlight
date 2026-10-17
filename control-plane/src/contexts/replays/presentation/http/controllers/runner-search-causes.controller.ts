@@ -35,7 +35,7 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @ApiParam({ name: 'runId', type: String })
 @ApiExtraModels(ProblemResponseDto)

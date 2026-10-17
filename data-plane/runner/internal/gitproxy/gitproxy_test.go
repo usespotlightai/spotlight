@@ -127,7 +127,7 @@ func TestCarriesAPackBothWays(t *testing.T) {
 	}
 }
 
-func TestStopsAnsweringWhenTheRunIsOver(t *testing.T) {
+func TestStopsServingWhenTheRunIsOver(t *testing.T) {
 	seen := &reached{}
 	control := upstream(t, seen)
 	defer control.Close()

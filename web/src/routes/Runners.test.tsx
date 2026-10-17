@@ -48,7 +48,7 @@ const DIGEST =
 const image = (over: Record<string, unknown> = {}) => ({
   image: 'ghcr.io/usespotlightai/spotlight-runner:20260925-01',
   digest: `ghcr.io/usespotlightai/spotlight-runner@sha256:${DIGEST}`,
-  usual: true,
+  isDefault: true,
   release: '20260925-01',
   harnesses: [{ id: 'claude-code', version: '2.1.270' }],
   unavailableReason: null,
@@ -60,14 +60,14 @@ const host = (over: Record<string, unknown> = {}) => ({
   name: 'build-box-1',
   through: { kind: 'pool', key: 'build-farm' },
   release: 'v1.4.0',
-  executor: 'Docker Engine 27.3.1 (linux/amd64)',
+  containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
   running: [],
   images: [image()],
-  firstSeenAt: '2026-08-20T09:00:00.000Z',
-  upSince: '2026-08-29T09:00:00.000Z',
-  lastSeenAt: '2026-08-29T12:00:00.000Z',
-  answering: true,
+  firstHeartbeatAt: '2026-08-20T09:00:00.000Z',
+  onlineSince: '2026-08-29T09:00:00.000Z',
+  lastHeartbeatAt: '2026-08-29T12:00:00.000Z',
+  online: true,
   runners: [],
   ...over,
 });
@@ -93,7 +93,7 @@ const provisioned = (over: Record<string, unknown> = {}) => ({
   image: null,
   harnesses: ['claude-code'],
   startedAt: '2026-08-29T12:00:00.000Z',
-  lastSeenAt: '2026-08-29T12:00:00.000Z',
+  lastHeartbeatAt: '2026-08-29T12:00:00.000Z',
   currentRun: LEASED_RUN,
   ...over,
 });
@@ -162,7 +162,7 @@ describe('Runners', () => {
     listing([
       host({
         images: [
-          image({ usual: false, image: 'ghcr.io/acme/api-runner:main' }),
+          image({ isDefault: false, image: 'ghcr.io/acme/api-runner:main' }),
           image(),
         ],
       }),
@@ -185,7 +185,7 @@ describe('Runners', () => {
           image(),
           image({
             image: 'ghcr.io/acme/legacy-runner:2025',
-            usual: false,
+            isDefault: false,
             release: null,
             harnesses: [{ id: 'other', version: null }],
             unavailableReason:
@@ -227,7 +227,7 @@ describe('Runners', () => {
           }),
           image({
             image: 'ghcr.io/acme/api-runner:main',
-            usual: false,
+            isDefault: false,
             harnesses: [
               { id: 'claude-code', version: null },
               { id: 'third', version: null },
@@ -244,11 +244,11 @@ describe('Runners', () => {
     expect(screen.getByText('third')).toBeInTheDocument();
   });
 
-  it('says how busy each host is, and which one stopped answering', () => {
+  it('says how busy each host is, and which one is offline', () => {
     listing([
       host({ running: ['runner_1', 'runner_2'] }),
       host({ id: 'second-host-id', name: 'idle-box' }),
-      host({ id: 'third-host-id', name: 'gone-box', answering: false }),
+      host({ id: 'third-host-id', name: 'gone-box', online: false }),
     ]);
 
     renderPage();
@@ -258,19 +258,19 @@ describe('Runners', () => {
     );
     expect(hosts.getByText('Running 2 of 4')).toBeInTheDocument();
     expect(hosts.getByText('Idle')).toBeInTheDocument();
-    expect(hosts.getByText('Not answering')).toBeInTheDocument();
+    expect(hosts.getByText('Offline')).toBeInTheDocument();
   });
 
-  it('says how long a host has been up, or when it was last heard from', () => {
+  it('says when a host came online, or when it sent its last heartbeat', () => {
     listing([
       host(),
-      host({ id: 'third-host-id', name: 'gone-box', answering: false }),
+      host({ id: 'third-host-id', name: 'gone-box', online: false }),
     ]);
 
     renderPage();
 
-    expect(screen.getByText(/^Up since/)).toBeInTheDocument();
-    expect(screen.getByText(/^Last seen/)).toBeInTheDocument();
+    expect(screen.getByText(/^Online since/)).toBeInTheDocument();
+    expect(screen.getByText(/^Last heartbeat/)).toBeInTheDocument();
   });
 
   it('offers to add the first host on its own page', () => {
@@ -404,7 +404,7 @@ describe('Runners', () => {
       [
         host({ running: ['runner_1'] }),
         host({ id: 'second-host-id', name: 'idle-box' }),
-        host({ id: 'third-host-id', name: 'gone-box', answering: false }),
+        host({ id: 'third-host-id', name: 'gone-box', online: false }),
       ],
       [pushPool()],
     );
@@ -432,8 +432,8 @@ describe('Runners', () => {
 
     renderPage();
 
-    await person.click(screen.getByRole('button', { name: 'Not answering' }));
+    await person.click(screen.getByRole('button', { name: 'Offline' }));
 
-    expect(screen.getByText('All hosts are answering.')).toBeInTheDocument();
+    expect(screen.getByText('All hosts are online.')).toBeInTheDocument();
   });
 });

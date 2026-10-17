@@ -1,16 +1,16 @@
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
-import { HostTakenError } from '@runners/domain/exceptions/host-taken.error';
+import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const FIRST_SEEN = new Date('2026-09-24T10:00:00.000Z');
+const FIRST_HEARTBEAT = new Date('2026-09-24T10:00:00.000Z');
 
-const later = (ms: number): Date => new Date(FIRST_SEEN.getTime() + ms);
+const later = (ms: number): Date => new Date(FIRST_HEARTBEAT.getTime() + ms);
 
 const HOST = HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE');
 
@@ -23,35 +23,35 @@ const CLAUDE_CODE = { id: 'claude-code', models: [] };
 const SERVING = [
   {
     image: 'ghcr.io/usespotlightai/spotlight-runner:1.0.0',
-    usual: true,
+    isDefault: true,
     harnesses: [CLAUDE_CODE],
   },
 ];
 
 type Images = Parameters<typeof HostReport.of>[0]['images'];
 
-const FIRST_SESSION = HostSession.of('session_1');
+const FIRST_BOOT = BootId.of('boot_1');
 
-const NEXT_SESSION = HostSession.of('session_2');
+const NEXT_BOOT = BootId.of('boot_2');
 
 const reportOf = (running: string[] = [], images: Images = []) =>
   HostReport.of({
     name: 'build-box',
     release: '0.9.0',
-    executor: 'docker',
+    containerRuntime: 'docker',
     capacity: 4,
     running,
     images,
   });
 
-const present = (images: Images = []) =>
-  RunnerHost.present({
+const firstHeartbeat = (images: Images = []) =>
+  RunnerHost.fromHeartbeat({
     id: HOST,
     workspaceId: WorkspaceId.of('ws_1'),
     admission: THROUGH_POOL,
-    session: FIRST_SESSION,
+    bootId: FIRST_BOOT,
     report: reportOf([], images),
-    at: FIRST_SEEN,
+    at: FIRST_HEARTBEAT,
   });
 
 const kindsOf = (host: RunnerHost) =>
@@ -60,20 +60,20 @@ const kindsOf = (host: RunnerHost) =>
 const rehydrated = (
   over: {
     version?: number;
-    firstSeenAt?: Date;
-    upSince?: Date;
-    lastSeenAt?: Date;
+    firstHeartbeatAt?: Date;
+    onlineSince?: Date;
+    lastHeartbeatAt?: Date;
   } = {},
 ) =>
   RunnerHost.rehydrate({
     id: HOST,
     workspaceId: WorkspaceId.of('ws_1'),
     admission: THROUGH_POOL,
-    session: FIRST_SESSION,
+    bootId: FIRST_BOOT,
     report: reportOf(),
-    firstSeenAt: over.firstSeenAt ?? FIRST_SEEN,
-    upSince: over.upSince ?? over.firstSeenAt ?? FIRST_SEEN,
-    lastSeenAt: over.lastSeenAt ?? FIRST_SEEN,
+    firstHeartbeatAt: over.firstHeartbeatAt ?? FIRST_HEARTBEAT,
+    onlineSince: over.onlineSince ?? over.firstHeartbeatAt ?? FIRST_HEARTBEAT,
+    lastHeartbeatAt: over.lastHeartbeatAt ?? FIRST_HEARTBEAT,
     version: over.version ?? 3,
   });
 
@@ -88,16 +88,16 @@ const reportedThrough = (
   host.reportThrough({
     admission,
     workspaceId,
-    session: FIRST_SESSION,
+    bootId: FIRST_BOOT,
     report: reportOf(running, images),
     at,
   });
 
-const reportedIn = (host: RunnerHost, session: HostSession, at: Date) =>
+const reportedIn = (host: RunnerHost, bootId: BootId, at: Date) =>
   host.reportThrough({
     admission: THROUGH_POOL,
     workspaceId: WorkspaceId.of('ws_1'),
-    session,
+    bootId,
     report: reportOf(),
     at,
   });
@@ -106,97 +106,110 @@ const reportedServing = (host: RunnerHost, admission: Admission, at: Date) =>
   reportedThrough(host, admission, at, [], WorkspaceId.of('ws_1'), SERVING);
 
 describe('RunnerHost', () => {
-  it('is first and last seen when it first reports, at its first version', () => {
-    const host = present();
+  it('has its first and last heartbeat when it first reports, at its first version', () => {
+    const host = firstHeartbeat();
 
-    expect(host.firstSeenAt).toEqual(FIRST_SEEN);
-    expect(host.lastSeenAt).toEqual(FIRST_SEEN);
+    expect(host.firstHeartbeatAt).toEqual(FIRST_HEARTBEAT);
+    expect(host.lastHeartbeatAt).toEqual(FIRST_HEARTBEAT);
     expect(host.report.name).toBe('build-box');
     expect(host.version).toBe(0);
   });
 
-  it('takes each later report through the same way whole, as last seen then', () => {
-    const reported = reportedThrough(present(), THROUGH_POOL, later(30_000), [
-      'runner_1',
-    ]);
+  it('takes each later report through the same way whole, as its last heartbeat', () => {
+    const reported = reportedThrough(
+      firstHeartbeat(),
+      THROUGH_POOL,
+      later(30_000),
+      ['runner_1'],
+    );
 
     expect(reported.report.running.map((each) => each.value)).toEqual([
       'runner_1',
     ]);
-    expect(reported.firstSeenAt).toEqual(FIRST_SEEN);
-    expect(reported.lastSeenAt).toEqual(later(30_000));
+    expect(reported.firstHeartbeatAt).toEqual(FIRST_HEARTBEAT);
+    expect(reported.lastHeartbeatAt).toEqual(later(30_000));
     expect(reported.servesThrough(THROUGH_POOL)).toBe(true);
   });
 
-  it('is up since it first reports', () => {
-    expect(present().upSince).toEqual(FIRST_SEEN);
+  it('is online since it first reports', () => {
+    expect(firstHeartbeat().onlineSince).toEqual(FIRST_HEARTBEAT);
   });
 
-  it('stays up since then while the same session keeps answering', () => {
+  it('stays online since then while the same boot keeps sending heartbeats', () => {
     const reported = reportedThrough(
-      reportedThrough(present(), THROUGH_POOL, later(60_000)),
+      reportedThrough(firstHeartbeat(), THROUGH_POOL, later(60_000)),
       THROUGH_POOL,
       later(120_000),
     );
 
-    expect(reported.upSince).toEqual(FIRST_SEEN);
+    expect(reported.onlineSince).toEqual(FIRST_HEARTBEAT);
   });
 
-  it('is up again from a report with a new session, however soon it comes', () => {
-    const restarted = reportedIn(present(), NEXT_SESSION, later(5_000));
+  it('is online again from a report with a new boot id, however soon it comes', () => {
+    const restarted = reportedIn(firstHeartbeat(), NEXT_BOOT, later(5_000));
 
-    expect(restarted.session).toEqual(NEXT_SESSION);
-    expect(restarted.upSince).toEqual(later(5_000));
-    expect(restarted.firstSeenAt).toEqual(FIRST_SEEN);
+    expect(restarted.bootId).toEqual(NEXT_BOOT);
+    expect(restarted.onlineSince).toEqual(later(5_000));
+    expect(restarted.firstHeartbeatAt).toEqual(FIRST_HEARTBEAT);
   });
 
-  it('is up again when it answers after going quiet', () => {
-    const back = reportedThrough(present(), THROUGH_POOL, later(10 * 60_000));
+  it('is online again when it sends a heartbeat after it was offline', () => {
+    const back = reportedThrough(
+      firstHeartbeat(),
+      THROUGH_POOL,
+      later(10 * 60_000),
+    );
 
-    expect(back.upSince).toEqual(later(10 * 60_000));
+    expect(back.onlineSince).toEqual(later(10 * 60_000));
   });
 
-  it('stays up since its restart when the session before it reports late', () => {
+  it('stays online since its restart when the boot before it reports late', () => {
     const late = reportedIn(
-      reportedIn(present(), NEXT_SESSION, later(30_000)),
-      FIRST_SESSION,
+      reportedIn(firstHeartbeat(), NEXT_BOOT, later(30_000)),
+      FIRST_BOOT,
       later(10_000),
     );
 
-    expect(late.session).toEqual(NEXT_SESSION);
-    expect(late.upSince).toEqual(later(30_000));
-    expect(reportedIn(late, NEXT_SESSION, later(60_000)).upSince).toEqual(
+    expect(late.bootId).toEqual(NEXT_BOOT);
+    expect(late.onlineSince).toEqual(later(30_000));
+    expect(reportedIn(late, NEXT_BOOT, later(60_000)).onlineSince).toEqual(
       later(30_000),
     );
   });
 
   it('keeps the newer report over one that arrives late', () => {
     const reported = reportedThrough(
-      reportedThrough(present(), THROUGH_POOL, later(30_000), ['runner_1']),
+      reportedThrough(firstHeartbeat(), THROUGH_POOL, later(30_000), [
+        'runner_1',
+      ]),
       THROUGH_POOL,
       later(10_000),
     );
 
-    expect(reported.lastSeenAt).toEqual(later(30_000));
+    expect(reported.lastHeartbeatAt).toEqual(later(30_000));
     expect(reported.report.running).toHaveLength(1);
   });
 
-  it('ignores a late report, even from a new session', () => {
+  it('ignores a late report, even from a new boot id', () => {
     const late = reportedIn(
-      reportedThrough(present(), THROUGH_POOL, later(30_000)),
-      NEXT_SESSION,
+      reportedThrough(firstHeartbeat(), THROUGH_POOL, later(30_000)),
+      NEXT_BOOT,
       later(10_000),
     );
 
-    expect(late.session).toEqual(FIRST_SESSION);
-    expect(late.upSince).toEqual(FIRST_SEEN);
+    expect(late.bootId).toEqual(FIRST_BOOT);
+    expect(late.onlineSince).toEqual(FIRST_HEARTBEAT);
   });
 
   it('takes nothing from a report no later than the last, so there is nothing to save', () => {
-    const seen = reportedThrough(present(), THROUGH_POOL, later(30_000));
+    const reported = reportedThrough(
+      firstHeartbeat(),
+      THROUGH_POOL,
+      later(30_000),
+    );
 
-    expect(reportedIn(seen, NEXT_SESSION, later(30_000))).toBe(seen);
-    expect(reportedIn(seen, NEXT_SESSION, later(10_000))).toBe(seen);
+    expect(reportedIn(reported, NEXT_BOOT, later(30_000))).toBe(reported);
+    expect(reportedIn(reported, NEXT_BOOT, later(10_000))).toBe(reported);
   });
 
   it('carries the version it was read at through a report', () => {
@@ -208,63 +221,66 @@ describe('RunnerHost', () => {
     ).toBe(3);
   });
 
-  it('is taken while it still answers through another way in', () => {
+  it('is in use while it is still online through another way in', () => {
     expect(() =>
-      reportedThrough(present(), THROUGH_TRUST, later(89_999)),
-    ).toThrow(HostTakenError);
+      reportedThrough(firstHeartbeat(), THROUGH_TRUST, later(89_999)),
+    ).toThrow(HostInUseError);
   });
 
-  it('is re-homed through another way in of its workspace once it has gone silent there', () => {
-    const rehomed = reportedThrough(present(), THROUGH_TRUST, later(90_000), [
-      'runner_1',
-    ]);
+  it('is re-homed through another way in of its workspace once it is offline there', () => {
+    const rehomed = reportedThrough(
+      firstHeartbeat(),
+      THROUGH_TRUST,
+      later(90_000),
+      ['runner_1'],
+    );
 
     expect(rehomed.servesThrough(THROUGH_TRUST)).toBe(true);
     expect(rehomed.servesThrough(THROUGH_POOL)).toBe(false);
     expect(rehomed.workspaceId.value).toBe('ws_1');
-    expect(rehomed.firstSeenAt).toEqual(later(90_000));
-    expect(rehomed.upSince).toEqual(later(90_000));
-    expect(rehomed.lastSeenAt).toEqual(later(90_000));
+    expect(rehomed.firstHeartbeatAt).toEqual(later(90_000));
+    expect(rehomed.onlineSince).toEqual(later(90_000));
+    expect(rehomed.lastHeartbeatAt).toEqual(later(90_000));
     expect(rehomed.report.running).toHaveLength(1);
   });
 
-  it('is never taken into another workspace, however long it has been silent', () => {
+  it('is never moved into another workspace, however long it has been offline', () => {
     expect(() =>
       reportedThrough(
-        present(),
+        firstHeartbeat(),
         THROUGH_TRUST,
         later(24 * 3_600_000),
         [],
         WorkspaceId.of('ws_2'),
       ),
-    ).toThrow(HostTakenError);
+    ).toThrow(HostInUseError);
   });
 
-  it('answers for a minute and a half after it last reported', () => {
-    const host = present();
+  it('is online for a minute and a half after it last reported', () => {
+    const host = firstHeartbeat();
 
-    expect(host.answersAt(later(89_999))).toBe(true);
-    expect(host.answersAt(later(90_000))).toBe(false);
+    expect(host.isOnlineAt(later(89_999))).toBe(true);
+    expect(host.isOnlineAt(later(90_000))).toBe(false);
     expect(
-      reportedThrough(host, THROUGH_POOL, later(60_000)).answersAt(
+      reportedThrough(host, THROUGH_POOL, later(60_000)).isOnlineAt(
         later(120_000),
       ),
     ).toBe(true);
   });
 
-  it('is remembered for a day after it last reported', () => {
+  it('becomes stale a day after it last reported', () => {
     const DAY = 24 * 60 * 60_000;
 
-    expect(RunnerHost.rememberedSince(later(DAY))).toEqual(FIRST_SEEN);
+    expect(RunnerHost.staleBefore(later(DAY))).toEqual(FIRST_HEARTBEAT);
   });
 
-  it('tells whether a host last seen at a moment answers now, by the same rule as a stored host', () => {
-    expect(RunnerHost.answering(FIRST_SEEN, later(89_999))).toBe(true);
-    expect(RunnerHost.answering(FIRST_SEEN, later(90_000))).toBe(false);
+  it('tells whether a host with its last heartbeat at a moment is online now, by the same rule as a stored host', () => {
+    expect(RunnerHost.isOnline(FIRST_HEARTBEAT, later(89_999))).toBe(true);
+    expect(RunnerHost.isOnline(FIRST_HEARTBEAT, later(90_000))).toBe(false);
   });
 
   it('serves only through the way it first came in', () => {
-    const host = present();
+    const host = firstHeartbeat();
 
     expect(host.servesThrough(Admission.of('pool', 'pool_1'))).toBe(true);
     expect(host.servesThrough(Admission.of('pool', 'pool_2'))).toBe(false);
@@ -272,7 +288,7 @@ describe('RunnerHost', () => {
   });
 
   it('starts serving when it first reports an image with a harness', () => {
-    const host = present(SERVING);
+    const host = firstHeartbeat(SERVING);
 
     expect(host.servesAHarness).toBe(true);
     expect(kindsOf(host)).toEqual(['runner-host.started-serving']);
@@ -284,7 +300,7 @@ describe('RunnerHost', () => {
       [{ ...SERVING[0], unavailableReason: 'pull access denied' }],
       [{ ...SERVING[0], harnesses: [] }],
     ] as Images[]) {
-      const host = present(images);
+      const host = firstHeartbeat(images);
 
       expect(host.servesAHarness).toBe(false);
       expect(kindsOf(host)).toEqual([]);
@@ -292,7 +308,7 @@ describe('RunnerHost', () => {
   });
 
   it('starts serving on the first later report that offers a harness', () => {
-    const host = present();
+    const host = firstHeartbeat();
     kindsOf(host);
 
     expect(kindsOf(reportedServing(host, THROUGH_POOL, later(30_000)))).toEqual(
@@ -301,7 +317,7 @@ describe('RunnerHost', () => {
   });
 
   it('does not start serving again while it keeps serving', () => {
-    const host = present(SERVING);
+    const host = firstHeartbeat(SERVING);
     kindsOf(host);
 
     expect(kindsOf(reportedServing(host, THROUGH_POOL, later(30_000)))).toEqual(
@@ -310,7 +326,7 @@ describe('RunnerHost', () => {
   });
 
   it('starts serving again once re-homed through another way in', () => {
-    const host = present(SERVING);
+    const host = firstHeartbeat(SERVING);
     kindsOf(host);
 
     expect(
@@ -318,21 +334,25 @@ describe('RunnerHost', () => {
     ).toEqual(['runner-host.started-serving']);
   });
 
-  it('is not read back last seen before it was first seen', () => {
-    expect(() => rehydrated({ firstSeenAt: later(1) })).toThrow(
+  it('is not read back with its last heartbeat before its first heartbeat', () => {
+    expect(() => rehydrated({ firstHeartbeatAt: later(1) })).toThrow(
       InconsistentStateError,
     );
   });
 
-  it('is not read back up since before it was first seen or after it was last seen', () => {
+  it('is not read back online since before its first heartbeat or after its last heartbeat', () => {
     expect(() =>
-      rehydrated({ upSince: later(-1), lastSeenAt: later(60_000) }),
+      rehydrated({ onlineSince: later(-1), lastHeartbeatAt: later(60_000) }),
     ).toThrow(InconsistentStateError);
     expect(() =>
-      rehydrated({ upSince: later(60_001), lastSeenAt: later(60_000) }),
+      rehydrated({
+        onlineSince: later(60_001),
+        lastHeartbeatAt: later(60_000),
+      }),
     ).toThrow(InconsistentStateError);
     expect(
-      rehydrated({ upSince: later(60_000), lastSeenAt: later(60_000) }).upSince,
+      rehydrated({ onlineSince: later(60_000), lastHeartbeatAt: later(60_000) })
+        .onlineSince,
     ).toEqual(later(60_000));
   });
 

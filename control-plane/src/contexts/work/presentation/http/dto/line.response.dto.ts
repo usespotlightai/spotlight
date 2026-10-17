@@ -114,7 +114,7 @@ export class StationResponseDto {
   @ApiProperty({
     example: 'triage',
     description:
-      'What the station is called in its line definition, and what a run hands a task on to it by',
+      'What the station is called in its line definition, and what a run passes a task to it by',
   })
   readonly key: string;
 

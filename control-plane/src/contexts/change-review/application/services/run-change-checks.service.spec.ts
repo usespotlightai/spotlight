@@ -172,8 +172,8 @@ describe('RunChangeChecks', () => {
 
   it('says nobody checked a stack whose check waited too long', async () => {
     const [change] = await reading(
-      [stackOf('lapsed', REQUEST)],
-      [checkOf('lapsed', null)],
+      [stackOf('expired', REQUEST)],
+      [checkOf('expired', null)],
       new Date(NOW.getTime() + WAITING_LIMIT_MS + 1),
     );
 
@@ -219,8 +219,8 @@ describe('RunChangeChecks, with rechecks', () => {
   it('reads no recheck of a stack its first check never found anything in', async () => {
     expect(
       await readingOf(
-        [stackOf('lapsed', REQUEST)],
-        [checkOf('lapsed', null)],
+        [stackOf('expired', REQUEST)],
+        [checkOf('expired', null)],
       ).rechecksOfRun(RUN.value),
     ).toEqual([]);
   });

@@ -46,9 +46,9 @@ import {
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
-  TASK_HANDED_TO_RUN,
-  type TaskHandedToRunIntegrationEvent,
-} from '@shared-kernel/application/integration-events/task-handed-to-run.integration-event';
+  TASK_DISPATCHED,
+  type TaskDispatchedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -83,7 +83,7 @@ export const changeReviewSubscribers = (
     (event) => runners.released(event.stackId),
   ),
   subscribing<CheckReservationDropped>(
-    'change-review.let-go-of-reserved-runner',
+    'change-review.release-reserved-runner',
     ['change-stack.check-reservation-dropped'],
     (event) => runners.reservationDropped(event.runner),
   ),
@@ -107,9 +107,9 @@ export const changeReviewSubscribers = (
     ['change-stack.reordering-ended'],
     (event) => checks.onReorderingEnded(event.stackId),
   ),
-  subscribing<TaskHandedToRunIntegrationEvent>(
+  subscribing<TaskDispatchedIntegrationEvent>(
     'change-review.signal-reviewing',
-    [TASK_HANDED_TO_RUN],
+    [TASK_DISPATCHED],
     (event) => signalling.began(TaskId.of(event.taskId), RunId.of(event.runId)),
   ),
   subscribing<RunEndedIntegrationEvent>(

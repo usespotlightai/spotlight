@@ -11,7 +11,7 @@ export class RunnerLeases implements CheckEndingsPort {
   ) {}
 
   runLeft(runner: RunnerId, at: Date): Promise<void> {
-    return this.runners.letGo(runner, at);
+    return this.runners.release(runner, at);
   }
 
   runEnded(runId: RunId): Promise<void> {

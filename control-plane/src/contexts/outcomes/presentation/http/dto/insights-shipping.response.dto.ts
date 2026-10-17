@@ -161,7 +161,7 @@ export class DepthWeekResponseDto {
   @ApiProperty({
     type: RoundsCountResponseDto,
     isArray: true,
-    description: 'How many of them took each number of review rounds',
+    description: 'How many of them needed each number of review rounds',
   })
   readonly rounds: readonly RoundsCountResponseDto[];
 

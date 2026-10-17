@@ -1,7 +1,7 @@
 import type {
   RunnerClaims,
-  SeenRunner,
-} from '@runners/application/ports/runner-presence.port';
+  RunnerHeartbeat,
+} from '@runners/application/ports/runner-heartbeats.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -70,7 +70,7 @@ const aCheck: ClaimedCheck = {
 const seenAs = (
   claims: RunnerClaims = 'reserved',
   harnesses = [HarnessId.of('claude-code')],
-): SeenRunner => ({
+): RunnerHeartbeat => ({
   workspaceId: WorkspaceId.of('ws_1'),
   harnesses,
   terms: RunnerTerms.of(['runner-1']),
@@ -81,7 +81,7 @@ const claiming = (
   claimNext = vi.fn(async (): Promise<Run | null> => queued()),
   claimCheck = vi.fn(async (): Promise<ClaimedCheck | null> => null),
   over: {
-    seen?: SeenRunner | null;
+    seen?: RunnerHeartbeat | null;
     reservedFor?: Run | null;
     reservedCheck?: ClaimedCheck | null;
     starts?: RunStart;
@@ -95,7 +95,7 @@ const claiming = (
     async (): Promise<ClaimedCheck | null> => over.reservedCheck ?? null,
   );
   const pooled = {
-    took: vi.fn(async () => {
+    claim: vi.fn(async () => {
       if (over.tookFails) {
         throw new Error('runner_1 is spent');
       }
@@ -104,7 +104,7 @@ const claiming = (
   const saved: Run[] = [];
   const unclaim = vi.fn(async () => {});
   const failed = vi.fn(async () => null);
-  const requeueLapsed = vi.fn(async () => []);
+  const expireLeases = vi.fn(async () => []);
   let now = NOW;
   const clock = {
     now: () => now,
@@ -129,9 +129,11 @@ const claiming = (
   };
   const handler = new ClaimRunHandler(
     runs,
-    { requeueLapsed } as unknown as RunLeases,
+    { expireLeases } as unknown as RunLeases,
     {
-      seen: vi.fn(async () => (over.seen === undefined ? seenAs() : over.seen)),
+      heartbeat: vi.fn(async () =>
+        over.seen === undefined ? seenAs() : over.seen,
+      ),
     },
     clock,
     checks,
@@ -151,7 +153,7 @@ const claiming = (
     execute: (command: ClaimRunCommand) => handler.execute(command),
     pooled,
     failed,
-    requeueLapsed,
+    expireLeases,
     claimReserved,
     saved,
     unclaim,
@@ -223,11 +225,11 @@ describe('ClaimRunHandler', () => {
     expect(await handler.execute(new ClaimRunCommand('runner_1'))).toBeNull();
     expect(claimNext).not.toHaveBeenCalled();
     expect(claimCheck).not.toHaveBeenCalled();
-    expect(handler.requeueLapsed).not.toHaveBeenCalled();
+    expect(handler.expireLeases).not.toHaveBeenCalled();
   });
 
   describe('for a runner started for one reserved run', () => {
-    it('claims the run reserved for it, and records that its runner took it', async () => {
+    it('claims the run reserved for it, and records that its runner claimed it', async () => {
       const claimNext = vi.fn(async () => queued());
       const handler = claiming(claimNext, undefined, {
         seen: seenAs('reserved'),
@@ -241,7 +243,7 @@ describe('ClaimRunHandler', () => {
         expect.objectContaining({ claims: 'reserved' }),
         NOW,
       );
-      expect(handler.pooled.took).toHaveBeenCalledWith(
+      expect(handler.pooled.claim).toHaveBeenCalledWith(
         RunnerId.of('runner_1'),
         { kind: 'run', id: 'run_1' },
         NOW,
@@ -265,7 +267,7 @@ describe('ClaimRunHandler', () => {
       expect(handler.saved).toHaveLength(1);
       expect(handler.saved[0]?.state).toBe('queued');
       expect(handler.saved[0]?.claimedBy).toBeNull();
-      expect(handler.saved[0]?.handBacks.count).toBe(0);
+      expect(handler.saved[0]?.requeueCount.count).toBe(0);
     });
 
     it('puts the check back, uncounted, when its runner cannot take it', async () => {
@@ -307,7 +309,7 @@ describe('ClaimRunHandler', () => {
       );
     });
 
-    it('takes the check reserved for it where no run is, and records that it took it', async () => {
+    it('claims the check reserved for it where no run is, and records that it claimed it', async () => {
       const claimCheck = vi.fn(async () => null);
       const handler = claiming(
         vi.fn(async () => null),
@@ -322,7 +324,7 @@ describe('ClaimRunHandler', () => {
 
       expect(claimed).toEqual({ kind: 'check', check: aCheck });
       expect(claimCheck).not.toHaveBeenCalled();
-      expect(handler.pooled.took).toHaveBeenCalledWith(
+      expect(handler.pooled.claim).toHaveBeenCalledWith(
         RunnerId.of('runner_1'),
         { kind: 'check', id: 'stack_1' },
         NOW,
@@ -375,10 +377,10 @@ describe('ClaimRunHandler', () => {
     );
   });
 
-  it('stops polling at once, taking up no check, when a run had to be handed back', async () => {
+  it('stops polling at once, taking up no check, when a run had to be requeued', async () => {
     const claimNext = vi.fn(async (): Promise<Run | null> => queued());
     const handler = claiming(claimNext, undefined, {
-      starts: 'handed-back',
+      starts: 'requeued',
       reservedCheck: aCheck,
     });
 

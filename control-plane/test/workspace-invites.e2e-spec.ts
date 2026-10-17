@@ -342,7 +342,7 @@ describe('inviting people to a workspace (e2e)', () => {
     expect(joined.teams.map((each) => each.id)).toEqual([mobile]);
   });
 
-  it('invites an address again whose accepted invite outlived the account that took it up', async () => {
+  it('invites an address again whose accepted invite outlived the account that accepted it', async () => {
     const first = await (async () => {
       await as(seat.owner)
         .post(invites, { emails: [emailOf(kay)], role: 'member', teamIds: [] })

@@ -87,7 +87,7 @@ const run = (over: Partial<InsightsRun>): InsightsRun => ({
   failure: null,
   checks: null,
   next: null,
-  handedOn: null,
+  passed: null,
   delivery: null,
   ...over,
 });

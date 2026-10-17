@@ -97,7 +97,7 @@ export class ProcessDuePolls {
       if (!(await this.cursors.advance(teamId, source, polled.cursor, now))) {
         this.log.warn(
           { team: teamId.value, source },
-          'A later poll took the turn before this one kept its cursor',
+          'A later poll got the turn before this one kept its cursor',
         );
       }
     } catch (error) {

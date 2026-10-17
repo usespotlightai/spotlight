@@ -9,18 +9,18 @@ export function HostImageCell({
 }: {
   images: readonly HostImageResponseDto[];
 }) {
-  const usual = images.find((image) => image.usual) ?? images[0];
+  const defaultImage = images.find((image) => image.isDefault) ?? images[0];
   const others = images.length - 1;
   const unavailable = images.filter((image) => image.unavailableReason);
 
-  if (!usual) {
+  if (!defaultImage) {
     return <span className="text-muted-foreground text-xs">–</span>;
   }
 
   return (
     <span className="flex min-w-0 items-center gap-1">
       <ImagePill
-        image={usual.image}
+        image={defaultImage.image}
         title={images.map((image) => image.image).join('\n')}
       />
 

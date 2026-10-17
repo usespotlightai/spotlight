@@ -47,7 +47,7 @@ export class ClaimsTaken {
     unclaimed: () => Promise<void>,
   ): Promise<void> {
     try {
-      await this.runners.took(runner, work, this.clock.now());
+      await this.runners.claim(runner, work, this.clock.now());
     } catch (notTaken) {
       try {
         await unclaimed();
@@ -58,7 +58,7 @@ export class ClaimsTaken {
             work: work.id,
             error: error instanceof Error ? error.message : String(error),
           },
-          'Work its runner could not take was not unclaimed, so it waits for its lease to lapse',
+          'Work that its runner could not claim stayed claimed, so it waits until its lease expires',
         );
       }
 

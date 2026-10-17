@@ -132,14 +132,14 @@ const timed = sql`${ran} and ${runFact.ms} is not null`;
 
 export const tallyColumns = sql`
   ${counted(ran)} as runs,
-  ${counted(sql`not ${ran}`)} as withdrawn,
+  ${counted(sql`not ${ran}`)} as cancelled,
   ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'failed'`)} as failed,
   ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'stopped'`)} as stopped,
   ${counted(sql`${ran} and ${runFact.checks} = 'passed'`)} as checks_passed,
   ${counted(sql`${ran} and ${runFact.checks} = 'failed'`)} as checks_failed,
   ${counted(sql`${ran} and ${runFact.nextAct} = 'closed'`)} as accepted,
   ${counted(sentBack)} as sent_back,
-  ${counted(sql`${ran} and ${runFact.handedOnTo} is not null`)} as handed_on,
+  ${counted(sql`${ran} and ${runFact.passedTo} is not null`)} as passed,
   count(distinct ${runFact.taskId}) filter (where ${ran} and ${runFact.deliveryState} = 'merged')::int as merged,
   ${spendColumns},
   ${medianOver(sql`${runFact.ms}`, timed)} as median_ms,
@@ -147,14 +147,14 @@ export const tallyColumns = sql`
 
 export interface TallyColumns extends SpendRow {
   readonly runs: number;
-  readonly withdrawn: number;
+  readonly cancelled: number;
   readonly failed: number;
   readonly stopped: number;
   readonly checks_passed: number;
   readonly checks_failed: number;
   readonly accepted: number;
   readonly sent_back: number;
-  readonly handed_on: number;
+  readonly passed: number;
   readonly merged: number;
   readonly median_ms: number | null;
   readonly p90_ms: number | null;
@@ -162,14 +162,14 @@ export interface TallyColumns extends SpendRow {
 
 export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
   runs: row.runs,
-  withdrawn: row.withdrawn,
+  cancelled: row.cancelled,
   failed: row.failed,
   stopped: row.stopped,
   checksPassed: row.checks_passed,
   checksFailed: row.checks_failed,
   accepted: row.accepted,
   sentBack: row.sent_back,
-  handedOn: row.handed_on,
+  passed: row.passed,
   merged: row.merged,
   cost: spendOf(row),
   unpriced: row.unpriced,

@@ -109,7 +109,7 @@ describe('hook callbacks', () => {
     expect(kept.withToken).toHaveBeenCalledWith(HASH);
   });
 
-  it('reads nothing once the token has lapsed', async () => {
+  it('reads nothing once the token has expired', async () => {
     const { reading } = setUp(
       HOLDER,
       TASK,

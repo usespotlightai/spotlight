@@ -55,6 +55,6 @@ export const stackCheck = pgTable(
     index('stack_check_task_idx').on(table.taskId),
     index('stack_check_waiting_idx').on(table.workspaceId, table.phase),
     index('stack_check_reserved_idx').on(table.reservedFor),
-    index('stack_check_overdue_idx').on(table.phase, table.waitingSince),
+    index('stack_check_wait_expiry_idx').on(table.phase, table.waitingSince),
   ],
 );

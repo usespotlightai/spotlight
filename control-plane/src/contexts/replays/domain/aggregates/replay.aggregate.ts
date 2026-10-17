@@ -823,12 +823,12 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.queueFailed(), at);
   }
 
-  gaveUp(run: RunId, at: Date): Replay {
-    return this.changing(run, (entry) => entry.gaveUp(), at);
+  exhaust(run: RunId, at: Date): Replay {
+    return this.changing(run, (entry) => entry.exhaust(), at);
   }
 
-  forgo(run: RunId, at: Date): Replay {
-    return this.changing(run, (entry) => entry.forgone(), at);
+  cancel(run: RunId, at: Date): Replay {
+    return this.changing(run, (entry) => entry.cancelled(), at);
   }
 
   unreplayable(run: RunId, reason: UnreplayableReason, at: Date): Replay {
@@ -908,7 +908,7 @@ export class Replay extends EventRecorder {
       throw new ReplayEndedError(this.id.value);
     }
 
-    const letGo = this.runsInFlight;
+    const toCancel = this.runsInFlight;
     const stopped = this.with({
       state: this.isDispatching ? 'stopped' : this.state.state,
       entries: this.state.entries.map((each) =>
@@ -918,7 +918,7 @@ export class Replay extends EventRecorder {
       stoppedAt: at,
     });
 
-    stopped.record(new ReplayStopped(this.id, this.workspaceId, letGo));
+    stopped.record(new ReplayStopped(this.id, this.workspaceId, toCancel));
     if (this.isDispatching) {
       stopped.record(this.endedAs('stopped'));
     }
@@ -934,14 +934,14 @@ export class Replay extends EventRecorder {
   }
 
   abandon(): Replay {
-    const letGo =
+    const toCancel =
       this.isUnderway && !this.state.stoppedAt ? this.runsInFlight : [];
     const abandoned = new Replay(this.state, true);
 
     abandoned.inheritEvents(this);
 
-    if (letGo.length > 0) {
-      abandoned.record(new ReplayStopped(this.id, this.workspaceId, letGo));
+    if (toCancel.length > 0) {
+      abandoned.record(new ReplayStopped(this.id, this.workspaceId, toCancel));
     }
     if (this.isDispatching) {
       abandoned.record(this.endedAs('abandoned'));
@@ -1061,7 +1061,7 @@ export class Replay extends EventRecorder {
       return this;
     }
 
-    const letGo = this.runsInFlight;
+    const toCancel = this.runsInFlight;
     const over = this.with({
       state: 'over-budget',
       entries: this.state.entries.map((each) =>
@@ -1070,7 +1070,7 @@ export class Replay extends EventRecorder {
       endedAt: at,
     });
 
-    over.record(new ReplayOverBudget(this.id, this.workspaceId, letGo));
+    over.record(new ReplayOverBudget(this.id, this.workspaceId, toCancel));
     over.record(this.endedAs('over-budget'));
 
     return over;

@@ -27,7 +27,7 @@ import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @RunnerOnly()
 @Controller()

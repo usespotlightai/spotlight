@@ -253,7 +253,7 @@ describe('forgetting a task’s or a team’s pull requests', () => {
     expect(await repositories.forgotten.forgot(WORKSPACE, TASK)).toBe(true);
   });
 
-  it('marks a team forgotten before letting go of its pull requests', async () => {
+  it('marks a team forgotten before it removes the team from its pull requests', async () => {
     const repositories = repositoriesInMemory();
     await repositories.pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, PULL)

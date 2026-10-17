@@ -5,8 +5,9 @@ describe('endingOf', () => {
   it.each([
     ['completed', false, null, 'completed'],
     ['failed', false, 'exited', 'failed'],
-    ['abandoned', false, 'runner-lost', 'abandoned'],
-    ['withdrawn', false, null, 'withdrawn'],
+    ['exhausted', false, 'runner-lost', 'exhausted'],
+    ['cancelled', false, null, 'cancelled'],
+    ['cancelled', false, 'cancelled', 'cancelled'],
     ['completed', true, null, 'stopped'],
     ['failed', false, 'superseded', 'superseded'],
   ] as const)(

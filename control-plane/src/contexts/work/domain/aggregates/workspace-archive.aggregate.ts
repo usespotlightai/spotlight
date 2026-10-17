@@ -16,7 +16,7 @@ import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
-const KEPT_AFTER_LET_GO_MS = 7 * 24 * 60 * 60_000;
+const RETENTION_AFTER_RELEASE_MS = 7 * 24 * 60 * 60_000;
 const KEPT_AFTER_SUPERSEDED_MS = 60 * 60_000;
 const KEPT_AFTER_STARTED_FROM_MS = 30 * 24 * 60 * 60_000;
 const AWAITED_UNSEALED_MS = 24 * 60 * 60_000;
@@ -29,7 +29,7 @@ export interface StoredArchive {
 export interface ArchiveRemovalCutoffs {
   readonly grantedUnsealedBy: Date;
   readonly supersededBy: Date;
-  readonly letGoBy: Date;
+  readonly releasedBy: Date;
   readonly startedFromBy: Date;
 }
 
@@ -104,7 +104,7 @@ export class WorkspaceArchive extends EventRecorder {
     return {
       grantedUnsealedBy: before(AWAITED_UNSEALED_MS),
       supersededBy: before(KEPT_AFTER_SUPERSEDED_MS),
-      letGoBy: before(KEPT_AFTER_LET_GO_MS),
+      releasedBy: before(RETENTION_AFTER_RELEASE_MS),
       startedFromBy: before(KEPT_AFTER_STARTED_FROM_MS),
     };
   }
@@ -257,19 +257,19 @@ export class WorkspaceArchive extends EventRecorder {
       return true;
     }
 
-    if (this.letGoBy(facts.holder)) {
+    if (this.isReleasedBy(facts.holder)) {
       const since = Math.max(
         sealedAt.getTime(),
         facts.holder.changedAt.getTime(),
       );
 
-      return at >= since + KEPT_AFTER_LET_GO_MS;
+      return at >= since + RETENTION_AFTER_RELEASE_MS;
     }
 
     return false;
   }
 
-  private letGoBy(now: HolderState): boolean {
+  private isReleasedBy(now: HolderState): boolean {
     return now.kind === 'task' ? now.finished : !now.conversing;
   }
 

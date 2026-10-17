@@ -437,7 +437,7 @@ describe('deciding an approval', () => {
     expect(acted?.tool).toBeNull();
   });
 
-  it('records approving or refusing as the act a person took', () => {
+  it('records approving or refusing as the act of a person', () => {
     const decidedAs = (decision: 'granted' | 'refused') => {
       const { asked, at } = askedOnce();
 

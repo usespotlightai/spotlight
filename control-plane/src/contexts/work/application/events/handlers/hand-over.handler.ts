@@ -7,8 +7,8 @@ import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Saying, Task } from '@work/domain/aggregates/task.aggregate';
-import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
+import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -57,7 +57,7 @@ export class HandOver implements RunOutcomes {
     await this.saved(await this.applied(handover, worked, line, event.runId));
   }
 
-  async onRunAbandoned(event: RunAbandoned): Promise<void> {
+  async onRunExhausted(event: RunExhausted): Promise<void> {
     const found = await this.waiting(event);
     if (!found) {
       await this.superseded(event.runId, event.taskId);
@@ -66,7 +66,10 @@ export class HandOver implements RunOutcomes {
 
     await this.saved(
       await this.applied(
-        HandoverFor.exhausted(event.lapses, event.failure ?? 'runner-lost'),
+        HandoverFor.exhausted(
+          event.expiredLeases,
+          event.failure ?? 'runner-lost',
+        ),
         found.task,
         found.line,
         event.runId,
@@ -93,7 +96,7 @@ export class HandOver implements RunOutcomes {
   }
 
   private async waiting(
-    ended: RunCompleted | RunAbandoned,
+    ended: RunCompleted | RunExhausted,
   ): Promise<WaitingTask | null> {
     const revision = ended.subject?.revision ?? null;
 
@@ -143,7 +146,7 @@ export class HandOver implements RunOutcomes {
       return task.finishHere(run, routing.line, saying);
     }
 
-    if (routing.kind === 'let-go') {
+    if (routing.kind === 'detach') {
       return (
         routing.failure ? task.failed(routing.failure, saying, run, line) : task
       ).leaveRun(run, saying.at);
@@ -179,6 +182,6 @@ export class HandOver implements RunOutcomes {
       ? await this.dispatch.runIdFor({ task: moved, line: routing.line })
       : null;
 
-    return runId ? moved.handedTo(runId, routing.line) : moved;
+    return runId ? moved.assignRun(runId, routing.line) : moved;
   }
 }

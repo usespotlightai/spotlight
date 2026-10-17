@@ -13,7 +13,7 @@ const (
 	Waiting
 	Draining
 	Completed
-	Parked
+	Suspended
 	Failed
 )
 
@@ -24,7 +24,7 @@ const (
 	AgentStarted
 	PersonAsked
 	PersonAnswered
-	RunParked
+	RunSuspended
 	AgentExited
 	Drained
 	Errored
@@ -43,7 +43,7 @@ var transitions = map[State]map[Trigger]State{
 	},
 	Waiting: {
 		PersonAnswered: Running,
-		RunParked:      Parked,
+		RunSuspended:   Suspended,
 		AgentExited:    Draining,
 		Errored:        Failed,
 	},
@@ -73,8 +73,8 @@ func (s State) String() string {
 		return "draining"
 	case Completed:
 		return "completed"
-	case Parked:
-		return "parked"
+	case Suspended:
+		return "suspended"
 	case Failed:
 		return "failed"
 	}
@@ -95,8 +95,8 @@ func (t Trigger) String() string {
 		return "put to a person"
 	case PersonAnswered:
 		return "answered"
-	case RunParked:
-		return "parked"
+	case RunSuspended:
+		return "suspended"
 	case AgentExited:
 		return "exited"
 	case Drained:

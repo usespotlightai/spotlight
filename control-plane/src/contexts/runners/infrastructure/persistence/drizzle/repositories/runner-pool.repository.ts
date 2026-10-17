@@ -5,7 +5,7 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
-import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
+import { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
 import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
@@ -98,7 +98,7 @@ const domainErrorOf = (error: unknown, key: string): unknown => {
   }
 
   if (violates(error, UNIQUE_VIOLATION, 'runner_pool_token_hash')) {
-    return new PoolTokenTakenError();
+    return new PoolTokenInUseError();
   }
 
   return error;

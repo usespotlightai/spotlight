@@ -29,8 +29,8 @@ import { RunDigested } from '@work/domain/events/run-digested.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
-import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
@@ -213,7 +213,7 @@ beforeAll(async () => {
   );
   await heard(
     [
-      new TaskHandedOn(
+      new TaskPassed(
         TASK,
         workspaceId,
         RUN,
@@ -222,7 +222,7 @@ beforeAll(async () => {
         ago(240),
       ),
     ],
-    async () => (await record())?.handedOn,
+    async () => (await record())?.passed,
   );
   await heard(
     [new TaskAsked(TASK, workspaceId, station, team.owner, ago(230))],
@@ -347,7 +347,7 @@ afterAll(async () => {
 });
 
 describe('what the outcomes context hears for a team’s insights (e2e)', () => {
-  it('keeps the run’s cost, setup, waits and hand-on on its record', async () => {
+  it('keeps on its record the run’s cost, setup, waits and the station it passed the task to', async () => {
     const record = await app.get(DrizzleRunRecordRepository).of(RUN);
 
     expect(record?.ending).toBe('completed');
@@ -358,7 +358,7 @@ describe('what the outcomes context hears for a team’s insights (e2e)', () => 
       cacheRead: 90_000,
       cacheWrite: null,
     });
-    expect(record?.handedOn?.to).toBe(NEXT);
+    expect(record?.passed?.to).toBe(NEXT);
     expect(record?.next?.act).toBe('answered');
     expect(record?.end?.setup).toMatchObject({
       harness: 'claude-code',
@@ -488,7 +488,7 @@ describe('the team’s insights (e2e)', () => {
       cost: { amount: 1.25, currency: 'USD' },
       ending: 'completed',
       next: { act: 'answered' },
-      handedOn: { to: NEXT },
+      passed: { to: NEXT },
       delivery: 'merged',
     });
     expect(answer.body.people).toEqual([
@@ -752,7 +752,7 @@ describe('the team’s insights (e2e)', () => {
         runs: 1,
         accepted: 0,
         sentBack: 0,
-        handedOn: 1,
+        passed: 1,
         merged: 1,
         medianMs: 58 * MINUTE,
       },
@@ -867,12 +867,12 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
     (await asOwner(insights('runs', `period=7d&${query}`))).body
       .total as number;
 
-  it('leaves a run withdrawn before it ran out of the runs given a skill, as the tab does', async () => {
-    const withdrawn = RunId.of(randomUUID());
+  it('leaves a run cancelled before it ran out of the runs given a skill, as the tab does', async () => {
+    const cancelled = RunId.of(randomUUID());
     const task = TaskId.of(randomUUID());
 
     await db.insert(schema.run).values({
-      id: withdrawn.value,
+      id: cancelled.value,
       workspaceId: team.workspaceId.value,
       harness: 'dev',
       taskId: task.value,
@@ -899,11 +899,11 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
     });
     const ended: RunEndedIntegrationEvent = {
       kind: RUN_ENDED,
-      runId: withdrawn.value,
+      runId: cancelled.value,
       workspaceId: team.workspaceId.value,
       taskId: task.value,
       stationId: team.stationId.value,
-      outcome: 'withdrawn',
+      outcome: 'cancelled',
       failure: null,
       stopped: false,
       asked: false,
@@ -912,13 +912,13 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
     await app.get(EventOutbox).record([ended]);
     await eventually(async () => {
       await app.get(EventDelivery).drain(2_000);
-      return (await app.get(DrizzleRunRecordRepository).of(withdrawn))
+      return (await app.get(DrizzleRunRecordRepository).of(cancelled))
         ?.hasEnded;
     }, 60_000);
 
-    const record = await app.get(DrizzleRunRecordRepository).of(withdrawn);
+    const record = await app.get(DrizzleRunRecordRepository).of(cancelled);
 
-    expect(record?.ending).toBe('withdrawn');
+    expect(record?.ending).toBe('cancelled');
     expect(record?.end?.setup.skills).toEqual(['grafana']);
 
     const tools = await asOwner(insights('tools'));

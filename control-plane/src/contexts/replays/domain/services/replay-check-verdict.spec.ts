@@ -142,7 +142,7 @@ describe('readingOf', () => {
   it('is undecided when fewer than half the tasks were scored on both sides', () => {
     const replay = replayedAs(candidate(), (original) =>
       ['original_0', 'original_1', 'original_2'].includes(original)
-        ? 'abandoned'
+        ? 'exhausted'
         : 'completed',
     );
 

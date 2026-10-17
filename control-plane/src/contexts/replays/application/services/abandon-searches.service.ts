@@ -41,7 +41,7 @@ export class AbandonSearches {
     });
 
     if (activeRun) {
-      await this.work.withdrawSearch(activeRun);
+      await this.work.cancelSearchRun(activeRun);
     }
   }
 

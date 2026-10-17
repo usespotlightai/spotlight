@@ -28,7 +28,7 @@ import type {
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
+import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -207,7 +207,7 @@ export class DrizzleRunRepository implements RunRepository {
         startedAt: saved.startedAt,
         endedAt: endedAtFor(saved.state, sql`coalesce(${run.endedAt}, now())`),
         spec: RunSpecContract.toWire(saved.spec),
-        parkedAttempts: [...saved.parkedAttempts],
+        suspendedAttempts: [...saved.suspendedAttempts],
         askedAPerson: saved.askedAPerson,
         ...(saved.state === 'queued'
           ? {
@@ -225,7 +225,7 @@ export class DrizzleRunRepository implements RunRepository {
     }
   }
 
-  async lapsedClaims(now: Date): Promise<readonly Run[]> {
+  async expiredLeases(now: Date): Promise<readonly Run[]> {
     const rows = await this.selected().where(
       and(
         inArray(run.state, [...LEASED_RUN_STATES]),
@@ -272,7 +272,7 @@ export class DrizzleRunRepository implements RunRepository {
     return rows.map(toRun);
   }
 
-  async withLapsedReservations(now: Date): Promise<readonly Run[]> {
+  async withExpiredReservations(now: Date): Promise<readonly Run[]> {
     const rows = await this.selected().where(
       and(eq(run.state, 'queued'), lte(run.reservedUntil, now)),
     );
@@ -348,8 +348,8 @@ const reservationOf = (saving: Run) => ({
   reservedUntil: saving.reservation?.until ?? null,
   provisionFailures: saving.provisioning.failures,
   nextProvisionAt: saving.provisioning.nextAt,
-  handBacks: saving.handBacks.count,
-  claimableFrom: saving.handBacks.claimableFrom,
+  requeueCount: saving.requeueCount.count,
+  claimableFrom: saving.requeueCount.claimableFrom,
 });
 
 const reservationFrom = (row: Row): RunnerReservation | null =>
@@ -409,12 +409,12 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
             stopped: row.stopped,
           }),
     attempt: row.attempt,
-    handBacks: HandBacks.rehydrate(row.handBacks, row.claimableFrom),
+    requeueCount: RequeueCount.rehydrate(row.requeueCount, row.claimableFrom),
     ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
     briefedWith: row.briefedMemories
       ? BriefedMemories.of(row.briefedMemories)
       : BriefedMemories.none(),
-    parkedAttempts: row.parkedAttempts,
+    suspendedAttempts: row.suspendedAttempts,
     configuredAs: configuredFrom(row),
     startedAt: row.startedAt,
     startedFrom: startFrom(row),

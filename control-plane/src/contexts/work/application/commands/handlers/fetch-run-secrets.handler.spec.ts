@@ -73,10 +73,10 @@ const leasedRun = (
 
 const CHAT = { startedBy: UserId.of('user_1') } as unknown as Chat;
 
-const lapsedRun = () => {
+const leaseExpiredRun = () => {
   const leased = leasedRun();
 
-  return leased.requeue(leased.leaseExpiresAt as Date);
+  return leased.expireLease(leased.leaseExpiresAt as Date);
 };
 
 const fetching = (
@@ -225,7 +225,7 @@ describe('FetchRunSecretsHandler', () => {
   });
 
   it('fetches for the attempt that leases the run, once it is leased again', async () => {
-    const again = lapsedRun().claim(RunnerId.of(RUNNER), NOW);
+    const again = leaseExpiredRun().claim(RunnerId.of(RUNNER), NOW);
     const { handler, asked } = fetching(LEASED_RUN, again);
 
     await expect(
@@ -236,15 +236,15 @@ describe('FetchRunSecretsHandler', () => {
     expect(asked.map((each) => each.attempt)).toEqual([2]);
   });
 
-  it('lets the lease’s grants go when the run ends or is let go while it fetches', async () => {
+  it('ends the lease’s grants when the run ends or is cancelled while it fetches', async () => {
     const ended = leasedRun().complete(
       RunnerId.of(RUNNER),
       RunOutcome.of({ exitCode: 0, failed: false }),
     );
-    const lapsed = lapsedRun();
-    const reclaimed = lapsedRun().claim(RunnerId.of(RUNNER), NOW);
+    const expired = leaseExpiredRun();
+    const reclaimed = leaseExpiredRun().claim(RunnerId.of(RUNNER), NOW);
 
-    for (const after of [ended, lapsed, reclaimed]) {
+    for (const after of [ended, expired, reclaimed]) {
       const { handler, asked, lost } = fetching(LEASED_RUN, leasedRun(), after);
 
       await expect(
@@ -318,11 +318,11 @@ describe('FetchRunSecretsHandler', () => {
     expect(minted).toEqual([]);
   });
 
-  it('revokes the token it minted when the run is let go while it fetches', async () => {
+  it('revokes the token it minted when the run is cancelled while it fetches', async () => {
     const reaching = () =>
       leasedRun('ws_1', RUNNER, { spotlightApi: true, injectedSecrets: [] });
-    const lapsed = reaching().requeue(reaching().leaseExpiresAt as Date);
-    const { handler, revoked } = fetching(LEASED_RUN, reaching(), lapsed);
+    const expired = reaching().expireLease(reaching().leaseExpiresAt as Date);
+    const { handler, revoked } = fetching(LEASED_RUN, reaching(), expired);
 
     await expect(
       handler.execute(

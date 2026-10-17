@@ -176,7 +176,7 @@ describe('useSettingUp', () => {
     expect(result.current).toBe(false);
   });
 
-  it('stops setting up when Spotlight gave up on the provisioning', async () => {
+  it('stops setting up when the provisioning failed', async () => {
     readOnboarding.mockResolvedValue(onboarding('failed'));
 
     const { result, loaded } = watching(ACME, true);

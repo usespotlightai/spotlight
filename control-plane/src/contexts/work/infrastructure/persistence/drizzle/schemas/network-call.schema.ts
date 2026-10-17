@@ -18,7 +18,7 @@ export const networkCall = pgTable(
     body: text('body').notNull(),
     timeoutMs: integer('timeout_ms').notNull(),
     queuedAt: timestamp('queued_at').notNull(),
-    lapsesAt: timestamp('lapses_at').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
     state: text('state').notNull(),
     claimedBy: text('claimed_by'),
     claimedAt: timestamp('claimed_at'),
@@ -28,7 +28,7 @@ export const networkCall = pgTable(
     answerBody: text('answer_body'),
     answerMs: integer('answer_ms'),
     answerError: text('answer_error'),
-    lapsedAt: timestamp('lapsed_at'),
+    expiredAt: timestamp('expired_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -37,8 +37,8 @@ export const networkCall = pgTable(
       table.state,
       table.queuedAt,
     ),
-    index('network_call_lapsing_idx').on(table.state, table.lapsesAt),
+    index('network_call_expiring_idx').on(table.state, table.expiresAt),
     index('network_call_answered_idx').on(table.state, table.answeredAt),
-    index('network_call_lapsed_idx').on(table.state, table.lapsedAt),
+    index('network_call_expired_idx').on(table.state, table.expiredAt),
   ],
 );

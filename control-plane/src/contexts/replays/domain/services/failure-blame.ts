@@ -14,6 +14,7 @@ export const FAILURE_BLAME: Readonly<Record<RunFailureCode, Blame>> = {
   'hooks-unanswered': 'infrastructure',
   'runner-lost': 'infrastructure',
   'timed-out': 'candidate',
+  cancelled: 'infrastructure',
   superseded: 'infrastructure',
 };
 
@@ -22,5 +23,5 @@ export const blamesTheCandidate = (end: RunEnd): boolean => {
     return FAILURE_BLAME[end.failure] === 'candidate';
   }
 
-  return end.outcome !== 'abandoned';
+  return end.outcome !== 'exhausted';
 };

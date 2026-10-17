@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 const HANDOVER: SkillFolder = {
   skill: Skill.ship({
     key: SkillKey.of('spotlight-handover'),
-    description: 'Handing a task on.',
+    description: 'Passing a task on.',
     instructions: 'Write the note.',
     tools: [ToolName.of('pull-request')],
     secrets: [],
@@ -26,7 +26,7 @@ describe('BuiltInSkills', () => {
     expect(new BuiltInSkills(shipped).named('spotlight-handover')).toEqual({
       skill: {
         key: 'spotlight-handover',
-        description: 'Handing a task on.',
+        description: 'Passing a task on.',
         tools: ['pull-request'],
       },
       files: [{ path: 'SKILL.md', text: 'Write the note.' }],

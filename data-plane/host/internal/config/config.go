@@ -86,7 +86,7 @@ const (
 	Image             = "ghcr.io/usespotlightai/spotlight-runner"
 )
 
-var hostOnly = []string{envURL, envToken, envTrust, envTokenFile, "SPOTLIGHT_HANDED", envAnswerWait}
+var hostOnly = []string{envURL, envToken, envTrust, envTokenFile, "SPOTLIGHT_ASSIGNMENT_FILE", envAnswerWait}
 
 func Path() string {
 	if path := strings.TrimSpace(os.Getenv(EnvConfig)); path != "" {
@@ -180,7 +180,7 @@ func Load(version string) (Config, error) {
 	if raw := get(envAnswerWait); raw != "" {
 		cfg.AnswerWait, err = time.ParseDuration(raw)
 		if err != nil || cfg.AnswerWait < 0 {
-			note(fmt.Errorf("%s: %q is not a duration such as 5m, or 0 to park at once", envAnswerWait, raw))
+			note(fmt.Errorf("%s: %q is not a duration such as 5m, or 0 to suspend at once", envAnswerWait, raw))
 		}
 	}
 

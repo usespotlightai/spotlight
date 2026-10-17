@@ -15,7 +15,7 @@ import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search
 import { SearchEndedError } from '@replays/domain/exceptions/search-ended.error';
 import { SearchIterationClosedError } from '@replays/domain/exceptions/search-iteration-closed.error';
 import { SearchNotReflectingError } from '@replays/domain/exceptions/search-not-reflecting.error';
-import { SearchProposalsSpentError } from '@replays/domain/exceptions/search-proposals-spent.error';
+import { SearchProposalsExhaustedError } from '@replays/domain/exceptions/search-proposals-exhausted.error';
 import { SearchReflectingError } from '@replays/domain/exceptions/search-reflecting.error';
 import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-search-task.error';
 import { frontierOf } from '@replays/domain/services/frontier';
@@ -708,7 +708,7 @@ export class Search extends EventRecorder {
       throw new SearchReflectingError();
     }
     if (!iteration.mayPropose(this.state.budget.perIteration)) {
-      throw new SearchProposalsSpentError(this.state.budget.perIteration);
+      throw new SearchProposalsExhaustedError(this.state.budget.perIteration);
     }
 
     return iteration;
@@ -885,7 +885,7 @@ export class Search extends EventRecorder {
     ending: SearchEnding,
     at: Date,
   ): Search {
-    const withdrawing = this.activeRun;
+    const runToCancel = this.activeRun;
     const stopping = [
       this.state.seed.replay,
       ...this.proposals.map((each) => each.replay),
@@ -901,7 +901,7 @@ export class Search extends EventRecorder {
         this.workspaceId,
         state,
         ending,
-        withdrawing,
+        runToCancel,
         stopping,
       ),
     );

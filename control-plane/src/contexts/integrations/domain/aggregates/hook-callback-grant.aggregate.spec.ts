@@ -27,12 +27,12 @@ describe('HookCallbackGrant', () => {
     expect(grant().isValidAt(later(15))).toBe(false);
   });
 
-  it('has lapsed once it is no longer valid, so one expiring before the lapse cutoff can be forgotten', () => {
-    const cutoff = HookCallbackGrant.lapsedBefore(later(15));
+  it('has expired once it is no longer valid, so one expiring before the expiry cutoff can be forgotten', () => {
+    const cutoff = HookCallbackGrant.expiredBefore(later(15));
 
     expect(grant().expiresAt.getTime()).toBeLessThanOrEqual(cutoff.getTime());
     expect(grant().isValidAt(cutoff)).toBe(false);
-    expect(HookCallbackGrant.lapsedBefore(later(14)).getTime()).toBeLessThan(
+    expect(HookCallbackGrant.expiredBefore(later(14)).getTime()).toBeLessThan(
       grant().expiresAt.getTime(),
     );
   });

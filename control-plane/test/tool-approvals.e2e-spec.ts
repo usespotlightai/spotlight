@@ -172,7 +172,7 @@ describe('an approval a run asked for', () => {
     ).toBeNull();
   });
 
-  it('is read back granted, claimed by the call, and handed back when the call fails', async () => {
+  it('is read back granted, claimed by the call, and returned when the call fails', async () => {
     const { task, owner, runId } = await asking();
     const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
 

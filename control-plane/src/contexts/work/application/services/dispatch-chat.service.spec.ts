@@ -17,7 +17,7 @@ import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { SETUP_PULL_REQUEST } from '@work/domain/services/built-in-tools';
@@ -139,11 +139,11 @@ const enqueued = async (chat: Chat): Promise<Run> => {
   return added();
 };
 
-const handedTo = (chat: Chat, runId: RunId) => {
-  const handed = chat.handedTo(runId, NOW);
-  const [event] = handed.pullEvents();
+const dispatched = (chat: Chat, runId: RunId) => {
+  const assigned = chat.assignRun(runId, NOW);
+  const [event] = assigned.pullEvents();
 
-  return { chat: handed, handed: (event as ChatHandedToRun).handed };
+  return { chat: assigned, handed: (event as ChatDispatched).delivered };
 };
 
 describe('DispatchChat', () => {
@@ -179,7 +179,7 @@ describe('DispatchChat', () => {
 
   it('briefs a resumed chat with what a run that kept nothing was handed', async () => {
     const resumed = chatIn([API])
-      .handedTo(RunId.of('run_1'), NOW)
+      .assignRun(RunId.of('run_1'), NOW)
       .recordSession(HarnessSession.of('session_1'), null)
       .endRun(RunId.of('run_1'))
       .said({
@@ -190,13 +190,13 @@ describe('DispatchChat', () => {
 
     resumed.pullEvents();
 
-    const first = handedTo(resumed, RunId.of('run_2'));
+    const first = dispatched(resumed, RunId.of('run_2'));
     const stuck = dispatching({ launches: false });
     expect(
       await stuck.dispatch.enqueue(first.chat, RunId.of('run_2'), first.handed),
     ).toBe(false);
 
-    const again = handedTo(
+    const again = dispatched(
       first.chat.runKeptNothing(RunId.of('run_2')).said({
         by: UserId.of('user_1'),
         body: ChatMessageBody.of('Then the docs.'),

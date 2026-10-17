@@ -3,7 +3,7 @@ import { runSizeOf, sizeOf } from '@outcomes/domain/services/run-size';
 import { describe, expect, it } from 'vitest';
 
 describe('sizeOf', () => {
-  it('tells a run’s size by the lines its changes took out and put in', () => {
+  it('tells a run’s size by the lines its changes removed and added', () => {
     expect(sizeOf(costedRecord('run_1', { changedLines: 50 }))).toBe('small');
     expect(sizeOf(costedRecord('run_2', { changedLines: 51 }))).toBe('medium');
     expect(sizeOf(costedRecord('run_3', { changedLines: 401 }))).toBe('large');

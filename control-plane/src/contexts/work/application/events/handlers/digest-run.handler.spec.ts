@@ -11,9 +11,9 @@ import type {
 import type { RunDigestWriterPort } from '@work/application/ports/run-digest-writer.port';
 import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
 import { ReplayDigested } from '@work/domain/events/replay-digested.event';
-import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunDigested } from '@work/domain/events/run-digested.event';
+import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { SearchDigested } from '@work/domain/events/search-digested.event';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -121,11 +121,11 @@ describe('DigestRun', () => {
     ]);
   });
 
-  it('digests an abandoned run the same way', async () => {
+  it('digests an exhausted run the same way', async () => {
     const { handler } = digesting(new Map());
 
-    const raised = await handler.onRunAbandoned(
-      ended as unknown as RunAbandoned,
+    const raised = await handler.onRunExhausted(
+      ended as unknown as RunExhausted,
     );
 
     expect(raised).toHaveLength(1);
@@ -187,7 +187,7 @@ describe('DigestRun', () => {
     );
 
     expect(
-      await handler.onRunAbandoned(aReplay as unknown as RunAbandoned),
+      await handler.onRunExhausted(aReplay as unknown as RunExhausted),
     ).toEqual([
       new ReplayDigested(
         ended.runId,
@@ -240,7 +240,7 @@ describe('DigestRun', () => {
     );
 
     expect(
-      await unwritten.onRunAbandoned(aSearch as unknown as RunAbandoned),
+      await unwritten.onRunExhausted(aSearch as unknown as RunExhausted),
     ).toEqual([
       new SearchDigested(
         ended.runId,

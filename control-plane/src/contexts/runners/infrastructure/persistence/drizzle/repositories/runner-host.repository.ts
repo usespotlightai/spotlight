@@ -8,9 +8,9 @@ import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import {
   type HostImageRecord,
   runnerHost,
@@ -44,18 +44,18 @@ const toHost = (row: Row): RunnerHost =>
     id: HostId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     admission: admissionOf(row),
-    session: HostSession.of(row.session),
+    bootId: BootId.of(row.bootId),
     report: HostReport.of({
       name: row.name,
       release: row.release,
-      executor: row.executor,
+      containerRuntime: row.containerRuntime,
       capacity: row.capacity,
       running: row.running,
       images: row.images,
     }),
-    firstSeenAt: row.firstSeenAt,
-    upSince: row.upSince,
-    lastSeenAt: row.lastSeenAt,
+    firstHeartbeatAt: row.firstHeartbeatAt,
+    onlineSince: row.onlineSince,
+    lastHeartbeatAt: row.lastHeartbeatAt,
     version: row.version,
   });
 
@@ -63,16 +63,16 @@ const columnsOf = (host: RunnerHost) => ({
   workspaceId: host.workspaceId.value,
   poolId: host.admission.poolId?.value ?? null,
   trustId: host.admission.trustId?.value ?? null,
-  session: host.session.value,
+  bootId: host.bootId.value,
   name: host.report.name,
   release: host.report.release,
-  executor: host.report.executor,
+  containerRuntime: host.report.containerRuntime,
   capacity: host.report.capacity,
   running: host.report.running.map((each) => each.value),
   images: host.report.images.map(
     (each): HostImageRecord => ({
       image: each.image.value,
-      usual: each.usual,
+      isDefault: each.isDefault,
       harnesses: each.harnesses.map((harness) => ({
         id: harness.id.value,
         models: harness.models.map((model) => model.value),
@@ -85,9 +85,9 @@ const columnsOf = (host: RunnerHost) => ({
         : {}),
     }),
   ),
-  firstSeenAt: host.firstSeenAt,
-  upSince: host.upSince,
-  lastSeenAt: host.lastSeenAt,
+  firstHeartbeatAt: host.firstHeartbeatAt,
+  onlineSince: host.onlineSince,
+  lastHeartbeatAt: host.lastHeartbeatAt,
 });
 
 @Injectable()
@@ -175,10 +175,10 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
       );
   }
 
-  async removeUnseenSince(since: Date): Promise<number> {
+  async removeStaleBefore(cutoff: Date): Promise<number> {
     const removed = await this.context.db
       .delete(runnerHost)
-      .where(lte(runnerHost.lastSeenAt, since))
+      .where(lte(runnerHost.lastHeartbeatAt, cutoff))
       .returning({ id: runnerHost.id });
 
     return removed.length;

@@ -247,15 +247,15 @@ describe('DispatchSearch', () => {
     }
   });
 
-  it('withdraws a queued search run, stops a leased one, and leaves an ended one be', async () => {
+  it('cancels a queued search run, stops a leased one, and leaves an ended one be', async () => {
     const { dispatch, runs } = dispatching();
 
     await dispatch.enqueue(ORDER);
-    await dispatch.withdraw('run_9');
+    await dispatch.cancel('run_9');
 
     expect(runs.get('run_9')?.hasEnded).toBe(true);
     expect(runs.get('run_9')?.outcome?.message).toBe(
-      'Search stopped before a runner took the run.',
+      'Search stopped before a runner claimed the run.',
     );
 
     await dispatch.enqueue({ ...ORDER, id: 'run_10' });
@@ -263,17 +263,17 @@ describe('DispatchSearch', () => {
       'run_10',
       (runs.get('run_10') as Run).claim(RunnerId.of('runner_1'), NOW),
     );
-    await dispatch.withdraw('run_10');
+    await dispatch.cancel('run_10');
 
     expect(runs.get('run_10')?.stopRequested).toBe(true);
 
     const ended = runs.get('run_9');
-    await dispatch.withdraw('run_9');
+    await dispatch.cancel('run_9');
 
     expect(runs.get('run_9')).toBe(ended);
   });
 
-  it('lets go of a search run nobody took up only while it still waits, saying whether an earlier attempt ever started', async () => {
+  it('cancels a search run nobody claimed only while it still waits, saying whether an earlier attempt ever started', async () => {
     const { dispatch, runs } = dispatching();
 
     await dispatch.enqueue(ORDER);
@@ -283,21 +283,21 @@ describe('DispatchSearch', () => {
       (runs.get('run_10') as Run).claim(RunnerId.of('runner_1'), NOW),
     );
 
-    expect(await dispatch.withdrawUnclaimed('run_10')).toEqual({
+    expect(await dispatch.cancelUnclaimed('run_10')).toEqual({
       outcome: 'claimed',
     });
     expect(runs.get('run_10')?.hasEnded).toBe(false);
-    expect(await dispatch.withdrawUnclaimed('run_9')).toEqual({
-      outcome: 'withdrawn',
+    expect(await dispatch.cancelUnclaimed('run_9')).toEqual({
+      outcome: 'cancelled',
       started: false,
     });
     expect(runs.get('run_9')?.outcome?.message).toBe(
-      'No runner took the run in time. Its search released it.',
+      'No runner claimed the run in time. Its search cancelled it.',
     );
-    expect(await dispatch.withdrawUnclaimed('run_9')).toEqual({
+    expect(await dispatch.cancelUnclaimed('run_9')).toEqual({
       outcome: 'ended',
     });
-    expect(await dispatch.withdrawUnclaimed('nothing')).toEqual({
+    expect(await dispatch.cancelUnclaimed('nothing')).toEqual({
       outcome: 'ended',
     });
   });

@@ -57,7 +57,7 @@ const taking = (
   } as unknown as RunRepository;
   const checks = { unclaim: vi.fn(async () => {}) };
   const runners = {
-    took: vi.fn(async () => {
+    claim: vi.fn(async () => {
       if (over.tookFails) {
         throw new Error('pooled_1 is spent');
       }
@@ -80,12 +80,12 @@ const taking = (
 };
 
 describe('ClaimsTaken', () => {
-  it('records that the runner took the run, and leaves the claim in place', async () => {
+  it('records that the runner claimed the run, and leaves the claim in place', async () => {
     const { taken, runners, saved } = taking();
 
     await taken.run(claimed(), RUNNER);
 
-    expect(runners.took).toHaveBeenCalledWith(
+    expect(runners.claim).toHaveBeenCalledWith(
       RUNNER,
       { kind: 'run', id: 'run_1' },
       NOW,

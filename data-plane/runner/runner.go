@@ -88,16 +88,16 @@ func run(args []string, version string) error {
 		}
 	}
 
-	handed, err := given(ctx, cfg, version, egress, log)
+	assigned, err := assignment(ctx, cfg, version, egress, log)
 	if err != nil {
 		return err
 	}
-	if handed == nil {
+	if assigned == nil {
 		log.Info("runner stopped with no work")
 		return nil
 	}
 
-	client, err := control.Seated(cfg.URL, *handed)
+	client, err := control.ForRun(cfg.URL, *assigned)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func run(args []string, version string) error {
 			r.wayOut = way.env
 		}
 	}
-	r.serve(ctx, client, handed.Work)
+	r.serve(ctx, client, assigned.Work)
 
 	r.log.Info("runner stopped")
 	return nil
@@ -154,7 +154,7 @@ func (r runner) serve(ctx context.Context, client *control.Client, work protocol
 	case work.Kind == protocol.ClaimedCheck && work.Check != nil:
 		r.check(ctx, client, *work.Check)
 	default:
-		r.log.Warn("was handed something it does not know how to do", "kind", work.Kind)
+		r.log.Warn("was assigned something it does not know how to do", "kind", work.Kind)
 	}
 }
 

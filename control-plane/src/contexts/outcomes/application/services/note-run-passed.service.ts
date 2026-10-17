@@ -1,0 +1,52 @@
+import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
+import { StationPass } from '@outcomes/domain/value-objects/station-pass.vo';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export interface TaskPassedHeard {
+  readonly taskId: string;
+  readonly workspaceId: string;
+  readonly runId: string;
+  readonly to: string;
+  readonly at: string;
+}
+
+export class NoteRunPassed {
+  constructor(
+    private readonly records: RunRecordRepository,
+    private readonly forgotten: ForgottenPort,
+    private readonly transaction: TransactionPort,
+  ) {}
+
+  passed(heard: TaskPassedHeard): Promise<void> {
+    const pass = StationPass.of(heard.to, new Date(heard.at));
+
+    const workspaceId = WorkspaceId.of(heard.workspaceId);
+    const taskId = TaskId.of(heard.taskId);
+
+    return this.transaction.inTransaction(async () => {
+      await this.forgotten.lockForgetting(workspaceId, taskId);
+      const runId = RunId.of(heard.runId);
+      const existing = await this.records.of(runId);
+
+      if (!existing) {
+        if (!(await this.forgotten.forgot(workspaceId, taskId))) {
+          await this.records.add(
+            RunRecord.heardOf(runId, workspaceId, taskId).passTo(pass),
+          );
+        }
+        return;
+      }
+
+      const passed = existing.passTo(pass);
+
+      if (passed !== existing) {
+        await this.records.save(passed);
+      }
+    });
+  }
+}

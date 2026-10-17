@@ -16,7 +16,7 @@ import { changeReviewSubscribers } from '@change-review/presentation/events/chan
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
-import type { TaskHandedToRunIntegrationEvent } from '@shared-kernel/application/integration-events/task-handed-to-run.integration-event';
+import type { TaskDispatchedIntegrationEvent } from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -140,11 +140,11 @@ describe('change review hearing a run begin and end', () => {
     return { hearing, began, ended };
   };
 
-  it('signals a review begun when a task is handed to a run', async () => {
+  it('signals a review begun when a task is dispatched to a run', async () => {
     const { hearing, began } = signalled();
 
-    const handed: TaskHandedToRunIntegrationEvent = {
-      kind: 'work.task-handed-to-run.v1',
+    const handed: TaskDispatchedIntegrationEvent = {
+      kind: 'work.task-dispatched.v1',
       taskId: 'task_1',
       workspaceId: 'ws_1',
       runId: 'run_1',
@@ -356,8 +356,8 @@ describe('change review hearing a check forgotten while a runner leased it', () 
   });
 });
 
-describe('change review hearing a check let go of the runner reserved for it', () => {
-  const lettingGo = () => {
+describe('change review hearing a check drop the runner reserved for it', () => {
+  const releasing = () => {
     const reservationDropped = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
@@ -371,19 +371,19 @@ describe('change review hearing a check let go of the runner reserved for it', (
       {} as never,
       {} as never,
       { reservationDropped } as unknown as CheckRunnersPort,
-    ).find((each) => each.name === 'change-review.let-go-of-reserved-runner');
+    ).find((each) => each.name === 'change-review.release-reserved-runner');
 
     if (!subscriber) {
       throw new Error(
-        'nobody lets go of a runner that a check no longer reserves',
+        'nobody releases a runner that a check no longer reserves',
       );
     }
 
     return { subscriber, reservationDropped };
   };
 
-  it('lets go of the runner provisioned for it', async () => {
-    const { subscriber, reservationDropped } = lettingGo();
+  it('releases the runner provisioned for it', async () => {
+    const { subscriber, reservationDropped } = releasing();
 
     await subscriber.handle(
       new CheckReservationDropped(

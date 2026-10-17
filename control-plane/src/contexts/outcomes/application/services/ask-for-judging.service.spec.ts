@@ -148,7 +148,7 @@ describe('AskForJudging', () => {
     expect(heard.judgings.stored.size).toBe(0);
   });
 
-  it.each(['failed', 'abandoned', 'withdrawn'])(
+  it.each(['failed', 'exhausted', 'cancelled'])(
     'asks nothing for a run that %s',
     async (outcome) => {
       const heard = asking();

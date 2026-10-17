@@ -485,7 +485,7 @@ export class FireHooks {
         deadline: new Date(
           this.clock.now().getTime() + hook.timeoutSeconds * 1000,
         ),
-        waiting: 'hand-back',
+        waiting: 'suspend',
       });
 
       if (taken.outcome.status === 'waiting') {

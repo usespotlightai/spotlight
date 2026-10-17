@@ -82,7 +82,7 @@ const RESERVED_UNTIL = new Date(LATER.getTime() + 5 * 60_000);
 
 const HTTP_ERROR = ProvisionFailure.of('http-error', 'answered 503');
 
-const OVERDUE = new Date(LATER.getTime() + WAITING_LIMIT_MS + 1);
+const WAIT_EXPIRED = new Date(LATER.getTime() + WAITING_LIMIT_MS + 1);
 
 const cohort = (
   title: string,
@@ -287,7 +287,7 @@ describe('StackCheck', () => {
     );
   });
 
-  it('blames nobody in particular where no runner ever took it up', () => {
+  it('blames nobody in particular where no runner ever claimed it', () => {
     const check = waiting();
     const late = new Date(LATER.getTime() + WAITING_LIMIT_MS + 1);
 
@@ -344,7 +344,7 @@ describe('StackCheck', () => {
     expect(kinds(kept)).toEqual(['change-stack.checked']);
   });
 
-  it('lets a reservation go when it takes reordered layers', () => {
+  it('drops a reservation when it takes reordered layers', () => {
     const failing = checking().recordResult(
       RUNNER,
       planned(),
@@ -405,14 +405,14 @@ describe('StackCheck', () => {
       );
     });
 
-    it('lets another runner take it up once the lease runs out', () => {
+    it('lets another runner claim it once the lease runs out', () => {
       const leased = waiting().claimedFor(RUNNER, ANY, LATER);
-      const lapsed = new Date(
+      const expired = new Date(
         (leased.claim.leaseExpiresAt?.getTime() ?? 0) + 1000,
       );
 
-      expect(leased.claimableAt(lapsed)).toBe(true);
-      expect(leased.claimedFor(OTHER, ANY, lapsed).claim.claimedBy).toEqual(
+      expect(leased.claimableAt(expired)).toBe(true);
+      expect(leased.claimedFor(OTHER, ANY, expired).claim.claimedBy).toEqual(
         OTHER,
       );
     });
@@ -465,13 +465,13 @@ describe('StackCheck', () => {
 
     it('is being checked only by the runner with its lease', () => {
       const check = checking();
-      const lapsed = new Date(
+      const expired = new Date(
         (check.claim.leaseExpiresAt?.getTime() ?? 0) + 1000,
       );
 
       expect(check.beingCheckedBy(RUNNER, LATER)).toBe(true);
       expect(check.beingCheckedBy(OTHER, LATER)).toBe(false);
-      expect(check.beingCheckedBy(RUNNER, lapsed)).toBe(false);
+      expect(check.beingCheckedBy(RUNNER, expired)).toBe(false);
     });
 
     it('takes what was found only from the runner with the lease', () => {
@@ -496,7 +496,7 @@ describe('StackCheck', () => {
       ).toThrow(StackCheckNotLeasedError);
     });
 
-    it('lets the claim go once the check is recorded or skipped', () => {
+    it('drops the claim once the check is recorded or skipped', () => {
       const leased = waiting().claimedFor(RUNNER, ANY, LATER);
 
       expect(
@@ -515,8 +515,8 @@ describe('StackCheck', () => {
 
     it('renews the lease of the runner past the first lease period', () => {
       const check = checking();
-      const nearlyLapsed = new Date(leaseOf(check) - 1000);
-      const renewed = check.renewedFor(RUNNER, nearlyLapsed);
+      const nearlyExpired = new Date(leaseOf(check) - 1000);
+      const renewed = check.renewedFor(RUNNER, nearlyExpired);
       const pastFirstLease = new Date(leaseOf(check) + 1000);
 
       expect(leaseOf(renewed)).toBeGreaterThan(leaseOf(check));
@@ -528,12 +528,12 @@ describe('StackCheck', () => {
 
     it('is renewed only by the runner with the lease', () => {
       const check = checking();
-      const lapsed = new Date(leaseOf(check) + 1000);
+      const expired = new Date(leaseOf(check) + 1000);
 
       expect(() => check.renewedFor(OTHER, LATER)).toThrow(
         StackCheckNotLeasedError,
       );
-      expect(() => check.renewedFor(RUNNER, lapsed)).toThrow(
+      expect(() => check.renewedFor(RUNNER, expired)).toThrow(
         StackCheckNotLeasedError,
       );
       expect(() => waiting().renewedFor(RUNNER, LATER)).toThrow(
@@ -565,16 +565,16 @@ describe('StackCheck', () => {
       const check = waiting().claimedFor(
         RUNNER,
         ANY,
-        new Date(OVERDUE.getTime() - 60_000),
+        new Date(WAIT_EXPIRED.getTime() - 60_000),
       );
 
-      const renewed = check.renewedFor(RUNNER, OVERDUE);
+      const renewed = check.renewedFor(RUNNER, WAIT_EXPIRED);
       const pastFirstLease = new Date(leaseOf(check) + 1000);
 
-      expect(check.stateAt(OVERDUE)).toBe('waiting');
-      expect(check.checkableAt(OVERDUE)).toBe(true);
+      expect(check.stateAt(WAIT_EXPIRED)).toBe('waiting');
+      expect(check.checkableAt(WAIT_EXPIRED)).toBe(true);
       expect(renewed.beingCheckedBy(RUNNER, pastFirstLease)).toBe(true);
-      expect(renewed.overdueAt(pastFirstLease)).toBe(false);
+      expect(renewed.waitExpiredAt(pastFirstLease)).toBe(false);
       expect(() => renewed.renewedFor(RUNNER, pastFirstLease)).not.toThrow();
     });
 
@@ -582,38 +582,43 @@ describe('StackCheck', () => {
       const check = waiting().claimedFor(
         RUNNER,
         ANY,
-        new Date(OVERDUE.getTime() - 60_000),
+        new Date(WAIT_EXPIRED.getTime() - 60_000),
       );
 
       const recorded = check.recordResult(
         RUNNER,
         planned(),
         [step(WHOLE_STEP, true)],
-        OVERDUE,
+        WAIT_EXPIRED,
       );
 
       expect(recorded.phase).toBe('checked');
-      expect(recorded.stateAt(OVERDUE)).toBe('checked');
+      expect(recorded.stateAt(WAIT_EXPIRED)).toBe('checked');
     });
 
-    it('is skipped as nobody checked once its runner’s lease lapses past the hour', () => {
+    it('is skipped as nobody checked once its runner’s lease expires past the hour', () => {
       const check = waiting().claimedFor(
         RUNNER,
         ANY,
-        new Date(OVERDUE.getTime() - 60_000),
+        new Date(WAIT_EXPIRED.getTime() - 60_000),
       );
-      const lapsed = new Date(leaseOf(check));
+      const expired = new Date(leaseOf(check));
 
-      expect(check.stateAt(lapsed)).toBe('skipped');
-      expect(check.checkableAt(lapsed)).toBe(false);
-      expect(check.overdueAt(lapsed)).toBe(true);
-      expect(() => check.renewedFor(RUNNER, lapsed)).toThrow(
+      expect(check.stateAt(expired)).toBe('skipped');
+      expect(check.checkableAt(expired)).toBe(false);
+      expect(check.waitExpiredAt(expired)).toBe(true);
+      expect(() => check.renewedFor(RUNNER, expired)).toThrow(
         InvalidChangeStackError,
       );
       expect(() =>
-        check.recordResult(RUNNER, planned(), [step(WHOLE_STEP, true)], lapsed),
+        check.recordResult(
+          RUNNER,
+          planned(),
+          [step(WHOLE_STEP, true)],
+          expired,
+        ),
       ).toThrow(InvalidChangeStackError);
-      expect(check.expireOverdue(lapsed).skippedAt(lapsed)).toEqual({
+      expect(check.expireWait(expired).skippedAt(expired)).toEqual({
         code: 'nobody-checked',
         detail: null,
       });
@@ -643,7 +648,7 @@ describe('StackCheck', () => {
       expect(renewed.stateAt(justBefore)).toBe('waiting');
     });
 
-    it('lets go of a runner that keeps renewing past the ceiling and expires it as nobody checked', () => {
+    it('releases a runner that keeps renewing past the ceiling and expires it as nobody checked', () => {
       const renewed = renewedUntil(checking(), justBefore);
 
       expect(renewed.claim.leaseExpiresAt?.getTime()).toBeGreaterThan(
@@ -663,8 +668,8 @@ describe('StackCheck', () => {
           ceiling,
         ),
       ).toThrow(InvalidChangeStackError);
-      expect(renewed.overdueAt(ceiling)).toBe(true);
-      expect(renewed.expireOverdue(ceiling).skippedAt(ceiling)).toEqual({
+      expect(renewed.waitExpiredAt(ceiling)).toBe(true);
+      expect(renewed.expireWait(ceiling).skippedAt(ceiling)).toEqual({
         code: 'nobody-checked',
         detail: null,
       });
@@ -721,7 +726,7 @@ describe('StackCheck', () => {
       });
     });
 
-    it('takes back a skip for a check nobody took up in time', () => {
+    it('takes back a skip for a check nobody claimed in time', () => {
       expect(keptSkipOf('nobody-checked', null)).toEqual({
         code: 'nobody-checked',
         detail: null,
@@ -804,22 +809,22 @@ describe('StackCheck', () => {
       );
     });
 
-    it('lets any runner claim it once the reservation lapses', () => {
+    it('lets any runner claim it once the reservation expires', () => {
       const reserved = waiting().reservedFor(
         RUNNER,
         PoolId.of('pool_burst'),
         LATER,
       );
 
-      expect(reserved.reservationLapsedAt(LATER)).toBe(false);
-      expect(reserved.reservationLapsedAt(RESERVED_UNTIL)).toBe(true);
+      expect(reserved.reservationExpiredAt(LATER)).toBe(false);
+      expect(reserved.reservationExpiredAt(RESERVED_UNTIL)).toBe(true);
       expect(reserved.claimableAt(RESERVED_UNTIL, OTHER)).toBe(true);
       expect(
         reserved.claimedFor(OTHER, ANY, RESERVED_UNTIL).claim.claimedBy,
       ).toEqual(OTHER);
     });
 
-    it('lets go of the reserved runner when another takes it after the reservation lapsed', () => {
+    it('releases the reserved runner when another claims it after the reservation expired', () => {
       const taken = waiting()
         .reservedFor(RUNNER, PoolId.of('pool_burst'), LATER)
         .claimedFor(OTHER, ANY, RESERVED_UNTIL);
@@ -830,18 +835,18 @@ describe('StackCheck', () => {
       ]);
     });
 
-    it('lets the reservation go once its runner claims it', () => {
+    it('drops the reservation once its runner claims it', () => {
       const claimed = waiting()
         .reservedFor(RUNNER, PoolId.of('pool_burst'), LATER)
         .claimedFor(RUNNER, ANY, LATER);
 
       expect(claimed.reservation).toBeNull();
       expect(claimed.claim.claimedBy).toEqual(RUNNER);
-      expect(claimed.reservationLapsedAt(RESERVED_UNTIL)).toBe(false);
+      expect(claimed.reservationExpiredAt(RESERVED_UNTIL)).toBe(false);
       expect(kinds(claimed)).toEqual([]);
     });
 
-    it('lets the reservation go when the pool could not take it', () => {
+    it('drops the reservation when the pool could not take it', () => {
       const check = waiting();
       const unreserved = check
         .reservedFor(RUNNER, PoolId.of('pool_burst'), LATER)
@@ -856,7 +861,7 @@ describe('StackCheck', () => {
       expect(check.unreservedFor(RUNNER)).toBe(check);
     });
 
-    it('keeps the reservation when another runner lets it go', () => {
+    it('keeps the reservation when another runner drops it', () => {
       const reserved = waiting().reservedFor(
         RUNNER,
         PoolId.of('pool_burst'),
@@ -866,7 +871,7 @@ describe('StackCheck', () => {
       expect(reserved.unreservedFor(OTHER)).toBe(reserved);
     });
 
-    it('backs off after a failed provision and lets the reservation go', () => {
+    it('backs off after a failed provision and drops the reservation', () => {
       const failed = failedAgain(waiting());
 
       expect(failed.reservation).toBeNull();
@@ -944,10 +949,10 @@ describe('StackCheck', () => {
       expect(leased.provisionFailed(RUNNER, HTTP_ERROR, LATER)).toBe(leased);
     });
 
-    it('only lets the reservation go when the pool fails it past the hour', () => {
+    it('only drops the reservation when the pool fails it past the hour', () => {
       const failed = waiting()
         .reservedFor(RUNNER, PoolId.of('pool_burst'), LATER)
-        .provisionFailed(RUNNER, HTTP_ERROR, OVERDUE);
+        .provisionFailed(RUNNER, HTTP_ERROR, WAIT_EXPIRED);
 
       expect(failed.reservation).toBeNull();
       expect(failed.provisioning.failures).toBe(0);
@@ -994,32 +999,32 @@ describe('StackCheck', () => {
     });
   });
 
-  describe('expiring a check nobody took up in time', () => {
-    it('is overdue only once it has waited past the hour with no active lease', () => {
+  describe('expiring a check nobody claimed in time', () => {
+    it('expires its wait only once it has waited past the hour with no active lease', () => {
       const leased = waiting().claimedFor(
         RUNNER,
         ANY,
         new Date(LATER.getTime() + WAITING_LIMIT_MS - 1),
       );
 
-      expect(waiting().overdueAt(LATER)).toBe(false);
-      expect(waiting().overdueAt(OVERDUE)).toBe(true);
-      expect(leased.overdueAt(OVERDUE)).toBe(false);
+      expect(waiting().waitExpiredAt(LATER)).toBe(false);
+      expect(waiting().waitExpiredAt(WAIT_EXPIRED)).toBe(true);
+      expect(leased.waitExpiredAt(WAIT_EXPIRED)).toBe(false);
       expect(
         checking()
           .skip(RUNNER, skipOf('no-room', null), LATER)
-          .overdueAt(OVERDUE),
+          .waitExpiredAt(WAIT_EXPIRED),
       ).toBe(false);
     });
 
-    it('is skipped as nobody checked, letting any reservation go', () => {
+    it('is skipped as nobody checked, and drops any reservation', () => {
       const expired = waiting()
         .reservedFor(RUNNER, PoolId.of('pool_burst'), LATER)
-        .expireOverdue(OVERDUE);
+        .expireWait(WAIT_EXPIRED);
 
       expect(expired.phase).toBe('skipped');
       expect(expired.reservation).toBeNull();
-      expect(expired.skippedAt(OVERDUE)).toEqual({
+      expect(expired.skippedAt(WAIT_EXPIRED)).toEqual({
         code: 'nobody-checked',
         detail: null,
       });
@@ -1029,21 +1034,21 @@ describe('StackCheck', () => {
       ]);
     });
 
-    it('lets go of no runner where none was reserved for it', () => {
-      expect(kinds(waiting().expireOverdue(OVERDUE))).toEqual([
+    it('releases no runner where none was reserved for it', () => {
+      expect(kinds(waiting().expireWait(WAIT_EXPIRED))).toEqual([
         'change-stack.checked',
       ]);
     });
 
-    it('does not expire a check that is not overdue', () => {
-      expect(() => waiting().expireOverdue(LATER)).toThrow(
+    it('does not expire a check whose wait has not expired', () => {
+      expect(() => waiting().expireWait(LATER)).toThrow(
         InvalidChangeStackError,
       );
     });
   });
 
   describe('forgetting it with its task', () => {
-    it('lets go of the runner reserved for it', () => {
+    it('releases the runner reserved for it', () => {
       const forgotten = waiting()
         .reservedFor(RUNNER, PoolId.of('pool_burst'), LATER)
         .forgotten(LATER);
@@ -1054,7 +1059,7 @@ describe('StackCheck', () => {
       ]);
     });
 
-    it('lets go of nobody where no runner was reserved for it', () => {
+    it('releases nobody where no runner was reserved for it', () => {
       expect(kinds(waiting().forgotten(LATER))).toEqual([]);
     });
 
@@ -1069,11 +1074,11 @@ describe('StackCheck', () => {
 
     it('releases nobody once the checking runner’s lease ran out', () => {
       const check = checking();
-      const lapsed = new Date(
+      const expired = new Date(
         (check.claim.leaseExpiresAt?.getTime() ?? 0) + 1000,
       );
 
-      expect(kinds(check.forgotten(lapsed))).toEqual([]);
+      expect(kinds(check.forgotten(expired))).toEqual([]);
     });
   });
 });
@@ -1110,16 +1115,16 @@ describe('StackCheck, rechecked', () => {
 
   it('checks a replay’s change again, from scratch, under the same request and layers, and leaves the first check as it was', () => {
     const first = passedOnce();
-    const again = first.rechecking(OVERDUE);
+    const again = first.rechecking(WAIT_EXPIRED);
 
     expect(again.recheck).toBe(true);
     expect(again.stackId.equals(first.stackId)).toBe(true);
     expect(again.phase).toBe('waiting');
     expect(again.outcome).toBeNull();
-    expect(again.waitingSince).toEqual(OVERDUE);
+    expect(again.waitingSince).toEqual(WAIT_EXPIRED);
     expect(again.request.command).toBe(first.request.command);
     expect(again.entries).toEqual(first.entries);
-    expect(again.claimableAt(OVERDUE)).toBe(true);
+    expect(again.claimableAt(WAIT_EXPIRED)).toBe(true);
     expect(first.phase).toBe('checked');
   });
 

@@ -91,7 +91,7 @@ const aChatRun = async (): Promise<{
 
 const claimed = async (): Promise<LeasedRun> => {
   const queued = await aChatRun();
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -99,9 +99,9 @@ const claimed = async (): Promise<LeasedRun> => {
       .expect(200)
   ).body as { token: string; work: { run: { id: string } } };
 
-  expect(handed.work.run.id).toBe(queued.runId);
+  expect(assignment.work.run.id).toBe(queued.runId);
 
-  return { ...queued, token: handed.token };
+  return { ...queued, token: assignment.token };
 };
 
 const read = (token: string, runId: string, attachmentId: string) =>
@@ -130,16 +130,16 @@ beforeAll(async () => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'chat-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],

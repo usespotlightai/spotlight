@@ -200,7 +200,7 @@ describe('keeping workspace archives', () => {
     await expect(archives.find(granted.id)).resolves.toBeNull();
   });
 
-  it('lets go of archives no later run will restore, and keeps the rest', async () => {
+  it('releases archives no later run will restore, and keeps the rest', async () => {
     const carryingOn = await aTask();
     const finishedLongAgo = await aTask({
       finishedAt: ago(9 * DAY),
@@ -223,11 +223,11 @@ describe('keeping workspace archives', () => {
       grantedAt: ago(30 * DAY),
       sealedAt: ago(30 * DAY),
     });
-    const letGoLongAgo = await kept(forTask(finishedLongAgo), {
+    const releasedLongAgo = await kept(forTask(finishedLongAgo), {
       grantedAt: ago(10 * DAY),
       sealedAt: ago(10 * DAY),
     });
-    const letGoLately = await kept(forTask(finishedLately), {
+    const releasedLately = await kept(forTask(finishedLately), {
       grantedAt: ago(10 * DAY),
       sealedAt: ago(10 * DAY),
     });
@@ -235,7 +235,7 @@ describe('keeping workspace archives', () => {
       grantedAt: ago(10 * DAY),
       sealedAt: ago(10 * DAY),
     });
-    const ofAChatLetGo = await kept(
+    const releasedOfAChat = await kept(
       { kind: 'chat', chatId: ChatId.of(leftItsConversation) },
       { grantedAt: ago(10 * DAY), sealedAt: ago(10 * DAY) },
     );
@@ -260,12 +260,12 @@ describe('keeping workspace archives', () => {
 
     const due = await dueNow();
 
-    expect(due.get(letGoLongAgo.id.value)?.holder).toEqual({
+    expect(due.get(releasedLongAgo.id.value)?.holder).toEqual({
       kind: 'task',
       finished: true,
       changedAt: ago(9 * DAY),
     });
-    expect(due.get(ofAChatLetGo.id.value)?.holder).toEqual({
+    expect(due.get(releasedOfAChat.id.value)?.holder).toEqual({
       kind: 'chat',
       conversing: false,
       changedAt: ago(8 * DAY),
@@ -276,13 +276,13 @@ describe('keeping workspace archives', () => {
 
     expect(due.has(stillKept.id.value)).toBe(false);
     expect(due.has(keptAtAnotherStation.id.value)).toBe(false);
-    expect(due.has(letGoLately.id.value)).toBe(false);
+    expect(due.has(releasedLately.id.value)).toBe(false);
     expect(due.has(ofAChat.id.value)).toBe(false);
     expect(due.has(stillUploading.id.value)).toBe(false);
 
     for (const id of [
-      letGoLongAgo,
-      ofAChatLetGo,
+      releasedLongAgo,
+      releasedOfAChat,
       ofADeletedTask,
       ofADeletedChat,
       neverSealed,
@@ -362,7 +362,7 @@ describe('keeping workspace archives', () => {
     }
   });
 
-  it('lets go of an archive an hour after a newer one of the same work is sealed', async () => {
+  it('releases an archive an hour after a newer one of the same work is sealed', async () => {
     const taskId = await aTask();
     const superseded = await kept(forTask(taskId), {
       grantedAt: ago(3 * HOUR),

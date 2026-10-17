@@ -13,7 +13,7 @@ interface HostHarnessDto {
 interface HostImageDto {
   readonly image: string;
   readonly digest: string | null;
-  readonly usual: boolean;
+  readonly isDefault: boolean;
   readonly release: string | null;
   readonly harnesses: readonly HostHarnessDto[];
   readonly unavailableReason: string | null;
@@ -24,14 +24,14 @@ export interface HostDto {
   readonly name: string;
   readonly through: AdmittedThroughDto;
   readonly release: string;
-  readonly executor: string;
+  readonly containerRuntime: string;
   readonly capacity: number;
   readonly running: readonly string[];
   readonly images: readonly HostImageDto[];
-  readonly firstSeenAt: string;
-  readonly upSince: string;
-  readonly lastSeenAt: string;
-  readonly answering: boolean;
+  readonly firstHeartbeatAt: string;
+  readonly onlineSince: string;
+  readonly lastHeartbeatAt: string;
+  readonly online: boolean;
 }
 
 export interface LiveRunnerDto {
@@ -41,7 +41,7 @@ export interface LiveRunnerDto {
   readonly image: string | null;
   readonly harnesses: readonly string[];
   readonly startedAt: string;
-  readonly lastSeenAt: string | null;
+  readonly lastHeartbeatAt: string | null;
 }
 
 export interface RunnerFleetDto {

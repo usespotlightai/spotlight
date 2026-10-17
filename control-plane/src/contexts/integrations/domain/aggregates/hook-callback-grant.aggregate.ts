@@ -39,7 +39,7 @@ export class HookCallbackGrant {
     return new HookCallbackGrant(granted);
   }
 
-  static lapsedBefore(now: Date): Date {
+  static expiredBefore(now: Date): Date {
     return now;
   }
 

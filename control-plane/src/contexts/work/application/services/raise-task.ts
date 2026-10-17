@@ -19,7 +19,7 @@ export class RaiseTask {
         ? await this.dispatch.runIdFor(input)
         : null;
       const handed = runId
-        ? input.task.handedTo(runId, input.line)
+        ? input.task.assignRun(runId, input.line)
         : input.task;
 
       await this.tasks.add(handed);

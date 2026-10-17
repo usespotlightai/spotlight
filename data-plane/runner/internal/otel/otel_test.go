@@ -64,7 +64,7 @@ func TestKeepsEachSpanAsItArrived(t *testing.T) {
 
 	spans := seen.all()
 	if len(spans) != 2 {
-		t.Fatalf("took %d spans, wanted 2", len(spans))
+		t.Fatalf("got %d spans, wanted 2", len(spans))
 	}
 
 	var first struct {
@@ -94,7 +94,7 @@ func TestWalksEveryResourceAndScope(t *testing.T) {
 	]}`)
 
 	if got := len(seen.all()); got != 3 {
-		t.Errorf("took %d spans, wanted 3", got)
+		t.Errorf("got %d spans, wanted 3", got)
 	}
 }
 
@@ -108,7 +108,7 @@ func TestAcceptsWhatItCannotRead(t *testing.T) {
 		t.Errorf("answered %d, wanted 200", response.StatusCode)
 	}
 	if got := len(seen.all()); got != 0 {
-		t.Errorf("took %d spans from something unreadable", got)
+		t.Errorf("got %d spans from something unreadable", got)
 	}
 }
 
@@ -133,6 +133,6 @@ func TestServesNobodyOnceTheRunIsOver(t *testing.T) {
 	}
 
 	if _, err := http.Post(url+"/v1/traces", "application/json", strings.NewReader("{}")); err == nil {
-		t.Error("still answering after the run ended")
+		t.Error("still serving after the run ended")
 	}
 }

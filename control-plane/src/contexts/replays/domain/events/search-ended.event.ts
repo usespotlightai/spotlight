@@ -14,7 +14,7 @@ export class SearchEnded implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly state: SearchState,
     readonly ending: SearchEnding,
-    readonly withdrawing: RunId | null,
+    readonly runToCancel: RunId | null,
     readonly stopping: readonly ReplayId[],
   ) {}
 }

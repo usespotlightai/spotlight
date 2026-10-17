@@ -238,7 +238,7 @@ export class RunCompletionResponseDto {
   @ApiProperty({
     example: false,
     description:
-      'Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then parks the run.',
+      'Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then suspends the run.',
   })
   readonly waiting: boolean;
 
@@ -260,16 +260,16 @@ export class TurnAsksAPersonResponseDto {
   }
 }
 
-export class RunParkingResponseDto {
+export class RunSuspensionResponseDto {
   @ApiProperty({
     example: true,
     description:
-      'Whether the run is parked (or, if a stop was asked for, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
+      'Whether the run is suspended (or, if a stop was asked for, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
   })
-  readonly parked: boolean;
+  readonly suspended: boolean;
 
-  constructor(parked: boolean) {
-    this.parked = parked;
+  constructor(suspended: boolean) {
+    this.suspended = suspended;
   }
 }
 
@@ -292,7 +292,7 @@ export class PermissionAnswerResponseDto {
     enum: PERMISSION_ANSWERS,
     example: 'asked',
     description:
-      'allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and let the task go',
+      'allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and release the task',
   })
   readonly decision: PermissionAnswer;
 

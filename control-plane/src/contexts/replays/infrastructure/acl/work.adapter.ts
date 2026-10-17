@@ -1,5 +1,6 @@
 import type {
   AgentProblem,
+  CancelledRun,
   ExaminedCandidate,
   LeasedSearchRun,
   LiveConfig,
@@ -7,14 +8,13 @@ import type {
   PickableRun,
   ReplayRunOrder,
   ReplayRunQueued,
-  RunForgone,
   RunReplayability,
   RunSummary,
   SearchRunOrder,
   SearchRunQueued,
   SearchRunStatus,
   StationView,
-  UnclaimedWithdrawal,
+  UnclaimedCancellation,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
@@ -251,18 +251,18 @@ export class Work implements WorkPort {
         };
   }
 
-  withdraw(runs: readonly RunId[]): Promise<void> {
-    return this.dispatching.withdraw(runs.map((each) => each.value));
+  cancelQueued(runs: readonly RunId[]): Promise<void> {
+    return this.dispatching.cancelQueued(runs.map((each) => each.value));
   }
 
-  async forgo(run: RunId, keep: boolean): Promise<RunForgone> {
-    const forgone = await this.dispatching.forgo(run.value, keep);
+  async cancel(run: RunId, keep: boolean): Promise<CancelledRun> {
+    const cancelled = await this.dispatching.cancel(run.value, keep);
 
-    return forgone.outcome === 'queued'
+    return cancelled.outcome === 'queued'
       ? {
           queued: true,
-          fingerprint: forgone.fingerprint
-            ? StationFingerprint.of(forgone.fingerprint)
+          fingerprint: cancelled.fingerprint
+            ? StationFingerprint.of(cancelled.fingerprint)
             : null,
         }
       : { queued: false };
@@ -300,12 +300,12 @@ export class Work implements WorkPort {
       : { queued: false, reason: dispatched.reason };
   }
 
-  withdrawSearch(run: RunId): Promise<void> {
-    return this.searching.withdraw(run.value);
+  cancelSearchRun(run: RunId): Promise<void> {
+    return this.searching.cancel(run.value);
   }
 
-  withdrawUnclaimedSearch(run: RunId): Promise<UnclaimedWithdrawal> {
-    return this.searching.withdrawUnclaimed(run.value);
+  cancelUnclaimedSearchRun(run: RunId): Promise<UnclaimedCancellation> {
+    return this.searching.cancelUnclaimed(run.value);
   }
 
   async leasedSearchRun(

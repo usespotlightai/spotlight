@@ -87,7 +87,7 @@ const task = () => {
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RUN, delivery());
+  }).assignRun(RUN, delivery());
   added.pullEvents();
 
   return added;
@@ -281,7 +281,7 @@ describe('OpenPullRequest', () => {
       now: NOW,
       newId: () => 'task_0',
     })
-      .handedTo(RunId.of('run_0'), delivery())
+      .assignRun(RunId.of('run_0'), delivery())
       .recordPullRequest(
         RunId.of('run_0'),
         PullRequestUrl.of('https://github.com/acme/widgets/pull/7'),
@@ -352,7 +352,7 @@ describe('OpenPullRequest', () => {
     expect(saved).toEqual([]);
   });
 
-  it('records nothing for a run the task has let go of', async () => {
+  it('records nothing for a run the task detached', async () => {
     const { open, saved } = opening();
 
     await expect(open(task(), asking(), RunId.of('run_2'))).rejects.toThrow(

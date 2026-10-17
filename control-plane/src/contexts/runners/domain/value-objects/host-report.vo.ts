@@ -23,7 +23,7 @@ export class HostReport {
   private constructor(
     readonly name: string,
     readonly release: string,
-    readonly executor: string,
+    readonly containerRuntime: string,
     readonly capacity: number,
     readonly running: readonly RunnerId[],
     readonly images: readonly HostImage[],
@@ -32,7 +32,7 @@ export class HostReport {
   static of(input: {
     name: string;
     release: string;
-    executor: string;
+    containerRuntime: string;
     capacity: number;
     running: readonly string[];
     images: readonly ReportedImage[];
@@ -64,7 +64,7 @@ export class HostReport {
 
     const images = input.images.map((each) => HostImage.reported(each));
 
-    if (images.filter((each) => each.usual).length > 1) {
+    if (images.filter((each) => each.isDefault).length > 1) {
       throw new InvalidHostReportError(
         'images',
         'names more than one default image',
@@ -82,7 +82,7 @@ export class HostReport {
     return new HostReport(
       bounded('name', input.name, 120),
       bounded('release', input.release, 64),
-      bounded('executor', input.executor, 200),
+      bounded('containerRuntime', input.containerRuntime, 200),
       input.capacity,
       [...new Set(input.running)].map((id) => RunnerId.of(id)),
       images,

@@ -204,12 +204,12 @@ export class StartReplayHandler
     try {
       started = await start();
     } catch (error) {
-      await this.snapshots.letGo(live);
+      await this.snapshots.release(live);
       throw error;
     }
 
     if (!replaysLive && !started.wanted) {
-      await this.snapshots.letGo(live);
+      await this.snapshots.release(live);
     }
 
     return started;

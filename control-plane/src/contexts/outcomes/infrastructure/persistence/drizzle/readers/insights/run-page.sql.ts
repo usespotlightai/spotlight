@@ -198,13 +198,16 @@ const listedOf = (row: FactRow): ListedRun => ({
         cacheWrite: row.cacheWriteTokens,
       }
     : null,
-  ending: row.supersededAt === null ? row.ending : 'superseded',
+  ending:
+    row.supersededAt === null || row.ending === 'cancelled'
+      ? row.ending
+      : 'superseded',
   failure: row.failure,
   checks: row.checks,
   next: row.nextAct && row.nextAt ? { act: row.nextAct, at: row.nextAt } : null,
-  handedOn:
-    row.handedOnTo && row.handedOnAt
-      ? { to: row.handedOnTo, at: row.handedOnAt }
+  passed:
+    row.passedTo && row.passedAt
+      ? { to: row.passedTo, at: row.passedAt }
       : null,
   delivery: row.deliveryState,
 });

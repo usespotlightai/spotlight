@@ -83,7 +83,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       .select({
         name: runnerHost.name,
         release: runnerHost.release,
-        executor: runnerHost.executor,
+        containerRuntime: runnerHost.containerRuntime,
         capacity: runnerHost.capacity,
         running: runnerHost.running,
         images: runnerHost.images,
@@ -93,8 +93,8 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         and(
           eq(runnerHost.workspaceId, workspaceId.value),
           gt(
-            runnerHost.lastSeenAt,
-            RunnerHost.rememberedSince(this.clock.now()),
+            runnerHost.lastHeartbeatAt,
+            RunnerHost.staleBefore(this.clock.now()),
           ),
         ),
       );
@@ -106,8 +106,8 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     workspaceId: WorkspaceId,
   ): Promise<ReadonlyMap<string, readonly string[]>> {
     const now = this.clock.now();
-    const hostsSeenSince = RunnerHost.rememberedSince(now);
-    const runnersEndedSince = Runner.rememberedEndingSince(now);
+    const hostsWithHeartbeatSince = RunnerHost.staleBefore(now);
+    const runnersEndedSince = Runner.endedRetentionSince(now);
     const [hosts, runners] = await Promise.all([
       this.db
         .select({ images: runnerHost.images })
@@ -115,7 +115,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         .where(
           and(
             eq(runnerHost.workspaceId, workspaceId.value),
-            gt(runnerHost.lastSeenAt, hostsSeenSince),
+            gt(runnerHost.lastHeartbeatAt, hostsWithHeartbeatSince),
           ),
         ),
       this.db
@@ -170,7 +170,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         image: runner.image,
         harnesses: runner.harnesses,
         startedAt: runner.startedAt,
-        lastSeenAt: runner.lastSeenAt,
+        lastHeartbeatAt: runner.lastHeartbeatAt,
       })
       .from(runner)
       .leftJoin(runnerPool, eq(runnerPool.id, runner.poolId))
@@ -191,7 +191,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       image: row.image,
       harnesses: row.harnesses,
       startedAt: row.startedAt,
-      lastSeenAt: row.lastSeenAt,
+      lastHeartbeatAt: row.lastHeartbeatAt,
     }));
   }
 
@@ -209,7 +209,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       .where(
         and(
           eq(runnerHost.workspaceId, workspaceId.value),
-          gt(runnerHost.lastSeenAt, since),
+          gt(runnerHost.lastHeartbeatAt, since),
         ),
       )
       .orderBy(runnerHost.name);
@@ -219,13 +219,13 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       name: host.name,
       through: through(keys),
       release: host.release,
-      executor: host.executor,
+      containerRuntime: host.containerRuntime,
       capacity: host.capacity,
       running: host.running,
       images: host.images.map((each) => ({
         image: each.image,
         digest: each.digest ?? null,
-        usual: each.usual,
+        isDefault: each.isDefault,
         release: each.release ?? null,
         harnesses: each.harnesses.map((harness) => ({
           id: harness.id,
@@ -233,9 +233,9 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         })),
         unavailableReason: each.unavailableReason ?? null,
       })),
-      firstSeenAt: host.firstSeenAt,
-      upSince: host.upSince,
-      lastSeenAt: host.lastSeenAt,
+      firstHeartbeatAt: host.firstHeartbeatAt,
+      onlineSince: host.onlineSince,
+      lastHeartbeatAt: host.lastHeartbeatAt,
     }));
   }
 }

@@ -1,28 +1,28 @@
 import { RunnerHostStartedServing } from '@runners/domain/events/runner-host-started-serving.event';
-import { HostTakenError } from '@runners/domain/exceptions/host-taken.error';
+import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
 import type { Admission } from '@runners/domain/value-objects/admission.vo';
+import type { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import type { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import type { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const ANSWERS_WITHIN_MS = 90_000;
+const ONLINE_WITHIN_MS = 90_000;
 
-const REMEMBERED_FOR_MS = 24 * 60 * 60_000;
+const STALE_AFTER_MS = 24 * 60 * 60_000;
 
 interface State {
   readonly id: HostId;
   readonly workspaceId: WorkspaceId;
   readonly admission: Admission;
-  readonly session: HostSession;
+  readonly bootId: BootId;
   readonly report: HostReport;
-  readonly firstSeenAt: Date;
-  readonly upSince: Date;
-  readonly lastSeenAt: Date;
+  readonly firstHeartbeatAt: Date;
+  readonly onlineSince: Date;
+  readonly lastHeartbeatAt: Date;
   readonly version: number;
 }
 
@@ -31,11 +31,11 @@ export class RunnerHost extends EventRecorder {
     super();
   }
 
-  static present(input: {
+  static fromHeartbeat(input: {
     id: HostId;
     workspaceId: WorkspaceId;
     admission: Admission;
-    session: HostSession;
+    bootId: BootId;
     report: HostReport;
     at: Date;
   }): RunnerHost {
@@ -43,11 +43,11 @@ export class RunnerHost extends EventRecorder {
       id: input.id,
       workspaceId: input.workspaceId,
       admission: input.admission,
-      session: input.session,
+      bootId: input.bootId,
       report: input.report,
-      firstSeenAt: input.at,
-      upSince: input.at,
-      lastSeenAt: input.at,
+      firstHeartbeatAt: input.at,
+      onlineSince: input.at,
+      lastHeartbeatAt: input.at,
       version: 0,
     }).noticingItStartedServing(null);
   }
@@ -59,16 +59,19 @@ export class RunnerHost extends EventRecorder {
         `has an impossible version (${state.version})`,
       );
     }
-    if (state.lastSeenAt < state.firstSeenAt) {
+    if (state.lastHeartbeatAt < state.firstHeartbeatAt) {
       throw new InconsistentStateError(
         'runner host',
-        'was last seen before it was first seen',
+        'has its last heartbeat before its first heartbeat',
       );
     }
-    if (state.upSince < state.firstSeenAt || state.upSince > state.lastSeenAt) {
+    if (
+      state.onlineSince < state.firstHeartbeatAt ||
+      state.onlineSince > state.lastHeartbeatAt
+    ) {
       throw new InconsistentStateError(
         'runner host',
-        'came up outside the time it was seen',
+        'came online outside the time of its heartbeats',
       );
     }
 
@@ -87,24 +90,24 @@ export class RunnerHost extends EventRecorder {
     return this.state.admission;
   }
 
-  get session(): HostSession {
-    return this.state.session;
+  get bootId(): BootId {
+    return this.state.bootId;
   }
 
   get report(): HostReport {
     return this.state.report;
   }
 
-  get firstSeenAt(): Date {
-    return this.state.firstSeenAt;
+  get firstHeartbeatAt(): Date {
+    return this.state.firstHeartbeatAt;
   }
 
-  get upSince(): Date {
-    return this.state.upSince;
+  get onlineSince(): Date {
+    return this.state.onlineSince;
   }
 
-  get lastSeenAt(): Date {
-    return this.state.lastSeenAt;
+  get lastHeartbeatAt(): Date {
+    return this.state.lastHeartbeatAt;
   }
 
   offering(image: RunnerImage): HostImage | null {
@@ -115,20 +118,20 @@ export class RunnerHost extends EventRecorder {
     return this.state.admission.equals(admission);
   }
 
-  answersAt(now: Date): boolean {
-    return RunnerHost.answering(this.state.lastSeenAt, now);
+  isOnlineAt(now: Date): boolean {
+    return RunnerHost.isOnline(this.state.lastHeartbeatAt, now);
   }
 
-  static answering(lastSeenAt: Date, now: Date): boolean {
-    return lastSeenAt > RunnerHost.answeringSince(now);
+  static isOnline(lastHeartbeatAt: Date, now: Date): boolean {
+    return lastHeartbeatAt > RunnerHost.onlineCutoff(now);
   }
 
-  static answeringSince(now: Date): Date {
-    return new Date(now.getTime() - ANSWERS_WITHIN_MS);
+  static onlineCutoff(now: Date): Date {
+    return new Date(now.getTime() - ONLINE_WITHIN_MS);
   }
 
-  static rememberedSince(now: Date): Date {
-    return new Date(now.getTime() - REMEMBERED_FOR_MS);
+  static staleBefore(now: Date): Date {
+    return new Date(now.getTime() - STALE_AFTER_MS);
   }
 
   get version(): number {
@@ -138,47 +141,47 @@ export class RunnerHost extends EventRecorder {
   reportThrough(input: {
     admission: Admission;
     workspaceId: WorkspaceId;
-    session: HostSession;
+    bootId: BootId;
     report: HostReport;
     at: Date;
   }): RunnerHost {
     if (this.servesThrough(input.admission)) {
-      if (input.at <= this.state.lastSeenAt) {
+      if (input.at <= this.state.lastHeartbeatAt) {
         return this;
       }
 
       return new RunnerHost({
         ...this.state,
-        session: input.session,
+        bootId: input.bootId,
         report: input.report,
-        upSince: this.cameUpAgain(input.session, input.at)
+        onlineSince: this.cameOnlineAgain(input.bootId, input.at)
           ? input.at
-          : this.state.upSince,
-        lastSeenAt: input.at,
+          : this.state.onlineSince,
+        lastHeartbeatAt: input.at,
       }).noticingItStartedServing(this);
     }
 
     if (
-      this.answersAt(input.at) ||
+      this.isOnlineAt(input.at) ||
       !this.state.workspaceId.equals(input.workspaceId)
     ) {
-      throw new HostTakenError(this.state.id.value);
+      throw new HostInUseError(this.state.id.value);
     }
 
     return new RunnerHost({
       ...this.state,
       workspaceId: input.workspaceId,
       admission: input.admission,
-      session: input.session,
+      bootId: input.bootId,
       report: input.report,
-      firstSeenAt: input.at,
-      upSince: input.at,
-      lastSeenAt: input.at,
+      firstHeartbeatAt: input.at,
+      onlineSince: input.at,
+      lastHeartbeatAt: input.at,
     }).noticingItStartedServing(null);
   }
 
-  private cameUpAgain(session: HostSession, at: Date): boolean {
-    return !session.equals(this.state.session) || !this.answersAt(at);
+  private cameOnlineAgain(bootId: BootId, at: Date): boolean {
+    return !bootId.equals(this.state.bootId) || !this.isOnlineAt(at);
   }
 
   get servesAHarness(): boolean {

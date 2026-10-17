@@ -141,9 +141,9 @@ describe('changeSplitsOf', () => {
   it('splits at the first config run when the last config run before the records ran another config, with no runs before it to set against', () => {
     const splits = changeSplitsOf(
       [
-        endedRecord('run_withdrawn', {
+        endedRecord('run_cancelled', {
           fingerprint: FIRST_CONFIG,
-          ending: 'withdrawn',
+          ending: 'cancelled',
           endedAt: day('2026-09-30', 1),
         }),
         ran('run_3', 3, SECOND_CONFIG),
@@ -160,7 +160,7 @@ describe('changeSplitsOf', () => {
         ids(each.before),
         ids(each.after),
       ]),
-    ).toEqual([['run_3', FIRST_CONFIG, ['run_withdrawn'], ['run_3', 'run_4']]]);
+    ).toEqual([['run_3', FIRST_CONFIG, ['run_cancelled'], ['run_3', 'run_4']]]);
   });
 
   describe('runs that failed provisioning', () => {

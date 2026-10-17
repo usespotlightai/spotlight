@@ -81,7 +81,7 @@ const proxied = (pool: RunnerPool) =>
 
 describe('RunnerEgress', () => {
   it('admits the egress of a runner with a lease on its work, for that work', async () => {
-    const runner = aRunner().took(RunnerWork.run('run_1'), later(1));
+    const runner = aRunner().claim(RunnerWork.run('run_1'), later(1));
 
     await expect(
       egressOf(runner).admit('egress-token', later(2)),
@@ -95,7 +95,7 @@ describe('RunnerEgress', () => {
   it('does not accept a missing or unknown token, or a runner that leases nothing or has ended', async () => {
     const waiting = aRunner();
     const ended = waiting
-      .took(RunnerWork.check('stack_1'), later(1))
+      .claim(RunnerWork.check('stack_1'), later(1))
       .ended(later(2));
 
     await expect(
@@ -170,7 +170,7 @@ describe('RunnerEgress', () => {
         work: null,
       });
 
-      const working = waiting.took(RunnerWork.run('run_1'), later(1));
+      const working = waiting.claim(RunnerWork.run('run_1'), later(1));
 
       await expect(
         egressOf(working, { pool, egress: anEgress() }).admitThrough(
@@ -231,7 +231,7 @@ describe('RunnerEgress', () => {
     it('lets the egress record for a runner’s work for two minutes after the runner ended, but admits it no more', async () => {
       const pool = throughShared();
       const ended = proxied(pool)
-        .took(RunnerWork.run('run_1'), later(1))
+        .claim(RunnerWork.run('run_1'), later(1))
         .ended(later(2));
       const egress = { egressId: EGRESS_ID.value };
       const setting = { pool, egress: anEgress() };

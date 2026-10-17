@@ -360,7 +360,7 @@ func (c *Client) ClaimCall(ctx context.Context, host string) (*protocol.HostCall
 		return nil, nil
 	}
 	if call.ID == "" || call.URL == "" {
-		return nil, fmt.Errorf("claim a call: the control plane handed a call with no id or url")
+		return nil, fmt.Errorf("claim a call: the control plane sent a call with no id or url")
 	}
 
 	return &call, nil
@@ -458,15 +458,15 @@ func (c *Client) Asks(ctx context.Context, runID string, turn protocol.Completio
 	return asks.Asks, nil
 }
 
-func (c *Client) Park(ctx context.Context, runID string, cold bool) (protocol.Parking, error) {
-	path := fmt.Sprintf("/api/runs/%s/parked", url.PathEscape(runID))
+func (c *Client) Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error) {
+	path := fmt.Sprintf("/api/runs/%s/suspended", url.PathEscape(runID))
 
-	var parking protocol.Parking
-	if err := c.do(ctx, http.MethodPost, path, protocol.ParkRequest{Cold: cold}, &parking); err != nil {
-		return protocol.Parking{}, fmt.Errorf("park: %w", err)
+	var suspension protocol.Suspension
+	if err := c.do(ctx, http.MethodPost, path, protocol.SuspendRequest{Requeue: requeue}, &suspension); err != nil {
+		return protocol.Suspension{}, fmt.Errorf("suspend: %w", err)
 	}
 
-	return parking, nil
+	return suspension, nil
 }
 
 func (c *Client) Attachment(
@@ -548,9 +548,9 @@ func (c *Client) RecordStartingPoint(ctx context.Context, runID string, point pr
 
 func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error {
 	path := fmt.Sprintf("/api/runs/%s/change-stacks", url.PathEscape(runID))
-	handed := protocol.ChangeStackDraft{Diff: diff, Repository: repository, Base: base}
+	draft := protocol.ChangeStackDraft{Diff: diff, Repository: repository, Base: base}
 
-	if err := c.do(ctx, http.MethodPost, path, handed, nil); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, draft, nil); err != nil {
 		return fmt.Errorf("hand over what a run changed: %w", err)
 	}
 
@@ -764,12 +764,12 @@ func statusError(method, path string, response *http.Response) error {
 	)
 }
 
-func Seated(baseURL string, handed protocol.Handed) (*Client, error) {
-	client, err := New(baseURL, handed.Token)
+func ForRun(baseURL string, assignment protocol.Assignment) (*Client, error) {
+	client, err := New(baseURL, assignment.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	client.runnerID = handed.RunnerID
+	client.runnerID = assignment.RunnerID
 	return client, nil
 }

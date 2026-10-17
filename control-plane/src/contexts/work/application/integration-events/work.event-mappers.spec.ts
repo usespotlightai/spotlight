@@ -15,19 +15,19 @@ import { LineRetired } from '@work/domain/events/line-retired.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { ReplayDigested } from '@work/domain/events/replay-digested.event';
-import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
+import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunDigested } from '@work/domain/events/run-digested.event';
+import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
-import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { SearchDigested } from '@work/domain/events/search-digested.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
-import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -300,10 +300,10 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a run handing its task on to another station', () => {
+  it('publishes a run passing its task on to another station', () => {
     expect(
       published(
-        new TaskHandedOn(
+        new TaskPassed(
           TASK,
           WORKSPACE,
           RUN,
@@ -314,7 +314,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'work.task-handed-on.v1',
+        kind: 'work.task-passed.v1',
         taskId: 'task_1',
         workspaceId: 'ws_1',
         runId: 'run_1',
@@ -483,11 +483,11 @@ describe('WORK_EVENT_MAPPERS', () => {
         ),
       ),
     ).toBe('completed');
-    expect(ended(new RunAbandoned(RUN, WORKSPACE, SUBJECT, 3, 3))).toBe(
-      'abandoned',
+    expect(ended(new RunExhausted(RUN, WORKSPACE, SUBJECT, 3, 3))).toBe(
+      'exhausted',
     );
-    expect(ended(new RunWithdrawn(RUN, WORKSPACE, SUBJECT, 1))).toBe(
-      'withdrawn',
+    expect(ended(new RunCancelled(RUN, WORKSPACE, SUBJECT, 1))).toBe(
+      'cancelled',
     );
   });
 
@@ -529,7 +529,7 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
     expect(
       published(
-        new RunAbandoned(RUN, WORKSPACE, replay, 3, 3, false, 'runner-lost'),
+        new RunExhausted(RUN, WORKSPACE, replay, 3, 3, false, 'runner-lost'),
       ),
     ).toEqual([
       {
@@ -537,7 +537,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         runId: 'run_1',
         replayOf: 'run_0',
         workspaceId: 'ws_1',
-        outcome: 'abandoned',
+        outcome: 'exhausted',
         failure: 'runner-lost',
         stopped: false,
         asked: false,
@@ -546,7 +546,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       },
     ]);
     expect(
-      published(new RunWithdrawn(RUN, WORKSPACE, replay, 1)).map(
+      published(new RunCancelled(RUN, WORKSPACE, replay, 1)).map(
         (each) => each.kind,
       ),
     ).toEqual(['work.replay-ended.v1']);
@@ -593,37 +593,37 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
     expect(
       published(
-        new RunAbandoned(RUN, WORKSPACE, search, 3, 3, false, 'runner-lost'),
+        new RunExhausted(RUN, WORKSPACE, search, 3, 3, false, 'runner-lost'),
       ),
     ).toEqual([
       expect.objectContaining({
         kind: 'work.search-run-ended.v1',
-        outcome: 'abandoned',
+        outcome: 'exhausted',
         failure: 'runner-lost',
         asked: false,
       }),
     ]);
-    expect(published(new RunWithdrawn(RUN, WORKSPACE, search, 1))).toEqual([
+    expect(published(new RunCancelled(RUN, WORKSPACE, search, 1))).toEqual([
       expect.objectContaining({
         kind: 'work.search-run-ended.v1',
-        outcome: 'withdrawn',
+        outcome: 'cancelled',
         started: false,
       }),
     ]);
-    expect(published(new RunWithdrawn(RUN, WORKSPACE, search, 2))).toEqual([
-      expect.objectContaining({ outcome: 'withdrawn', started: true }),
+    expect(published(new RunCancelled(RUN, WORKSPACE, search, 2))).toEqual([
+      expect.objectContaining({ outcome: 'cancelled', started: true }),
     ]);
   });
 
   it('publishes a run with no task as ending for no task', () => {
-    expect(published(new RunWithdrawn(RUN, WORKSPACE, null, 1))).toEqual([
+    expect(published(new RunCancelled(RUN, WORKSPACE, null, 1))).toEqual([
       {
         kind: 'work.run-ended.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: null,
         stationId: null,
-        outcome: 'withdrawn',
+        outcome: 'cancelled',
         failure: null,
         stopped: false,
         asked: false,

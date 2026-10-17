@@ -13,8 +13,8 @@ import type { NotePullRequestRecords } from '@outcomes/application/services/note
 import type { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
 import type { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import type { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
-import type { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
 import type { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
+import type { NoteRunPassed } from '@outcomes/application/services/note-run-passed.service';
 import type { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import type { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import type { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
@@ -106,13 +106,13 @@ import {
   type TaskFailedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-failed.integration-event';
 import {
-  TASK_HANDED_ON,
-  type TaskHandedOnIntegrationEvent,
-} from '@shared-kernel/application/integration-events/task-handed-on.integration-event';
-import {
   TASK_OPENED,
   type TaskOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-opened.integration-event';
+import {
+  TASK_PASSED,
+  type TaskPassedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-passed.integration-event';
 import {
   TEAM_DISBANDED,
   type TeamDisbandedIntegrationEvent,
@@ -144,7 +144,7 @@ export interface OutcomesReactions {
   readonly grading: GradeAsides;
   readonly digesting: NoteRunDigested;
   readonly remembering: NoteRunMemories;
-  readonly handingOn: NoteRunHandedOn;
+  readonly passing: NoteRunPassed;
   readonly reviewing: NotePullRequestReviewed;
   readonly failing: NoteTaskFailed;
   readonly touching: NoteTaskTouch;
@@ -321,10 +321,10 @@ export const outcomesSubscribers = (
           })
         : Promise.resolve(),
   ),
-  subscribing<TaskHandedOnIntegrationEvent>(
-    'outcomes.record-handed-on-run',
-    [TASK_HANDED_ON],
-    (event) => reactions.handingOn.handedOn(event),
+  subscribing<TaskPassedIntegrationEvent>(
+    'outcomes.record-passed-run',
+    [TASK_PASSED],
+    (event) => reactions.passing.passed(event),
   ),
   subscribing<TaskFailedIntegrationEvent>(
     'outcomes.record-task-failure',

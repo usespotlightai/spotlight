@@ -60,8 +60,8 @@ export const run = pgTable(
     reservedUntil: timestamp('reserved_until'),
     provisionFailures: integer('provision_failures').notNull().default(0),
     nextProvisionAt: timestamp('next_provision_at'),
-    handBacks: integer('hand_backs').notNull().default(0),
-    parkedAttempts: integer('parked_attempts')
+    requeueCount: integer('requeue_count').notNull().default(0),
+    suspendedAttempts: integer('suspended_attempts')
       .array()
       .notNull()
       .default(sql`'{}'::integer[]`),

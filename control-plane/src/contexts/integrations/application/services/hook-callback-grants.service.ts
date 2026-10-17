@@ -24,7 +24,9 @@ export class HookCallbackGrants {
     const { token, hash } = this.mint.mint();
     const now = this.clock.now();
 
-    await this.grants.forgetExpiringBefore(HookCallbackGrant.lapsedBefore(now));
+    await this.grants.forgetExpiringBefore(
+      HookCallbackGrant.expiredBefore(now),
+    );
     await this.grants.add(
       HookCallbackGrant.issueFor(
         {

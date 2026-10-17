@@ -211,23 +211,23 @@ const claimed = async (
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
     })
     .expect(200);
 
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -235,9 +235,9 @@ const claimed = async (
       .expect(200)
   ).body as { token: string; work: { run: Claimed } };
 
-  expect(handed.work.run.id).toBe(replayId);
+  expect(assignment.work.run.id).toBe(replayId);
 
-  return { token: handed.token, run: handed.work.run };
+  return { token: assignment.token, run: assignment.work.run };
 };
 
 const aClaimedReplay = async () => {
@@ -431,7 +431,7 @@ afterAll(async () => {
 });
 
 describe('a replay claimed by a runner', () => {
-  it('is handed the candidate’s spec, starting at the original’s archive and commits, with no tools, secrets or starting-point report', async () => {
+  it('receives the candidate’s spec, starting at the original’s archive and commits, with no tools, secrets or starting-point report', async () => {
     const { original, replayId, run } = await aClaimedReplay();
     const spec = run.spec as {
       checkouts: unknown;
@@ -637,7 +637,7 @@ describe('a replay ending', () => {
       ).body,
     ).toEqual({ decision: 'asked' });
     await runner(token)
-      .post(`/api/runs/${replayId}/parked`, { cold: true })
+      .post(`/api/runs/${replayId}/suspended`, { requeue: true })
       .expect(409);
     expect(
       (
@@ -670,7 +670,7 @@ describe('a replay ending', () => {
       'work.run-ended.v1',
       'work.run-digested.v1',
       'work.run-briefed.v1',
-      'work.task-handed-to-run.v1',
+      'work.task-dispatched.v1',
     ]) {
       expect(await published(kind, replayId)).toEqual([]);
     }

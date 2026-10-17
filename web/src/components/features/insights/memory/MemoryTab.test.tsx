@@ -35,14 +35,14 @@ vi.mock('@/hooks/api/useInsightsMemory', () => ({
 
 const tally = (over: Record<string, unknown> = {}) => ({
   runs: 10,
-  withdrawn: 0,
+  cancelled: 0,
   failed: 0,
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,
   accepted: 5,
   sentBack: 1,
-  handedOn: 0,
+  passed: 0,
   merged: 0,
   cost: null,
   unpriced: 0,

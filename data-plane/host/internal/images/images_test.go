@@ -65,7 +65,7 @@ func TestWantsTheDefaultThenEachAdmittedImageOnce(t *testing.T) {
 
 	wanted := allowed.Wanted([]string{"ghcr.io/acme/api:main", "runner:1", "ghcr.io/acme/api:main", "evil/runner:1"})
 
-	if len(wanted) != 2 || wanted[0] != (images.Wanted{Image: "runner:1", Usual: true}) ||
+	if len(wanted) != 2 || wanted[0] != (images.Wanted{Image: "runner:1", IsDefault: true}) ||
 		wanted[1] != (images.Wanted{Image: "ghcr.io/acme/api:main"}) {
 		t.Errorf("wanted %+v", wanted)
 	}

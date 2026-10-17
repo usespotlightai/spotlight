@@ -25,7 +25,7 @@ const imageAt = (field: string, raw: string): RunnerImage => {
 export interface ReportedImage {
   readonly image: string;
   readonly digest?: string;
-  readonly usual: boolean;
+  readonly isDefault: boolean;
   readonly release?: string;
   readonly harnesses: readonly {
     readonly id: string;
@@ -39,7 +39,7 @@ export class HostImage {
   private constructor(
     readonly image: RunnerImage,
     readonly digest: RunnerImage | null,
-    readonly usual: boolean,
+    readonly isDefault: boolean,
     readonly release: string | null,
     readonly harnesses: readonly InstalledHarness[],
     readonly unavailableReason: string | null,
@@ -60,7 +60,7 @@ export class HostImage {
     return new HostImage(
       imageAt('images', input.image),
       digest,
-      input.usual,
+      input.isDefault,
       clipped(input.release, 64),
       input.harnesses.map((each) =>
         InstalledHarness.reported(each.id, each.models, each.version),
@@ -78,14 +78,14 @@ export class HostImage {
   }
 
   get running(): RunningImage {
-    return RunningImage.of(this.image, this.usual);
+    return RunningImage.of(this.image, this.isDefault);
   }
 
   equals(other: HostImage): boolean {
     return (
       this.image.equals(other.image) &&
       sameOrBothNone(this.digest, other.digest) &&
-      this.usual === other.usual &&
+      this.isDefault === other.isDefault &&
       this.release === other.release &&
       this.unavailableReason === other.unavailableReason &&
       this.harnesses.length === other.harnesses.length &&

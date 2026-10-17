@@ -12,9 +12,9 @@ import {
   PersonNameResponseDto,
 } from '@outcomes/presentation/http/dto/insights-common.response.dto';
 import {
-  HandedOnResponseDto,
   NextActResponseDto,
   SpendResponseDto,
+  StationPassResponseDto,
 } from '@outcomes/presentation/http/dto/station-outcomes.response.dto';
 
 export class TokenCountsResponseDto {
@@ -89,7 +89,7 @@ export class InsightsRunResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'When a runner first took it; none if none did',
+    description: 'When a runner first claimed it; none if none did',
   })
   readonly startedAt: string | null;
 
@@ -132,8 +132,8 @@ export class InsightsRunResponseDto {
   @ApiProperty({ type: NextActResponseDto, nullable: true })
   readonly next: NextActResponseDto | null;
 
-  @ApiProperty({ type: HandedOnResponseDto, nullable: true })
-  readonly handedOn: HandedOnResponseDto | null;
+  @ApiProperty({ type: StationPassResponseDto, nullable: true })
+  readonly passed: StationPassResponseDto | null;
 
   @ApiProperty({ enum: [...DELIVERY_STATES, null], nullable: true })
   readonly delivery: string | null;
@@ -162,7 +162,7 @@ export class InsightsRunResponseDto {
     this.failure = run.failure;
     this.checks = run.checks;
     this.next = run.next ? new NextActResponseDto(run.next) : null;
-    this.handedOn = run.handedOn ? new HandedOnResponseDto(run.handedOn) : null;
+    this.passed = run.passed ? new StationPassResponseDto(run.passed) : null;
     this.delivery = run.delivery;
   }
 }

@@ -155,7 +155,7 @@ const running = (
 
 describe('Runners', () => {
   describe('starting a runner for a pull pool', () => {
-    it('starts one, answering its one-run token once', async () => {
+    it('starts one, and returns its one-run token once', async () => {
       const { service, added } = running(aPullPool());
 
       await expect(
@@ -168,7 +168,7 @@ describe('Runners', () => {
       });
       expect(added[0]?.terms.values).toEqual(['linux']);
       expect(added[0]?.running?.image.value).toBe(IMAGE);
-      expect(added[0]?.running?.usual).toBe(true);
+      expect(added[0]?.running?.isDefault).toBe(true);
       expect(added[0]?.installed[0]?.version?.value).toBe('2.1.0');
       expect(added[0]?.admission.equals(Admission.through(POOL_ID))).toBe(true);
       expect(added[0]?.hostId?.value).toBe(HOST);
@@ -202,7 +202,7 @@ describe('Runners', () => {
 
         await expect(
           service.start(THROUGH_POOL, HOST, image, STARTED_AT, CLAIM_BY),
-        ).resolves.toEqual({ outcome: 'unoffered' });
+        ).resolves.toEqual({ outcome: 'image-unreported' });
         expect(added).toEqual([]);
       }
     });
@@ -246,7 +246,7 @@ describe('Runners', () => {
 
       await expect(
         service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
-      ).resolves.toEqual({ outcome: 'stranger' });
+      ).resolves.toEqual({ outcome: 'host-unreported' });
       expect(added).toEqual([]);
     });
 
@@ -258,7 +258,7 @@ describe('Runners', () => {
 
       await expect(
         service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
-      ).resolves.toEqual({ outcome: 'stranger' });
+      ).resolves.toEqual({ outcome: 'host-unreported' });
       await expect(
         running(aPullPool()).service.start(
           THROUGH_TRUST,
@@ -267,7 +267,7 @@ describe('Runners', () => {
           STARTED_AT,
           CLAIM_BY,
         ),
-      ).resolves.toEqual({ outcome: 'stranger' });
+      ).resolves.toEqual({ outcome: 'host-unreported' });
       expect(added).toEqual([]);
     });
   });
@@ -299,7 +299,7 @@ describe('Runners', () => {
   });
 
   describe('starting a runner through a trust', () => {
-    it('starts one under the trust’s labels, answering its one-run token once', async () => {
+    it('starts one under the trust’s labels, and returns its one-run token once', async () => {
       const { service, added } = running(null, {
         trust: aTrust(),
         host: aHost({ through: aTrust() }),
@@ -441,7 +441,7 @@ describe('Runners', () => {
       });
     });
 
-    it('fails as unusable, calling nobody and letting the runner go, when the egress the pool names is not there', async () => {
+    it('fails as unusable, calling nobody and releasing the runner, when the egress the pool names is not there', async () => {
       for (const given of [
         { egress: null },
         { egress: anEgress({ workspaceId: WorkspaceId.of('ws_other') }) },
@@ -514,7 +514,7 @@ describe('Runners', () => {
       expect(called[0]).toMatchObject({ kind: 'run', stackId: null });
     });
 
-    it('lets the runner go and says why when provision fails', async () => {
+    it('releases the runner and says why when provision fails', async () => {
       const { service, saved } = running(aPushPool(), {
         answer: {
           outcome: 'http-error',
@@ -530,7 +530,7 @@ describe('Runners', () => {
       expect(saved[0]?.isDiscarded).toBe(true);
     });
 
-    it('still says why provision failed when letting the runner go fails, and logs it', async () => {
+    it('still says why provision failed when releasing the runner fails, and logs it', async () => {
       const lost = new Error('the database is down');
       const { service, logged } = running(aPushPool(), {
         answer: {
@@ -556,7 +556,7 @@ describe('Runners', () => {
       expect(called[0]?.secret.equals(secretOf('s'))).toBe(true);
     });
 
-    it('fails as unusable, calling nobody and letting the runner go, when the keys here cannot decrypt the pool’s secret', async () => {
+    it('fails as unusable, calling nobody and releasing the runner, when the keys here cannot decrypt the pool’s secret', async () => {
       const { service, saved, called } = running(aPushPool(), {
         decryptionFails: true,
       });
@@ -613,7 +613,7 @@ describe('Runners', () => {
   });
 
   it('ends the runner with a lease on work that ended', async () => {
-    const existing = aRunner().took(RunnerWork.run('run_1'), STARTED_AT);
+    const existing = aRunner().claim(RunnerWork.run('run_1'), STARTED_AT);
     const { service, saved } = running(aPullPool(), { existing });
 
     await service.workEnded({ kind: 'run', id: 'run_1' }, STARTED_AT);
@@ -621,10 +621,10 @@ describe('Runners', () => {
     expect(saved[0]?.hasEnded).toBe(true);
   });
 
-  it('records the work a runner took', async () => {
+  it('records the work a runner claimed', async () => {
     const { service, saved } = running(aPullPool(), { existing: aRunner() });
 
-    await service.took(
+    await service.claim(
       RunnerId.of('pooled_1'),
       { kind: 'check', id: 'stack_1' },
       STARTED_AT,

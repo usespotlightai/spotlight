@@ -75,7 +75,7 @@ describe('marksTakenFrom', () => {
     expect(given?.marks).toEqual([ISSUE]);
   });
 
-  it('says who took it', () => {
+  it('says which task now holds the mark', () => {
     const [given] = marksTakenFrom(
       [task('task_0', THREAD)],
       task('task_1', THREAD),

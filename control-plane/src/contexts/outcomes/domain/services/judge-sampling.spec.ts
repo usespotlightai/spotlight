@@ -47,9 +47,9 @@ describe('judge sampling', () => {
     ['completed', true],
     ['stopped', true],
     ['failed', false],
-    ['abandoned', false],
+    ['exhausted', false],
     ['superseded', false],
-    ['withdrawn', false],
+    ['cancelled', false],
   ] as const)('judges a run that ended %s: %s', (ending, judged) => {
     expect(judgesRunThatEnded(ending)).toBe(judged);
   });

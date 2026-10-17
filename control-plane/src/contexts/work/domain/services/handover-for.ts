@@ -127,7 +127,7 @@ export const HandoverFor = {
   exhausted(attempts: number, failure: RunFailureCode): Handover {
     return Handover.failed(
       TaskNoteBody.of(
-        `Spotlight gave up on the run after ${attempts} attempts. The run did not finish.`,
+        `The run did not finish after ${attempts} attempts. Spotlight does not try it again.`,
       ),
       TaskFailure.fromRun(failure),
     );

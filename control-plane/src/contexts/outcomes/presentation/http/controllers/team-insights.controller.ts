@@ -299,7 +299,7 @@ export class TeamInsightsController {
     required: false,
     enum: RUN_SIZES,
     description:
-      'Only runs of this size, told by the lines their changes took out and put in, or by their steps where they changed none',
+      'Only runs of this size, told by the lines their changes removed and added, or by their steps where they changed none',
   })
   @ApiOkResponse({ type: InsightsSetupsResponseDto })
   async setups(
@@ -455,7 +455,7 @@ export class TeamInsightsController {
     name: 'rounds',
     required: false,
     enum: ROUND_BUCKETS,
-    description: 'Only pull requests that took this many review rounds',
+    description: 'Only pull requests that needed this many review rounds',
   })
   @ApiQuery({
     name: 'page',
@@ -519,7 +519,7 @@ export class TeamInsightsController {
   @FilterQuery('harness', 'Only runs on this harness')
   @FilterQuery(
     'model',
-    `Only runs with this model; ${HARNESS_DEFAULT_MODEL} for runs that named none and took the harness’s own`,
+    `Only runs with this model; ${HARNESS_DEFAULT_MODEL} for runs that named none and used the harness’s own`,
   )
   @FilterQuery(
     'repository',

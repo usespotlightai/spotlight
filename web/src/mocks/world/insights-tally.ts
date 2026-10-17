@@ -79,7 +79,7 @@ export const tallyOf = (runs: readonly HistoryRun[]): RunTallyResponseDto => {
 
   return {
     runs: runs.length,
-    withdrawn: 0,
+    cancelled: 0,
     failed,
     failedShare: shareOf(failed, runs.length),
     stopped: count((run) => run.ending === 'stopped'),
@@ -87,7 +87,7 @@ export const tallyOf = (runs: readonly HistoryRun[]): RunTallyResponseDto => {
     checksFailed: count((run) => run.checks === 'failed'),
     accepted: count((run) => run.next?.act === 'closed'),
     sentBack: count((run) => run.next?.act === 'sent-back'),
-    handedOn: count((run) => run.handedOn !== null),
+    passed: count((run) => run.passed !== null),
     merged: mergedTasksOf(runs),
     cost: moneyOf(spendOf(runs)),
     unpriced: count((run) => run.cost === null),

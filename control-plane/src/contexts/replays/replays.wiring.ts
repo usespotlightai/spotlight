@@ -152,14 +152,14 @@ import { AskForPairJudging } from '@replays/application/services/ask-for-pair-ju
 import { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
 import { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
 import { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
+import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
+import { CancelSearch } from '@replays/application/services/cancel-search.service';
 import { CheckReadings } from '@replays/application/services/check-readings.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import { EnsureCheckBaselines } from '@replays/application/services/ensure-check-baselines.service';
 import { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
-import { LetReplayRunsGo } from '@replays/application/services/let-replay-runs-go.service';
-import { LetSearchGo } from '@replays/application/services/let-search-go.service';
 import { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
 import { NoteLineRedefined } from '@replays/application/services/note-line-redefined.service';
 import { NoteReplayChangeReviewed } from '@replays/application/services/note-replay-change-reviewed.service';
@@ -857,14 +857,14 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
-    provide: LetSearchGo,
+    provide: CancelSearch,
     inject: [DrizzleReplayRepository, WORK, CLOCK, TRANSACTION],
     useFactory: (
       replays: DrizzleReplayRepository,
       work: WorkPort,
       clock: ClockPort,
       transaction: TransactionPort,
-    ) => new LetSearchGo(replays, work, clock, transaction),
+    ) => new CancelSearch(replays, work, clock, transaction),
   },
   {
     provide: AbandonSearches,
@@ -885,7 +885,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       DispatchSearchIteration,
       HoldOutSearch,
       NoteSearchProgress,
-      LetSearchGo,
+      CancelSearch,
       CLOCK,
       LOGGER,
     ],
@@ -896,7 +896,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       dispatching: DispatchSearchIteration,
       holdingOut: HoldOutSearch,
       noting: NoteSearchProgress,
-      lettingGo: LetSearchGo,
+      cancellingSearches: CancelSearch,
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
@@ -907,7 +907,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         dispatching,
         holdingOut,
         noting,
-        lettingGo,
+        cancellingSearches,
         clock,
         logger,
       ),
@@ -1074,9 +1074,9 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       new HoldSetStartingPoints(sets, work),
   },
   {
-    provide: LetReplayRunsGo,
+    provide: CancelReplayRuns,
     inject: [WORK],
-    useFactory: (work: WorkPort) => new LetReplayRunsGo(work),
+    useFactory: (work: WorkPort) => new CancelReplayRuns(work),
   },
   {
     provide: AbandonReplays,
@@ -1227,7 +1227,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       AskForPairJudging,
       NoteReplayPaired,
       HoldSetStartingPoints,
-      LetReplayRunsGo,
+      CancelReplayRuns,
       AbandonReplays,
       NoteLineRedefined,
       StartWantedBaseline,
@@ -1235,7 +1235,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       NoteSearchProgress,
       DispatchSearchIteration,
       HoldOutSearch,
-      LetSearchGo,
+      CancelSearch,
       AbandonSearches,
       AbandonReplayChecks,
       AbandonConfigPullRequests,
@@ -1256,7 +1256,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       askingPair: AskForPairJudging,
       paired: NoteReplayPaired,
       startingPointHolds: HoldSetStartingPoints,
-      lettingGo: LetReplayRunsGo,
+      cancellingRuns: CancelReplayRuns,
       abandoning: AbandonReplays,
       redefining: NoteLineRedefined,
       baselines: StartWantedBaseline,
@@ -1264,7 +1264,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       searching: NoteSearchProgress,
       iterating: DispatchSearchIteration,
       holdingOut: HoldOutSearch,
-      lettingSearchesGo: LetSearchGo,
+      cancellingSearches: CancelSearch,
       abandoningSearches: AbandonSearches,
       abandoningChecks: AbandonReplayChecks,
       abandoningPullRequests: AbandonConfigPullRequests,
@@ -1285,7 +1285,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           askingPair,
           paired,
           startingPointHolds,
-          lettingGo,
+          cancellingRuns,
           abandoning,
           redefining,
           baselines,
@@ -1293,7 +1293,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           searching,
           iterating,
           holdingOut,
-          lettingSearchesGo,
+          cancellingSearches,
           abandoningSearches,
           abandoningChecks,
           abandoningPullRequests,

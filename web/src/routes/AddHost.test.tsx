@@ -22,7 +22,7 @@ const host = (over: Record<string, unknown> = {}) => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'leons-mac',
   through: { kind: 'pool', key: 'my-computer' },
-  answering: true,
+  online: true,
   running: [],
   ...over,
 });
@@ -255,7 +255,7 @@ describe('AddHost', () => {
     poolCreated();
     listing(
       host({ through: { kind: 'pool', key: 'build-farm' } }),
-      host({ id: 'second', name: 'asleep', answering: false }),
+      host({ id: 'second', name: 'asleep', online: false }),
     );
 
     renderPage();

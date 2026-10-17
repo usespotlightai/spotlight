@@ -14,28 +14,28 @@ import (
 )
 
 type conversation struct {
-	run         protocol.Run
-	harness     *acp.Client
-	sessionID   string
-	journal     *journalWriter
-	control     Journal
-	keeper      *keeper
-	lifecycle   *progress
-	declared    func() *protocol.Outcome
-	attached    func(context.Context, protocol.Attachment) error
-	putToPerson *atomic.Bool
-	handOver    func(context.Context)
-	closed      bool
-	heartbeat   time.Duration
-	answerWait  time.Duration
-	log         *slog.Logger
+	run        protocol.Run
+	harness    *acp.Client
+	sessionID  string
+	journal    *journalWriter
+	control    Journal
+	keeper     *keeper
+	lifecycle  *progress
+	declared   func() *protocol.Outcome
+	attached   func(context.Context, protocol.Attachment) error
+	escalated  *atomic.Bool
+	handOver   func(context.Context)
+	closed     bool
+	heartbeat  time.Duration
+	answerWait time.Duration
+	log        *slog.Logger
 
 	stopped chan struct{}
 	lost    chan struct{}
 	losing  sync.Once
 }
 
-const unheardParkings = 3
+const maxUnheardAnswers = 3
 
 const carryOn = "The runner working on this was lost before your turn ended. Carry on where you left off."
 
@@ -47,8 +47,8 @@ type wake int
 
 const (
 	answered wake = iota
-	toldToStop
-	letGo
+	stopRequested
+	released
 )
 
 func (c *conversation) opening(ctx context.Context) string {
@@ -91,16 +91,16 @@ func (c *conversation) work(ctx context.Context, prompt string) (bool, error) {
 
 		said, woke := c.await(ctx)
 		switch woke {
-		case letGo:
-			c.lifecycle.note(RunParked, c.log)
+		case released:
+			c.lifecycle.note(RunSuspended, c.log)
 			return true, nil
-		case toldToStop:
+		case stopRequested:
 			_, err := c.complete(ctx, 0)
 			return false, err
 		}
 
 		c.lifecycle.note(PersonAnswered, c.log)
-		c.putToPerson.Store(false)
+		c.escalated.Store(false)
 		prompt = said
 	}
 }
@@ -127,11 +127,11 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 		}
 		c.journal.flush(ctx)
 
-		if c.told() {
+		if c.stopWasRequested() {
 			return 0
 		}
 
-		if c.putToPerson.Load() {
+		if c.escalated.Load() {
 			if replays(c.run) {
 				c.log.Info("a replay asked a person for permission; it ends there")
 				return 0
@@ -142,7 +142,7 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 				c.log.Info("a person was asked for permission; the turn ends")
 				return 0
 			}
-			c.putToPerson.Store(false)
+			c.escalated.Store(false)
 			prompt = said
 			continue
 		}
@@ -177,7 +177,7 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 }
 
 func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool, err error) {
-	stopped := c.told()
+	stopped := c.stopWasRequested()
 	turn := protocol.Completion{
 		ExitCode:  exitCode,
 		Failed:    !stopped && exitCode != 0,
@@ -235,13 +235,13 @@ func (c *conversation) await(ctx context.Context) (string, wake) {
 	for {
 		select {
 		case <-ctx.Done():
-			c.log.Info("the runner is stopping; the run is parked once its lease lapses")
-			return "", letGo
+			c.log.Info("the runner is stopping; the run is suspended once its lease expires")
+			return "", released
 		case <-c.stopped:
-			return "", toldToStop
+			return "", stopRequested
 		case <-c.lost:
-			c.log.Info("the run is no longer this runner's; letting the sandbox go")
-			return "", letGo
+			c.log.Info("the run is no longer this runner's; releasing the sandbox")
+			return "", released
 		case <-listening.C:
 			if c.closed {
 				continue
@@ -250,31 +250,31 @@ func (c *conversation) await(ctx context.Context) (string, wake) {
 				return said, answered
 			}
 		case <-grace.C:
-			parking, err := c.control.Park(ctx, c.run.ID, false)
+			suspension, err := c.control.Suspend(ctx, c.run.ID, false)
 			if err != nil {
-				c.log.Warn("could not park the run; it is parked once its lease lapses", "error", err)
-				return "", letGo
+				c.log.Warn("could not suspend the run; it is suspended once its lease expires", "error", err)
+				return "", released
 			}
-			if parking.Parked {
-				c.log.Info("nobody answered in time; the run is parked")
-				return "", letGo
+			if suspension.Suspended {
+				c.log.Info("nobody answered in time; the run is suspended")
+				return "", released
 			}
 
 			if c.closed {
-				c.log.Info("answered while parking a run whose harness has closed; it goes back on the queue for the next runner")
-				if _, err := c.control.Park(ctx, c.run.ID, true); err != nil {
-					c.log.Warn("could not hand the run back; it is taken up again once its lease lapses", "error", err)
+				c.log.Info("answered while suspending a run whose harness has closed; it is requeued for the next runner")
+				if _, err := c.control.Suspend(ctx, c.run.ID, true); err != nil {
+					c.log.Warn("could not requeue the run; a runner claims it again once its lease expires", "error", err)
 				}
-				return "", letGo
+				return "", released
 			}
 
-			c.log.Info("answered while parking")
+			c.log.Info("answered while suspending")
 			if said, heard := c.hear(ctx); heard {
 				return said, answered
 			}
-			if unheard++; unheard >= unheardParkings {
-				c.log.Warn("told the run works again, yet nothing is there to hear; letting it go")
-				return "", letGo
+			if unheard++; unheard >= maxUnheardAnswers {
+				c.log.Warn("told the run works again, yet nothing is there to hear; releasing it")
+				return "", released
 			}
 			grace.Reset(max(c.answerWait, c.heartbeat))
 		}
@@ -343,7 +343,7 @@ func (c *conversation) stop() {
 	_ = c.harness.Close()
 }
 
-func (c *conversation) told() bool {
+func (c *conversation) stopWasRequested() bool {
 	select {
 	case <-c.stopped:
 		return true

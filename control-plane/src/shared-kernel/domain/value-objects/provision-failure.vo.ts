@@ -10,7 +10,7 @@ const BACKING_OFF = Retry.backoff({
 export const PROVISION_FAILURES = {
   unreachable: BACKING_OFF,
   'http-error': BACKING_OFF,
-  lapsed: BACKING_OFF,
+  expired: BACKING_OFF,
   'not-allowed': Retry.never(),
   unusable: Retry.never(),
   'harness-missing': Retry.never(),
@@ -40,9 +40,9 @@ export class ProvisionFailure {
     return new ProvisionFailure(kind, detail.trim().slice(0, MAX_DETAIL));
   }
 
-  static lapsed(until: Date): ProvisionFailure {
+  static expired(until: Date): ProvisionFailure {
     return ProvisionFailure.of(
-      'lapsed',
+      'expired',
       `The pool accepted the work. No runner claimed it by ${until.toISOString()}.`,
     );
   }

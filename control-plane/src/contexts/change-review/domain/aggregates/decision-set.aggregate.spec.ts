@@ -203,7 +203,7 @@ describe('a decision set, drafted', () => {
   it('keeps only the decisions its run grounds, each with its own id', () => {
     const drafted = drafting(opened().asked(FIRST, NOW), FIRST, [
       proposed(),
-      proposed({ title: 'Cites a step it never took', steps: [3] }),
+      proposed({ title: 'Cites a step the run does not have', steps: [3] }),
       proposed({
         title: 'Bears on a file it never changed',
         paths: ['README.md'],

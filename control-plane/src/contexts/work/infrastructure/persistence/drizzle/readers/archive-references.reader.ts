@@ -83,7 +83,7 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
     {
       grantedUnsealedBy,
       supersededBy,
-      letGoBy,
+      releasedBy,
       startedFromBy,
     }: ArchiveRemovalCutoffs,
     limit: number,
@@ -148,14 +148,14 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
               ),
               and(
                 isNotNull(task.finishedAt),
-                lte(task.updatedAt, letGoBy),
-                lte(workspaceArchive.sealedAt, letGoBy),
+                lte(task.updatedAt, releasedBy),
+                lte(workspaceArchive.sealedAt, releasedBy),
               ),
               and(
                 isNotNull(chat.id),
                 isNull(chat.sessionId),
-                lte(chat.updatedAt, letGoBy),
-                lte(workspaceArchive.sealedAt, letGoBy),
+                lte(chat.updatedAt, releasedBy),
+                lte(workspaceArchive.sealedAt, releasedBy),
               ),
             ),
           ),

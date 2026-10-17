@@ -354,7 +354,7 @@ const claimed = async (): Promise<Claimed | null> => {
     return null;
   }
 
-  const handed = answer.body as {
+  const assignment = answer.body as {
     token: string;
     work: {
       kind: 'run' | 'check';
@@ -364,11 +364,11 @@ const claimed = async (): Promise<Claimed | null> => {
   };
 
   return {
-    token: handed.token,
-    kind: handed.work.kind,
-    runId: handed.work.run?.id ?? handed.work.check?.runId ?? '',
-    stackId: handed.work.check?.stackId ?? null,
-    recheck: handed.work.check?.recheck ?? false,
+    token: assignment.token,
+    kind: assignment.work.kind,
+    runId: assignment.work.run?.id ?? assignment.work.check?.runId ?? '',
+    stackId: assignment.work.check?.stackId ?? null,
+    recheck: assignment.work.check?.recheck ?? false,
   };
 };
 
@@ -396,27 +396,27 @@ let checkFlipsLeft = 1;
 
 const staleRetries: number[] = [];
 
-const finish = async (handed: Claimed, plan: Plan) => {
-  const entry = await entryOf(handed.runId);
-  const score = plan(handed.runId, entry?.replayId ?? '');
+const finish = async (assignment: Claimed, plan: Plan) => {
+  const entry = await entryOf(assignment.runId);
+  const score = plan(assignment.runId, entry?.replayId ?? '');
 
-  await bearing(handed.token)
-    .post(`/api/runs/${handed.runId}/events`, {
+  await bearing(assignment.token)
+    .post(`/api/runs/${assignment.runId}/events`, {
       events: changing(
-        `Drained it: score(${score}) run(${handed.runId}).`,
+        `Drained it: score(${score}) run(${assignment.runId}).`,
         'drain()',
       ),
     })
     .expect(204);
-  await bearing(handed.token)
-    .post(`/api/runs/${handed.runId}/change-stacks`, {
+  await bearing(assignment.token)
+    .post(`/api/runs/${assignment.runId}/change-stacks`, {
       diff: diffOf('drain()'),
       repository: 'api',
       base: COMMIT,
     })
     .expect(204);
-  await bearing(handed.token)
-    .post(`/api/runs/${handed.runId}/completion`, {
+  await bearing(assignment.token)
+    .post(`/api/runs/${assignment.runId}/completion`, {
       exitCode: 0,
       failed: false,
       outcome: { next: 'ship', note: 'Drained.' },
@@ -426,30 +426,32 @@ const finish = async (handed: Claimed, plan: Plan) => {
     .expect(200);
 };
 
-const check = async (handed: Claimed) => {
-  const stack = handed.stackId ?? '';
+const check = async (assignment: Claimed) => {
+  const stack = assignment.stackId ?? '';
   const times = (checked.get(stack) ?? 0) + 1;
   const passes = !(times > 1 && checkFlipsLeft > 0);
 
   checkFlipsLeft -= passes ? 0 : 1;
   checked.set(stack, times);
-  expect(handed.recheck).toBe(times > 1);
+  expect(assignment.recheck).toBe(times > 1);
 
-  const path = `/api/runs/${handed.runId}/change-stack-checks/${stack}`;
+  const path = `/api/runs/${assignment.runId}/change-stack-checks/${stack}`;
 
-  if (handed.recheck) {
+  if (assignment.recheck) {
     staleRetries.push(
       (
-        await bearing(handed.token).post(path, {
+        await bearing(assignment.token).post(path, {
           steps: [{ step: 'whole', passed: true }],
         })
       ).status,
     );
-    await bearing(handed.token).post(`${path}/lease?recheck=true`).expect(200);
+    await bearing(assignment.token)
+      .post(`${path}/lease?recheck=true`)
+      .expect(200);
   }
 
-  await bearing(handed.token)
-    .post(handed.recheck ? `${path}?recheck=true` : path, {
+  await bearing(assignment.token)
+    .post(assignment.recheck ? `${path}?recheck=true` : path, {
       steps: [
         {
           step: 'whole',
@@ -507,10 +509,12 @@ const workUntil = async (
       return;
     }
     if (await workWaiting(replayIds)) {
-      const handed = await claimed();
+      const assignment = await claimed();
 
-      if (handed) {
-        await (handed.kind === 'run' ? finish(handed, plan) : check(handed));
+      if (assignment) {
+        await (assignment.kind === 'run'
+          ? finish(assignment, plan)
+          : check(assignment));
       }
     } else {
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -679,15 +683,15 @@ beforeAll(async () => {
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
       name: 'health-box',
-      session: 'session_1',
+      bootId: 'boot_1',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: ['sonnet', 'opus'] }],
         },
       ],

@@ -7,7 +7,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
+import { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -79,10 +79,10 @@ const enqueuing = (
   return { handler, task, save, enqueue };
 };
 
-const handed = (task: Task) => new TaskHandedToRun(task.id, WORKSPACE, RUN);
+const handed = (task: Task) => new TaskDispatched(task.id, WORKSPACE, RUN);
 
 describe('EnqueueTaskRun', () => {
-  it('enqueues the run a task was handed to', async () => {
+  it('enqueues the run a task was dispatched to', async () => {
     const { handler, task, enqueue, save } = enqueuing();
 
     await handler.on(handed(task));
@@ -107,7 +107,7 @@ describe('EnqueueTaskRun', () => {
     expect(enqueue).not.toHaveBeenCalled();
   });
 
-  it('lets the task go when its run can no longer start', async () => {
+  it('releases the task when its run can no longer start', async () => {
     const { handler, task, save } = enqueuing({ enqueued: false });
 
     await handler.on(handed(task));

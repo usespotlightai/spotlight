@@ -26,7 +26,7 @@ describe('checkStateAt', () => {
     expect(checkStateAt(checkOf(), PAST_THE_HOUR)).toBe('skipped');
   });
 
-  it('keeps waiting past the hour while a runner leases it, and is skipped once the lease lapses', () => {
+  it('keeps waiting past the hour while a runner leases it, and is skipped once the lease expires', () => {
     const leasedUntil = new Date(PAST_THE_HOUR.getTime() + 60_000);
     const lease = { leaseExpiresAt: leasedUntil, claimedAt: SINCE };
 

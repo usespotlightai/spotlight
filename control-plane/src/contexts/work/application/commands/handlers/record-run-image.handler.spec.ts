@@ -1,4 +1,4 @@
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -50,7 +50,7 @@ const recording = (given: { run?: Run | null; known?: boolean } = {}) => {
       ),
       save,
     } as unknown as RunRepository,
-    { seen } satisfies RunnerPresencePort,
+    { heartbeat: seen } satisfies RunnerHeartbeatsPort,
     { now: () => NOW } as ClockPort,
   );
 

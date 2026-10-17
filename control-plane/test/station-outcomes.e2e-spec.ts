@@ -20,8 +20,8 @@ import { NotePullRequestRecords } from '@outcomes/application/services/note-pull
 import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
-import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
 import { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
+import { NoteRunPassed } from '@outcomes/application/services/note-run-passed.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
@@ -363,7 +363,7 @@ beforeAll(async () => {
     }),
     digesting: new NoteRunDigested(work, records, forgotten, context),
     remembering: new NoteRunMemories(work, records, forgotten, context),
-    handingOn: new NoteRunHandedOn(records, forgotten, context),
+    passing: new NoteRunPassed(records, forgotten, context),
     reviewing: new NotePullRequestReviewed(
       deliveries,
       reviews,
@@ -522,7 +522,7 @@ describe('how a station’s runs turned out', () => {
     });
   });
 
-  it('groups the station’s runs at each config change in start order, the newest first, keeping a run withdrawn before it ran another config apart from the group in force', async () => {
+  it('groups the station’s runs at each config change in start order, the newest first, keeping a run cancelled before it ran another config apart from the group in force', async () => {
     endedRun('run_3', {
       startedAt: at(11),
       endedAt: at(12),
@@ -530,11 +530,11 @@ describe('how a station’s runs turned out', () => {
       taskId: 'task_2',
     });
     await runEnded('run_3', { stopped: true });
-    endedRun('run_withdrawn', {
+    endedRun('run_cancelled', {
       endedAt: new Date('2026-09-30T10:30:00.000Z'),
       fingerprint: SONNET,
     });
-    await runEnded('run_withdrawn', { outcome: 'withdrawn' });
+    await runEnded('run_cancelled', { outcome: 'cancelled' });
     endedRun('run_4', {
       startedAt: at(13),
       endedAt: at(14),
@@ -571,12 +571,12 @@ describe('how a station’s runs turned out', () => {
         runs: [['run_3', 'stopped']],
       },
       {
-        firstRunId: 'run_withdrawn',
+        firstRunId: 'run_cancelled',
         fingerprint: SONNET,
         ran: false,
         model: 'sonnet',
         changes: [['opus', 'sonnet']],
-        runs: [['run_withdrawn', 'withdrawn']],
+        runs: [['run_cancelled', 'cancelled']],
       },
       {
         firstRunId: 'run_2',
@@ -597,17 +597,17 @@ describe('how a station’s runs turned out', () => {
     ]);
     expect(outcomes.groups[2]?.tally).toMatchObject({
       runs: 0,
-      withdrawn: 1,
+      cancelled: 1,
     });
     expect(outcomes.groups[1]?.tally).toMatchObject({
       runs: 1,
-      withdrawn: 0,
+      cancelled: 0,
       stopped: 1,
       cost: { amount: 0.4, currency: 'USD' },
     });
     expect(outcomes.groups[3]?.tally).toMatchObject({
       runs: 1,
-      withdrawn: 0,
+      cancelled: 0,
       stopped: 0,
       checksPassed: 1,
       merged: 1,
@@ -621,7 +621,7 @@ describe('how a station’s runs turned out', () => {
       merged: 1,
     });
     expect(outcomes.inForce).toEqual({
-      tally: expect.objectContaining({ runs: 1, withdrawn: 0 }),
+      tally: expect.objectContaining({ runs: 1, cancelled: 0 }),
     });
   });
 
@@ -662,7 +662,7 @@ describe('how a station’s runs turned out', () => {
     ).toEqual([
       ['run_4', null],
       ['run_3', { url: 'https://github.com/acme/platform/pull/42' }],
-      ['run_withdrawn', null],
+      ['run_cancelled', null],
       ['run_2', { url: 'https://github.com/acme/platform/pull/42' }],
       ['run_1', null],
     ]);
@@ -896,7 +896,7 @@ describe('the config runs a station’s runs make', () => {
     readonly fingerprint: string | null;
     readonly startedAt: Date | null;
     readonly endedAt: Date;
-    readonly outcome?: 'withdrawn' | 'failed';
+    readonly outcome?: 'cancelled' | 'failed';
   }
 
   const minute = (minutes: number) =>
@@ -906,7 +906,7 @@ describe('the config runs a station’s runs make', () => {
     runId: string,
     fingerprint: string | null,
     startedAt: number | null,
-    change: { endedAt?: number; outcome?: 'withdrawn' | 'failed' } = {},
+    change: { endedAt?: number; outcome?: 'cancelled' | 'failed' } = {},
   ): Planned => ({
     runId,
     fingerprint,
@@ -969,9 +969,9 @@ describe('the config runs a station’s runs make', () => {
     ]);
     await ranAt('station_unstarted', [
       planned('unstarted_1', SONNET, 1),
-      planned('unstarted_withdrawn', OPUS, null, {
+      planned('unstarted_cancelled', OPUS, null, {
         endedAt: 2,
-        outcome: 'withdrawn',
+        outcome: 'cancelled',
       }),
       planned('unstarted_2', SONNET, 3),
       planned('unstarted_failed', OPUS, null, {

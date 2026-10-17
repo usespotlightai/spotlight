@@ -97,7 +97,7 @@ func TestAReplayWhoseArchiveIsGoneEndsFailedRatherThanStartingAfresh(t *testing.
 func TestAReplayThatAsksAPersonEndsThere(t *testing.T) {
 	written := run(t, permitting(t), replaying(nil), func(o *runOptions) {
 		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
-		o.decision = protocol.PermissionPutToPerson
+		o.decision = protocol.PermissionEscalated
 		o.said = [][]protocol.Said{{{Position: 1, Body: "Go ahead."}}}
 	})
 
@@ -105,7 +105,7 @@ func TestAReplayThatAsksAPersonEndsThere(t *testing.T) {
 		t.Errorf("the agent was told %q", heard)
 	}
 	if len(written.delivered) != 0 {
-		t.Errorf("the replay took up what was said: delivered %v", written.delivered)
+		t.Errorf("the replay used what was said: delivered %v", written.delivered)
 	}
 	if written.done == nil || written.done.Failed || written.done.Stopped {
 		t.Fatalf("completion %+v", written.done)

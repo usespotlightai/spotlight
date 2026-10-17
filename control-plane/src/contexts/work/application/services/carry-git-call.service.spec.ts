@@ -259,7 +259,7 @@ describe('CarryGitCall', () => {
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('carries nothing for a run its task has let go of', async () => {
+  it('carries nothing for a run its task detached', async () => {
     const { service, git } = carrying(claimedBy('runner_1'), added());
 
     await expect(

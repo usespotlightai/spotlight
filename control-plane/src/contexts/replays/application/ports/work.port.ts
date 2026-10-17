@@ -97,7 +97,7 @@ export type ReplayRunQueued =
   | { readonly queued: true; readonly fingerprint: StationFingerprint | null }
   | { readonly queued: false; readonly unreplayableReason: UnreplayableReason };
 
-export type RunForgone =
+export type CancelledRun =
   | { readonly queued: false }
   | { readonly queued: true; readonly fingerprint: StationFingerprint | null };
 
@@ -129,8 +129,8 @@ export interface SearchRunStatus {
   readonly endedAt: Date | null;
 }
 
-export type UnclaimedWithdrawal =
-  | { readonly outcome: 'withdrawn'; readonly started: boolean }
+export type UnclaimedCancellation =
+  | { readonly outcome: 'cancelled'; readonly started: boolean }
   | { readonly outcome: 'claimed' }
   | { readonly outcome: 'ended' };
 
@@ -173,9 +173,9 @@ export interface WorkPort {
 
   answerable(asked: readonly OracleAnswerAsked[]): Promise<readonly RunId[]>;
 
-  withdraw(runs: readonly RunId[]): Promise<void>;
+  cancelQueued(runs: readonly RunId[]): Promise<void>;
 
-  forgo(run: RunId, keep: boolean): Promise<RunForgone>;
+  cancel(run: RunId, keep: boolean): Promise<CancelledRun>;
 
   durations(runs: readonly RunId[]): Promise<ReadonlyMap<string, number>>;
 
@@ -183,9 +183,9 @@ export interface WorkPort {
 
   dispatchSearch(order: SearchRunOrder): Promise<SearchRunQueued>;
 
-  withdrawSearch(run: RunId): Promise<void>;
+  cancelSearchRun(run: RunId): Promise<void>;
 
-  withdrawUnclaimedSearch(run: RunId): Promise<UnclaimedWithdrawal>;
+  cancelUnclaimedSearchRun(run: RunId): Promise<UnclaimedCancellation>;
 
   leasedSearchRun(
     run: RunId,

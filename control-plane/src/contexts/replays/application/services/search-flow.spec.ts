@@ -18,9 +18,9 @@ import { ReadSearchHandler } from '@replays/application/queries/handlers/read-se
 import { ReadSearchQuery } from '@replays/application/queries/read-search.query';
 import { AbandonSearches } from '@replays/application/services/abandon-searches.service';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
+import { CancelSearch } from '@replays/application/services/cancel-search.service';
 import { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
-import { LetSearchGo } from '@replays/application/services/let-search-go.service';
 import { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
 import { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
 import {
@@ -163,8 +163,8 @@ const holdingOut = () =>
     healthsFor(),
   );
 
-const lettingGo = () =>
-  new LetSearchGo(memory.replayRepository, work, CLOCK, TRANSACTION);
+const cancelling = () =>
+  new CancelSearch(memory.replayRepository, work, CLOCK, TRANSACTION);
 
 const abandoning = () =>
   new AbandonSearches(memory.searchRepository, work, CLOCK, TRANSACTION);
@@ -183,7 +183,7 @@ const delivered = async (): Promise<void> => {
       } else if (event instanceof SearchHoldingOutWanted) {
         await holdingOut().wanted(event.searchId);
       } else if (event instanceof SearchEnded) {
-        await lettingGo().ended(event);
+        await cancelling().ended(event);
       } else if (event instanceof SearchReflected) {
         await noticing().reflected(event);
       } else if (event instanceof SearchStalledUnreflected) {
@@ -305,7 +305,7 @@ const runEnds = async (
     runId: run,
     outcome,
     asked: false,
-    started: outcome !== 'withdrawn',
+    started: outcome !== 'cancelled',
   });
   await delivered();
   if (spent) {
@@ -322,7 +322,7 @@ const advancing = () =>
     iterating(),
     holdingOut(),
     progress(),
-    lettingGo(),
+    cancelling(),
     CLOCK,
     QUIET,
   );
@@ -470,7 +470,7 @@ describe('StartSearchHandler', () => {
     ).toHaveLength(1);
   });
 
-  it('rejects a set with too few tasks to hold some out, and lets go of the live snapshot it took', async () => {
+  it('rejects a set with too few tasks to hold some out, and releases the live snapshot it made', async () => {
     memory.sets.clear();
     await memory.setRepository.add(aSet(4));
 
@@ -927,7 +927,7 @@ describe('a search running its course', () => {
     expect(read.frontier).toContain(strong.candidateId);
   });
 
-  it('withdraws its agent run and stops its replays once a person stops it', async () => {
+  it('cancels its agent run and stops its replays once a person stops it', async () => {
     await seeded();
     const run = activeRun();
     const proposed = await propose(run, 'firmer');
@@ -941,7 +941,7 @@ describe('a search running its course', () => {
     await delivered();
 
     expect(theSearch().ending).toBe('stopped');
-    expect(work.searchesWithdrawn).toEqual([run]);
+    expect(work.cancelledSearchRuns).toEqual([run]);
     expect(
       proposed.outcome === 'proposed' &&
         memory.replays.get(proposed.replayId)?.current,
@@ -1004,7 +1004,7 @@ describe('SearchSights', () => {
 });
 
 describe('AbandonSearches', () => {
-  it('abandons every search of a disbanded team, withdrawing its active run', async () => {
+  it('abandons every search of a disbanded team, and cancels its active run', async () => {
     await seeded();
     const run = activeRun();
 
@@ -1020,7 +1020,7 @@ describe('AbandonSearches', () => {
     await abandoning().search((due[0] as SearchAbandonmentDue).searchId);
 
     expect(memory.searches.size).toBe(0);
-    expect(work.searchesWithdrawn).toEqual([run]);
+    expect(work.cancelledSearchRuns).toEqual([run]);
   });
 
   it('ends the search of a set whose station left its line', async () => {
@@ -1115,11 +1115,11 @@ describe('NoteSearchProgress', () => {
     expect(theSearch().iterations[1]?.agentSpent?.unpriced).toBe(0);
   });
 
-  it('closes an iteration whose run was withdrawn before it started without waiting for a digest', async () => {
+  it('closes an iteration whose run was cancelled before it started without waiting for a digest', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
     const first = activeRun();
 
-    await runEnds(first, 'withdrawn', null);
+    await runEnds(first, 'cancelled', null);
 
     expect(theSearch().iterations.map((each) => each.current)).toEqual([
       'failed',
@@ -1180,11 +1180,11 @@ describe('AdvanceSearches', () => {
     expect(theSearch().iterations[1]?.current).toBe('running');
     expect(theSearch().iterations[1]?.agentSpent).toBeNull();
 
-    work.unclaimed = { outcome: 'withdrawn', started: true };
+    work.unclaimed = { outcome: 'cancelled', started: true };
 
     await advancing().workDue();
 
-    expect(work.unclaimedWithdrawn).toEqual([second?.value]);
+    expect(work.cancelledUnclaimed).toEqual([second?.value]);
     expect(theSearch().iterations[1]?.current).toBe('failed');
     expect(theSearch().iterations[1]?.agentSpent).toBeNull();
     expect(theSearch().awaitingAgentSpend.map((each) => each.number)).toEqual([
@@ -1192,7 +1192,7 @@ describe('AdvanceSearches', () => {
     ]);
   });
 
-  it('fails an iteration whose never-started run it let go, with nothing spent', async () => {
+  it('fails an iteration whose never-started run it cancelled, with nothing spent', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
     const first = activeRun();
 
@@ -1207,7 +1207,7 @@ describe('AdvanceSearches', () => {
 
     await advancing().workDue();
 
-    expect(work.unclaimedWithdrawn).toEqual([first]);
+    expect(work.cancelledUnclaimed).toEqual([first]);
     expect(theSearch().iterations[0]?.current).toBe('failed');
     expect(theSearch().iterations[0]?.agentSpent?.unpriced).toBe(0);
     expect(theSearch().iterations).toHaveLength(2);

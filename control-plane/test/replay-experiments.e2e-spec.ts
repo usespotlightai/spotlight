@@ -278,7 +278,7 @@ const dispatched = async () => {
 };
 
 const claimed = async (): Promise<{ token: string; runId: string }> => {
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -286,7 +286,7 @@ const claimed = async (): Promise<{ token: string; runId: string }> => {
       .expect(200)
   ).body as { token: string; work: { run: { id: string } } };
 
-  return { token: handed.token, runId: handed.work.run.id };
+  return { token: assignment.token, runId: assignment.work.run.id };
 };
 
 const usage = (amount: number) =>
@@ -483,16 +483,16 @@ beforeAll(async () => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
@@ -610,7 +610,7 @@ describe('a replay set', () => {
     ).toBe('task-gone');
   });
 
-  it('keeps the archives its runs started from while it holds them, and lets them go after', async () => {
+  it('keeps the archives its runs started from while it holds them, and releases them after', async () => {
     const original = await anOriginal();
     const setId = await openSet('Pinned', original);
     const references = app.get<ArchiveReferencesPort>(ARCHIVE_REFERENCES);
@@ -655,15 +655,15 @@ describe('a replay set', () => {
     }
     const heard = await anOriginal({ heardFrom: 'slack' });
     await turnedOut(heard, { ending: 'failed', next: null });
-    const handedOn = await anOriginal({ raisedAt: SHIP });
-    await turnedOut(handedOn, { ending: 'failed', next: null });
+    const passedOn = await anOriginal({ raisedAt: SHIP });
+    await turnedOut(passedOn, { ending: 'failed', next: null });
     const accepted = await anOriginal();
     await turnedOut(accepted, { ending: 'completed', next: 'closed' });
     const setId = await openSet(
       'Lopsided',
       ...failures,
       heard,
-      handedOn,
+      passedOn,
       accepted,
     );
 
@@ -716,7 +716,7 @@ describe('a replay set', () => {
       set?.entries.find((each) => each.runId === heard.runId),
     ).toMatchObject({ outcome: 'failed', origin: 'slack' });
     expect(
-      set?.entries.find((each) => each.runId === handedOn.runId)?.origin,
+      set?.entries.find((each) => each.runId === passedOn.runId)?.origin,
     ).toBe('station');
 
     const suggested = (
@@ -894,9 +894,9 @@ describe('a replay', () => {
     expect(await replayRunsOf(both)).toHaveLength(2);
 
     for (let round = 0; round < 2; round += 1) {
-      const handed = [await claimed(), await claimed()];
+      const assignments = [await claimed(), await claimed()];
 
-      for (const each of handed) {
+      for (const each of assignments) {
         const [entry] = await db
           .select()
           .from(schema.replayEntry)
@@ -1104,7 +1104,7 @@ describe('a replay', () => {
       .expect(404);
   });
 
-  it('stops dispatching once it has spent its ceiling, withdrawing what was queued while running runs finish', async () => {
+  it('stops dispatching once it has spent its ceiling, cancelling what was queued while running runs finish', async () => {
     const setId = await openSet(
       'Budget',
       await anOriginal(),
@@ -1130,7 +1130,7 @@ describe('a replay', () => {
 
     await eventually(async () => {
       const entries = await entriesOf(id);
-      return entries[2]?.outcome === 'withdrawn';
+      return entries[2]?.outcome === 'cancelled';
     });
 
     const row = await replayRow(id);
@@ -1149,7 +1149,7 @@ describe('a replay', () => {
     expect(detail.totals.stopped).toBe(1);
   });
 
-  it('is stopped by a person: nothing more starts, its runs stop, and its set may then be deleted, letting go of the archives', async () => {
+  it('is stopped by a person: nothing more starts, its runs stop, and its set may then be deleted, which releases the archives', async () => {
     const setId = await openSet(
       'Stopped',
       await anOriginal(),
@@ -1223,9 +1223,9 @@ describe('a replay', () => {
 
     await dispatched();
     for (let round = 0; round < 2; round += 1) {
-      const handed = [await claimed(), await claimed()];
+      const assignments = [await claimed(), await claimed()];
 
-      for (const each of handed) {
+      for (const each of assignments) {
         const [entry] = await db
           .select()
           .from(schema.replayEntry)
@@ -1415,7 +1415,7 @@ describe('a replay', () => {
 });
 
 describe('a replay set whose station leaves its line', () => {
-  it('is still listed for the team, lets go of its archives, starts nothing, and may be deleted', async () => {
+  it('is still listed for the team, releases its archives, starts nothing, and may be deleted', async () => {
     const original = await anOriginal({ stationId: POLISH });
     const setId = await openSetAt(POLISH, 'Reviewed', original);
     const startingPointHoldsOf = () =>

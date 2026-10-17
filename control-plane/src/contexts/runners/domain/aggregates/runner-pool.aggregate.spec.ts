@@ -182,12 +182,12 @@ describe('RunnerPool', () => {
   it('lets a runner start only in its own mode, while it is not retired and has room', () => {
     const pulled = aPullPool({ maxRuns: 1 });
 
-    expect(pulled.startVerdict('pull', 0)).toBe('open');
-    expect(pulled.startVerdict('pull', 1)).toBe('full');
-    expect(pulled.startVerdict('push', 0)).toBe('gone');
-    expect(aPushPool().startVerdict('push', 0)).toBe('open');
-    expect(aPushPool().startVerdict('pull', 0)).toBe('gone');
-    expect(pulled.retire(BY).startVerdict('pull', 0)).toBe('gone');
+    expect(pulled.capacity('pull', 0)).toBe('open');
+    expect(pulled.capacity('pull', 1)).toBe('full');
+    expect(pulled.capacity('push', 0)).toBe('gone');
+    expect(aPushPool().capacity('push', 0)).toBe('open');
+    expect(aPushPool().capacity('pull', 0)).toBe('gone');
+    expect(pulled.retire(BY).capacity('pull', 0)).toBe('gone');
   });
 
   it('always keeps its provision secret encrypted, even when kept from a redefinition that gave none', () => {

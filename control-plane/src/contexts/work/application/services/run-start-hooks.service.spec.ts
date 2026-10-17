@@ -176,11 +176,11 @@ describe('RunStartHooks', () => {
     expect(untils).toEqual([new Date(NOW.getTime() + 21_000)]);
   });
 
-  it('hands a run back, attempt unspent, when its hooks could not be asked', async () => {
+  it('requeues a run, attempt unspent, when its hooks could not be asked', async () => {
     const { hooks, current, warned } = starting({ unreachable: true });
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe(
-      'handed-back',
+      'requeued',
     );
     expect(current().state).toBe('queued');
     expect(current().attempt).toBe(1);

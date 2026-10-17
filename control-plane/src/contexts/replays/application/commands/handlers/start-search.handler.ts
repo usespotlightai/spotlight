@@ -139,7 +139,7 @@ export class StartSearchHandler
           await this.sets.save(set.recordSearch());
         });
       } catch (error) {
-        await this.snapshots.letGo(live);
+        await this.snapshots.release(live);
         throw error;
       }
 

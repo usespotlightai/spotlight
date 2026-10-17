@@ -13,7 +13,7 @@ const UNREPLAYABLE_REASONS = [
   'candidate-unfit',
   'cannot-start',
   'unchecked',
-  'forgone',
+  'cancelled',
 ] as const;
 
 export type UnreplayableReason = (typeof UNREPLAYABLE_REASONS)[number];

@@ -114,9 +114,9 @@ describe('working', () => {
     expect(working(run('failed'))).toBe(false);
   });
 
-  it('does not while it waits on a person, warm or parked', () => {
+  it('does not while it waits on a person, warm or suspended', () => {
     expect(working(run('waiting'))).toBe(false);
-    expect(working(run('parked'))).toBe(false);
+    expect(working(run('suspended'))).toBe(false);
   });
 });
 
@@ -127,8 +127,8 @@ describe('waitsOnPerson', () => {
     expect(waitsOnPerson(run('waiting'))).toBe(true);
   });
 
-  it('is true once nobody answered in time and the run was parked', () => {
-    expect(waitsOnPerson(run('parked'))).toBe(true);
+  it('is true once nobody answered in time and the run was suspended', () => {
+    expect(waitsOnPerson(run('suspended'))).toBe(true);
   });
 
   it('does not for a run at work, waiting for a runner, or over', () => {
@@ -137,6 +137,7 @@ describe('waitsOnPerson', () => {
     expect(waitsOnPerson(run('completed'))).toBe(false);
     expect(waitsOnPerson(run('failed'))).toBe(false);
     expect(waitsOnPerson(run('superseded'))).toBe(false);
+    expect(waitsOnPerson(run('cancelled'))).toBe(false);
   });
 });
 
@@ -152,13 +153,17 @@ describe('runStatus', () => {
     expect(runStatus(run('queued'))).toBe('Queued');
   });
 
-  it('reads a run that asked a person as waiting for you, parked or not', () => {
+  it('reads a run that asked a person as waiting for you, suspended or not', () => {
     expect(runStatus(run('waiting'))).toBe('Waiting for you');
-    expect(runStatus(run('parked'))).toBe('Waiting for you');
+    expect(runStatus(run('suspended'))).toBe('Waiting for you');
   });
 
   it('reads a superseded run as superseded', () => {
     expect(runStatus(run('superseded'))).toBe('Superseded');
+  });
+
+  it('reads a cancelled run as cancelled', () => {
+    expect(runStatus(run('cancelled'))).toBe('Cancelled');
   });
 
   it('says nothing of a run that has ended, however it ended', () => {

@@ -120,7 +120,7 @@ type Outcome = SetupOutcomeResponseDto['frontier'][number];
 const OUTCOMES: readonly Outcome[] = [
   'accepted',
   'sent_back',
-  'handed_on',
+  'passed',
   'checks_passed',
   'merged',
   'judge',
@@ -154,7 +154,7 @@ const setupOf = (
     outcomes: {
       accepted: rounded(shareOf(tally.accepted, tally.runs)),
       sent_back: rounded(shareOf(tally.sentBack, tally.runs)),
-      handed_on: rounded(shareOf(tally.handedOn, tally.runs)),
+      passed: rounded(shareOf(tally.passed, tally.runs)),
       checks_passed: rounded(
         shareOf(tally.checksPassed, tally.checksPassed + tally.checksFailed),
       ),

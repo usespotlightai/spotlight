@@ -233,7 +233,7 @@ describe('Told', () => {
     ]);
   });
 
-  it('keeps what a tool was asked for and what it handed back', () => {
+  it('keeps what a tool was asked for and what it returned', () => {
     const told = read(
       sent({
         sessionUpdate: 'tool_call',

@@ -51,7 +51,7 @@ const UNREPLAYABLE_REASONS: Record<UnreplayableReason, string> = {
   'candidate-unfit': 'Candidate can’t run it',
   'cannot-start': 'Run couldn’t be started',
   unchecked: 'Couldn’t be checked just now',
-  forgone: 'Never started',
+  cancelled: 'Never started',
   'dispatch-failed': 'Failed to start after several tries',
 };
 
@@ -130,7 +130,7 @@ const CHECK_SKIPS: Record<CheckSkip, string> = {
   'out-of-time': 'checks ran out of time',
   'no-image': 'check image missing',
   unprovisioned: 'no runner could be provisioned for the check',
-  'nobody-checked': 'no runner took the check in time',
+  'nobody-checked': 'no runner claimed the check in time',
   skipped: 'checks skipped',
   undrafted: 'change never drafted',
   'no-check-asked': 'candidate has no check command',
@@ -147,6 +147,7 @@ const RUN_FAILURES: Record<RunFailure, string> = {
   'hooks-unanswered': 'hooks didn’t respond (not scored)',
   'runner-lost': 'runner lost (not scored)',
   'timed-out': 'exceeded the host’s time limit',
+  cancelled: 'cancelled before a runner claimed it (not scored)',
   superseded: 'superseded (not scored)',
 };
 
@@ -154,9 +155,10 @@ const RUN_STATES: Record<string, string> = {
   queued: 'Queued',
   claimed: 'Running',
   waiting: 'Waiting for a person',
-  parked: 'Parked',
+  suspended: 'Suspended',
   completed: 'Completed',
   failed: 'Failed',
+  cancelled: 'Cancelled',
   superseded: 'Superseded',
 };
 

@@ -96,7 +96,7 @@ export class EventDelivery {
       .where(
         and(
           isNull(eventDelivery.deliveredAt),
-          isNull(eventDelivery.failedAt),
+          isNull(eventDelivery.deadLetteredAt),
           lte(eventDelivery.dueAt, this.clock.now()),
         ),
       );
@@ -148,7 +148,7 @@ export class EventDelivery {
       .where(
         and(
           isNull(eventDelivery.deliveredAt),
-          isNull(eventDelivery.failedAt),
+          isNull(eventDelivery.deadLetteredAt),
           lte(eventDelivery.dueAt, this.clock.now()),
         ),
       )
@@ -176,16 +176,16 @@ export class EventDelivery {
   private async failed(due: Due, error: unknown): Promise<void> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
-    const givingUp = attempts >= MAX_ATTEMPTS;
+    const deadLettering = attempts >= MAX_ATTEMPTS;
 
     this.logger.error(
       { err: error, subscriber: due.subscriber, attempts },
-      givingUp
-        ? 'Giving up delivering a domain event'
+      deadLettering
+        ? 'Dead-lettering a domain event delivery'
         : 'Delivering a domain event',
     );
 
-    if (givingUp) {
+    if (deadLettering) {
       this.reports.report(error, {
         source: due.subscriber,
         workspaceId: idOf(due.payload, 'workspaceId'),
@@ -202,7 +202,7 @@ export class EventDelivery {
           attempts,
           lastError: because(error).slice(0, 2000),
           dueAt: new Date(now.getTime() + backoffMs(attempts)),
-          failedAt: givingUp ? now : null,
+          deadLetteredAt: deadLettering ? now : null,
         })
         .where(this.at(due))
         .then(() => undefined),

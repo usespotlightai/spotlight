@@ -1,6 +1,6 @@
 export const RUN_ENDED = 'work.run-ended.v1';
 
-export type RunEnding = 'completed' | 'failed' | 'abandoned' | 'withdrawn';
+export type RunEnding = 'completed' | 'failed' | 'exhausted' | 'cancelled';
 
 export type RunEndedIntegrationEvent = {
   readonly kind: typeof RUN_ENDED;

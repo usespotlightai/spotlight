@@ -26,14 +26,14 @@ type WorkspaceMenuProps = {
   name: string;
   slug: string;
   admin?: boolean;
-  noneAnswering?: boolean;
+  noneOnline?: boolean;
 };
 
 export function WorkspaceMenu({
   name,
   slug,
   admin = false,
-  noneAnswering = false,
+  noneOnline = false,
 }: WorkspaceMenuProps) {
   const navigate = useNavigate();
   const signOut = useSignOut();
@@ -50,7 +50,7 @@ export function WorkspaceMenu({
         <span className="truncate font-medium text-foreground text-sm">
           {name}
         </span>
-        {noneAnswering && <NoHostAnswering />}
+        {noneOnline && <NoHostOnline />}
         <ChevronsUpDown
           className="ml-auto size-3.5 shrink-0 text-muted-foreground"
           aria-hidden
@@ -63,9 +63,9 @@ export function WorkspaceMenu({
           render={
             <Link to={settingsPath(slug)}>
               Settings
-              {noneAnswering && (
+              {noneOnline && (
                 <span className="ml-auto">
-                  <NoHostAnswering />
+                  <NoHostOnline />
                 </span>
               )}
             </Link>
@@ -140,11 +140,11 @@ export function WorkspaceMenu({
   );
 }
 
-function NoHostAnswering() {
+function NoHostOnline() {
   return (
     <span
       role="img"
-      aria-label="No host is answering"
+      aria-label="No host is online"
       className="block size-1.5 shrink-0 rounded-full bg-destructive"
     />
   );

@@ -165,7 +165,7 @@ func (e *Egress) rememberRejection(credential string, err error) {
 func (e *Egress) leave(found *run) {
 	found.touch(e.now())
 	if found.active.Add(-1) == 0 {
-		found.letGoIfForgotten()
+		found.evictIfStale()
 	}
 }
 
@@ -319,7 +319,7 @@ func (r *run) forget() {
 	}
 }
 
-func (r *run) letGoIfForgotten() {
+func (r *run) evictIfStale() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -346,7 +346,7 @@ func (e *Egress) forget(ctx context.Context, runs []*run, why string) {
 		found.forget()
 	}
 	if len(forgotten) > 0 {
-		e.log.Info("let go of runs", "runs", len(forgotten), "why", why)
+		e.log.Info("evicted runs", "runs", len(forgotten), "why", why)
 	}
 }
 
@@ -411,7 +411,7 @@ func (e *Egress) sweep(ctx context.Context) {
 		found.forget()
 	}
 	if len(unused) > 0 {
-		e.log.Info("let go of runs", "runs", len(unused), "why", "no use for "+unusedFor.String())
+		e.log.Info("evicted runs", "runs", len(unused), "why", "no use for "+unusedFor.String())
 	}
 	e.limits.sweep()
 }

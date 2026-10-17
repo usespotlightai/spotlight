@@ -70,23 +70,23 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	handed, err := handedTo(protocol.EgressHandedPath)
+	config, err := readConfig(protocol.EgressConfigPath)
 	if err != nil {
 		return err
 	}
 
-	allowed, err := reach.Parse(handed.Allow)
+	allowed, err := reach.Parse(config.Allow)
 	if err != nil {
 		return fmt.Errorf("the host's allow-list: %w", err)
 	}
 
-	if handed.Send != nil {
-		return sent(ctx, *handed.Send, send.New(allowed), protocol.EgressSendPath, log)
+	if config.Send != nil {
+		return sent(ctx, *config.Send, send.New(allowed), protocol.EgressSendPath, log)
 	}
 
-	controlPlane, err := url.Parse(handed.URL)
+	controlPlane, err := url.Parse(config.URL)
 	if err != nil || controlPlane.Hostname() == "" {
-		return fmt.Errorf("the control plane %q is not an address", handed.URL)
+		return fmt.Errorf("the control plane %q is not an address", config.URL)
 	}
 
 	key, err := seal.NewKey()
@@ -94,14 +94,14 @@ func run() error {
 		return err
 	}
 
-	fetched, err := fetchSecretsFor(ctx, handed, key.Recipient(), func(url, token string) (SecretFetcher, error) {
+	fetched, err := fetchSecretsFor(ctx, config, key.Recipient(), func(url, token string) (SecretFetcher, error) {
 		return control.New(url, token)
 	}, log)
 	if err != nil {
 		return err
 	}
 
-	injector := inject.From(ctx, fetched, handed.HarnessKeys, inject.Limits{Hosts: allowed, SecretAllow: handed.SecretAllow}, key, externalSecretReader(ctx), log)
+	injector := inject.From(ctx, fetched, config.HarnessKeys, inject.Limits{Hosts: allowed, SecretAllow: config.SecretAllow}, key, externalSecretReader(ctx), log)
 	defer injector.Forget()
 
 	if err := injector.ForControlPlane(fetched.SpotlightAPI, controlPlane, fetched.RunID, key); err != nil {
@@ -121,7 +121,7 @@ func run() error {
 	}
 
 	server := &http.Server{
-		Handler:           proxy.New(allowed, injector, issuer, handed.Credential, log),
+		Handler:           proxy.New(allowed, injector, issuer, config.Credential, log),
 		ReadHeaderTimeout: time.Minute,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelDebug),
 	}
@@ -143,7 +143,7 @@ func run() error {
 	stopping, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer cancel()
 	_ = server.Shutdown(stopping)
-	log.Info("egress stopped and let go of the run's secrets")
+	log.Info("egress stopped and released the run's secrets")
 
 	return nil
 }
@@ -180,35 +180,35 @@ func serveShared() error {
 	return shared.Serve(ctx, listener)
 }
 
-func handedTo(path string) (protocol.EgressHanded, error) {
+func readConfig(path string) (protocol.EgressConfig, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return protocol.EgressHanded{}, fmt.Errorf("read what the host handed egress: %w", err)
+		return protocol.EgressConfig{}, fmt.Errorf("read the egress config: %w", err)
 	}
 	if err := os.Remove(path); err != nil {
-		return protocol.EgressHanded{}, fmt.Errorf("remove what the host handed egress: %w", err)
+		return protocol.EgressConfig{}, fmt.Errorf("remove the egress config: %w", err)
 	}
 
-	var handed protocol.EgressHanded
-	if err := json.Unmarshal(raw, &handed); err != nil {
-		return protocol.EgressHanded{}, fmt.Errorf("read what the host handed egress: %w", err)
+	var config protocol.EgressConfig
+	if err := json.Unmarshal(raw, &config); err != nil {
+		return protocol.EgressConfig{}, fmt.Errorf("read the egress config: %w", err)
 	}
-	if handed.URL == "" || handed.Credential == "" {
-		return protocol.EgressHanded{}, errors.New("the host handed egress no control plane or proxy credential")
+	if config.URL == "" || config.Credential == "" {
+		return protocol.EgressConfig{}, errors.New("the egress config has no control plane or proxy credential")
 	}
 
-	return handed, nil
+	return config, nil
 }
 
 func fetchSecretsFor(
-	ctx context.Context, handed protocol.EgressHanded, recipient string,
+	ctx context.Context, config protocol.EgressConfig, recipient string,
 	connect func(url, token string) (SecretFetcher, error), log *slog.Logger,
 ) (protocol.EgressSecrets, error) {
-	if handed.Token == "" {
+	if config.Token == "" {
 		return protocol.EgressSecrets{}, nil
 	}
 
-	fetcher, err := connect(handed.URL, handed.Token)
+	fetcher, err := connect(config.URL, config.Token)
 	if err != nil {
 		return protocol.EgressSecrets{}, err
 	}

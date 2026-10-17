@@ -32,15 +32,15 @@ export const reviseHost = async (
   }
 };
 
-export const forgetHost = async (
+export const deregisterHost = async (
   hosts: RunnerHostRepository,
   id: HostId,
-  forgets: (known: RunnerHost) => boolean,
+  deregisters: (known: RunnerHost) => boolean,
 ): Promise<void> => {
   for (let attempt = 1; ; attempt++) {
     const known = await hosts.find(id);
 
-    if (!known || !forgets(known)) {
+    if (!known || !deregisters(known)) {
       return;
     }
 

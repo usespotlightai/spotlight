@@ -160,7 +160,7 @@ export const NO_CHANGE: ChangeResponseDto = {
 
 export const emptyTally = (): RunTallyResponseDto => ({
   runs: 0,
-  withdrawn: 0,
+  cancelled: 0,
   failed: 0,
   failedShare: null,
   stopped: 0,
@@ -168,7 +168,7 @@ export const emptyTally = (): RunTallyResponseDto => ({
   checksFailed: 0,
   accepted: 0,
   sentBack: 0,
-  handedOn: 0,
+  passed: 0,
   merged: 0,
   cost: null,
   unpriced: 0,

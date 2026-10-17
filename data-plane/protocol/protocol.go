@@ -100,9 +100,9 @@ type EnvVariable struct {
 }
 
 const (
-	PermissionAllow       = "allow"
-	PermissionReject      = "reject"
-	PermissionPutToPerson = "asked"
+	PermissionAllow     = "allow"
+	PermissionReject    = "reject"
+	PermissionEscalated = "asked"
 )
 
 type PermissionAsked struct {
@@ -286,12 +286,12 @@ type Completed struct {
 	Waiting bool `json:"waiting"`
 }
 
-type ParkRequest struct {
-	Cold bool `json:"cold,omitempty"`
+type SuspendRequest struct {
+	Requeue bool `json:"requeue,omitempty"`
 }
 
-type Parking struct {
-	Parked bool `json:"parked"`
+type Suspension struct {
+	Suspended bool `json:"suspended"`
 }
 
 type StoredArchive struct {
@@ -346,7 +346,7 @@ type Claimed struct {
 	Check *StackCheck `json:"check"`
 }
 
-type Handed struct {
+type Assignment struct {
 	RunnerID    string  `json:"runnerId"`
 	Token       string  `json:"token"`
 	EgressToken string  `json:"egressToken,omitempty"`

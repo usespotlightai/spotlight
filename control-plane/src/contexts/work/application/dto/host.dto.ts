@@ -3,8 +3,8 @@ import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 export type HostClaimDto =
   | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'nothing' }
-  | { readonly outcome: 'stranger' }
-  | { readonly outcome: 'unoffered' }
+  | { readonly outcome: 'host-unreported' }
+  | { readonly outcome: 'image-unreported' }
   | {
       readonly outcome: 'claimed';
       readonly runnerId: string;

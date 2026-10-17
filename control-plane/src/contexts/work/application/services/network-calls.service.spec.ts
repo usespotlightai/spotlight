@@ -57,8 +57,8 @@ const calling = (
       saves += 1;
       stored = call.isDiscarded ? null : call;
     },
-    lapsingBy: async (at: Date) =>
-      stored && stored.lapsesAt <= at && !stored.isCompleted ? [stored] : [],
+    expiringBy: async (at: Date) =>
+      stored && stored.expiresAt <= at && !stored.isCompleted ? [stored] : [],
     completedBy: async (at: Date) =>
       stored?.completedAt && stored.completedAt <= at ? [stored] : [],
   } as unknown as NetworkCallRepository;
@@ -104,50 +104,50 @@ describe('NetworkCalls', () => {
     expect(reads[1]).toEqual(later(250));
   });
 
-  it('gives the call up at the time it was given, forgetting what it would have sent', async () => {
+  it('cancels the call at the time it was given, forgetting what it would have sent', async () => {
     const { calls, stored } = calling();
     await calls.queue('ws_1', REQUEST, later(15_000));
 
     expect(await calls.answered('call_1', later(1_000))).toEqual({
-      kind: 'lapsed',
+      kind: 'expired',
     });
     expect(stored()?.progress).toEqual({
-      kind: 'given-up',
+      kind: 'cancelled',
       at: later(1_000),
     });
     expect(stored()?.request.headers).toEqual({});
     expect(stored()?.request.body.byteLength).toBe(0);
   });
 
-  it('lapses the calls whose time is up, one at a time', async () => {
+  it('expires the calls whose time is up, one at a time', async () => {
     const watching = calling();
     const { calls, stored, clock } = watching;
     await calls.queue('ws_1', REQUEST, later(1_000));
     await clock.sleep(1_000);
 
-    expect(await calls.lapseOverdue()).toBe(1);
-    expect(await calls.lapseOverdue()).toBe(0);
+    expect(await calls.expireDue()).toBe(1);
+    expect(await calls.expireDue()).toBe(0);
     expect(watching.saves).toBe(1);
-    expect(stored()?.progress.kind).toBe('lapsed');
+    expect(stored()?.progress.kind).toBe('expired');
     expect(stored()?.request.headers).toEqual({});
   });
 
-  it('says a call lapsed once its time is up unanswered', async () => {
+  it('says a call expired once its time is up unanswered', async () => {
     const { calls } = calling();
     await calls.queue('ws_1', REQUEST, later(2_000));
 
     expect(await calls.answered('call_1', later(10_000))).toEqual({
-      kind: 'lapsed',
+      kind: 'expired',
     });
   });
 
-  it('forgets what a lapsed call would have sent once it sees it lapse', async () => {
+  it('forgets what an expired call would have sent once it sees it expire', async () => {
     const { calls, stored } = calling();
     await calls.queue('ws_1', REQUEST, later(2_000));
 
     await calls.answered('call_1', later(10_000));
 
-    expect(stored()?.progress.kind).toBe('lapsed');
+    expect(stored()?.progress.kind).toBe('expired');
     expect(stored()?.request.headers).toEqual({});
     expect(stored()?.request.body.byteLength).toBe(0);
   });
@@ -158,7 +158,7 @@ describe('NetworkCalls', () => {
     await calls.queue('ws_1', REQUEST, later(1_000));
     await clock.sleep(2_000);
 
-    expect(await calls.stateOf('call_1')).toEqual({ kind: 'lapsed' });
+    expect(await calls.stateOf('call_1')).toEqual({ kind: 'expired' });
     expect(watching.saves).toBe(0);
   });
 

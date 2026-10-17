@@ -326,13 +326,13 @@ describe('WorkspaceArchive', () => {
     );
   });
 
-  it('names the cutoffs before which the removal rules let an archive go', () => {
+  it('names the cutoffs before which the removal rules remove an archive', () => {
     const cutoffs = WorkspaceArchive.removalCutoffs(later(8 * DAY));
 
     expect(cutoffs).toEqual({
       grantedUnsealedBy: later(7 * DAY),
       supersededBy: later(8 * DAY - HOUR),
-      letGoBy: later(DAY),
+      releasedBy: later(DAY),
       startedFromBy: later(8 * DAY - 30 * DAY),
     });
     expect(anArchive().removableAt(later(DAY), owned)).toBe(true);

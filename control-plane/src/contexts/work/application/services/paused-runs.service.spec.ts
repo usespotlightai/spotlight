@@ -81,7 +81,7 @@ const asked = () =>
     now: NOW,
     newId: () => 'task_1',
   })
-    .handedTo(RUN, line)
+    .assignRun(RUN, line)
     .putToAPerson(RUN, note('Which queue?', Voice.station(RUN)));
 
 const answered = () =>
@@ -119,7 +119,7 @@ const taking = (task: Task, run: Run | null, conflictsFirst = false) => {
     { find: async () => task } as unknown as TaskRepository,
     {
       findById: async () =>
-        reads++ > 0 && conflictsFirst ? run?.park(RUNNER, NOW) : run,
+        reads++ > 0 && conflictsFirst ? run?.suspend(RUNNER, NOW) : run,
       save: async (each: Run) => {
         if (!conflicted) {
           conflicted = true;
@@ -149,8 +149,11 @@ describe('PausedRuns', () => {
     expect(saved[0]?.attempt).toBe(1);
   });
 
-  it('requeues a parked run as its next attempt once its person has answered', async () => {
-    const { takeUp, saved } = taking(answered(), waiting().park(RUNNER, NOW));
+  it('requeues a suspended run as its next attempt once its person has answered', async () => {
+    const { takeUp, saved } = taking(
+      answered(),
+      waiting().suspend(RUNNER, NOW),
+    );
 
     await takeUp();
 
@@ -158,7 +161,7 @@ describe('PausedRuns', () => {
     expect(saved[0]?.attempt).toBe(2);
   });
 
-  it('requeues from the archive when the run was parked while it was being taken up', async () => {
+  it('requeues from the archive when the run was suspended while it was being taken up', async () => {
     const { takeUp, saved } = taking(answered(), waiting(), true);
 
     await takeUp();

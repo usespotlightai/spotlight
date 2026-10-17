@@ -130,13 +130,13 @@ export class TallyCountedResponseDto {
   readonly sentBack: boolean;
 
   @ApiProperty({ example: false })
-  readonly handedOn: boolean;
+  readonly passed: boolean;
 
   @ApiProperty({ example: true })
   readonly merged: boolean;
 
   @ApiProperty({ example: false })
-  readonly withdrawn: boolean;
+  readonly cancelled: boolean;
 
   constructor(counted: TallyCounted) {
     this.failed = counted.failed;
@@ -145,9 +145,9 @@ export class TallyCountedResponseDto {
     this.checksFailed = counted.checksFailed;
     this.accepted = counted.accepted;
     this.sentBack = counted.sentBack;
-    this.handedOn = counted.handedOn;
+    this.passed = counted.passed;
     this.merged = counted.merged;
-    this.withdrawn = counted.withdrawn;
+    this.cancelled = counted.cancelled;
   }
 }
 

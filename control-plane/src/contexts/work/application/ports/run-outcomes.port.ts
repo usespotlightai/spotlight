@@ -4,8 +4,8 @@ type RunEndingShape =
   | 'completed'
   | 'failed'
   | 'stopped'
-  | 'abandoned'
-  | 'withdrawn'
+  | 'exhausted'
+  | 'cancelled'
   | 'superseded';
 
 export interface RunOutcomeShape {

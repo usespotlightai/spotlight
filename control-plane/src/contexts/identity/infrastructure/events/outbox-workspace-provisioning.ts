@@ -12,11 +12,11 @@ export class OutboxWorkspaceProvisioning implements WorkspaceProvisioningPort {
   constructor(private readonly reactions: EventReactions) {}
 
   async of(workspaceId: WorkspaceId): Promise<Provisioning> {
-    const { owed, givenUp } = await this.reactions.owedBy(FIRST_TEAM, {
+    const { owed, deadLettered } = await this.reactions.owedBy(FIRST_TEAM, {
       workspaceId: workspaceId.value,
     });
 
-    if (givenUp > 0) {
+    if (deadLettered > 0) {
       return 'failed';
     }
 

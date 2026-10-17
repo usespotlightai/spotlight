@@ -9,7 +9,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -81,7 +81,7 @@ const improving = (stationTeam: TeamId) =>
   });
 
 const working = () => {
-  const chat = started().handedTo(RunId.of('run_1'), NOW);
+  const chat = started().assignRun(RunId.of('run_1'), NOW);
   chat.pullEvents();
   return chat;
 };
@@ -229,40 +229,40 @@ describe('Chat', () => {
     ).toThrow(NotTheChatStarterError);
   });
 
-  it('counts what it was handed to a run with as heard', () => {
+  it('counts the messages it delivered to a run as heard', () => {
     const chat = working();
 
     expect(chat.running).toBe(true);
     expect(chat.undelivered).toHaveLength(0);
   });
 
-  it('says which of its messages it handed a run', () => {
-    const handed = working()
+  it('says which of its messages it delivered to a run', () => {
+    const assigned = working()
       .endRun(RunId.of('run_1'))
       .said({ by: LEON, body: ChatMessageBody.of('And then?'), at: LATER })
-      .handedTo(RunId.of('run_2'), LATER);
+      .assignRun(RunId.of('run_2'), LATER);
 
-    const [event] = handed.pullEvents();
+    const [event] = assigned.pullEvents();
 
-    expect(event).toBeInstanceOf(ChatHandedToRun);
-    expect((event as ChatHandedToRun).handed.map((each) => each.value)).toEqual(
-      [1],
-    );
+    expect(event).toBeInstanceOf(ChatDispatched);
     expect(
-      handed
-        .messagesAt((event as ChatHandedToRun).handed)
+      (event as ChatDispatched).delivered.map((each) => each.value),
+    ).toEqual([1]);
+    expect(
+      assigned
+        .messagesAt((event as ChatDispatched).delivered)
         .map((each) => each.body.value),
     ).toEqual(['And then?']);
   });
 
-  it('takes back only what it handed to a run that kept nothing, and wants following up', () => {
-    const handed = working()
+  it('takes back only what it delivered to a run that kept nothing, and wants following up', () => {
+    const assigned = working()
       .endRun(RunId.of('run_1'))
       .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER })
-      .handedTo(RunId.of('run_2'), LATER)
+      .assignRun(RunId.of('run_2'), LATER)
       .said({ by: LEON, body: ChatMessageBody.of('And docs.'), at: LATER });
 
-    const released = handed.runKeptNothing(RunId.of('run_2'));
+    const released = assigned.runKeptNothing(RunId.of('run_2'));
 
     expect(released.running).toBe(false);
     expect(released.undelivered.map((each) => each.position.value)).toEqual([
@@ -272,7 +272,7 @@ describe('Chat', () => {
     expect(released.wantsFollowUp).toBe(true);
   });
 
-  it('keeps what it handed when a run that is not its current run kept nothing', () => {
+  it('keeps what it delivered when a run that is not its current run kept nothing', () => {
     const unchanged = working().runKeptNothing(RunId.of('run_2'));
 
     expect(unchanged.running).toBe(true);
@@ -298,8 +298,8 @@ describe('Chat', () => {
     expect(heard.endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
   });
 
-  it('will not be handed to a second run while one works it', () => {
-    expect(() => working().handedTo(RunId.of('run_2'), LATER)).toThrow(
+  it('is not assigned to a second run while one works it', () => {
+    expect(() => working().assignRun(RunId.of('run_2'), LATER)).toThrow(
       InvalidChatTransitionError,
     );
   });
@@ -393,7 +393,7 @@ describe('Chat', () => {
       expect(ended.followsUp).toBe(false);
     });
 
-    it('takes back what it handed a run that kept no session, and leaves the follow-up for later', () => {
+    it('takes back what it delivered to a run that kept no session, and leaves the follow-up for later', () => {
       const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
         session: null,
         workedBy: RUNNER,
@@ -420,7 +420,7 @@ describe('Chat', () => {
     });
   });
 
-  it('lets go of its run only for the run that works it', () => {
+  it('ends its run only for the run that works it', () => {
     const chat = working();
 
     expect(chat.endRun(RunId.of('run_2')).running).toBe(true);
@@ -554,7 +554,7 @@ describe('Chat', () => {
         setup: ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
         now: NOW,
         newId: () => 'chat_1',
-      }).handedTo(RunId.of('run_1'), NOW);
+      }).assignRun(RunId.of('run_1'), NOW);
 
     const URL = PullRequestUrl.of('https://github.com/acme/infra/pull/12');
 
@@ -626,7 +626,7 @@ describe('Chat', () => {
     it('rejects a chat that sets nothing up', () => {
       expect(() =>
         started()
-          .handedTo(RunId.of('run_1'), NOW)
+          .assignRun(RunId.of('run_1'), NOW)
           .openSetup(RunId.of('run_1'), BRANCH, URL, LATER),
       ).toThrow(NotASetupChatError);
     });

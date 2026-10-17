@@ -50,6 +50,7 @@ const CONTEXT_SIZE = 200_000;
 export const finished = (run: TaskRunResponseDto) =>
   run.state === 'completed' ||
   run.state === 'failed' ||
+  run.state === 'cancelled' ||
   run.state === 'superseded';
 
 export const endOf = (run: TaskRunResponseDto): number =>
@@ -550,9 +551,9 @@ const pastStoryOf = (run: HistoryRun): RunStory => {
     title: task?.title ?? '',
     path: pathOf(run.taskId, task?.title ?? '', run.lineId),
     person: PEOPLE.find((each) => each.id === task?.openedBy) ?? SAM,
-    next: run.handedOn ? (stationOfId(run.handedOn.to)?.name ?? null) : null,
-    finishing: run.handedOn
-      ? stationOfId(run.handedOn.to)?.kind === 'completed'
+    next: run.passed ? (stationOfId(run.passed.to)?.name ?? null) : null,
+    finishing: run.passed
+      ? stationOfId(run.passed.to)?.kind === 'completed'
       : false,
     pullRequest: task?.pullRequest
       ? pullRequestUrlOf(task.teamId, task.id)

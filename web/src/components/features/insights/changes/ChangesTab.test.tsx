@@ -81,14 +81,14 @@ vi.mock('@/hooks/api/useLines', () => ({
 
 const tally = (over: Record<string, unknown> = {}) => ({
   runs: 10,
-  withdrawn: 0,
+  cancelled: 0,
   failed: 0,
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,
   accepted: 4,
   sentBack: 2,
-  handedOn: 0,
+  passed: 0,
   merged: 0,
   cost: null,
   unpriced: 0,
@@ -172,7 +172,7 @@ const SETUPS = {
       outcomes: {
         accepted: 0.6,
         sent_back: 0.1,
-        handed_on: 0.2,
+        passed: 0.2,
         checks_passed: 0.9,
         merged: 0.3,
         judge: 0.75,
@@ -192,7 +192,7 @@ const SETUPS = {
       outcomes: {
         accepted: 0.4,
         sent_back: 0.3,
-        handed_on: 0.2,
+        passed: 0.2,
         checks_passed: 0.7,
         merged: 0.2,
         judge: null,

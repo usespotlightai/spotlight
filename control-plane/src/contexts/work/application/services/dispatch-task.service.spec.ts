@@ -226,7 +226,7 @@ const SHIPPED_SKILLS: ReadySkillFolder[] = [
   {
     skill: {
       key: HANDING_OVER.value,
-      description: 'Handing a task on.',
+      description: 'Passing a task on.',
       tools: [],
     },
     files: [
@@ -367,7 +367,11 @@ const dispatch = async (
   const runId = await service.runIdFor({ task: working, line });
 
   if (runId) {
-    await service.enqueue({ task: working.handedTo(runId, line), line, runId });
+    await service.enqueue({
+      task: working.assignRun(runId, line),
+      line,
+      runId,
+    });
   }
 
   return runId;
@@ -957,7 +961,7 @@ describe('DispatchTask, the skills a run is given', () => {
 
     expect(laid()).toEqual(['.spotlight/skills/spotlight-handover/SKILL.md']);
     expect(written(queued[0]).briefing).toContain(
-      '- `.spotlight/skills/spotlight-handover/SKILL.md` — Handing a task on.',
+      '- `.spotlight/skills/spotlight-handover/SKILL.md` — Passing a task on.',
     );
   });
 });

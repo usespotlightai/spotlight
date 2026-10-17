@@ -48,7 +48,7 @@ describe('dispatchedInTurn', () => {
     expect(roomAmong([neverQueued, waiting])).toBe(REPLAY_RUNS_AT_ONCE - 1);
     expect(
       roomAmong([
-        neverQueued.forgo(RunId.of('replay_run_0'), later(2)),
+        neverQueued.cancel(RunId.of('replay_run_0'), later(2)),
         waiting,
       ]),
     ).toBe(REPLAY_RUNS_AT_ONCE);

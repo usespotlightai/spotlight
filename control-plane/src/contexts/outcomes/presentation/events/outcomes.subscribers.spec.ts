@@ -17,8 +17,8 @@ import { NotePullRequestRecords } from '@outcomes/application/services/note-pull
 import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
-import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
 import { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
+import { NoteRunPassed } from '@outcomes/application/services/note-run-passed.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
@@ -77,8 +77,8 @@ import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/tas
 import { TASK_ASKED } from '@shared-kernel/application/integration-events/task-asked.integration-event';
 import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import { TASK_FAILED } from '@shared-kernel/application/integration-events/task-failed.integration-event';
-import { TASK_HANDED_ON } from '@shared-kernel/application/integration-events/task-handed-on.integration-event';
 import { TASK_OPENED } from '@shared-kernel/application/integration-events/task-opened.integration-event';
+import { TASK_PASSED } from '@shared-kernel/application/integration-events/task-passed.integration-event';
 import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
 import { WORKSPACE_CLOSED } from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
@@ -227,7 +227,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     }),
     digesting: new NoteRunDigested(WORK, records, forgotten, inTransaction),
     remembering: new NoteRunMemories(WORK, records, forgotten, inTransaction),
-    handingOn: new NoteRunHandedOn(records, forgotten, inTransaction),
+    passing: new NoteRunPassed(records, forgotten, inTransaction),
     reviewing: new NotePullRequestReviewed(
       deliveries,
       reviews,
@@ -438,7 +438,7 @@ describe('outcomesSubscribers', () => {
     );
   });
 
-  it('keeps what a run cost and where it handed its task, heard before or after it ended', async () => {
+  it('keeps what a run cost and where it passed its task, heard before or after it ended', async () => {
     const heard = subscribed();
 
     await heard.deliver('outcomes.record-run-cost', {
@@ -470,8 +470,8 @@ describe('outcomesSubscribers', () => {
       skillsRead: ['grafana'],
     });
     await heard.deliver('outcomes.record-ended-run', runEnded());
-    await heard.deliver('outcomes.record-handed-on-run', {
-      kind: TASK_HANDED_ON,
+    await heard.deliver('outcomes.record-passed-run', {
+      kind: TASK_PASSED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
       runId: 'run_1',
@@ -488,7 +488,7 @@ describe('outcomesSubscribers', () => {
       cacheRead: 80_000,
       cacheWrite: null,
     });
-    expect(record?.handedOn?.to).toBe('station_2');
+    expect(record?.passed?.to).toBe('station_2');
     expect(record?.end?.setup.harness).toBe('claude-code');
     expect(record?.tools?.callsTo('linear')?.latency).toEqual(
       LatencyHistogram.timing([300, 900]),
@@ -924,8 +924,8 @@ describe('outcomesSubscribers', () => {
       servers: [],
       skillsRead: [],
     });
-    await heard.deliver('outcomes.record-handed-on-run', {
-      kind: TASK_HANDED_ON,
+    await heard.deliver('outcomes.record-passed-run', {
+      kind: TASK_PASSED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
       runId: 'run_2',
@@ -1128,12 +1128,12 @@ describe('outcomesSubscribers', () => {
     expect(heard.judgings.stored.size).toBe(1);
   });
 
-  it('judges neither a withdrawn run nor one at no station', async () => {
+  it('judges neither a cancelled run nor one at no station', async () => {
     const heard = subscribed();
 
     await heard.deliver(
       'outcomes.judge-ended-run',
-      runEnded({ outcome: 'withdrawn' }),
+      runEnded({ outcome: 'cancelled' }),
     );
     await heard.deliver(
       'outcomes.judge-ended-run',

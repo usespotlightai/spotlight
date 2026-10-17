@@ -284,11 +284,11 @@ describe('the event outbox', () => {
       .select()
       .from(eventDelivery)
       .where(eq(eventDelivery.subscriber, 'test.flaky'));
-    const given = rows.filter((each) => each.failedAt !== null);
+    const deadLettered = rows.filter((each) => each.deadLetteredAt !== null);
 
-    expect(given).toHaveLength(1);
-    expect(given[0]?.attempts).toBe(MAX_ATTEMPTS);
-    expect(given[0]?.lastError).toBe('not yet');
+    expect(deadLettered).toHaveLength(1);
+    expect(deadLettered[0]?.attempts).toBe(MAX_ATTEMPTS);
+    expect(deadLettered[0]?.lastError).toBe('not yet');
     expect(reports.report).toHaveBeenCalledExactlyOnceWith(
       new Error('not yet'),
       expect.objectContaining({
@@ -306,12 +306,21 @@ describe('the event outbox', () => {
 
     await outbox.record([new Rang(Marker.of('tracked'))]);
 
-    await expect(owed('tracked')).resolves.toEqual({ owed: 1, givenUp: 0 });
-    await expect(owed('never-rang')).resolves.toEqual({ owed: 0, givenUp: 0 });
+    await expect(owed('tracked')).resolves.toEqual({
+      owed: 1,
+      deadLettered: 0,
+    });
+    await expect(owed('never-rang')).resolves.toEqual({
+      owed: 0,
+      deadLettered: 0,
+    });
 
     await delivery.processDue();
 
-    await expect(owed('tracked')).resolves.toEqual({ owed: 0, givenUp: 0 });
+    await expect(owed('tracked')).resolves.toEqual({
+      owed: 0,
+      deadLettered: 0,
+    });
   });
 
   it('matches every field it is given', async () => {
@@ -326,9 +335,12 @@ describe('the event outbox', () => {
 
     await expect(owed('bell.published-rang.v1')).resolves.toEqual({
       owed: 1,
-      givenUp: 0,
+      deadLettered: 0,
     });
-    await expect(owed('bell.other')).resolves.toEqual({ owed: 0, givenUp: 0 });
+    await expect(owed('bell.other')).resolves.toEqual({
+      owed: 0,
+      deadLettered: 0,
+    });
   });
 
   it('finds the events about one thing by an id kept in a value object', async () => {
@@ -338,10 +350,10 @@ describe('the event outbox', () => {
 
     await expect(
       new EventReactions(context).owedBy('test.answer', { marker: 'nested' }),
-    ).resolves.toEqual({ owed: 1, givenUp: 0 });
+    ).resolves.toEqual({ owed: 1, deadLettered: 0 });
   });
 
-  it('counts what a subscriber gave up on, and not what it still tries again', async () => {
+  it('counts what a subscriber dead-lettered, and not what it still tries again', async () => {
     const { outbox, delivery } = outboxWith();
     const owed = () =>
       new EventReactions(context).owedBy('test.fail-published', {
@@ -351,13 +363,13 @@ describe('the event outbox', () => {
     await outbox.record([new Rang(Marker.of('failing'))]);
     await delivery.processDue();
 
-    await expect(owed()).resolves.toEqual({ owed: 1, givenUp: 0 });
+    await expect(owed()).resolves.toEqual({ owed: 1, deadLettered: 0 });
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
       now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
       await delivery.processDue();
     }
 
-    await expect(owed()).resolves.toEqual({ owed: 1, givenUp: 1 });
+    await expect(owed()).resolves.toEqual({ owed: 1, deadLettered: 1 });
   });
 });

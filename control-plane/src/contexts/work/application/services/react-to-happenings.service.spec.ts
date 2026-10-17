@@ -20,8 +20,8 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
+import type { RunDetached } from '@work/domain/events/run-detached.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
-import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
@@ -320,7 +320,7 @@ describe('ReactToHappenings', () => {
   it('waits to be handed to the agent already working the task', async () => {
     await heard(
       COMMENTED,
-      taskAt().handedTo(RunId.of('run_1'), line()),
+      taskAt().assignRun(RunId.of('run_1'), line()),
       'Look.',
     );
 
@@ -401,7 +401,7 @@ describe('ReactToHappenings', () => {
 
   it('takes a Slack thread reply as the answer a paused run waits for, so that same run is taken up', async () => {
     const paused = taskAt()
-      .handedTo(RunId.of('run_1'), line())
+      .assignRun(RunId.of('run_1'), line())
       .putToAPerson(RunId.of('run_1'), {
         voice: Voice.station(RunId.of('run_1')),
         station: StationName.of('Code Review'),
@@ -635,7 +635,7 @@ describe('ReactToHappenings', () => {
   it('starts nothing where the task already has a current run', async () => {
     await heard(
       COMMENTED,
-      taskAt().handedTo(RunId.of('run_1'), line()),
+      taskAt().assignRun(RunId.of('run_1'), line()),
       'One more thing.',
     );
 
@@ -645,14 +645,14 @@ describe('ReactToHappenings', () => {
 
   describe('a happening that would move a task that has a current run', () => {
     const handed = (stationId: string) => {
-      const task = taskAt(stationId).handedTo(RunId.of('run_1'), line());
+      const task = taskAt(stationId).assignRun(RunId.of('run_1'), line());
       task.pullEvents();
       return task;
     };
 
     const paused = (stationId: string) => {
       const task = taskAt(stationId)
-        .handedTo(RunId.of('run_1'), line())
+        .assignRun(RunId.of('run_1'), line())
         .putToAPerson(RunId.of('run_1'), {
           station: StationName.of('Implementation'),
           body: TaskNoteBody.of('Which queue should I drain?'),
@@ -741,8 +741,8 @@ describe('ReactToHappenings', () => {
         expect(
           saved
             ?.pullEvents()
-            .filter((each) => each.kind === 'task.let-go-of-run')
-            .map((each) => (each as TaskLetGoOfRun).runId),
+            .filter((each) => each.kind === 'task.run-detached')
+            .map((each) => (each as RunDetached).runId),
         ).toEqual([RunId.of('run_1')]);
         expect(dispatched).toHaveLength(0);
       });

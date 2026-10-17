@@ -15,7 +15,7 @@ import type { Spend } from '@outcomes/domain/value-objects/run-cost.vo';
 
 export interface RunTally {
   readonly runs: number;
-  readonly withdrawn: number;
+  readonly cancelled: number;
   readonly failed: number;
   readonly failedShare: number | null;
   readonly stopped: number;
@@ -23,7 +23,7 @@ export interface RunTally {
   readonly checksFailed: number;
   readonly accepted: number;
   readonly sentBack: number;
-  readonly handedOn: number;
+  readonly passed: number;
   readonly merged: number;
   readonly cost: Spend | null;
   readonly unpriced: number;
@@ -54,7 +54,7 @@ export const runTally = (
 
   return {
     runs: ran.length,
-    withdrawn: count(records, (each) => each.hasEnded && !each.ran),
+    cancelled: count(records, (each) => each.hasEnded && !each.ran),
     failed,
     failedShare: rateOf(failed, ran.length),
     stopped: count(ran, (each) => each.ending === 'stopped'),
@@ -62,7 +62,7 @@ export const runTally = (
     checksFailed: count(ran, (each) => each.checks === 'failed'),
     accepted: count(ran, (each) => each.next?.accepts === true),
     sentBack: count(ran, (each) => each.next?.sendsBack === true),
-    handedOn: count(ran, (each) => each.handedOn !== null),
+    passed: count(ran, (each) => each.passed !== null),
     merged: deliveries.filter(
       (each) => each.merged && tasks.has(each.taskId.value),
     ).length,
@@ -78,14 +78,14 @@ export type TallyCounts = Omit<RunTally, 'failedShare'>;
 
 export const NO_RUNS: TallyCounts = {
   runs: 0,
-  withdrawn: 0,
+  cancelled: 0,
   failed: 0,
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,
   accepted: 0,
   sentBack: 0,
-  handedOn: 0,
+  passed: 0,
   merged: 0,
   cost: null,
   unpriced: 0,
@@ -96,7 +96,7 @@ export const NO_RUNS: TallyCounts = {
 
 export const tallyOf = (counts: TallyCounts): RunTally => ({
   runs: counts.runs,
-  withdrawn: counts.withdrawn,
+  cancelled: counts.cancelled,
   failed: counts.failed,
   failedShare: rateOf(counts.failed, counts.runs),
   stopped: counts.stopped,
@@ -104,7 +104,7 @@ export const tallyOf = (counts: TallyCounts): RunTally => ({
   checksFailed: counts.checksFailed,
   accepted: counts.accepted,
   sentBack: counts.sentBack,
-  handedOn: counts.handedOn,
+  passed: counts.passed,
   merged: counts.merged,
   cost: counts.cost,
   unpriced: counts.unpriced,
@@ -185,9 +185,9 @@ const COUNTED_IN_TALLY = [
   'checksFailed',
   'accepted',
   'sentBack',
-  'handedOn',
+  'passed',
   'merged',
-  'withdrawn',
+  'cancelled',
 ] as const;
 
 export type TallyCounted = Readonly<
@@ -201,7 +201,7 @@ export const tallyCountedOf = (tally: RunTally): TallyCounted => ({
   checksFailed: tally.checksFailed > 0,
   accepted: tally.accepted > 0,
   sentBack: tally.sentBack > 0,
-  handedOn: tally.handedOn > 0,
+  passed: tally.passed > 0,
   merged: tally.merged > 0,
-  withdrawn: tally.withdrawn > 0,
+  cancelled: tally.cancelled > 0,
 });

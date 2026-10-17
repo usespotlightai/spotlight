@@ -88,7 +88,7 @@ const occupying = and(
   notEnded,
   or(
     isNull(replayEntry.outcome),
-    and(eq(replayEntry.measured, false), ne(replayEntry.outcome, 'withdrawn')),
+    and(eq(replayEntry.measured, false), ne(replayEntry.outcome, 'cancelled')),
   ),
 );
 

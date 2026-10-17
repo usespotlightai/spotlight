@@ -26,7 +26,7 @@ const setUp = () => {
 };
 
 describe('HookCallbackGrants', () => {
-  it('issues a grant from the clock and forgets those lapsed by then', async () => {
+  it('issues a grant from the clock and forgets those expired by then', async () => {
     const { grants, kept, added } = setUp();
 
     const token = await grants.issued({

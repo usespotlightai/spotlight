@@ -6,7 +6,7 @@ import { useInbox } from '@/hooks/api/useInbox';
 import { useRunners } from '@/hooks/api/useRunners';
 import { inboxPath } from '@/lib/inbox';
 import { administers, type Role } from '@/lib/role';
-import { noneAnswering } from '@/lib/runner';
+import { noneOnline } from '@/lib/runner';
 import type { Team } from '@/lib/team';
 
 type WorkspaceSidebarProps = {
@@ -31,7 +31,7 @@ export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
           name={workspace.name}
           slug={slug}
           admin={administers(workspace.role)}
-          noneAnswering={Boolean(fleet && noneAnswering(fleet))}
+          noneOnline={Boolean(fleet && noneOnline(fleet))}
         />
       </div>
 

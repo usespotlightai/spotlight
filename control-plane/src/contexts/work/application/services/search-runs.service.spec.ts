@@ -94,7 +94,7 @@ describe('SearchRuns', () => {
       runId,
       state,
       askedAPerson: asked,
-      attempt: runId === 'lapsed' ? 2 : 1,
+      attempt: runId === 'expired' ? 2 : 1,
       queuedAt: at(0),
       startedAt: started,
       endedAt: state === 'queued' || state === 'claimed' ? null : at(9),
@@ -104,8 +104,8 @@ describe('SearchRuns', () => {
       fact('working', 'claimed', at(1)),
       fact('done', 'completed', at(1)),
       fact('asked', 'completed', at(1), true),
-      fact('withdrawn', 'superseded', null),
-      fact('lapsed', 'queued', null),
+      fact('cancelled', 'cancelled', null),
+      fact('expired', 'queued', null),
     ];
 
     expect(
@@ -119,8 +119,8 @@ describe('SearchRuns', () => {
       ['working', 'running', true, true],
       ['done', 'ended', false, true],
       ['asked', 'ended', true, true],
-      ['withdrawn', 'ended', true, false],
-      ['lapsed', 'queued', true, true],
+      ['cancelled', 'ended', true, false],
+      ['expired', 'queued', true, true],
     ]);
   });
 });

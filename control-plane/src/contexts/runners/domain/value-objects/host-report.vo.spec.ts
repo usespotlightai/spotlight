@@ -7,13 +7,13 @@ const report = (over: Partial<Parameters<typeof HostReport.of>[0]> = {}) =>
   HostReport.of({
     name: 'build-box',
     release: '0.9.0',
-    executor: 'docker',
+    containerRuntime: 'docker',
     capacity: 4,
     running: ['runner_1'],
     images: [
       {
         image: 'ghcr.io/acme/runner:main',
-        usual: true,
+        isDefault: true,
         harnesses: [
           { id: 'claude-code', models: ['claude-sonnet-5'], version: '2.1.0' },
         ],
@@ -38,7 +38,7 @@ describe('HostReport', () => {
 
     expect(parsed.name).toBe('build-box');
     expect(parsed.release).toBe('0.9.0');
-    expect(parsed.executor).toBe('docker');
+    expect(parsed.containerRuntime).toBe('docker');
     expect(parsed.capacity).toBe(4);
     expect(parsed.running.map((each) => each.value)).toEqual(['runner_1']);
     expect(parsed.images[0]?.image.value).toBe('ghcr.io/acme/runner:main');
@@ -70,7 +70,7 @@ describe('HostReport', () => {
     const images = (count: number) =>
       Array.from({ length: count }, (_, at) => ({
         image: `ghcr.io/acme/runner-${at}:main`,
-        usual: false,
+        isDefault: false,
         harnesses: [],
       }));
 
@@ -79,9 +79,9 @@ describe('HostReport', () => {
   });
 
   it('rejects two default images, or one image twice', () => {
-    const image = (usual: boolean, name = 'ghcr.io/acme/runner:main') => ({
+    const image = (isDefault: boolean, name = 'ghcr.io/acme/runner:main') => ({
       image: name,
-      usual,
+      isDefault,
       harnesses: [],
     });
 
@@ -97,14 +97,14 @@ describe('HostReport', () => {
     const report = HostReport.of({
       name: 'build-box',
       release: '0.9.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 2,
       running: [],
       images: [
-        { image: 'ghcr.io/acme/runner:main', usual: true, harnesses: [] },
+        { image: 'ghcr.io/acme/runner:main', isDefault: true, harnesses: [] },
         {
           image: 'ghcr.io/acme/old:1',
-          usual: false,
+          isDefault: false,
           harnesses: [],
           unavailableReason: 'too old',
         },
@@ -112,17 +112,19 @@ describe('HostReport', () => {
     });
 
     expect(
-      report.offering(RunnerImage.of('ghcr.io/acme/runner:main'))?.usual,
+      report.offering(RunnerImage.of('ghcr.io/acme/runner:main'))?.isDefault,
     ).toBe(true);
     expect(report.offering(RunnerImage.of('ghcr.io/acme/old:1'))).toBeNull();
     expect(report.offering(RunnerImage.of('ghcr.io/acme/none:1'))).toBeNull();
   });
 
-  it('rejects a name, release or executor that is blank or too long', () => {
+  it('rejects a name, release or container runtime that is blank or too long', () => {
     expect(invalidAt({ name: '   ' })).toBe('name');
     expect(invalidAt({ name: 'n'.repeat(121) })).toBe('name');
     expect(invalidAt({ release: 'r'.repeat(65) })).toBe('release');
-    expect(invalidAt({ executor: '' })).toBe('executor');
-    expect(invalidAt({ executor: 'e'.repeat(201) })).toBe('executor');
+    expect(invalidAt({ containerRuntime: '' })).toBe('containerRuntime');
+    expect(invalidAt({ containerRuntime: 'e'.repeat(201) })).toBe(
+      'containerRuntime',
+    );
   });
 });

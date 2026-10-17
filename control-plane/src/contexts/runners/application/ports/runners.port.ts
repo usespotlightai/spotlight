@@ -17,8 +17,8 @@ export type StartedRunner =
     }
   | { readonly outcome: 'full' }
   | { readonly outcome: 'gone' }
-  | { readonly outcome: 'stranger' }
-  | { readonly outcome: 'unoffered' };
+  | { readonly outcome: 'host-unreported' }
+  | { readonly outcome: 'image-unreported' };
 
 export interface ProvisionRequest {
   readonly poolId: string;
@@ -61,9 +61,9 @@ export interface RunnersPort {
 
   provision(request: ProvisionRequest, at: Date): Promise<ProvisionedRunner>;
 
-  took(runnerId: RunnerId, work: LeasedWork, at: Date): Promise<void>;
+  claim(runnerId: RunnerId, work: LeasedWork, at: Date): Promise<void>;
 
-  letGo(runnerId: RunnerId, at: Date): Promise<void>;
+  release(runnerId: RunnerId, at: Date): Promise<void>;
 
   reservationDropped(runnerId: RunnerId, at: Date): Promise<void>;
 

@@ -12,7 +12,7 @@ import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
 import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
@@ -93,7 +93,7 @@ const DELIVERY = Line.rehydrate({
 
 const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
   const handed = chat
-    .handedTo(RunId.of('run_1'), NOW)
+    .assignRun(RunId.of('run_1'), NOW)
     .endRun(RunId.of('run_1'))
     .said({
       by: LEON,
@@ -101,13 +101,13 @@ const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
       traces,
       at: NOW,
     })
-    .handedTo(RunId.of('run_2'), NOW);
+    .assignRun(RunId.of('run_2'), NOW);
   const event = handed
     .pullEvents()
-    .filter((each): each is ChatHandedToRun => each instanceof ChatHandedToRun)
+    .filter((each): each is ChatDispatched => each instanceof ChatDispatched)
     .pop();
 
-  return ChatBriefing.followUp(handed, event?.handed ?? []);
+  return ChatBriefing.followUp(handed, event?.delivered ?? []);
 };
 
 const improvingChat = () =>

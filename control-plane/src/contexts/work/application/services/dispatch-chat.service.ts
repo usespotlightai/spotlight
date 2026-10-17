@@ -58,7 +58,7 @@ export class DispatchChat implements ChatDispatching {
     });
 
     return command
-      ? chat.handedTo(RunId.of(this.ids.generate()), this.clock.now())
+      ? chat.assignRun(RunId.of(this.ids.generate()), this.clock.now())
       : chat;
   }
 

@@ -43,7 +43,7 @@ interface LayoutProblem {
 
 const STATIONS: LinePart = { of: 'line', field: 'stations' };
 
-const handingOn = (station: LaidStation): LinePart => ({
+const passingOn = (station: LaidStation): LinePart => ({
   of: 'station',
   station: station.key,
   field: 'passesTo',
@@ -109,7 +109,7 @@ export const stationsProblem = (
     if (station.kind === 'completed' && station.passesTo.length > 0) {
       return {
         reason: 'cannot pass on from the completed station',
-        part: handingOn(station),
+        part: passingOn(station),
       };
     }
 
@@ -117,13 +117,13 @@ export const stationsProblem = (
       if (to === station.key) {
         return {
           reason: `cannot pass to themselves, but ${station.name} does`,
-          part: handingOn(station),
+          part: passingOn(station),
         };
       }
       if (!worked.has(to)) {
         return {
           reason: `must pass to work stations, but ${station.name} does not`,
-          part: handingOn(station),
+          part: passingOn(station),
         };
       }
     }

@@ -334,13 +334,13 @@ func TestRejectsAnAllowListThatNamesNoHostAndAnEgressWithTheHostsCredential(t *t
 
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "https://api.anthropic.com")
 	if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_EGRESS_ALLOW") {
-		t.Errorf("took an allow-list of URLs: %v", err)
+		t.Errorf("accepted an allow-list of URLs: %v", err)
 	}
 
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "")
 	write(t, filepath.Join(dir, "egress.env"), "SPOTLIGHT_TOKEN=pool-token\n")
 	if _, err := config.Load("dev"); err == nil {
-		t.Error("handed egress the host's own credential")
+		t.Error("gave egress the host's own credential")
 	}
 }
 
@@ -353,7 +353,7 @@ func TestReadsTheAuthoritiesEgressTrustsForPrivateHosts(t *testing.T) {
 
 	write(t, trust, "not a certificate")
 	if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "no PEM certificate") {
-		t.Errorf("took what has no certificate: %v", err)
+		t.Errorf("accepted what has no certificate: %v", err)
 	}
 
 	authority := authorityPEM(t)

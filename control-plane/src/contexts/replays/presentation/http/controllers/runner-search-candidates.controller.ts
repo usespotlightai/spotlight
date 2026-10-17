@@ -38,7 +38,7 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @ApiParam({ name: 'runId', type: String })
 @ApiExtraModels(ProblemResponseDto)
@@ -64,7 +64,7 @@ export class RunnerSearchCandidatesController {
   )
   @ApiProblemResponse(
     HttpStatus.CONFLICT,
-    'The iteration proposed all the candidates it may, or tried too often, or another iteration took the name',
+    'The iteration proposed all the candidates it may, or tried too often, or another iteration uses the name already',
   )
   @ApiProblemResponse(
     HttpStatus.UNPROCESSABLE_ENTITY,

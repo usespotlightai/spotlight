@@ -75,9 +75,9 @@ describe('countedColumnsOf', () => {
       checksFailed: false,
       accepted: true,
       sentBack: false,
-      handedOn: false,
+      passed: false,
       merged: false,
-      withdrawn: false,
+      cancelled: false,
     }).map((column) => column.label);
 
     expect(labels).toEqual([

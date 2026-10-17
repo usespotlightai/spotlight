@@ -90,14 +90,14 @@ export class SayToRunHandler
     );
 
     await this.tasks.save(
-      line && heard.wantsRun(line) ? await this.handedOn(heard, line) : heard,
+      line && heard.wantsRun(line) ? await this.assignRun(heard, line) : heard,
     );
     await this.files.takenIn(task.workspaceId, attachments);
   }
 
-  private async handedOn(task: Task, line: Line): Promise<Task> {
+  private async assignRun(task: Task, line: Line): Promise<Task> {
     const runId = await this.dispatch.runIdFor({ task, line });
 
-    return runId ? task.handedTo(runId, line) : task;
+    return runId ? task.assignRun(runId, line) : task;
   }
 }

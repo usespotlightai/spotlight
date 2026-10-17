@@ -15,7 +15,7 @@ describe('RunningImage', () => {
     expect(RunningImage.of(widgets, true).serves(gadgets)).toBe(false);
   });
 
-  it('serves work that asks for no image only when it runs the usual one', () => {
+  it('serves work that asks for no image only when it runs the default one', () => {
     expect(RunningImage.of(widgets, true).serves(null)).toBe(true);
     expect(RunningImage.of(widgets, false).serves(null)).toBe(false);
   });

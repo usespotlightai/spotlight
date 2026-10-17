@@ -136,7 +136,7 @@ const chat = () =>
     body: ChatMessageBody.of('Plan the queue.'),
     now: NOW,
     newId: () => 'chat_1',
-  }).handedTo(RunId.of('run_1'), NOW);
+  }).assignRun(RunId.of('run_1'), NOW);
 
 const NEEDS_APPROVAL = ApprovalNeeded.of(
   'linear.comment',
@@ -529,7 +529,7 @@ describe('UseToolHandler', () => {
     });
   });
 
-  it('gives no tool to a run its task has let go of', async () => {
+  it('gives no tool to a run its task detached', async () => {
     const { reach, called } = using(claimed(), { task: added() });
 
     await expect(reach('pull-request')).rejects.toThrow();
@@ -1269,7 +1269,7 @@ describe('UseToolHandler', () => {
       const leased = claimed(['linear.comment']);
       const { reach, called, hooked } = using(leased, {
         movedOnTo: leased
-          .requeue(leased.leaseExpiresAt as Date)
+          .expireLease(leased.leaseExpiresAt as Date)
           .claim(RunnerId.of('runner_1'), NOW),
       });
 

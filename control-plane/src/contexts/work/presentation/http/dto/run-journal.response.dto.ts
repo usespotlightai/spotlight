@@ -79,7 +79,7 @@ export class JournalStepResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What it handed back, unread',
+    description: 'What it returned, unread',
   })
   readonly returned: string | null;
 

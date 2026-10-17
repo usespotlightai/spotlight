@@ -219,7 +219,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       ? await this.dispatch.runIdFor({ task: heard, line })
       : null;
 
-    await this.tasks.save(runId ? heard.handedTo(runId, line) : heard);
+    await this.tasks.save(runId ? heard.assignRun(runId, line) : heard);
   }
 
   private async reviewAsked(
@@ -340,7 +340,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       ? await this.dispatch.runIdFor({ task: opened, line })
       : null;
 
-    const stored = runId ? opened.handedTo(runId, line) : opened;
+    const stored = runId ? opened.assignRun(runId, line) : opened;
     await takeTaskMarks(this.tasks, stored);
     await this.tasks.add(stored);
   }

@@ -2,7 +2,7 @@ import { StatusDot, type Tone } from '@/components/features/runners/StatusDot';
 import { type Host, hostStatus } from '@/lib/runner';
 
 const toneOf = (host: Host): Tone => {
-  if (!host.answering) {
+  if (!host.online) {
     return 'gone';
   }
   return host.running.length > 0 ? 'busy' : 'ready';

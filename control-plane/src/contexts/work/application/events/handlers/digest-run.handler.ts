@@ -3,9 +3,9 @@ import type { RunDigestWriterPort } from '@work/application/ports/run-digest-wri
 import type { RunSpendReaderPort } from '@work/application/ports/run-spend-reader.port';
 import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
 import { ReplayDigested } from '@work/domain/events/replay-digested.event';
-import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunDigested } from '@work/domain/events/run-digested.event';
+import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { SearchDigested } from '@work/domain/events/search-digested.event';
 import { agentSpendOf } from '@work/domain/services/agent-spend';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
@@ -25,12 +25,12 @@ export class DigestRun {
     return this.digested(event);
   }
 
-  onRunAbandoned(event: RunAbandoned): Promise<readonly Digested[]> {
+  onRunExhausted(event: RunExhausted): Promise<readonly Digested[]> {
     return this.digested(event);
   }
 
   private async digested(
-    event: RunCompleted | RunAbandoned,
+    event: RunCompleted | RunExhausted,
   ): Promise<readonly Digested[]> {
     await this.digests.ensure([event.runId]);
 

@@ -74,7 +74,7 @@ export class SearchIteration {
     if (state.attempts < state.proposals.length) {
       throw new InconsistentStateError(
         'search iteration',
-        'took more candidates than it was offered',
+        'holds more proposals than attempts',
       );
     }
     if (

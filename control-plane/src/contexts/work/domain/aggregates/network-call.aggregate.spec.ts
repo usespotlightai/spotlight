@@ -34,7 +34,7 @@ const queued = () =>
     id: NetworkCallId.of('call_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     request: REQUEST,
-    lapsesAt: later(15_000),
+    expiresAt: later(15_000),
     now: NOW,
   });
 
@@ -53,16 +53,16 @@ describe('NetworkCall', () => {
         id: NetworkCallId.of('call_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         request: REQUEST,
-        lapsesAt: NOW,
+        expiresAt: NOW,
         now: NOW,
       }),
     ).toThrow(InvalidNetworkCallError);
   });
 
-  it('lapses once its time is up unanswered', () => {
-    expect(queued().stateAt(later(15_000))).toBe('lapsed');
+  it('expires once its time is up unanswered', () => {
+    expect(queued().stateAt(later(15_000))).toBe('expired');
     expect(queued().claimedBy(HOST, later(1_000)).stateAt(later(15_000))).toBe(
-      'lapsed',
+      'expired',
     );
   });
 
@@ -79,9 +79,9 @@ describe('NetworkCall', () => {
     );
   });
 
-  it('is never handed out once lapsed', () => {
+  it('is never claimed once expired', () => {
     expect(() => queued().claimedBy(HOST, later(15_000))).toThrow(
-      'Network call call_1 is lapsed. It cannot be claimed.',
+      'Network call call_1 is expired. It cannot be claimed.',
     );
   });
 
@@ -110,12 +110,12 @@ describe('NetworkCall', () => {
     );
   });
 
-  it('takes no answer once lapsed', () => {
+  it('takes no answer once expired', () => {
     expect(() =>
       queued()
         .claimedBy(HOST, later(1_000))
         .answerWith(HOST, OK, later(15_000)),
-    ).toThrow('Network call call_1 lapsed before it was answered.');
+    ).toThrow('Network call call_1 expired before it was answered.');
   });
 
   it('takes no answer before a host claims it', () => {
@@ -143,29 +143,31 @@ describe('NetworkCall', () => {
     expect(answered.request.url).toBe('http://audit.internal:8080/hooks');
   });
 
-  it('forgets what it would have sent once it lapses, and is never handed out again', () => {
-    const lapsed = queued().lapsed(later(15_000));
+  it('forgets what it would have sent once it expires, and is never claimed again', () => {
+    const expired = queued().expire(later(15_000));
 
-    expect(lapsed.progress).toEqual({ kind: 'lapsed', at: later(15_000) });
-    expect(lapsed.request.headers).toEqual({});
-    expect(lapsed.request.body.byteLength).toBe(0);
-    expect(lapsed.stateAt(later(15_000))).toBe('lapsed');
-    expect(() => lapsed.claimedBy(HOST, later(15_000))).toThrow(
+    expect(expired.progress).toEqual({ kind: 'expired', at: later(15_000) });
+    expect(expired.request.headers).toEqual({});
+    expect(expired.request.body.byteLength).toBe(0);
+    expect(expired.stateAt(later(15_000))).toBe('expired');
+    expect(() => expired.claimedBy(HOST, later(15_000))).toThrow(
       InvalidNetworkCallTransitionError,
     );
   });
 
-  it('is given up on by whoever waited for it, forgetting what it would have sent', () => {
-    const given = queued().claimedBy(HOST, later(1_000)).givenUp(later(5_000));
+  it('is cancelled by whoever waited for it, forgetting what it would have sent', () => {
+    const cancelled = queued()
+      .claimedBy(HOST, later(1_000))
+      .cancel(later(5_000));
 
-    expect(given.progress).toEqual({ kind: 'given-up', at: later(5_000) });
-    expect(given.stateAt(later(60_000))).toBe('given-up');
-    expect(given.request.headers).toEqual({});
-    expect(() => given.answerWith(HOST, OK, later(6_000))).toThrow(
-      'Network call call_1 was given up. The hook stopped waiting for it.',
+    expect(cancelled.progress).toEqual({ kind: 'cancelled', at: later(5_000) });
+    expect(cancelled.stateAt(later(60_000))).toBe('cancelled');
+    expect(cancelled.request.headers).toEqual({});
+    expect(() => cancelled.answerWith(HOST, OK, later(6_000))).toThrow(
+      'Network call call_1 was cancelled. The hook stopped waiting for it.',
     );
-    expect(() => queued().givenUp(later(1)).claimedBy(HOST, later(2))).toThrow(
-      'Network call call_1 was given up. The hook stopped waiting for it.',
+    expect(() => queued().cancel(later(1)).claimedBy(HOST, later(2))).toThrow(
+      'Network call call_1 was cancelled. The hook stopped waiting for it.',
     );
   });
 
@@ -187,26 +189,26 @@ describe('NetworkCall', () => {
     expect(queued().isForgettableAt(later(30 * 24 * 60 * 60_000))).toBe(false);
   });
 
-  it('stays answered when given up on after its answer came', () => {
+  it('stays answered when cancelled after its answer came', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
       .answerWith(HOST, OK, later(2_000));
 
-    expect(answered.givenUp(later(3_000))).toBe(answered);
+    expect(answered.cancel(later(3_000))).toBe(answered);
   });
 
-  it('cannot lapse before its time is up', () => {
-    expect(() => queued().lapsed(later(14_999))).toThrow(
+  it('cannot expire before its time is up', () => {
+    expect(() => queued().expire(later(14_999))).toThrow(
       InvalidNetworkCallTransitionError,
     );
   });
 
-  it('stays answered once answered, however late it is asked to lapse', () => {
+  it('stays answered once answered, however late it is asked to expire', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
       .answerWith(HOST, OK, later(2_000));
 
-    expect(answered.lapsed(later(60_000))).toBe(answered);
+    expect(answered.expire(later(60_000))).toBe(answered);
   });
 
   it('will not be read back completed while it still has what it sent', () => {
@@ -216,8 +218,8 @@ describe('NetworkCall', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         request: REQUEST,
         queuedAt: NOW,
-        lapsesAt: later(15_000),
-        progress: { kind: 'lapsed', at: later(15_000) },
+        expiresAt: later(15_000),
+        progress: { kind: 'expired', at: later(15_000) },
         version: 1,
       }),
     ).toThrow(InconsistentStateError);
@@ -228,14 +230,14 @@ describe('NetworkCall', () => {
     expect(queued().belongsTo(WorkspaceId.of('ws_2'))).toBe(false);
   });
 
-  it('will not be read back lapsing before it was queued', () => {
+  it('will not be read back expiring before it was queued', () => {
     expect(() =>
       NetworkCall.rehydrate({
         id: NetworkCallId.of('call_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         request: REQUEST,
         queuedAt: NOW,
-        lapsesAt: later(-1),
+        expiresAt: later(-1),
         progress: { kind: 'waiting' },
         version: 0,
       }),

@@ -107,8 +107,8 @@ import { NotePullRequestRecords } from '@outcomes/application/services/note-pull
 import { NotePullRequestReviewed } from '@outcomes/application/services/note-pull-request-reviewed.service';
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
-import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
 import { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
+import { NoteRunPassed } from '@outcomes/application/services/note-run-passed.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
@@ -777,13 +777,13 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new NoteRunMemories(work, records, forgotten, transaction),
   },
   {
-    provide: NoteRunHandedOn,
+    provide: NoteRunPassed,
     inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
       forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NoteRunHandedOn(records, forgotten, transaction),
+    ) => new NoteRunPassed(records, forgotten, transaction),
   },
   {
     provide: NotePullRequestReviewed,
@@ -946,7 +946,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       GradeAsides,
       NoteRunDigested,
       NoteRunMemories,
-      NoteRunHandedOn,
+      NoteRunPassed,
       NotePullRequestReviewed,
       NoteTaskFailed,
       NoteTaskTouch,
@@ -973,7 +973,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       grading: GradeAsides,
       digesting: NoteRunDigested,
       remembering: NoteRunMemories,
-      handingOn: NoteRunHandedOn,
+      passing: NoteRunPassed,
       reviewing: NotePullRequestReviewed,
       failing: NoteTaskFailed,
       touching: NoteTaskTouch,
@@ -1000,7 +1000,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           grading,
           digesting,
           remembering,
-          handingOn,
+          passing,
           reviewing,
           failing,
           touching,

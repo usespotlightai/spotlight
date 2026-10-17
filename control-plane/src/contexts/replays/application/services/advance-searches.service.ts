@@ -1,7 +1,7 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
+import type { CancelSearch } from '@replays/application/services/cancel-search.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
-import type { LetSearchGo } from '@replays/application/services/let-search-go.service';
 import type { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -25,7 +25,7 @@ export class AdvanceSearches implements OwedWorkPort {
     private readonly dispatching: DispatchSearchIteration,
     private readonly holdingOut: HoldOutSearch,
     private readonly noting: NoteSearchProgress,
-    private readonly lettingGo: LetSearchGo,
+    private readonly cancellingSearches: CancelSearch,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -57,9 +57,9 @@ export class AdvanceSearches implements OwedWorkPort {
     }
     if (!fresh.isActive) {
       if (fresh.activeRun) {
-        await this.work.withdrawSearch(fresh.activeRun);
+        await this.work.cancelSearchRun(fresh.activeRun);
       }
-      await this.lettingGo.leftOver(
+      await this.cancellingSearches.leftOver(
         fresh,
         await this.replays.ofSearch(fresh.id),
       );
@@ -69,22 +69,24 @@ export class AdvanceSearches implements OwedWorkPort {
   private async runsOf(search: Search): Promise<readonly SeenRun[]> {
     const runs = await this.work.searchRunStatuses(runsToSee(search));
     const at = this.clock.now();
-    const overdue = search.isActive ? unclaimedTooLong(search, runs, at) : null;
+    const unclaimed = search.isActive
+      ? unclaimedTooLong(search, runs, at)
+      : null;
 
-    if (!overdue) {
+    if (!unclaimed) {
       return runs;
     }
 
-    const withdrawal = await this.work.withdrawUnclaimedSearch(overdue);
+    const cancellation = await this.work.cancelUnclaimedSearchRun(unclaimed);
 
-    return withdrawal.outcome === 'withdrawn'
+    return cancellation.outcome === 'cancelled'
       ? runs.map((each) =>
-          each.run.equals(overdue)
+          each.run.equals(unclaimed)
             ? {
                 ...each,
                 phase: 'ended' as const,
                 failed: true,
-                started: withdrawal.started,
+                started: cancellation.started,
                 endedAt: at,
               }
             : each,

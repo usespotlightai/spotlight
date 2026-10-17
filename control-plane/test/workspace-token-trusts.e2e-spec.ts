@@ -640,7 +640,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     expect(JSON.stringify(closing.body)).toContain('token trust github-main');
   });
 
-  it('lets go of minted tokens once they expire', async () => {
+  it('prunes minted tokens once they expire', async () => {
     const trust = await define(trusting());
     const minted = await exchanged(trust.id, MAIN);
 

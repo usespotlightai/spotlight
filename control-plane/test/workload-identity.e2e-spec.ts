@@ -66,22 +66,22 @@ describe('a host claiming through a runner trust, as a platform workload with no
         image: 'ghcr.io/acme/runner:main',
       });
 
-  const present = (trust: string, token: string, running: string[] = []) =>
+  const heartbeat = (trust: string, token: string, running: string[] = []) =>
     http()
       .put(`/api/hosts/${HOST}`)
       .set('Authorization', `Bearer ${token}`)
       .set('Spotlight-Trust', trust)
       .send({
-        session: 'session_1',
+        bootId: 'boot_1',
         name: 'pod-a',
         release: '0.1.0',
-        executor: 'docker',
+        containerRuntime: 'docker',
         capacity: 2,
         running,
         images: [
           {
             image: 'ghcr.io/acme/runner:main',
-            usual: true,
+            isDefault: true,
             harnesses: [{ id: 'dev', models: [] }],
           },
         ],
@@ -146,7 +146,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
   it('claims work placed on its trust’s label with the token its platform issued, through a one-run runner of that trust', async () => {
     const trust = await trusted();
     const placed = await queue(['vpc-internal']);
-    await present(trust.id, await workload()).expect(200);
+    await heartbeat(trust.id, await workload()).expect(200);
 
     const claimed = await claim(trust.id, await workload());
 
@@ -185,7 +185,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
   it('leaves work placed on a label its trust does not carry', async () => {
     const trust = await trusted();
     const placed = await queue(['gpu']);
-    await present(trust.id, await workload()).expect(200);
+    await heartbeat(trust.id, await workload()).expect(200);
 
     await claim(trust.id, await workload()).expect(204);
 
@@ -200,7 +200,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
   it('hands over a check placed on its trust’s label', async () => {
     const trust = await trusted();
     const stackId = await awaitingCheck(db, workspaceId, [['vpc-internal']]);
-    await present(trust.id, await workload()).expect(200);
+    await heartbeat(trust.id, await workload()).expect(200);
 
     const claimed = await claim(trust.id, await workload());
 
@@ -223,7 +223,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
       await platform.forge({ sub: SUBJECT, aud: 'spotlight' }),
     ]) {
       expect((await claim(trust.id, token)).status).toBe(401);
-      expect((await present(trust.id, token)).status).toBe(401);
+      expect((await heartbeat(trust.id, token)).status).toBe(401);
     }
 
     expect((await claim(randomUUID(), await workload())).status).toBe(401);
@@ -240,7 +240,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
   it('does not accept anyone through a trust once it is withdrawn, and forgets the hosts that came in by it', async () => {
     const trust = await trusted();
     await queue(['vpc-internal']);
-    await present(trust.id, await workload()).expect(200);
+    await heartbeat(trust.id, await workload()).expect(200);
 
     await http()
       .delete(`/api/resources/runner-trusts/${trust.id}`)
@@ -249,7 +249,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
       .expect(204);
 
     expect((await claim(trust.id, await workload())).status).toBe(401);
-    expect((await present(trust.id, await workload())).status).toBe(401);
+    expect((await heartbeat(trust.id, await workload())).status).toBe(401);
     await eventually(async () => (await hostRow()) === null);
   });
 
@@ -261,10 +261,10 @@ describe('a host claiming through a runner trust, as a platform workload with no
     expect((await claim(trust.id, await workload())).status).toBe(401);
   });
 
-  it('lets a host through a trust say it is here, what it has and what it runs, and ask what it should serve', async () => {
+  it('lets a host through a trust send a heartbeat with what it has and what it runs, and ask what it should serve', async () => {
     const trust = await trusted();
 
-    const answered = await present(trust.id, await workload(), ['run-1']);
+    const answered = await heartbeat(trust.id, await workload(), ['run-1']);
 
     expect(answered.status).toBe(200);
     expect(answered.body).toEqual({ workspace: expect.any(String) });
@@ -273,10 +273,10 @@ describe('a host claiming through a runner trust, as a platform workload with no
       workspaceId: answered.body.workspace,
       trustId: trust.id,
       poolId: null,
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'pod-a',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 2,
       running: ['run-1'],
     });

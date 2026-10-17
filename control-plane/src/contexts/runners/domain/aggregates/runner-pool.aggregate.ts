@@ -14,12 +14,12 @@ import {
   PullAccess,
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
+import type { PoolCapacity } from '@runners/domain/value-objects/pool-capacity';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
 import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import type { StartVerdict } from '@runners/domain/value-objects/start-verdict';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -201,7 +201,7 @@ export class RunnerPool extends EventRecorder {
     return this.maxRuns ? this.maxRuns.roomAfter(running) : null;
   }
 
-  startVerdict(mode: PoolMode, running: number): StartVerdict {
+  capacity(mode: PoolMode, running: number): PoolCapacity {
     if (this.isRetired || mode !== this.mode) {
       return 'gone';
     }

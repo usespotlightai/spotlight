@@ -22,7 +22,7 @@ export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
     : 'The run ended before the agent started.';
 
 export const waitsOnPerson = (run: Pick<Run, 'state'>): boolean =>
-  run.state === 'waiting' || run.state === 'parked';
+  run.state === 'waiting' || run.state === 'suspended';
 
 export const owesYou = (run: Pick<Run, 'state' | 'review'>): boolean =>
   waitsOnPerson(run) || run.review?.state === 'owed';
@@ -33,6 +33,9 @@ export const runStatus = (run: Run): string | null => {
   }
   if (run.state === 'queued') {
     return 'Queued';
+  }
+  if (run.state === 'cancelled') {
+    return 'Cancelled';
   }
   if (run.state === 'superseded') {
     return 'Superseded';

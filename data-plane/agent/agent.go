@@ -119,7 +119,7 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 	case strings.EqualFold(said, protocol.HandoverDone):
 		fmt.Fprintln(out, "Closed at its current station.")
 	default:
-		fmt.Fprintf(out, "Handed over to %s.\n", said)
+		fmt.Fprintf(out, "Passed to %s.\n", said)
 	}
 
 	return nil

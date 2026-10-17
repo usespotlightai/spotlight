@@ -57,7 +57,7 @@ export class CompleteRunRequestDto {
   @ApiPropertyOptional({
     example: false,
     description:
-      'With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease lapsed',
+      'With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease expired',
   })
   readonly timedOut?: boolean;
 
@@ -99,7 +99,7 @@ export class EnqueueRunRequestDto {
 
   @ApiProperty({
     description:
-      'Handed to the runner untouched: checkouts, briefing, handover and ' +
+      'Sent to the runner unchanged: checkouts, briefing, handover and ' +
       'continuity. The command is filled in from the harness, so it is not ' +
       'given here.',
     example: {
@@ -111,13 +111,13 @@ export class EnqueueRunRequestDto {
   readonly spec!: Record<string, unknown>;
 }
 
-export class ParkRunRequestDto {
+export class SuspendRunRequestDto {
   @ApiPropertyOptional({
     example: false,
     description:
       'The harness has already closed, so an answer that arrived first cannot be delivered warm: the run goes back on the queue from its archive instead of staying with this runner.',
   })
-  readonly cold?: boolean;
+  readonly requeue?: boolean;
 }
 
 export class DeliverSaidRequestDto {
@@ -157,7 +157,7 @@ export class RecordStartingPointRequestDto {
   @ApiProperty({
     example: 1,
     description:
-      'The attempt of the run the runner was handed, as the claim named it',
+      'The attempt of the run assigned to the runner, as the claim named it',
   })
   readonly attempt!: number;
 

@@ -17,7 +17,7 @@ import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
+import type { RunDetached } from '@work/domain/events/run-detached.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -244,7 +244,7 @@ describe('MoveTaskHandler', () => {
     expect(saved?.currentRunId?.value).toBe('run_1');
   });
 
-  it('lets go of the run working it, so that run is stopped, before handing it to a new one', async () => {
+  it('detaches the run working it, so that run is stopped, before it assigns a new one', async () => {
     const working = Task.rehydrate({
       ...taskAt('station_1'),
       currentRunId: RunId.of('run_0'),
@@ -257,16 +257,15 @@ describe('MoveTaskHandler', () => {
       saved
         ?.pullEvents()
         .map((each) =>
-          each.kind === 'task.let-go-of-run' ||
-          each.kind === 'task.handed-to-run'
-            ? [each.kind, (each as TaskLetGoOfRun).runId.value]
+          each.kind === 'task.run-detached' || each.kind === 'task.dispatched'
+            ? [each.kind, (each as RunDetached).runId.value]
             : [each.kind],
         ),
     ).toEqual([
       ['task.moved'],
-      ['task.let-go-of-run', 'run_0'],
+      ['task.run-detached', 'run_0'],
       ['task.acted-on'],
-      ['task.handed-to-run', 'run_1'],
+      ['task.dispatched', 'run_1'],
     ]);
   });
 

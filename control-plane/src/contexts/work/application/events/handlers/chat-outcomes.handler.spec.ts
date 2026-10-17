@@ -8,8 +8,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -32,7 +32,7 @@ const working = () =>
     body: ChatMessageBody.of('Plan the retries.'),
     now: NOW,
     newId: () => 'chat_1',
-  }).handedTo(RunId.of('run_1'), NOW);
+  }).assignRun(RunId.of('run_1'), NOW);
 
 const handedAgain = () =>
   working()
@@ -43,7 +43,7 @@ const handedAgain = () =>
       body: ChatMessageBody.of('Split it.'),
       at: NOW,
     })
-    .handedTo(RunId.of('run_2'), NOW);
+    .assignRun(RunId.of('run_2'), NOW);
 
 const completed = (
   outcome = RunOutcome.of({ exitCode: 0, failed: false }),
@@ -64,7 +64,7 @@ const completed = (
 const outcomesOf = (chat: Chat | null) => {
   const save = vi.fn(async (_saved: Chat) => undefined);
   const takenUp = vi.fn(async (taken: Chat) =>
-    taken.handedTo(RunId.of('run_2'), NOW),
+    taken.assignRun(RunId.of('run_2'), NOW),
   );
   const outcomes = new ChatOutcomes(
     { find: vi.fn(async () => chat), save } as unknown as ChatRepository,
@@ -75,7 +75,7 @@ const outcomesOf = (chat: Chat | null) => {
 };
 
 describe('ChatOutcomes', () => {
-  it('lets go of the run and keeps the session for the next one', async () => {
+  it('releases the run and keeps the session for the next one', async () => {
     const { outcomes, save, takenUp } = outcomesOf(working());
 
     await outcomes.onRunCompleted(completed());
@@ -175,11 +175,11 @@ describe('ChatOutcomes', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('lets go of a run no runner finished, and takes back what it was handed', async () => {
+  it('releases a run no runner finished, and takes back what it delivered', async () => {
     const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
-    await outcomes.onRunAbandoned(
-      new RunAbandoned(
+    await outcomes.onRunExhausted(
+      new RunExhausted(
         RunId.of('run_2'),
         WorkspaceId.of('ws_1'),
         IN_CHAT,

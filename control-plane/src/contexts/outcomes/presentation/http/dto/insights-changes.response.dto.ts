@@ -240,9 +240,9 @@ export class SetupOutcomesResponseDto {
     nullable: true,
     type: Number,
     example: 0.3,
-    description: 'Share of runs that moved their task on to another station',
+    description: 'Share of runs that passed their task to another station',
   })
-  readonly handed_on: number | null;
+  readonly passed: number | null;
 
   @ApiProperty({
     nullable: true,
@@ -272,7 +272,7 @@ export class SetupOutcomesResponseDto {
   constructor(outcomes: SetupOutcomeDto['outcomes']) {
     this.accepted = outcomes.accepted;
     this.sent_back = outcomes.sent_back;
-    this.handed_on = outcomes.handed_on;
+    this.passed = outcomes.passed;
     this.checks_passed = outcomes.checks_passed;
     this.merged = outcomes.merged;
     this.judge = outcomes.judge;
@@ -369,7 +369,7 @@ export class InsightsSetupsResponseDto {
     type: SizeBoundResponseDto,
     isArray: true,
     description:
-      'How a run’s size is told: by the lines its changes took out and put in, or by its steps where it changed none',
+      'How a run’s size is told: by the lines its changes removed and added, or by its steps where it changed none',
   })
   readonly sizes: readonly SizeBoundResponseDto[];
 

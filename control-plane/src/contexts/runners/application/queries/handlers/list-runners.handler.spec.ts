@@ -23,22 +23,22 @@ const host = (overrides: Partial<HostSummary> = {}): HostSummary => ({
   name: 'build-box',
   through: { kind: 'pool', key: 'ephemeral' },
   release: '0.9.0',
-  executor: 'docker',
+  containerRuntime: 'docker',
   capacity: 4,
   running: ['runner_1'],
   images: [
     {
       image: 'ghcr.io/acme/runner:main',
       digest: null,
-      usual: true,
+      isDefault: true,
       release: '0.9.0',
       harnesses: [{ id: 'claude-code', version: '2.1.0' }],
       unavailableReason: null,
     },
   ],
-  firstSeenAt: ago(3_600_000),
-  upSince: ago(1_800_000),
-  lastSeenAt: NOW,
+  firstHeartbeatAt: ago(3_600_000),
+  onlineSince: ago(1_800_000),
+  lastHeartbeatAt: NOW,
   ...overrides,
 });
 
@@ -51,7 +51,7 @@ const runner = (
   image: 'ghcr.io/acme/runner:main',
   harnesses: ['claude-code'],
   startedAt: ago(60_000),
-  lastSeenAt: null,
+  lastHeartbeatAt: null,
   ...overrides,
 });
 
@@ -96,7 +96,7 @@ const handle = async (
 ) => listing(given).handler.execute(new ListRunnersQuery('acme', 'user_1'));
 
 describe('ListRunnersHandler', () => {
-  it('reports a host heard from just now as answering', async () => {
+  it('reports a host with a heartbeat just now as online', async () => {
     const fleet = await handle({ hosts: [host()] });
 
     expect(fleet?.hosts).toEqual([
@@ -107,29 +107,33 @@ describe('ListRunnersHandler', () => {
         images: [
           expect.objectContaining({
             image: 'ghcr.io/acme/runner:main',
-            usual: true,
+            isDefault: true,
             harnesses: [{ id: 'claude-code', version: '2.1.0' }],
           }),
         ],
-        lastSeenAt: NOW.toISOString(),
-        answering: true,
+        lastHeartbeatAt: NOW.toISOString(),
+        online: true,
       }),
     ]);
   });
 
-  it('keeps a host answering across a missed report', async () => {
-    const fleet = await handle({ hosts: [host({ lastSeenAt: ago(60_000) })] });
+  it('keeps a host online across a missed heartbeat', async () => {
+    const fleet = await handle({
+      hosts: [host({ lastHeartbeatAt: ago(60_000) })],
+    });
 
-    expect(fleet?.hosts[0]?.answering).toBe(true);
+    expect(fleet?.hosts[0]?.online).toBe(true);
   });
 
-  it('still lists a host that has gone quiet, marked not answering', async () => {
-    const fleet = await handle({ hosts: [host({ lastSeenAt: ago(90_000) })] });
+  it('still lists a host that is offline, and marks it offline', async () => {
+    const fleet = await handle({
+      hosts: [host({ lastHeartbeatAt: ago(90_000) })],
+    });
 
-    expect(fleet?.hosts[0]?.answering).toBe(false);
+    expect(fleet?.hosts[0]?.online).toBe(false);
   });
 
-  it('remembers hosts for a day, and only those of the workspace asked about', async () => {
+  it('lists hosts for a day after their last heartbeat, and only those of the workspace asked about', async () => {
     const { handler, hostsIn, inWorkspace } = listing();
 
     await handler.execute(new ListRunnersQuery('acme', 'user_1'));
@@ -150,7 +154,7 @@ describe('ListRunnersHandler', () => {
           through: { kind: 'trust', key: 'cluster' },
           hostId: null,
           image: null,
-          lastSeenAt: NOW,
+          lastHeartbeatAt: NOW,
         }),
       ],
     });
@@ -163,13 +167,13 @@ describe('ListRunnersHandler', () => {
         image: 'ghcr.io/acme/runner:main',
         harnesses: ['claude-code'],
         startedAt: ago(60_000).toISOString(),
-        lastSeenAt: null,
+        lastHeartbeatAt: null,
       },
       expect.objectContaining({
         id: 'runner_2',
         through: { kind: 'trust', key: 'cluster' },
         hostId: null,
-        lastSeenAt: NOW.toISOString(),
+        lastHeartbeatAt: NOW.toISOString(),
       }),
     ]);
   });

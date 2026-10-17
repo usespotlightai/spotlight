@@ -62,8 +62,8 @@ describe('RunRow, what a run is doing', () => {
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
 
-  it('still says it is waiting for you once the run is parked', () => {
-    shown(<RunRow run={run('parked')} to="/runs/run_1" />);
+  it('still says it is waiting for you once the run is suspended', () => {
+    shown(<RunRow run={run('suspended')} to="/runs/run_1" />);
 
     expect(screen.getByText('Waiting for you')).toBeInTheDocument();
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();

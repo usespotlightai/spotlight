@@ -24,7 +24,7 @@ export interface RunOutcomeDto {
   readonly cost: RunCostDto | null;
   readonly checks: CheckVerdict | null;
   readonly next: { readonly act: string; readonly at: string } | null;
-  readonly handedOn: { readonly to: string; readonly at: string } | null;
+  readonly passed: { readonly to: string; readonly at: string } | null;
   readonly delivery: DeliveryState | null;
 }
 
@@ -63,8 +63,8 @@ export const runOutcomeOf = (
     next: record.next
       ? { act: record.next.act, at: record.next.at.toISOString() }
       : null,
-    handedOn: record.handedOn
-      ? { to: record.handedOn.to, at: record.handedOn.at.toISOString() }
+    passed: record.passed
+      ? { to: record.passed.to, at: record.passed.at.toISOString() }
       : null,
     delivery:
       deliveries.find((each) => each.taskId.equals(end.place.taskId))?.state ??

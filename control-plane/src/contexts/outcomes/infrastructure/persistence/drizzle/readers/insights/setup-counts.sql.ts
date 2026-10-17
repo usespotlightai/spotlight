@@ -110,7 +110,7 @@ const setupsIn = async (
       ${runFact.profileKey} as profile_key,
       ${tallyColumns},
       ${measuredColumns},
-      ${counted(sql`${ran} and (${runFact.nextAct} is not null or ${runFact.handedOnTo} is not null)`)} as answered
+      ${counted(sql`${ran} and (${runFact.nextAct} is not null or ${runFact.passedTo} is not null)`)} as answered
     from (${endedFor(team, filter)}) as ${runFact}
     where ${ran}
     group by ${setupColumns}

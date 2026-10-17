@@ -27,14 +27,14 @@ type wayOut struct {
 }
 
 func (h *Host) egress(
-	ctx context.Context, handed protocol.Handed, harnessKeys []protocol.HarnessKey, log *slog.Logger,
+	ctx context.Context, assignment protocol.Assignment, harnessKeys []protocol.HarnessKey, log *slog.Logger,
 ) (*wayOut, error) {
-	if handed.EgressToken == "" {
-		return &wayOut{host: h}, errors.New("the control plane handed no credential for the sandbox's egress")
+	if assignment.EgressToken == "" {
+		return &wayOut{host: h}, errors.New("the assignment has no credential for the sandbox's egress")
 	}
 
-	way, err := h.wayOut(ctx, handed.RunnerID, map[string]string{LabelHost: h.opts.HostID, LabelRunner: handed.RunnerID},
-		handed.EgressToken, harnessKeys, h.opts.EgressWait)
+	way, err := h.wayOut(ctx, assignment.RunnerID, map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID},
+		assignment.EgressToken, harnessKeys, h.opts.EgressWait)
 	if err == nil {
 		log.Info("started the sandbox's egress", "egress", way.container)
 	}
@@ -58,7 +58,7 @@ func (h *Host) wayOut(
 		return way, err
 	}
 
-	way.container, err = h.startEgress(ctx, image, name, labels, protocol.EgressHanded{
+	way.container, err = h.startEgress(ctx, image, name, labels, protocol.EgressConfig{
 		URL:         h.opts.SandboxURL,
 		Token:       token,
 		Credential:  way.credential,
@@ -84,14 +84,14 @@ func (h *Host) wayOut(
 }
 
 func (h *Host) startEgress(
-	ctx context.Context, image, name string, labels map[string]string, handed protocol.EgressHanded, joins []sandbox.Join,
+	ctx context.Context, image, name string, labels map[string]string, config protocol.EgressConfig, joins []sandbox.Join,
 ) (string, error) {
-	body, err := json.Marshal(handed)
+	body, err := json.Marshal(config)
 	if err != nil {
 		return "", err
 	}
 
-	env, files := h.opts.Egress.Env, []sandbox.File{{Path: protocol.EgressHandedPath, Mode: 0o400, Body: body}}
+	env, files := h.opts.Egress.Env, []sandbox.File{{Path: protocol.EgressConfigPath, Mode: 0o400, Body: body}}
 	if len(h.opts.Egress.CABundle) > 0 {
 		env = append(slices.Clone(env), "SSL_CERT_DIR="+EgressCABundleDir)
 		files = append(files, sandbox.File{Path: EgressCABundleDir + "/trusted.pem", Mode: 0o644, DirMode: 0o755, Body: h.opts.Egress.CABundle})

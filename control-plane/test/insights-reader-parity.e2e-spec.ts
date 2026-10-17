@@ -75,7 +75,6 @@ import {
 import { toolCountsOf } from '@outcomes/domain/services/tool-insights';
 import { Citation } from '@outcomes/domain/value-objects/citation.vo';
 import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
-import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
 import {
   dayOf,
@@ -103,6 +102,7 @@ import {
   shareMet,
 } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
+import { StationPass } from '@outcomes/domain/value-objects/station-pass.vo';
 import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import { DrizzleInsightsReader } from '@outcomes/infrastructure/persistence/drizzle/readers/insights.reader';
@@ -188,8 +188,8 @@ const ENDINGS: readonly RunEnding[] = [
   'completed',
   'failed',
   'stopped',
-  'abandoned',
-  'withdrawn',
+  'exhausted',
+  'cancelled',
 ];
 
 const seeded = (seed: number) => {
@@ -504,8 +504,8 @@ beforeAll(async () => {
         );
       }
       if (chance(0.1)) {
-        record = record.handedOnTo(
-          HandedOn.of('ship', new Date(endedAt.getTime() + 2 * HOUR)),
+        record = record.passTo(
+          StationPass.of('ship', new Date(endedAt.getTime() + 2 * HOUR)),
         );
       }
       if (chance(0.1)) {
@@ -964,7 +964,7 @@ describe('the insights reader against the team history', () => {
     );
     expect(stations.some((each) => each.tally.mixedCurrencies)).toBe(true);
     expect(stations.some((each) => each.tally.merged > 0)).toBe(true);
-    expect(stations.some((each) => each.tally.withdrawn > 0)).toBe(true);
+    expect(stations.some((each) => each.tally.cancelled > 0)).toBe(true);
     expect(stations.some((each) => each.taskFailures.length > 1)).toBe(true);
     expect(stations.some((each) => each.runFailures.length > 1)).toBe(true);
   });
@@ -1760,7 +1760,7 @@ describe('the runs a team ran, a page at a time', () => {
     expect(listed.some((each) => each.openedBy !== null)).toBe(true);
     expect(listed.some((each) => each.delivery !== null)).toBe(true);
     expect(listed.some((each) => each.next !== null)).toBe(true);
-    expect(listed.some((each) => each.handedOn !== null)).toBe(true);
+    expect(listed.some((each) => each.passed !== null)).toBe(true);
     expect(listed.some((each) => each.cost !== null)).toBe(true);
     expect(listed.some((each) => each.ending === 'superseded')).toBe(true);
     expect(listed.some((each) => each.tokens === null)).toBe(true);
@@ -1844,7 +1844,7 @@ describe('how the run list treats the window’s edges and runs that ended toget
               queuedAt: new Date(endedAt.getTime() - 3 * HOUR),
               startedAt: started ? new Date(endedAt.getTime() - HOUR) : null,
               endedAt,
-              ending: started ? 'completed' : 'withdrawn',
+              ending: started ? 'completed' : 'cancelled',
               failure: null,
               round: 1,
               asked: false,
@@ -2076,10 +2076,10 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
       );
       await records.add(
         ended(
-          'tools_withdrawn',
+          'tools_cancelled',
           'tool_c',
           monday,
-          'withdrawn',
+          'cancelled',
           ['grafana'],
           RunTools.of({
             servers: [served('linear', 1, [50])],
@@ -2274,9 +2274,9 @@ describe('how the memory counts leave out what did not run', () => {
           .recordMemories('briefed', ['mem_one']),
       );
       await records.add(
-        ended('withdrawn_remembering', 'withdrawn', 2).recordMemories(
+        ended('cancelled_remembering', 'cancelled', 2).recordMemories(
           'briefed',
-          ['mem_withdrawn'],
+          ['mem_cancelled'],
         ),
       );
       await records.add(
@@ -2293,7 +2293,7 @@ describe('how the memory counts leave out what did not run', () => {
     });
   });
 
-  it('counts the memories of a withdrawn run but not the run, and counts merges only on finished deliveries', async () => {
+  it('counts the memories of a cancelled run but not the run, and counts merges only on finished deliveries', async () => {
     const counts = await reader.memoryCounts({
       workspaceId: WORKSPACE,
       teamId: REMEMBERING,
@@ -2311,7 +2311,7 @@ describe('how the memory counts leave out what did not run', () => {
       memoriesBriefed: 2,
       memoriesRecalled: 1,
       withMemories: {
-        tally: { runs: 2, withdrawn: 0, failed: 1, accepted: 1, merged: 1 },
+        tally: { runs: 2, cancelled: 0, failed: 1, accepted: 1, merged: 1 },
         measured: { acted: 1, finished: 1, finishedTasks: 1, digested: 0 },
       },
       withoutMemories: {
@@ -2446,7 +2446,7 @@ describe('the config changes of a team', () => {
     expect(new Set(changes.map((each) => each.marker.stationId)).size).toBe(
       STATIONS.length,
     );
-    expect(sides.some((each) => each.tally.withdrawn > 0)).toBe(true);
+    expect(sides.some((each) => each.tally.cancelled > 0)).toBe(true);
     expect(
       changes.some(
         (each) => each.judgedBefore.length > 0 && each.judgedAfter.length > 0,
@@ -2501,7 +2501,7 @@ describe('how a config change splits a station’s runs', () => {
             }),
             queuedAt: null,
             startedAt:
-              ending === 'withdrawn' ? null : ago(beganHoursAgo * HOUR),
+              ending === 'cancelled' ? null : ago(beganHoursAgo * HOUR),
             endedAt: ago(endedHoursAgo * HOUR),
             ending,
             failure: null,
@@ -2545,9 +2545,9 @@ describe('how a config change splits a station’s runs', () => {
 
     await context.inTransaction(async () => {
       await ran('flip_a1', 'flip', A, 100);
-      await ran('flip_b_early', 'flip', B, 90, 'withdrawn');
+      await ran('flip_b_early', 'flip', B, 90, 'cancelled');
       await ran('flip_b1', 'flip', B, 80);
-      await ran('flip_a_early', 'flip', A, 70, 'withdrawn');
+      await ran('flip_a_early', 'flip', A, 70, 'cancelled');
       await ran('flip_a2', 'flip', A, 60);
       await ran('carry_old', 'carry', A, 24 * 60);
       await ran('carry_new', 'carry', B, 50);
@@ -2582,7 +2582,7 @@ describe('how a config change splits a station’s runs', () => {
     });
   });
 
-  it('splits at each change, counts a withdrawn run of the new config before it as after, leaves a side empty, breaks ties by run, and sums judge shares in end order', async () => {
+  it('splits at each change, counts a cancelled run of the new config before it as after, leaves a side empty, breaks ties by run, and sums judge shares in end order', async () => {
     const changes = await reader.changeCounts({
       workspaceId: WORKSPACE,
       teamId: CHANGING,
@@ -2599,9 +2599,9 @@ describe('how a config change splits a station’s runs', () => {
       return change
         ? [
             change.before.tally.runs,
-            change.before.tally.withdrawn,
+            change.before.tally.cancelled,
             change.after.tally.runs,
-            change.after.tally.withdrawn,
+            change.after.tally.cancelled,
           ]
         : null;
     };
@@ -3507,7 +3507,7 @@ describe('how the inbox pairs answers with asks', () => {
         'idle',
         { lineId: 'line_c', stationId: 'idle' },
         asked,
-        'withdrawn',
+        'cancelled',
       ),
     );
     await records.add(
@@ -3746,7 +3746,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
         'check',
         'line_piped',
         { queuedAt: at(2), startedAt: null, endedAt: at(3.5) },
-        'withdrawn',
+        'cancelled',
       );
       await ran('run_piped_d', 'task_piped', PIPED, 'draft', 'line_moved', {
         queuedAt: null,

@@ -10,9 +10,9 @@ import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
-import { RunLapsed } from '@work/domain/events/run-lapsed.event';
+import { RunExhausted } from '@work/domain/events/run-exhausted.event';
+import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
@@ -55,7 +55,8 @@ const queued = () =>
 
 const claimed = (by = runner(), when = noon) => queued().claim(by, when);
 
-const lostAndRequeued = (run: Run) => run.requeue(run.leaseExpiresAt as Date);
+const lostAndRequeued = (run: Run) =>
+  run.expireLease(run.leaseExpiresAt as Date);
 
 const onAttempt = (attempt: number, leaseUntil: Date) =>
   Run.rehydrate({
@@ -75,28 +76,30 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
   });
 
 describe('Run', () => {
-  it('gives up rather than requeueing for ever', () => {
-    const lapsedAt = at('2026-08-28T12:00:00.000Z');
-    const spent = onAttempt(3, lapsedAt);
+  it('is exhausted rather than requeued for ever', () => {
+    const expiredAt = at('2026-08-28T12:00:00.000Z');
+    const spent = onAttempt(3, expiredAt);
 
-    const given = spent.requeue(new Date(lapsedAt.getTime() + 600_000));
+    const exhausted = spent.expireLease(
+      new Date(expiredAt.getTime() + 600_000),
+    );
 
-    expect(given.state).toBe('failed');
-    expect(given.outcome?.failure?.code).toBe('runner-lost');
-    const events = given.pullEvents();
-    expect(events.some((each) => each instanceof RunAbandoned)).toBe(true);
+    expect(exhausted.state).toBe('failed');
+    expect(exhausted.outcome?.failure?.code).toBe('runner-lost');
+    const events = exhausted.pullEvents();
+    expect(events.some((each) => each instanceof RunExhausted)).toBe(true);
   });
 
-  it('goes back on the queue while it still has attempts left, letting go of the runner it lapsed on', () => {
-    const lapsedAt = at('2026-08-28T12:00:00.000Z');
-    const first = onAttempt(1, lapsedAt);
-    const requeuedAt = new Date(lapsedAt.getTime() + 600_000);
+  it('goes back on the queue while it still has attempts left, releasing the runner whose lease expired', () => {
+    const expiredAt = at('2026-08-28T12:00:00.000Z');
+    const first = onAttempt(1, expiredAt);
+    const requeuedAt = new Date(expiredAt.getTime() + 600_000);
 
-    const again = first.requeue(requeuedAt);
+    const again = first.expireLease(requeuedAt);
 
     expect(again.state).toBe('queued');
     expect(again.pullEvents()).toEqual([
-      new RunLapsed(
+      new RunLeaseExpired(
         RunId.of('run_1'),
         WorkspaceId.of('ws_1'),
         RunnerId.of('runner_1'),
@@ -156,7 +159,7 @@ describe('Run', () => {
 
     expect(lostAndRequeued(started).startedAt).toBeNull();
     expect(claimed().unclaimedBy(runner()).startedAt).toBeNull();
-    expect(started.handedBack(runner(), noon, 'no room').startedAt).toBeNull();
+    expect(started.requeue(runner(), noon, 'no room').startedAt).toBeNull();
   });
 
   it('leaves the run it was claimed from on the queue', () => {
@@ -176,22 +179,22 @@ describe('Run', () => {
     );
   });
 
-  it('lapses only once its lease is behind it', () => {
+  it('has an expired lease only once its lease is behind it', () => {
     const run = claimed();
     const lease = run.leaseExpiresAt as Date;
 
-    expect(run.lapsed(new Date(lease.getTime() - 1))).toBe(false);
-    expect(run.lapsed(lease)).toBe(true);
+    expect(run.leaseExpired(new Date(lease.getTime() - 1))).toBe(false);
+    expect(run.leaseExpired(lease)).toBe(true);
   });
 
-  it('is never lapsed while it sits on the queue', () => {
-    expect(queued().lapsed(at('2027-01-01T00:00:00.000Z'))).toBe(false);
+  it('never has an expired lease while it sits on the queue', () => {
+    expect(queued().leaseExpired(at('2027-01-01T00:00:00.000Z'))).toBe(false);
   });
 
   it('goes back on the queue for someone else, counting the attempt', () => {
     const leased = claimed();
 
-    const again = leased.requeue(leased.leaseExpiresAt as Date);
+    const again = leased.expireLease(leased.leaseExpiresAt as Date);
 
     expect(again.state).toBe('queued');
     expect(again.claimedBy).toBeNull();
@@ -203,7 +206,7 @@ describe('Run', () => {
     const stopping = claimed().requestStop(noon);
     stopping.pullEvents();
 
-    const ended = stopping.requeue(stopping.leaseExpiresAt as Date);
+    const ended = stopping.expireLease(stopping.leaseExpiresAt as Date);
 
     expect(ended.hasEnded).toBe(true);
     expect(ended.state).not.toBe('queued');
@@ -215,10 +218,10 @@ describe('Run', () => {
     ).toBe(true);
   });
 
-  it('cannot be requeued while its lease is still valid', () => {
+  it('cannot expire its lease while the lease is still valid', () => {
     const run = claimed();
 
-    expect(() => run.requeue(noon)).toThrow(InvalidRunTransitionError);
+    expect(() => run.expireLease(noon)).toThrow(InvalidRunTransitionError);
   });
 
   it('lets the runner that leases it push the lease out', () => {
@@ -578,7 +581,7 @@ describe('Run', () => {
     });
   });
 
-  describe('being refused before a runner takes it up', () => {
+  describe('being refused before a runner claims it', () => {
     const LAPSED = RunOutcome.refused([
       DeniedCatalogItem.of({
         id: 'catalog.web-search@1.1.0',
@@ -609,7 +612,7 @@ describe('Run', () => {
   });
 
   describe('being unclaimed when its runner could not take it', () => {
-    it('goes back on the queue as it was, counting neither an attempt nor a hand-back', () => {
+    it('goes back on the queue as it was, counting neither an attempt nor a requeue', () => {
       const before = queued();
       const unclaimed = claimed().unclaimedBy(runner());
 
@@ -617,7 +620,7 @@ describe('Run', () => {
       expect(unclaimed.claimedBy).toBeNull();
       expect(unclaimed.leaseExpiresAt).toBeNull();
       expect(unclaimed.attempt).toBe(before.attempt);
-      expect(unclaimed.handBacks).toEqual(before.handBacks);
+      expect(unclaimed.requeueCount).toEqual(before.requeueCount);
       expect(unclaimed.claimableAt(noon)).toBe(true);
       expect(unclaimed.pullEvents()).toEqual([]);
     });
@@ -644,12 +647,12 @@ describe('Run', () => {
     });
   });
 
-  describe('being handed back before it starts', () => {
+  describe('being requeued before it starts', () => {
     const DOWN = 'connect ECONNREFUSED';
     const laterBy = (ms: number) => new Date(noon.getTime() + ms);
 
     it('waits to be claimed again without spending an attempt', () => {
-      const back = claimed().handedBack(runner(), noon, DOWN);
+      const back = claimed().requeue(runner(), noon, DOWN);
 
       expect(back.state).toBe('queued');
       expect(back.claimedBy).toBeNull();
@@ -659,7 +662,7 @@ describe('Run', () => {
     });
 
     it('is not claimed again until its back-off has passed', () => {
-      const back = claimed().handedBack(runner(), noon, DOWN);
+      const back = claimed().requeue(runner(), noon, DOWN);
 
       expect(back.claimableAt(laterBy(4_999))).toBe(false);
       expect(back.provisionableAt(laterBy(4_999))).toBe(false);
@@ -670,14 +673,14 @@ describe('Run', () => {
       );
     });
 
-    it('waits twice as long each time it is handed back', () => {
+    it('waits twice as long each time it is requeued', () => {
       let run = claimed();
       const waits: number[] = [];
 
       for (let each = 0; each < 5; each++) {
-        run = run.handedBack(runner(), noon, DOWN);
+        run = run.requeue(runner(), noon, DOWN);
         waits.push(
-          (run.handBacks.claimableFrom?.getTime() ?? 0) - noon.getTime(),
+          (run.requeueCount.claimableFrom?.getTime() ?? 0) - noon.getTime(),
         );
         run = run.claim(runner(), noon);
       }
@@ -685,15 +688,15 @@ describe('Run', () => {
       expect(waits).toEqual([5_000, 10_000, 20_000, 40_000, 80_000]);
     });
 
-    it('ends failed, saying its hooks could not be asked, the sixth time it is handed back', () => {
+    it('ends failed, saying its hooks could not be asked, the sixth time it is requeued', () => {
       let run = claimed();
 
       for (let each = 0; each < 5; each++) {
-        run = run.handedBack(runner(), noon, DOWN).claim(runner(), noon);
+        run = run.requeue(runner(), noon, DOWN).claim(runner(), noon);
       }
       run.pullEvents();
 
-      const ended = run.handedBack(runner(), noon, DOWN);
+      const ended = run.requeue(runner(), noon, DOWN);
 
       expect(ended.state).toBe('failed');
       expect(ended.outcome?.message).toBe(
@@ -706,7 +709,7 @@ describe('Run', () => {
       const stopping = claimed().requestStop(noon);
       stopping.pullEvents();
 
-      const ended = stopping.handedBack(runner(), noon, DOWN);
+      const ended = stopping.requeue(runner(), noon, DOWN);
 
       expect(ended.state).toBe('completed');
       expect(ended.outcome?.stopped).toBe(true);
@@ -718,17 +721,17 @@ describe('Run', () => {
 
     it('starts counting afresh on a later attempt', () => {
       const back = claimed()
-        .handedBack(runner(), noon, DOWN)
+        .requeue(runner(), noon, DOWN)
         .claim(runner(), laterBy(5_000));
 
-      expect(lostAndRequeued(back).handBacks.count).toBe(0);
+      expect(lostAndRequeued(back).requeueCount.count).toBe(0);
     });
 
-    it('is handed back only by the runner that claimed it', () => {
-      expect(() =>
-        claimed().handedBack(runner('runner_2'), noon, DOWN),
-      ).toThrow(InvalidRunTransitionError);
-      expect(() => queued().handedBack(runner(), noon, DOWN)).toThrow(
+    it('is requeued only by the runner that claimed it', () => {
+      expect(() => claimed().requeue(runner('runner_2'), noon, DOWN)).toThrow(
+        InvalidRunTransitionError,
+      );
+      expect(() => queued().requeue(runner(), noon, DOWN)).toThrow(
         InvalidRunTransitionError,
       );
     });
@@ -764,21 +767,23 @@ describe('Run', () => {
     });
   });
 
-  describe('being withdrawn before a runner takes it up', () => {
-    it('ends a queued run as superseded, since its task moved on without it', () => {
-      const withdrawn = queued().withdrawn('The task moved on.');
+  describe('being cancelled before a runner claims it', () => {
+    it('ends a queued run as cancelled, since its task moved on without it', () => {
+      const cancelled = queued().cancelQueued('The task moved on.');
 
-      expect(withdrawn.state).toBe('superseded');
-      expect(withdrawn.outcome?.failure?.code).toBe('superseded');
-      expect(withdrawn.hasEnded).toBe(true);
-      expect(withdrawn.outcome?.message).toBe('The task moved on.');
-      expect(withdrawn.pullEvents().map((each) => each.kind)).toEqual([
-        'run.withdrawn',
+      expect(cancelled.state).toBe('cancelled');
+      expect(cancelled.outcome?.failure?.code).toBe('cancelled');
+      expect(cancelled.outcome?.cancelled).toBe(true);
+      expect(cancelled.outcome?.superseded).toBe(false);
+      expect(cancelled.hasEnded).toBe(true);
+      expect(cancelled.outcome?.message).toBe('The task moved on.');
+      expect(cancelled.pullEvents().map((each) => each.kind)).toEqual([
+        'run.cancelled',
       ]);
     });
 
-    it('does not withdraw a run that is already being worked', () => {
-      expect(() => claimed().withdrawn('The task moved on.')).toThrow(
+    it('does not cancel a run that is already being worked', () => {
+      expect(() => claimed().cancelQueued('The task moved on.')).toThrow(
         InvalidRunTransitionError,
       );
     });
@@ -859,40 +864,42 @@ describe('Run', () => {
       );
     });
 
-    it('goes back on the queue when its host times it out, as for a lapsed lease, and is given up on as timed out', () => {
+    it('goes back on the queue when its host times it out, as for an expired lease, and is exhausted as timed out', () => {
       let run = queued();
       for (let attempt = 0; attempt < 2; attempt += 1) {
         run = run.claim(runner(), noon).timedOut(runner(), noon);
         expect(run.state).toBe('queued');
       }
 
-      const given = run.claim(runner(), noon).timedOut(runner(), noon);
-      const events = given.pullEvents();
-      const abandoned = events.find(
-        (each): each is RunAbandoned => each instanceof RunAbandoned,
+      const timedOut = run.claim(runner(), noon).timedOut(runner(), noon);
+      const events = timedOut.pullEvents();
+      const exhausted = events.find(
+        (each): each is RunExhausted => each instanceof RunExhausted,
       );
 
-      expect(abandoned?.failure).toBe('timed-out');
-      expect(given.outcome?.failure?.code).toBe('timed-out');
-      expect(events.some((each) => each instanceof RunLapsed)).toBe(true);
+      expect(exhausted?.failure).toBe('timed-out');
+      expect(timedOut.outcome?.failure?.code).toBe('timed-out');
+      expect(events.some((each) => each instanceof RunLeaseExpired)).toBe(true);
       expect(() =>
         queued().claim(runner(), noon).timedOut(RunnerId.of('elsewhere'), noon),
       ).toThrow();
     });
 
-    it('says so when it is given up on', () => {
+    it('says so when it is exhausted', () => {
       let run = queued();
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        run = run.claim(runner(), noon).requeue(at('2026-08-23T12:05:00.000Z'));
+        run = run
+          .claim(runner(), noon)
+          .expireLease(at('2026-08-23T12:05:00.000Z'));
       }
 
       const raised = run
         .pullEvents()
-        .filter((each) => each instanceof RunAbandoned);
+        .filter((each) => each instanceof RunExhausted);
 
       expect(raised).toHaveLength(1);
-      expect((raised[0] as RunAbandoned).attempt).toBe(3);
-      expect((raised[0] as RunAbandoned).failure).toBe('runner-lost');
+      expect((raised[0] as RunExhausted).attempt).toBe(3);
+      expect((raised[0] as RunExhausted).failure).toBe('runner-lost');
     });
 
     it('leaves the run it was completed from with nothing to announce', () => {
@@ -944,7 +951,7 @@ describe('Run', () => {
       );
     });
 
-    it('lets another runner take it once the reservation lapses, letting go of the runner reserved', () => {
+    it('lets another runner take it once the reservation expires, releasing the runner reserved', () => {
       const run = reserved().claim(runner('runner_9'), later(5 * 60_000));
 
       expect(run.claimedBy?.value).toBe('runner_9');
@@ -967,13 +974,13 @@ describe('Run', () => {
       expect(run.pullEvents()).toEqual([]);
     });
 
-    it('knows its reservation lapsed only once it is behind it while still queued', () => {
-      expect(reserved().reservationLapsedAt(later(1_000))).toBe(false);
-      expect(reserved().reservationLapsedAt(later(5 * 60_000))).toBe(true);
-      expect(queued().reservationLapsedAt(later(5 * 60_000))).toBe(false);
+    it('knows its reservation expired only once it is behind it while still queued', () => {
+      expect(reserved().reservationExpiredAt(later(1_000))).toBe(false);
+      expect(reserved().reservationExpiredAt(later(5 * 60_000))).toBe(true);
+      expect(queued().reservationExpiredAt(later(5 * 60_000))).toBe(false);
     });
 
-    it('drops its reservation when unreserved by its runner, letting the runner go', () => {
+    it('drops its reservation when unreserved by its runner, releasing the runner', () => {
       const run = reserved().unreservedFor(runner('pooled_1'));
 
       expect(run.reservation).toBeNull();
@@ -987,17 +994,17 @@ describe('Run', () => {
       ]);
     });
 
-    it('lets its provisioned runner go when withdrawn', () => {
-      const run = reserved().withdrawn('The task moved on.');
+    it('releases its provisioned runner when cancelled', () => {
+      const run = reserved().cancelQueued('The task moved on.');
 
       expect(run.reservation).toBeNull();
       expect(run.pullEvents().map((each) => each.kind)).toEqual([
         'run.reservation-dropped',
-        'run.withdrawn',
+        'run.cancelled',
       ]);
     });
 
-    it('lets its provisioned runner go when refused', () => {
+    it('releases its provisioned runner when refused', () => {
       const run = reserved().refused(
         RunOutcome.refused([{ saying: 'The plan lapsed.' }]),
       );
@@ -1009,7 +1016,7 @@ describe('Run', () => {
       ]);
     });
 
-    it('keeps its reservation when another runner lets it go', () => {
+    it('keeps its reservation when another runner drops it', () => {
       const run = reserved();
 
       expect(run.unreservedFor(runner('pooled_2'))).toBe(run);
@@ -1078,7 +1085,7 @@ describe('Run', () => {
       expect((completed[0] as RunCompleted).workedBy).toBeNull();
     });
 
-    it('only lets go of the runner reserved for it while it still has tries left', () => {
+    it('only releases the runner reserved for it while it still has tries left', () => {
       expect(failedAgain(queued()).pullEvents()).toEqual([
         new RunReservationDropped(
           RunId.of('run_1'),
@@ -1126,7 +1133,7 @@ describe('Run', () => {
     it('starts provisioning afresh when requeued', () => {
       const again = failedAgain(queued())
         .claim(runner(), later(5_000))
-        .requeue(later(10 * 60_000));
+        .expireLease(later(10 * 60_000));
 
       expect(again.provisioning.failures).toBe(0);
       expect(again.provisioning.nextAt).toBeNull();
@@ -1191,7 +1198,9 @@ describe('Run', () => {
     it('forgets the image once it goes back on the queue', () => {
       const started = claimed().startedIn(runner(), pinned, noon);
 
-      expect(started.requeue(started.leaseExpiresAt as Date).ranIn).toBeNull();
+      expect(
+        started.expireLease(started.leaseExpiresAt as Date).ranIn,
+      ).toBeNull();
     });
   });
 
@@ -1226,6 +1235,18 @@ describe('Run', () => {
       expect(succeeded.supersededByItsTask()).toBe(succeeded);
       expect(claimed().supersededByItsTask().state).toBe('claimed');
       expect(superseded.supersededByItsTask()).toBe(superseded);
+    });
+
+    it('leaves a run cancelled before a runner claimed it as it was', () => {
+      const cancelled = queued().cancelQueued('The task moved on.');
+      cancelled.pullEvents();
+
+      const after = cancelled.supersededByItsTask();
+
+      expect(after).toBe(cancelled);
+      expect(after.state).toBe('cancelled');
+      expect(after.outcome?.failure?.code).toBe('cancelled');
+      expect(after.pullEvents()).toEqual([]);
     });
 
     it('ends failed, not superseded, when it exits badly while its task still has it as its current run', () => {

@@ -45,7 +45,7 @@ export class RunnerGuard implements CanActivate {
     );
     if (!runner) {
       throw new UnauthorizedException(
-        'The runner token is missing, spent or wrong.',
+        'The runner token is missing, no longer valid or wrong.',
       );
     }
 

@@ -116,7 +116,7 @@ export class HostWorkController {
   @ApiOperation({
     operationId: 'claimHostWork',
     summary:
-      'Long-poll for one run or check, handed over with a one-run runner’s credential for a fresh sandbox',
+      'Long-poll for one run or check, assigned with a one-run runner’s credential for a fresh sandbox',
     description:
       'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call.',
   })
@@ -150,19 +150,19 @@ export class HostWorkController {
       throw new UnauthorizedException(UNAUTHORIZED);
     }
 
-    if (claimed.outcome === 'stranger') {
+    if (claimed.outcome === 'host-unreported') {
       throw new ConflictException({
         reason: 'host-unreported',
         message:
-          'This host has not reported through this pool or trust. Please report presence first.',
+          'This host has not reported through this pool or trust. Please send a heartbeat first.',
       });
     }
 
-    if (claimed.outcome === 'unoffered') {
+    if (claimed.outcome === 'image-unreported') {
       throw new ConflictException({
         reason: 'image-unreported',
         message:
-          'This host has not reported that it serves that image. Please report presence with the image first.',
+          'This host has not reported that it serves that image. Please send a heartbeat that reports the image first.',
       });
     }
 
@@ -186,7 +186,7 @@ export class HostWorkController {
     summary:
       'Long-poll for one call a hook asked to be sent from inside the host’s network',
     description:
-      'Hands over the oldest call waiting for this pool’s or trust’s workspace that has not lapsed. The host sends it once and answers with what came back.',
+      'Assigns the oldest call waiting for this pool’s or trust’s workspace that has not expired. The host sends it once and answers with what came back.',
   })
   @ApiOkResponse({ type: HostCallResponseDto })
   @ApiNoContentResponse({
@@ -216,11 +216,11 @@ export class HostWorkController {
       throw new UnauthorizedException(UNAUTHORIZED);
     }
 
-    if (claimed.outcome === 'stranger') {
+    if (claimed.outcome === 'host-unreported') {
       throw new ConflictException({
         reason: 'host-unreported',
         message:
-          'This host has not reported through this pool or trust. Please report presence first.',
+          'This host has not reported through this pool or trust. Please send a heartbeat first.',
       });
     }
 
@@ -253,7 +253,7 @@ export class HostWorkController {
   })
   @ApiConflictResponse({
     description:
-      'The call was already answered, lapsed before it was answered, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)',
+      'The call was already answered, expired before it was answered, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)',
   })
   async answerCall(
     @Headers('authorization') authorization: string | undefined,

@@ -25,15 +25,15 @@ import {
 import { bearerIn, TRUST_HEADER } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import {
-  LeaveAsHostCommand,
-  ReportHostPresenceCommand,
+  DeregisterHostCommand,
+  HostHeartbeatCommand,
 } from '@runners/application/commands/host.commands';
 import type {
+  HostDeregisteredDto,
   HostHeartbeatDto,
-  HostLeftDto,
 } from '@runners/application/dto/host-heartbeat.dto';
+import { HostHeartbeatRequestDto } from '@runners/presentation/http/dto/host-heartbeat.request.dto';
 import { HostHeartbeatResponseDto } from '@runners/presentation/http/dto/host-heartbeat.response.dto';
-import { HostPresenceRequestDto } from '@runners/presentation/http/dto/host-presence.request.dto';
 
 const UNAUTHORIZED =
   'Pool token is missing, rotated or unknown, or no trust admits this workload.';
@@ -55,37 +55,37 @@ export class HostController {
 
   @Put()
   @ApiOperation({
-    operationId: 'reportHostPresence',
+    operationId: 'hostHeartbeat',
     summary:
-      'A host says it is here, what it has and what it runs, so the Runners page can show it',
+      'A host sends a heartbeat with what it has and what it runs, so the Runners page can show it',
   })
   @ApiOkResponse({ type: HostHeartbeatResponseDto })
   @ApiConflictResponse({
-    description: 'The host id serves another pool or trust',
+    description: 'The host id is in use by another pool or trust',
   })
-  async present(
+  async heartbeat(
     @Param('hostId') hostId: string,
     @Headers('authorization') authorization: string | undefined,
     @Headers(TRUST_HEADER) trust: string | undefined,
-    @Body() body: HostPresenceRequestDto,
+    @Body() body: HostHeartbeatRequestDto,
   ): Promise<HostHeartbeatResponseDto> {
     const heartbeat = await this.commandBus.execute<
-      ReportHostPresenceCommand,
+      HostHeartbeatCommand,
       HostHeartbeatDto
     >(
-      new ReportHostPresenceCommand(
+      new HostHeartbeatCommand(
         { bearer: bearerIn(authorization), trust },
         hostId,
-        body?.session ?? '',
+        body?.bootId ?? '',
         {
           name: body?.name ?? '',
           release: body?.release ?? '',
-          executor: body?.executor ?? '',
+          containerRuntime: body?.containerRuntime ?? '',
           capacity: body?.capacity ?? 0,
           running: body?.running ?? [],
           images: (body?.images ?? []).map((each) => ({
             image: each.image ?? '',
-            usual: each.usual === true,
+            isDefault: each.isDefault === true,
             harnesses: (each.harnesses ?? []).map((harness) => ({
               id: harness.id,
               models: harness.models ?? [],
@@ -105,10 +105,10 @@ export class HostController {
       throw new UnauthorizedException(UNAUTHORIZED);
     }
 
-    if (heartbeat.outcome === 'taken') {
+    if (heartbeat.outcome === 'host-in-use') {
       throw new ConflictException({
-        reason: 'host-taken',
-        message: `Host ${hostId} is serving another pool or trust. Please stop it there, or give it its own state directory.`,
+        reason: 'host-in-use',
+        message: `Host ${hostId} is in use by another pool or trust. Please stop it there, or give it its own state directory.`,
       });
     }
 
@@ -118,23 +118,27 @@ export class HostController {
   @Delete()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'leaveAsHost',
-    summary: 'A host that is stopping says so, and leaves the Runners page',
+    operationId: 'deregisterHost',
+    summary:
+      'A host that stops deregisters itself, so the Runners page no longer shows it',
   })
-  @ApiNoContentResponse({ description: 'Gone' })
-  async leave(
+  @ApiNoContentResponse({ description: 'Deregistered' })
+  async deregister(
     @Param('hostId') hostId: string,
     @Headers('authorization') authorization: string | undefined,
     @Headers(TRUST_HEADER) trust: string | undefined,
   ): Promise<void> {
-    const left = await this.commandBus.execute<LeaveAsHostCommand, HostLeftDto>(
-      new LeaveAsHostCommand(
+    const deregistered = await this.commandBus.execute<
+      DeregisterHostCommand,
+      HostDeregisteredDto
+    >(
+      new DeregisterHostCommand(
         { bearer: bearerIn(authorization), trust },
         hostId,
       ),
     );
 
-    if (left.outcome === 'unauthorized') {
+    if (deregistered.outcome === 'unauthorized') {
       throw new UnauthorizedException(UNAUTHORIZED);
     }
   }

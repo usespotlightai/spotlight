@@ -2,9 +2,9 @@ import { AbandonReplays } from '@replays/application/services/abandon-replays.se
 import { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
 import { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
 import { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
+import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
-import { LetReplayRunsGo } from '@replays/application/services/let-replay-runs-go.service';
 import { NoteLineRedefined } from '@replays/application/services/note-line-redefined.service';
 import { NoteReplayChangeReviewed } from '@replays/application/services/note-replay-change-reviewed.service';
 import { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
@@ -224,7 +224,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     expect(second?.fingerprint).not.toBeNull();
   });
 
-  it('asks Work to forgo a run reserved for a replay stopped before it was queued, freeing its slot only once Work says it never was', async () => {
+  it('asks Work to cancel a run reserved for a replay stopped before it was queued, freeing its slot only once Work says it never was', async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
     work.dispatch = async () => {
       throw new Error('down');
@@ -239,7 +239,7 @@ describe('DispatchReplayRuns when Work fails', () => {
 
     await dispatching().workDue();
 
-    expect(work.forgone.map((each) => each.keep)).toEqual([false, false]);
+    expect(work.cancelled.map((each) => each.keep)).toEqual([false, false]);
     const after = memory.replays.get('replay_1');
     expect(after?.occupying.map((each) => each.run?.value)).toEqual([kept]);
     expect(after?.occupying[0]?.fingerprint).not.toBeNull();
@@ -254,7 +254,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     for (let turn = 0; turn < MAX_QUEUE_ATTEMPTS; turn += 1) {
       await dispatching().workDue();
     }
-    expect(work.forgone).toEqual([]);
+    expect(work.cancelled).toEqual([]);
     expect(memory.replays.get('replay_1')?.occupying).toHaveLength(2);
 
     work.queuedRuns.add(
@@ -262,7 +262,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     );
     await dispatching().workDue();
 
-    expect(work.forgone.map((each) => each.keep)).toEqual([true, true]);
+    expect(work.cancelled.map((each) => each.keep)).toEqual([true, true]);
     const [first, second] = memory.replays.get('replay_1')?.entries ?? [];
     expect(first?.unreplayableReason).toBe('dispatch-failed');
     expect(second?.queued).toBe(true);
@@ -271,7 +271,7 @@ describe('DispatchReplayRuns when Work fails', () => {
 });
 
 describe('DispatchReplayRuns without the candidate', () => {
-  it('forgoes the run in Work and ends the entry as unfit, so it takes no slot', async () => {
+  it('cancels the run in Work and ends the entry as unfit, so it takes no slot', async () => {
     await memory.replayRepository.add(aReplay({ count: 1 }));
     memory.candidates.clear();
 
@@ -279,7 +279,7 @@ describe('DispatchReplayRuns without the candidate', () => {
     await dispatching().workDue();
 
     const replay = memory.replays.get('replay_1');
-    expect(work.forgone.map((each) => each.keep)).toEqual([false]);
+    expect(work.cancelled.map((each) => each.keep)).toEqual([false]);
     expect(replay?.entries[0]?.unreplayableReason).toBe('candidate-unfit');
     expect(replay?.occupying).toEqual([]);
   });
@@ -488,15 +488,15 @@ describe('AbandonReplays', () => {
   });
 });
 
-describe('LetReplayRunsGo', () => {
-  it('forgoes the runs of a stopped replay, and withdraws the queued ones of a replay over budget', async () => {
-    const letting = new LetReplayRunsGo(work);
+describe('CancelReplayRuns', () => {
+  it('cancels the runs of a stopped replay, and the queued runs of a replay over budget', async () => {
+    const cancelling = new CancelReplayRuns(work);
 
-    await letting.stopped([RunId.of('run_1')]);
-    await letting.overBudget([RunId.of('run_2')]);
+    await cancelling.stopped([RunId.of('run_1')]);
+    await cancelling.overBudget([RunId.of('run_2')]);
 
-    expect(work.forgone).toEqual([{ run: 'run_1', keep: false }]);
-    expect(work.withdrawn).toEqual(['run_2']);
+    expect(work.cancelled).toEqual([{ run: 'run_1', keep: false }]);
+    expect(work.cancelledQueued).toEqual(['run_2']);
   });
 });
 

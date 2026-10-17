@@ -186,7 +186,7 @@ describe('LinePlan', () => {
     });
   });
 
-  it('rejects a station handing work on to itself', () => {
+  it('rejects a station passing work to itself', () => {
     const error = errorOf(() =>
       plan({
         stations: [

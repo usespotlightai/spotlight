@@ -69,7 +69,7 @@ export class RunEnd {
   }
 
   get ran(): boolean {
-    return this.ending !== 'withdrawn';
+    return this.ending !== 'cancelled';
   }
 
   get ranItsConfig(): boolean {

@@ -1,10 +1,10 @@
 export class PoolTokenUsage {
   private constructor(
-    readonly given: boolean,
+    readonly used: boolean,
     readonly inUse: boolean,
   ) {}
 
-  static of(input: { given: boolean; inUse: boolean }): PoolTokenUsage {
-    return new PoolTokenUsage(input.given, input.inUse);
+  static of(input: { used: boolean; inUse: boolean }): PoolTokenUsage {
+    return new PoolTokenUsage(input.used, input.inUse);
   }
 }

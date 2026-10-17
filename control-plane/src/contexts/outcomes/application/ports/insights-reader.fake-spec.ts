@@ -262,8 +262,8 @@ const listedRunOf = (
         failure: end.failure,
         checks: record.checks,
         next: record.next ? { act: record.next.act, at: record.next.at } : null,
-        handedOn: record.handedOn
-          ? { to: record.handedOn.to, at: record.handedOn.at }
+        passed: record.passed
+          ? { to: record.passed.to, at: record.passed.at }
           : null,
         delivery,
       }

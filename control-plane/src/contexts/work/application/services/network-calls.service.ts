@@ -27,13 +27,13 @@ export class NetworkCalls implements NetworkCallsPort {
   async queue(
     workspaceId: string,
     request: Request,
-    lapsesAt: Date,
+    expiresAt: Date,
   ): Promise<string> {
     const call = NetworkCall.queue({
       id: NetworkCallId.of(this.ids.generate()),
       workspaceId: WorkspaceId.of(workspaceId),
       request: NetworkRequest.of(request),
-      lapsesAt,
+      expiresAt,
       now: this.clock.now(),
     });
 
@@ -56,29 +56,29 @@ export class NetworkCalls implements NetworkCallsPort {
         return state;
       }
 
-      if (state.kind === 'lapsed') {
-        return this.stateOnceCompleted(call, call.lapsed(now));
+      if (state.kind === 'expired') {
+        return this.stateOnceCompleted(call, call.expire(now));
       }
 
       if (now.getTime() >= until.getTime()) {
-        return this.stateOnceCompleted(call, call.givenUp(now));
+        return this.stateOnceCompleted(call, call.cancel(now));
       }
 
       await this.clock.sleep(POLL_INTERVAL_MS);
     }
   }
 
-  async lapseOverdue(): Promise<number> {
+  async expireDue(): Promise<number> {
     const now = this.clock.now();
-    let lapsed = 0;
+    let expired = 0;
 
-    for (const call of await this.calls.lapsingBy(now, MAX_AT_ONCE)) {
-      if (await this.saveIfChanged(call, call.lapsed(now))) {
-        lapsed += 1;
+    for (const call of await this.calls.expiringBy(now, MAX_AT_ONCE)) {
+      if (await this.saveIfChanged(call, call.expire(now))) {
+        expired += 1;
       }
     }
 
-    return lapsed;
+    return expired;
   }
 
   async forgetCompleted(): Promise<number> {
@@ -130,7 +130,7 @@ export class NetworkCalls implements NetworkCallsPort {
 
     return state === 'waiting' || state === 'claimed'
       ? { kind: 'waiting' }
-      : { kind: 'lapsed' };
+      : { kind: 'expired' };
   }
 
   private async stateOnceCompleted(

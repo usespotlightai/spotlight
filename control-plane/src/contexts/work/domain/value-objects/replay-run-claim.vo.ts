@@ -5,7 +5,11 @@ import {
   type UnreplayableReason,
 } from '@work/domain/exceptions/unreplayable-run.error';
 
-export const REPLAY_RUN_CLAIMS = ['queued', 'forgone', 'unreplayable'] as const;
+export const REPLAY_RUN_CLAIMS = [
+  'queued',
+  'cancelled',
+  'unreplayable',
+] as const;
 
 export type ClaimedAs = (typeof REPLAY_RUN_CLAIMS)[number];
 
@@ -21,8 +25,8 @@ export class ReplayRunClaim {
     return new ReplayRunClaim(runId, 'queued', null, null);
   }
 
-  static toForgo(runId: RunId): ReplayRunClaim {
-    return new ReplayRunClaim(runId, 'forgone', null, null);
+  static toCancel(runId: RunId): ReplayRunClaim {
+    return new ReplayRunClaim(runId, 'cancelled', null, null);
   }
 
   static rehydrate(input: {
@@ -83,12 +87,12 @@ export class ReplayRunClaim {
     );
   }
 
-  forgone(runExists: boolean): ReplayRunClaim {
+  cancelled(runExists: boolean): ReplayRunClaim {
     if (this.claimedAs !== 'queued' || runExists) {
       return this;
     }
 
-    return new ReplayRunClaim(this.runId, 'forgone', null, null);
+    return new ReplayRunClaim(this.runId, 'cancelled', null, null);
   }
 
   equals(other: ReplayRunClaim): boolean {

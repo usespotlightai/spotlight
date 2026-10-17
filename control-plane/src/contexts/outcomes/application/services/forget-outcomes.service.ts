@@ -101,7 +101,9 @@ export class ForgetOutcomes {
       workspaceId,
       taskId,
     )) {
-      await this.lettingGo(record, (each) => each.withoutTask(taskId));
+      await this.removeFromPullRequest(record, (each) =>
+        each.withoutTask(taskId),
+      );
     }
   }
 
@@ -200,7 +202,9 @@ export class ForgetOutcomes {
       workspaceId,
       teamId,
     )) {
-      await this.lettingGo(record, (each) => each.withoutTeam(teamId));
+      await this.removeFromPullRequest(record, (each) =>
+        each.withoutTeam(teamId),
+      );
     }
   }
 
@@ -266,9 +270,9 @@ export class ForgetOutcomes {
     });
   }
 
-  private async lettingGo(
+  private async removeFromPullRequest(
     record: PullRequestRecord,
-    letGo: (record: PullRequestRecord) => PullRequestRecord | null,
+    without: (record: PullRequestRecord) => PullRequestRecord | null,
   ): Promise<void> {
     for (let left = ATTEMPTS; ; left -= 1) {
       try {
@@ -286,7 +290,7 @@ export class ForgetOutcomes {
             return;
           }
 
-          const kept = letGo(existing);
+          const kept = without(existing);
 
           if (kept === null) {
             await this.repositories.pullRequests.remove(existing);

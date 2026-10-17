@@ -1,4 +1,4 @@
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -15,7 +15,7 @@ export class RecordRunImageHandler
 {
   constructor(
     private readonly runs: RunRepository,
-    private readonly presence: RunnerPresencePort,
+    private readonly heartbeats: RunnerHeartbeatsPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -23,7 +23,7 @@ export class RecordRunImageHandler
     try {
       const runner = RunnerId.of(command.runnerId);
 
-      if (!(await this.presence.seen(runner, this.clock.now()))) {
+      if (!(await this.heartbeats.heartbeat(runner, this.clock.now()))) {
         throw new UnknownRunnerError(command.runnerId);
       }
 

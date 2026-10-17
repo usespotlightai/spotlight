@@ -220,8 +220,8 @@ const TALLY = {
   checksFailed: 2,
   accepted: 28,
   sentBack: 3,
-  withdrawn: 0,
-  handedOn: 0,
+  cancelled: 0,
+  passed: 0,
   merged: 20,
   cost: null,
   medianMs: null,
@@ -240,7 +240,7 @@ const run = (runId: string, ending: string) => ({
   cost: null,
   checks: 'passed',
   next: null,
-  handedOn: null,
+  passed: null,
   delivery: null,
 });
 

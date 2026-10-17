@@ -1,4 +1,4 @@
-import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { LineOpened } from '@work/domain/events/line-opened.event';
 import { LineRedefined } from '@work/domain/events/line-redefined.event';
@@ -9,18 +9,19 @@ import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event'
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { ReplayDigested } from '@work/domain/events/replay-digested.event';
-import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
+import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunDetached } from '@work/domain/events/run-detached.event';
 import { RunDigested } from '@work/domain/events/run-digested.event';
-import { RunLapsed } from '@work/domain/events/run-lapsed.event';
-import { RunParked } from '@work/domain/events/run-parked.event';
+import { RunExhausted } from '@work/domain/events/run-exhausted.event';
+import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunResumed } from '@work/domain/events/run-resumed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
-import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { SearchDigested } from '@work/domain/events/search-digested.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
@@ -31,14 +32,13 @@ import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
 import { TaskAsideResolved } from '@work/domain/events/task-aside-resolved.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
-import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
-import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
-import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
@@ -72,7 +72,6 @@ import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
-import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { Happening } from '@work/domain/value-objects/happening.vo';
@@ -108,6 +107,7 @@ import { Remark } from '@work/domain/value-objects/remark.vo';
 import { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
@@ -184,7 +184,7 @@ export const WORK_PAYLOAD_TYPES = [
   HarnessPermission,
   ProfileKey,
   ProfileMissing,
-  HandBacks,
+  RequeueCount,
   HandoverOption,
   HandoverReport,
   Happening,
@@ -273,7 +273,7 @@ export const WORK_PAYLOAD_TYPES = [
   RestoredArchive,
   StartedCheckout,
   StartingPoint,
-  ChatHandedToRun,
+  ChatDispatched,
   ChatStarted,
   LineRepositoriesChanged,
   LineOpened,
@@ -284,8 +284,8 @@ export const WORK_PAYLOAD_TYPES = [
   ProposalDismissed,
   PullRequestOpened,
   PullRequestReviewTaken,
-  RunAbandoned,
-  RunWithdrawn,
+  RunExhausted,
+  RunCancelled,
   RunBriefed,
   RunSuperseded,
   RunCompleted,
@@ -293,9 +293,9 @@ export const WORK_PAYLOAD_TYPES = [
   ReplayDigested,
   SearchDigested,
   TaskFailed,
-  TaskHandedOn,
-  RunLapsed,
-  RunParked,
+  TaskPassed,
+  RunLeaseExpired,
+  RunSuspended,
   RunPaused,
   RunResumed,
   RunReservationDropped,
@@ -309,8 +309,8 @@ export const WORK_PAYLOAD_TYPES = [
   TaskAsideResolved,
   TaskDeleted,
   TaskFinished,
-  TaskHandedToRun,
-  TaskLetGoOfRun,
+  TaskDispatched,
+  RunDetached,
   TaskMarkTaken,
   TaskMoved,
   TaskOpened,
