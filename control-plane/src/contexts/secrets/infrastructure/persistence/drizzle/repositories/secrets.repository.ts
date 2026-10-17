@@ -103,8 +103,8 @@ export class DrizzleSecrets implements SecretRepository {
       sourceField: record.source.field,
       bindings: record.bindings.all.map((each) => ({
         host: each.host,
-        carrier: each.carrier.kind,
-        name: each.carrier.name,
+        location: each.target.location,
+        name: each.target.name,
         prefix: each.prefix,
       })),
       valueVersion: record.valueVersion,

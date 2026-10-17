@@ -21,7 +21,7 @@ const AT = '2026-10-16T12:00:00.000Z';
 
 const connection = (
   host: string,
-  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed' = 'tunnelled',
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed' = 'passthrough',
   port = 443,
 ) => ({
   host,
@@ -32,7 +32,7 @@ const connection = (
   outcome,
   status: null,
   reason: null,
-  trouble: outcome === 'blocked' || outcome === 'failed' ? outcome : null,
+  error: outcome === 'blocked' || outcome === 'failed' ? outcome : null,
   at: AT,
 });
 
@@ -43,13 +43,13 @@ beforeEach(() => {
   network.mockReturnValue({
     runId: 'run_1',
     attempt: 1,
-    egress: 'enforced',
+    egressEnforcement: 'enforced',
     connections: [
       connection('registry.npmjs.org'),
       connection('registry.npmjs.org'),
-      connection('mcp.linear.app', 'forwarded'),
+      connection('mcp.linear.app', 'injected'),
       connection('paste.example.net', 'blocked'),
-      connection('db.internal', 'tunnelled', 5432),
+      connection('db.internal', 'passthrough', 5432),
     ],
   });
 });
@@ -67,9 +67,9 @@ describe('RunNetwork', () => {
     ).getAllByRole('listitem');
     expect(rows.map((each) => each.dataset.outcome)).toEqual([
       'blocked',
-      'tunnelled',
-      'tunnelled',
-      'forwarded',
+      'passthrough',
+      'passthrough',
+      'injected',
     ]);
     expect(rows[0]).toHaveTextContent('paste.example.net');
     expect(rows[0]).toHaveTextContent('Blocked');
@@ -82,7 +82,7 @@ describe('RunNetwork', () => {
     network.mockReturnValue({
       runId: 'run_1',
       attempt: 1,
-      egress: 'enforced',
+      egressEnforcement: 'enforced',
       connections: [
         connection('registry.npmjs.org'),
         connection('nowhere.example', 'failed'),
@@ -98,17 +98,17 @@ describe('RunNetwork', () => {
     expect(rows[0]).toHaveTextContent('Failed');
   });
 
-  it('shows a forwarded request the host refused as refused', () => {
+  it('shows an injected request that the host refused as auth failed', () => {
     network.mockReturnValue({
       runId: 'run_1',
       attempt: 1,
-      egress: 'enforced',
+      egressEnforcement: 'enforced',
       connections: [
         connection('registry.npmjs.org'),
         {
-          ...connection('mcp.linear.app', 'forwarded'),
+          ...connection('mcp.linear.app', 'injected'),
           status: 401,
-          trouble: 'refused',
+          error: 'auth-failed',
         },
       ],
     });
@@ -119,14 +119,14 @@ describe('RunNetwork', () => {
       screen.getByRole('list', { name: 'Destinations' }),
     ).getAllByRole('listitem');
     expect(rows[0]).toHaveTextContent('mcp.linear.app');
-    expect(rows[0]).toHaveTextContent('Refused');
+    expect(rows[0]).toHaveTextContent('Auth failed');
   });
 
   it('says when egress was not enforced', () => {
     network.mockReturnValue({
       runId: 'run_1',
       attempt: 1,
-      egress: 'not-enforced',
+      egressEnforcement: 'not-enforced',
       connections: [],
     });
 
@@ -142,7 +142,7 @@ describe('RunNetwork', () => {
     network.mockReturnValue({
       runId: 'run_1',
       attempt: 1,
-      egress: null,
+      egressEnforcement: null,
       connections: [],
     });
 

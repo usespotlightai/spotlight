@@ -8,7 +8,7 @@ import {
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DescriptionUnreadable } from '@integrations/infrastructure/sources/operation-record';
-import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
+import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -23,7 +23,7 @@ export interface SourceRequest {
   readonly body?: string;
 }
 
-export interface SourceWearing {
+export interface SourceInjection {
   readonly apiHost: string | null;
   readonly secrets: readonly string[];
   readonly connection: string | null;
@@ -58,9 +58,12 @@ export class SourceFetch {
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
-  async text(request: SourceRequest, wearing: SourceWearing): Promise<string> {
+  async text(
+    request: SourceRequest,
+    injection: SourceInjection,
+  ): Promise<string> {
     const signal = AbortSignal.timeout(READ_WITHIN_MS);
-    let worn = WornSecrets.none();
+    let injected = InjectedSecrets.none();
 
     try {
       const { reply, url } = await followed(
@@ -68,13 +71,13 @@ export class SourceFetch {
         this.policy,
         request,
         async (hop) => {
-          const dressed = await this.dressed(hop, request, wearing);
+          const dressed = await this.dressed(hop, request, injection);
 
-          if (dressed.worn.isEmpty) {
-            return { ...dressed, url: worn.redact(dressed.url) };
+          if (dressed.injected.isEmpty) {
+            return { ...dressed, url: injected.redact(dressed.url) };
           }
 
-          worn = dressed.worn;
+          injected = dressed.injected;
 
           return dressed;
         },
@@ -113,7 +116,7 @@ export class SourceFetch {
       }
 
       throw new DescriptionUnreadable(
-        `could not be read: ${hostOf(request.url)}: ${worn.redact(codeOf(error))}`,
+        `could not be read: ${hostOf(request.url)}: ${injected.redact(codeOf(error))}`,
       );
     }
   }
@@ -121,8 +124,8 @@ export class SourceFetch {
   private async dressed(
     hop: Hop,
     request: SourceRequest,
-    wearing: SourceWearing,
-  ): Promise<Dressed & { readonly worn: WornSecrets }> {
+    injection: SourceInjection,
+  ): Promise<Dressed & { readonly injected: InjectedSecrets }> {
     const url = new URL(hop.url);
     const headers: Record<string, string> = { accept: request.accept };
 
@@ -130,20 +133,20 @@ export class SourceFetch {
       headers['content-type'] = 'application/json';
     }
 
-    if (hostOf(hop.url) !== wearing.apiHost) {
-      return { url: url.href, headers, worn: WornSecrets.none() };
+    if (hostOf(hop.url) !== injection.apiHost) {
+      return { url: url.href, headers, injected: InjectedSecrets.none() };
     }
 
-    if (wearing.connection) {
-      headers.authorization = `Bearer ${wearing.connection}`;
+    if (injection.connection) {
+      headers.authorization = `Bearer ${injection.connection}`;
     }
 
-    const worn =
-      wearing.secrets.length > 0
-        ? await wearing.credentials.wornToward(hop.url, wearing.secrets)
-        : WornSecrets.none();
-    worn.applyTo({ url, headers });
+    const injected =
+      injection.secrets.length > 0
+        ? await injection.credentials.injectedFor(hop.url, injection.secrets)
+        : InjectedSecrets.none();
+    injected.applyTo({ url, headers });
 
-    return { url: url.href, headers, worn };
+    return { url: url.href, headers, injected };
   }
 }

@@ -234,7 +234,7 @@ export class ProvisionWork {
   private provisionableRun(queued: Run): Provisionable {
     return {
       placement: queued.placement,
-      needsEgress: queued.wearsSecrets,
+      needsEgress: queued.injectsSecrets,
       on: (pool, last) => this.runOn(queued, pool, last),
     };
   }
@@ -288,7 +288,7 @@ export class ProvisionWork {
           runId: reserved.id.value,
           taskId: reserved.taskId?.value ?? null,
           placement: reserved.placement,
-          needsEgress: reserved.wearsSecrets,
+          needsEgress: reserved.injectsSecrets,
           claimBy: reservation.until,
         }),
       {

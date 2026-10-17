@@ -36,7 +36,7 @@ describe('poolChoiceFor', () => {
     ).toEqual([BURST]);
   });
 
-  it('offers a run that wears secrets only the pools that name an egress', () => {
+  it('offers a run with injected secrets only the pools that name an egress', () => {
     const pools = [aPool(BURST), aPool(STEADY, [], true)];
     const room = PoolRoom.told([
       [BURST, null],

@@ -27,7 +27,7 @@ type Authority struct {
 	leaves map[string]*tls.Certificate
 }
 
-func New(now time.Time, standsInFor []string) (*Authority, error) {
+func New(now time.Time, interceptHosts []string) (*Authority, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("make the run's authority: %w", err)
@@ -52,7 +52,7 @@ func New(now time.Time, standsInFor []string) (*Authority, error) {
 		IsCA:                  true,
 		MaxPathLenZero:        true,
 	}
-	constrained(template, standsInFor)
+	constrained(template, interceptHosts)
 
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {

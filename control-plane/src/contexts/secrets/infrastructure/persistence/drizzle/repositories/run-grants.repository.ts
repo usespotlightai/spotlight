@@ -2,9 +2,9 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
-import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
-import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
+import { Recipient } from '@secrets/domain/value-objects/recipient.vo';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
+import { SecretFetcher } from '@secrets/domain/value-objects/secret-fetcher.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import {
@@ -126,7 +126,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
     const fields = {
       attempt: grants.lease.attempt,
       recipient: grants.recipient?.key ?? null,
-      redeemedThrough: grants.redeemer?.sharedEgress ?? null,
+      fetchedByEgressId: grants.fetcher?.sharedEgress ?? null,
       leaseLost: grants.isLeaseLost,
       endedAt: grants.endedAt,
     };
@@ -217,13 +217,10 @@ const toGrants = (
         host: each.host,
       }),
     ),
-    redeemer:
+    fetcher:
       row.recipient === null
         ? null
-        : Redeemer.of(
-            RedemptionRecipient.of(row.recipient),
-            row.redeemedThrough,
-          ),
+        : SecretFetcher.of(Recipient.of(row.recipient), row.fetchedByEgressId),
     leaseLost: row.leaseLost,
     endedAt: row.endedAt,
     version: row.version,

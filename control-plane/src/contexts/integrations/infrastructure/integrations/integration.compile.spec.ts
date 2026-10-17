@@ -693,7 +693,7 @@ actions:
     expect(request(ACTION)?.headers[0]?.value.parts).toHaveLength(2);
   });
 
-  it('collects each secret the request wears, once', () => {
+  it('collects each secret that the request injects, once', () => {
     const read = compileIntegration(parseYaml(ACTION), expressions);
 
     expect(
@@ -706,7 +706,7 @@ actions:
     });
   });
 
-  it('refuses a request that reads a secret’s value, rather than wearing it', () => {
+  it('refuses a request that reads a secret’s value, rather than injecting it', () => {
     const read = compileIntegration(
       parseYaml(
         ACTION.replace(
@@ -1065,7 +1065,7 @@ openapi:
   const read = (text: string, described = OPERATIONS) =>
     compileIntegration(parseYaml(text), expressions, described);
 
-  it('names the description it offers tools from, and what it wears to read it', () => {
+  it('names the description it offers tools from, and what it injects to read it', () => {
     const compiled = new IntegrationCompiler(expressions).compile(
       parseYaml(PETSTORE),
     );
@@ -1076,7 +1076,7 @@ openapi:
       document: null,
     });
     expect(
-      compiled.ok && compiled.source?.wears.map((each) => each.value),
+      compiled.ok && compiled.source?.injectedSecrets.map((each) => each.value),
     ).toEqual(['PETSTORE_KEY']);
     expect(
       compiled.ok && compiled.integration.credentials.map((each) => each.value),

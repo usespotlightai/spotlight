@@ -145,7 +145,7 @@ describe('HarnessProfile', () => {
   });
 
   it('names only secrets the workspace has in its MCP servers’ env', () => {
-    const wearing = {
+    const referring = {
       key: ProfileKey.of('careful'),
       settings: ProfileSettings.written({
         permissions: { allow: [], ask: [], deny: [] },
@@ -164,20 +164,20 @@ describe('HarnessProfile', () => {
 
     expect(() =>
       HarnessProfile.define({
-        ...wearing,
+        ...referring,
         id: ID,
         teamId: TEAM,
         by: BY,
         existingSecrets: [],
       }),
     ).toThrow(MissingSecretsError);
-    expect(() => kept().redefinedAs(wearing, BY, [])).toThrow(
+    expect(() => kept().redefinedAs(referring, BY, [])).toThrow(
       MissingSecretsError,
     );
     expect(
       kept()
-        .redefinedAs(wearing, BY, existing)
-        .settings.wears(existing[0] as SecretName),
+        .redefinedAs(referring, BY, existing)
+        .settings.uses(existing[0] as SecretName),
     ).toBe(true);
   });
 });

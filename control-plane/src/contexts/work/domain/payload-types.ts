@@ -57,7 +57,6 @@ import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo'
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
-import { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
@@ -71,6 +70,7 @@ import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
+import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
@@ -169,7 +169,6 @@ export const WORK_PAYLOAD_TYPES = [
   Attachment,
   Branch,
   CallingHost,
-  CatalogWithheld,
   ChatId,
   ChatMessageBody,
   ChatTitle,
@@ -180,6 +179,7 @@ export const WORK_PAYLOAD_TYPES = [
   ConversationId,
   Declaration,
   DeclaredTool,
+  DeniedCatalogItem,
   Effort,
   HarnessPermission,
   ProfileKey,

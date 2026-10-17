@@ -95,8 +95,8 @@ func run(version string) error {
 		SandboxURL: cfg.SandboxURL,
 		SandboxEnv: cfg.SandboxEnv,
 		Egress: serve.Egress{
-			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, Reads: cfg.Egress.Reads,
-			Env: cfg.Egress.Env, Trust: cfg.Egress.Trust,
+			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, SecretAllow: cfg.Egress.SecretAllow,
+			Env: cfg.Egress.Env, CABundle: cfg.Egress.CABundle,
 		},
 		Network:    cfg.Network,
 		ExtraHosts: cfg.ExtraHosts,

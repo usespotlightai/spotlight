@@ -15,7 +15,12 @@ const scores = vi.fn();
 
 vi.mock('@/hooks/api/useRunNetwork', () => ({
   useRunNetwork: () => ({
-    data: { runId: 'run_1', attempt: 1, egress: null, connections: [] },
+    data: {
+      runId: 'run_1',
+      attempt: 1,
+      egressEnforcement: null,
+      connections: [],
+    },
     isPending: false,
     isFetching: false,
     errorUpdateCount: 0,
@@ -61,7 +66,7 @@ const node = (
   step: null,
   span: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children: [],
   ...part,
 });
@@ -299,7 +304,7 @@ describe('TraceView', () => {
           name: 'Implementation',
           kind: 'run',
           ms: 60_000,
-          egress: 'not-enforced',
+          egressEnforcement: 'not-enforced',
           children: [
             node({
               id: 'run_1:step:0',
@@ -320,8 +325,8 @@ describe('TraceView', () => {
                     outcome: 'blocked',
                     status: null,
                     reason: 'not-allowed',
-                    trouble: 'blocked',
-                    times: 3,
+                    error: 'blocked',
+                    count: 3,
                   },
                 }),
                 node({
@@ -334,11 +339,11 @@ describe('TraceView', () => {
                   connection: {
                     host: 'mcp.linear.app',
                     port: 443,
-                    outcome: 'forwarded',
+                    outcome: 'injected',
                     status: 401,
                     reason: null,
-                    trouble: 'refused',
-                    times: 1,
+                    error: 'auth-failed',
+                    count: 1,
                   },
                 }),
               ],
@@ -353,7 +358,7 @@ describe('TraceView', () => {
       return render(<TraceView trace={blocked()} teamId="team_1" />);
     };
 
-    it('draws a connection that went wrong under its step as a failure, with how often', () => {
+    it('draws a connection with an error under its step as a failure, with its count', () => {
       viewNetwork();
 
       const [, , paste, linear] = rows();
@@ -371,7 +376,7 @@ describe('TraceView', () => {
       expect(rows()[0]).toHaveTextContent('Egress not enforced');
     });
 
-    it('says why a connection went wrong when it is picked', async () => {
+    it('gives the cause of a connection error when it is picked', async () => {
       const user = userEvent.setup();
       viewNetwork();
 

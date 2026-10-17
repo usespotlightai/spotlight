@@ -109,11 +109,11 @@ func (h *Host) sent(ctx context.Context, call protocol.HostCall, log *slog.Logge
 	container, err := h.startEgress(sending, image, "call-"+call.ID,
 		map[string]string{LabelHost: h.opts.HostID, LabelCall: call.ID},
 		protocol.EgressHanded{
-			URL:        h.opts.SandboxURL,
-			Credential: rand.Text(),
-			Allow:      h.opts.Egress.Allow,
-			Reads:      h.opts.Egress.Reads,
-			Send:       &call,
+			URL:         h.opts.SandboxURL,
+			Credential:  rand.Text(),
+			Allow:       h.opts.Egress.Allow,
+			SecretAllow: h.opts.Egress.SecretAllow,
+			Send:        &call,
 		}, nil)
 	defer h.destroy(container)
 	if err != nil {

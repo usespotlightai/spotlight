@@ -5,7 +5,7 @@ import {
   SECRET_SOURCE_KINDS,
   type SecretSourceKind,
 } from '@secrets/domain/value-objects/secret-source.vo';
-import { SECRET_CARRIERS } from '@shared-kernel/domain/value-objects/secret-carriers';
+import { SECRET_LOCATIONS } from '@shared-kernel/domain/value-objects/secret-locations';
 
 class SecretSourceResponseDto {
   @ApiProperty({
@@ -47,27 +47,28 @@ class SecretBindingResponseDto {
   readonly host: string;
 
   @ApiProperty({
-    enum: SECRET_CARRIERS,
+    enum: SECRET_LOCATIONS,
     example: 'header',
-    description: 'Whether it is worn in a request header or a query parameter',
+    description:
+      'Whether Spotlight injects it in a request header or in a query parameter',
   })
-  readonly carrier: string;
+  readonly location: string;
 
   @ApiProperty({
     example: 'authorization',
-    description: 'The header or query parameter it is worn in',
+    description: 'The header or query parameter that Spotlight injects it in',
   })
   readonly name: string;
 
   @ApiProperty({
     example: 'Bearer ',
-    description: 'Written before the value it is worn with',
+    description: 'The text that Spotlight writes before the value',
   })
   readonly prefix: string;
 
   constructor(binding: SecretResourceDto['bindings'][number]) {
     this.host = binding.host;
-    this.carrier = binding.carrier;
+    this.location = binding.location;
     this.name = binding.name;
     this.prefix = binding.prefix;
   }

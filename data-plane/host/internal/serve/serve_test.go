@@ -615,10 +615,10 @@ func options(t *testing.T) serve.Options {
 		SandboxURL:   "https://spotlight.test",
 		SandboxEnv:   []string{"ANTHROPIC_API_KEY=sk-test"},
 		Egress: serve.Egress{
-			Image: egressImage,
-			Allow: []string{"api.anthropic.com"},
-			Reads: []string{"prod/*"},
-			Env:   []string{"AWS_REGION=eu-west-1"},
+			Image:       egressImage,
+			Allow:       []string{"api.anthropic.com"},
+			SecretAllow: []string{"prod/*"},
+			Env:         []string{"AWS_REGION=eu-west-1"},
 		},
 	}
 }
@@ -1429,7 +1429,7 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 		t.Fatalf("egress was handed %+v", egress.Files)
 	}
 	if told.Token != "egress-runner_1" || told.URL != opts.SandboxURL || !slices.Equal(told.Allow, []string{"api.anthropic.com"}) ||
-		!slices.Equal(told.Reads, []string{"prod/*"}) || len(told.Credential) < 16 {
+		!slices.Equal(told.SecretAllow, []string{"prod/*"}) || len(told.Credential) < 16 {
 		t.Errorf("egress was told %+v", told)
 	}
 
@@ -1533,17 +1533,17 @@ func TestRemovesTheNetworksACrashedHostLeftBehind(t *testing.T) {
 func TestHandsEgressTheAuthoritiesItTrustsForPrivateHosts(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
-	opts.Egress.Trust = []byte("acme authority")
+	opts.Egress.CABundle = []byte("acme authority")
 	serving(t, opts, engine, pool)
 
 	pool.work <- handed("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
 	_, egress, _ := engine.egressOf("runner_1")
-	if !slices.Contains(egress.Env, "SSL_CERT_DIR="+serve.EgressTrusts) {
+	if !slices.Contains(egress.Env, "SSL_CERT_DIR="+serve.EgressCABundleDir) {
 		t.Errorf("egress env %v", egress.Env)
 	}
-	if len(egress.Files) != 2 || egress.Files[1].Path != serve.EgressTrusts+"/trusted.pem" || string(egress.Files[1].Body) != "acme authority" {
+	if len(egress.Files) != 2 || egress.Files[1].Path != serve.EgressCABundleDir+"/trusted.pem" || string(egress.Files[1].Body) != "acme authority" {
 		t.Errorf("egress files %+v", egress.Files)
 	}
 

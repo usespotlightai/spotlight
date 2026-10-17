@@ -15,7 +15,7 @@ export class SecretBindings {
   static of(
     inputs: readonly {
       host: string;
-      carrier?: string | null;
+      location?: string | null;
       name?: string | null;
       prefix?: string | null;
     }[],
@@ -51,8 +51,8 @@ export class SecretBindings {
     return new SecretBindings(bindings);
   }
 
-  toward(url: URL): SecretBinding | null {
-    return this.all.find((each) => each.toward(url)) ?? null;
+  forUrl(url: URL): SecretBinding | null {
+    return this.all.find((each) => each.matches(url)) ?? null;
   }
 
   on(host: string): SecretBinding | null {

@@ -23,7 +23,7 @@ export const givenAccess = async (
     : {
         mode: 'push',
         url: access.url,
-        secret: access.secret ? await secrets.sealed(to, access.secret) : null,
+        secret: access.secret ? await secrets.encrypt(to, access.secret) : null,
         secretVersion: access.secretVersion,
         egress: access.egress,
         egressTraffic: access.egressTraffic,

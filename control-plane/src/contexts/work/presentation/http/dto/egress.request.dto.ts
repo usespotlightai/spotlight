@@ -4,7 +4,7 @@ import {
   CONNECTION_REASONS,
 } from '@work/domain/value-objects/run-connection.vo';
 
-class RedeemEgressRequestDto {
+class SidecarSecretsRequestDto {
   @ApiProperty({
     example: 'p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=',
     description:
@@ -13,7 +13,7 @@ class RedeemEgressRequestDto {
   readonly recipient!: string;
 }
 
-export class SharedRedeemEgressRequestDto extends RedeemEgressRequestDto {
+export class FetchRunSecretsRequestDto extends SidecarSecretsRequestDto {
   @ApiProperty({
     required: false,
     description:
@@ -64,7 +64,7 @@ export class EgressConnectionRequestDto {
     minimum: 100,
     maximum: 599,
     description:
-      'The status the host answered a forwarded request with. Egress cannot read the status of a tunnel',
+      'The status the host answered an injected request with. Egress cannot read the status of a passthrough connection',
   })
   readonly status?: number;
 

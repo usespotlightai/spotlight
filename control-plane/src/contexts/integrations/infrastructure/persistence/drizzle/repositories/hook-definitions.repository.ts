@@ -14,9 +14,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import {
-  CREDENTIAL_SEALING,
-  type CredentialSealingPort,
-} from '@secrets/application/ports/credential-sealing.port';
+  CREDENTIAL_ENCRYPTION,
+  type CredentialEncryptionPort,
+} from '@secrets/application/ports/credential-encryption.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -68,8 +68,8 @@ export class DrizzleHookDefinitions
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
-    @Inject(CREDENTIAL_SEALING)
-    private readonly sealing: CredentialSealingPort,
+    @Inject(CREDENTIAL_ENCRYPTION)
+    private readonly encryption: CredentialEncryptionPort,
   ) {}
 
   async withId(id: HookDefinitionId): Promise<HookDefinition | null> {
@@ -115,7 +115,7 @@ export class DrizzleHookDefinitions
 
     return HookSigningSecret.of(
       (
-        await this.sealing.open(
+        await this.encryption.decrypt(
           found.workspaceId,
           secretLabel(found.id),
           found.signingSecret,
@@ -124,7 +124,7 @@ export class DrizzleHookDefinitions
     );
   }
 
-  private async sealed(definition: HookDefinition) {
+  private async encrypted(definition: HookDefinition) {
     const given = definition.givenSecret;
 
     if (definition.signing === null) {
@@ -133,7 +133,7 @@ export class DrizzleHookDefinitions
 
     return given
       ? {
-          signingSecret: await this.sealing.seal(
+          signingSecret: await this.encryption.encrypt(
             definition.workspaceId.value,
             secretLabel(definition.id.value),
             Credential.of(given.revealed()),
@@ -148,7 +148,7 @@ export class DrizzleHookDefinitions
       on: definition.event.name,
       definition: { ...definition.document.fields },
       tools: definition.tools.map((tool) => tool.value),
-      ...(await this.sealed(definition)),
+      ...(await this.encrypted(definition)),
     };
 
     if (definition.isNew) {

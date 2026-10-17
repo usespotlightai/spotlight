@@ -200,7 +200,7 @@ describe('the Slack webhook runtime', () => {
       ]);
     });
 
-    it('wears an ambient mark without finding a task by it', async () => {
+    it('has an ambient mark without finding a task by it', async () => {
       const [read] = await runtime().read(delivered(mention));
 
       expect(read?.concerns.marks.map((each) => each.kind)).toEqual([

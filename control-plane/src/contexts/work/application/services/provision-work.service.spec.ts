@@ -42,7 +42,7 @@ const waiting = (
   placement: string[] = [],
   workspace = 'ws_1',
   image: RunnerImage | null = null,
-  wears: string[] = [],
+  injectedSecrets: string[] = [],
 ) =>
   Run.enqueue({
     id: RunId.of(id),
@@ -54,7 +54,7 @@ const waiting = (
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task:station' },
-      ...(wears.length > 0 ? { wears } : {}),
+      ...(injectedSecrets.length > 0 ? { injectedSecrets } : {}),
     }),
     placement: RunnerPlacement.of(placement).in(image),
   });
@@ -520,7 +520,7 @@ describe('ProvisionWork', () => {
     expect(run('run_1').provisioning.failures).toBe(0);
   });
 
-  it('gives a run that wears secrets only to a pool that names an egress', async () => {
+  it('gives a run with injected secrets only to a pool that names an egress', async () => {
     const { provisioner, provision, run, awaitingProvision } = provisioning(
       [waiting('run_1', [], 'ws_1', null, ['LINEAR_API_KEY'])],
       [aPool('burst'), aPool('shared', [], true)],
@@ -541,7 +541,7 @@ describe('ProvisionWork', () => {
     expect(run('run_1').reservation?.pool.value).toBe('pool_shared');
   });
 
-  it('leaves alone a run that wears secrets where no pool names an egress', async () => {
+  it('leaves alone a run with injected secrets where no pool names an egress', async () => {
     const { provisioner, provision, awaitingProvision } = provisioning(
       [waiting('run_1', [], 'ws_1', null, ['LINEAR_API_KEY'])],
       [aPool('burst')],

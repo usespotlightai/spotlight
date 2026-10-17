@@ -104,9 +104,7 @@ export class WorkJudgings implements OwedWorkPort {
       });
     } catch (error) {
       if (error instanceof JudgingError) {
-        return judging.failed(
-          JudgingFailure.of(error.trouble, this.clock.now()),
-        );
+        return judging.failed(JudgingFailure.of(error.kind, this.clock.now()));
       }
       throw error;
     }

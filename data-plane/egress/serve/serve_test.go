@@ -50,7 +50,7 @@ type controlPlane struct {
 	runs     map[string]*granted
 	active   map[string]bool
 	recorded []protocol.EgressConnection
-	redeems  int
+	fetches  int
 	asked    []int
 	sent     []int
 	admits   int
@@ -74,27 +74,27 @@ func (c *controlPlane) AdmitEgress(_ context.Context, credential string) (protoc
 	}, nil
 }
 
-func (c *controlPlane) RedeemEgressFor(_ context.Context, credential, recipient string) (protocol.EgressRedemption, error) {
+func (c *controlPlane) FetchRunSecretsFor(_ context.Context, credential, recipient string) (protocol.EgressSecrets, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.redeems++
+	c.fetches++
 	run, ok := c.runs[credential]
 	if !ok || run.noRun {
-		return protocol.EgressRedemption{}, &control.Rejection{Status: http.StatusConflict, Err: fmt.Errorf("no run")}
+		return protocol.EgressSecrets{}, &control.Rejection{Status: http.StatusConflict, Err: fmt.Errorf("no run")}
 	}
 
-	redeemed := protocol.EgressRedemption{RunID: run.runID, Bound: run.bound}
+	fetched := protocol.EgressSecrets{RunID: run.runID, Bound: run.bound}
 	for host, value := range run.secrets {
 		sealed, err := sealtest.Seal(recipient, value, run.runID, "LINEAR_API_KEY")
 		if err != nil {
 			c.t.Fatal(err)
 		}
-		redeemed.Secrets = append(redeemed.Secrets, protocol.RedeemedSecret{
-			Secret: "LINEAR_API_KEY", Host: host, Carrier: protocol.CarriedInHeader, Name: "Authorization", Prefix: "Bearer ", Sealed: sealed,
+		fetched.Secrets = append(fetched.Secrets, protocol.FetchedSecret{
+			Secret: "LINEAR_API_KEY", Host: host, Location: protocol.LocationHeader, Name: "Authorization", Prefix: "Bearer ", Sealed: sealed,
 		})
 	}
-	return redeemed, nil
+	return fetched, nil
 }
 
 func (c *controlPlane) ActiveRuns(_ context.Context, credentials []string) ([]string, error) {
@@ -314,7 +314,7 @@ func standIn() http.Header {
 	return http.Header{"Authorization": {"Bearer " + protocol.StandInPrefix + "LINEAR_API_KEY"}}
 }
 
-func TestWearsTheSecretOnARequestForwardedToABoundHostOverHTTP2(t *testing.T) {
+func TestInjectsTheSecretIntoARequestForwardedToABoundHostOverHTTP2(t *testing.T) {
 	r := rigged(t, Settings{})
 
 	response, body := r.forward(t, "one", "mcp.example.com:443", "/mcp", standIn())
@@ -366,7 +366,7 @@ func TestRefusesToForwardToAHostNoSecretOfTheRunIsBoundTo(t *testing.T) {
 	}
 }
 
-func TestAProxyCredentialCannotWearTheSecretsOfAnotherRun(t *testing.T) {
+func TestAProxyCredentialCannotUseTheSecretsOfAnotherRun(t *testing.T) {
 	r := rigged(t, Settings{})
 
 	if response, _ := r.forward(t, "one", "mcp.example.com:443", "/", standIn()); response.StatusCode != http.StatusOK {
@@ -379,7 +379,7 @@ func TestAProxyCredentialCannotWearTheSecretsOfAnotherRun(t *testing.T) {
 	}
 	_, body, _ = r.tunnel(t, "two", "https://mcp.example.com/", standIn())
 	if strings.Contains(body, linearKey) || r.upstream.last().Get("Authorization") == "Bearer "+linearKey {
-		t.Errorf("the other run wore the first run's secret: %s", body)
+		t.Errorf("the other run got the first run's secret: %s", body)
 	}
 }
 
@@ -395,11 +395,11 @@ func TestBeforeItsRunASandboxReachesOnlyTheControlPlane(t *testing.T) {
 		t.Errorf("did not reach the control plane: %v", err)
 	}
 
-	redeems := r.control.redeems
+	fetches := r.control.fetches
 	if _, _, err := r.tunnel(t, "two", "https://api.example.com/", nil); err == nil {
 		t.Error("reached another host")
 	}
-	if r.control.redeems != redeems {
+	if r.control.fetches != fetches {
 		t.Error("asked the control plane again at once")
 	}
 }
@@ -479,8 +479,8 @@ func TestForgetsARunThatIsNoLongerActive(t *testing.T) {
 	if _, ok := r.egress.runs["one"]; ok {
 		t.Fatal("still keeps the run")
 	}
-	if forgotten.wearing.Wears("mcp.example.com") {
-		t.Error("still wears the run's secret")
+	if forgotten.injector.InjectsFor("mcp.example.com") {
+		t.Error("still injects the run's secret")
 	}
 }
 
@@ -576,9 +576,9 @@ func TestRecordsEachConnection(t *testing.T) {
 		}
 	}
 	want := map[string]string{
-		protocol.ConnectionForwarded: "mcp.example.com",
-		protocol.ConnectionBlocked:   "api.example.com",
-		protocol.ConnectionTunnelled: "api.example.com",
+		protocol.ConnectionInjected:    "mcp.example.com",
+		protocol.ConnectionBlocked:     "api.example.com",
+		protocol.ConnectionPassthrough: "api.example.com",
 	}
 	if fmt.Sprint(outcomes) != fmt.Sprint(want) {
 		t.Errorf("recorded %v", outcomes)
@@ -587,7 +587,7 @@ func TestRecordsEachConnection(t *testing.T) {
 		if record.Outcome == protocol.ConnectionBlocked && record.Reason != protocol.ReasonNotBound {
 			t.Errorf("recorded the reason %q", record.Reason)
 		}
-		if record.Outcome == protocol.ConnectionForwarded && record.Status != http.StatusOK {
+		if record.Outcome == protocol.ConnectionInjected && record.Status != http.StatusOK {
 			t.Errorf("recorded the status %d", record.Status)
 		}
 	}
@@ -608,7 +608,7 @@ func TestRecordsTheStatusTheHostAnsweredAForwardedRequestWith(t *testing.T) {
 	if response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("answered %s", response.Status)
 	}
-	if record := recorded(t, r, 1)[0]; record.Outcome != protocol.ConnectionForwarded || record.Status != http.StatusUnauthorized {
+	if record := recorded(t, r, 1)[0]; record.Outcome != protocol.ConnectionInjected || record.Status != http.StatusUnauthorized {
 		t.Errorf("recorded %+v", record)
 	}
 }
@@ -637,7 +637,7 @@ func TestRecordsAForwardedRequestWhoseAnswerWasCutOff(t *testing.T) {
 
 	r.forward(t, "one", "mcp.example.com:443", "/cut", standIn())
 
-	if record := recorded(t, r, 1)[0]; record.Outcome != protocol.ConnectionForwarded || record.Status != http.StatusOK {
+	if record := recorded(t, r, 1)[0]; record.Outcome != protocol.ConnectionInjected || record.Status != http.StatusOK {
 		t.Errorf("recorded %+v", record)
 	}
 }
@@ -778,7 +778,7 @@ func TestBeforeItsRunASandboxAlsoReachesWhatEverySandboxReaches(t *testing.T) {
 	}
 }
 
-func TestAsksForBoundHostsRedeemWithoutWaiting(t *testing.T) {
+func TestAsksForBoundHostsFetchesSecretsWithoutWaiting(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.control.runs["two"].noRun = true
 
@@ -807,7 +807,7 @@ func TestTrustsTheAuthorityItIsGiven(t *testing.T) {
 	}
 	t.Setenv(envURL, "https://spotlight.example.com")
 	t.Setenv(envToken, "egress-token")
-	t.Setenv(envTrust, path)
+	t.Setenv(envCABundle, path)
 
 	settings, err := Load()
 	if err != nil {
@@ -831,14 +831,14 @@ func TestRefusesATrustThatHasNoCertificate(t *testing.T) {
 	}
 	t.Setenv(envURL, "https://spotlight.example.com")
 	t.Setenv(envToken, "egress-token")
-	t.Setenv(envTrust, path)
+	t.Setenv(envCABundle, path)
 
-	if _, err := Load(); err == nil || !strings.Contains(err.Error(), envTrust) {
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), envCABundle) {
 		t.Errorf("error %v", err)
 	}
 }
 
-func TestEachRunWearsItsOwnValueTowardTheSameHost(t *testing.T) {
+func TestEachRunInjectsItsOwnValueForTheSameHost(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.control.runs["two"].secrets = map[string]string{"mcp.example.com": "lin_api_two"}
 	r.control.runs["two"].bound = []string{"mcp.example.com"}
@@ -849,7 +849,7 @@ func TestEachRunWearsItsOwnValueTowardTheSameHost(t *testing.T) {
 			t.Fatalf("%s was answered %s: %s", credential, response.Status, body)
 		}
 		if got := r.upstream.last().Get("Authorization"); got != "Bearer "+want {
-			t.Errorf("%s wore %q", credential, got)
+			t.Errorf("%s injected %q", credential, got)
 		}
 	}
 }

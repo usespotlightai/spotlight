@@ -701,7 +701,7 @@ func failed(
 	cause error,
 	beforeHandover bool,
 ) error {
-	if err := lifecycle.reach(WentWrong); err != nil {
+	if err := lifecycle.reach(Errored); err != nil {
 		log.Warn("could not mark the run failed", "error", err)
 	}
 

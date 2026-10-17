@@ -7,7 +7,7 @@ import { PETSTORE } from '@integrations/infrastructure/sources/openapi/petstore.
 import {
   DescriptionUnauthorized,
   type SourceFetch,
-  type SourceWearing,
+  type SourceInjection,
 } from '@integrations/infrastructure/sources/source-fetch';
 import { ThreadedSourceReader } from '@integrations/infrastructure/sources/threaded-source-reader';
 import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
@@ -124,7 +124,7 @@ describe('ThreadedSourceReader', () => {
 
     const connectionsSent = (fetching: SourceFetch) =>
       (fetching.text as ReturnType<typeof vi.fn>).mock.calls.map(
-        (call) => (call[1] as SourceWearing).connection,
+        (call) => (call[1] as SourceInjection).connection,
       );
 
     it('sends it only where the description authenticates by oauth2', async () => {

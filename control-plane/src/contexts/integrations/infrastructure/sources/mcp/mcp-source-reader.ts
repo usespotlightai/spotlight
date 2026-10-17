@@ -63,7 +63,7 @@ export class McpSourceReader implements SourceReaderPort {
         (token) =>
           this.sessions.tools(server, {
             connection: token?.value ?? null,
-            secrets: source.wears.map((each) => each.value),
+            secrets: source.injectedSecrets.map((each) => each.value),
             credentials: reach.credentials,
           }),
         source.connected ? reach.connection : null,

@@ -201,7 +201,7 @@ const SETUPS = {
       frontier: [],
     },
   ],
-  judgeWithheld: null,
+  judgeOmitted: null,
   judges: CHANGES.judges,
 } as unknown as InsightsSetups;
 
@@ -382,7 +382,7 @@ describe('the Changes tab', () => {
     answer.setups = queried({
       ...SETUPS,
       stationId: null,
-      judgeWithheld: 'no_station',
+      judgeOmitted: 'no_station',
       judges: [],
       setups: SETUPS.setups.map((each) => ({
         ...each,

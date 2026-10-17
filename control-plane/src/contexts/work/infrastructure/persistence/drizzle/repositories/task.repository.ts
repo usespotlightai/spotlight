@@ -17,7 +17,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import { MarkWornElsewhereError } from '@work/domain/exceptions/mark-worn-elsewhere.error';
+import { MarkAlreadyClaimedError } from '@work/domain/exceptions/mark-already-claimed.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -305,7 +305,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   private async writeMarks(written: Task): Promise<void> {
-    const worn = or(
+    const marked = or(
       ...written.marks.map((mark) =>
         and(eq(taskMark.kind, mark.kind), eq(taskMark.value, mark.value)),
       ),
@@ -316,7 +316,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(
         and(
           eq(taskMark.taskId, written.id.value),
-          worn ? not(worn) : undefined,
+          marked ? not(marked) : undefined,
         ),
       );
 
@@ -349,7 +349,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     );
 
     if (taken) {
-      throw new MarkWornElsewhereError(taken.toString());
+      throw new MarkAlreadyClaimedError(taken.toString());
     }
   }
 
@@ -367,9 +367,9 @@ export class DrizzleTaskRepository implements TaskRepository {
       .from(taskMark)
       .where(inArray(taskMark.taskId, taskIds));
 
-    return rows.reduce((worn, row) => {
-      worn.set(row.taskId, [...(worn.get(row.taskId) ?? []), row]);
-      return worn;
+    return rows.reduce((marked, row) => {
+      marked.set(row.taskId, [...(marked.get(row.taskId) ?? []), row]);
+      return marked;
     }, new Map<string, MarkRow[]>());
   }
 
@@ -413,7 +413,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       ? eq(task.id, concerns.taskId.value)
       : undefined;
 
-    const worn = concerns.marks.length
+    const marked = concerns.marks.length
       ? inArray(
           task.id,
           this.context.db
@@ -435,7 +435,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         )
       : undefined;
 
-    if (!named && !worn) {
+    if (!named && !marked) {
       return null;
     }
 
@@ -445,7 +445,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(
         and(
           eq(task.workspaceId, workspaceId.value),
-          named && worn ? or(named, worn) : (named ?? worn),
+          named && marked ? or(named, marked) : (named ?? marked),
         ),
       )
       .limit(1)

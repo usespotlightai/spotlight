@@ -128,7 +128,7 @@ import { DrizzleRunnerHostRepository } from '@runners/infrastructure/persistence
 import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { DrizzleRunnerTrustRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-trust.repository';
 import { DrizzleWorkspaceRunnersRepository } from '@runners/infrastructure/persistence/drizzle/repositories/workspace-runners.repository';
-import { SealedProvisionSecrets } from '@runners/infrastructure/provision/sealed-provision-secrets';
+import { EncryptedProvisionSecrets } from '@runners/infrastructure/provision/encrypted-provision-secrets';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
 import { runnersSubscribers } from '@runners/presentation/events/runners.subscribers';
 import { EgressResourceController } from '@runners/presentation/http/controllers/egress-resource.controller';
@@ -354,7 +354,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
         hosts: OutboundHosts.listed(env.OUTBOUND_ALLOWED_HOSTS),
       }),
   },
-  { provide: PROVISION_SECRETS, useClass: SealedProvisionSecrets },
+  { provide: PROVISION_SECRETS, useClass: EncryptedProvisionSecrets },
   {
     provide: RUNNERS,
     inject: [

@@ -48,18 +48,20 @@ const asksAPerson = (turn: Turn): boolean => {
 };
 
 export const turnWaits = (
-  turn: Turn & { readonly by: RunnerId; readonly mayBeWithheld: boolean },
+  turn: Turn & { readonly by: RunnerId; readonly mayBeSentToReview: boolean },
 ): boolean => {
   if (turn.run.pausedBy(turn.by)) {
     return !turn.outcome.stopped;
   }
 
-  const withheld =
-    turn.mayBeWithheld && turn.declared
-      ? { ...turn, declared: turn.declared.withheld('') }
+  const sentToReview =
+    turn.mayBeSentToReview && turn.declared
+      ? { ...turn, declared: turn.declared.sentToReview('') }
       : null;
 
-  return asksAPerson(turn) || (withheld !== null && asksAPerson(withheld));
+  return (
+    asksAPerson(turn) || (sentToReview !== null && asksAPerson(sentToReview))
+  );
 };
 
 export const turnEnded = (turn: {
@@ -84,7 +86,7 @@ export const turnEnded = (turn: {
     };
   }
 
-  const waits = turnWaits({ ...asked, by, mayBeWithheld: false });
+  const waits = turnWaits({ ...asked, by, mayBeSentToReview: false });
 
   if (waits && run.pausedBy(by)) {
     return { waiting: true, run, task: null };

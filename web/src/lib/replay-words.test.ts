@@ -396,9 +396,9 @@ describe('formatSpendNote', () => {
     );
   });
 
-  it('counts side-by-side judging against the ceiling, not toward cost per run', () => {
+  it('counts side-by-side judging against the ceiling, not in cost per run', () => {
     expect(formatSpendNote({ ...parts, pairing: '$0.24' })).toBe(
-      'Runs $2.75 · Drafting $0.12 · Judging $0.18 · Side by side $0.24. Side-by-side judging counts against the ceiling. It doesn’t count toward cost per run.',
+      'Runs $2.75 · Drafting $0.12 · Judging $0.18 · Side by side $0.24. Side-by-side judging counts against the ceiling. It doesn’t add to cost per run.',
     );
   });
 

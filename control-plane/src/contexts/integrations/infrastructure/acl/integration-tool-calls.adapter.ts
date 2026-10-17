@@ -102,7 +102,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
               workspaceId: task.workspaceId,
               runId: run.runId,
               attempt: run.attempt,
-              wears: reachable.wears,
+              injectedSecrets: reachable.injectedSecrets,
             },
             found.connection,
           ),

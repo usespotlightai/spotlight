@@ -11,7 +11,7 @@ import {
   SIZE_BOUNDS,
 } from '@outcomes/domain/services/run-size';
 import {
-  judgeWithheldFrom,
+  judgeOmittedFor,
   MIN_SETUP_RUNS,
   setupsFrom,
 } from '@outcomes/domain/services/setup-comparison';
@@ -59,7 +59,7 @@ export class ReadInsightsSetupsHandler
         },
         { stationId: query.stationId, size },
       );
-      const judgeWithheld = judgeWithheldFrom(query.stationId);
+      const judgeOmitted = judgeOmittedFor(query.stationId);
       const calibrations =
         query.stationId === null
           ? null
@@ -71,10 +71,10 @@ export class ReadInsightsSetupsHandler
         counts.setups,
         calibrations
           ? {
-              withheld: false,
+              omitted: false,
               trusted: calibrations.trusted.get(calibrations.stationId) ?? null,
             }
-          : { withheld: true },
+          : { omitted: true },
       );
 
       return {
@@ -85,7 +85,7 @@ export class ReadInsightsSetupsHandler
         minRuns: MIN_SETUP_RUNS,
         currency: compared.currency,
         setups: compared.setups,
-        judgeWithheld,
+        judgeOmitted,
         judges: (calibrations?.judges ?? []).map(
           ({ rubricVersion: _, ...each }) => each,
         ),

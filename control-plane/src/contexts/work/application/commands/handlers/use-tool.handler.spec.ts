@@ -256,7 +256,7 @@ const using = (
     wants?: ConnectionWantedDto;
     actingAs?: ToolActingAs;
     personRule?: PersonRule;
-    withheld?: {
+    denied?: {
       readonly when: 'before' | 'during';
       readonly reason: CatalogRefusalReason;
     };
@@ -265,12 +265,12 @@ const using = (
   const called: Called[] = [];
   const refusal = (id: string): CatalogRefusal => ({
     id,
-    reason: over.withheld?.reason ?? 'lapsed',
-    because: 'withheld here',
+    reason: over.denied?.reason ?? 'lapsed',
+    because: 'denied here',
   });
   const catalog = new StationCatalog({
     givenTo: async (_workspace, named) =>
-      over.withheld?.when === 'before'
+      over.denied?.when === 'before'
         ? {
             tools: [],
             skills: [],
@@ -295,7 +295,7 @@ const using = (
             refused: [],
           },
     call: async (request) => {
-      if (over.withheld?.when === 'during') {
+      if (over.denied?.when === 'during') {
         return { kind: 'refused', refusal: refusal(request.id) };
       }
 
@@ -482,7 +482,7 @@ describe('UseToolHandler', () => {
 
     it('is refused as entitlement_lapsed once the plan no longer covers it, and nothing is called', async () => {
       const { reach, called } = using(searching(), {
-        withheld: { when: 'before', reason: 'lapsed' },
+        denied: { when: 'before', reason: 'lapsed' },
       });
 
       await expect(
@@ -496,7 +496,7 @@ describe('UseToolHandler', () => {
 
     it('is refused as entitlement_lapsed when the plan lapses as it is called', async () => {
       const { reach } = using(searching(), {
-        withheld: { when: 'during', reason: 'lapsed' },
+        denied: { when: 'during', reason: 'lapsed' },
       });
 
       await expect(
@@ -508,14 +508,14 @@ describe('UseToolHandler', () => {
 
     it('is refused as catalog_item_unknown, not as a lapse, once the catalog no longer has it', async () => {
       const { reach, called } = using(searching(), {
-        withheld: { when: 'before', reason: 'unknown' },
+        denied: { when: 'before', reason: 'unknown' },
       });
 
       await expect(
         reach('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
-        message: 'catalog_item_unknown: withheld here',
+        message: 'catalog_item_unknown: denied here',
       });
       expect(called).toEqual([]);
     });

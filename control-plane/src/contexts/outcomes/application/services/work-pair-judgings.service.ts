@@ -137,7 +137,7 @@ export class WorkPairJudgings implements OwedWorkPort {
       return error instanceof JudgingError
         ? spending
             .recordModel(error.usage)
-            .failed(JudgingFailure.of(error.trouble, this.clock.now()))
+            .failed(JudgingFailure.of(error.kind, this.clock.now()))
         : spending.triedAgainLater(this.clock.now());
     }
 

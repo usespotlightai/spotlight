@@ -71,7 +71,7 @@ export class ReadRunnerTraceHandler
       }
 
       const byRun = new Map(told.map((journal) => [journal.runId, journal]));
-      const wentWrong = await this.connections.wentWrongIn(
+      const errors = await this.connections.errorsIn(
         found.map((run) => run.id),
       );
 
@@ -84,7 +84,7 @@ export class ReadRunnerTraceHandler
         startedAt: run.startedAt,
         endedAt: run.updatedAt,
         journal: byRun.get(run.id) ?? null,
-        connections: connectionsOf(wentWrong, run.id, run.attempt),
+        connections: connectionsOf(errors, run.id, run.attempt),
       }));
 
       return TaskTraceMapper.toDto(traceOf(worked));

@@ -156,7 +156,7 @@ actions:
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('sends nothing where the secret it wears is not bound to the host', async () => {
+  it('sends nothing where the secret that it injects is not bound to the host', async () => {
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['slack.com'], fetch);
 
@@ -187,7 +187,7 @@ actions:
     expect(forSpotlight).not.toHaveBeenCalled();
   });
 
-  it('asks for the secrets the action names, toward the address it calls', async () => {
+  it('asks for the secrets the action names, for the address it calls', async () => {
     const { injection, forSpotlight } = injecting({
       TOKEN: { host: 'slack.com', value: 'xoxb-1' },
     });
@@ -205,7 +205,7 @@ actions:
     });
   });
 
-  it('follows a redirect itself, wearing nothing toward another host', async () => {
+  it('follows a redirect itself, and injects nothing for another host', async () => {
     const fetch = vi.fn(async (url: string) =>
       url.startsWith('https://slack.com')
         ? new Response(null, {
@@ -286,7 +286,7 @@ actions:
     expect(fetch).toHaveBeenCalled();
   });
 
-  it('wears the connection token where the action authenticates by oauth2', async () => {
+  it('injects the connection token where the action authenticates by oauth2', async () => {
     const OAUTH = `
 integration: demo
 connection:
@@ -361,7 +361,7 @@ actions:
           }),
       );
 
-    it('hands the bytes back whole, wearing the token', async () => {
+    it('hands the bytes back whole, and injects the token', async () => {
       const fetch = answering(new Uint8Array([1, 2, 3]), 'image/png');
 
       await expect(
@@ -468,11 +468,11 @@ actions:
   });
 });
 
-describe('HttpOutbound, a secret worn in the query', () => {
+describe('HttpOutbound, a secret injected in the query', () => {
   const GOOGLE = credentialsFor({
     MAPS_KEY: {
       host: 'maps.googleapis.com',
-      carrier: 'query',
+      location: 'query',
       name: 'key',
       value: 'AIza-1/2',
     },
@@ -532,7 +532,7 @@ describe('HttpOutbound, a secret worn in the query', () => {
     expect((refused as Error).message).not.toContain('AIza');
   });
 
-  it('wears nothing toward another host a redirect sends it to, even where the redirect echoes the key', async () => {
+  it('injects nothing for another host that a redirect sends it to, even where the redirect echoes the key', async () => {
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(

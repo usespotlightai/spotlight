@@ -1,6 +1,6 @@
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { OutboundTaskNotifierPort } from '@work/application/ports/outbound-task-notifier.port';
-import { takeWornMarks } from '@work/application/services/worn-marks';
+import { takeTaskMarks } from '@work/application/services/task-marks';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
@@ -38,11 +38,11 @@ export class NotifyOutsideTools {
       }
 
       const marked = kept.reduce(
-        (wearer, mark) => wearer.markedBy(mark),
+        (markedTask, mark) => markedTask.markedBy(mark),
         current,
       );
 
-      await takeWornMarks(this.tasks, marked);
+      await takeTaskMarks(this.tasks, marked);
       await this.tasks.save(marked);
     });
   }

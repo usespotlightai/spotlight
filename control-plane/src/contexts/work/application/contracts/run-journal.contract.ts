@@ -103,7 +103,7 @@ export interface RunJournal {
   readonly ms: number | null;
   readonly marks: RunMarks;
   readonly spent: RunSpent | null;
-  readonly egress: EgressEnforcement | null;
+  readonly egressEnforcement: EgressEnforcement | null;
 }
 
 export interface RunChanges {

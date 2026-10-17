@@ -34,13 +34,13 @@ const uses = new ProfileSecretUses(
 );
 
 describe('ProfileSecretUses', () => {
-  it('names each profile whose MCP servers wear the secret', async () => {
+  it('names each profile whose MCP servers use the secret', async () => {
     await expect(
       uses.usesOf({ workspaceId: 'ws_1', name: 'LINEAR_API_KEY' }),
     ).resolves.toEqual(['harness profile core/careful']);
   });
 
-  it('names none for a secret no profile wears', async () => {
+  it('names none for a secret no profile uses', async () => {
     await expect(
       uses.usesOf({ workspaceId: 'ws_1', name: 'SENTRY_TOKEN' }),
     ).resolves.toEqual([]);

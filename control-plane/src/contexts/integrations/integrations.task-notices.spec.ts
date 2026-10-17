@@ -203,7 +203,7 @@ describe('TaskNotices', () => {
     expect(await notifier.notify(asked(), 'task.asked')).toEqual([]);
   });
 
-  it('lets the post wear the workspace’s secrets as Spotlight’s own', async () => {
+  it('lets the post inject the workspace’s secrets as Spotlight’s own', async () => {
     const { injection, forSpotlight } = injecting({
       SLACK_BOT_TOKEN: { host: 'slack.com', value: 'xoxb-1' },
     });
@@ -216,7 +216,7 @@ describe('TaskNotices', () => {
     await notifier.notify(asked({ 'slack.thread': '170.1' }), 'task.asked');
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
-    await credentials.wornToward('https://slack.com/api/chat.postMessage', [
+    await credentials.injectedFor('https://slack.com/api/chat.postMessage', [
       'SLACK_BOT_TOKEN',
     ]);
 

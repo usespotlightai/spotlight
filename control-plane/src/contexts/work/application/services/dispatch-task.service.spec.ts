@@ -467,7 +467,7 @@ describe('DispatchTask', () => {
     });
   });
 
-  describe('why it refuses a run the catalog withholds from', () => {
+  describe('why it refuses a run that the catalog denies an item to', () => {
     it.each([
       ['unknown', 'catalog_item_unknown'],
       ['wrong-kind', 'catalog_item_wrong_kind'],
@@ -477,12 +477,12 @@ describe('DispatchTask', () => {
       catalogGiving = {
         tools: [],
         skills: [],
-        refused: [{ id: WEB_SEARCH.id, reason, because: 'withheld here' }],
+        refused: [{ id: WEB_SEARCH.id, reason, because: 'denied here' }],
       };
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
-      expect(queued[0]?.outcome?.message).toBe(`${code}: withheld here`);
+      expect(queued[0]?.outcome?.message).toBe(`${code}: denied here`);
     });
 
     it('names every refusal, each by its own reason', async () => {
@@ -665,7 +665,7 @@ describe('DispatchTask', () => {
       });
     });
 
-    it('hands an MCP server a stand-in for each secret it wears, and the run the secrets to redeem', async () => {
+    it('hands an MCP server a stand-in for each secret that egress injects, and the run the secrets to fetch', async () => {
       teamProfiles = {
         careful,
         linear: {
@@ -702,7 +702,7 @@ describe('DispatchTask', () => {
         ],
         [{ name: 'TOKEN', value: 'spotlight-egress:LINEAR_API_KEY' }],
       ]);
-      expect(spec.wears).toEqual(['LINEAR_API_KEY']);
+      expect(spec.injectedSecrets).toEqual(['LINEAR_API_KEY']);
     });
 
     it('fails the run, saying why, where the team has no such profile', async () => {
@@ -720,7 +720,7 @@ describe('DispatchTask', () => {
       await dispatch(stations[1] as Station);
 
       expect(written(queued[0]).harnessSetup).toBeUndefined();
-      expect(written(queued[0]).wears).toBeUndefined();
+      expect(written(queued[0]).injectedSecrets).toBeUndefined();
       expect(queued[0]?.placement.isAnywhere).toBe(true);
     });
   });

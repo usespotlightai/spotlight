@@ -479,7 +479,7 @@ describe('Search', () => {
       ).toBe(seeded);
     });
 
-    it('takes what a replay spent after it ended, only ever more, and counts it toward the next iteration', () => {
+    it('takes what a replay spent after it ended, only ever more, and adds it to the spend of the next iteration', () => {
       const runIds = searchRunIds();
       const seeded = searching(aSearch(), runIds);
       const grown = seeded.replaySpent(SEED, charged(7));

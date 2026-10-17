@@ -94,7 +94,10 @@ const authOptions = z.object({
   jwt: jwtSchema.optional(),
   secrets: z
     .array(secretRef)
-    .min(1, 'names each secret the request wears, as in secret.LINEAR_API_KEY')
+    .min(
+      1,
+      'names each secret that Spotlight injects into the request, as in secret.LINEAR_API_KEY',
+    )
     .optional(),
 });
 
@@ -114,7 +117,7 @@ const requestAuthSchema = authOptions
   .refine(namesOne, 'names exactly one way to authenticate')
   .refine(
     (auth) => auth.oauth2 !== undefined || auth.secrets !== undefined,
-    'authenticates a request by its oauth2 connection, or by the secrets it wears toward the hosts they are bound to',
+    'authenticates a request by its oauth2 connection, or by the secrets that Spotlight injects for the hosts they are bound to',
   );
 
 const captureSchema = z.record(z.string(), expression);

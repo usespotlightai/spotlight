@@ -218,7 +218,11 @@ describe('turnEnded', () => {
   describe('whether a turn waits, asked before the runner keeps its workspace', () => {
     const turn = (
       declared: { next: string } | null,
-      over: { ran?: Run; mayBeWithheld?: boolean; outcome?: RunOutcome } = {},
+      over: {
+        ran?: Run;
+        mayBeSentToReview?: boolean;
+        outcome?: RunOutcome;
+      } = {},
     ) => ({
       run: over.ran ?? run(),
       by: RUNNER,
@@ -226,7 +230,7 @@ describe('turnEnded', () => {
       line,
       outcome: over.outcome ?? CLEAN,
       declared: declared ? Declaration.of(declared) : null,
-      mayBeWithheld: over.mayBeWithheld ?? false,
+      mayBeSentToReview: over.mayBeSentToReview ?? false,
     });
 
     it('waits for the same turns it pauses', () => {
@@ -236,9 +240,9 @@ describe('turnEnded', () => {
     });
 
     it('may wait where a hook could stop the task being passed on', () => {
-      expect(turnWaits(turn({ next: 'ship' }, { mayBeWithheld: true }))).toBe(
-        true,
-      );
+      expect(
+        turnWaits(turn({ next: 'ship' }, { mayBeSentToReview: true })),
+      ).toBe(true);
     });
 
     it('still waits on a repeated report of a pause, unless it was stopped', () => {
@@ -381,7 +385,7 @@ describe('the end of a replay’s turn', () => {
         line,
         outcome: RunOutcome.of({ exitCode: 0, failed: false }),
         declared: Declaration.of({ next: 'review' }),
-        mayBeWithheld: true,
+        mayBeSentToReview: true,
       }),
     ).toBe(false);
   });

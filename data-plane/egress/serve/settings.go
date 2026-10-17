@@ -24,10 +24,10 @@ const (
 	envURL         = "SPOTLIGHT_URL"
 	envToken       = "SPOTLIGHT_EGRESS_TOKEN"
 	envAllow       = "SPOTLIGHT_EGRESS_ALLOW"
-	envReads       = "SPOTLIGHT_EGRESS_READS"
+	envSecretAllow = "SPOTLIGHT_EGRESS_SECRET_ALLOW"
 	envRate        = "SPOTLIGHT_EGRESS_RATE"
 	envConnections = "SPOTLIGHT_EGRESS_CONNECTIONS"
-	envTrust       = "SPOTLIGHT_EGRESS_TRUST"
+	envCABundle    = "SPOTLIGHT_EGRESS_CA_BUNDLE"
 )
 
 const (
@@ -42,7 +42,7 @@ type Settings struct {
 	URL         string
 	Token       string
 	Allow       reach.List
-	Reads       []string
+	SecretAllow []string
 	Rate        float64
 	Connections int
 
@@ -66,7 +66,7 @@ func Load() (Settings, error) {
 		Listen:      or(get(envListen), defaultListen),
 		URL:         get(envURL),
 		Token:       get(envToken),
-		Reads:       list(get(envReads)),
+		SecretAllow: list(get(envSecretAllow)),
 		Rate:        defaultRate,
 		Connections: defaultConnections,
 	}
@@ -96,7 +96,7 @@ func Load() (Settings, error) {
 		note(fmt.Errorf("%s and %s go together; give both or neither", envCertificate, envKey))
 	}
 
-	if path := get(envTrust); path != "" {
+	if path := get(envCABundle); path != "" {
 		roots, err := trusting(path)
 		note(err)
 		settings.RootCAs = roots
@@ -124,7 +124,7 @@ func Load() (Settings, error) {
 func trusting(path string) (*x509.CertPool, error) {
 	trusted, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", envTrust, err)
+		return nil, fmt.Errorf("%s: %w", envCABundle, err)
 	}
 
 	roots, err := x509.SystemCertPool()
@@ -132,7 +132,7 @@ func trusting(path string) (*x509.CertPool, error) {
 		roots = x509.NewCertPool()
 	}
 	if !roots.AppendCertsFromPEM(trusted) {
-		return nil, fmt.Errorf("%s: %s has no PEM certificate", envTrust, path)
+		return nil, fmt.Errorf("%s: %s has no PEM certificate", envCABundle, path)
 	}
 
 	return roots, nil

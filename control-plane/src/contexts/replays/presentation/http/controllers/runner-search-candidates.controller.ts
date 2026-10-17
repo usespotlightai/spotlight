@@ -54,7 +54,7 @@ export class RunnerSearchCandidatesController {
     summary:
       'Propose a candidate from inside a search’s agent run; Spotlight replays it on the search’s searched tasks',
     description:
-      'Proposing the same name again from the same run answers with the candidate it proposed. A refused proposal does not count towards the iteration’s candidates, but the run may only try so often.',
+      'Proposing the same name again from the same run answers with the candidate it proposed. A refused proposal does not count as one of the iteration’s candidates, but the run may only try so often.',
   })
   @ApiBody({ type: ProposeSearchCandidateRequestDto })
   @ApiCreatedResponse({ type: SearchCandidateProposedResponseDto })

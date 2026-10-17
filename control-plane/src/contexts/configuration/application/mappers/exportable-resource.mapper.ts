@@ -166,7 +166,7 @@ export const ExportableResourceMapper = {
         env: { ...each.env },
       })),
       native: profile.native,
-      secretsWorn: profile.secretsWorn.map((each) => ({
+      secretReferences: profile.secretReferences.map((each) => ({
         path: each.path,
         name: each.name,
       })),
@@ -185,7 +185,7 @@ export const ExportableResourceMapper = {
       teamKey,
       source: integration.source,
       definition: integration.definition,
-      secretsWorn: integration.secretsWorn.map((each) => ({
+      secretReferences: integration.secretReferences.map((each) => ({
         path: each.path,
         name: each.name,
       })),

@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { SECRET_CARRIERS } from '@shared-kernel/domain/value-objects/secret-carriers';
+import { SECRET_LOCATIONS } from '@shared-kernel/domain/value-objects/secret-locations';
 
-export class ReadInNetworkResponseDto {
+export class ExternalSecretRefResponseDto {
   @ApiProperty({ enum: ['aws-secrets-manager'] })
   readonly kind: 'aws-secrets-manager';
 
@@ -25,23 +25,23 @@ export class ReadInNetworkResponseDto {
   }
 }
 
-export class RedeemedSecretResponseDto {
+export class FetchedSecretResponseDto {
   @ApiProperty({ example: 'LINEAR_API_KEY' })
   readonly secret: string;
 
   @ApiProperty({
     example: 'mcp.linear.app',
-    description: 'The one host egress wears it toward',
+    description: 'The one host that egress injects it for',
   })
   readonly host: string;
 
   @ApiProperty({
-    enum: SECRET_CARRIERS,
+    enum: SECRET_LOCATIONS,
     example: 'header',
     description:
-      'Whether egress wears it in a request header or a query parameter',
+      'Whether egress injects it in a request header or in a query parameter',
   })
-  readonly carrier: string;
+  readonly location: string;
 
   @ApiProperty({
     example: 'authorization',
@@ -61,33 +61,33 @@ export class RedeemedSecretResponseDto {
   readonly sealed: string | null;
 
   @ApiProperty({
-    type: ReadInNetworkResponseDto,
+    type: ExternalSecretRefResponseDto,
     nullable: true,
     description:
       'Where egress reads the value with its host’s own identity; null when Spotlight sealed it',
   })
-  readonly readInNetwork: ReadInNetworkResponseDto | null;
+  readonly externalRef: ExternalSecretRefResponseDto | null;
 
   constructor(
     secret: string,
     host: string,
-    carrier: string,
+    location: string,
     name: string,
     prefix: string,
     sealed: string | null,
-    readInNetwork: ReadInNetworkResponseDto | null,
+    externalRef: ExternalSecretRefResponseDto | null,
   ) {
     this.secret = secret;
     this.host = host;
-    this.carrier = carrier;
+    this.location = location;
     this.name = name;
     this.prefix = prefix;
     this.sealed = sealed;
-    this.readInNetwork = readInNetwork;
+    this.externalRef = externalRef;
   }
 }
 
-export class WithheldSecretResponseDto {
+export class DeniedSecretResponseDto {
   @ApiProperty({ example: 'LINEAR_API_KEY' })
   readonly secret: string;
 
@@ -106,7 +106,7 @@ export class WithheldSecretResponseDto {
 export class SpotlightApiResponseDto {
   @ApiProperty({
     description:
-      'A read and plan token for this run alone, sealed to the recipient; egress wears it toward the control plane as a bearer token',
+      'A read and plan token for this run alone, sealed to the recipient; egress injects it for the control plane as a bearer token',
   })
   readonly sealed: string;
 
@@ -115,13 +115,13 @@ export class SpotlightApiResponseDto {
   }
 }
 
-export class EgressRedemptionResponseDto {
+export class EgressSecretsResponseDto {
   @ApiProperty({
     type: String,
     nullable: true,
     example: 'run_1',
     description:
-      'The run the sealed values are bound to; null when the sandbox checks a change stack and wears nothing',
+      'The run the sealed values are bound to; null when the sandbox checks a change stack and gets no secrets',
   })
   readonly runId: string | null;
 
@@ -141,14 +141,14 @@ export class EgressRedemptionResponseDto {
   })
   readonly bound: readonly string[];
 
-  @ApiProperty({ type: [RedeemedSecretResponseDto] })
-  readonly secrets: readonly RedeemedSecretResponseDto[];
+  @ApiProperty({ type: [FetchedSecretResponseDto] })
+  readonly secrets: readonly FetchedSecretResponseDto[];
 
   @ApiProperty({
-    type: [WithheldSecretResponseDto],
-    description: 'Secrets the run wears that egress will not get, and why',
+    type: [DeniedSecretResponseDto],
+    description: 'The secrets of the run that egress does not get, and why',
   })
-  readonly withheld: readonly WithheldSecretResponseDto[];
+  readonly denied: readonly DeniedSecretResponseDto[];
 
   @ApiProperty({
     type: SpotlightApiResponseDto,
@@ -162,15 +162,15 @@ export class EgressRedemptionResponseDto {
     runId: string | null,
     reaches: readonly string[],
     bound: readonly string[],
-    secrets: readonly RedeemedSecretResponseDto[],
-    withheld: readonly WithheldSecretResponseDto[],
+    secrets: readonly FetchedSecretResponseDto[],
+    denied: readonly DeniedSecretResponseDto[],
     spotlightApi: SpotlightApiResponseDto | null,
   ) {
     this.runId = runId;
     this.reaches = reaches;
     this.bound = bound;
     this.secrets = secrets;
-    this.withheld = withheld;
+    this.denied = denied;
     this.spotlightApi = spotlightApi;
   }
 }

@@ -209,14 +209,14 @@ describe('judging a run through OpenRouter', () => {
       }),
     );
 
-    await expect(judging(fetch)).rejects.toMatchObject({ trouble: 'refused' });
+    await expect(judging(fetch)).rejects.toMatchObject({ kind: 'refused' });
   });
 
   it('says the answer was unreadable when it does not fit the verdict’s shape', async () => {
     const { fetch } = answering(completed(JSON.stringify({ passes: 'maybe' })));
 
     await expect(judging(fetch)).rejects.toMatchObject({
-      trouble: 'unreadable',
+      kind: 'unreadable',
     });
   });
 
@@ -232,7 +232,7 @@ describe('judging a run through OpenRouter', () => {
     );
 
     await expect(judging(fetch)).rejects.toMatchObject({
-      trouble: 'unreadable',
+      kind: 'unreadable',
       usage: {
         inputTokens: 900,
         outputTokens: 4_000,

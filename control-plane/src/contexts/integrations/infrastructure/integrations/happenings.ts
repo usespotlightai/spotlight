@@ -11,7 +11,7 @@ import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-
 import type {
   Arriving,
   Happened,
-  MarkWorn,
+  TaskMark,
 } from '@work/application/contracts/happenings.contract';
 
 const identity = async (
@@ -122,7 +122,7 @@ const raiseFrom = (
         : null;
     })
     .filter(
-      (each): each is { mark: MarkWorn; finds: boolean } => each !== null,
+      (each): each is { mark: TaskMark; finds: boolean } => each !== null,
     );
 
   const marks = marked.map((each) => each.mark);

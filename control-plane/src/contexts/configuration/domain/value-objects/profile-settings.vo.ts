@@ -5,7 +5,9 @@ import {
   type PermissionDecision,
   PermissionRule,
 } from '@configuration/domain/value-objects/permission-rule.vo';
+import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type WrittenPermissions = Readonly<
@@ -21,11 +23,6 @@ export interface WrittenSettings {
     readonly env: Readonly<Record<string, string>>;
   }[];
   readonly native: Readonly<Record<string, unknown>>;
-}
-
-export interface WornSecret {
-  readonly at: readonly [string, number, string, string];
-  readonly secret: SecretName;
 }
 
 export class ProfileSettings {
@@ -97,17 +94,17 @@ export class ProfileSettings {
     };
   }
 
-  get wornSecrets(): readonly WornSecret[] {
+  get secretReferences(): readonly SecretReferenceAt[] {
     return this.mcpServers.flatMap((server, at) =>
-      server.wornSecrets.map(({ variable, secret }) => ({
-        at: ['mcpServers', at, 'env', variable] as const,
-        secret,
+      server.injectedSecrets.map(({ variable, secret }) => ({
+        path: FieldPath.of(['mcpServers', at, 'env', variable]),
+        name: secret.value,
       })),
     );
   }
 
-  wears(secret: SecretName): boolean {
-    return this.wornSecrets.some((each) => each.secret.equals(secret));
+  uses(secret: SecretName): boolean {
+    return this.secretReferences.some((each) => each.name === secret.value);
   }
 
   equals(other: ProfileSettings): boolean {

@@ -63,7 +63,7 @@ func (h *Host) wayOut(
 		Token:       token,
 		Credential:  way.credential,
 		Allow:       h.opts.Egress.Allow,
-		Reads:       h.opts.Egress.Reads,
+		SecretAllow: h.opts.Egress.SecretAllow,
 		HarnessKeys: harnessKeys,
 	}, []sandbox.Join{{Network: way.network, Aliases: []string{EgressAlias}}})
 	if err != nil {
@@ -92,9 +92,9 @@ func (h *Host) startEgress(
 	}
 
 	env, files := h.opts.Egress.Env, []sandbox.File{{Path: protocol.EgressHandedPath, Mode: 0o400, Body: body}}
-	if len(h.opts.Egress.Trust) > 0 {
-		env = append(slices.Clone(env), "SSL_CERT_DIR="+EgressTrusts)
-		files = append(files, sandbox.File{Path: EgressTrusts + "/trusted.pem", Mode: 0o644, DirMode: 0o755, Body: h.opts.Egress.Trust})
+	if len(h.opts.Egress.CABundle) > 0 {
+		env = append(slices.Clone(env), "SSL_CERT_DIR="+EgressCABundleDir)
+		files = append(files, sandbox.File{Path: EgressCABundleDir + "/trusted.pem", Mode: 0o644, DirMode: 0o755, Body: h.opts.Egress.CABundle})
 	}
 
 	return h.engine.Start(ctx, sandbox.Spec{

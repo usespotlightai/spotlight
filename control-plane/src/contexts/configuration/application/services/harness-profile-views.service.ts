@@ -43,10 +43,12 @@ export class HarnessProfileViews {
       permissions: read.settings.permissions,
       mcpServers: HarnessProfileMapper.servers(read.settings),
       native: read.settings.native,
-      secretsWorn: read.settings.wornSecrets.map(({ at, secret }) => ({
-        path: FieldPath.of(at.slice(1)),
-        name: secret.value,
-      })),
+      secretReferences: read.settings.secretReferences.map(
+        ({ path, name }) => ({
+          path: FieldPath.of(path.segments.slice(1)),
+          name,
+        }),
+      ),
       warnings: this.compiler.warningsOf(read),
     };
   }

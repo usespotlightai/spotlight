@@ -51,7 +51,7 @@ export interface Redirectable extends CookieJar {
   redirect(url: string): void;
 }
 
-export const WENT_WRONG = '/?integration=failed';
+export const FAILED_REDIRECT = '/?integration=failed';
 
 @ApiTags('integrations')
 @Controller()
@@ -129,14 +129,14 @@ export class OAuth2ConnectionController {
     this.nonceCookie.clear(response);
 
     if (!state || !code || !nonce) {
-      response.redirect(WENT_WRONG);
+      response.redirect(FAILED_REDIRECT);
       return;
     }
 
     const viewer = await this.sessions.read(request.headers);
 
     if (!viewer) {
-      response.redirect(WENT_WRONG);
+      response.redirect(FAILED_REDIRECT);
       return;
     }
 
@@ -145,6 +145,6 @@ export class OAuth2ConnectionController {
       string | null
     >(new FinishOAuth2ConnectionCommand(state, code, nonce, viewer.id));
 
-    response.redirect(url ?? WENT_WRONG);
+    response.redirect(url ?? FAILED_REDIRECT);
   }
 }

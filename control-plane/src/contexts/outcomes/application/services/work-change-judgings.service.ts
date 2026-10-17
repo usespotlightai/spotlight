@@ -123,7 +123,7 @@ export class WorkChangeJudgings implements OwedWorkPort {
       if (error instanceof JudgingError) {
         return judging
           .recordModel(error.usage)
-          .failed(JudgingFailure.of(error.trouble, this.clock.now()));
+          .failed(JudgingFailure.of(error.kind, this.clock.now()));
       }
       throw error;
     }

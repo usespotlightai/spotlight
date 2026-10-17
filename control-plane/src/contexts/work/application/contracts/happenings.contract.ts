@@ -8,7 +8,7 @@ export type ReviewAsking = 'opened' | 'mentioned' | 'labelled';
 
 type HappeningState = 'raised' | 'resolved';
 
-export interface MarkWorn {
+export interface TaskMark {
   readonly kind: string;
   readonly value: string;
 }
@@ -23,7 +23,7 @@ interface SaidPayload {
 
 interface ConcernsPayload {
   readonly branch: string | null;
-  readonly marks: readonly MarkWorn[];
+  readonly marks: readonly TaskMark[];
 }
 
 export interface ReviewPayload {
@@ -42,7 +42,7 @@ interface OpensPayload {
   readonly title: string;
   readonly description: string | null;
   readonly assignEmail: string | null;
-  readonly marks: readonly MarkWorn[];
+  readonly marks: readonly TaskMark[];
   readonly review?: ReviewPayload | null;
 }
 

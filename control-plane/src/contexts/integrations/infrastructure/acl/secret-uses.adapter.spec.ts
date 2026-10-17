@@ -53,13 +53,13 @@ describe('IntegrationSecretUses', () => {
     new IntegrationReader(new CelExpressionEngine(), operationsContaining()),
   );
 
-  it('names each integration of the workspace that wears the secret', async () => {
+  it('names each integration of the workspace that uses the secret', async () => {
     expect(
       await uses.usesOf({ workspaceId: 'ws_1', name: 'LINEAR_API_KEY' }),
     ).toEqual(['integration core/linear']);
   });
 
-  it('names nothing for a secret no integration wears', async () => {
+  it('names nothing for a secret that no integration uses', async () => {
     expect(
       await uses.usesOf({
         workspaceId: WorkspaceId.of('ws_1').value,

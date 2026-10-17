@@ -6,7 +6,7 @@ import {
 
 const MAX_BYTES = 64 * 1024;
 
-const WITHHELD = '[secret]';
+const REDACTED = '[secret]';
 
 export class SecretValue implements Secret {
   readonly #value: string;
@@ -40,14 +40,14 @@ export class SecretValue implements Secret {
   }
 
   toString(): string {
-    return WITHHELD;
+    return REDACTED;
   }
 
   toJSON(): string {
-    return WITHHELD;
+    return REDACTED;
   }
 
   [Symbol.for('nodejs.util.inspect.custom')](): string {
-    return `SecretValue ${WITHHELD}`;
+    return `SecretValue ${REDACTED}`;
   }
 }

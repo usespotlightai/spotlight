@@ -25,7 +25,7 @@ const shown = (ui: React.ReactNode) => {
 };
 
 describe('RunRow, what a run is doing', () => {
-  it('wears the same thing a task being worked wears on the board', () => {
+  it('shows the same pill that a task in progress shows on the board', () => {
     const inRuns = shown(<RunRow run={run('claimed')} to="/runs/run_1" />);
     const onBoard = shown(
       <TaskState

@@ -6,7 +6,7 @@ import type { JudgeShare } from '@outcomes/domain/services/judge-shares';
 import type { SizeBound } from '@outcomes/domain/services/run-size';
 import type { RunTally } from '@outcomes/domain/services/run-tally';
 import type {
-  JudgeWithheld,
+  JudgeOmittedReason,
   SetupOutcome,
 } from '@outcomes/domain/services/setup-comparison';
 import type { Change } from '@outcomes/domain/value-objects/change.vo';
@@ -48,6 +48,6 @@ export interface InsightsSetupsDto {
   readonly minRuns: number;
   readonly currency: string | null;
   readonly setups: readonly SetupOutcomeDto[];
-  readonly judgeWithheld: JudgeWithheld | null;
+  readonly judgeOmitted: JudgeOmittedReason | null;
   readonly judges: readonly StationJudgeCalibrationDto[];
 }

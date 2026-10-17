@@ -113,7 +113,7 @@ const opening = (
   over: {
     connected?: boolean;
     repositories?: readonly string[];
-    wearer?: Task;
+    markedTask?: Task;
     meanwhile?: (task: Task) => Task;
     verdict?: HookVerdict;
     hooked?: boolean;
@@ -145,7 +145,7 @@ const opening = (
   } as unknown as PullRequestPort;
   const tasks = {
     find: async () => stored,
-    findByMarks: async () => over.wearer ?? null,
+    findByMarks: async () => over.markedTask ?? null,
     save: async (each: Task) => {
       saved.push(each);
     },
@@ -289,7 +289,7 @@ describe('OpenPullRequest', () => {
         delivery(),
       );
     before.pullEvents();
-    const { open, saved } = opening({ wearer: before });
+    const { open, saved } = opening({ markedTask: before });
 
     await open(task());
 

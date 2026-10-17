@@ -17,53 +17,53 @@ import (
 	"usespotlight.ai/data-plane/reach"
 )
 
-type redeemer struct {
+type fakeFetcher struct {
 	answers []error
 	asked   int
 }
 
-func (r *redeemer) RedeemEgress(context.Context, string) (protocol.EgressRedemption, error) {
+func (r *fakeFetcher) FetchRunSecrets(context.Context, string) (protocol.EgressSecrets, error) {
 	r.asked++
 	if len(r.answers) > 0 {
 		answer := r.answers[0]
 		r.answers = r.answers[1:]
 		if answer != nil {
-			return protocol.EgressRedemption{}, answer
+			return protocol.EgressSecrets{}, answer
 		}
 	}
-	return protocol.EgressRedemption{RunID: "run_1"}, nil
+	return protocol.EgressSecrets{RunID: "run_1"}, nil
 }
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func TestTriesAgainWhileTheControlPlaneCannotAnswer(t *testing.T) {
-	asked := &redeemer{answers: []error{
+	asked := &fakeFetcher{answers: []error{
 		errors.New("connection refused"),
 		&control.Rejection{Status: http.StatusBadGateway, Err: errors.New("bad gateway")},
 	}}
 
-	if redeemed := redeemedBy(context.Background(), asked, "key", quiet); redeemed.RunID != "run_1" || asked.asked != 3 {
-		t.Errorf("redeemed %+v after %d asks", redeemed, asked.asked)
+	if fetched := fetchedBy(context.Background(), asked, "key", quiet); fetched.RunID != "run_1" || asked.asked != 3 {
+		t.Errorf("fetched %+v after %d asks", fetched, asked.asked)
 	}
 }
 
-func TestGoesOutWearingNothingWhenTheControlPlaneRefuses(t *testing.T) {
-	asked := &redeemer{answers: []error{&control.Rejection{Status: http.StatusUnauthorized, Err: control.ErrRefused}}}
+func TestGoesOutInjectingNothingWhenTheControlPlaneRefuses(t *testing.T) {
+	asked := &fakeFetcher{answers: []error{&control.Rejection{Status: http.StatusUnauthorized, Err: control.ErrRefused}}}
 
-	if redeemed := redeemedBy(context.Background(), asked, "key", quiet); redeemed.RunID != "" || asked.asked != 1 {
-		t.Errorf("redeemed %+v after %d asks", redeemed, asked.asked)
+	if fetched := fetchedBy(context.Background(), asked, "key", quiet); fetched.RunID != "" || asked.asked != 1 {
+		t.Errorf("fetched %+v after %d asks", fetched, asked.asked)
 	}
 }
 
 func TestReadsWhatTheHostHandedItOnceAndLeavesNoCopy(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "egress.json")
-	if err := os.WriteFile(path, []byte(`{"url":"http://control-plane:3000","token":"egress-token","credential":"proxy","allow":["api.example.com"],"reads":["sentry-*"]}`), 0o400); err != nil {
+	if err := os.WriteFile(path, []byte(`{"url":"http://control-plane:3000","token":"egress-token","credential":"proxy","allow":["api.example.com"],"secretAllow":["sentry-*"]}`), 0o400); err != nil {
 		t.Fatal(err)
 	}
 
 	handed, err := handedTo(path)
 	if err != nil || handed.Token != "egress-token" || handed.URL != "http://control-plane:3000" ||
-		handed.Credential != "proxy" || len(handed.Allow) != 1 || len(handed.Reads) != 1 {
+		handed.Credential != "proxy" || len(handed.Allow) != 1 || len(handed.SecretAllow) != 1 {
 		t.Fatalf("handed %+v: %v", handed, err)
 	}
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
@@ -87,16 +87,16 @@ func TestRefusesAHandingWithNoControlPlaneOrProxyCredential(t *testing.T) {
 	}
 }
 
-func TestRedeemsNothingWithoutAToken(t *testing.T) {
+func TestFetchesNothingWithoutAToken(t *testing.T) {
 	connected := false
-	redeemed, err := redemptionFor(context.Background(), protocol.EgressHanded{URL: "http://control-plane:3000"}, "key",
-		func(string, string) (Redeemer, error) {
+	fetched, err := fetchSecretsFor(context.Background(), protocol.EgressHanded{URL: "http://control-plane:3000"}, "key",
+		func(string, string) (SecretFetcher, error) {
 			connected = true
-			return &redeemer{}, nil
+			return &fakeFetcher{}, nil
 		}, quiet)
 
-	if err != nil || connected || redeemed.RunID != "" {
-		t.Errorf("redeemed %+v (connected %v): %v", redeemed, connected, err)
+	if err != nil || connected || fetched.RunID != "" {
+		t.Errorf("fetched %+v (connected %v): %v", fetched, connected, err)
 	}
 }
 
@@ -106,9 +106,9 @@ func TestReachesTheControlPlaneAndItsStorageButNoHostASecretIsBoundTo(t *testing
 		t.Fatal(err)
 	}
 
-	reached := reachedBy(listed, "control-plane", protocol.EgressRedemption{
+	reached := reachedBy(listed, "control-plane", protocol.EgressSecrets{
 		Reaches: []string{"storage"},
-		Secrets: []protocol.RedeemedSecret{{Secret: "PRIVATE", Host: "private-api.acme.internal"}},
+		Secrets: []protocol.FetchedSecret{{Secret: "PRIVATE", Host: "private-api.acme.internal"}},
 	})
 
 	for host, want := range map[string]bool{

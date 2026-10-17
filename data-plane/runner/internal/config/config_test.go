@@ -14,7 +14,7 @@ func setRequired(t *testing.T) {
 	for _, name := range []string{
 		"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN", "SPOTLIGHT_HANDED", "SPOTLIGHT_WORKSPACE",
 		"SPOTLIGHT_AGENT_USER", "SPOTLIGHT_GIT_AUTHOR_NAME", "SPOTLIGHT_GIT_AUTHOR_EMAIL", "SPOTLIGHT_ANSWER_WAIT",
-		"SPOTLIGHT_EGRESS_URL", "SPOTLIGHT_EGRESS_CREDENTIAL", "SPOTLIGHT_EGRESS_TRAFFIC",
+		"SPOTLIGHT_EGRESS_URL", "SPOTLIGHT_EGRESS_PROXY_CREDENTIAL", "SPOTLIGHT_EGRESS_TRAFFIC",
 	} {
 		t.Setenv(name, "")
 	}
@@ -137,7 +137,7 @@ func TestLoadTakesThePushPoolsEgress(t *testing.T) {
 	t.Setenv("SPOTLIGHT_HANDED", "")
 	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
 	t.Setenv("SPOTLIGHT_EGRESS_URL", "https://egress.example.com")
-	t.Setenv("SPOTLIGHT_EGRESS_CREDENTIAL", "proxy-credential")
+	t.Setenv("SPOTLIGHT_EGRESS_PROXY_CREDENTIAL", "proxy-credential")
 	t.Setenv("SPOTLIGHT_EGRESS_TRAFFIC", "bound")
 
 	cfg, err := config.Load(nil)
@@ -156,7 +156,7 @@ func TestLoadRefusesATrafficSettingItDoesNotKnow(t *testing.T) {
 	t.Setenv("SPOTLIGHT_HANDED", "")
 	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
 	t.Setenv("SPOTLIGHT_EGRESS_URL", "https://egress.example.com")
-	t.Setenv("SPOTLIGHT_EGRESS_CREDENTIAL", "proxy-credential")
+	t.Setenv("SPOTLIGHT_EGRESS_PROXY_CREDENTIAL", "proxy-credential")
 	t.Setenv("SPOTLIGHT_EGRESS_TRAFFIC", "some")
 
 	if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_EGRESS_TRAFFIC") {
@@ -167,7 +167,7 @@ func TestLoadRefusesATrafficSettingItDoesNotKnow(t *testing.T) {
 func TestLoadLeavesEgressToTheHostThatHandedTheWork(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_EGRESS_URL", "https://egress.example.com")
-	t.Setenv("SPOTLIGHT_EGRESS_CREDENTIAL", "proxy-credential")
+	t.Setenv("SPOTLIGHT_EGRESS_PROXY_CREDENTIAL", "proxy-credential")
 
 	cfg, err := config.Load(nil)
 	if err != nil {
@@ -184,7 +184,7 @@ func TestLoadRefusesAnEgressWithoutItsCredential(t *testing.T) {
 	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
 	t.Setenv("SPOTLIGHT_EGRESS_URL", "https://egress.example.com")
 
-	if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_EGRESS_CREDENTIAL") {
+	if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_EGRESS_PROXY_CREDENTIAL") {
 		t.Errorf("error %v", err)
 	}
 }

@@ -107,7 +107,7 @@ export interface RunSpecParts {
   readonly startingPoint?: boolean;
   readonly harnessSetup?: RunHarnessSetup;
   readonly settingFiles?: readonly string[];
-  readonly wears?: readonly string[];
+  readonly injectedSecrets?: readonly string[];
   readonly spotlightApi?: boolean;
   readonly replay?: RunReplay;
   readonly search?: RunSearch;
@@ -118,9 +118,9 @@ const outside = (path: string): boolean =>
 
 const blank = (text: string): boolean => text.trim().length === 0;
 
-const isSecretName = (worn: string): boolean => {
+const isSecretName = (name: string): boolean => {
   try {
-    return SecretName.of(worn).value === worn;
+    return SecretName.of(name).value === name;
   } catch {
     return false;
   }
@@ -219,7 +219,9 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.settingFiles?.length
     ? { settingFiles: [...parts.settingFiles] }
     : {}),
-  ...(parts.wears?.length ? { wears: [...parts.wears] } : {}),
+  ...(parts.injectedSecrets?.length
+    ? { injectedSecrets: [...parts.injectedSecrets] }
+    : {}),
   ...(parts.spotlightApi ? { spotlightApi: true } : {}),
   ...(parts.replay
     ? {
@@ -243,7 +245,7 @@ const replayRefusal = (parts: RunSpecParts): string | null => {
   }
 
   if (
-    (parts.wears?.length ?? 0) > 0 ||
+    (parts.injectedSecrets?.length ?? 0) > 0 ||
     parts.spotlightApi ||
     (parts.manifest?.length ?? 0) > 0 ||
     (parts.catalog?.length ?? 0) > 0 ||
@@ -296,7 +298,7 @@ const searchRefusal = (parts: RunSpecParts): string | null => {
   }
 
   if (
-    (parts.wears?.length ?? 0) > 0 ||
+    (parts.injectedSecrets?.length ?? 0) > 0 ||
     (parts.manifest?.length ?? 0) > 0 ||
     (parts.catalog?.length ?? 0) > 0 ||
     (parts.harnessSetup?.mcpServers.length ?? 0) > 0
@@ -419,9 +421,11 @@ export class RunSpec {
       }
     }
 
-    for (const worn of parts.wears ?? []) {
-      if (!isSecretName(worn)) {
-        throw new InvalidRunSpecError('must name each secret it wears');
+    for (const secret of parts.injectedSecrets ?? []) {
+      if (!isSecretName(secret)) {
+        throw new InvalidRunSpecError(
+          'must name each secret that egress injects for it',
+        );
       }
     }
 
@@ -505,11 +509,13 @@ export class RunSpec {
     );
   }
 
-  get wears(): readonly SecretName[] {
-    return (this.parts.wears ?? []).map((each) => SecretName.of(each));
+  get injectedSecrets(): readonly SecretName[] {
+    return (this.parts.injectedSecrets ?? []).map((each) =>
+      SecretName.of(each),
+    );
   }
 
-  get wearsSpotlightApi(): boolean {
+  get injectsSpotlightApi(): boolean {
     return this.parts.spotlightApi === true;
   }
 

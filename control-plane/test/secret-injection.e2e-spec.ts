@@ -77,7 +77,7 @@ const secretBoundTo = (host: string) => ({
   valueWoVersion: 1,
 });
 
-describe('a secret worn by a tool call the control plane makes (e2e)', () => {
+describe('a secret injected into a tool call that the control plane makes (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
   let workspaceId: string;
@@ -185,7 +185,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     await seat.unseat();
   });
 
-  it('reaches the host wearing a secret bound to it', async () => {
+  it('injects the secret that is bound to the host, and reaches the host', async () => {
     await post(
       `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
@@ -204,7 +204,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   it('reaches the host with a secret bound to a query parameter, and keeps it out of the answer', async () => {
     await post(`/api/resources/workspaces/${workspaceId}/secrets`, {
       ...secretBoundTo('api.linear.app'),
-      bindings: [{ host: 'api.linear.app', carrier: 'query', name: 'key' }],
+      bindings: [{ host: 'api.linear.app', location: 'query', name: 'key' }],
     });
     fetch.mockResolvedValueOnce(
       new Response(
@@ -248,7 +248,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     expect(offered?.learnedOutput).toEqual({ type: 'string' });
   });
 
-  it('grants the run the secret toward its host alone', async () => {
+  it('grants the run the secret for its host alone', async () => {
     await post(
       `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
@@ -344,7 +344,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('seals a host connection’s tokens under the workspace’s data key', async () => {
+  it('encrypts the tokens of a host connection under the data key of the workspace', async () => {
     const connections = app.get<HostConnectionRepository>(HOST_CONNECTIONS);
 
     await connections.save(
@@ -354,8 +354,8 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
         source: SourceKey.of('slack'),
         holder: ConnectionHolder.team(),
         grant: HostGrant.of({
-          accessToken: 'xoxb-sealed-1',
-          refreshToken: 'xoxe-sealed-1',
+          accessToken: 'xoxb-encrypted-1',
+          refreshToken: 'xoxe-encrypted-1',
         }),
       }),
     );
@@ -375,9 +375,9 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
       ConnectionHolder.team(),
     );
 
-    expect(row?.accessToken).not.toContain('xoxb-sealed-1');
-    expect(row?.refreshToken).not.toContain('xoxe-sealed-1');
-    expect(read?.accessToken.value).toBe('xoxb-sealed-1');
-    expect(read?.refreshToken?.value).toBe('xoxe-sealed-1');
+    expect(row?.accessToken).not.toContain('xoxb-encrypted-1');
+    expect(row?.refreshToken).not.toContain('xoxe-encrypted-1');
+    expect(read?.accessToken.value).toBe('xoxb-encrypted-1');
+    expect(read?.refreshToken?.value).toBe('xoxe-encrypted-1');
   });
 });

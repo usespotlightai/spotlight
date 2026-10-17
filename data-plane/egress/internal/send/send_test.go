@@ -27,7 +27,7 @@ func listed(t *testing.T, entries ...string) reach.List {
 	return list
 }
 
-func toward(t *testing.T, sender *Sender, server *httptest.Server) {
+func sendTo(t *testing.T, sender *Sender, server *httptest.Server) {
 	t.Helper()
 
 	sender.transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
@@ -58,7 +58,7 @@ func TestSendsTheCallOnceAndAnswersWhatTheHostSaid(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	sender := New(listed(t, "audit.example.com"))
-	toward(t, sender, server)
+	sendTo(t, sender, server)
 
 	answer := sender.Send(context.Background(), protocol.HostCall{
 		ID: "call_1", Method: http.MethodPost, URL: "https://audit.example.com/hooks",
@@ -88,7 +88,7 @@ func TestTrimsTheAnswersBody(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	sender := New(listed(t, "audit.example.com"))
-	toward(t, sender, server)
+	sendTo(t, sender, server)
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
 	body, _ := base64.StdEncoding.DecodeString(answer.Body)
@@ -106,7 +106,7 @@ func TestDoesNotFollowARedirect(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	sender := New(listed(t, "audit.example.com"))
-	toward(t, sender, server)
+	sendTo(t, sender, server)
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
 	if answer.Status != http.StatusFound || answer.Headers["location"] != "https://elsewhere.example.com/" || calls != 1 {
@@ -141,7 +141,7 @@ func TestSaysItTimedOut(t *testing.T) {
 	t.Cleanup(func() { close(release) })
 
 	sender := New(listed(t, "audit.example.com"))
-	toward(t, sender, server)
+	sendTo(t, sender, server)
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/", TimeoutMs: 100})
 	if answer.Status != 0 || answer.Error != "The call timed out. Time limit: 100ms" || answer.Ms < 100 {
@@ -173,7 +173,7 @@ func TestSaysAnUntrustedCertificateIsNotTrusted(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	sender := New(listed(t, "audit.example.com"))
-	toward(t, sender, server)
+	sendTo(t, sender, server)
 	sender.transport.TLSClientConfig = &tls.Config{RootCAs: x509.NewCertPool()}
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})

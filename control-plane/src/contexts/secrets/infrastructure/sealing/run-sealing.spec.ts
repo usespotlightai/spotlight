@@ -6,7 +6,7 @@ import {
   hkdfSync,
   type KeyObject,
 } from 'node:crypto';
-import { UnsealableRecipientError } from '@secrets/application/errors/unsealable-recipient.error';
+import { InvalidRecipientError } from '@secrets/application/errors/invalid-recipient.error';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { X25519RunSealing } from '@secrets/infrastructure/sealing/run-sealing';
 import { describe, expect, it } from 'vitest';
@@ -26,7 +26,7 @@ const opened = (
   sealed: string,
   privateKey: KeyObject,
   recipientRaw: Buffer,
-  bound: string,
+  aad: string,
 ): string => {
   const [version, ephemeral, iv, tag, encrypted] = sealed.split('.');
   expect(version).toBe('v1');
@@ -53,7 +53,7 @@ const opened = (
     key,
     Buffer.from(iv ?? '', 'base64'),
   );
-  decipher.setAAD(Buffer.from(bound, 'utf8'));
+  decipher.setAAD(Buffer.from(aad, 'utf8'));
   decipher.setAuthTag(Buffer.from(tag ?? '', 'base64'));
 
   return Buffer.concat([
@@ -75,7 +75,7 @@ const sealedTo = (
     sealedFor,
   );
 
-const BOUND = ['spotlight:egress:v1', 'run_1', 'LINEAR_API_KEY'].join('\u0000');
+const AAD = ['spotlight:egress:v1', 'run_1', 'LINEAR_API_KEY'].join('\u0000');
 
 const sealing = new X25519RunSealing();
 
@@ -86,7 +86,7 @@ describe('X25519RunSealing', () => {
     const sealed = sealedTo(to);
 
     expect(sealed).not.toContain('lin_api_1');
-    expect(opened(sealed, to.privateKey, to.raw, BOUND)).toBe('lin_api_1');
+    expect(opened(sealed, to.privateKey, to.raw, AAD)).toBe('lin_api_1');
   });
 
   it('binds the value to its run and its name', () => {
@@ -118,9 +118,7 @@ describe('X25519RunSealing', () => {
       Buffer.alloc(31).toString('base64'),
       Buffer.alloc(32).toString('base64'),
     ]) {
-      expect(() => sealing.recipientOf(written)).toThrow(
-        UnsealableRecipientError,
-      );
+      expect(() => sealing.recipientOf(written)).toThrow(InvalidRecipientError);
     }
   });
 });

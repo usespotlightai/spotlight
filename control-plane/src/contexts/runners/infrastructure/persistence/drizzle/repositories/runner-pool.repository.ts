@@ -11,6 +11,7 @@ import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runne
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
   type PoolAccess,
@@ -21,7 +22,6 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import { runnerPool } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -64,7 +64,7 @@ const accessOf = (row: Row): PoolAccess => {
   if (row.provisionUrl && row.provisionSecret) {
     return PushAccess.of(
       ProvisionUrl.of(row.provisionUrl),
-      SealedProvisionSecret.of(row.provisionSecret),
+      EncryptedProvisionSecret.of(row.provisionSecret),
       row.provisionSecretVersion,
       row.provisionEgress === null
         ? null

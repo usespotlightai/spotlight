@@ -14,7 +14,7 @@ export class Declaration {
     );
   }
 
-  withheld(reason: string): Declaration {
+  sentToReview(reason: string): Declaration {
     return new Declaration(
       REVIEW,
       [reason.trim(), this.note === '' ? '' : `The run said: ${this.note}`]

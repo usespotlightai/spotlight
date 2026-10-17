@@ -1,5 +1,5 @@
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
-import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
+import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
@@ -8,7 +8,7 @@ import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended
 import { RunLeaseOverError } from '@secrets/domain/exceptions/run-lease-over.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotGrantedError } from '@secrets/domain/exceptions/secret-not-granted.error';
-import { SecretSlotTakenError } from '@secrets/domain/exceptions/secret-slot-taken.error';
+import { SecretTargetConflictError } from '@secrets/domain/exceptions/secret-target-conflict.error';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import {
@@ -64,7 +64,7 @@ const setUp = async () => {
     injection: new SecretInjection(
       secrets,
       grants,
-      new RunGrantsKept(grants),
+      new RunGrantsUnitOfWork(grants),
       sources,
     ),
     secrets,
@@ -73,7 +73,7 @@ const setUp = async () => {
 };
 
 const headersOf = async (
-  worn: Promise<{
+  injected: Promise<{
     applyTo(request: {
       url: globalThis.URL;
       headers: Record<string, string>;
@@ -81,7 +81,7 @@ const headersOf = async (
   }>,
 ) => {
   const headers: Record<string, string> = {};
-  (await worn).applyTo({
+  (await injected).applyTo({
     url: new globalThis.URL('https://example.test/'),
     headers,
   });
@@ -91,7 +91,7 @@ const headersOf = async (
 
 describe('SecretInjection', () => {
   describe('for Spotlight’s own requests', () => {
-    it('wears a secret toward a host it is bound to', async () => {
+    it('injects a secret for a host it is bound to', async () => {
       const { injection } = await setUp();
 
       expect(
@@ -105,7 +105,7 @@ describe('SecretInjection', () => {
       ).toEqual({ authorization: 'Bearer lin_api_1' });
     });
 
-    it('refuses two secrets worn in one header toward one host', async () => {
+    it('refuses two secrets injected in one header for one host', async () => {
       const { injection, secrets } = await setUp();
       await secrets.save(
         Secret.set(definition({ name: 'LINEAR_OTHER' }), {
@@ -122,10 +122,10 @@ describe('SecretInjection', () => {
           secrets: ['LINEAR_API_KEY', 'LINEAR_OTHER'],
           url: URL,
         }),
-      ).rejects.toThrow(SecretSlotTakenError);
+      ).rejects.toThrow(SecretTargetConflictError);
     });
 
-    it('reads a secret that AWS Secrets Manager keeps when it is worn', async () => {
+    it('reads a secret that AWS Secrets Manager keeps when it is injected', async () => {
       const { injection } = await setUp();
 
       expect(
@@ -139,7 +139,7 @@ describe('SecretInjection', () => {
       ).toEqual({ 'x-sentry-token': 'sntrys_1' });
     });
 
-    it('wears nothing toward a host the secret is not bound to', async () => {
+    it('injects nothing for a host the secret is not bound to', async () => {
       const { injection } = await setUp();
 
       await expect(
@@ -151,7 +151,7 @@ describe('SecretInjection', () => {
       ).rejects.toThrow(SecretNotBoundError);
     });
 
-    it('wears nothing of another workspace', async () => {
+    it('injects nothing of another workspace', async () => {
       const { injection } = await setUp();
 
       await expect(
@@ -163,7 +163,7 @@ describe('SecretInjection', () => {
       ).rejects.toThrow(NoSuchSecretError);
     });
 
-    it('wears the rotated value from the moment it is rotated', async () => {
+    it('injects the rotated value from the moment it is rotated', async () => {
       const { injection, secrets } = await setUp();
       const existing = (await secrets.withId(
         SecretId.of('secret_linear'),
@@ -212,7 +212,7 @@ describe('SecretInjection', () => {
   });
 
   describe('for a run', () => {
-    it('grants a run each secret toward each host it is bound to', async () => {
+    it('grants a run each secret for each host it is bound to', async () => {
       const { injection, grants } = await setUp();
 
       await injection.grant({
@@ -245,7 +245,7 @@ describe('SecretInjection', () => {
       expect(grants.all).toEqual([]);
     });
 
-    it('wears a secret granted to the run toward a host it is bound to', async () => {
+    it('injects a secret granted to the run for a host it is bound to', async () => {
       const { injection } = await setUp();
 
       await injection.grant({
@@ -268,7 +268,7 @@ describe('SecretInjection', () => {
       ).toEqual({ authorization: 'Bearer lin_api_1' });
     });
 
-    it('wears nothing for a run it was not granted to', async () => {
+    it('injects nothing for a run it was not granted to', async () => {
       const { injection } = await setUp();
 
       await injection.grant({
@@ -289,7 +289,7 @@ describe('SecretInjection', () => {
       ).rejects.toThrow(SecretNotGrantedError);
     });
 
-    it('wears nothing once the run has ended', async () => {
+    it('injects nothing once the run has ended', async () => {
       const { injection, grants } = await setUp();
 
       for (const runId of ['run_1', 'run_2']) {
@@ -300,7 +300,10 @@ describe('SecretInjection', () => {
           secrets: ['LINEAR_API_KEY'],
         });
       }
-      await new RunGrantEndings(new RunGrantsKept(grants), clockAt()).endedFor({
+      await new RunGrantEndings(
+        new RunGrantsUnitOfWork(grants),
+        clockAt(),
+      ).endedFor({
         workspaceId: WORKSPACE.value,
         runId: 'run_1',
         attempt: 1,
@@ -322,7 +325,10 @@ describe('SecretInjection', () => {
     it('grants nothing to a run whose end was heard before anything was granted to it', async () => {
       const { injection, grants } = await setUp();
 
-      await new RunGrantEndings(new RunGrantsKept(grants), clockAt()).endedFor({
+      await new RunGrantEndings(
+        new RunGrantsUnitOfWork(grants),
+        clockAt(),
+      ).endedFor({
         workspaceId: WORKSPACE.value,
         runId: 'run_1',
         attempt: 1,
@@ -350,13 +356,14 @@ describe('SecretInjection', () => {
           secrets: ['LINEAR_API_KEY'],
         });
 
-      await new RunGrantEndings(new RunGrantsKept(grants), clockAt()).leaseLost(
-        {
-          workspaceId: WORKSPACE.value,
-          runId: 'run_1',
-          attempt: 1,
-        },
-      );
+      await new RunGrantEndings(
+        new RunGrantsUnitOfWork(grants),
+        clockAt(),
+      ).leaseLost({
+        workspaceId: WORKSPACE.value,
+        runId: 'run_1',
+        attempt: 1,
+      });
 
       await expect(granting(1)).rejects.toThrow(RunLeaseOverError);
       await granting(2);
@@ -364,7 +371,7 @@ describe('SecretInjection', () => {
       expect(grants.all.map((each) => each.host)).toEqual(['api.linear.app']);
     });
 
-    it('wears only what the run’s current attempt was granted', async () => {
+    it('injects only what the current attempt of the run was granted', async () => {
       const { injection } = await setUp();
       const asking = (attempt: number) =>
         injection.forRun({
@@ -397,7 +404,7 @@ describe('SecretInjection', () => {
       await expect(asking(1)).rejects.toThrow(SecretNotGrantedError);
     });
 
-    it('wears nothing toward a host it was rebound away from since the grant', async () => {
+    it('injects nothing for a host it was rebound away from since the grant', async () => {
       const { injection, secrets } = await setUp();
 
       await injection.grant({

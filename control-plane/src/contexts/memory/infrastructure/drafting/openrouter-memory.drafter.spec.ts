@@ -110,7 +110,7 @@ describe('drafting memories through OpenRouter', () => {
     );
 
     await expect(drafting(fetch)).rejects.toMatchObject({
-      trouble: 'refused',
+      kind: 'refused',
     });
   });
 
@@ -121,7 +121,7 @@ describe('drafting memories through OpenRouter', () => {
 
     await expect(drafting(fetch)).rejects.toBeInstanceOf(MemoryDraftingError);
     await expect(drafting(fetch)).rejects.toMatchObject({
-      trouble: 'refused',
+      kind: 'refused',
     });
   });
 
@@ -134,7 +134,7 @@ describe('drafting memories through OpenRouter', () => {
       const { fetch } = answering(answer);
 
       await expect(drafting(fetch)).rejects.toMatchObject({
-        trouble: 'unreadable',
+        kind: 'unreadable',
       });
     }
   });

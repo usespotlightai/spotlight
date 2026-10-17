@@ -6,6 +6,7 @@ import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fix
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import type { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
   type PoolAccess,
@@ -18,7 +19,6 @@ import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.v
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
 import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import type { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import type { StartVerdict } from '@runners/domain/value-objects/start-verdict';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -42,7 +42,7 @@ export type GivenAccess =
   | {
       readonly mode: 'push';
       readonly url: ProvisionUrl;
-      readonly secret: SealedProvisionSecret | null;
+      readonly secret: EncryptedProvisionSecret | null;
       readonly secretVersion: number | null;
       readonly egress: EgressReference | null;
       readonly egressTraffic?: EgressTraffic;

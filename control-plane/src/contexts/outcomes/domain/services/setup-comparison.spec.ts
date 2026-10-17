@@ -3,7 +3,7 @@ import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.agg
 import { day, deliveredOf } from '@outcomes/domain/insights.fake-spec';
 import { costedRecord } from '@outcomes/domain/outcomes.fake-spec';
 import {
-  judgeWithheldFrom,
+  judgeOmittedFor,
   setupCountsOf,
   setupsFrom,
 } from '@outcomes/domain/services/setup-comparison';
@@ -27,7 +27,7 @@ const comparedOf = (
         share,
       })),
     ).setups,
-    shares === null ? { withheld: true } : { withheld: false, trusted: RUBRIC },
+    shares === null ? { omitted: true } : { omitted: false, trusted: RUBRIC },
   );
 
 const runs = (
@@ -192,7 +192,7 @@ describe('setupsFrom', () => {
     expect(compared.setups[0]?.outcomes.judge).toBe(0.75);
   });
 
-  it('withholds judge scores when given none, leaving the judge off every frontier', () => {
+  it('omits judge scores when given none, leaving the judge off every frontier', () => {
     const compared = comparedOf(
       runs('judged', 3, { model: 'sonnet', amount: 1, accepted: 0 }),
       [],
@@ -205,10 +205,10 @@ describe('setupsFrom', () => {
   });
 });
 
-describe('judgeWithheldFrom', () => {
+describe('judgeOmittedFor', () => {
   it('compares judge scores only within one station, since each station’s judge scores against its own rubric', () => {
-    expect(judgeWithheldFrom(null)).toBe('no_station');
-    expect(judgeWithheldFrom('station_1')).toBeNull();
+    expect(judgeOmittedFor(null)).toBe('no_station');
+    expect(judgeOmittedFor('station_1')).toBeNull();
   });
 });
 
@@ -227,7 +227,7 @@ describe('setups from their counts', () => {
 
   it('takes the judge’s mean from the trusted rubric only', () => {
     const [setup] = setupsFrom(counts, {
-      withheld: false,
+      omitted: false,
       trusted: 'rubric_2',
     }).setups;
 
@@ -236,7 +236,7 @@ describe('setups from their counts', () => {
 
   it('shows no judge mean when no rubric at the station is trusted', () => {
     const [setup] = setupsFrom(counts, {
-      withheld: false,
+      omitted: false,
       trusted: null,
     }).setups;
 

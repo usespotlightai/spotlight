@@ -89,19 +89,19 @@ describe('marksTakenFrom', () => {
   });
 
   it('gives up every mark the taker claims in one change', () => {
-    const wearer = task('task_0', THREAD, CHANNEL);
+    const markedTask = task('task_0', THREAD, CHANNEL);
 
     const given = marksTakenFrom(
-      [wearer, wearer],
+      [markedTask, markedTask],
       task('task_1', THREAD, CHANNEL),
     );
 
     expect(given).toHaveLength(1);
     expect(given[0]?.marks).toEqual([]);
-    expect(given[0]?.version).toBe(wearer.version);
+    expect(given[0]?.version).toBe(markedTask.version);
   });
 
-  it('leaves alone a task that wears none of them', () => {
+  it('leaves alone a task that has none of them', () => {
     expect(
       marksTakenFrom([task('task_0', ISSUE)], task('task_1', THREAD)),
     ).toEqual([]);

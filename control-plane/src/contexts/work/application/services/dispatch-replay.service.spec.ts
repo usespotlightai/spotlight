@@ -514,7 +514,7 @@ describe('DispatchReplay', () => {
     expect(queued).toEqual([]);
   });
 
-  it('refuses no replay for a catalog tool its plan withholds, as a replay is given no tools', async () => {
+  it('refuses no replay for a catalog tool that is denied to its plan, as a replay is given no tools', async () => {
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE });
 
     expect(queued[0]?.hasEnded).toBe(false);
@@ -529,7 +529,7 @@ describe('DispatchReplay', () => {
     expect(spec.briefing).not.toContain('## Tools');
     expect(askedSkills).not.toContain('spotlight-tools');
     expect(spec.catalog).toBeUndefined();
-    expect(spec.wears).toBeUndefined();
+    expect(spec.injectedSecrets).toBeUndefined();
     expect(spec.startingPoint).toBeUndefined();
     expect(spec.harnessSetup).toEqual({
       files: [{ path: 'dev/servers.json', text: '' }],

@@ -7,7 +7,7 @@ import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { oauth2ClientRegistration } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
-import type { CredentialSealingPort } from '@secrets/application/ports/credential-sealing.port';
+import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
@@ -22,7 +22,7 @@ export class DrizzleOAuth2ClientRegistrations
 {
   constructor(
     private readonly context: DrizzleContext,
-    private readonly sealing: CredentialSealingPort,
+    private readonly encryption: CredentialEncryptionPort,
   ) {}
 
   async of(
@@ -52,7 +52,7 @@ export class DrizzleOAuth2ClientRegistrations
       tokenEndpoint: registration.server?.token ?? null,
       clientId: registration.clientId,
       clientSecret: registration.clientSecret
-        ? await this.sealing.seal(
+        ? await this.encryption.encrypt(
             registration.workspaceId.value,
             labelFor(registration.teamId.value, registration.source.value),
             Credential.of(registration.clientSecret.value),
@@ -120,7 +120,7 @@ export class DrizzleOAuth2ClientRegistrations
       clientSecret: row.clientSecret
         ? AccessToken.of(
             (
-              await this.sealing.open(
+              await this.encryption.decrypt(
                 row.workspaceId,
                 labelFor(row.teamId, row.source),
                 row.clientSecret,

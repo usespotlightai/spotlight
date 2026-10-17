@@ -109,7 +109,7 @@ func boundSoon(ctx context.Context, egress *Egress, wait time.Duration, log *slo
 			return hosts, err
 		}
 
-		log.Info("egress has not redeemed the run yet, asks again", "error", err, "retryIn", backoff)
+		log.Info("egress has not fetched the run's secrets yet, asks again", "error", err, "retryIn", backoff)
 		select {
 		case <-waiting.Done():
 			return nil, fmt.Errorf("egress gave no bound hosts within %s: %w", wait, err)
@@ -215,7 +215,7 @@ func (w *WayOut) refuse(rw http.ResponseWriter, target string, err error) {
 func (w *WayOut) intercept(rw http.ResponseWriter, host string) {
 	certificate, err := w.authority.For(host)
 	if err != nil {
-		http.Error(rw, fmt.Sprintf("The way out could not stand in for %s. Error: %v", host, err), http.StatusBadGateway)
+		http.Error(rw, fmt.Sprintf("The way out could not intercept TLS for %s. Error: %v", host, err), http.StatusBadGateway)
 		return
 	}
 
@@ -237,7 +237,7 @@ func (w *WayOut) intercept(rw http.ResponseWriter, host string) {
 	})
 
 	server := &http.Server{
-		Handler:           w.egress.forwarding(host, w.failedToward(host)),
+		Handler:           w.egress.forwarding(host, w.failedFor(host)),
 		ReadHeaderTimeout: time.Minute,
 		ErrorLog:          slog.NewLogLogger(w.log.Handler(), slog.LevelDebug),
 	}
@@ -256,11 +256,11 @@ func (w *WayOut) forwardPlain(rw http.ResponseWriter, r *http.Request) {
 		},
 		Transport:     w.plain,
 		FlushInterval: -1,
-		ErrorHandler:  w.failedToward(host),
+		ErrorHandler:  w.failedFor(host),
 	}).ServeHTTP(rw, r)
 }
 
-func (w *WayOut) failedToward(host string) func(http.ResponseWriter, *http.Request, error) {
+func (w *WayOut) failedFor(host string) func(http.ResponseWriter, *http.Request, error) {
 	return func(rw http.ResponseWriter, _ *http.Request, err error) {
 		if errors.Is(err, context.Canceled) {
 			return

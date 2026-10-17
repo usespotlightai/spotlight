@@ -51,7 +51,7 @@ const reaching = (given: { movedOn?: boolean } = {}) => {
       personRule: null,
       defaultFor: () => undefined,
       call: async () => {
-        steps.push('called with its secrets worn');
+        steps.push('called with its secrets injected');
         return 'commented';
       },
     }),
@@ -69,7 +69,7 @@ const reaching = (given: { movedOn?: boolean } = {}) => {
 };
 
 describe('IntegrationTools', () => {
-  it('makes sure the runner is still on the attempt right before the call wears its secrets', async () => {
+  it('makes sure the runner is still on the attempt right before the call injects its secrets', async () => {
     const { tools, steps, stillOn } = reaching();
     const reachable = await tools.reach(
       Tool.of('linear.comment'),
@@ -80,7 +80,7 @@ describe('IntegrationTools', () => {
 
     await expect(reachable?.call(ToolInputs.of({}))).resolves.toBe('commented');
     expect(stillOn).toHaveBeenCalledWith(ATTEMPT, 'runner_1');
-    expect(steps).toEqual(['still on', 'called with its secrets worn']);
+    expect(steps).toEqual(['still on', 'called with its secrets injected']);
   });
 
   it('never calls the integration once the attempt moved on after the tool was reached', async () => {

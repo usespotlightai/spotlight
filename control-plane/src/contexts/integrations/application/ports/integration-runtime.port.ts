@@ -5,12 +5,12 @@ import type { ConnectionHolder } from '@integrations/domain/value-objects/connec
 import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
-import type { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   Happened,
-  MarkWorn,
+  TaskMark,
 } from '@work/application/contracts/happenings.contract';
 import type {
   ToolDeclaration,
@@ -37,7 +37,10 @@ export interface BoundTask {
 export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
 
 export interface Credentials {
-  wornToward(url: string, secrets: readonly string[]): Promise<WornSecrets>;
+  injectedFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets>;
 }
 
 export interface SigningSecrets {
@@ -92,7 +95,7 @@ export interface TaskPayload {
 }
 
 export type Posted =
-  | { readonly kind: 'posted'; readonly marks: readonly MarkWorn[] }
+  | { readonly kind: 'posted'; readonly marks: readonly TaskMark[] }
   | { readonly kind: 'unaddressed' }
   | {
       readonly kind: 'refused';
@@ -109,7 +112,7 @@ export interface ReachableTool {
   readonly integration: Integration;
   readonly offered: OfferedTool;
   readonly declared: ToolDeclaration;
-  readonly wears: readonly string[];
+  readonly injectedSecrets: readonly string[];
   defaultFor(input: string): unknown;
   call(inputs: ToolInputValues, reach: Reach): Promise<ToolOutput>;
 }

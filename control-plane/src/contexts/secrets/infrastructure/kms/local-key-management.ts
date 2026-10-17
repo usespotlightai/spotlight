@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { opened, sealed } from '@secrets/infrastructure/crypto/envelope';
-import { boundTo } from '@secrets/infrastructure/crypto/key-context';
+import { decrypt, encrypt } from '@secrets/infrastructure/crypto/envelope';
+import { aadFor } from '@secrets/infrastructure/crypto/key-context';
 import type {
   IssuedDataKey,
   KeyContext,
@@ -31,11 +31,11 @@ export class LocalKeyManagement implements KeyManagement {
 
     return {
       plain: new Uint8Array(plain),
-      wrapped: sealed(this.key, plain, boundTo(context)),
+      wrapped: encrypt(this.key, plain, aadFor(context)),
     };
   }
 
   async unwrap(wrapped: string, context: KeyContext): Promise<Uint8Array> {
-    return new Uint8Array(opened(this.key, wrapped, boundTo(context)));
+    return new Uint8Array(decrypt(this.key, wrapped, aadFor(context)));
   }
 }

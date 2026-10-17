@@ -13,7 +13,7 @@ import {
 } from '@work/application/commands/handlers/record-egress-connections.handler';
 import type { EgressConnectionRecord } from '@work/application/dto/egress-connections.dto';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
-import type { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
+import type { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import type { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 import { describe, expect, it } from 'vitest';
@@ -28,7 +28,7 @@ const record = (
   bytesOut: 100,
   bytesIn: 2_000,
   ms: 40,
-  outcome: 'tunnelled',
+  outcome: 'passthrough',
   at: NOW.toISOString(),
   ...over,
 });
@@ -48,7 +48,7 @@ const recording = () => {
       );
     },
     of: async () => [],
-    wentWrongIn: async () => [],
+    errorsIn: async () => [],
     forgetBefore: async () => 0,
   };
   const handler = new RecordEgressConnectionsHandler(
@@ -61,7 +61,7 @@ const recording = () => {
         runOf('lapsed', 'run_4'),
       ]),
     ),
-    leasing([], ['run_1', 'run_2']) as unknown as EgressRedemptions,
+    leasing([], ['run_1', 'run_2']) as unknown as EgressSecretFetches,
     connections,
     { now: () => NOW } as ClockPort,
   );
@@ -77,7 +77,7 @@ describe('RecordEgressConnectionsHandler', () => {
       handler.execute(
         new RecordEgressConnectionsCommand(SHARED_TOKEN, [
           record('leased'),
-          record('leased', { host: 'api.linear.app', outcome: 'forwarded' }),
+          record('leased', { host: 'api.linear.app', outcome: 'injected' }),
           record('leased', { port: 0 }),
           record('ended'),
           record('waiting'),
@@ -93,12 +93,12 @@ describe('RecordEgressConnectionsHandler', () => {
     ]);
   });
 
-  it('keeps the status of a forwarded request and the reason egress gives', async () => {
+  it('keeps the status of an injected request and the reason egress gives', async () => {
     const { handler, taken } = recording();
 
     await handler.execute(
       new RecordEgressConnectionsCommand(SHARED_TOKEN, [
-        record('leased', { outcome: 'forwarded', status: 401 }),
+        record('leased', { outcome: 'injected', status: 401 }),
         record('leased', { outcome: 'blocked', reason: 'not-bound' }),
         record('leased'),
       ]),
@@ -107,9 +107,9 @@ describe('RecordEgressConnectionsHandler', () => {
     expect(
       taken.map(({ outcome, status, reason }) => ({ outcome, status, reason })),
     ).toEqual([
-      { outcome: 'forwarded', status: 401, reason: null },
+      { outcome: 'injected', status: 401, reason: null },
       { outcome: 'blocked', status: null, reason: 'not-bound' },
-      { outcome: 'tunnelled', status: null, reason: null },
+      { outcome: 'passthrough', status: null, reason: null },
     ]);
   });
 

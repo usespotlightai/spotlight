@@ -356,7 +356,7 @@ class Compiler {
           path: this.path,
           at: place.field,
           reason:
-            'reads a secret’s value. No expression may read a secret. Please name the secret in auth.secrets, and Spotlight wears it toward the hosts it is bound to',
+            'reads a secret’s value. No expression may read a secret. Please name the secret in auth.secrets, and Spotlight injects it for the hosts it is bound to',
         }),
       );
 
@@ -757,7 +757,7 @@ const describedSourceOf = (
     document,
     baseUrl: written.kind === 'openapi' ? (written.file.baseUrl ?? null) : null,
     depth: written.kind === 'graphql' ? (written.file.depth ?? null) : null,
-    wears:
+    injectedSecrets:
       auth?.kind === 'secrets'
         ? auth.secrets.map((each) => SecretName.of(each))
         : [],

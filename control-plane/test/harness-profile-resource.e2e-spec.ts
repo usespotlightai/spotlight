@@ -311,8 +311,8 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     ]);
   });
 
-  describe('wearing a secret in an MCP server’s env', () => {
-    const WEARING = {
+  describe('a secret reference in the env of an MCP server', () => {
+    const WITH_SECRET = {
       ...CAREFUL,
       mcpServers: [
         {
@@ -346,7 +346,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     });
 
     it('refuses a secret the workspace does not have, where it is named', async () => {
-      const refused = await create(WEARING);
+      const refused = await create(WITH_SECRET);
 
       expect(refused.status).toBe(422);
       expect(refused.body.errors).toEqual([
@@ -361,7 +361,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       const secret = await setSecret();
       expect(secret.status).toBe(201);
 
-      const made = await create(WEARING);
+      const made = await create(WITH_SECRET);
       expect(made.status).toBe(201);
       expect(made.body.mcpServers[0].env.LINEAR_API_KEY).toBe(
         'secret.LINEAR_API_KEY',
@@ -371,7 +371,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
         .get<StationProfilesPort>(STATION_PROFILES)
         .named(TeamId.of(teamId), 'careful');
       const ready = stored ? ReadyProfileMapper.toReady(stored) : null;
-      expect(ready?.wears.map((each) => each.value)).toEqual([
+      expect(ready?.injectedSecrets.map((each) => each.value)).toEqual([
         'LINEAR_API_KEY',
       ]);
       expect(ready?.mcpServers[0]?.env).toEqual({

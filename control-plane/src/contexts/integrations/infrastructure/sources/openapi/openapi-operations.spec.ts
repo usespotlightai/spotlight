@@ -180,7 +180,7 @@ describe('openapiOperations', () => {
     ]);
   });
 
-  it('wears a connection only toward the host the description came from, unless a baseUrl names one', () => {
+  it('injects a connection only for the host the description came from, unless a baseUrl names one', () => {
     const elsewhere = {
       ...PETSTORE,
       servers: [{ url: 'https://api.elsewhere.example' }],
@@ -188,7 +188,7 @@ describe('openapiOperations', () => {
 
     expect(read(elsewhere, { ...AT, connected: true }).operations).toEqual([]);
     expect(read(elsewhere, { ...AT, connected: true }).passedOver[0]).toBe(
-      'passes over updatePet. It calls api.elsewhere.example. The connection is worn only toward the host of the description or the host that baseUrl names',
+      'passes over updatePet. It calls api.elsewhere.example. Spotlight injects the token of the connection only for the host of the description or the host that baseUrl names',
     );
     expect(read(PETSTORE, { ...AT, connected: true }).operations).toHaveLength(
       7,

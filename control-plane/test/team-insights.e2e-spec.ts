@@ -551,8 +551,8 @@ describe('the team’s insights (e2e)', () => {
         frontier: [],
       }),
     ]);
-    expect(all.body.judgeWithheld).toBe('no_station');
-    expect(medium.body.judgeWithheld).toBeNull();
+    expect(all.body.judgeOmitted).toBe('no_station');
+    expect(medium.body.judgeOmitted).toBeNull();
     expect(medium.body.setups[0].judge).toEqual({ mean: null, judged: 0 });
     expect(all.body.sizes.map((each: { size: string }) => each.size)).toEqual([
       'small',

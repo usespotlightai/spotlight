@@ -66,7 +66,7 @@ func (f *fakeEgress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}()
 	case r.Header.Get(protocol.EgressTargetHeader) != "":
 		f.forwarded = append(f.forwarded, r.Header.Get(protocol.EgressTargetHeader))
-		_, _ = fmt.Fprintf(w, "forwarded %s%s", r.Header.Get(protocol.EgressTargetHeader), r.URL.Path)
+		_, _ = fmt.Fprintf(w, "forwarded to %s%s", r.Header.Get(protocol.EgressTargetHeader), r.URL.Path)
 	case r.URL.Path == protocol.EgressBoundPath:
 		switch {
 		case f.refuse != 0:
@@ -153,7 +153,7 @@ func TestForwardsABoundHostToEgressWhateverTheHostHeaderSays(t *testing.T) {
 
 	status, body := r.get(t, "https://mcp.example.com/mcp", "evil.example.com")
 
-	if status != http.StatusOK || body != "forwarded mcp.example.com:443/mcp" {
+	if status != http.StatusOK || body != "forwarded to mcp.example.com:443/mcp" {
 		t.Errorf("answered %d: %s", status, body)
 	}
 	if len(r.egress.tunnelled()) != 0 {
@@ -195,7 +195,7 @@ func TestGoesDirectWhenTheDefaultIsOff(t *testing.T) {
 	if len(r.egress.tunnelled()) != 0 {
 		t.Errorf("tunnelled %v", r.egress.tunnelled())
 	}
-	if status, body := r.get(t, "https://mcp.example.com/", ""); status != http.StatusOK || !strings.HasPrefix(body, "forwarded") {
+	if status, body := r.get(t, "https://mcp.example.com/", ""); status != http.StatusOK || !strings.HasPrefix(body, "forwarded to") {
 		t.Errorf("a bound host was answered %d: %s", status, body)
 	}
 }

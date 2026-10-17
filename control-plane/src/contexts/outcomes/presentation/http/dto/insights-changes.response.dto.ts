@@ -9,7 +9,7 @@ import type {
 import type { JudgeShare } from '@outcomes/domain/services/judge-shares';
 import { RUN_SIZES, type SizeBound } from '@outcomes/domain/services/run-size';
 import {
-  JUDGE_WITHHELD_REASONS,
+  JUDGE_OMITTED_REASONS,
   OUTCOME_MEASURES,
 } from '@outcomes/domain/services/setup-comparison';
 import {
@@ -398,12 +398,12 @@ export class InsightsSetupsResponseDto {
   readonly setups: readonly SetupOutcomeResponseDto[];
 
   @ApiProperty({
-    enum: [...JUDGE_WITHHELD_REASONS, null],
+    enum: [...JUDGE_OMITTED_REASONS, null],
     nullable: true,
     description:
       'Why no judge scores are compared: no_station where the comparison spans stations, whose judges each score against their own rubric',
   })
-  readonly judgeWithheld: string | null;
+  readonly judgeOmitted: string | null;
 
   @ApiProperty({
     type: StationJudgeCalibrationResponseDto,
@@ -423,7 +423,7 @@ export class InsightsSetupsResponseDto {
     this.setups = setups.setups.map(
       (each) => new SetupOutcomeResponseDto(each),
     );
-    this.judgeWithheld = setups.judgeWithheld;
+    this.judgeOmitted = setups.judgeOmitted;
     this.judges = setups.judges.map(
       (each) => new StationJudgeCalibrationResponseDto(each),
     );

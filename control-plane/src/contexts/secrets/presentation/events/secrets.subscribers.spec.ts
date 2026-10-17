@@ -1,6 +1,6 @@
 import { AbandonWorkspaceSecrets } from '@secrets/application/services/abandon-workspace-secrets.service';
 import { ForgetRunGrants } from '@secrets/application/services/forget-run-grants.service';
-import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
+import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
@@ -53,7 +53,7 @@ const setUp = async () => {
     keys: { forget: async (workspaceId) => void forgotten.push(workspaceId) },
     runGrants: new ForgetRunGrants(
       grants,
-      new RunGrantsKept(grants),
+      new RunGrantsUnitOfWork(grants),
       clockAt(),
       new RecordingLogger(),
     ),

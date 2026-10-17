@@ -592,14 +592,14 @@ func (c *Client) RenewCheckLease(ctx context.Context, runID, stackID string, rec
 	return out.Stop, nil
 }
 
-func (c *Client) RedeemEgress(ctx context.Context, recipient string) (protocol.EgressRedemption, error) {
-	var redeemed protocol.EgressRedemption
-	asked := protocol.EgressRedeem{Recipient: recipient}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/redeem", asked, &redeemed); err != nil {
-		return protocol.EgressRedemption{}, fmt.Errorf("redeem the run's secrets: %w", err)
+func (c *Client) FetchRunSecrets(ctx context.Context, recipient string) (protocol.EgressSecrets, error) {
+	var fetched protocol.EgressSecrets
+	asked := protocol.EgressSecretsRequest{Recipient: recipient}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/secrets", asked, &fetched); err != nil {
+		return protocol.EgressSecrets{}, fmt.Errorf("fetch the run's secrets: %w", err)
 	}
 
-	return redeemed, nil
+	return fetched, nil
 }
 
 func (c *Client) AdmitEgress(ctx context.Context, proxyCredential string) (protocol.EgressAdmitted, error) {
@@ -612,16 +612,16 @@ func (c *Client) AdmitEgress(ctx context.Context, proxyCredential string) (proto
 	return admitted, nil
 }
 
-func (c *Client) RedeemEgressFor(
+func (c *Client) FetchRunSecretsFor(
 	ctx context.Context, proxyCredential, recipient string,
-) (protocol.EgressRedemption, error) {
-	var redeemed protocol.EgressRedemption
-	asked := protocol.EgressRedeem{ProxyCredential: proxyCredential, Recipient: recipient}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/redeem", asked, &redeemed); err != nil {
-		return protocol.EgressRedemption{}, fmt.Errorf("redeem a run's secrets: %w", err)
+) (protocol.EgressSecrets, error) {
+	var fetched protocol.EgressSecrets
+	asked := protocol.EgressSecretsRequest{ProxyCredential: proxyCredential, Recipient: recipient}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/secrets", asked, &fetched); err != nil {
+		return protocol.EgressSecrets{}, fmt.Errorf("fetch a run's secrets: %w", err)
 	}
 
-	return redeemed, nil
+	return fetched, nil
 }
 
 func (c *Client) ActiveRuns(ctx context.Context, proxyCredentials []string) ([]string, error) {

@@ -40,7 +40,7 @@ export const connectionsOf = (
 
 interface TracedConnection {
   readonly connection: RunConnection;
-  readonly times: number;
+  readonly count: number;
 }
 
 export interface TraceNode {
@@ -54,7 +54,7 @@ export interface TraceNode {
   readonly span: RunSpan | null;
   readonly cost: Money | null;
   readonly connection: TracedConnection | null;
-  readonly egress: EgressEnforcement | null;
+  readonly egressEnforcement: EgressEnforcement | null;
   readonly children: readonly TraceNode[];
 }
 
@@ -100,7 +100,7 @@ const nodeOfStep = (step: JournalStep, id: string): TraceNode => ({
   span: null,
   cost: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children: [],
 });
 
@@ -121,7 +121,7 @@ const nodeOfSpan = (
   span,
   cost: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children,
 });
 
@@ -279,8 +279,8 @@ const nodeOfGroup = ({ first, all }: Group, until: Date): TraceNode => ({
   step: null,
   span: null,
   cost: null,
-  connection: { connection: first.connection, times: all.length },
-  egress: null,
+  connection: { connection: first.connection, count: all.length },
+  egressEnforcement: null,
   children: [],
 });
 
@@ -375,14 +375,14 @@ const runNode = (run: WorkedRun): TraceNode => {
     span: null,
     cost: null,
     connection: null,
-    egress: null,
+    egressEnforcement: null,
     children: nodes.filter((node) => inside(node)?.id === phase.id),
   }));
 
   const loose = nodes.filter((node) => !inside(node));
 
   const arriving = run.connections
-    .filter((each) => each.wentWrong)
+    .filter((each) => each.isError)
     .sort((one, other) => at(one.at) - at(other.at))
     .map((connection, index) => ({
       id: `${run.id.value}:connection:${index}`,
@@ -401,7 +401,7 @@ const runNode = (run: WorkedRun): TraceNode => {
       span: null,
       cost: journal?.spent?.cost ?? null,
       connection: null,
-      egress: journal?.egress ?? null,
+      egressEnforcement: journal?.egressEnforcement ?? null,
       children: [...phased, ...loose].sort(
         (one, other) => at(one.from) - at(other.from),
       ),

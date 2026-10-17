@@ -20,6 +20,7 @@ import { EgressToken } from '@runners/domain/value-objects/egress-token.vo';
 import { EgressTokenUsage } from '@runners/domain/value-objects/egress-token-usage.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
+import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostImage } from '@runners/domain/value-objects/host-image.vo';
@@ -41,7 +42,6 @@ import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-poo
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
-import { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
@@ -56,6 +56,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   EgressToken,
   EgressTokenUsage,
   EgressUrl,
+  EncryptedProvisionSecret,
   HarnessVersion,
   HostId,
   HostImage,
@@ -75,7 +76,6 @@ export const RUNNERS_PAYLOAD_TYPES = [
   RunnerPoolId,
   RunnerLabels,
   RunnerTrustId,
-  SealedProvisionSecret,
   TrustKey,
   TrustedWorkload,
   WorkspaceRunnersId,

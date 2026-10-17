@@ -31,7 +31,7 @@ const NOTES: Record<string, TaskNote> = {
     path: 'services/billing/refunds.ts',
   },
   task_coupons: {
-    pass: 'Expires unused coupons in a nightly job and leaves redeemed ones alone.',
+    pass: 'Expires unused coupons in a nightly job and leaves used ones alone.',
     fail: 'Expired coupons that customers had already applied to an open invoice.',
     path: 'services/billing/coupons.ts',
   },

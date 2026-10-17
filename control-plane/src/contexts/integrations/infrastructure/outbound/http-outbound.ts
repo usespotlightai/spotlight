@@ -19,7 +19,7 @@ import {
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import type { Bindings } from '@platform/expressions/bindings';
 import { isTrue, value } from '@platform/expressions/readings';
-import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
+import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 
 export interface OutboundResult {
@@ -46,7 +46,7 @@ type Fetch = typeof globalThis.fetch;
 
 interface Dispatched {
   readonly reply: Response;
-  readonly worn: WornSecrets;
+  readonly injected: InjectedSecrets;
 }
 
 export const MAX_ANSWER_BYTES = 4 * 1024 * 1024;
@@ -77,8 +77,8 @@ export class HttpOutbound {
       return { ok: false, status: 0, response: null, capture: {} };
     }
 
-    const { reply, worn } = sent;
-    const response = worn.redactedIn(await parse(reply));
+    const { reply, injected } = sent;
+    const response = injected.redactedIn(await parse(reply));
     const status = reply.status;
     const beside: Bindings = { ...against, response, status };
 
@@ -129,7 +129,7 @@ export class HttpOutbound {
     connection: string | null,
     credentials: Credentials,
   ): Promise<Answered> {
-    const { reply, worn } = await this.dispatch(
+    const { reply, injected } = await this.dispatch(
       request,
       auth,
       connection,
@@ -140,7 +140,7 @@ export class HttpOutbound {
     return {
       ok: status >= 200 && status < 300,
       status,
-      response: worn.redactedIn(
+      response: injected.redactedIn(
         parsed(
           await cappedText(
             reply,
@@ -211,7 +211,7 @@ export class HttpOutbound {
     connection: string | null,
     credentials: Credentials,
   ): Promise<Dispatched> {
-    let worn = WornSecrets.none();
+    let injected = InjectedSecrets.none();
 
     try {
       const { reply } = await followed(
@@ -221,7 +221,7 @@ export class HttpOutbound {
         async (hop): Promise<Dressed> => {
           if (!sameHost(hop.url, request.url)) {
             return {
-              url: worn.redact(hop.url),
+              url: injected.redact(hop.url),
               headers: Object.fromEntries(
                 Object.entries(request.headers).filter(
                   ([name]) => name.toLowerCase() !== 'authorization',
@@ -232,7 +232,7 @@ export class HttpOutbound {
 
           const url = new URL(hop.url);
           const headers = { ...request.headers };
-          worn = await this.authorize(
+          injected = await this.authorize(
             auth,
             connection,
             url,
@@ -244,15 +244,15 @@ export class HttpOutbound {
         },
       );
 
-      return { reply, worn };
+      return { reply, injected };
     } catch (error) {
-      if (worn.isEmpty || error instanceof OutboundRefusedError) {
+      if (injected.isEmpty || error instanceof OutboundRefusedError) {
         throw error;
       }
 
       throw new UpstreamRefusedError(
         `reaching ${new URL(request.url).host}`,
-        worn.redact(error instanceof Error ? error.message : String(error)),
+        injected.redact(error instanceof Error ? error.message : String(error)),
       );
     }
   }
@@ -287,19 +287,19 @@ export class HttpOutbound {
     url: URL,
     headers: Record<string, string>,
     credentials: Credentials,
-  ): Promise<WornSecrets> {
+  ): Promise<InjectedSecrets> {
     if (auth?.kind === 'oauth2' && connection) {
       headers.authorization = `Bearer ${connection}`;
     }
 
     if (auth?.kind !== 'secrets') {
-      return WornSecrets.none();
+      return InjectedSecrets.none();
     }
 
-    const worn = await credentials.wornToward(url.href, auth.secrets);
-    worn.applyTo({ url, headers });
+    const injected = await credentials.injectedFor(url.href, auth.secrets);
+    injected.applyTo({ url, headers });
 
-    return worn;
+    return injected;
   }
 }
 

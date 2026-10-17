@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { TraceConnectionDto } from '@work/application/dto/task-trace.dto';
 import {
+  CONNECTION_ERRORS,
   CONNECTION_OUTCOMES,
   CONNECTION_REASONS,
-  CONNECTION_TROUBLES,
 } from '@work/domain/value-objects/run-connection.vo';
 import {
   JournalStepResponseDto,
@@ -23,7 +23,7 @@ export class TraceConnectionResponseDto {
   @ApiProperty({
     enum: CONNECTION_OUTCOMES,
     description:
-      'blocked: egress stopped it. failed: egress could not open it. forwarded: the host refused or failed a request egress added a secret to',
+      'blocked: egress stopped it. failed: egress could not open it. injected: the host refused or failed a request that egress injected a secret into',
   })
   readonly outcome: string;
 
@@ -31,7 +31,7 @@ export class TraceConnectionResponseDto {
     type: Number,
     nullable: true,
     example: 401,
-    description: 'The status the host answered a forwarded request with',
+    description: 'The status the host answered an injected request with',
   })
   readonly status: number | null;
 
@@ -43,19 +43,19 @@ export class TraceConnectionResponseDto {
   readonly reason: string | null;
 
   @ApiProperty({
-    enum: [...CONNECTION_TROUBLES, null],
+    enum: [...CONNECTION_ERRORS, null],
     nullable: true,
     description:
-      'What went wrong. blocked: egress stopped it. failed: egress could not open it. refused: the host answered a forwarded request with 401 or 403. server-error: the host answered it with 500 or more. null: nothing went wrong',
+      'The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error',
   })
-  readonly trouble: string | null;
+  readonly error: string | null;
 
   @ApiProperty({
     example: 3,
     description:
-      'How many times the same thing went wrong in this row. The row starts at the first time',
+      'How many times the same error occurred in this row. The row starts at the first time',
   })
-  readonly times: number;
+  readonly count: number;
 
   constructor(connection: TraceConnectionDto) {
     this.host = connection.host;
@@ -63,8 +63,8 @@ export class TraceConnectionResponseDto {
     this.outcome = connection.outcome;
     this.status = connection.status;
     this.reason = connection.reason;
-    this.trouble = connection.trouble;
-    this.times = connection.times;
+    this.error = connection.error;
+    this.count = connection.count;
   }
 }
 
@@ -107,7 +107,7 @@ export class TraceNodeResponseDto {
     nullable: true,
     type: () => TraceConnectionResponseDto,
     description:
-      'On a connection row: a connection of the run that went wrong, as a shared egress recorded it',
+      'On a connection row: a connection of the run with an error, as a shared egress recorded it',
   })
   readonly connection: TraceConnectionResponseDto | null;
 
@@ -117,7 +117,7 @@ export class TraceNodeResponseDto {
     description:
       'On a run row: what the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check',
   })
-  readonly egress: 'enforced' | 'not-enforced' | null;
+  readonly egressEnforcement: 'enforced' | 'not-enforced' | null;
 
   @ApiProperty({ type: () => [TraceNodeResponseDto] })
   readonly children: TraceNodeResponseDto[];
@@ -134,7 +134,7 @@ export class TraceNodeResponseDto {
     step: JournalStepResponseDto | null,
     span: RunSpanResponseDto | null,
     connection: TraceConnectionResponseDto | null,
-    egress: 'enforced' | 'not-enforced' | null,
+    egressEnforcement: 'enforced' | 'not-enforced' | null,
     children: TraceNodeResponseDto[],
   ) {
     this.id = id;
@@ -148,7 +148,7 @@ export class TraceNodeResponseDto {
     this.step = step;
     this.span = span;
     this.connection = connection;
-    this.egress = egress;
+    this.egressEnforcement = egressEnforcement;
     this.children = children;
   }
 }

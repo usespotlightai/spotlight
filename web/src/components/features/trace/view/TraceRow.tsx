@@ -76,12 +76,12 @@ export const TraceRow = memo(function TraceRow({
           {node.name}
         </button>
 
-        {node.connection && node.connection.times > 1 && (
+        {node.connection && node.connection.count > 1 && (
           <span className="ml-1 shrink-0 text-muted-foreground text-xs tabular-nums">
-            ×{node.connection.times}
+            ×{node.connection.count}
           </span>
         )}
-        {node.egress === 'not-enforced' && <TraceEgressMark />}
+        {node.egressEnforcement === 'not-enforced' && <TraceEgressMark />}
         {runId && <TraceRunVerdict teamId={teamId} runId={runId} />}
       </div>
 

@@ -1,6 +1,6 @@
+import type { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import type { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const PROVISION_SECRETS = Symbol('PROVISION_SECRETS');
@@ -11,14 +11,14 @@ export interface SecretHolder {
 }
 
 export interface ProvisionSecretsPort {
-  sealed(
+  encrypt(
     holder: SecretHolder,
     secret: ProvisionSecret,
-  ): Promise<SealedProvisionSecret>;
+  ): Promise<EncryptedProvisionSecret>;
 
-  // Throws ProvisionSecretUnopenableError when this deployment's keys cannot open it.
-  opened(
+  // Throws ProvisionSecretDecryptionFailedError when the keys of this deployment cannot decrypt it.
+  decrypt(
     holder: SecretHolder,
-    sealed: SealedProvisionSecret,
+    ciphertext: EncryptedProvisionSecret,
   ): Promise<ProvisionSecret>;
 }

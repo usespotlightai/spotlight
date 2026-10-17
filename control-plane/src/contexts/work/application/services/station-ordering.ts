@@ -30,8 +30,8 @@ import {
   type RunOrder,
 } from '@work/domain/services/run-order';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import type { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import {
   type ReadyProfile,
   withoutServers,
@@ -86,21 +86,21 @@ const laidOut = (
 });
 
 interface Readying {
-  withheld(
+  denied(
     station: Station,
-    withheld: readonly CatalogWithheld[],
-  ): readonly CatalogWithheld[];
+    denied: readonly DeniedCatalogItem[],
+  ): readonly DeniedCatalogItem[];
   profile(profile: ReadyProfile): ReadyProfile;
 }
 
 const AS_A_TASK_RUN: Readying = {
-  withheld: (_station, withheld) => withheld,
+  denied: (_station, denied) => denied,
   profile: (profile) => profile,
 };
 
 const AS_A_REPLAY: Readying = {
-  withheld: (station, withheld) =>
-    withheld.filter(
+  denied: (station, denied) =>
+    denied.filter(
       (each) => !station.tools.some((tool) => tool.value === each.id),
     ),
   profile: withoutServers,
@@ -140,8 +140,8 @@ export class StationOrdering {
       harnesses: this.harnesses,
       ready: ready.map(ReadySkillMapper.toReady),
       profiles: await this.profilesAt(line, station),
-      withheld:
-        station && catalog ? readying.withheld(station, catalog.withheld) : [],
+      denied:
+        station && catalog ? readying.denied(station, catalog.denied) : [],
     });
 
     if (!order) {

@@ -19,7 +19,7 @@ const (
 	bound   = "spotlight:egress:v1"
 )
 
-var ErrUnopenable = errors.New("the sealed value does not open with this run's key")
+var ErrDecryptionFailed = errors.New("the sealed value does not decrypt with this run's key")
 
 type Key struct {
 	private *ecdh.PrivateKey
@@ -41,14 +41,14 @@ func (k *Key) Recipient() string {
 func (k *Key) Open(sealed, runID, secret string) (string, error) {
 	parts := strings.Split(sealed, ".")
 	if len(parts) != 5 || parts[0] != version {
-		return "", ErrUnopenable
+		return "", ErrDecryptionFailed
 	}
 
 	decoded := make([][]byte, 4)
 	for at, part := range parts[1:] {
 		raw, err := base64.StdEncoding.DecodeString(part)
 		if err != nil {
-			return "", ErrUnopenable
+			return "", ErrDecryptionFailed
 		}
 		decoded[at] = raw
 	}
@@ -56,31 +56,31 @@ func (k *Key) Open(sealed, runID, secret string) (string, error) {
 
 	ephemeral, err := ecdh.X25519().NewPublicKey(ephemeralRaw)
 	if err != nil {
-		return "", ErrUnopenable
+		return "", ErrDecryptionFailed
 	}
 	shared, err := k.private.ECDH(ephemeral)
 	if err != nil {
-		return "", ErrUnopenable
+		return "", ErrDecryptionFailed
 	}
 
 	salt := append(append([]byte{}, ephemeralRaw...), k.private.PublicKey().Bytes()...)
 	key, err := hkdf.Key(sha256.New, shared, salt, info, 32)
 	if err != nil {
-		return "", ErrUnopenable
+		return "", ErrDecryptionFailed
 	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return "", ErrUnopenable
+		return "", ErrDecryptionFailed
 	}
 	aead, err := cipher.NewGCM(block)
 	if err != nil || len(nonce) != aead.NonceSize() {
-		return "", ErrUnopenable
+		return "", ErrDecryptionFailed
 	}
 
 	plain, err := aead.Open(nil, nonce, append(encrypted, tag...), []byte(bound+"\x00"+runID+"\x00"+secret))
 	if err != nil {
-		return "", ErrUnopenable
+		return "", ErrDecryptionFailed
 	}
 
 	return string(plain), nil

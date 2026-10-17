@@ -302,7 +302,7 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('refers to the secrets an integration wears, and leaves a secret it does not have as written', () => {
+  it('refers to the secrets that an integration names, and leaves a secret it does not have as written', () => {
     const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
@@ -326,10 +326,10 @@ describe('workspaceTerraform', () => {
         '  }',
         '  bindings = [',
         '    {',
-        '      carrier = "header"',
-        '      host    = "api.linear.app"',
-        '      name    = "authorization"',
-        '      prefix  = "Bearer "',
+        '      host     = "api.linear.app"',
+        '      location = "header"',
+        '      name     = "authorization"',
+        '      prefix   = "Bearer "',
         '    },',
         '  ]',
         '  value_wo         = var.secret_linear_api_key',
@@ -598,7 +598,7 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes a harness profile as its settings, its MCP servers’ env as it is but for the secrets it wears, which refer to them', () => {
+  it('writes a harness profile as its settings, its MCP servers’ env as it is but for the secrets it uses, which refer to them', () => {
     expect(mainOf(CONFIGURATION)).toContain(
       [
         'resource "spotlight_harness_profile" "core_careful" {',

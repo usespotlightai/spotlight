@@ -19,7 +19,7 @@ const connection = (host: string) =>
     bytesOut: 10,
     bytesIn: 20,
     ms: 5,
-    outcome: 'tunnelled',
+    outcome: 'passthrough',
     status: null,
     reason: null,
     at: AT,
@@ -44,7 +44,7 @@ const reading = (checked: string | null, visible = true) => {
       { attempt: 1, connection: connection('old.example.com') },
       { attempt: 2, connection: connection('registry.npmjs.org') },
     ],
-    wentWrongIn: async () => [],
+    errorsIn: async () => [],
     forgetBefore: async () => 0,
   } satisfies RunConnectionsPort;
 
@@ -63,7 +63,7 @@ describe('ReadRunNetworkHandler', () => {
     ).resolves.toEqual({
       runId: 'run_1',
       attempt: 2,
-      egress: 'enforced',
+      egressEnforcement: 'enforced',
       connections: [
         {
           host: 'registry.npmjs.org',
@@ -71,10 +71,10 @@ describe('ReadRunNetworkHandler', () => {
           bytesOut: 10,
           bytesIn: 20,
           ms: 5,
-          outcome: 'tunnelled',
+          outcome: 'passthrough',
           status: null,
           reason: null,
-          trouble: null,
+          error: null,
           at: AT.toISOString(),
         },
       ],
@@ -83,7 +83,7 @@ describe('ReadRunNetworkHandler', () => {
   });
 
   it('reads egress not enforced, or no check at all', async () => {
-    for (const [checked, egress] of [
+    for (const [checked, egressEnforcement] of [
       [told({ enforced: false }), 'not-enforced'],
       [null, null],
       [told({ enforced: 'yes' }), null],
@@ -93,7 +93,7 @@ describe('ReadRunNetworkHandler', () => {
         reading(checked).handler.execute(
           new ReadRunNetworkQuery('run_1', 'user_1'),
         ),
-      ).resolves.toMatchObject({ egress });
+      ).resolves.toMatchObject({ egressEnforcement });
     }
   });
 

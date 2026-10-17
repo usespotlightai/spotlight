@@ -30,7 +30,7 @@ const withoutValue = (definition: unknown): unknown => {
     return definition;
   }
 
-  const { valueWo: _withheld, ...rest } = definition as Record<string, unknown>;
+  const { valueWo: _valueWo, ...rest } = definition as Record<string, unknown>;
 
   return rest;
 };

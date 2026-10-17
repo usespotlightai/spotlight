@@ -151,7 +151,7 @@ export class WorkMemoryDrafts implements OwedWorkPort {
     } catch (error) {
       if (error instanceof MemoryDraftingError) {
         return draft.failed(
-          MemoryDraftingFailure.of(error.trouble, this.clock.now()),
+          MemoryDraftingFailure.of(error.kind, this.clock.now()),
         );
       }
       throw error;

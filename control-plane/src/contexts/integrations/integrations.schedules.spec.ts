@@ -155,7 +155,7 @@ describe('RunSchedules', () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it('lets the call wear the workspace’s secrets as Spotlight’s own', async () => {
+  it('lets the call inject the workspace’s secrets as Spotlight’s own', async () => {
     const { injection, forSpotlight } = injecting({
       LINEAR_TOKEN: { host: 'api.linear.app', value: 'lin-1' },
     });
@@ -182,7 +182,7 @@ describe('RunSchedules', () => {
     ).runDue();
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
-    await credentials.wornToward('https://api.linear.app/digest', [
+    await credentials.injectedFor('https://api.linear.app/digest', [
       'LINEAR_TOKEN',
     ]);
 

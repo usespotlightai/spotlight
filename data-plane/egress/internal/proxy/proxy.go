@@ -24,11 +24,11 @@ type Allowed interface {
 	Names(host string) bool
 }
 
-type Wearing interface {
-	Wears(host string) bool
-	Onto(host string, r *http.Request)
-	OntoPlain(host, port string, r *http.Request)
-	Unwear(host string, response *http.Response)
+type Injector interface {
+	InjectsFor(host string) bool
+	Inject(host string, r *http.Request)
+	InjectPlain(host, port string, r *http.Request)
+	Redact(host string, response *http.Response)
 }
 
 type Certificates interface {
@@ -37,7 +37,7 @@ type Certificates interface {
 
 type Proxy struct {
 	allowed      Allowed
-	wearing      Wearing
+	injector     Injector
 	certificates Certificates
 	credential   string
 	log          *slog.Logger
@@ -45,12 +45,12 @@ type Proxy struct {
 	transport    *http.Transport
 }
 
-func New(allowed Allowed, wearing Wearing, certificates Certificates, credential string, log *slog.Logger) *Proxy {
+func New(allowed Allowed, injector Injector, certificates Certificates, credential string, log *slog.Logger) *Proxy {
 	dialer := guard.Dialer()
 
 	return &Proxy{
 		allowed:      allowed,
-		wearing:      wearing,
+		injector:     injector,
 		certificates: certificates,
 		credential:   credential,
 		log:          log,
@@ -112,7 +112,7 @@ func (p *Proxy) connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if port == "443" && p.wearing.Wears(host) {
+	if port == "443" && p.injector.InjectsFor(host) {
 		p.intercept(w, r, host, target)
 		return
 	}
@@ -150,13 +150,13 @@ func (p *Proxy) tunnel(w http.ResponseWriter, r *http.Request, host, target stri
 func (p *Proxy) intercept(w http.ResponseWriter, r *http.Request, host, target string) {
 	certificate, err := p.certificates.For(host)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Egress couldn't stand in for %s. Error: %v", host, err), http.StatusBadGateway)
+		http.Error(w, fmt.Sprintf("Egress could not intercept TLS for %s. Error: %v", host, err), http.StatusBadGateway)
 		return
 	}
 
 	client, buffered, err := tunnel.Hijack(w)
 	if err != nil {
-		p.log.Warn("could not take over a connection to wear secrets on it", "error", err)
+		p.log.Warn("could not take over a connection to inject secrets into it", "error", err)
 		return
 	}
 
@@ -172,14 +172,14 @@ func (p *Proxy) intercept(w http.ResponseWriter, r *http.Request, host, target s
 	})
 
 	server := &http.Server{
-		Handler:           p.wearingTo(host, target),
+		Handler:           p.injectingTo(host, target),
 		ReadHeaderTimeout: time.Minute,
 		ErrorLog:          slog.NewLogLogger(p.log.Handler(), slog.LevelDebug),
 	}
 	_ = server.Serve(tunnel.One(secured))
 }
 
-func (p *Proxy) wearingTo(host, target string) http.Handler {
+func (p *Proxy) injectingTo(host, target string) http.Handler {
 	authority := target
 	if strings.HasSuffix(target, ":443") {
 		authority = host
@@ -193,10 +193,10 @@ func (p *Proxy) wearingTo(host, target string) http.Handler {
 			out.Out.Host = authority
 			out.Out.Header.Del("Proxy-Authorization")
 			out.Out.Header.Del("Accept-Encoding")
-			p.wearing.Onto(host, out.Out)
+			p.injector.Inject(host, out.Out)
 		},
 		ModifyResponse: func(response *http.Response) error {
-			p.wearing.Unwear(host, response)
+			p.injector.Redact(host, response)
 			return nil
 		},
 		Transport:     p.transport,
@@ -219,10 +219,10 @@ func (p *Proxy) forward(w http.ResponseWriter, r *http.Request) {
 			out.Out.Host = out.In.URL.Host
 			out.Out.Header.Del("Proxy-Authorization")
 			out.Out.Header.Del("Proxy-Connection")
-			p.wearing.OntoPlain(host, portOf(out.In.URL), out.Out)
+			p.injector.InjectPlain(host, portOf(out.In.URL), out.Out)
 		},
 		ModifyResponse: func(response *http.Response) error {
-			p.wearing.Unwear(host, response)
+			p.injector.Redact(host, response)
 			return nil
 		},
 		Transport:     p.transport,

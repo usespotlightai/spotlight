@@ -9,7 +9,7 @@ import { hostConnection } from '@integrations/infrastructure/persistence/drizzle
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
-import type { CredentialSealingPort } from '@secrets/application/ports/credential-sealing.port';
+import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -42,7 +42,7 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
-    private readonly sealing: CredentialSealingPort,
+    private readonly encryption: CredentialEncryptionPort,
   ) {}
 
   async of(
@@ -102,13 +102,13 @@ export class DrizzleHostConnections implements HostConnectionRepository {
 
   private async stored(connection: HostConnection): Promise<void> {
     const written = {
-      accessToken: await this.sealed(
+      accessToken: await this.encrypted(
         connection,
         'access',
         connection.accessToken.value,
       ),
       refreshToken: connection.refreshToken
-        ? await this.sealed(
+        ? await this.encrypted(
             connection,
             'refresh',
             connection.refreshToken.value,
@@ -160,12 +160,12 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     }
   }
 
-  private sealed(
+  private encrypted(
     connection: HostConnection,
     kind: TokenKind,
     plain: string,
   ): Promise<string> {
-    return this.sealing.seal(
+    return this.encryption.encrypt(
       connection.workspaceId.value,
       labelFor(
         connection.teamId.value,
@@ -177,16 +177,16 @@ export class DrizzleHostConnections implements HostConnectionRepository {
     );
   }
 
-  private async opened(
+  private async decrypted(
     row: Row,
     kind: TokenKind,
-    sealed: string,
+    ciphertext: string,
   ): Promise<string> {
     return (
-      await this.sealing.open(
+      await this.encryption.decrypt(
         row.workspaceId,
         labelFor(row.teamId, row.source, row.holder, kind),
-        sealed,
+        ciphertext,
       )
     ).revealed();
   }
@@ -198,10 +198,10 @@ export class DrizzleHostConnections implements HostConnectionRepository {
       source: SourceKey.of(row.source),
       holder: ConnectionHolder.fromKey(row.holder),
       accessToken: AccessToken.of(
-        await this.opened(row, 'access', row.accessToken),
+        await this.decrypted(row, 'access', row.accessToken),
       ),
       refreshToken: row.refreshToken
-        ? AccessToken.of(await this.opened(row, 'refresh', row.refreshToken))
+        ? AccessToken.of(await this.decrypted(row, 'refresh', row.refreshToken))
         : null,
       expiresAt: row.expiresAt,
       scopes: row.scopes ? row.scopes.split(' ') : [],

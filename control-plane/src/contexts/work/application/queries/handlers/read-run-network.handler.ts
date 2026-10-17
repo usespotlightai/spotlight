@@ -41,7 +41,7 @@ export class ReadRunNetworkHandler
       return {
         runId: found.id,
         attempt: found.attempt,
-        egress: enforcementTold(checked?.data),
+        egressEnforcement: enforcementTold(checked?.data),
         connections: recorded
           .filter((each) => each.attempt === found.attempt)
           .map(({ connection }) => ({
@@ -53,7 +53,7 @@ export class ReadRunNetworkHandler
             outcome: connection.outcome,
             status: connection.status,
             reason: connection.reason,
-            trouble: connection.trouble,
+            error: connection.error,
             at: connection.at.toISOString(),
           })),
       };

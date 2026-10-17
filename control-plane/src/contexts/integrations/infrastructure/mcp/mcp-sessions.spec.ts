@@ -12,16 +12,16 @@ import {
 } from '@integrations/infrastructure/mcp/mcp-server.fake-spec';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
+import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const wearingKey = {
+const injectingKey = {
   connection: null,
   secrets: ['TRACKER_KEY'],
   credentials: {
-    wornToward: async () =>
-      WornSecrets.of([
-        { carrier: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
+    injectedFor: async () =>
+      InjectedSecrets.of([
+        { location: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
       ]),
   } as Credentials,
 };
@@ -38,11 +38,11 @@ const serving = async (
   };
 };
 
-const wearingNothing = {
+const injectingNothing = {
   connection: null,
   secrets: [],
   credentials: {
-    wornToward: async () => WornSecrets.none(),
+    injectedFor: async () => InjectedSecrets.none(),
   } as Credentials,
 };
 
@@ -61,7 +61,7 @@ describe('McpSessions', () => {
   });
 
   it('lists the tools a server offers, with their schemas and hints', async () => {
-    const tools = await sessions.tools(server.url, wearingNothing);
+    const tools = await sessions.tools(server.url, injectingNothing);
 
     expect(tools.map((each) => each.name)).toEqual([
       'search_issues',
@@ -80,7 +80,7 @@ describe('McpSessions', () => {
         server.url,
         'search_issues',
         { query: 'queue' },
-        wearingNothing,
+        injectingNothing,
       );
 
     await search('team_1:tracker:team:none');
@@ -95,13 +95,13 @@ describe('McpSessions', () => {
   it('gives each call in flight a session of its own, so a question is put down to the call it came in', async () => {
     const key = 'team_1:tracker:team:none';
     const [asking, searching] = await Promise.allSettled([
-      sessions.call(key, server.url, 'ask_first', {}, wearingNothing),
+      sessions.call(key, server.url, 'ask_first', {}, injectingNothing),
       sessions.call(
         key,
         server.url,
         'search_issues',
         { query: 'queue' },
-        wearingNothing,
+        injectingNothing,
       ),
     ]);
 
@@ -119,7 +119,7 @@ describe('McpSessions', () => {
       server.url,
       'search_issues',
       { query: 'queue' },
-      wearingNothing,
+      injectingNothing,
     );
 
     expect(server.heard.map((each) => each.method)).not.toContain('GET');
@@ -135,13 +135,13 @@ describe('McpSessions', () => {
         1_000,
       );
 
-      await idling.tools(server.url, wearingNothing);
+      await idling.tools(server.url, injectingNothing);
       await idling.call(
         'team_1:tracker:team:none',
         server.url,
         'search_issues',
         { query: 'queue' },
-        wearingNothing,
+        injectingNothing,
       );
       vi.advanceTimersByTime(1_001);
       vi.useRealTimers();
@@ -168,7 +168,7 @@ describe('McpSessions', () => {
           url,
           'search_issues',
           { query: 'queue' },
-          wearingNothing,
+          injectingNothing,
         );
 
       await search(server.url);
@@ -189,7 +189,7 @@ describe('McpSessions', () => {
         server.url,
         'search_issues',
         { query: 'queue' },
-        wearingNothing,
+        injectingNothing,
       );
 
     await search();
@@ -216,7 +216,7 @@ describe('McpSessions', () => {
           server.url,
           'search_issues',
           { query: 'queue' },
-          wearingNothing,
+          injectingNothing,
         );
 
       await search();
@@ -237,16 +237,16 @@ describe('McpSessions', () => {
         server.url,
         'ask_first',
         {},
-        wearingNothing,
+        injectingNothing,
       ),
     ).rejects.toBeInstanceOf(McpQuestionRefused);
   });
 
-  it('wears the connection and the secrets only toward the server', async () => {
-    const wornToward = vi.fn(async () =>
-      WornSecrets.of([
+  it('injects the connection and the secrets only for the server', async () => {
+    const injectedFor = vi.fn(async () =>
+      InjectedSecrets.of([
         {
-          carrier: 'header',
+          location: 'header',
           name: 'x-api-key',
           value: 'tk_live',
           bare: 'tk_live',
@@ -262,7 +262,7 @@ describe('McpSessions', () => {
       {
         connection: 'the-token',
         secrets: ['TRACKER_KEY'],
-        credentials: { wornToward },
+        credentials: { injectedFor },
       },
     );
 
@@ -271,10 +271,10 @@ describe('McpSessions', () => {
       authorization: 'Bearer the-token',
       apiKey: 'tk_live',
     });
-    expect(wornToward).toHaveBeenCalledWith(server.url, ['TRACKER_KEY']);
+    expect(injectedFor).toHaveBeenCalledWith(server.url, ['TRACKER_KEY']);
   });
 
-  it('wears a secret in the query, and takes it out of what the server answers', async () => {
+  it('injects a secret in the query, and takes it out of what the server answers', async () => {
     const answered = await sessions.call(
       'team_1:tracker:team:key',
       server.url,
@@ -284,10 +284,10 @@ describe('McpSessions', () => {
         connection: null,
         secrets: ['TRACKER_KEY'],
         credentials: {
-          wornToward: async () =>
-            WornSecrets.of([
+          injectedFor: async () =>
+            InjectedSecrets.of([
               {
-                carrier: 'query',
+                location: 'query',
                 name: 'key',
                 value: 'tk/live',
                 bare: 'tk/live',
@@ -315,11 +315,11 @@ describe('McpSessions', () => {
           guarded.url,
           'search_issues',
           { query: 'queue' },
-          { ...wearingNothing, connection: 'wrong' },
+          { ...injectingNothing, connection: 'wrong' },
         ),
       ).rejects.toBeInstanceOf(McpAuthorizationRefused);
       await expect(
-        asking.tools(guarded.url, { ...wearingNothing, connection: 'wrong' }),
+        asking.tools(guarded.url, { ...injectingNothing, connection: 'wrong' }),
       ).rejects.toBeInstanceOf(McpAuthorizationRefused);
     } finally {
       asking.onModuleDestroy();
@@ -350,7 +350,7 @@ describe('McpSessions', () => {
 
     try {
       const refused = await listing
-        .tools(`${refusing.origin}/mcp`, wearingKey)
+        .tools(`${refusing.origin}/mcp`, injectingKey)
         .catch((error: unknown) => error as Error);
 
       expect(refused).toBeInstanceOf(Error);
@@ -381,7 +381,9 @@ describe('McpSessions', () => {
     );
 
     try {
-      await listing.tools(`${moving.origin}/mcp`, wearingKey).catch(() => null);
+      await listing
+        .tools(`${moving.origin}/mcp`, injectingKey)
+        .catch(() => null);
 
       expect(heard.length).toBeGreaterThan(0);
       expect(heard.join(' ')).not.toMatch(/k(%2F|\/)live/);
@@ -396,7 +398,7 @@ describe('McpSessions', () => {
     const nowhere = new McpSessions(new OutboundPolicy(['elsewhere.example']));
 
     await expect(
-      nowhere.tools(server.url, wearingNothing),
+      nowhere.tools(server.url, injectingNothing),
     ).rejects.toBeInstanceOf(OutboundRefusedError);
     expect(server.heard).toEqual([]);
   });

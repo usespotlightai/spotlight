@@ -23,25 +23,25 @@ import (
 	"usespotlight.ai/data-plane/egress/internal/send"
 	"usespotlight.ai/data-plane/egress/serve"
 	"usespotlight.ai/data-plane/egressing/authority"
+	"usespotlight.ai/data-plane/egressing/inject"
 	"usespotlight.ai/data-plane/egressing/seal"
-	"usespotlight.ai/data-plane/egressing/wear"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
 	"usespotlight.ai/data-plane/telemetry"
 )
 
-const Usage = `  spotlight egress            the one way out of a sandbox, wearing its run's secrets toward their hosts
+const Usage = `  spotlight egress            the one way out of a sandbox, which injects its run's secrets for their hosts
   spotlight egress serve      the shared way out for the sandboxes of push pools`
 
 const (
-	redeemBudget  = time.Minute
-	redeemFloor   = time.Second
-	redeemCeiling = 10 * time.Second
+	fetchBudget   = time.Minute
+	fetchFloor    = time.Second
+	fetchCeiling  = 10 * time.Second
 	shutdownGrace = 5 * time.Second
 )
 
-type Redeemer interface {
-	RedeemEgress(ctx context.Context, recipient string) (protocol.EgressRedemption, error)
+type SecretFetcher interface {
+	FetchRunSecrets(ctx context.Context, recipient string) (protocol.EgressSecrets, error)
 }
 
 func Main(args []string, _ string) int {
@@ -94,26 +94,26 @@ func run() error {
 		return err
 	}
 
-	redeemed, err := redemptionFor(ctx, handed, key.Recipient(), func(url, token string) (Redeemer, error) {
+	fetched, err := fetchSecretsFor(ctx, handed, key.Recipient(), func(url, token string) (SecretFetcher, error) {
 		return control.New(url, token)
 	}, log)
 	if err != nil {
 		return err
 	}
 
-	wearing := wear.From(ctx, redeemed, handed.HarnessKeys, wear.Limits{Hosts: allowed, Reads: handed.Reads}, key, readerInNetwork(ctx), log)
-	defer wearing.Forget()
+	injector := inject.From(ctx, fetched, handed.HarnessKeys, inject.Limits{Hosts: allowed, SecretAllow: handed.SecretAllow}, key, externalSecretReader(ctx), log)
+	defer injector.Forget()
 
-	if err := wearing.TowardControlPlane(redeemed.SpotlightAPI, controlPlane, redeemed.RunID, key); err != nil {
+	if err := injector.ForControlPlane(fetched.SpotlightAPI, controlPlane, fetched.RunID, key); err != nil {
 		log.Warn("could not keep the run's Spotlight token", "error", err)
 	}
 
-	issuer, err := authority.New(time.Now(), wearing.Hosts())
+	issuer, err := authority.New(time.Now(), injector.Hosts())
 	if err != nil {
 		return err
 	}
 
-	allowed = reachedBy(allowed, controlPlane.Hostname(), redeemed)
+	allowed = reachedBy(allowed, controlPlane.Hostname(), fetched)
 
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(protocol.EgressPort))
 	if err != nil {
@@ -121,7 +121,7 @@ func run() error {
 	}
 
 	server := &http.Server{
-		Handler:           proxy.New(allowed, wearing, issuer, handed.Credential, log),
+		Handler:           proxy.New(allowed, injector, issuer, handed.Credential, log),
 		ReadHeaderTimeout: time.Minute,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelDebug),
 	}
@@ -132,7 +132,7 @@ func run() error {
 	if err := publish(issuer.PEM()); err != nil {
 		return err
 	}
-	log.Info("egress is the sandbox's way out", "wears", wearing.Hosts(), "port", protocol.EgressPort)
+	log.Info("egress is the sandbox's way out", "injects", injector.Hosts(), "port", protocol.EgressPort)
 
 	select {
 	case err := <-serving:
@@ -166,7 +166,7 @@ func serveShared() error {
 	}
 	client.Through(settings.Transport())
 
-	shared, err := serve.New(settings, client, readerInNetwork(ctx), log)
+	shared, err := serve.New(settings, client, externalSecretReader(ctx), log)
 	if err != nil {
 		return err
 	}
@@ -200,62 +200,62 @@ func handedTo(path string) (protocol.EgressHanded, error) {
 	return handed, nil
 }
 
-func redemptionFor(
+func fetchSecretsFor(
 	ctx context.Context, handed protocol.EgressHanded, recipient string,
-	connect func(url, token string) (Redeemer, error), log *slog.Logger,
-) (protocol.EgressRedemption, error) {
+	connect func(url, token string) (SecretFetcher, error), log *slog.Logger,
+) (protocol.EgressSecrets, error) {
 	if handed.Token == "" {
-		return protocol.EgressRedemption{}, nil
+		return protocol.EgressSecrets{}, nil
 	}
 
-	redeemer, err := connect(handed.URL, handed.Token)
+	fetcher, err := connect(handed.URL, handed.Token)
 	if err != nil {
-		return protocol.EgressRedemption{}, err
+		return protocol.EgressSecrets{}, err
 	}
 
-	return redeemedBy(ctx, redeemer, recipient, log), nil
+	return fetchedBy(ctx, fetcher, recipient, log), nil
 }
 
-func reachedBy(allowed reach.List, controlPlane string, redeemed protocol.EgressRedemption) reach.List {
-	return allowed.With(append([]string{controlPlane}, redeemed.Reaches...)...)
+func reachedBy(allowed reach.List, controlPlane string, fetched protocol.EgressSecrets) reach.List {
+	return allowed.With(append([]string{controlPlane}, fetched.Reaches...)...)
 }
 
-func redeemedBy(ctx context.Context, redeemer Redeemer, recipient string, log *slog.Logger) protocol.EgressRedemption {
-	budget, cancel := context.WithTimeout(ctx, redeemBudget)
+func fetchedBy(ctx context.Context, fetcher SecretFetcher, recipient string, log *slog.Logger) protocol.EgressSecrets {
+	budget, cancel := context.WithTimeout(ctx, fetchBudget)
 	defer cancel()
 
-	backoff := redeemFloor
+	backoff := fetchFloor
 	for {
-		redeemed, err := redeemer.RedeemEgress(budget, recipient)
+		fetched, err := fetcher.FetchRunSecrets(budget, recipient)
 		if err == nil {
-			return redeemed
+			return fetched
 		}
 
 		var rejection *control.Rejection
 		if errors.As(err, &rejection) && rejection.Status < http.StatusInternalServerError {
-			log.Warn("the control plane gave egress nothing to wear", "error", err)
-			return protocol.EgressRedemption{}
+			log.Warn("the control plane gave egress no secrets to inject", "error", err)
+			return protocol.EgressSecrets{}
 		}
 
-		log.Warn("could not redeem the run's secrets, still trying", "error", err, "retryIn", backoff)
+		log.Warn("could not fetch the run's secrets, still trying", "error", err, "retryIn", backoff)
 		select {
 		case <-budget.Done():
-			log.Error("gave up redeeming the run's secrets; the sandbox goes out wearing none", "error", err)
-			return protocol.EgressRedemption{}
+			log.Error("gave up fetching the run's secrets; the sandbox goes out with no injected secrets", "error", err)
+			return protocol.EgressSecrets{}
 		case <-time.After(backoff):
 		}
-		backoff = min(backoff*2, redeemCeiling)
+		backoff = min(backoff*2, fetchCeiling)
 	}
 }
 
-func readerInNetwork(ctx context.Context) func() (wear.Reader, error) {
+func externalSecretReader(ctx context.Context) func() (inject.Reader, error) {
 	var (
 		once   sync.Once
-		reader wear.Reader
+		reader inject.Reader
 		err    error
 	)
 
-	return func() (wear.Reader, error) {
+	return func() (inject.Reader, error) {
 		once.Do(func() { reader, err = awssm.Connect(ctx) })
 		return reader, err
 	}

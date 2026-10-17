@@ -208,13 +208,13 @@ describe('IntegrationToolCalls', () => {
     });
   });
 
-  describe('an action that wears a secret', () => {
-    const WEARS_A_SECRET = LINEAR.replace(
+  describe('an action that injects a secret', () => {
+    const INJECTS_A_SECRET = LINEAR.replace(
       '      url: https://api.linear.app/graphql\n',
       '      url: https://api.linear.app/graphql\n      auth:\n        secrets: [secret.LINEAR_API_KEY]\n',
     );
 
-    const wearing = (
+    const injectingAction = (
       bound: Parameters<typeof injecting>[0],
       allowed: readonly string[] = ['api.linear.app'],
     ) => {
@@ -227,7 +227,7 @@ describe('IntegrationToolCalls', () => {
       const secrets = injecting(bound);
       const tools = new IntegrationToolCalls(
         {
-          ofTeam: vi.fn(async () => [defined(WEARS_A_SECRET)]),
+          ofTeam: vi.fn(async () => [defined(INJECTS_A_SECRET)]),
         } as unknown as DefinedIntegrationsPort,
         runtimeWith(new HttpOutbound(allowed, fetch)),
         reachFor(secrets.injection),
@@ -253,8 +253,8 @@ describe('IntegrationToolCalls', () => {
       (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
         .headers as Record<string, string>;
 
-    it('reaches the host wearing a secret bound to it', async () => {
-      const { comment, fetch } = wearing({
+    it('reaches the host and injects a secret bound to it', async () => {
+      const { comment, fetch } = injectingAction({
         LINEAR_API_KEY: { host: 'api.linear.app', value: 'lin_api_1' },
       });
 
@@ -263,8 +263,8 @@ describe('IntegrationToolCalls', () => {
       expect(headersOf(fetch).authorization).toBe('lin_api_1');
     });
 
-    it('grants the run’s current attempt only the secrets the tool’s action wears', async () => {
-      const { comment, grant, forRun } = wearing({
+    it('grants the run’s current attempt only the secrets that the tool’s action injects', async () => {
+      const { comment, grant, forRun } = injectingAction({
         LINEAR_API_KEY: { host: 'api.linear.app', value: 'lin_api_1' },
       });
 
@@ -286,7 +286,7 @@ describe('IntegrationToolCalls', () => {
     });
 
     it('sends nothing where the secret is bound to another host', async () => {
-      const { comment, fetch } = wearing({
+      const { comment, fetch } = injectingAction({
         LINEAR_API_KEY: { host: 'api.example.com', value: 'lin_api_1' },
       });
 
@@ -297,7 +297,7 @@ describe('IntegrationToolCalls', () => {
     });
 
     it('sends nothing where the workspace has no such secret', async () => {
-      const { comment, fetch } = wearing({});
+      const { comment, fetch } = injectingAction({});
 
       await expect(comment()).rejects.toThrow(
         'Secret LINEAR_API_KEY not found. Please define it first.',
@@ -306,7 +306,7 @@ describe('IntegrationToolCalls', () => {
     });
   });
 
-  it('carries no secret into an action that wears none', async () => {
+  it('carries no secret into an action that injects none', async () => {
     const { comment, run } = using();
 
     await comment({ body: 'x' });
@@ -566,7 +566,7 @@ graphql:
       });
     });
 
-    it('makes the call the operation describes, wearing the description’s secrets', async () => {
+    it('makes the call the operation describes, and injects the description’s secrets', async () => {
       const { fetch, reaching } = generated(
         PETSTORE,
         ADD_PET,

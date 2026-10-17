@@ -228,7 +228,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       bindings: [
         {
           host: 'api.linear.app',
-          carrier: 'header',
+          location: 'header',
           name: 'authorization',
           prefix: 'Bearer ',
         },
@@ -246,7 +246,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       bindings: [
         {
           host: 'sentry.io',
-          carrier: 'header',
+          location: 'header',
           name: 'authorization',
           prefix: 'Bearer ',
         },
@@ -397,7 +397,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       teamKey: 'core',
       source: 'linear',
       definition: LINEAR,
-      secretsWorn: [
+      secretReferences: [
         {
           path: FieldPath.of([
             'actions',
@@ -520,7 +520,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
         },
       ],
       native: { 'claude-code': { includeCoAuthoredBy: false } },
-      secretsWorn: [
+      secretReferences: [
         {
           path: FieldPath.of([0, 'env', 'LINEAR_API_KEY']),
           name: 'LINEAR_SIGNING',

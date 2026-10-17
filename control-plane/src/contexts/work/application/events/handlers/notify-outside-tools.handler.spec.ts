@@ -61,14 +61,17 @@ const handed = () =>
     newId: () => 'task_1',
   });
 
-const notifying = (marks: readonly Mark[] = [], wearer: Task | null = null) => {
+const notifying = (
+  marks: readonly Mark[] = [],
+  markedTask: Task | null = null,
+) => {
   const task = handed();
   const save = vi.fn(async (_: Task) => {});
   const notify = vi.fn(async () => marks);
   const handler = new NotifyOutsideTools(
     {
       find: async () => task,
-      findByMarks: async () => wearer,
+      findByMarks: async () => markedTask,
       save,
     } as unknown as TaskRepository,
     { notify } satisfies OutboundTaskNotifierPort,

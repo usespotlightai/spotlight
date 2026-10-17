@@ -755,7 +755,7 @@ export const PAIR_ASKED =
 export const PAIRING_SPEND_LABEL = 'Side by side';
 
 const PAIRING_SPEND_NOTE =
-  'Side-by-side judging counts against the ceiling. It doesn’t count toward cost per run.';
+  'Side-by-side judging counts against the ceiling. It doesn’t add to cost per run.';
 
 const UNPAIRED: Record<Unpaired, string> = {
   unavailable: 'no judge model available',

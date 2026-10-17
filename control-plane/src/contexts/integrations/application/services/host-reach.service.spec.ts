@@ -94,13 +94,16 @@ const reaching = (
   };
 };
 
-const headersWorn = async (
-  worn: Promise<{
+const injectedHeaders = async (
+  injected: Promise<{
     applyTo(request: { url: URL; headers: Record<string, string> }): void;
   }>,
 ) => {
   const headers: Record<string, string> = {};
-  (await worn).applyTo({ url: new URL('https://slack.com/api/x'), headers });
+  (await injected).applyTo({
+    url: new URL('https://slack.com/api/x'),
+    headers,
+  });
 
   return headers;
 };
@@ -218,14 +221,14 @@ describe('HostReach', () => {
     });
   });
 
-  it('lets Spotlight’s own calls wear the secrets of the team’s workspace', async () => {
+  it('lets Spotlight’s own calls inject the secrets of the team’s workspace', async () => {
     const { reach, forSpotlight } = reaching(null);
 
     const reached = await reach.of(TEAM, integration(false));
 
     expect(
-      await headersWorn(
-        reached.credentials.wornToward('https://slack.com/api/x', [
+      await injectedHeaders(
+        reached.credentials.injectedFor('https://slack.com/api/x', [
           'SLACK_BOT_TOKEN',
         ]),
       ),
@@ -237,7 +240,7 @@ describe('HostReach', () => {
     });
   });
 
-  it('looks the workspace up only when a call wears a secret', async () => {
+  it('looks the workspace up only when a call injects a secret', async () => {
     const { reach, find } = reaching(null);
 
     await reach.of(TEAM, integration(false));
@@ -245,19 +248,19 @@ describe('HostReach', () => {
     expect(find).not.toHaveBeenCalled();
   });
 
-  it('refuses to wear secrets for a team that no workspace has', async () => {
+  it('refuses to inject secrets for a team that no workspace has', async () => {
     const { reach } = reaching(null, false);
 
     const reached = await reach.of(TEAM, integration(false));
 
     await expect(
-      reached.credentials.wornToward('https://slack.com/api/x', [
+      reached.credentials.injectedFor('https://slack.com/api/x', [
         'SLACK_BOT_TOKEN',
       ]),
     ).rejects.toThrow(/which no workspace has/);
   });
 
-  it('grants the run’s current attempt the secrets it wears before it reaches the host', async () => {
+  it('grants the run’s current attempt the secrets that it injects before it reaches the host', async () => {
     const { reach, grant, forRun } = reaching(null);
 
     const reached = await reach.forRun(
@@ -266,11 +269,11 @@ describe('HostReach', () => {
         workspaceId: 'ws_1',
         runId: 'run_1',
         attempt: 2,
-        wears: ['SLACK_BOT_TOKEN'],
+        injectedSecrets: ['SLACK_BOT_TOKEN'],
       },
       null,
     );
-    await reached.credentials.wornToward('https://slack.com/api/x', [
+    await reached.credentials.injectedFor('https://slack.com/api/x', [
       'SLACK_BOT_TOKEN',
     ]);
 
@@ -289,7 +292,7 @@ describe('HostReach', () => {
     });
   });
 
-  it('grants nothing to a run whose tool wears no secret', async () => {
+  it('grants nothing to a run whose tool injects no secret', async () => {
     const { reach, grant } = reaching(null);
 
     await reach.forRun(
@@ -298,7 +301,7 @@ describe('HostReach', () => {
         workspaceId: 'ws_1',
         runId: 'run_1',
         attempt: 1,
-        wears: [],
+        injectedSecrets: [],
       },
       null,
     );

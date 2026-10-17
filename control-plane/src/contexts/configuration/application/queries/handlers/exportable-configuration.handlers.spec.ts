@@ -151,7 +151,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     teamId: team.id,
     source,
     definition,
-    secretsWorn: [],
+    secretReferences: [],
   });
   const lineOf = (teamId: TeamId, key: string): LineRecord => ({
     id: `line_${key}`,
@@ -272,7 +272,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       permissions: { allow: [], ask: [], deny: [] },
       mcpServers: [],
       native: {},
-      secretsWorn: [],
+      secretReferences: [],
       warnings: [],
     })),
   } as unknown as HarnessProfileViews;

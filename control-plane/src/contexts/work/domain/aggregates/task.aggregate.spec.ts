@@ -995,7 +995,7 @@ describe('Task, what it is doing', () => {
   describe('reviewing a pull request', () => {
     const url = PullRequestUrl.of('https://github.com/acme/widgets/pull/7');
 
-    it('wears the pull request, and reviews it rather than owning it', () => {
+    it('has the mark of the pull request, and reviews it rather than owning it', () => {
       const reviewing = added().reviews(url, { outside: false });
 
       expect(reviewing.pullRequest).toEqual(url);

@@ -439,11 +439,11 @@ export type TraceConnectionResponseDto = {
   host: string;
   port: number;
   /**
-   * blocked: egress stopped it. failed: egress could not open it. forwarded: the host refused or failed a request egress added a secret to
+   * blocked: egress stopped it. failed: egress could not open it. injected: the host refused or failed a request that egress injected a secret into
    */
-  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed';
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
   /**
-   * The status the host answered a forwarded request with
+   * The status the host answered an injected request with
    */
   status: number | null;
   /**
@@ -451,13 +451,13 @@ export type TraceConnectionResponseDto = {
    */
   reason: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
   /**
-   * What went wrong. blocked: egress stopped it. failed: egress could not open it. refused: the host answered a forwarded request with 401 or 403. server-error: the host answered it with 500 or more. null: nothing went wrong
+   * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
    */
-  trouble: 'blocked' | 'failed' | 'refused' | 'server-error' | null;
+  error: 'blocked' | 'failed' | 'auth-failed' | 'server-error' | null;
   /**
-   * How many times the same thing went wrong in this row. The row starts at the first time
+   * How many times the same error occurred in this row. The row starts at the first time
    */
-  times: number;
+  count: number;
 };
 
 export type TraceNodeResponseDto = {
@@ -478,13 +478,13 @@ export type TraceNodeResponseDto = {
   step: JournalStepResponseDto | null;
   span: RunSpanResponseDto | null;
   /**
-   * On a connection row: a connection of the run that went wrong, as a shared egress recorded it
+   * On a connection row: a connection of the run with an error, as a shared egress recorded it
    */
   connection: TraceConnectionResponseDto | null;
   /**
    * On a run row: what the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check
    */
-  egress: 'enforced' | 'not-enforced' | null;
+  egressEnforcement: 'enforced' | 'not-enforced' | null;
   children: Array<TraceNodeResponseDto>;
 };
 
@@ -987,7 +987,7 @@ export type HostClaimResponseDto = {
    */
   token: string;
   /**
-   * The credential the egress beside the sandbox redeems the run’s secrets with; the host hands it to egress alone, never into the sandbox
+   * The credential the egress beside the sandbox fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox
    */
   egressToken: string;
   work: ClaimedWorkResponseDto;
@@ -1058,7 +1058,7 @@ export type AnswerHostCallRequestDto = {
   error?: string;
 };
 
-export type SharedRedeemEgressRequestDto = {
+export type FetchRunSecretsRequestDto = {
   /**
    * The X25519 public key that egress keeps for this run alone, in base64; values Spotlight keeps are sealed to it
    */
@@ -1069,22 +1069,22 @@ export type SharedRedeemEgressRequestDto = {
   proxyCredential?: string;
 };
 
-export type ReadInNetworkResponseDto = {
+export type ExternalSecretRefResponseDto = {
   kind: 'aws-secrets-manager';
   secretId: string;
   field: string | null;
 };
 
-export type RedeemedSecretResponseDto = {
+export type FetchedSecretResponseDto = {
   secret: string;
   /**
-   * The one host egress wears it toward
+   * The one host that egress injects it for
    */
   host: string;
   /**
-   * Whether egress wears it in a request header or a query parameter
+   * Whether egress injects it in a request header or in a query parameter
    */
-  carrier: 'header' | 'query';
+  location: 'header' | 'query';
   /**
    * The header or query parameter that contains its stand-in
    */
@@ -1097,24 +1097,24 @@ export type RedeemedSecretResponseDto = {
   /**
    * Where egress reads the value with its host’s own identity; null when Spotlight sealed it
    */
-  readInNetwork: ReadInNetworkResponseDto | null;
+  externalRef: ExternalSecretRefResponseDto | null;
 };
 
-export type WithheldSecretResponseDto = {
+export type DeniedSecretResponseDto = {
   secret: string;
   reason: string;
 };
 
 export type SpotlightApiResponseDto = {
   /**
-   * A read and plan token for this run alone, sealed to the recipient; egress wears it toward the control plane as a bearer token
+   * A read and plan token for this run alone, sealed to the recipient; egress injects it for the control plane as a bearer token
    */
   sealed: string;
 };
 
-export type EgressRedemptionResponseDto = {
+export type EgressSecretsResponseDto = {
   /**
-   * The run the sealed values are bound to; null when the sandbox checks a change stack and wears nothing
+   * The run the sealed values are bound to; null when the sandbox checks a change stack and gets no secrets
    */
   runId: string | null;
   /**
@@ -1125,11 +1125,11 @@ export type EgressRedemptionResponseDto = {
    * The hosts the secrets are bound to. Egress decrypts only these hosts, and also the control plane host when spotlightApi is set
    */
   bound: Array<string>;
-  secrets: Array<RedeemedSecretResponseDto>;
+  secrets: Array<FetchedSecretResponseDto>;
   /**
-   * Secrets the run wears that egress will not get, and why
+   * The secrets of the run that egress does not get, and why
    */
-  withheld: Array<WithheldSecretResponseDto>;
+  denied: Array<DeniedSecretResponseDto>;
   /**
    * Where the run reaches Spotlight’s own API, the token it reaches it with
    */
@@ -1190,9 +1190,9 @@ export type EgressConnectionRequestDto = {
    * How long the connection was open
    */
   ms: number;
-  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed';
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
   /**
-   * The status the host answered a forwarded request with. Egress cannot read the status of a tunnel
+   * The status the host answered an injected request with. Egress cannot read the status of a passthrough connection
    */
   status?: number;
   /**
@@ -1833,11 +1833,11 @@ export type RunConnectionResponseDto = {
    */
   ms: number;
   /**
-   * tunnelled: egress did not decrypt it. forwarded: egress decrypted it to add a secret. blocked: egress stopped it. failed: egress could not open it
+   * passthrough: egress did not decrypt it. injected: egress decrypted it to inject a secret. blocked: egress stopped it. failed: egress could not open it
    */
-  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed';
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
   /**
-   * The status the host answered a forwarded request with. null for a tunnel, because egress cannot read it
+   * The status the host answered an injected request with. null for a passthrough connection, because egress cannot read it
    */
   status: number | null;
   /**
@@ -1845,9 +1845,9 @@ export type RunConnectionResponseDto = {
    */
   reason: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
   /**
-   * What went wrong. blocked: egress stopped it. failed: egress could not open it. refused: the host answered a forwarded request with 401 or 403. server-error: the host answered it with 500 or more. null: nothing went wrong
+   * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
    */
-  trouble: 'blocked' | 'failed' | 'refused' | 'server-error' | null;
+  error: 'blocked' | 'failed' | 'auth-failed' | 'server-error' | null;
   at: string;
 };
 
@@ -1857,7 +1857,7 @@ export type RunNetworkResponseDto = {
   /**
    * What the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check, for example on a host. The sandbox itself makes this report, so a compromised sandbox can report enforced
    */
-  egress: 'enforced' | 'not-enforced' | null;
+  egressEnforcement: 'enforced' | 'not-enforced' | null;
   /**
    * The connections a shared egress recorded for this attempt
    */
@@ -2793,15 +2793,15 @@ export type SecretBindingResponseDto = {
    */
   host: string;
   /**
-   * Whether it is worn in a request header or a query parameter
+   * Whether Spotlight injects it in a request header or in a query parameter
    */
-  carrier: 'header' | 'query';
+  location: 'header' | 'query';
   /**
-   * The header or query parameter it is worn in
+   * The header or query parameter that Spotlight injects it in
    */
   name: string;
   /**
-   * Written before the value it is worn with
+   * The text that Spotlight writes before the value
    */
   prefix: string;
 };
@@ -3401,7 +3401,7 @@ export type McpServerResponseDto = {
   command: string;
   args: Array<string>;
   /**
-   * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
+   * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress injects the value into its requests to the hosts the secret is bound to.
    */
   env: {
     [key: string]: string;
@@ -6274,7 +6274,7 @@ export type InsightsSetupsResponseDto = {
   /**
    * Why no judge scores are compared: no_station where the comparison spans stations, whose judges each score against their own rubric
    */
-  judgeWithheld: 'no_station' | null;
+  judgeOmitted: 'no_station' | null;
   /**
    * How far the station’s judge is trusted, where one station is picked and it has a judge
    */
@@ -10518,20 +10518,20 @@ export type AnswerHostCallResponses = {
 
 export type AnswerHostCallResponse = AnswerHostCallResponses[keyof AnswerHostCallResponses];
 
-export type RedeemEgressData = {
-  body: SharedRedeemEgressRequestDto;
+export type FetchRunSecretsData = {
+  body: FetchRunSecretsRequestDto;
   path?: never;
   query?: never;
-  url: '/egress/redeem';
+  url: '/egress/secrets';
 };
 
-export type RedeemEgressErrors = {
+export type FetchRunSecretsErrors = {
   /**
    * Missing or unknown egress token, or its runner no longer has a lease on work
    */
   401: unknown;
   /**
-   * The runner of this proxy credential has no lease on a run yet. Please redeem again after it claims one
+   * The runner of this proxy credential has no lease on a run yet. Please fetch the secrets again after it claims one
    */
   409: unknown;
   /**
@@ -10540,11 +10540,11 @@ export type RedeemEgressErrors = {
   422: unknown;
 };
 
-export type RedeemEgressResponses = {
-  200: EgressRedemptionResponseDto;
+export type FetchRunSecretsResponses = {
+  200: EgressSecretsResponseDto;
 };
 
-export type RedeemEgressResponse = RedeemEgressResponses[keyof RedeemEgressResponses];
+export type FetchRunSecretsResponse = FetchRunSecretsResponses[keyof FetchRunSecretsResponses];
 
 export type AdmitThroughEgressData = {
   body: AdmitThroughEgressRequestDto;
@@ -13511,9 +13511,9 @@ export type CreateSecretData = {
     };
     bindings?: Array<{
       host: string;
-      carrier?: 'header' | 'query';
+      location?: 'header' | 'query';
       /**
-       * The header or query parameter it is worn in; authorization when a header is not named
+       * The header or query parameter that Spotlight injects it in. The default header is authorization
        */
       name?: string;
       prefix?: string;
@@ -13702,9 +13702,9 @@ export type UpdateSecretData = {
     };
     bindings?: Array<{
       host: string;
-      carrier?: 'header' | 'query';
+      location?: 'header' | 'query';
       /**
-       * The header or query parameter it is worn in; authorization when a header is not named
+       * The header or query parameter that Spotlight injects it in. The default header is authorization
        */
       name?: string;
       prefix?: string;
@@ -15989,7 +15989,7 @@ export type CreateHarnessProfileData = {
       command: string;
       args?: Array<string>;
       /**
-       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
+       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress injects the value into its requests to the hosts the secret is bound to.
        */
       env?: {
         [key: string]: string;
@@ -16177,7 +16177,7 @@ export type UpdateHarnessProfileData = {
       command: string;
       args?: Array<string>;
       /**
-       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
+       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress injects the value into its requests to the hosts the secret is bound to.
        */
       env?: {
         [key: string]: string;

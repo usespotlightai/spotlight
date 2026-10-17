@@ -78,7 +78,7 @@ describe('Reported', () => {
     expect(span?.attributes[0]?.value).toContain('end_turn');
   });
 
-  it('tells a span that went wrong from one that did not', () => {
+  it('tells a span with an error from one without an error', () => {
     const failed = read({ ...call, status: { code: 2 } }).spans();
     const fine = read({ ...call, status: { code: 1 } }).spans();
 

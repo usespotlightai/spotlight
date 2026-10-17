@@ -153,7 +153,7 @@ describe('the mock insights', () => {
       }),
     ]);
 
-    expect(team_.data.judgeWithheld).toBe('no_station');
+    expect(team_.data.judgeOmitted).toBe('no_station');
     expect(team_.data.setups.map((each) => each.harness)).toContain('codex');
     expect(station.data.setups.map((each) => each.effort).sort()).toEqual([
       'high',

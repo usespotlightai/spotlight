@@ -30,7 +30,7 @@ export class DescribedSource {
     readonly document: string | null,
     readonly baseUrl: string | null,
     readonly depth: number | null,
-    readonly wears: readonly SecretName[],
+    readonly injectedSecrets: readonly SecretName[],
     readonly connected: boolean,
     readonly fingerprint: string,
   ) {}
@@ -41,7 +41,7 @@ export class DescribedSource {
     document?: string | null;
     baseUrl?: string | null;
     depth?: number | null;
-    wears?: readonly SecretName[];
+    injectedSecrets?: readonly SecretName[];
     connected?: boolean;
     fingerprint: string;
   }): DescribedSource {
@@ -97,7 +97,7 @@ export class DescribedSource {
       document,
       baseUrl,
       depth,
-      input.wears ?? [],
+      input.injectedSecrets ?? [],
       input.connected ?? false,
       input.fingerprint,
     );

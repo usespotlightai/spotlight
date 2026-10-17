@@ -1,5 +1,5 @@
 import type { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
-import type { WornSecret } from '@configuration/domain/value-objects/profile-settings.vo';
+import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -16,12 +16,15 @@ export const HarnessProfileProblems = {
     });
   },
 
-  missing(key: string, missing: readonly WornSecret[]): ConfigurationProblem[] {
-    return missing.map((worn) =>
+  missing(
+    key: string,
+    missing: readonly SecretReferenceAt[],
+  ): ConfigurationProblem[] {
+    return missing.map((reference) =>
       ConfigurationProblem.of({
         path: profileAt(key),
-        at: FieldPath.of([...worn.at]),
-        reason: `uses secret ${worn.secret.value} that the workspace does not have`,
+        at: reference.path,
+        reason: `uses secret ${reference.name} that the workspace does not have`,
       }),
     );
   },

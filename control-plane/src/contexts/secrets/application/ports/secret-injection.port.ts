@@ -1,5 +1,5 @@
+import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
-import type { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 
 export const SECRET_INJECTION = Symbol('SECRET_INJECTION');
 
@@ -29,9 +29,9 @@ export interface RunGrant {
 export interface SecretInjectionPort {
   grant(grant: RunGrant): Promise<void>;
 
-  forRun(request: RunRequest): Promise<WornSecrets>;
+  forRun(request: RunRequest): Promise<InjectedSecrets>;
 
-  forSpotlight(request: SpotlightRequest): Promise<WornSecrets>;
+  forSpotlight(request: SpotlightRequest): Promise<InjectedSecrets>;
 
   forVerifying(request: VerifyingRequest): Promise<VerifyingSecret>;
 }

@@ -9,7 +9,7 @@ import type {
 } from '@integrations/application/ports/integration-resources.port';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
-import { secretsWornBy } from '@integrations/infrastructure/integrations/worn-secrets';
+import { secretReferencesIn } from '@integrations/infrastructure/integrations/secret-references';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const configOf = (
@@ -21,7 +21,7 @@ const configOf = (
   teamId: kept.teamId,
   source: kept.source,
   definition: kept.definition,
-  secretsWorn: secretsWornBy(kept.definition),
+  secretReferences: secretReferencesIn(kept.definition),
 });
 
 export class IntegrationConfigs implements IntegrationConfigsPort {
