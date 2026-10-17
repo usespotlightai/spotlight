@@ -1,3 +1,4 @@
+import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type {
   ProvisionAnswer,
   ProvisionCall,
@@ -5,6 +6,11 @@ import type {
 } from '@runners/application/ports/provision-calls.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import { Runners } from '@runners/application/services/runners.service';
+import type { Egress } from '@runners/domain/aggregates/egress.aggregate';
+import {
+  anEgress,
+  EGRESS_ID,
+} from '@runners/domain/aggregates/egress.fake-spec';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
@@ -15,6 +21,7 @@ import {
   aRunner,
   aTrust,
   HOST_ID,
+  hashOf,
   heldHosts,
   POOL_ID,
   STARTED_AT,
@@ -23,10 +30,14 @@ import {
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { ProvisionSecretUnopenableError } from '@runners/domain/exceptions/provision-secret-unopenable.error';
+import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -35,6 +46,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const CLAIM_BY = new Date(STARTED_AT.getTime() + 60_000);
@@ -47,6 +59,11 @@ const HOST = HOST_ID.value;
 
 const IMAGE = 'ghcr.io/acme/runner:main';
 
+const PLATFORM: PlatformEgressSettings = {
+  url: EgressUrl.of('https://egress.usespotlight.ai'),
+  tokenHash: hashOf('7'),
+};
+
 const running = (
   pool: RunnerPool | null,
   given: {
@@ -58,6 +75,8 @@ const running = (
     host?: RunnerHost | null;
     unopenable?: boolean;
     insecureAllowed?: boolean;
+    egress?: Egress | null;
+    platform?: PlatformEgressSettings | null;
   } = {},
 ) => {
   const known = given.host === undefined ? aHost() : given.host;
@@ -90,6 +109,9 @@ const running = (
       holding: vi.fn(async () => (given.held ? [given.held] : [])),
     } as unknown as RunnerRepository,
     {
+      find: vi.fn(async () => given.egress ?? null),
+    } as unknown as EgressRepository,
+    {
       call: vi.fn(async (call: ProvisionCall) => {
         called.push(call);
         return given.answer ?? { outcome: 'accepted' };
@@ -104,7 +126,10 @@ const running = (
         return secretOf('s');
       }),
     } satisfies ProvisionSecretsPort,
-    { insecureAllowed: given.insecureAllowed ?? false },
+    {
+      insecureAllowed: given.insecureAllowed ?? false,
+      platformEgress: given.platform ?? null,
+    },
     {
       mint: () =>
         minted++ % 2 === 0
@@ -329,8 +354,19 @@ describe('Runners', () => {
       taskId: 'task_1',
       labels: ['sandbox'],
       image: 'ghcr.io/acme/widgets:1',
+      needsEgress: false,
       claimBy: CLAIM_BY,
     };
+
+    it('fails as unusable, calling nobody, when a run that needs egress meets a pool that names none', async () => {
+      const { service, saved, called } = running(aPushPool());
+
+      await expect(
+        service.provision({ ...request, needsEgress: true }, STARTED_AT),
+      ).resolves.toMatchObject({ outcome: 'failed', kind: 'unusable' });
+      expect(called).toEqual([]);
+      expect(saved[0]?.isDiscarded).toBe(true);
+    });
 
     it('reserves a runner and calls provision with its one-run token', async () => {
       const { service, added, called } = running(aPushPool());
@@ -350,6 +386,100 @@ describe('Runners', () => {
       });
       expect(added[0]?.running).toBeNull();
       expect(added[0]?.egressTokenHash).toBeNull();
+      expect(added[0]?.proxyCredentialHash).toBeNull();
+      expect(called[0]?.egress).toBeNull();
+    });
+
+    it('gives the runner a proxy credential for the egress its pool names, and sends it with the egress URL', async () => {
+      const { service, added, called } = running(
+        aPushPool({ egress: EgressReference.to(EGRESS_ID) }),
+        { egress: anEgress() },
+      );
+
+      await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
+        outcome: 'provisioned',
+      });
+      expect(added[0]?.proxyCredentialHash?.equals(hashOf('e'))).toBe(true);
+      expect(called[0]?.egress).toEqual({
+        url: 'https://egress.example.com',
+        credential: 'egress-token',
+        traffic: 'all',
+      });
+      expect(called[0]?.token).toBe('one-run-token');
+    });
+
+    it('sends whether the pool sends all traffic or only bound traffic through its egress', async () => {
+      const { service, called } = running(
+        aPushPool({
+          egress: EgressReference.to(EGRESS_ID),
+          egressTraffic: EgressTraffic.of('bound'),
+        }),
+        { egress: anEgress() },
+      );
+
+      await service.provision(request, STARTED_AT);
+
+      expect(called[0]?.egress?.traffic).toBe('bound');
+    });
+
+    it('sends the platform egress URL when the pool names spotlight', async () => {
+      const { service, called } = running(
+        aPushPool({ egress: EgressReference.platform() }),
+        { platform: PLATFORM },
+      );
+
+      await service.provision(request, STARTED_AT);
+
+      expect(called[0]?.egress).toEqual({
+        url: 'https://egress.usespotlight.ai',
+        credential: 'egress-token',
+        traffic: 'all',
+      });
+    });
+
+    it('fails as unusable, calling nobody and letting the runner go, when the egress the pool names is not there', async () => {
+      for (const given of [
+        { egress: null },
+        { egress: anEgress({ workspaceId: WorkspaceId.of('ws_other') }) },
+      ]) {
+        const { service, saved, called } = running(
+          aPushPool({ egress: EgressReference.to(EGRESS_ID) }),
+          given,
+        );
+
+        await expect(
+          service.provision(request, STARTED_AT),
+        ).resolves.toMatchObject({ outcome: 'failed', kind: 'unusable' });
+        expect(called).toEqual([]);
+        expect(saved[0]?.isDiscarded).toBe(true);
+      }
+
+      const platformless = running(
+        aPushPool({ egress: EgressReference.platform() }),
+      );
+
+      await expect(
+        platformless.service.provision(request, STARTED_AT),
+      ).resolves.toMatchObject({ outcome: 'failed', kind: 'unusable' });
+      expect(platformless.called).toEqual([]);
+    });
+
+    it('never sends a proxy credential toward an egress in the clear unless the deployment allows it', async () => {
+      const pool = aPushPool({ egress: EgressReference.to(EGRESS_ID) });
+      const egress = anEgress({ url: 'http://egress.example.com' });
+      const refusing = running(pool, { egress });
+
+      await expect(
+        refusing.service.provision(request, STARTED_AT),
+      ).resolves.toMatchObject({ outcome: 'failed', kind: 'not-allowed' });
+      expect(refusing.called).toEqual([]);
+
+      await expect(
+        running(pool, { egress, insecureAllowed: true }).service.provision(
+          request,
+          STARTED_AT,
+        ),
+      ).resolves.toEqual({ outcome: 'provisioned' });
     });
 
     it('names the change stack when the runner is provisioned for a check', async () => {

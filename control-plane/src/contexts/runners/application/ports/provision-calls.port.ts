@@ -3,6 +3,12 @@ import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.v
 
 export const PROVISION_CALLS = Symbol('PROVISION_CALLS');
 
+export interface ProvisionEgress {
+  readonly url: string;
+  readonly credential: string;
+  readonly traffic: 'all' | 'bound';
+}
+
 export interface ProvisionCall {
   readonly url: ProvisionUrl;
   readonly secret: ProvisionSecret;
@@ -19,6 +25,7 @@ export interface ProvisionCall {
   readonly runnerId: string;
   readonly token: string;
   readonly claimBy: Date;
+  readonly egress: ProvisionEgress | null;
 }
 
 export type ProvisionAnswer =

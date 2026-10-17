@@ -188,8 +188,8 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       <ConfigHomeForm slug={slug} teamId={teamId} />
     ) : (
       <p className="text-muted-foreground text-sm leading-6">
-        The setup chat needs the GitHub App and a host. Push pools can’t run a
-        setup chat.
+        The setup chat needs the GitHub App and egress. Connect a host, or name
+        an egress in a push pool.
       </p>
     );
   };

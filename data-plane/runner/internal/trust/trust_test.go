@@ -103,3 +103,22 @@ func TestWritesTheSandboxBundleEvenWhenASystemBundleWillNotChange(t *testing.T) 
 		t.Errorf("the system bundle was left half-written: %q", got)
 	}
 }
+
+func TestTrustsAnAuthorityItHoldsInMemory(t *testing.T) {
+	dir := t.TempDir()
+	authority, bundle := filepath.Join(dir, "egress", "authority.pem"), filepath.Join(dir, "egress", "bundle.pem")
+	system := filepath.Join(dir, "system.crt")
+	if err := os.WriteFile(system, []byte("PUBLIC\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := trusting([]byte("WAY OUT\n"), authority, bundle, []string{system}); err != nil {
+		t.Fatal(err)
+	}
+
+	for path, want := range map[string]string{authority: "WAY OUT\n", bundle: "PUBLIC\nWAY OUT\n", system: "PUBLIC\nWAY OUT\n"} {
+		if got, _ := os.ReadFile(path); string(got) != want {
+			t.Errorf("%s holds %q", filepath.Base(path), got)
+		}
+	}
+}

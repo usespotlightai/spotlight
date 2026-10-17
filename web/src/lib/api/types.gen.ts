@@ -435,9 +435,34 @@ export type RunSpanResponseDto = {
   attributes: Array<SpanAttributeResponseDto>;
 };
 
+export type TraceConnectionResponseDto = {
+  host: string;
+  port: number;
+  /**
+   * blocked: egress stopped it. failed: egress could not open it. forwarded: the host refused or failed a request egress added a secret to
+   */
+  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed';
+  /**
+   * The status the host answered a forwarded request with
+   */
+  status: number | null;
+  /**
+   * Why egress blocked the connection or could not open it
+   */
+  reason: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
+  /**
+   * What went wrong. blocked: egress stopped it. failed: egress could not open it. refused: the host answered a forwarded request with 401 or 403. server-error: the host answered it with 500 or more. null: nothing went wrong
+   */
+  trouble: 'blocked' | 'failed' | 'refused' | 'server-error' | null;
+  /**
+   * How many times the same thing went wrong in this row. The row starts at the first time
+   */
+  times: number;
+};
+
 export type TraceNodeResponseDto = {
   id: string;
-  kind: 'run' | 'phase' | 'step' | 'span';
+  kind: 'run' | 'phase' | 'step' | 'span' | 'connection';
   name: string;
   startedAt: string;
   /**
@@ -452,6 +477,14 @@ export type TraceNodeResponseDto = {
   currency: string | null;
   step: JournalStepResponseDto | null;
   span: RunSpanResponseDto | null;
+  /**
+   * On a connection row: a connection of the run that went wrong, as a shared egress recorded it
+   */
+  connection: TraceConnectionResponseDto | null;
+  /**
+   * On a run row: what the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check
+   */
+  egress: 'enforced' | 'not-enforced' | null;
   children: Array<TraceNodeResponseDto>;
 };
 
@@ -1025,11 +1058,15 @@ export type AnswerHostCallRequestDto = {
   error?: string;
 };
 
-export type RedeemEgressRequestDto = {
+export type SharedRedeemEgressRequestDto = {
   /**
    * The X25519 public key egress holds for this run alone, in base64; values Spotlight keeps are sealed to it
    */
   recipient: string;
+  /**
+   * The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; the egress beside a sandbox leaves it out
+   */
+  proxyCredential?: string;
 };
 
 export type ReadInNetworkResponseDto = {
@@ -1084,6 +1121,10 @@ export type EgressRedemptionResponseDto = {
    * Hosts every sandbox must reach besides the control plane, whatever else the host allows
    */
   reaches: Array<string>;
+  /**
+   * The hosts the secrets are bound to. Egress decrypts only these hosts, and also the control plane host when spotlightApi is set
+   */
+  bound: Array<string>;
   secrets: Array<RedeemedSecretResponseDto>;
   /**
    * Secrets the run wears that egress will not get, and why
@@ -1093,6 +1134,76 @@ export type EgressRedemptionResponseDto = {
    * Where the run reaches Spotlight’s own API, the token it reaches it with
    */
   spotlightApi: SpotlightApiResponseDto | null;
+};
+
+export type AdmitThroughEgressRequestDto = {
+  /**
+   * The run proxy credential a runner presented to the egress
+   */
+  proxyCredential: string;
+};
+
+export type EgressAdmissionResponseDto = {
+  runnerId: string;
+  workspaceId: string;
+  /**
+   * The host of the control plane URL the runner was handed. Before the runner has a run, egress lets it reach only this host
+   */
+  controlPlaneHost: string;
+  /**
+   * The port of the control plane URL the runner was handed. Egress lets a sandbox reach the control plane host only on this port
+   */
+  controlPlanePort: number;
+  /**
+   * Hosts every sandbox must reach besides the control plane, whatever else the egress allows
+   */
+  reaches: Array<string>;
+};
+
+export type KeepEgressHoldsRequestDto = {
+  /**
+   * The run proxy credentials whose runs the egress serves now
+   */
+  proxyCredentials: Array<string>;
+};
+
+export type EgressHoldsResponseDto = {
+  /**
+   * The proxy credentials whose runner still holds its work. Egress forgets every other run
+   */
+  held: Array<string>;
+};
+
+export type EgressConnectionRequestDto = {
+  proxyCredential: string;
+  host: string;
+  port: number;
+  /**
+   * Bytes from the sandbox to the host
+   */
+  bytesOut: number;
+  /**
+   * Bytes from the host to the sandbox
+   */
+  bytesIn: number;
+  /**
+   * How long the connection was open
+   */
+  ms: number;
+  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed';
+  /**
+   * The status the host answered a forwarded request with. Egress cannot read the status of a tunnel
+   */
+  status?: number;
+  /**
+   * Why egress blocked the connection or could not open it. Spotlight drops a record whose reason does not fit its outcome
+   */
+  reason?: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable';
+  at: string;
+};
+
+export type RecordEgressConnectionsRequestDto = {
+  records: Array<EgressConnectionRequestDto>;
 };
 
 export type HeldRunResponseDto = {
@@ -1704,6 +1815,53 @@ export type RunConfigResponseDto = {
   fingerprint: string | null;
   config: StationConfigResponseDto | null;
   changedSince: ConfigChangedSinceResponseDto | null;
+};
+
+export type RunConnectionResponseDto = {
+  host: string;
+  port: number;
+  /**
+   * Bytes from the sandbox to the host
+   */
+  bytesOut: number;
+  /**
+   * Bytes from the host to the sandbox
+   */
+  bytesIn: number;
+  /**
+   * How long the connection was open
+   */
+  ms: number;
+  /**
+   * tunnelled: egress did not decrypt it. forwarded: egress decrypted it to add a secret. blocked: egress stopped it. failed: egress could not open it
+   */
+  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed';
+  /**
+   * The status the host answered a forwarded request with. null for a tunnel, because egress cannot read it
+   */
+  status: number | null;
+  /**
+   * Why egress blocked the connection or could not open it
+   */
+  reason: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
+  /**
+   * What went wrong. blocked: egress stopped it. failed: egress could not open it. refused: the host answered a forwarded request with 401 or 403. server-error: the host answered it with 500 or more. null: nothing went wrong
+   */
+  trouble: 'blocked' | 'failed' | 'refused' | 'server-error' | null;
+  at: string;
+};
+
+export type RunNetworkResponseDto = {
+  runId: string;
+  attempt: number;
+  /**
+   * What the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check, for example on a host. The sandbox itself makes this report, so a compromised sandbox can report enforced
+   */
+  egress: 'enforced' | 'not-enforced' | null;
+  /**
+   * The connections a shared egress recorded for this attempt
+   */
+  connections: Array<RunConnectionResponseDto>;
 };
 
 export type RunSpendResponseDto = {
@@ -2486,7 +2644,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-set' | 'replay-search' | 'replay-check' | 'config-pull-request';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-set' | 'replay-search' | 'replay-check' | 'config-pull-request';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -2965,6 +3123,14 @@ export type PoolProvisionResponseDto = {
    * Changed to rotate provision.secret, which is write-only and never answered
    */
   secretVersion: number | null;
+  /**
+   * The egress the pool’s runners send their traffic through: spotlight for the platform egress, the id of an egress in the workspace, or null for none
+   */
+  egress: string | null;
+  /**
+   * Which traffic of a run goes through the egress: all, or only the traffic to bound hosts. all when the pool names no egress
+   */
+  egressTraffic: 'all' | 'bound';
 };
 
 export type RunnerPoolResourceResponseDto = {
@@ -3019,6 +3185,48 @@ export type RunnerPoolResourceListResponseDto = {
    * Every one there is, each as a read would answer it, in address order
    */
   items: Array<RunnerPoolResourceResponseDto>;
+};
+
+export type EgressResourceResponseDto = {
+  /**
+   * Issued by Spotlight when the resource is created, and never changed
+   */
+  id: string;
+  /**
+   * Rises with every change; the ETag carries it, and a write sends it back as If-Match
+   */
+  version: number;
+  /**
+   * Names the resource within its workspace; terraform import takes it
+   */
+  address: string;
+  /**
+   * What would work better, though nothing stops it working; not settable
+   */
+  warnings: Array<FieldErrorResponseDto>;
+  /**
+   * The workspace it belongs to
+   */
+  workspaceId: string;
+  /**
+   * Names the egress, and is its address; fixed for its life
+   */
+  key: string;
+  /**
+   * Where the runners of a pool that names this egress send their traffic
+   */
+  url: string;
+  /**
+   * Changed, with a new token, to rotate the egress token, which is write-only and never answered
+   */
+  tokenVersion: number | null;
+};
+
+export type EgressResourceListResponseDto = {
+  /**
+   * Every one there is, each as a read would answer it, in address order
+   */
+  items: Array<EgressResourceResponseDto>;
 };
 
 export type WorkspaceRunnersResourceResponseDto = {
@@ -9211,7 +9419,7 @@ export type CreateLineErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a line at that address
+   * A line already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -10311,7 +10519,7 @@ export type AnswerHostCallResponses = {
 export type AnswerHostCallResponse = AnswerHostCallResponses[keyof AnswerHostCallResponses];
 
 export type RedeemEgressData = {
-  body: RedeemEgressRequestDto;
+  body: SharedRedeemEgressRequestDto;
   path?: never;
   query?: never;
   url: '/egress/redeem';
@@ -10323,6 +10531,10 @@ export type RedeemEgressErrors = {
    */
   401: unknown;
   /**
+   * The runner of this proxy credential holds no run yet. Please redeem again after it claims one
+   */
+  409: unknown;
+  /**
    * The recipient is not an X25519 public key
    */
   422: unknown;
@@ -10333,6 +10545,77 @@ export type RedeemEgressResponses = {
 };
 
 export type RedeemEgressResponse = RedeemEgressResponses[keyof RedeemEgressResponses];
+
+export type AdmitThroughEgressData = {
+  body: AdmitThroughEgressRequestDto;
+  path?: never;
+  query?: never;
+  url: '/egress/admit';
+};
+
+export type AdmitThroughEgressErrors = {
+  /**
+   * Missing or unknown egress token, or its runner no longer holds work
+   */
+  401: unknown;
+};
+
+export type AdmitThroughEgressResponses = {
+  200: EgressAdmissionResponseDto;
+};
+
+export type AdmitThroughEgressResponse = AdmitThroughEgressResponses[keyof AdmitThroughEgressResponses];
+
+export type KeepEgressHoldsData = {
+  body: KeepEgressHoldsRequestDto;
+  path?: never;
+  query?: never;
+  url: '/egress/holds';
+};
+
+export type KeepEgressHoldsErrors = {
+  /**
+   * Missing or unknown egress token, or its runner no longer holds work
+   */
+  401: unknown;
+  /**
+   * The call holds more than 500 proxy credentials
+   */
+  422: unknown;
+};
+
+export type KeepEgressHoldsResponses = {
+  200: EgressHoldsResponseDto;
+};
+
+export type KeepEgressHoldsResponse = KeepEgressHoldsResponses[keyof KeepEgressHoldsResponses];
+
+export type RecordEgressConnectionsData = {
+  body: RecordEgressConnectionsRequestDto;
+  path?: never;
+  query?: never;
+  url: '/egress/connections';
+};
+
+export type RecordEgressConnectionsErrors = {
+  /**
+   * Missing or unknown egress token, or its runner no longer holds work
+   */
+  401: unknown;
+  /**
+   * The call holds more than 2000 records
+   */
+  422: unknown;
+};
+
+export type RecordEgressConnectionsResponses = {
+  /**
+   * The records were taken
+   */
+  204: void;
+};
+
+export type RecordEgressConnectionsResponse = RecordEgressConnectionsResponses[keyof RecordEgressConnectionsResponses];
 
 export type ListRunnerActivityData = {
   body?: never;
@@ -10724,6 +11007,33 @@ export type ReadRunConfigResponses = {
 };
 
 export type ReadRunConfigResponse = ReadRunConfigResponses[keyof ReadRunConfigResponses];
+
+export type ReadRunNetworkData = {
+  body?: never;
+  path: {
+    runId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/network';
+};
+
+export type ReadRunNetworkErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ReadRunNetworkResponses = {
+  200: RunNetworkResponseDto;
+};
+
+export type ReadRunNetworkResponse = ReadRunNetworkResponses[keyof ReadRunNetworkResponses];
 
 export type ReadRunConversationData = {
   body?: never;
@@ -11488,7 +11798,7 @@ export type CreateWorkspaceErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a workspace at that address
+   * A workspace already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -11771,7 +12081,7 @@ export type CreateTeamErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a team at that address
+   * A team already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -12106,7 +12416,7 @@ export type CreateWorkspaceTokenErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a workspace-token at that address
+   * A workspace-token already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -12450,7 +12760,7 @@ export type CreateWorkspaceTokenTrustErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a workspace-token-trust at that address
+   * A workspace-token-trust already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -13256,7 +13566,7 @@ export type CreateSecretErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a secret at that address
+   * A secret already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -13935,7 +14245,7 @@ export type CreateRunnerTrustErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a runner-trust at that address
+   * A runner-trust already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -14256,6 +14566,14 @@ export type CreateRunnerPoolData = {
        * Changed to rotate the secret
        */
       secretVersion?: number | null;
+      /**
+       * The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs that use secrets or the Spotlight API do not go to the pool
+       */
+      egress?: string | null;
+      /**
+       * Which traffic of a run goes through the egress. all: every connection, so egress records every host and its allow-list applies to all of them. bound: only the traffic to hosts that a secret of the run is bound to; other traffic goes directly. Only with egress
+       */
+      egressTraffic?: 'all' | 'bound';
     } | null;
   };
   headers: {
@@ -14297,7 +14615,7 @@ export type CreateRunnerPoolErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a runner-pool at that address
+   * A runner-pool already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -14454,6 +14772,14 @@ export type UpdateRunnerPoolData = {
        * Changed to rotate the secret
        */
       secretVersion?: number | null;
+      /**
+       * The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs that use secrets or the Spotlight API do not go to the pool
+       */
+      egress?: string | null;
+      /**
+       * Which traffic of a run goes through the egress. all: every connection, so egress records every host and its allow-list applies to all of them. bound: only the traffic to hosts that a secret of the run is bound to; other traffic goes directly. Only with egress
+       */
+      egressTraffic?: 'all' | 'bound';
     } | null;
   };
   headers: {
@@ -14569,6 +14895,363 @@ export type ImportRunnerPoolResponses = {
 
 export type ImportRunnerPoolResponse = ImportRunnerPoolResponses[keyof ImportRunnerPoolResponses];
 
+export type ListEgressesData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/egresses';
+};
+
+export type ListEgressesErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such workspace that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ListEgressesError = ListEgressesErrors[keyof ListEgressesErrors];
+
+export type ListEgressesResponses = {
+  /**
+   * Every egress there, each as a read would answer it, in address order
+   */
+  200: EgressResourceListResponseDto;
+};
+
+export type ListEgressesResponse = ListEgressesResponses[keyof ListEgressesResponses];
+
+export type CreateEgressData = {
+  body: {
+    key: string;
+    /**
+     * Where the runners of a pool that names this egress send their traffic
+     */
+    url: string;
+    /**
+     * Write-only: the token the egress calls Spotlight with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Egress-Token
+     */
+    token?: string;
+    /**
+     * Changed, with a new token, to rotate the egress token in place: the old token is refused at once
+     */
+    tokenVersion?: number | null;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     */
+    'Idempotency-Key': string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query?: never;
+  url: '/resources/workspaces/{workspaceId}/egresses';
+};
+
+export type CreateEgressErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the egress: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such egress that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * A egress already exists at that address
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field; or the Idempotency-Key was used for a different request
+   */
+  422: ProblemResponseDto;
+};
+
+export type CreateEgressError = CreateEgressErrors[keyof CreateEgressErrors];
+
+export type CreateEgressResponses = {
+  /**
+   * The egress, as a read would answer it
+   *
+   * The egress, as a read would answer it
+   */
+  201: EgressResourceResponseDto;
+};
+
+export type CreateEgressResponse = CreateEgressResponses[keyof CreateEgressResponses];
+
+export type DeleteEgressData = {
+  body?: never;
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/egresses/{id}';
+};
+
+export type DeleteEgressErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the egress: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such egress that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type DeleteEgressError = DeleteEgressErrors[keyof DeleteEgressErrors];
+
+export type DeleteEgressResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteEgressResponse = DeleteEgressResponses[keyof DeleteEgressResponses];
+
+export type ReadEgressData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/egresses/{id}';
+};
+
+export type ReadEgressErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such egress that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadEgressError = ReadEgressErrors[keyof ReadEgressErrors];
+
+export type ReadEgressResponses = {
+  /**
+   * The egress, every field of it
+   */
+  200: EgressResourceResponseDto;
+};
+
+export type ReadEgressResponse = ReadEgressResponses[keyof ReadEgressResponses];
+
+export type UpdateEgressData = {
+  body: {
+    key: string;
+    /**
+     * Where the runners of a pool that names this egress send their traffic
+     */
+    url: string;
+    /**
+     * Write-only: the token the egress calls Spotlight with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Egress-Token
+     */
+    token?: string;
+    /**
+     * Changed, with a new token, to rotate the egress token in place: the old token is refused at once
+     */
+    tokenVersion?: number | null;
+  };
+  headers: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+    /**
+     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     */
+    'If-Match': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/resources/egresses/{id}';
+};
+
+export type UpdateEgressErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * Not allowed to do this to the egress: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   */
+  403: ProblemResponseDto;
+  /**
+   * No such egress that you may see
+   */
+  404: ProblemResponseDto;
+  /**
+   * It changed since the version in If-Match, and currentVersion says where it is; or something else still uses what this would remove
+   */
+  409: ProblemResponseDto;
+  /**
+   * What is wrong, field by field
+   */
+  422: ProblemResponseDto;
+  /**
+   * If-Match is missing
+   */
+  428: ProblemResponseDto;
+};
+
+export type UpdateEgressError = UpdateEgressErrors[keyof UpdateEgressErrors];
+
+export type UpdateEgressResponses = {
+  /**
+   * The egress, as a read would answer it
+   */
+  200: EgressResourceResponseDto;
+};
+
+export type UpdateEgressResponse = UpdateEgressResponses[keyof UpdateEgressResponses];
+
+export type ImportEgressData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version it was answered in
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    workspaceId: string;
+  };
+  query: {
+    /**
+     * The egress's address within the workspace
+     */
+    address: unknown;
+  };
+  url: '/resources/workspaces/{workspaceId}/egresses/import';
+};
+
+export type ImportEgressErrors = {
+  /**
+   * Malformed, or asking for an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such egress that you may see
+   */
+  404: ProblemResponseDto;
+};
+
+export type ImportEgressError = ImportEgressErrors[keyof ImportEgressErrors];
+
+export type ImportEgressResponses = {
+  /**
+   * The egress, as a read would answer it
+   */
+  200: EgressResourceResponseDto;
+};
+
+export type ImportEgressResponse = ImportEgressResponses[keyof ImportEgressResponses];
+
 export type ListWorkspaceRunnersData = {
   body?: never;
   headers?: {
@@ -14659,7 +15342,7 @@ export type CreateWorkspaceRunnersErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a workspace-runners at that address
+   * A workspace-runners already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -15002,7 +15685,7 @@ export type CreateSkillErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a skill at that address
+   * A skill already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -15355,7 +16038,7 @@ export type CreateHarnessProfileErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a harness-profile at that address
+   * A harness-profile already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -15717,7 +16400,7 @@ export type ReadResourceHclData = {
     'Spotlight-Client'?: string;
   };
   path: {
-    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'token-trusts' | 'runner-trusts' | 'runner-pools' | 'workspace-runners';
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'token-trusts' | 'runner-trusts' | 'runner-pools' | 'egresses' | 'workspace-runners';
     id: string;
   };
   query?: never;
@@ -16256,7 +16939,7 @@ export type CreateIntegrationErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a integration at that address
+   * A integration already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -16694,7 +17377,7 @@ export type CreateHookErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a hook at that address
+   * A hook already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -18283,7 +18966,7 @@ export type CreateReplayCandidateErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * There is already a replay-candidate at that address
+   * A replay-candidate already exists at that address
    */
   409: ProblemResponseDto;
   /**

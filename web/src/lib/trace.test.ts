@@ -16,6 +16,8 @@ const node = (
   currency: null,
   step: null,
   span: null,
+  connection: null,
+  egress: null,
   children: [],
   ...part,
 });

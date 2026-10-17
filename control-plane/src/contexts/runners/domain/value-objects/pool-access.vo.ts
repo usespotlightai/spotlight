@@ -1,3 +1,5 @@
+import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import type { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -28,18 +30,32 @@ export class PushAccess {
     readonly url: ProvisionUrl,
     readonly secret: SealedProvisionSecret,
     readonly secretVersion: number | null,
+    readonly egress: EgressReference | null,
+    readonly egressTraffic: EgressTraffic,
   ) {}
 
   static of(
     url: ProvisionUrl,
     secret: SealedProvisionSecret,
     secretVersion: number | null,
+    egress: EgressReference | null,
+    egressTraffic: EgressTraffic = EgressTraffic.all(),
   ): PushAccess {
-    return new PushAccess(url, secret, secretVersion);
+    return new PushAccess(
+      url,
+      secret,
+      secretVersion,
+      egress,
+      egress ? egressTraffic : EgressTraffic.all(),
+    );
   }
 
   rotatesOn(secretVersion: number | null): boolean {
     return secretVersion !== this.secretVersion;
+  }
+
+  goesOutThrough(egress: EgressReference): boolean {
+    return this.egress?.equals(egress) ?? false;
   }
 }
 

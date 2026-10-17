@@ -1,3 +1,6 @@
+import { EgressDefined } from '@runners/domain/events/egress-defined.event';
+import { EgressRedefined } from '@runners/domain/events/egress-redefined.event';
+import { EgressRetired } from '@runners/domain/events/egress-retired.event';
 import { RunnerHostStartedServing } from '@runners/domain/events/runner-host-started-serving.event';
 import { RunnerPoolDefined } from '@runners/domain/events/runner-pool-defined.event';
 import { RunnerPoolRedefined } from '@runners/domain/events/runner-pool-redefined.event';
@@ -9,6 +12,14 @@ import { WorkspaceRunnersDeclared } from '@runners/domain/events/workspace-runne
 import { WorkspaceRunnersDropped } from '@runners/domain/events/workspace-runners-dropped.event';
 import { WorkspaceRunnersRedeclared } from '@runners/domain/events/workspace-runners-redeclared.event';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { EgressChangeDetail } from '@runners/domain/value-objects/egress-change-detail.vo';
+import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
+import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import { EgressToken } from '@runners/domain/value-objects/egress-token.vo';
+import { EgressTokenStanding } from '@runners/domain/value-objects/egress-token-standing.vo';
+import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostImage } from '@runners/domain/value-objects/host-image.vo';
@@ -37,6 +48,14 @@ import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runn
 
 export const RUNNERS_EVENT_TYPES = [
   Admission,
+  EgressChangeDetail,
+  EgressId,
+  EgressKey,
+  EgressReference,
+  EgressTraffic,
+  EgressToken,
+  EgressTokenStanding,
+  EgressUrl,
   HarnessVersion,
   HostId,
   HostImage,
@@ -60,6 +79,9 @@ export const RUNNERS_EVENT_TYPES = [
   TrustKey,
   TrustedWorkload,
   WorkspaceRunnersId,
+  EgressDefined,
+  EgressRedefined,
+  EgressRetired,
   RunnerHostStartedServing,
   RunnerPoolDefined,
   RunnerPoolRedefined,

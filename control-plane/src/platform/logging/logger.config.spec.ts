@@ -9,6 +9,14 @@ const SESSION_COOKIE = `better-auth.session_token=${SESSION_TOKEN}`;
 
 type Captured = { lines: Record<string, unknown>[]; raw: string };
 
+const ISSUED_TOKEN = 'issued-token-never-logged-0123456789abcdef';
+
+const ISSUED_HEADERS = [
+  'spotlight-egress-token',
+  'spotlight-pool-token',
+  'spotlight-workspace-token',
+];
+
 async function request(
   path: string,
   headers: Record<string, string> = {},
@@ -34,6 +42,9 @@ async function request(
       res.on('close', resolve);
       req.log.info('handling request');
       res.setHeader('set-cookie', `${SESSION_COOKIE}; Path=/; HttpOnly`);
+      for (const issued of ISSUED_HEADERS) {
+        res.setHeader(issued, ISSUED_TOKEN);
+      }
       res.end('ok');
     });
   });
@@ -56,19 +67,25 @@ async function request(
 }
 
 describe('logger config', () => {
-  it('never writes session cookies or authorization headers', async () => {
+  it('never writes session cookies, authorization headers or tokens it issues', async () => {
     const { raw, lines } = await request('/api', {
       cookie: SESSION_COOKIE,
       authorization: `Bearer ${SESSION_TOKEN}`,
     });
 
     expect(raw).not.toContain(SESSION_TOKEN);
+    expect(raw).not.toContain(ISSUED_TOKEN);
     expect(lines[lines.length - 1]).toMatchObject({
       req: {
         headers: { cookie: '[redacted]', authorization: '[redacted]' },
       },
       res: {
-        headers: { 'set-cookie': '[redacted]' },
+        headers: {
+          'set-cookie': '[redacted]',
+          ...Object.fromEntries(
+            ISSUED_HEADERS.map((issued) => [issued, '[redacted]']),
+          ),
+        },
       },
     });
   });

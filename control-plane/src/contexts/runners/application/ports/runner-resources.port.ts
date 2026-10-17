@@ -33,7 +33,18 @@ export interface KeptPool {
   readonly provision: {
     readonly url: string;
     readonly secretVersion: number | null;
+    readonly egress: string | null;
+    readonly egressTraffic: 'all' | 'bound';
   } | null;
+}
+
+export interface KeptEgress {
+  readonly id: string;
+  readonly version: number;
+  readonly workspaceId: WorkspaceId;
+  readonly key: string;
+  readonly url: string;
+  readonly tokenVersion: number | null;
 }
 
 export interface RunnerResourcesPort {
@@ -50,6 +61,12 @@ export interface RunnerResourcesPort {
   poolsIn(workspaceId: WorkspaceId): Promise<readonly KeptPool[]>;
 
   provisioningPools(): Promise<readonly KeptPool[]>;
+
+  egressWithId(id: string): Promise<KeptEgress | null>;
+
+  egressAt(workspaceId: WorkspaceId, key: string): Promise<KeptEgress | null>;
+
+  egressesIn(workspaceId: WorkspaceId): Promise<readonly KeptEgress[]>;
 
   declaredWithId(id: string): Promise<KeptWorkspaceRunners | null>;
 

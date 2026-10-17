@@ -1,5 +1,6 @@
 import type { Ref } from 'react';
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
+import { RunNetwork } from '@/components/features/runs/network/RunNetwork';
 import { DetailFields } from '@/components/features/trace/view/detail/DetailFields';
 import { DetailHeader } from '@/components/features/trace/view/detail/DetailHeader';
 import { DetailSection } from '@/components/features/trace/view/detail/DetailSection';
@@ -13,6 +14,7 @@ import {
   holdings,
   restOf,
 } from '@/lib/detail';
+import { connectionTold } from '@/lib/run-network';
 import { runIdOf, type TraceNode } from '@/lib/trace';
 
 const DETAIL_PANE: PaneConfig = {
@@ -39,6 +41,7 @@ export function SpanDetail({
   const { step } = node;
   const runId = runIdOf(node);
 
+  const cause = connectionTold(node);
   const asked = askedOf(node);
   const answered = answeredBy(node);
   const held = holdings(node);
@@ -62,13 +65,15 @@ export function SpanDetail({
         <DetailHeader node={node} />
 
         {runId && <RunJudgeScore teamId={teamId} runId={runId} />}
+        {runId && <RunNetwork teamId={teamId} runId={runId} />}
 
+        {cause && <DetailTold told={cause} />}
         {asked && <DetailTold told={asked} />}
         {answered && <DetailTold told={answered} />}
 
         {step?.change && (
           <DetailSection title="Diff" copy={step.change.after}>
-            <p className="flex gap-2 font-mono text-muted-foreground text-xs">
+            <p className="flex gap-2 text-muted-foreground text-xs">
               {step.change.path && (
                 <span className="truncate">{step.change.path}</span>
               )}

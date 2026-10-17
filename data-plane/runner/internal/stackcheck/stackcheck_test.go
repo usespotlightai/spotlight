@@ -588,3 +588,18 @@ func TestPerformBorrowsTheHostsMirrorWhereThereIsOne(t *testing.T) {
 		t.Errorf("borrowed from %q, want %q", borrowed, want)
 	}
 }
+
+func TestPerformRunsTheCheckThroughTheWayOut(t *testing.T) {
+	r := setUp(t)
+	told := &reporter{}
+	check := r.check(whole(r.whole))
+	check.Command = `test "$HTTPS_PROXY" = http://127.0.0.1:3128`
+	options := r.options()
+	options.Env = map[string]string{"HTTPS_PROXY": "http://127.0.0.1:3128"}
+
+	stackcheck.Perform(context.Background(), told, check, options)
+
+	if checked := told.only(); len(checked.Steps) != 1 || !checked.Steps[0].Passed {
+		t.Errorf("checked %+v", checked)
+	}
+}

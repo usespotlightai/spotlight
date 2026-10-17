@@ -58,6 +58,9 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
+const wearsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'wears'), 0) = 0
+  AND coalesce((${run.spec} ->> 'spotlightApi')::boolean, false) = false`;
+
 const noEarlierRunStillHeld = sql`NOT EXISTS (
   SELECT 1 FROM ${run} AS earlier
   WHERE earlier.task_id = ${run.taskId}
@@ -244,7 +247,11 @@ export class DrizzleRunRepository implements RunRepository {
   async awaitingProvision(
     workspaceId: WorkspaceId,
     now: Date,
-    page: { readonly skip: number; readonly most: number },
+    page: {
+      readonly skip: number;
+      readonly most: number;
+      readonly withSecrets: boolean;
+    },
   ): Promise<readonly Run[]> {
     const rows = await this.selected()
       .where(
@@ -252,7 +259,7 @@ export class DrizzleRunRepository implements RunRepository {
           eq(run.workspaceId, workspaceId.value),
           eq(run.state, 'queued'),
           isNull(run.reservedFor),
-          sql`coalesce(jsonb_array_length(${run.spec} -> 'wears'), 0) = 0`,
+          page.withSecrets ? undefined : wearsNoSecrets,
           or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
           noEarlierRunStillHeld,

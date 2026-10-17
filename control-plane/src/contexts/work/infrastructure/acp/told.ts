@@ -1,4 +1,7 @@
 import {
+  EGRESS_CHECKED,
+  type EgressEnforcement,
+  enforcementTold,
   HOOK_CALLED,
   type JournalStep,
   PROVISION_FAILED,
@@ -231,6 +234,7 @@ export class Told {
   #refused = new Set<string>();
   #saying: Building | null = null;
   #spent: RunSpent | null = null;
+  #egress: EgressEnforcement | null = null;
   #spentBySession = new Map<string, RunSpent>();
   #tokens = Tokens.UNREPORTED;
   #first: Date | null = null;
@@ -274,6 +278,9 @@ export class Told {
         break;
       case TOOL_REFUSED:
         this.refused(event);
+        break;
+      case EGRESS_CHECKED:
+        this.checked(event);
         break;
       default:
         break;
@@ -367,6 +374,10 @@ export class Told {
     if (typeof refused?.toolCallId === 'string' && refused.toolCallId) {
       this.#refused.add(refused.toolCallId);
     }
+  }
+
+  private checked(event: Journalled): void {
+    this.#egress = enforcementTold(event.data) ?? this.#egress;
   }
 
   private ranHook(event: Journalled): void {
@@ -521,6 +532,10 @@ export class Told {
 
   spent(): RunSpent | null {
     return this.#spent;
+  }
+
+  egress(): EgressEnforcement | null {
+    return this.#egress;
   }
 
   spentBySession(): ReadonlyMap<string, RunSpent> {

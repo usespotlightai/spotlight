@@ -18,18 +18,20 @@ import (
 	"time"
 
 	"usespotlight.ai/data-plane/control"
-	"usespotlight.ai/data-plane/egress/internal/authority"
 	"usespotlight.ai/data-plane/egress/internal/awssm"
 	"usespotlight.ai/data-plane/egress/internal/proxy"
-	"usespotlight.ai/data-plane/egress/internal/seal"
 	"usespotlight.ai/data-plane/egress/internal/send"
-	"usespotlight.ai/data-plane/egress/internal/wear"
+	"usespotlight.ai/data-plane/egress/serve"
+	"usespotlight.ai/data-plane/egressing/authority"
+	"usespotlight.ai/data-plane/egressing/seal"
+	"usespotlight.ai/data-plane/egressing/wear"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
 	"usespotlight.ai/data-plane/telemetry"
 )
 
-const Usage = `  spotlight egress            the one way out of a sandbox, wearing its run's secrets toward their hosts`
+const Usage = `  spotlight egress            the one way out of a sandbox, wearing its run's secrets toward their hosts
+  spotlight egress serve      the shared way out for the sandboxes of push pools`
 
 const (
 	redeemBudget  = time.Minute
@@ -43,12 +45,16 @@ type Redeemer interface {
 }
 
 func Main(args []string, _ string) int {
-	if len(args) != 0 {
+	started := run
+	switch {
+	case len(args) == 1 && args[0] == "serve":
+		started = serveShared
+	case len(args) != 0:
 		fmt.Fprintf(os.Stderr, "usage:\n%s\n", Usage)
 		return 1
 	}
 
-	if err := run(); err != nil {
+	if err := started(); err != nil {
 		slog.Error("egress stopped", "error", err)
 		telemetry.Report(err, nil)
 		return 1
@@ -140,6 +146,38 @@ func run() error {
 	log.Info("egress stopped and let go of the run's secrets")
 
 	return nil
+}
+
+func serveShared() error {
+	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(log)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	settings, err := serve.Load()
+	if err != nil {
+		return err
+	}
+
+	client, err := control.New(settings.URL, settings.Token)
+	if err != nil {
+		return err
+	}
+	client.Through(settings.Transport())
+
+	shared, err := serve.New(settings, client, readerInNetwork(ctx), log)
+	if err != nil {
+		return err
+	}
+
+	listener, err := net.Listen("tcp", settings.Listen)
+	if err != nil {
+		return fmt.Errorf("listen for sandboxes: %w", err)
+	}
+	log.Info("egress is the shared way out for sandboxes", "listen", settings.Listen, "tls", settings.Certificate != nil)
+
+	return shared.Serve(ctx, listener)
 }
 
 func handedTo(path string) (protocol.EgressHanded, error) {

@@ -21,7 +21,7 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull, ne, or } from 'drizzle-orm';
 
 const through = (row: {
   poolId: string | null;
@@ -32,11 +32,14 @@ const through = (row: {
     ? { kind: 'pool', key: row.poolKey }
     : { kind: 'trust', key: row.trustKey };
 
+const PLATFORM = 'spotlight';
+
 @Injectable()
 export class DrizzleRunnerReader implements RunnerReaderPort {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    private readonly platform: boolean,
   ) {}
 
   async readyToRun(workspaceId: WorkspaceId): Promise<boolean> {
@@ -55,10 +58,27 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       return true;
     }
 
-    return this.hostsSandboxes(workspaceId);
+    return this.hasAWayOut(workspaceId);
   }
 
-  async hostsSandboxes(workspaceId: WorkspaceId): Promise<boolean> {
+  async hasAWayOut(workspaceId: WorkspaceId): Promise<boolean> {
+    const [goingOut] = await this.db
+      .select({ id: runnerPool.id })
+      .from(runnerPool)
+      .where(
+        and(
+          eq(runnerPool.workspaceId, workspaceId.value),
+          isNotNull(runnerPool.provisionUrl),
+          isNotNull(runnerPool.provisionEgress),
+          this.platform ? undefined : ne(runnerPool.provisionEgress, PLATFORM),
+        ),
+      )
+      .limit(1);
+
+    if (goingOut) {
+      return true;
+    }
+
     const hosts = await this.db
       .select({
         name: runnerHost.name,

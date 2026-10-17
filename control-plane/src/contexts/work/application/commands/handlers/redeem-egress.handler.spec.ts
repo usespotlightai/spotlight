@@ -5,6 +5,7 @@ import type {
 import type {
   EgressFor,
   RunnerEgressPort,
+  SharedEgressFor,
 } from '@runners/application/ports/runner-egress.port';
 import type { RunRedemption } from '@secrets/application/contracts/run-redemption.contract';
 import type { RunRedemptionsPort } from '@secrets/application/ports/run-redemptions.port';
@@ -14,8 +15,13 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { RedeemEgressCommand } from '@work/application/commands/egress.commands';
+import {
+  RedeemEgressCommand,
+  RedeemThroughEgressCommand,
+} from '@work/application/commands/egress.commands';
 import { RedeemEgressHandler } from '@work/application/commands/handlers/redeem-egress.handler';
+import { RedeemThroughEgressHandler } from '@work/application/commands/handlers/redeem-through-egress.handler';
+import { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -77,16 +83,24 @@ const redeeming = (
   admitted: EgressFor | null,
   run: Run | null = heldRun(),
   after: Run | null = run,
+  shared: SharedEgressFor | null = null,
 ) => {
   const asked: RunRedemption[] = [];
   const lost: string[] = [];
   const minted: RunTokenWanted[] = [];
   const revoked: string[] = [];
   const found = [run, after];
-  const handler = new RedeemEgressHandler(
-    {
-      admit: async (token) => (token === 'egress-token' ? admitted : null),
-    } as RunnerEgressPort,
+  const egress: RunnerEgressPort = {
+    admit: async (token) => (token === 'egress-token' ? admitted : null),
+    sharedWith: async (token) =>
+      token === 'shared-token' ? { egressId: 'egress_1' } : null,
+    admitThrough: async (through, credential) =>
+      through.egressId === 'egress_1' && credential === 'proxy-credential'
+        ? shared
+        : null,
+    recordsThrough: async () => null,
+  };
+  const redemptions = new EgressRedemptions(
     {
       findById: async () =>
         (found.length > 1 ? found.shift() : found[0]) ?? null,
@@ -114,12 +128,18 @@ const redeeming = (
       revoke: async (workspaceId, tokenId) => {
         revoked.push(`${workspaceId}/${tokenId}`);
       },
-      revokeFor: async () => undefined,
+      revokeFor: async (workspaceId, runId, attempt) => {
+        revoked.push(`${workspaceId}/${runId}#${attempt}`);
+      },
     } as RunTokensPort,
     { now: () => NOW } as ClockPort,
+    'app.example.com',
   );
+  const clock = { now: () => NOW } as ClockPort;
+  const handler = new RedeemEgressHandler(egress, redemptions, clock);
+  const through = new RedeemThroughEgressHandler(egress, redemptions, clock);
 
-  return { handler, asked, lost, minted, revoked };
+  return { handler, through, asked, lost, minted, revoked };
 };
 
 const HOLDING_RUN: EgressFor = {
@@ -138,6 +158,7 @@ describe('RedeemEgressHandler', () => {
       outcome: 'redeemed',
       runId: 'run_1',
       reaches: ['storage.example.com'],
+      bound: ['mcp.linear.app'],
       ...REDEEMED,
       spotlightApi: null,
     });
@@ -148,6 +169,7 @@ describe('RedeemEgressHandler', () => {
         attempt: 1,
         wears: ['LINEAR_API_KEY', 'GONE'],
         recipient: 'recipient-key',
+        sharedEgress: null,
       },
     ]);
   });
@@ -173,6 +195,7 @@ describe('RedeemEgressHandler', () => {
       outcome: 'redeemed',
       runId: null,
       reaches: ['storage.example.com'],
+      bound: [],
       secrets: [],
       withheld: [],
       spotlightApi: null,
@@ -253,6 +276,22 @@ describe('RedeemEgressHandler', () => {
     ]);
   });
 
+  it('revokes the earlier token of the hold before it mints another', async () => {
+    const reaching = heldRun('ws_1', RUNNER, { spotlightApi: true, wears: [] });
+    const { handler, revoked, minted } = redeeming(
+      HOLDING_RUN,
+      reaching,
+      reaching,
+    );
+
+    await handler.execute(
+      new RedeemEgressCommand('egress-token', 'recipient-key'),
+    );
+
+    expect(revoked).toEqual(['ws_1/run_1#1']);
+    expect(minted).toHaveLength(1);
+  });
+
   it('mints no token for a run that does not reach Spotlight’s API', async () => {
     const { handler, minted } = redeeming(HOLDING_RUN);
 
@@ -271,6 +310,118 @@ describe('RedeemEgressHandler', () => {
     await expect(
       handler.execute(new RedeemEgressCommand('egress-token', 'recipient-key')),
     ).resolves.toMatchObject({ runId: null, spotlightApi: null });
-    expect(revoked).toEqual(['ws_1/token_1']);
+    expect(revoked).toEqual(['ws_1/run_1#1', 'ws_1/token_1']);
+  });
+});
+
+describe('RedeemThroughEgressHandler', () => {
+  const SHARED: SharedEgressFor = { ...HOLDING_RUN, egressId: 'egress_1' };
+
+  it('redeems for the run of the proxy credential, pinned to the shared egress', async () => {
+    const { through, asked } = redeeming(null, heldRun(), heldRun(), SHARED);
+
+    await expect(
+      through.execute(
+        new RedeemThroughEgressCommand(
+          'shared-token',
+          'proxy-credential',
+          'node-key',
+        ),
+      ),
+    ).resolves.toMatchObject({
+      outcome: 'redeemed',
+      runId: 'run_1',
+      bound: ['mcp.linear.app'],
+    });
+    expect(asked).toMatchObject([
+      { recipient: 'node-key', sharedEgress: 'egress_1' },
+    ]);
+  });
+
+  it('refuses an unknown egress token, or a proxy credential that admits no runner', async () => {
+    for (const [token, credential] of [
+      ['other', 'proxy-credential'],
+      ['shared-token', 'another-credential'],
+    ]) {
+      const { through, asked } = redeeming(null, heldRun(), heldRun(), SHARED);
+
+      await expect(
+        through.execute(
+          new RedeemThroughEgressCommand(token, credential, 'node-key'),
+        ),
+      ).resolves.toEqual({ outcome: 'refused' });
+      expect(asked).toEqual([]);
+    }
+  });
+
+  it('tells egress to wait while the runner holds no run, or has lost it', async () => {
+    for (const [admitted, run] of [
+      [{ ...SHARED, work: null }, heldRun()],
+      [SHARED, heldRun('ws_1', 'runner_2')],
+    ] as const) {
+      const { through, asked } = redeeming(null, run, run, admitted);
+
+      await expect(
+        through.execute(
+          new RedeemThroughEgressCommand(
+            'shared-token',
+            'proxy-credential',
+            'node-key',
+          ),
+        ),
+      ).resolves.toEqual({ outcome: 'waiting' });
+      expect(asked).toEqual([]);
+    }
+  });
+
+  it('answers a held run that wears nothing, so egress stops asking', async () => {
+    const plain = heldRun('ws_1', RUNNER, { wears: [] });
+    const { through } = redeeming(null, plain, plain, SHARED);
+
+    await expect(
+      through.execute(
+        new RedeemThroughEgressCommand(
+          'shared-token',
+          'proxy-credential',
+          'node-key',
+        ),
+      ),
+    ).resolves.toMatchObject({
+      outcome: 'redeemed',
+      runId: 'run_1',
+      bound: [],
+    });
+  });
+
+  it('binds the control plane host when the run reaches Spotlight’s API', async () => {
+    const reaching = heldRun('ws_1', RUNNER, { spotlightApi: true, wears: [] });
+    const { through } = redeeming(null, reaching, reaching, SHARED);
+
+    await expect(
+      through.execute(
+        new RedeemThroughEgressCommand(
+          'shared-token',
+          'proxy-credential',
+          'node-key',
+        ),
+      ),
+    ).resolves.toMatchObject({
+      bound: ['app.example.com', 'mcp.linear.app'],
+      spotlightApi: { sealed: 'sealed(spotlight-api=run-token)' },
+    });
+  });
+
+  it('never takes the egress token of the egress beside a sandbox', async () => {
+    const { through } = redeeming(HOLDING_RUN, heldRun(), heldRun(), SHARED);
+
+    await expect(
+      through.execute(
+        new RedeemThroughEgressCommand(
+          'egress-token',
+          'proxy-credential',
+          'node-key',
+        ),
+      ),
+    ).resolves.toEqual({ outcome: 'refused' });
   });
 });

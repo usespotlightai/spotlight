@@ -129,7 +129,7 @@ describe('RunJudgeScore', () => {
 
     showing();
 
-    expect(screen.getByText('score hidden')).toBeInTheDocument();
+    expect(screen.getByText('Hidden')).toBeInTheDocument();
     expect(
       screen.getByText('Hidden. Cohen’s kappa: 0.38. Minimum required: 0.60'),
     ).toBeInTheDocument();
@@ -160,7 +160,9 @@ describe('RunJudgeScore', () => {
 
     showing();
 
-    expect(screen.getByText(/People said Yes \(you\)/)).toBeInTheDocument();
+    expect(screen.getByText('People').nextSibling).toHaveTextContent(
+      'Yes (you)',
+    );
   });
 
   it('shows nothing for a run no judge scored', () => {

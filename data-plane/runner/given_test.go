@@ -39,7 +39,7 @@ func TestTakesTheWorkItWasHandedAndLeavesNoCredentialBehind(t *testing.T) {
 		Work:     protocol.Claimed{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "run_1"}},
 	})
 
-	handed, err := given(context.Background(), config.Config{Handed: path}, "test", quiet)
+	handed, err := given(context.Background(), config.Config{Handed: path}, "test", nil, quiet)
 	if err != nil {
 		t.Fatalf("given: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestTakesTheWorkItWasHandedAndLeavesNoCredentialBehind(t *testing.T) {
 func TestRefusesHandedWorkWithoutACredential(t *testing.T) {
 	path := handedFile(t, protocol.Handed{RunnerID: "runner_1"})
 
-	if _, err := given(context.Background(), config.Config{Handed: path}, "test", quiet); err == nil ||
+	if _, err := given(context.Background(), config.Config{Handed: path}, "test", nil, quiet); err == nil ||
 		!strings.Contains(err.Error(), "credential") {
 		t.Fatalf("expected a refusal, got %v", err)
 	}
@@ -91,7 +91,7 @@ func TestAPushRunnerRegistersThenClaimsWhatWasReservedForIt(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	handed, err := given(context.Background(), config.Config{URL: server.URL, Token: "one-run"}, "test", quiet)
+	handed, err := given(context.Background(), config.Config{URL: server.URL, Token: "one-run"}, "test", nil, quiet)
 	if err != nil {
 		t.Fatalf("given: %v", err)
 	}

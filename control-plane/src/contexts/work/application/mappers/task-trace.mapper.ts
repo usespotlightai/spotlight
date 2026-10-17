@@ -19,6 +19,16 @@ const nodeToDto = (node: TraceNode): TraceNodeDto => ({
   currency: node.cost?.currency ?? null,
   step: node.step && stepToDto(node.step),
   span: node.span && spanToDto(node.span),
+  connection: node.connection && {
+    host: node.connection.connection.host,
+    port: node.connection.connection.port,
+    outcome: node.connection.connection.outcome,
+    status: node.connection.connection.status,
+    reason: node.connection.connection.reason,
+    trouble: node.connection.connection.trouble,
+    times: node.connection.times,
+  },
+  egress: node.egress,
   children: node.children.map(nodeToDto),
 });
 

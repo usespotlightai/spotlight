@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"testing"
+
+	"usespotlight.ai/data-plane/egressing/seal/sealtest"
 )
 
 // The control plane's X25519RunSealing sealed these values. A change on one side that breaks the other side fails here.
@@ -66,5 +68,21 @@ func TestNamesItselfAsA32ByteKeyInBase64(t *testing.T) {
 	raw, err := base64.StdEncoding.DecodeString(key.Recipient())
 	if err != nil || len(raw) != 32 {
 		t.Errorf("recipient %q: %v", key.Recipient(), err)
+	}
+}
+
+func TestOpensWhatTheTestSealerSealsForTheRun(t *testing.T) {
+	key, err := NewKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sealed, err := sealtest.Seal(key.Recipient(), "lin_api_1", "run_1", "LINEAR_API_KEY")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if opened, err := key.Open(sealed, "run_1", "LINEAR_API_KEY"); err != nil || opened != "lin_api_1" {
+		t.Fatalf("opened %q: %v", opened, err)
 	}
 }

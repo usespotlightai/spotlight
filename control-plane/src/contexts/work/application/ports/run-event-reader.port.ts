@@ -18,4 +18,10 @@ export interface RunEventReaderPort {
     afterSeq: number,
     most: number,
   ): Promise<RunEventView[]>;
+
+  lastOfType(
+    runId: RunId,
+    attempt: number,
+    type: string,
+  ): Promise<RunEventView | null>;
 }

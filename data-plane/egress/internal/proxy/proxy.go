@@ -1,24 +1,22 @@
 package proxy
 
 import (
-	"bufio"
 	"context"
 	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
-	"usespotlight.ai/data-plane/egress/internal/guard"
+	"usespotlight.ai/data-plane/egressing/guard"
+	"usespotlight.ai/data-plane/egressing/tunnel"
 )
 
 type Allowed interface {
@@ -135,25 +133,18 @@ func (p *Proxy) tunnel(w http.ResponseWriter, r *http.Request, host, target stri
 	}
 	defer upstream.Close()
 
-	client, buffered, err := hijack(w)
+	client, buffered, err := tunnel.Hijack(w)
 	if err != nil {
 		p.log.Warn("could not take over a connection to tunnel it", "error", err)
 		return
 	}
 	defer client.Close()
 
-	if _, err := client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
+	if _, err := client.Write([]byte(tunnel.Established)); err != nil {
 		return
 	}
 
-	var copying sync.WaitGroup
-	copying.Go(func() {
-		_, _ = io.Copy(upstream, buffered)
-		closeWrite(upstream)
-	})
-	_, _ = io.Copy(client, upstream)
-	closeWrite(client)
-	copying.Wait()
+	tunnel.Splice(client, buffered, upstream)
 }
 
 func (p *Proxy) intercept(w http.ResponseWriter, r *http.Request, host, target string) {
@@ -163,18 +154,18 @@ func (p *Proxy) intercept(w http.ResponseWriter, r *http.Request, host, target s
 		return
 	}
 
-	client, buffered, err := hijack(w)
+	client, buffered, err := tunnel.Hijack(w)
 	if err != nil {
 		p.log.Warn("could not take over a connection to wear secrets on it", "error", err)
 		return
 	}
 
-	if _, err := client.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
+	if _, err := client.Write([]byte(tunnel.Established)); err != nil {
 		client.Close()
 		return
 	}
 
-	secured := tls.Server(&bufferedConn{Conn: client, reader: buffered}, &tls.Config{
+	secured := tls.Server(tunnel.Buffered(client, buffered), &tls.Config{
 		Certificates: []tls.Certificate{*certificate},
 		NextProtos:   []string{"http/1.1"},
 		MinVersion:   tls.VersionTLS12,
@@ -185,7 +176,7 @@ func (p *Proxy) intercept(w http.ResponseWriter, r *http.Request, host, target s
 		ReadHeaderTimeout: time.Minute,
 		ErrorLog:          slog.NewLogLogger(p.log.Handler(), slog.LevelDebug),
 	}
-	_ = server.Serve(&oneConn{conn: secured})
+	_ = server.Serve(tunnel.One(secured))
 }
 
 func (p *Proxy) wearingTo(host, target string) http.Handler {
@@ -258,73 +249,4 @@ func (p *Proxy) failed(w http.ResponseWriter, r *http.Request, err error) {
 
 	p.log.Warn("could not pass a request on", "host", r.URL.Hostname(), "error", err)
 	http.Error(w, fmt.Sprintf("Egress couldn't reach %s.", r.URL.Host), http.StatusBadGateway)
-}
-
-func hijack(w http.ResponseWriter) (net.Conn, *bufio.Reader, error) {
-	hijacker, ok := w.(http.Hijacker)
-	if !ok {
-		return nil, nil, errors.New("the connection cannot be taken over")
-	}
-
-	conn, buffered, err := hijacker.Hijack()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return conn, buffered.Reader, nil
-}
-
-func closeWrite(conn net.Conn) {
-	if half, ok := conn.(interface{ CloseWrite() error }); ok {
-		_ = half.CloseWrite()
-	}
-}
-
-type bufferedConn struct {
-	net.Conn
-	reader *bufio.Reader
-}
-
-func (c *bufferedConn) Read(b []byte) (int, error) {
-	return c.reader.Read(b)
-}
-
-type oneConn struct {
-	conn   net.Conn
-	once   sync.Once
-	closed chan struct{}
-}
-
-func (l *oneConn) Accept() (net.Conn, error) {
-	var handed net.Conn
-
-	l.once.Do(func() {
-		l.closed = make(chan struct{})
-		handed = &closingConn{Conn: l.conn, closed: l.closed}
-	})
-	if handed != nil {
-		return handed, nil
-	}
-
-	<-l.closed
-	return nil, net.ErrClosed
-}
-
-func (l *oneConn) Close() error {
-	return nil
-}
-
-func (l *oneConn) Addr() net.Addr {
-	return l.conn.LocalAddr()
-}
-
-type closingConn struct {
-	net.Conn
-	once   sync.Once
-	closed chan struct{}
-}
-
-func (c *closingConn) Close() error {
-	c.once.Do(func() { close(c.closed) })
-	return c.Conn.Close()
 }

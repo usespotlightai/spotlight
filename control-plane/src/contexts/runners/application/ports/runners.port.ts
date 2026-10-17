@@ -28,6 +28,7 @@ export interface ProvisionRequest {
   readonly taskId: string | null;
   readonly labels: readonly string[];
   readonly image: string | null;
+  readonly needsEgress: boolean;
   readonly claimBy: Date;
 }
 

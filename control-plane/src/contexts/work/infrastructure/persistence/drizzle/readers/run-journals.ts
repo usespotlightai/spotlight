@@ -198,6 +198,7 @@ async function journalsOf(
       ms: reading.told.ms(),
       marks: reading.told.marks(),
       spent: reading.told.spent(),
+      egress: reading.told.egress(),
     };
   });
 }

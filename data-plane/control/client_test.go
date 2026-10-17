@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/protocol"
@@ -925,6 +926,57 @@ func TestOnlyAMissingRunIsGone(t *testing.T) {
 		var rejection *control.Rejection
 		if !errors.As(err, &rejection) || rejection.Gone() != want {
 			t.Errorf("a %d renewal was gone %v, wanted %v", status, rejection != nil && rejection.Gone(), want)
+		}
+	}
+}
+
+func TestTheEgressCallsCarryTheContract(t *testing.T) {
+	asked := map[string]string{}
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		asked[r.URL.Path] = string(body)
+		switch r.URL.Path {
+		case "/api/egress/admit":
+			_, _ = w.Write([]byte(`{"runnerId":"runner_1","workspaceId":"ws_1","controlPlaneHost":"spotlight.example.com","controlPlanePort":443,"reaches":["storage.example.com"]}`))
+		case "/api/egress/redeem":
+			_, _ = w.Write([]byte(`{"runId":"run_1","reaches":[],"secrets":[],"withheld":[],"bound":["mcp.example.com"]}`))
+		case "/api/egress/holds":
+			_, _ = w.Write([]byte(`{"held":["one"]}`))
+		case "/api/egress/connections":
+			w.WriteHeader(http.StatusNoContent)
+		}
+	})
+	ctx := context.Background()
+
+	admitted, err := client.AdmitEgress(ctx, "one")
+	if err != nil || admitted.RunnerID != "runner_1" || admitted.WorkspaceID != "ws_1" ||
+		admitted.ControlPlaneHost != "spotlight.example.com" || admitted.ControlPlanePort != 443 || len(admitted.Reaches) != 1 || admitted.Reaches[0] != "storage.example.com" {
+		t.Errorf("admitted %+v: %v", admitted, err)
+	}
+	redeemed, err := client.RedeemEgressFor(ctx, "one", "recipient")
+	if err != nil || redeemed.RunID != "run_1" || len(redeemed.Bound) != 1 || redeemed.Bound[0] != "mcp.example.com" {
+		t.Errorf("redeemed %+v: %v", redeemed, err)
+	}
+	held, err := client.EgressHolds(ctx, []string{"one", "two"})
+	if err != nil || len(held) != 1 || held[0] != "one" {
+		t.Errorf("held %v: %v", held, err)
+	}
+	at := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	if err := client.RecordConnections(ctx, []protocol.EgressConnection{{
+		ProxyCredential: "one", Host: "api.example.com", Port: 443, BytesOut: 10, BytesIn: 20, Ms: 30, Outcome: protocol.ConnectionTunnelled, At: at,
+	}}); err != nil {
+		t.Errorf("record: %v", err)
+	}
+
+	want := map[string]string{
+		"/api/egress/admit":       `{"proxyCredential":"one"}`,
+		"/api/egress/redeem":      `{"proxyCredential":"one","recipient":"recipient"}`,
+		"/api/egress/holds":       `{"proxyCredentials":["one","two"]}`,
+		"/api/egress/connections": `{"records":[{"proxyCredential":"one","host":"api.example.com","port":443,"bytesOut":10,"bytesIn":20,"ms":30,"outcome":"tunnelled","at":"2026-10-16T12:00:00Z"}]}`,
+	}
+	for path, body := range want {
+		if asked[path] != body {
+			t.Errorf("%s sent %s", path, asked[path])
 		}
 	}
 }

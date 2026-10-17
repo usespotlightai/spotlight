@@ -8,9 +8,10 @@ const BURST = PoolId.of('burst');
 const STEADY = PoolId.of('steady');
 const SPARE = PoolId.of('spare');
 
-const aPool = (pool: PoolId, labels: string[] = []) => ({
+const aPool = (pool: PoolId, labels: string[] = [], egress = false) => ({
   pool,
   labels: RunnerTerms.of(labels),
+  egress,
 });
 
 const POOLS = [aPool(BURST, ['gpu']), aPool(STEADY), aPool(SPARE)];
@@ -33,6 +34,25 @@ describe('poolChoiceFor', () => {
         (each) => each.pool,
       ),
     ).toEqual([BURST]);
+  });
+
+  it('offers a run that wears secrets only the pools that name an egress', () => {
+    const pools = [aPool(BURST), aPool(STEADY, [], true)];
+    const room = PoolRoom.told([
+      [BURST, null],
+      [STEADY, null],
+    ]);
+
+    expect(
+      poolChoiceFor(RunnerPlacement.anywhere(), pools, room, true).map(
+        (each) => each.pool,
+      ),
+    ).toEqual([STEADY]);
+    expect(
+      poolChoiceFor(RunnerPlacement.anywhere(), pools, room).map(
+        (each) => each.pool,
+      ),
+    ).toEqual([BURST, STEADY]);
   });
 
   it('offers no pool whose room it was never told', () => {

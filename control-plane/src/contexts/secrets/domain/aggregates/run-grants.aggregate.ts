@@ -1,6 +1,7 @@
 import { RedemptionRecipientPinnedError } from '@secrets/domain/exceptions/redemption-recipient-pinned.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
 import { RunHoldOverError } from '@secrets/domain/exceptions/run-hold-over.error';
+import type { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
 import type { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
@@ -15,7 +16,7 @@ interface State {
   readonly hold: RunHold;
   readonly workspaceId: WorkspaceId;
   readonly grants: readonly SecretGrant[];
-  readonly recipient: RedemptionRecipient | null;
+  readonly redeemer: Redeemer | null;
   readonly holdLost: boolean;
   readonly endedAt: Date | null;
   readonly version: number;
@@ -34,7 +35,7 @@ export class RunGrants extends EventRecorder {
       hold,
       workspaceId,
       grants: [],
-      recipient: null,
+      redeemer: null,
       holdLost: false,
       endedAt: null,
       version: 0,
@@ -88,18 +89,19 @@ export class RunGrants extends EventRecorder {
     );
   }
 
-  redeemedFor(hold: RunHold, recipient: RedemptionRecipient): RunGrants {
+  redeemedFor(hold: RunHold, redeemer: Redeemer): RunGrants {
     const held = this.heldAt(hold);
+    const pinned = held.state.redeemer;
 
-    if (!held.state.recipient) {
-      return held.with({ recipient });
+    if (!pinned) {
+      return held.with({ redeemer });
     }
 
-    if (!held.state.recipient.equals(recipient)) {
+    if (!redeemer.mayFollow(pinned)) {
       throw new RedemptionRecipientPinnedError(this.runId.value, hold.attempt);
     }
 
-    return held;
+    return pinned.equals(redeemer) ? held : held.with({ redeemer });
   }
 
   lostHold(hold: RunHold): RunGrants {
@@ -113,7 +115,7 @@ export class RunGrants extends EventRecorder {
       return this;
     }
 
-    return this.with({ hold, grants: [], recipient: null, holdLost: true });
+    return this.with({ hold, grants: [], redeemer: null, holdLost: true });
   }
 
   ended(now: Date): RunGrants {
@@ -157,8 +159,12 @@ export class RunGrants extends EventRecorder {
     return [...this.state.grants];
   }
 
+  get redeemer(): Redeemer | null {
+    return this.state.redeemer;
+  }
+
   get recipient(): RedemptionRecipient | null {
-    return this.state.recipient;
+    return this.state.redeemer?.recipient ?? null;
   }
 
   get isHoldLost(): boolean {
@@ -197,7 +203,7 @@ export class RunGrants extends EventRecorder {
 
     return hold.equals(this.state.hold)
       ? this
-      : this.with({ hold, grants: [], recipient: null, holdLost: false });
+      : this.with({ hold, grants: [], redeemer: null, holdLost: false });
   }
 
   private isStandingAt(hold: RunHold): boolean {

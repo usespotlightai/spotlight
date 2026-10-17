@@ -224,7 +224,7 @@ const keptCopy = (grants: RunGrants, version: number): RunGrants =>
     hold: grants.hold,
     workspaceId: grants.workspaceId,
     grants: grants.grants,
-    recipient: grants.recipient,
+    redeemer: grants.redeemer,
     holdLost: grants.isHoldLost,
     endedAt: grants.endedAt,
     version,

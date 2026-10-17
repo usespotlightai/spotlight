@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"usespotlight.ai/data-plane/egress/internal/guard"
+	"usespotlight.ai/data-plane/egressing/guard"
 	"usespotlight.ai/data-plane/protocol"
 )
 

@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
+  KeptEgress,
   KeptPool,
   KeptTrust,
   KeptWorkspaceRunners,
@@ -9,6 +10,7 @@ import type {
 } from '@runners/application/ports/runner-resources.port';
 import type { WaysIn } from '@runners/domain/services/runner-drift';
 import {
+  egress,
   runnerPool,
   runnerTrust,
   workspaceRunners,
@@ -19,6 +21,7 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 type TrustRow = typeof runnerTrust.$inferSelect;
 type DeclaredRow = typeof workspaceRunners.$inferSelect;
 type PoolRow = typeof runnerPool.$inferSelect;
+type EgressRow = typeof egress.$inferSelect;
 
 const keptPool = (row: PoolRow): KeptPool => ({
   id: row.id,
@@ -29,8 +32,22 @@ const keptPool = (row: PoolRow): KeptPool => ({
   maxRuns: row.maxRuns,
   tokenVersion: row.provisionUrl ? null : row.tokenVersion,
   provision: row.provisionUrl
-    ? { url: row.provisionUrl, secretVersion: row.provisionSecretVersion }
+    ? {
+        url: row.provisionUrl,
+        secretVersion: row.provisionSecretVersion,
+        egress: row.provisionEgress,
+        egressTraffic: row.provisionEgressTraffic === 'bound' ? 'bound' : 'all',
+      }
     : null,
+});
+
+const keptEgress = (row: EgressRow): KeptEgress => ({
+  id: row.id,
+  version: row.version,
+  workspaceId: WorkspaceId.of(row.workspaceId),
+  key: row.key,
+  url: row.url,
+  tokenVersion: row.tokenVersion,
 });
 
 const keptTrust = (row: TrustRow): KeptTrust => ({
@@ -137,6 +154,40 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
         .from(runnerPool)
         .where(isNotNull(runnerPool.provisionUrl))
     ).map(keptPool);
+  }
+
+  async egressWithId(id: string): Promise<KeptEgress | null> {
+    const [found] = await this.db
+      .select()
+      .from(egress)
+      .where(eq(egress.id, id))
+      .limit(1);
+
+    return found ? keptEgress(found) : null;
+  }
+
+  async egressAt(
+    workspaceId: WorkspaceId,
+    key: string,
+  ): Promise<KeptEgress | null> {
+    const [found] = await this.db
+      .select()
+      .from(egress)
+      .where(
+        and(eq(egress.workspaceId, workspaceId.value), eq(egress.key, key)),
+      )
+      .limit(1);
+
+    return found ? keptEgress(found) : null;
+  }
+
+  async egressesIn(workspaceId: WorkspaceId): Promise<readonly KeptEgress[]> {
+    return (
+      await this.db
+        .select()
+        .from(egress)
+        .where(eq(egress.workspaceId, workspaceId.value))
+    ).map(keptEgress);
   }
 
   async declaredWithId(id: string): Promise<KeptWorkspaceRunners | null> {

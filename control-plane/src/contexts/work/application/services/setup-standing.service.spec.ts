@@ -27,7 +27,7 @@ const read = (given: Given = {}) => {
 
   const runners = {
     readyToRun: vi.fn().mockResolvedValue(given.harness ?? false),
-    hostsSandboxes: vi.fn().mockResolvedValue(given.hosted ?? false),
+    hasAWayOut: vi.fn().mockResolvedValue(given.hosted ?? false),
   } as unknown as RunnerReaderPort;
 
   const chats = {
@@ -45,7 +45,7 @@ describe('SetupStanding', () => {
         hasHarness: false,
         configured: false,
       },
-      hostsSandboxes: false,
+      hasAWayOut: false,
       chat: null,
     });
   });
@@ -68,7 +68,7 @@ describe('SetupStanding', () => {
     await expect(read({ harness: true, hosted: false })).resolves.toMatchObject(
       {
         state: { hasHarness: true },
-        hostsSandboxes: false,
+        hasAWayOut: false,
       },
     );
   });

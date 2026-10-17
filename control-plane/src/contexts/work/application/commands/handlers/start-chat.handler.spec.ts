@@ -57,7 +57,7 @@ const starting = ({
       ),
     } satisfies ReachableRepositoriesPort,
     {
-      hostsSandboxes: vi.fn(async () => hosted),
+      hasAWayOut: vi.fn(async () => hosted),
     } as unknown as RunnerReaderPort,
     { generate: () => 'chat_1' } as IdGeneratorPort,
     { now: () => NOW } as ClockPort,
@@ -101,11 +101,11 @@ describe('StartChatHandler', () => {
     expect(added).toEqual([]);
   });
 
-  it('refuses a setup chat where no host runs sandboxes', async () => {
+  it('refuses a setup chat where no host or push pool with egress serves the workspace', async () => {
     const { handler, added } = starting({ hosted: false });
 
     await expect(handler.execute(settingUp('acme/infra'))).rejects.toThrow(
-      'A setup chat runs only on a host',
+      'A setup chat needs egress',
     );
     expect(added).toEqual([]);
   });

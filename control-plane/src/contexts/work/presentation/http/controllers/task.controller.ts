@@ -35,6 +35,7 @@ import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunConversationDto } from '@work/application/dto/run-conversation.dto';
+import type { RunNetworkDto } from '@work/application/dto/run-network.dto';
 import type { TaskDto } from '@work/application/dto/task.dto';
 import type {
   TaskRunDto,
@@ -48,6 +49,7 @@ import { ListTeamRunsQuery } from '@work/application/queries/list-team-runs.quer
 import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
 import { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
+import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import {
   DEFAULT_TRACE_RANGE,
@@ -64,6 +66,7 @@ import {
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
+import { RunNetworkResponseDto } from '@work/presentation/http/dto/run-network.response.dto';
 import { TaskResponseDto } from '@work/presentation/http/dto/task.response.dto';
 import {
   RunConversationResponseDto,
@@ -195,6 +198,31 @@ export class TaskController {
     }
 
     return new RunConfigResponseDto(found);
+  }
+
+  @Get('runs/:runId/network')
+  @ApiOperation({
+    operationId: 'readRunNetwork',
+    summary:
+      'The connections a run made through a shared egress, and if egress was enforced',
+  })
+  @ApiParam({ name: 'runId', type: String })
+  @ApiOkResponse({ type: RunNetworkResponseDto })
+  @ApiNotFoundResponse({ description: 'No such run for this caller' })
+  async network(
+    @Param('runId') runId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<RunNetworkResponseDto> {
+    const found = await this.queryBus.execute<
+      ReadRunNetworkQuery,
+      RunNetworkDto | null
+    >(new ReadRunNetworkQuery(runId, user.id));
+
+    if (!found) {
+      throw new NotFoundException();
+    }
+
+    return new RunNetworkResponseDto(found);
   }
 
   @Get('runs/:runId/conversation')

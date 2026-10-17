@@ -2,7 +2,10 @@ import type {
   AdmittedHost,
   RunnerAdmissionsPort,
 } from '@runners/application/ports/runner-admissions.port';
-import type { RunnerResourcesPort } from '@runners/application/ports/runner-resources.port';
+import type {
+  KeptPool,
+  RunnerResourcesPort,
+} from '@runners/application/ports/runner-resources.port';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
@@ -23,7 +26,12 @@ const NOW = new Date('2026-09-24T10:00:00.000Z');
 
 const pooling = (
   admitted: AdmittedHost | null,
-  held: { pool?: RunnerPool | null; standing?: readonly Runner[] } = {},
+  held: {
+    pool?: RunnerPool | null;
+    standing?: readonly Runner[];
+    provisioning?: readonly KeptPool[];
+    platform?: boolean;
+  } = {},
 ) => {
   const admit = vi.fn(async () => admitted);
   const find = vi.fn(async () =>
@@ -35,8 +43,11 @@ const pooling = (
     {
       standingIn: vi.fn(async () => held.standing ?? []),
     } as unknown as RunnerRepository,
-    {} as RunnerResourcesPort,
+    {
+      provisioningPools: vi.fn(async () => held.provisioning ?? []),
+    } as unknown as RunnerResourcesPort,
     { admit } satisfies RunnerAdmissionsPort,
+    held.platform ?? true,
   );
 
   return { pools, admit, find };
@@ -59,6 +70,7 @@ describe('RunnerPools', () => {
         workspaceId: WORKSPACE,
         key: 'ephemeral',
         labels: expect.objectContaining({ values: ['linux'] }),
+        egress: false,
       });
       expect(admit).toHaveBeenCalledWith({
         bearer: 'pool-token',
@@ -94,6 +106,48 @@ describe('RunnerPools', () => {
         pools.pulledWith('workload-token', 'trust_1'),
       ).resolves.toBeNull();
       expect(find).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('the pools that provision', () => {
+    const kept = (egress: string | null): KeptPool => ({
+      id: `pool_${egress ?? 'none'}`,
+      version: 0,
+      workspaceId: WORKSPACE,
+      key: 'sandboxes',
+      labels: ['sandbox'],
+      maxRuns: null,
+      tokenVersion: null,
+      provision: {
+        url: 'https://provision.example.com/runs',
+        secretVersion: 1,
+        egress,
+        egressTraffic: 'all',
+      },
+    });
+
+    it('says of each whether it names an egress', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [kept('spotlight'), kept('egress_1'), kept(null)],
+      });
+
+      await expect(pools.provisioning()).resolves.toEqual([
+        expect.objectContaining({ poolId: 'pool_spotlight', egress: true }),
+        expect.objectContaining({ poolId: 'pool_egress_1', egress: true }),
+        expect.objectContaining({ poolId: 'pool_none', egress: false }),
+      ]);
+    });
+
+    it('counts the platform egress only where the deployment has one', async () => {
+      const { pools } = pooling(null, {
+        provisioning: [kept('spotlight'), kept('egress_1')],
+        platform: false,
+      });
+
+      await expect(pools.provisioning()).resolves.toEqual([
+        expect.objectContaining({ poolId: 'pool_spotlight', egress: false }),
+        expect.objectContaining({ poolId: 'pool_egress_1', egress: true }),
+      ]);
     });
   });
 

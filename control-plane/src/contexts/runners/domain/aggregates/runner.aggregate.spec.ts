@@ -124,6 +124,20 @@ describe('Runner', () => {
     expect(working.ended(later(3)).workEgressActsFor(later(4))).toBeNull();
   });
 
+  it('lets an egress record for its work while it stands, and for two minutes after it ends', () => {
+    const waiting = aRunner();
+    const working = waiting.took(RUN, later(1));
+    const ended = working.ended(later(3));
+
+    expect(waiting.workEgressRecordsFor(later(2))).toBeNull();
+    expect(working.workEgressRecordsFor(later(2))?.equals(RUN)).toBe(true);
+    expect(ended.workEgressRecordsFor(later(3 + 120_000))?.equals(RUN)).toBe(
+      true,
+    );
+    expect(ended.workEgressRecordsFor(later(3 + 120_001))).toBeNull();
+    expect(working.workEgressRecordsFor(later(180_001))).toBeNull();
+  });
+
   it('has no egress when a pool provisioned it, since no host stands beside it', () => {
     const provisioned = aRunner({ host: null }).took(RUN, later(1));
 

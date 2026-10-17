@@ -11,6 +11,7 @@ import type {
   RunnerHistoryAnswer,
 } from '@work/application/dto/runner-history.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
+import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type {
   RunDigest,
   RunDigestReaderPort,
@@ -37,7 +38,7 @@ import {
   turnedOut,
 } from '@work/application/read-models/history-selection';
 import { SightedHistory } from '@work/application/read-models/sighted-history';
-import { traceOf } from '@work/application/read-models/trace-of';
+import { connectionsOf, traceOf } from '@work/application/read-models/trace-of';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 
@@ -91,6 +92,7 @@ export class ReadRunnerHistoryHandler
     private readonly outcomes: RunOutcomesPort,
     private readonly digests: RunDigestReaderPort,
     private readonly sights: SearchSightPort,
+    private readonly connections: RunConnectionsPort,
   ) {}
 
   async execute(query: ReadRunnerHistoryQuery): Promise<RunnerHistoryAnswer> {
@@ -275,10 +277,13 @@ export class ReadRunnerHistoryHandler
     kept: readonly StationRunRow[],
     station: string,
   ): Promise<readonly WrittenRun[]> {
+    const runIds = kept.map((each) => each.runId);
+    const [told, wentWrong] = await Promise.all([
+      this.stations.journalsOf(runIds),
+      this.connections.wentWrongIn(runIds),
+    ]);
     const journals = new Map<string, RunJournal>(
-      (await this.stations.journalsOf(kept.map((each) => each.runId))).map(
-        (journal) => [journal.runId, journal],
-      ),
+      told.map((journal) => [journal.runId, journal]),
     );
 
     return kept.map((each) => {
@@ -306,6 +311,7 @@ export class ReadRunnerHistoryHandler
               startedAt: each.startedAt,
               endedAt: each.endedAt,
               journal,
+              connections: connectionsOf(wentWrong, each.runId, each.attempt),
             },
           ]),
         ),

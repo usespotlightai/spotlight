@@ -25,6 +25,8 @@ export const givenAccess = async (
         url: access.url,
         secret: access.secret ? await secrets.sealed(to, access.secret) : null,
         secretVersion: access.secretVersion,
+        egress: access.egress,
+        egressTraffic: access.egressTraffic,
       };
 
 export const issuedTo = (

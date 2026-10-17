@@ -37,7 +37,11 @@ export interface RunRepository {
   awaitingProvision(
     workspaceId: WorkspaceId,
     now: Date,
-    page: { readonly skip: number; readonly most: number },
+    page: {
+      readonly skip: number;
+      readonly most: number;
+      readonly withSecrets: boolean;
+    },
   ): Promise<readonly Run[]>;
 
   withLapsedReservations(now: Date): Promise<readonly Run[]>;

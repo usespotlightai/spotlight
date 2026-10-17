@@ -39,6 +39,11 @@ export const envSchema = databaseSchema
     SECRETS_KMS_KEY_ID: z.string().min(1).optional(),
     SECRETS_AWS_SECRETS_MANAGER: z.stringbool().default(false),
     SPOTLIGHT_PUBLIC_URL: z.url().optional(),
+    SPOTLIGHT_PLATFORM_EGRESS_URL: z.url({ protocol: /^https?$/ }).optional(),
+    SPOTLIGHT_PLATFORM_EGRESS_TOKEN: z
+      .string()
+      .regex(/^[A-Za-z0-9._~-]{32,255}$/)
+      .optional(),
     // An empty value permits no hosts. The deployment decides which hosts Spotlight can call.
     OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     HOOK_SIGNING_KEY: z.string().min(1).optional(),
@@ -75,6 +80,16 @@ export const envSchema = databaseSchema
     message:
       'wraps each workspace data key when SECRETS_KMS_KEY_ID names no AWS KMS key; generate one with: openssl rand -base64 32',
   })
+  .refine(
+    (env) =>
+      (env.SPOTLIGHT_PLATFORM_EGRESS_URL === undefined) ===
+      (env.SPOTLIGHT_PLATFORM_EGRESS_TOKEN === undefined),
+    {
+      path: ['SPOTLIGHT_PLATFORM_EGRESS_TOKEN'],
+      message:
+        'goes with SPOTLIGHT_PLATFORM_EGRESS_URL. Give both to name the platform egress, or neither; generate a token with: openssl rand -hex 32',
+    },
+  )
   .transform((env) => ({
     ...env,
     LOG_LEVEL:

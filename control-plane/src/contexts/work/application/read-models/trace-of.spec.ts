@@ -10,6 +10,7 @@ import {
   type WorkedRun,
 } from '@work/application/read-models/trace-of';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
+import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -56,6 +57,7 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
     endedAt: at(60_000),
   },
   spent: null,
+  egress: null,
   ...part,
 });
 
@@ -68,8 +70,24 @@ const worked = (part: Partial<WorkedRun> = {}): WorkedRun => ({
   startedAt: at(0),
   endedAt: at(60_000),
   journal: journal(),
+  connections: [],
   ...part,
 });
+
+const connection = (
+  part: Partial<Parameters<typeof RunConnection.of>[0]> & { at: Date },
+) =>
+  RunConnection.of({
+    host: 'paste.example.net',
+    port: 443,
+    bytesOut: 0,
+    bytesIn: 0,
+    ms: 10,
+    outcome: 'blocked',
+    status: null,
+    reason: 'not-allowed',
+    ...part,
+  });
 
 const names = (nodes: readonly { name: string }[]) =>
   nodes.map((node) => node.name);
@@ -327,6 +345,149 @@ describe('traceOf', () => {
     const turn = trace.roots[0]?.children[1];
     expect(names(turn?.children ?? [])).toEqual(['npm test']);
     expect(turn?.children[0]?.span).toBeNull();
+  });
+
+  describe('connections', () => {
+    const npmTest = journal({
+      steps: [step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 })],
+    });
+
+    it('puts a connection that went wrong under the step that was open when it started', () => {
+      const trace = traceOf([
+        worked({
+          journal: npmTest,
+          connections: [connection({ at: at(21_000) })],
+        }),
+      ]);
+
+      const test = trace.roots[0]?.children[1]?.children[0];
+      expect(test?.name).toBe('npm test');
+      expect(test?.children).toMatchObject([
+        {
+          id: 'run_1:connection:0',
+          kind: 'connection',
+          name: 'paste.example.net',
+          tone: 'failed',
+          from: at(21_000),
+          connection: { times: 1 },
+        },
+      ]);
+      expect(trace.faults).toBe(0);
+    });
+
+    it('ends a connection row no later than the row that holds it', () => {
+      const trace = traceOf([
+        worked({
+          journal: npmTest,
+          connections: [connection({ at: at(24_000), ms: 9_000 })],
+        }),
+      ]);
+
+      expect(trace.roots[0]?.children[1]?.children[0]?.children[0]?.to).toEqual(
+        at(25_000),
+      );
+    });
+
+    it('puts a connection no step held into the phase or the run', () => {
+      const trace = traceOf([
+        worked({
+          journal: npmTest,
+          connections: [
+            connection({ at: at(30_000) }),
+            connection({ at: at(90_000), host: 'late.example.net' }),
+          ],
+        }),
+      ]);
+
+      const run = trace.roots[0];
+      expect(names(run?.children[1]?.children ?? [])).toEqual([
+        'npm test',
+        'paste.example.net',
+      ]);
+      expect(names(run?.children ?? [])).toEqual([
+        'Prepare',
+        'Turn · claude-code',
+        'Publish',
+        'late.example.net',
+      ]);
+    });
+
+    it('draws the same failure in one place as one row, and counts the times', () => {
+      const trace = traceOf([
+        worked({
+          journal: npmTest,
+          connections: [
+            connection({ at: at(21_000) }),
+            connection({ at: at(22_000) }),
+            connection({ at: at(23_000), ms: 500 }),
+            connection({ at: at(24_000), reason: 'address-refused' }),
+          ],
+        }),
+      ]);
+
+      const rows = trace.roots[0]?.children[1]?.children[0]?.children ?? [];
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toMatchObject({
+        from: at(21_000),
+        to: at(23_500),
+        connection: { times: 3 },
+      });
+      expect(rows[1]?.connection?.connection.reason).toBe('address-refused');
+    });
+
+    it('leaves out connections that did not go wrong', () => {
+      const trace = traceOf([
+        worked({
+          journal: npmTest,
+          connections: [
+            connection({ at: at(21_000), outcome: 'tunnelled', reason: null }),
+            connection({
+              at: at(21_200),
+              outcome: 'forwarded',
+              reason: null,
+              status: 429,
+            }),
+            connection({
+              at: at(21_500),
+              outcome: 'forwarded',
+              reason: null,
+              status: 404,
+            }),
+            connection({
+              at: at(22_000),
+              host: 'api.linear.app',
+              outcome: 'forwarded',
+              reason: null,
+              status: 401,
+            }),
+          ],
+        }),
+      ]);
+
+      const test = trace.roots[0]?.children[1]?.children[0];
+      expect(names(test?.children ?? [])).toEqual(['api.linear.app']);
+    });
+
+    it('names the port when it is not 443', () => {
+      const trace = traceOf([
+        worked({
+          journal: null,
+          connections: [connection({ at: at(1_000), port: 5432 })],
+        }),
+      ]);
+
+      expect(names(trace.roots[0]?.children ?? [])).toEqual([
+        'paste.example.net:5432',
+      ]);
+    });
+  });
+
+  it('tells on the run row whether egress was enforced', () => {
+    expect(
+      traceOf([worked({ journal: journal({ egress: 'not-enforced' }) })])
+        .roots[0]?.egress,
+    ).toBe('not-enforced');
+    expect(traceOf([worked({ journal: null })]).roots[0]?.egress).toBeNull();
   });
 });
 

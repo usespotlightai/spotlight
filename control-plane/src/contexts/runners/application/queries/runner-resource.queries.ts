@@ -65,3 +65,25 @@ export class ListRunnerPoolResourcesQuery {
     readonly principal: Principal,
   ) {}
 }
+
+export class ReadEgressQuery {
+  constructor(
+    readonly egressId: string,
+    readonly principal: Principal,
+  ) {}
+}
+
+export class ImportEgressQuery {
+  constructor(
+    readonly workspaceId: string,
+    readonly address: string,
+    readonly principal: Principal,
+  ) {}
+}
+
+export class ListEgressResourcesQuery {
+  constructor(
+    readonly workspaceId: string,
+    readonly principal: Principal,
+  ) {}
+}

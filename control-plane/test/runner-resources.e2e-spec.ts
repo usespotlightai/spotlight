@@ -30,7 +30,7 @@ const SUBJECT = 'system:serviceaccount:spotlight:runner';
 
 const seated =
   (
-    kind: 'runner-trusts' | 'runner-pools' | 'workspace-runners',
+    kind: 'runner-trusts' | 'runner-pools' | 'workspace-runners' | 'egresses',
     bodies: Pick<
       ResourceFixture,
       'valid' | 'changed' | 'changedAgain' | 'invalid'
@@ -100,6 +100,20 @@ conformsAsResource({
     changed: { key: 'ephemeral', labels: ['gpu'] },
     changedAgain: { key: 'ephemeral', labels: ['gpu'], maxRuns: 2 },
     invalid: { body: { key: 'Ephemeral' }, path: 'key' },
+  }),
+});
+
+conformsAsResource({
+  kind: 'egress',
+  open: seated('egresses', {
+    address: 'shared',
+    valid: { key: 'shared', url: 'https://egress.example.com' },
+    changed: { key: 'shared', url: 'https://egress-2.example.com' },
+    changedAgain: { key: 'shared', url: 'https://egress-3.example.com' },
+    invalid: {
+      body: { key: 'Shared', url: 'https://egress.example.com' },
+      path: 'key',
+    },
   }),
 });
 

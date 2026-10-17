@@ -19,7 +19,7 @@ import type { FilesAtHand } from '@work/application/services/files-at-hand.servi
 import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ConfigHomeUnreachableError } from '@work/domain/exceptions/config-home-unreachable.error';
-import { SetupNeedsAHostError } from '@work/domain/exceptions/setup-needs-a-host.error';
+import { SetupNeedsEgressError } from '@work/domain/exceptions/setup-needs-egress.error';
 import { UnknownHarnessError } from '@work/domain/exceptions/unknown-harness.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -77,8 +77,8 @@ export class StartChatHandler
         throw new ConfigHomeUnreachableError(setup.repository.value);
       }
 
-      if (setup && !(await this.runners.hostsSandboxes(workspaceId))) {
-        throw new SetupNeedsAHostError();
+      if (setup && !(await this.runners.hasAWayOut(workspaceId))) {
+        throw new SetupNeedsEgressError();
       }
 
       const started = await this.transaction.run(async () => {

@@ -124,6 +124,116 @@ describe('RunnerDefinitions', () => {
     });
   });
 
+  describe('the egress of a pool', () => {
+    const SECRET = `whsec_${Buffer.from('k'.repeat(32)).toString('base64')}`;
+    const provisioning = (egress: unknown) =>
+      definitions.pool({
+        key: 'sandboxes',
+        provision: {
+          url: 'https://provision.example.com/runs',
+          secret: SECRET,
+          egress,
+        },
+      });
+    const egressOf = (egress: unknown) => {
+      const compiled = provisioning(egress);
+
+      return compiled.ok && compiled.access.mode === 'push'
+        ? (compiled.access.egress?.value ?? null)
+        : 'refused';
+    };
+
+    it('reads spotlight, the id of an egress, or none', () => {
+      expect(egressOf('spotlight')).toBe('spotlight');
+      expect(egressOf('egress_1')).toBe('egress_1');
+      expect(egressOf(null)).toBeNull();
+      expect(egressOf(undefined)).toBeNull();
+    });
+
+    it('points at an egress that is not a string, or empty', () => {
+      expect(refusedAt(provisioning(7))).toEqual(['provision.egress']);
+      expect(refusedAt(provisioning(' '))).toEqual(['provision.egress']);
+    });
+
+    const sending = (egress: unknown, egressTraffic: unknown) =>
+      definitions.pool({
+        key: 'sandboxes',
+        provision: {
+          url: 'https://provision.example.com/runs',
+          secret: SECRET,
+          egress,
+          egressTraffic,
+        },
+      });
+    const trafficOf = (egress: unknown, egressTraffic: unknown) => {
+      const compiled = sending(egress, egressTraffic);
+
+      return compiled.ok && compiled.access.mode === 'push'
+        ? compiled.access.egressTraffic.value
+        : 'refused';
+    };
+
+    it('sends all traffic through the egress unless the pool says only bound traffic', () => {
+      expect(trafficOf('spotlight', undefined)).toBe('all');
+      expect(trafficOf('spotlight', 'all')).toBe('all');
+      expect(trafficOf('spotlight', 'bound')).toBe('bound');
+    });
+
+    it('refuses a traffic setting it does not know, or one with no egress', () => {
+      expect(refusedAt(sending('spotlight', 'some'))).toEqual([
+        'provision.egressTraffic',
+      ]);
+      expect(refusedAt(sending(null, 'bound'))).toEqual([
+        'provision.egressTraffic',
+      ]);
+    });
+  });
+
+  describe('an egress', () => {
+    it('reads its key, URL and token', () => {
+      const compiled = definitions.egress({
+        key: 'shared',
+        url: 'https://egress.example.com',
+        token: 'x'.repeat(40),
+        tokenVersion: 3,
+      });
+
+      expect(
+        compiled.ok && [
+          compiled.key.value,
+          compiled.url.value,
+          compiled.token?.revealed(),
+          compiled.tokenVersion,
+        ],
+      ).toEqual(['shared', 'https://egress.example.com', 'x'.repeat(40), 3]);
+    });
+
+    it('reads an egress without a token for Spotlight to issue one', () => {
+      const compiled = definitions.egress({
+        key: 'shared',
+        url: 'https://egress.example.com',
+      });
+
+      expect(compiled.ok && [compiled.token, compiled.tokenVersion]).toEqual([
+        null,
+        null,
+      ]);
+    });
+
+    it('points at each egress field it cannot read', () => {
+      expect(
+        refusedAt(
+          definitions.egress({
+            key: 'Shared',
+            url: 'egress.example.com',
+            token: 'hunter2',
+            tokenVersion: -1,
+          }),
+        ),
+      ).toEqual(['key', 'url', 'token', 'tokenVersion']);
+    });
+  });
+
   it('reads the pools a declaration names', () => {
     const compiled = definitions.workspaceRunners({ pools: ['ephemeral'] });
 

@@ -513,6 +513,7 @@ describe('Run', () => {
       });
 
       expect(reaching.provisionableAt(noon)).toBe(false);
+      expect(reaching.provisionableAt(noon, true)).toBe(true);
       expect(
         reaching.claim(runner(), noon).reachesSpotlightApiFor(runner()),
       ).toBe(true);
@@ -537,6 +538,14 @@ describe('Run', () => {
         queued().reservedFor(runner(), PoolId.of('pool_1'), noon).reservation,
       ).not.toBeNull();
     });
+
+    it('is reserved for a runner a pool provisions when the pool names an egress to wear them', () => {
+      expect(wearing().provisionableAt(noon, true)).toBe(true);
+      expect(
+        wearing().reservedFor(runner(), PoolId.of('pool_1'), noon, true)
+          .reservation,
+      ).not.toBeNull();
+    });
   });
 
   describe('knowing who worked it', () => {
@@ -552,6 +561,20 @@ describe('Run', () => {
 
     it('was worked by nobody while it waits', () => {
       expect(queued().wasWorkedBy(runner())).toBe(false);
+    });
+
+    it('names the attempt its runner worked, also once it has ended, but none after the runner lost it', () => {
+      const held = claimed();
+      const ended = held.complete(
+        runner(),
+        RunOutcome.of({ exitCode: 0, failed: false }),
+      );
+
+      expect(ended.attemptWorkedBy(runner())?.equals(held.currentAttempt)).toBe(
+        true,
+      );
+      expect(ended.attemptWorkedBy(runner('runner_2'))).toBeNull();
+      expect(lostAndRequeued(held).attemptWorkedBy(runner())).toBeNull();
     });
   });
 

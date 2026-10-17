@@ -1,6 +1,8 @@
+import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
+import { poolsNaming } from '@runners/domain/services/egress-uses';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -10,6 +12,7 @@ export class AbandonWorkspaceRunners {
     private readonly trusts: RunnerTrustRepository,
     private readonly declarations: WorkspaceRunnersRepository,
     private readonly pools: RunnerPoolRepository,
+    private readonly egresses: EgressRepository,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -26,6 +29,17 @@ export class AbandonWorkspaceRunners {
 
     for (const pool of await this.pools.inWorkspace(workspaceId)) {
       await this.transaction.run(() => this.pools.save(pool.retired(by)));
+    }
+  }
+
+  async egressesOf(workspaceId: WorkspaceId): Promise<void> {
+    const by = Attribution.spotlight(workspaceId);
+    const pools = await this.pools.inWorkspace(workspaceId);
+
+    for (const egress of await this.egresses.inWorkspace(workspaceId)) {
+      await this.transaction.run(() =>
+        this.egresses.save(egress.retired(poolsNaming(egress, pools), by)),
+      );
     }
   }
 

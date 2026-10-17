@@ -1,6 +1,8 @@
+import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type {
   ProvisionAnswer,
   ProvisionCallsPort,
+  ProvisionEgress,
 } from '@runners/application/ports/provision-calls.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { AdmittedWay } from '@runners/application/ports/runner-admissions.port';
@@ -16,12 +18,15 @@ import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { ProvisionSecretUnopenableError } from '@runners/domain/exceptions/provision-secret-unopenable.error';
+import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { carriesRunTokens } from '@runners/domain/services/run-token-carriage';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
 import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
@@ -30,7 +35,10 @@ import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo'
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type {
+  MintedToken,
+  TokenMintPort,
+} from '@shared-kernel/application/ports/token-mint.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -44,12 +52,17 @@ type Began<Through> =
 
 type Starting = (through: RunnerPool | RunnerTrust) => Runner;
 
-type Answered =
-  | ProvisionAnswer
-  | { readonly outcome: 'unusable'; readonly detail: string };
+type Unusable = { readonly outcome: 'unusable'; readonly detail: string };
+
+type Answered = ProvisionAnswer | Unusable;
+
+type WayOut =
+  | { readonly outcome: 'found'; readonly url: EgressUrl | null }
+  | Unusable;
 
 export interface RunnersSettings {
   readonly insecureAllowed: boolean;
+  readonly platformEgress: PlatformEgressSettings | null;
 }
 
 export class Runners implements RunnersPort {
@@ -58,6 +71,7 @@ export class Runners implements RunnersPort {
     private readonly trusts: RunnerTrustRepository,
     private readonly hosts: RunnerHostRepository,
     private readonly runners: RunnerRepository,
+    private readonly egresses: EgressRepository,
     private readonly calls: ProvisionCallsPort,
     private readonly secrets: ProvisionSecretsPort,
     private readonly settings: RunnersSettings,
@@ -111,6 +125,7 @@ export class Runners implements RunnersPort {
         host: hostId,
         tokenHash: TokenHash.of(minted.hash),
         egressTokenHash: TokenHash.of(egress.hash),
+        proxyCredentialHash: null,
         installed: offered.harnesses,
         running: offered.running,
         at,
@@ -145,29 +160,53 @@ export class Runners implements RunnersPort {
     at: Date,
   ): Promise<ProvisionedRunner> {
     const minted = this.tokens.mint();
+    let credential: MintedToken | null = null;
     const began = await this.beganThroughPool(
       RunnerPoolId.of(request.poolId),
       'push',
       at,
-      (through) =>
-        Runner.started({
+      (through) => {
+        credential = through.egress ? this.tokens.mint() : null;
+
+        return Runner.started({
           id: request.runnerId,
           through,
           host: null,
           tokenHash: TokenHash.of(minted.hash),
           egressTokenHash: null,
+          proxyCredentialHash: credential
+            ? TokenHash.of(credential.hash)
+            : null,
           installed: [],
           running: null,
           at,
           claimBy: request.claimBy,
-        }),
+        });
+      },
     );
 
     if (began.outcome !== 'began') {
       return began;
     }
 
-    const answer = await this.called(began.through, request, minted.token, at);
+    if (request.needsEgress && !began.through.egress) {
+      await this.letGo(request.runnerId, at);
+
+      return {
+        outcome: 'failed',
+        kind: 'unusable',
+        detail:
+          'The pool names no egress now. A run that uses secrets or the Spotlight API needs one.',
+      };
+    }
+
+    const answer = await this.called(
+      began.through,
+      request,
+      minted.token,
+      credential,
+      at,
+    );
 
     if (answer.outcome === 'accepted') {
       return { outcome: 'provisioned' };
@@ -213,6 +252,7 @@ export class Runners implements RunnersPort {
     pool: RunnerPool,
     request: ProvisionRequest,
     token: string,
+    credential: MintedToken | null,
     at: Date,
   ): Promise<Answered> {
     const access = pool.provision;
@@ -229,6 +269,39 @@ export class Runners implements RunnersPort {
         outcome: 'not-allowed',
         detail: 'Provision URL must be https. Its calls carry a one-run token.',
       };
+    }
+
+    const wayOut = await this.wayOutOf(pool, access.egress);
+
+    if (wayOut.outcome !== 'found') {
+      return wayOut;
+    }
+
+    if (
+      wayOut.url &&
+      !carriesRunTokens(wayOut.url, this.settings.insecureAllowed)
+    ) {
+      return {
+        outcome: 'not-allowed',
+        detail:
+          'Egress URL must be https. Runners send their proxy credential to it.',
+      };
+    }
+
+    const egress: ProvisionEgress | null =
+      wayOut.url && credential
+        ? {
+            url: wayOut.url.value,
+            credential: credential.token,
+            traffic: pool.egressTraffic.value,
+          }
+        : null;
+
+    if (wayOut.url && !egress) {
+      throw new InconsistentStateError(
+        'runner',
+        'was started for an egress with no proxy credential',
+      );
     }
 
     let secret: ProvisionSecret;
@@ -262,7 +335,38 @@ export class Runners implements RunnersPort {
       runnerId: request.runnerId.value,
       token,
       claimBy: request.claimBy,
+      egress,
     });
+  }
+
+  private async wayOutOf(
+    pool: RunnerPool,
+    reference: EgressReference | null,
+  ): Promise<WayOut> {
+    if (!reference) {
+      return { outcome: 'found', url: null };
+    }
+
+    if (!reference.egressId) {
+      const platform = this.settings.platformEgress;
+
+      return platform
+        ? { outcome: 'found', url: platform.url }
+        : {
+            outcome: 'unusable',
+            detail:
+              'Runner pool names the platform egress. This deployment has no platform egress.',
+          };
+    }
+
+    const named = await this.egresses.find(reference.egressId);
+
+    return named && !named.isRetired && named.belongsTo(pool.workspaceId)
+      ? { outcome: 'found', url: named.url }
+      : {
+          outcome: 'unusable',
+          detail: `Runner pool names egress ${reference.value}. This egress doesn’t exist in the pool’s workspace.`,
+        };
   }
 
   private beganThroughTrust(
@@ -287,7 +391,7 @@ export class Runners implements RunnersPort {
     id: RunnerPoolId,
     mode: PoolMode,
     at: Date,
-    starting: Starting,
+    starting: (through: RunnerPool) => Runner,
   ): Promise<Began<RunnerPool>> {
     return this.transaction.run(async () => {
       const pool = await this.pools.findForStart(id);
