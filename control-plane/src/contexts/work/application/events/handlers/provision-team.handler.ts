@@ -38,11 +38,11 @@ export class ProvisionTeam {
   ) {}
 
   async provision(team: NewTeam): Promise<void> {
-    await this.openLines(team);
+    await this.createLines(team);
     await this.welcome(team);
   }
 
-  private async openLines(team: NewTeam): Promise<void> {
+  private async createLines(team: NewTeam): Promise<void> {
     const existing = await this.lines.ofTeam(team.teamId);
 
     for (const opening of BUILT_IN_LINES) {
@@ -50,7 +50,7 @@ export class ProvisionTeam {
         continue;
       }
 
-      await this.lines.add(this.opened(team, opening));
+      await this.lines.add(this.lineFor(team, opening));
     }
   }
 
@@ -84,8 +84,8 @@ export class ProvisionTeam {
     );
   }
 
-  private opened(team: NewTeam, opening: LineOpening): Line {
-    const built = Line.open({
+  private lineFor(team: NewTeam, opening: LineOpening): Line {
+    const built = Line.create({
       workspaceId: team.workspaceId,
       teamId: team.teamId,
       line: opening,

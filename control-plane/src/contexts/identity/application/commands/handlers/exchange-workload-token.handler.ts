@@ -1,5 +1,5 @@
 import type { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exchange-workload-token.command';
-import type { MintedTokenDto } from '@identity/application/dto/minted-token.dto';
+import type { IssuedTokenDto } from '@identity/application/dto/issued-token.dto';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
@@ -8,7 +8,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -17,21 +17,21 @@ import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/works
 
 export class ExchangeWorkloadTokenHandler
   implements
-    CommandHandlerPort<ExchangeWorkloadTokenCommand, MintedTokenDto | null>
+    CommandHandlerPort<ExchangeWorkloadTokenCommand, IssuedTokenDto | null>
 {
   constructor(
     private readonly trusts: WorkspaceTokenTrustRepository,
     private readonly tokens: WorkspaceTokenRepository,
     private readonly workloads: WorkloadTokensPort,
     private readonly ids: IdGeneratorPort,
-    private readonly mint: TokenMintPort,
+    private readonly issuer: TokenIssuer,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
   ) {}
 
   async execute(
     command: ExchangeWorkloadTokenCommand,
-  ): Promise<MintedTokenDto | null> {
+  ): Promise<IssuedTokenDto | null> {
     try {
       if (!command.trustId.trim() || !command.workloadToken.trim()) {
         return null;
@@ -54,7 +54,7 @@ export class ExchangeWorkloadTokenHandler
         return null;
       }
 
-      const minted = this.mint.mint();
+      const newToken = this.issuer.issue();
       const now = this.clock.now();
       const exchanged = await this.transaction.inTransaction(async () => {
         const locked = await this.trusts.findLocked(trust.id);
@@ -63,9 +63,9 @@ export class ExchangeWorkloadTokenHandler
           return null;
         }
 
-        const issued = locked.mintFor(workload, {
+        const issued = locked.issueFor(workload, {
           id: WorkspaceTokenId.of(this.ids.generate()),
-          hash: TokenHash.of(minted.hash),
+          hash: TokenHash.of(newToken.hash),
           now,
           client: command.client,
         });
@@ -77,7 +77,7 @@ export class ExchangeWorkloadTokenHandler
 
       return exchanged
         ? {
-            token: minted.token,
+            token: newToken.token,
             tokenId: exchanged.id.value,
             workspaceId: exchanged.workspaceId.value,
             scopes: exchanged.scopes.all.map((each) => each.value),

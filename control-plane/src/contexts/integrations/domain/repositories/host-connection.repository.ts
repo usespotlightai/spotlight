@@ -18,5 +18,5 @@ export interface HostConnectionRepository {
 
   expiringBefore(horizon: Date): Promise<readonly HostConnection[]>;
 
-  forgetTeam(teamId: TeamId): Promise<void>;
+  deleteForTeam(teamId: TeamId): Promise<void>;
 }

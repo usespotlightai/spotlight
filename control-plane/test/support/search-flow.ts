@@ -40,7 +40,7 @@ import { afterAll, beforeAll, expect } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './app';
 import { eventually } from './eventually';
 import * as schema from './schema';
-import { openTeam } from './team';
+import { createTeam } from './team';
 
 const HOST = `host-search-flow-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -172,7 +172,7 @@ const pullRequests: PullRequestPort = {
 
 export let app: INestApplication;
 export let db: DrizzleDatabase;
-export let team: Awaited<ReturnType<typeof openTeam>>;
+export let team: Awaited<ReturnType<typeof createTeam>>;
 
 export const http = () => served(app);
 
@@ -285,15 +285,15 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
   return { taskId, runId };
 };
 
-export const openSet = async (
+export const createSet = async (
   name: string,
   originals: readonly Original[],
   stationId = BUILD,
 ): Promise<string> => {
-  const opened = await owner()
+  const created = await owner()
     .post(`${stationPath(stationId)}/replay-sets`, { name })
     .expect(201);
-  const setId = opened.body.id as string;
+  const setId = created.body.id as string;
 
   for (const each of originals) {
     await owner()
@@ -712,7 +712,7 @@ export const openSearchFlow = (): void => {
         .useValue(pullRequests),
     );
     db = app.get(DRIZZLE);
-    team = await openTeam(
+    team = await createTeam(
       db,
       app.get(DrizzleTaskRepository),
       `search-flow-${randomUUID().slice(0, 8)}`,

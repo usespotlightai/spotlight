@@ -104,7 +104,7 @@ describe('NetworkCalls', () => {
     expect(reads[1]).toEqual(later(250));
   });
 
-  it('cancels the call at the time it was given, forgetting what it would have sent', async () => {
+  it('cancels the call at the time it was given, discarding what it would have sent', async () => {
     const { calls, stored } = calling();
     await calls.queue('ws_1', REQUEST, later(15_000));
 
@@ -141,7 +141,7 @@ describe('NetworkCalls', () => {
     });
   });
 
-  it('forgets what an expired call would have sent once it sees it expire', async () => {
+  it('discards what an expired call would have sent once it sees it expire', async () => {
     const { calls, stored } = calling();
     await calls.queue('ws_1', REQUEST, later(2_000));
 
@@ -162,17 +162,17 @@ describe('NetworkCalls', () => {
     expect(watching.saves).toBe(0);
   });
 
-  it('forgets calls completed more than a week ago', async () => {
+  it('purges calls completed more than a week ago', async () => {
     const watching = calling();
     const { calls, clock, stored } = watching;
     await calls.queue('ws_1', REQUEST, later(15_000));
     await calls.answered('call_1', later(1_000));
 
     await clock.sleep(7 * 24 * 60 * 60_000 - 1);
-    expect(await calls.forgetCompleted()).toBe(0);
+    expect(await calls.purgeCompleted()).toBe(0);
 
     await clock.sleep(1);
-    expect(await calls.forgetCompleted()).toBe(1);
+    expect(await calls.purgeCompleted()).toBe(1);
     expect(stored()).toBeNull();
   });
 

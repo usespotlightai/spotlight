@@ -7,11 +7,11 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 const ADMIN = randomUUID();
 const ELSEWHERE_IN_WORKSPACE = randomUUID();
 const RUN = randomUUID();
@@ -91,7 +91,7 @@ const readToken = async (of = team): Promise<string> => {
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `readers-${randomUUID().slice(0, 8)}`,
@@ -335,7 +335,7 @@ describe('who may read a team’s Insights', () => {
 
   it('finds no team for a workspace token from another workspace', async () => {
     const token = await readToken(
-      await openTeam(
+      await createTeam(
         db,
         app.get(DrizzleTaskRepository),
         `elsewhere-${randomUUID().slice(0, 8)}`,

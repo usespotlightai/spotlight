@@ -177,7 +177,7 @@ describe('keeping workspace archives', () => {
     expect(found?.id.value).not.toBe(older.id.value);
   });
 
-  it('writes an archive over only the version it read, and forgets one removed', async () => {
+  it('writes an archive over only the version it read, and deletes one removed', async () => {
     const taskId = await aTask();
     const granted = await kept(forTask(taskId), { grantedAt: ago(HOUR) });
 

@@ -1,12 +1,11 @@
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
-import { WorkspaceClosed } from '@identity/domain/events/workspace-closed.event';
-import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event';
-import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
+import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
+import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
+import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
 import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
 import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
-import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
@@ -16,6 +15,7 @@ import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import {
@@ -36,7 +36,7 @@ const ACME = { resource: 'workspace' as const, id: 'ws_1', key: 'acme-inc' };
 const FIRST_TEAM = { id: TeamId.of('team_1'), name: TeamName.of('Platform') };
 
 const build = (id = 'ws_1') =>
-  Workspace.open({
+  Workspace.create({
     id: WorkspaceId.of(id),
     name: WorkspaceName.of('Acme Inc.'),
     slug: WorkspaceSlug.of('acme-inc'),
@@ -52,9 +52,9 @@ describe('Workspace', () => {
     ]);
   });
 
-  it('says it opened, naming the first team it should have', () => {
+  it('says it was created, naming the first team it should have', () => {
     expect(build().pullEvents()).toEqual([
-      new WorkspaceOpened(
+      new WorkspaceCreated(
         WorkspaceId.of('ws_1'),
         UserId.of('user_1'),
         FIRST_TEAM,
@@ -149,9 +149,9 @@ describe('Workspace', () => {
     });
 
     it('says so', () => {
-      const opened = build();
-      opened.pullEvents();
-      const joined = opened.join(ADA, WorkspaceRole.member);
+      const created = build();
+      created.pullEvents();
+      const joined = created.join(ADA, WorkspaceRole.member);
 
       expect(joined.pullEvents()).toMatchObject([
         { kind: 'workspace.member-joined', userId: ADA },
@@ -391,8 +391,8 @@ describe('Workspace', () => {
         version,
       });
 
-    it('opens with no first team when none is asked for', () => {
-      const opened = Workspace.open({
+    it('is created with no first team when none is asked for', () => {
+      const created = Workspace.create({
         id: WorkspaceId.of('ws_1'),
         name: WorkspaceName.of('Acme Inc.'),
         slug: WorkspaceSlug.of('acme-inc'),
@@ -400,8 +400,8 @@ describe('Workspace', () => {
         by: BY,
       });
 
-      expect(opened.pullEvents()).toEqual([
-        new WorkspaceOpened(
+      expect(created.pullEvents()).toEqual([
+        new WorkspaceCreated(
           WorkspaceId.of('ws_1'),
           UserId.of('user_1'),
           null,
@@ -417,14 +417,14 @@ describe('Workspace', () => {
     });
 
     it('takes a new name, and says so', () => {
-      const renamed = kept().redefinedAs(
+      const renamed = kept().update(
         { name: WorkspaceName.of('Acme'), slug: WorkspaceSlug.of('acme-inc') },
         BY,
       );
 
       expect(renamed.name.value).toBe('Acme');
       expect(renamed.pullEvents()).toEqual([
-        new WorkspaceRedefined(
+        new WorkspaceUpdated(
           WorkspaceId.of('ws_1'),
           WorkspaceName.of('Acme'),
           ConfigurationChange.updated(ACME, BY),
@@ -434,22 +434,22 @@ describe('Workspace', () => {
 
     it('keeps its slug for its whole life', () => {
       expect(() =>
-        kept().redefinedAs(
+        kept().update(
           { name: WorkspaceName.of('Acme'), slug: WorkspaceSlug.of('acme') },
           BY,
         ),
-      ).toThrow(WorkspaceSlugFixedError);
+      ).toThrow(ImmutableFieldError);
     });
 
-    it('closes only once it has no team, no token, no token trust, no token minted and nothing else', () => {
+    it('is deleted only once it has no team, no token, no token trust, no issued token and nothing else', () => {
       expect(() =>
-        kept().close([TeamKey.of('core')], [], [], [], Dependents.none(), BY),
+        kept().delete([TeamKey.of('core')], [], [], [], Dependents.none(), BY),
       ).toThrow(/It still has: team core/);
       expect(() =>
-        kept().close([], [TokenName.of('ci')], [], [], Dependents.none(), BY),
+        kept().delete([], [TokenName.of('ci')], [], [], Dependents.none(), BY),
       ).toThrow(/It still has: token ci/);
       expect(() =>
-        kept().close(
+        kept().delete(
           [],
           [],
           [TokenTrustKey.of('github-main')],
@@ -459,7 +459,7 @@ describe('Workspace', () => {
         ),
       ).toThrow(/It still has: token trust github-main/);
       expect(() =>
-        kept().close(
+        kept().delete(
           [],
           [],
           [],
@@ -467,9 +467,9 @@ describe('Workspace', () => {
           Dependents.none(),
           BY,
         ),
-      ).toThrow(/It still has: tokens minted through github-main/);
+      ).toThrow(/It still has: tokens issued by github-main/);
       expect(() =>
-        kept().close(
+        kept().delete(
           [],
           [],
           [],
@@ -479,11 +479,11 @@ describe('Workspace', () => {
         ),
       ).toThrow(/It still has: secret LINEAR_API_KEY/);
 
-      const closed = kept().close([], [], [], [], Dependents.none(), BY);
+      const deleted = kept().delete([], [], [], [], Dependents.none(), BY);
 
-      expect(closed.isClosed).toBe(true);
-      expect(closed.pullEvents()).toEqual([
-        new WorkspaceClosed(
+      expect(deleted.isDeleted).toBe(true);
+      expect(deleted.pullEvents()).toEqual([
+        new WorkspaceDeleted(
           WorkspaceId.of('ws_1'),
           WorkspaceSlug.of('acme-inc'),
           ConfigurationChange.deleted(ACME, BY),
@@ -594,10 +594,10 @@ describe('Workspace', () => {
       });
     });
 
-    it('clears nothing once it has closed', () => {
+    it('clears nothing once it is deleted', () => {
       expect(
         acme
-          .close([], [], [], [], Dependents.none(), BY)
+          .delete([], [], [], [], Dependents.none(), BY)
           .permissionsFor(person('owner')).reads,
       ).toBe(false);
     });

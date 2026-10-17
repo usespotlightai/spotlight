@@ -300,22 +300,24 @@ describe('StationWatch', () => {
     expect(priced.changed.map((each) => each.id.value)).toEqual(['alert_2']);
   });
 
-  it('lets go of every alert raised on a forgotten task, naming them to drop', () => {
+  it('lets go of every alert raised on a deleted task, naming them to drop', () => {
     const next = ids();
     const watch = begun()
       .check([rising(1, 0.6, 0.3)], atRun(1), next)
       .check([rising(2, 0.6, 0.3), read(PRICEY, 2, 3)], atRun(2), next);
     watch.pullEvents();
 
-    const forgotten = watch.withoutTask(TaskId.of('task_1'));
+    const withoutTask = watch.withoutTask(TaskId.of('task_1'));
 
-    expect(forgotten.crossings.map((each) => each.id.value)).toEqual([
+    expect(withoutTask.crossings.map((each) => each.id.value)).toEqual([
       'alert_2',
     ]);
-    expect(forgotten.dropped.map((each) => each.value)).toEqual(['alert_1']);
-    expect(forgotten.changed.map((each) => each.id.value)).toEqual(['alert_2']);
-    expect(kinds(forgotten)).toEqual([]);
-    expect(forgotten.withoutTask(TaskId.of('task_9'))).toBe(forgotten);
+    expect(withoutTask.dropped.map((each) => each.value)).toEqual(['alert_1']);
+    expect(withoutTask.changed.map((each) => each.id.value)).toEqual([
+      'alert_2',
+    ]);
+    expect(kinds(withoutTask)).toEqual([]);
+    expect(withoutTask.withoutTask(TaskId.of('task_9'))).toBe(withoutTask);
   });
 
   it('rejects two open crossings for one threshold', () => {

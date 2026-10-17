@@ -60,7 +60,7 @@ export class RunGrants extends EventRecorder {
     return new RunGrants({ ...kept, grants: [...kept.grants] });
   }
 
-  static endedForgettablyBy(now: Date): Date {
+  static retentionCutoff(now: Date): Date {
     return new Date(now.getTime() - RETENTION_MS);
   }
 
@@ -125,7 +125,7 @@ export class RunGrants extends EventRecorder {
     return this.isEnded ? this : this.with({ grants: [], endedAt: now });
   }
 
-  isForgettableAt(now: Date): boolean {
+  isPastRetention(now: Date): boolean {
     const endedAt = this.state.endedAt;
 
     return (
@@ -134,17 +134,17 @@ export class RunGrants extends EventRecorder {
   }
 
   purge(now: Date): RunGrants {
-    if (!this.isForgettableAt(now)) {
+    if (!this.isPastRetention(now)) {
       throw new InconsistentStateError(
         'run grants',
-        'is kept for a week after its run ends before it is forgotten',
+        'is kept for a week after its run ends before it is purged',
       );
     }
 
     return this.discarded();
   }
 
-  abandon(): RunGrants {
+  delete(): RunGrants {
     return this.discarded();
   }
 

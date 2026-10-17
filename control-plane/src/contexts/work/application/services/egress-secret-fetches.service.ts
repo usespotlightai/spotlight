@@ -82,7 +82,7 @@ export class EgressSecretFetches {
       recipient,
       sharedEgress: admitted.sharedEgress,
     });
-    const minted = leased.reachesApi
+    const issued = leased.reachesApi
       ? await this.apiFor(leased.run, leased.attempt, recipient)
       : null;
     const still = await this.leasedBy(runId, runner, admitted.workspaceId);
@@ -93,8 +93,8 @@ export class EgressSecretFetches {
         runId: runId.value,
         attempt: leased.attempt.number,
       });
-      if (minted) {
-        await this.runTokens.revoke(admitted.workspaceId, minted.tokenId);
+      if (issued) {
+        await this.runTokens.revoke(admitted.workspaceId, issued.tokenId);
       }
       return nothingInjected;
     }
@@ -105,11 +105,11 @@ export class EgressSecretFetches {
       bound: [
         ...new Set([
           ...fetched.secrets.map((each) => each.host),
-          ...(minted ? [this.controlPlaneHost] : []),
+          ...(issued ? [this.controlPlaneHost] : []),
         ]),
       ].sort(),
       ...fetched,
-      spotlightApi: minted ? { sealed: minted.sealed } : null,
+      spotlightApi: issued ? { sealed: issued.sealed } : null,
     };
   }
 
@@ -160,7 +160,7 @@ export class EgressSecretFetches {
       run.id.value,
       attempt.number,
     );
-    const token = await this.runTokens.mintFor({
+    const token = await this.runTokens.issueFor({
       workspaceId: run.workspaceId.value,
       runId: run.id.value,
       attempt: attempt.number,

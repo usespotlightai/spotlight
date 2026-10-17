@@ -516,7 +516,7 @@ describe('how often the judge agrees with people', () => {
     ).toEqual({ rubricVersion: VERSION, calibration });
   });
 
-  it('forgets a deleted task’s judgings and scores', async () => {
+  it('deletes the judgings and scores of a deleted task', async () => {
     await scores.removeForTask(TaskId.of('task_run_a'));
     await judgings.removeForTask(TaskId.of('task_judged'));
 
@@ -524,7 +524,7 @@ describe('how often the judge agrees with people', () => {
     expect(await judgings.of(RunId.of('run_judged'))).toBeNull();
   });
 
-  it('forgets a judge’s score recorded while its task’s judgings were being forgotten', async () => {
+  it('deletes a judge’s score recorded while its task’s judgings were being deleted', async () => {
     await judgings.add(
       Judging.asked({
         runId: RunId.of('run_racing'),
@@ -573,13 +573,13 @@ describe('how often the judge agrees with people', () => {
     );
     await lockedNow;
 
-    const forgetting = context.inTransaction(async () => {
+    const deleting = context.inTransaction(async () => {
       await judgings.removeForTask(TaskId.of('task_racing'));
       await scores.removeForTask(TaskId.of('task_racing'));
     });
     await new Promise((resolve) => setTimeout(resolve, 200));
     release();
-    await Promise.all([recording, forgetting]);
+    await Promise.all([recording, deleting]);
 
     expect(await judgings.of(RunId.of('run_racing'))).toBeNull();
     expect(await scores.ofRuns([RunId.of('run_racing')])).toEqual([]);

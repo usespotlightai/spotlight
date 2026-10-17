@@ -47,7 +47,7 @@ export class MemoryDraft
     super();
   }
 
-  static open(input: {
+  static create(input: {
     id: MemoryDraftId;
     taskId: TaskId;
     workspaceId: WorkspaceId;

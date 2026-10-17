@@ -1,11 +1,11 @@
-import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
+import { deletionsInMemory } from '@outcomes/application/ports/deletions.fake-spec';
 import { pendingReviewsInMemory } from '@outcomes/application/ports/pending-reviews.fake-spec';
 import { stationConfigPullRequestsInMemory } from '@outcomes/application/ports/station-config-pull-requests.fake-spec';
 import type { EndedRun, WorkPort } from '@outcomes/application/ports/work.port';
-import { DropExpiredTombstones } from '@outcomes/application/services/drop-expired-tombstones.service';
-import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import { NotePullRequestRecords } from '@outcomes/application/services/note-pull-request-records.service';
+import { PurgeExpiredTombstones } from '@outcomes/application/services/purge-expired-tombstones.service';
 import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
 import { PullRequestRecordVersionConflictError } from '@outcomes/domain/exceptions/pull-request-record-version-conflict.error';
@@ -56,18 +56,18 @@ const repositoriesInMemory = () => ({
   watches: new StationWatchesInMemory(),
   reviews: pendingReviewsInMemory(),
   configPullRequests: stationConfigPullRequestsInMemory(),
-  forgotten: forgottenInMemory(),
+  deletions: deletionsInMemory(),
 });
 
 const noting = (repositories: ReturnType<typeof repositoriesInMemory>) =>
   new NotePullRequestRecords(
     repositories.pullRequests,
-    repositories.forgotten,
+    repositories.deletions,
     inTransaction,
   );
 
-const forgetting = (repositories: ReturnType<typeof repositoriesInMemory>) =>
-  new ForgetOutcomes(repositories, inTransaction);
+const deleting = (repositories: ReturnType<typeof repositoriesInMemory>) =>
+  new DeleteOutcomes(repositories, inTransaction);
 
 const ENDED = {
   runId: 'run_1',
@@ -90,7 +90,7 @@ const SHAPED = {
 };
 
 describe('noting every pull request', () => {
-  it('locks the workspace and the pull request before it checks what was forgotten', async () => {
+  it('locks the workspace and the pull request before it checks what was deleted', async () => {
     const repositories = repositoriesInMemory();
 
     await noting(repositories).seen({
@@ -98,13 +98,13 @@ describe('noting every pull request', () => {
       pullRequest: PULL,
       seen: seenOf(),
     });
-    await noting(repositories).forgottenByGitHub({
+    await noting(repositories).purgedByGitHub({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       updatedAt: SEEN_AT,
     });
 
-    expect(repositories.forgotten.locks).toEqual([
+    expect(repositories.deletions.locks).toEqual([
       WORKSPACE.value,
       `${WORKSPACE.value} ${PULL.value}`,
       WORKSPACE.value,
@@ -127,7 +127,7 @@ describe('noting every pull request', () => {
       taskId: TaskId.of('task_2'),
     });
 
-    expect(repositories.forgotten.locks).toEqual([
+    expect(repositories.deletions.locks).toEqual([
       `${WORKSPACE.value} ${TEAM.value} ${TASK.value}`,
       `${WORKSPACE.value} ${PULL.value}`,
       `${WORKSPACE.value} task_2`,
@@ -135,9 +135,9 @@ describe('noting every pull request', () => {
     ]);
   });
 
-  it('turns away what GitHub said no later than it forgot the pull request', async () => {
+  it('turns away what GitHub said no later than it purged the pull request', async () => {
     const repositories = repositoriesInMemory();
-    await noting(repositories).forgottenByGitHub({
+    await noting(repositories).purgedByGitHub({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       updatedAt: SEEN_AT,
@@ -152,24 +152,24 @@ describe('noting every pull request', () => {
     expect(await repositories.pullRequests.at(WORKSPACE, PULL)).toBeNull();
   });
 
-  it('keeps no word of GitHub forgetting a pull request of a closed workspace', async () => {
+  it('keeps no word of GitHub purging a pull request of a deleted workspace', async () => {
     const repositories = repositoriesInMemory();
-    await forgetting(repositories).pullRequestsOfWorkspace(WORKSPACE);
+    await deleting(repositories).pullRequestsOfWorkspace(WORKSPACE);
 
-    await noting(repositories).forgottenByGitHub({
+    await noting(repositories).purgedByGitHub({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       updatedAt: SEEN_AT,
     });
 
     expect(
-      await repositories.forgotten.tombstoneOf(WORKSPACE, PULL),
+      await repositories.deletions.tombstoneOf(WORKSPACE, PULL),
     ).toBeNull();
   });
 
-  it('records no owner from a disbanded team', async () => {
+  it('records no owner from a deleted team', async () => {
     const repositories = repositoriesInMemory();
-    await forgetting(repositories).pullRequestsOfTeam(WORKSPACE, TEAM);
+    await deleting(repositories).pullRequestsOfTeam(WORKSPACE, TEAM);
 
     await noting(repositories).owned({
       workspaceId: WORKSPACE,
@@ -183,30 +183,30 @@ describe('noting every pull request', () => {
 });
 
 describe('noting the shape of a task’s change', () => {
-  it('locks the task and its team before it checks whether they were forgotten', async () => {
+  it('locks the task and its team before it checks whether they were deleted', async () => {
     const repositories = repositoriesInMemory();
 
     await new NoteChangeShaped(
       work,
       repositories.shapes,
-      repositories.forgotten,
+      repositories.deletions,
       inTransaction,
     ).shaped(SHAPED);
 
-    expect(repositories.forgotten.locks).toEqual([
+    expect(repositories.deletions.locks).toEqual([
       `${WORKSPACE.value} ${TEAM.value} ${TASK.value}`,
     ]);
     expect(await repositories.shapes.forTask(TASK)).not.toBeNull();
   });
 
-  it('records no shape for a disbanded team', async () => {
+  it('records no shape for a deleted team', async () => {
     const repositories = repositoriesInMemory();
-    await forgetting(repositories).pullRequestsOfTeam(WORKSPACE, TEAM);
+    await deleting(repositories).pullRequestsOfTeam(WORKSPACE, TEAM);
 
     await new NoteChangeShaped(
       work,
       repositories.shapes,
-      repositories.forgotten,
+      repositories.deletions,
       inTransaction,
     ).shaped(SHAPED);
 
@@ -214,7 +214,7 @@ describe('noting the shape of a task’s change', () => {
   });
 });
 
-describe('forgetting a task’s or a team’s pull requests', () => {
+describe('deleting a task’s or a team’s pull requests', () => {
   it('lets go of each pull request on its own, trying again where it changed meanwhile', async () => {
     const repositories = repositoriesInMemory();
     const people = PullRequestUrl.of('https://github.com/acme/api/pull/8');
@@ -242,7 +242,7 @@ describe('forgetting a task’s or a team’s pull requests', () => {
       await saving(record);
     };
 
-    await forgetting(repositories).pullRequestsOfTask(WORKSPACE, TASK);
+    await deleting(repositories).pullRequestsOfTask(WORKSPACE, TASK);
 
     expect(
       (await repositories.pullRequests.at(WORKSPACE, PULL))?.owner,
@@ -250,10 +250,10 @@ describe('forgetting a task’s or a team’s pull requests', () => {
     expect(
       (await repositories.pullRequests.at(WORKSPACE, people))?.reviewTasks,
     ).toEqual([]);
-    expect(await repositories.forgotten.forgot(WORKSPACE, TASK)).toBe(true);
+    expect(await repositories.deletions.isDeleted(WORKSPACE, TASK)).toBe(true);
   });
 
-  it('marks a team forgotten before it removes the team from its pull requests', async () => {
+  it('marks a team deleted before it removes the team from its pull requests', async () => {
     const repositories = repositoriesInMemory();
     await repositories.pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, PULL)
@@ -261,9 +261,9 @@ describe('forgetting a task’s or a team’s pull requests', () => {
         .assignOwner({ taskId: TASK, teamId: TEAM }),
     );
 
-    await forgetting(repositories).pullRequestsOfTeam(WORKSPACE, TEAM);
+    await deleting(repositories).pullRequestsOfTeam(WORKSPACE, TEAM);
 
-    expect(await repositories.forgotten.forgot(WORKSPACE, null, TEAM)).toBe(
+    expect(await repositories.deletions.isDeleted(WORKSPACE, null, TEAM)).toBe(
       true,
     );
     expect(
@@ -272,36 +272,36 @@ describe('forgetting a task’s or a team’s pull requests', () => {
   });
 });
 
-describe('dropping what GitHub forgot long ago', () => {
-  it('drops words of forgetting older than retention and its slack, at most once an hour', async () => {
-    const forgotten = forgottenInMemory();
+describe('purging expired tombstones', () => {
+  it('purges tombstones older than retention and its slack, at most once an hour', async () => {
+    const deletions = deletionsInMemory();
     let now = new Date(SEEN_AT.getTime() + 211 * DAY_MS);
-    const dropping = new DropExpiredTombstones(forgotten, {
+    const purging = new PurgeExpiredTombstones(deletions, {
       now: () => now,
       sleep: async () => {},
     });
-    await forgotten.forgetPullRequest(WORKSPACE, PULL, { updatedAt: SEEN_AT });
+    await deletions.deletePullRequest(WORKSPACE, PULL, { updatedAt: SEEN_AT });
 
-    await dropping.processDue();
+    await purging.processDue();
 
-    expect(await forgotten.tombstoneOf(WORKSPACE, PULL)).toBeNull();
+    expect(await deletions.tombstoneOf(WORKSPACE, PULL)).toBeNull();
 
-    await forgotten.forgetPullRequest(WORKSPACE, PULL, { updatedAt: SEEN_AT });
+    await deletions.deletePullRequest(WORKSPACE, PULL, { updatedAt: SEEN_AT });
     now = new Date(now.getTime() + 30 * 60_000);
-    await dropping.processDue();
+    await purging.processDue();
 
-    expect(await forgotten.tombstoneOf(WORKSPACE, PULL)).not.toBeNull();
+    expect(await deletions.tombstoneOf(WORKSPACE, PULL)).not.toBeNull();
   });
 
-  it('keeps a recent word of forgetting', async () => {
-    const forgotten = forgottenInMemory();
-    await forgotten.forgetPullRequest(WORKSPACE, PULL, { updatedAt: SEEN_AT });
+  it('keeps a recent tombstone', async () => {
+    const deletions = deletionsInMemory();
+    await deletions.deletePullRequest(WORKSPACE, PULL, { updatedAt: SEEN_AT });
 
-    await new DropExpiredTombstones(forgotten, {
+    await new PurgeExpiredTombstones(deletions, {
       now: () => new Date(SEEN_AT.getTime() + 190 * DAY_MS),
       sleep: async () => {},
     }).processDue();
 
-    expect(await forgotten.tombstoneOf(WORKSPACE, PULL)).not.toBeNull();
+    expect(await deletions.tombstoneOf(WORKSPACE, PULL)).not.toBeNull();
   });
 });

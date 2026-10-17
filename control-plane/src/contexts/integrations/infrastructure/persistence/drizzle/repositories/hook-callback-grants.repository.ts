@@ -42,7 +42,7 @@ export class DrizzleHookCallbackGrants implements HookCallbackGrantRepository {
       : null;
   }
 
-  async forgetExpiringBefore(at: Date): Promise<void> {
+  async purgeExpiringBefore(at: Date): Promise<void> {
     await this.context.db
       .delete(hookCallback)
       .where(lt(hookCallback.expiresAt, at));

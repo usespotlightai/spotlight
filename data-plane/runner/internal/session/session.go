@@ -443,7 +443,7 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 			log.Info("resumed", "session", previous)
 			return previous, nil
 		}
-		if !acp.Forgotten(err) {
+		if !acp.IsSessionNotFound(err) {
 			return "", fmt.Errorf("resume the session: %w", err)
 		}
 		log.Warn("the harness no longer has that session", "session", previous)

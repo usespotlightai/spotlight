@@ -343,7 +343,7 @@ func containsStandIn(text string) bool {
 	return strings.Contains(strings.ToLower(text), standInMark)
 }
 
-func (w *Injector) Forget() {
+func (w *Injector) Wipe() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

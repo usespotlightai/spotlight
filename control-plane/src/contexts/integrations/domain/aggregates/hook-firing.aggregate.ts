@@ -141,7 +141,7 @@ export class HookFiring extends EventRecorder {
     return new Date(now.getTime() - LEASE_MS);
   }
 
-  static finishedForgettablyBefore(now: Date): Date {
+  static retentionCutoff(now: Date): Date {
     return new Date(now.getTime() - RETENTION_MS);
   }
 
@@ -378,23 +378,23 @@ export class HookFiring extends EventRecorder {
     });
   }
 
-  isForgettableAt(now: Date): boolean {
+  isPastRetention(now: Date): boolean {
     const at = this.finishedAt;
 
     return at !== null && at.getTime() + RETENTION_MS <= now.getTime();
   }
 
-  forgotten(now: Date): HookFiring {
-    if (!this.isForgettableAt(now)) {
+  purge(now: Date): HookFiring {
+    if (!this.isPastRetention(now)) {
       throw new InvalidHookFiringTransitionError(
         'is kept for 30 days after it finishes',
       );
     }
 
-    const forgotten = new HookFiring(this.state, true);
-    forgotten.inheritEvents(this);
+    const purged = new HookFiring(this.state, true);
+    purged.inheritEvents(this);
 
-    return forgotten;
+    return purged;
   }
 
   private retryOf(

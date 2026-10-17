@@ -4,9 +4,9 @@ import type { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-
 export const BearerAdmission = {
   admits(
     token: WorkspaceToken,
-    mintedThrough: WorkspaceTokenTrust | null,
+    issuedByTrust: WorkspaceTokenTrust | null,
     now: Date,
   ): boolean {
-    return token.admitsAt(now) && token.isStillValidFor(mintedThrough);
+    return token.admitsAt(now) && token.isStillValidFor(issuedByTrust);
   },
 };

@@ -213,19 +213,19 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
       key: 'core',
       name: 'Core platform',
     });
-    const relaid = await api().update(`lines/${line.id}`, line.version, {
+    const updated = await api().update(`lines/${line.id}`, line.version, {
       ...LINE,
       name: 'Shipping',
     });
 
     expect(renamed.body).toMatchObject({ name: 'Core platform' });
-    expect(relaid.body).toMatchObject({
+    expect(updated.body).toMatchObject({
       address: 'core/delivery',
       definition: { name: 'Shipping' },
     });
 
     for (const [path, version] of [
-      [`lines/${line.id}`, relaid.body.version],
+      [`lines/${line.id}`, updated.body.version],
       [`skills/${skill.id}`, skill.version],
       [`integrations/${integration.id}`, integration.version],
       [`teams/${team.id}`, renamed.body.version],
@@ -244,14 +244,14 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     const slug = `acme-${randomUUID().slice(0, 8)}`;
     slugs.push(slug);
 
-    const opened = await served(app)
+    const created = await served(app)
       .post('/api/workspaces')
       .set(TEST_USER_HEADER, owner)
       .send({ name: 'Acme', slug, teamName: 'Core' });
 
-    expect(opened.status).toBe(201);
+    expect(created.status).toBe(201);
 
-    const teamId = opened.body.teams[0].id as string;
+    const teamId = created.body.teams[0].id as string;
     const lines = await eventually(
       () =>
         db
@@ -264,15 +264,15 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
       api().read(`${path}/import?address=${encodeURIComponent(address)}`);
 
     const workspace = await imported('workspaces', slug);
-    const team = await imported(`workspaces/${opened.body.id}/teams`, 'core');
+    const team = await imported(`workspaces/${created.body.id}/teams`, 'core');
 
-    expect(workspace.body).toMatchObject({ id: opened.body.id, slug });
+    expect(workspace.body).toMatchObject({ id: created.body.id, slug });
     expect(team.body).toMatchObject({ id: teamId, key: 'core' });
     expect(lines.length).toBeGreaterThan(0);
 
     for (const { key } of lines) {
       const line = await imported(
-        `workspaces/${opened.body.id}/lines`,
+        `workspaces/${created.body.id}/lines`,
         `core/${key}`,
       );
 

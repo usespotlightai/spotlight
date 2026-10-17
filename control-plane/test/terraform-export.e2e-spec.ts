@@ -26,7 +26,7 @@ import {
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { definitionOf } from './support/line-definition';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -270,7 +270,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
           `person:${seat.member}`,
         ]),
       );
-    await forgetRunnersOf(db, workspaceId);
+    await deleteRunnersOf(db, workspaceId);
     await seat.unseat();
   });
 
@@ -778,7 +778,7 @@ describe('the configuration the export spec renders (e2e)', () => {
     await db
       .delete(schema.workspaceTokenTrust)
       .where(eq(schema.workspaceTokenTrust.workspaceId, workspaceId));
-    await forgetRunnersOf(db, workspaceId);
+    await deleteRunnersOf(db, workspaceId);
     await seat.unseat();
   });
 

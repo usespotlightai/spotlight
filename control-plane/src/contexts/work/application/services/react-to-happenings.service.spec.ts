@@ -863,7 +863,7 @@ describe('ReactToHappenings', () => {
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = Line.open({
+    const opening = Line.create({
       by: attributedIn(),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
@@ -945,7 +945,7 @@ describe('ReactToHappenings', () => {
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = Line.open({
+    const opening = Line.create({
       by: attributedIn(),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
@@ -1025,7 +1025,7 @@ describe('ReactToHappenings', () => {
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = Line.open({
+    const opening = Line.create({
       by: attributedIn(),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
@@ -1100,7 +1100,7 @@ describe('ReactToHappenings', () => {
 
     const delivery = (key: string) => {
       let next = 0;
-      return Line.open({
+      return Line.create({
         by: attributedIn(),
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),

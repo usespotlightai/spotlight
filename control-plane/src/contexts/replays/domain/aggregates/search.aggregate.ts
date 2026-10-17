@@ -135,7 +135,7 @@ const isActive = (state: SearchState): boolean =>
 export class Search extends EventRecorder {
   private constructor(
     private readonly state: State,
-    readonly isAbandoned = false,
+    readonly isDeleted = false,
   ) {
     super();
   }
@@ -674,12 +674,12 @@ export class Search extends EventRecorder {
     return this.isActive ? this.cutShort('set-gone', at) : this;
   }
 
-  abandon(): Search {
-    const abandoned = new Search(this.state, true);
+  delete(): Search {
+    const deleted = new Search(this.state, true);
 
-    abandoned.inheritEvents(this);
+    deleted.inheritEvents(this);
 
-    return abandoned;
+    return deleted;
   }
 
   private get whatChanged() {
@@ -910,7 +910,7 @@ export class Search extends EventRecorder {
   }
 
   private with(part: Partial<State>): Search {
-    const next = new Search({ ...this.state, ...part }, this.isAbandoned);
+    const next = new Search({ ...this.state, ...part }, this.isDeleted);
 
     next.inheritEvents(this);
 

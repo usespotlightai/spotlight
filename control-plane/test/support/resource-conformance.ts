@@ -14,9 +14,9 @@ import {
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  TOKEN_MINT,
-  type TokenMintPort,
-} from '@shared-kernel/application/ports/token-mint.port';
+  TOKEN_ISSUER,
+  type TokenIssuer,
+} from '@shared-kernel/application/ports/token-issuer.port';
 import { eq } from 'drizzle-orm';
 import type { Response, Test } from 'supertest';
 import {
@@ -216,7 +216,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         workspaceId,
         name: `reader-${id.slice(0, 8)}`,
         scopes: ['read'],
-        tokenHash: app.get<TokenMintPort>(TOKEN_MINT).hash(bearer),
+        tokenHash: app.get<TokenIssuer>(TOKEN_ISSUER).hash(bearer),
         issuedBy: fixture.admin,
         issuedAt: new Date(),
       });

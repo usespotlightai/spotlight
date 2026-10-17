@@ -147,7 +147,7 @@ describe('ReadReplayedCandidatesHandler', () => {
 
   it('shows nothing of another team', async () => {
     const other = { ...STATION, teamId: TeamId.of('team_2') };
-    const set = ReplaySet.open({
+    const set = ReplaySet.create({
       id: ReplaySetId.of('set_other'),
       station: other,
       name: ReplaySetName.of('Theirs'),

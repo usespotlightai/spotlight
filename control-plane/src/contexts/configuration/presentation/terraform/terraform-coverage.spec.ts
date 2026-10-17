@@ -37,11 +37,11 @@ const kindsInOpenApi = (): readonly string[] => {
 describe('the kinds a workspace export covers', () => {
   it('exports every resource kind the API serves, or names why not', () => {
     const exported = new Set<string>(EXPORTABLE_KINDS);
-    const forgotten = kindsInOpenApi().filter(
+    const missing = kindsInOpenApi().filter(
       (kind) => !exported.has(kind) && !(kind in NOT_EXPORTED),
     );
 
-    expect(forgotten).toEqual([]);
+    expect(missing).toEqual([]);
   });
 
   it('does not both export a kind and say why it does not', () => {

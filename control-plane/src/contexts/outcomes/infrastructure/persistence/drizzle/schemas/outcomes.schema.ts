@@ -379,21 +379,21 @@ export const taskFailures = pgTable(
   ],
 );
 
-export const forgottenTask = pgTable(
-  'forgotten_task',
+export const deletedTask = pgTable(
+  'deleted_task',
   {
     taskId: text('task_id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
   },
-  (table) => [index('forgotten_task_workspace_idx').on(table.workspaceId)],
+  (table) => [index('deleted_task_workspace_idx').on(table.workspaceId)],
 );
 
-export const forgottenWorkspace = pgTable('forgotten_workspace', {
+export const deletedWorkspace = pgTable('deleted_workspace', {
   workspaceId: text('workspace_id').primaryKey(),
 });
 
-export const forgottenTeam = pgTable(
-  'forgotten_team',
+export const deletedTeam = pgTable(
+  'deleted_team',
   {
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
@@ -401,8 +401,8 @@ export const forgottenTeam = pgTable(
   (table) => [primaryKey({ columns: [table.workspaceId, table.teamId] })],
 );
 
-export const forgottenPullRequest = pgTable(
-  'forgotten_pull_request',
+export const deletedPullRequest = pgTable(
+  'deleted_pull_request',
   {
     workspaceId: text('workspace_id').notNull(),
     pullRequest: text('pull_request').notNull(),
@@ -410,7 +410,7 @@ export const forgottenPullRequest = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.workspaceId, table.pullRequest] }),
-    index('forgotten_pull_request_updated_idx').on(table.updatedAt),
+    index('deleted_pull_request_updated_idx').on(table.updatedAt),
   ],
 );
 
@@ -457,7 +457,7 @@ export const pullRequestRecord = pgTable(
     ownerTaskId: text('owner_task_id'),
     ownerTeamId: text('owner_team_id'),
     reviewTaskIds: text('review_task_ids').array().notNull().default([]),
-    githubForgotAt: timestamp('github_forgot_at'),
+    githubPurgedAt: timestamp('github_purged_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

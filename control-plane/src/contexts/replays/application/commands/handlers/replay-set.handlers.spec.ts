@@ -1,10 +1,10 @@
 import { AddReplaySetEntryCommand } from '@replays/application/commands/add-replay-set-entry.command';
+import { CreateReplaySetCommand } from '@replays/application/commands/create-replay-set.command';
 import { DeleteReplaySetCommand } from '@replays/application/commands/delete-replay-set.command';
 import { AddReplaySetEntryHandler } from '@replays/application/commands/handlers/add-replay-set-entry.handler';
+import { CreateReplaySetHandler } from '@replays/application/commands/handlers/create-replay-set.handler';
 import { DeleteReplaySetHandler } from '@replays/application/commands/handlers/delete-replay-set.handler';
-import { OpenReplaySetHandler } from '@replays/application/commands/handlers/open-replay-set.handler';
 import { RemoveReplaySetEntryHandler } from '@replays/application/commands/handlers/remove-replay-set-entry.handler';
-import { OpenReplaySetCommand } from '@replays/application/commands/open-replay-set.command';
 import { RemoveReplaySetEntryCommand } from '@replays/application/commands/remove-replay-set-entry.command';
 import {
   accessFor,
@@ -52,18 +52,18 @@ beforeEach(() => {
   work = new FakeWork();
 });
 
-describe('OpenReplaySetHandler', () => {
-  const opening = (mayPlan: boolean | null) =>
-    new OpenReplaySetHandler(
+describe('CreateReplaySetHandler', () => {
+  const creating = (mayPlan: boolean | null) =>
+    new CreateReplaySetHandler(
       accessFor(memory, work, mayPlan),
       memory.setRepository,
       IDS,
       CLOCK,
     );
 
-  it('opens an empty set at a station of the team', async () => {
-    const opened = await opening(true).execute(
-      new OpenReplaySetCommand(
+  it('creates an empty set at a station of the team', async () => {
+    const created = await creating(true).execute(
+      new CreateReplaySetCommand(
         'team_1',
         'line_1',
         'station_build',
@@ -72,14 +72,14 @@ describe('OpenReplaySetHandler', () => {
       ),
     );
 
-    expect(opened.outcome).toBe('opened');
+    expect(created.outcome).toBe('created');
     expect([...memory.sets.values()][0]?.name.value).toBe('Queue fixes');
   });
 
   it('denies one who may read the team but not plan', async () => {
     expect(
-      await opening(false).execute(
-        new OpenReplaySetCommand(
+      await creating(false).execute(
+        new CreateReplaySetCommand(
           'team_1',
           'line_1',
           'station_build',
@@ -93,8 +93,8 @@ describe('OpenReplaySetHandler', () => {
   it('knows no team the caller may not read, nor a station elsewhere', async () => {
     expect(
       await errorOf(
-        opening(null).execute(
-          new OpenReplaySetCommand(
+        creating(null).execute(
+          new CreateReplaySetCommand(
             'team_1',
             'line_1',
             'station_build',
@@ -106,8 +106,8 @@ describe('OpenReplaySetHandler', () => {
     ).toBe('not-found');
     expect(
       await errorOf(
-        opening(true).execute(
-          new OpenReplaySetCommand(
+        creating(true).execute(
+          new CreateReplaySetCommand(
             'team_1',
             'line_2',
             'station_build',

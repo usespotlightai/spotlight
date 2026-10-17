@@ -10,14 +10,14 @@ export class SecretChangeDetail implements ChangeDetail {
     readonly boundTo: readonly string[] | null,
   ) {}
 
-  static set(
+  static created(
     valueVersion: number | null,
     boundTo: readonly string[],
   ): SecretChangeDetail {
     return new SecretChangeDetail(true, valueVersion, [...boundTo]);
   }
 
-  static redefined(moved: {
+  static updated(moved: {
     valueMoved: boolean;
     valueVersion: number | null;
     rebound: boolean;

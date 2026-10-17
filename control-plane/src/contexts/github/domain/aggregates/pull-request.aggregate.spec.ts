@@ -212,7 +212,7 @@ describe('PullRequest', () => {
     expect(touched.hasEvents).toBe(false);
   });
 
-  it('forgets when it closed once it opens again', () => {
+  it('clears when it closed once it opens again', () => {
     const reopened = stored(
       opened().describe(factsOf({ state: 'closed', closedAt: at(12) })),
     ).describe(factsOf({ state: 'open', closedAt: null, updatedAt: at(13) }));
@@ -306,7 +306,7 @@ describe('PullRequest', () => {
   });
 
   describe('review comments', () => {
-    it('counts each comment a person made once, and forgets a deleted one', () => {
+    it('counts each comment a person made once, and stops counting a deleted one', () => {
       const commented = opened()
         .recordComment(comment(1, 'created'))
         .recordComment(comment(1, 'created'))
@@ -590,7 +590,7 @@ describe('PullRequest', () => {
       expect(busy.comments).toEqual([]);
     });
 
-    it('counts a bot comment once, and forgets a deleted one however late its creation is heard', () => {
+    it('counts a bot comment once, and stops counting a deleted one however late its creation is heard', () => {
       const commented = stored(
         opened()
           .recordComment(comment(10, 'created', bot))
@@ -713,24 +713,24 @@ describe('PullRequest', () => {
   });
 
   describe('retention', () => {
-    it('can be forgotten 180 days after it closed, and not before', () => {
+    it('can be purged 180 days after it closed, and not before', () => {
       const closed = opened({ state: 'closed', closedAt: MERGED });
 
       expect(
-        closed.forgettableAt(new Date(MERGED.getTime() + 180 * DAY + 1)),
+        closed.isPastRetention(new Date(MERGED.getTime() + 180 * DAY + 1)),
       ).toBe(true);
-      expect(closed.forgettableAt(new Date(MERGED.getTime() + 179 * DAY))).toBe(
-        false,
-      );
+      expect(
+        closed.isPastRetention(new Date(MERGED.getTime() + 179 * DAY)),
+      ).toBe(false);
     });
 
-    it('can be forgotten once open and untouched for 180 days, and not before', () => {
+    it('can be purged once open and untouched for 180 days, and not before', () => {
       const idle = opened({ updatedAt: MERGED });
 
       expect(
-        idle.forgettableAt(new Date(MERGED.getTime() + 180 * DAY + 1)),
+        idle.isPastRetention(new Date(MERGED.getTime() + 180 * DAY + 1)),
       ).toBe(true);
-      expect(idle.forgettableAt(new Date(MERGED.getTime() + 179 * DAY))).toBe(
+      expect(idle.isPastRetention(new Date(MERGED.getTime() + 179 * DAY))).toBe(
         false,
       );
     });
@@ -761,16 +761,16 @@ describe('PullRequest', () => {
       ).not.toBeNull();
     });
 
-    it('says it was forgotten, and when GitHub last changed it', () => {
-      const forgotten = opened({
+    it('says it was purged, and when GitHub last changed it', () => {
+      const purged = opened({
         state: 'closed',
         closedAt: MERGED,
         updatedAt: new Date('2026-09-22T09:00:00Z'),
-      }).forgotten();
+      }).purge();
 
-      expect(forgotten.pullEvents()).toEqual([
+      expect(purged.pullEvents()).toEqual([
         expect.objectContaining({
-          kind: 'pull-request.forgotten',
+          kind: 'pull-request.purged',
           pullRequest: URL_7.value,
           updatedAt: new Date('2026-09-22T09:00:00Z'),
         }),

@@ -49,8 +49,8 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
-import { openTeam } from './support/team';
+import { deleteRunnersOf } from './support/runners';
+import { createTeam } from './support/team';
 
 const RUNNER = RunnerId.of('runner_reactions');
 const CHANGES_REQUESTED = 'github.pull_request.changes-requested';
@@ -59,7 +59,7 @@ const DEFERRED_MOVE_TO_CODE_REVIEW =
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 let line: Line;
 let tasks: DrizzleTaskRepository;
 let runs: DrizzleRunRepository;
@@ -249,7 +249,7 @@ beforeAll(async () => {
   db = app.get(DRIZZLE);
   tasks = app.get(DrizzleTaskRepository);
   runs = app.get(DrizzleRunRepository);
-  team = await openTeam(db, tasks, `reactions-${randomUUID().slice(0, 8)}`);
+  team = await createTeam(db, tasks, `reactions-${randomUUID().slice(0, 8)}`);
 
   const opening = BUILT_IN_LINES.find((each) =>
     each.role?.equals(LineRole.DELIVERY),
@@ -259,7 +259,7 @@ beforeAll(async () => {
     throw new Error('Spotlight ships no delivery line');
   }
 
-  line = Line.open({
+  line = Line.create({
     by: attributedIn(),
     workspaceId: team.workspaceId,
     teamId: team.teamId,
@@ -270,7 +270,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 

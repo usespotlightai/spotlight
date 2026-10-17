@@ -259,7 +259,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('is defined and deleted by a configure token, recorded as that token, and only read with a read token', async () => {
+  it('is created and deleted by a configure token, recorded as that token, and only read with a read token', async () => {
     const issue = async (scopes: readonly string[]) =>
       (
         await as(fixture.admin).create(

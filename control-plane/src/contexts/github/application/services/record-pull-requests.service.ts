@@ -1,4 +1,4 @@
-import { PullRequestsNotForgottenError } from '@github/application/errors/pull-requests-not-forgotten.error';
+import { PullRequestsNotPurgedError } from '@github/application/errors/pull-requests-not-purged.error';
 import {
   type HeardComment,
   type HeardReview,
@@ -9,7 +9,7 @@ import type { PullRequestRevertMerged } from '@github/domain/events/pull-request
 import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-request-version-conflict.error';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
-import { forgettableBefore } from '@github/domain/services/pull-request-retention';
+import { retentionCutoff } from '@github/domain/services/pull-request-retention';
 import type { HeardThread } from '@github/domain/value-objects/bot-activity.vo';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -21,15 +21,15 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const ATTEMPTS = 3;
 
-const FORGOTTEN_AT_ONCE = 200;
+const PURGE_BATCH = 200;
 
 export interface HeardFrom {
   readonly installation: GitHubInstallation;
   readonly workspaceId: WorkspaceId;
 }
 
-interface Forgetting {
-  readonly forgotten: number;
+interface Purging {
+  readonly purged: number;
   readonly left: number;
 }
 
@@ -153,35 +153,35 @@ export class RecordPullRequests {
 
   async pastRetention(): Promise<number> {
     const now = this.clock.now();
-    let forgotten = 0;
+    let purged = 0;
     let after: PullRequest | null = null;
 
     for (;;) {
       const candidates = await this.pullRequests.lastHeardBefore(
-        forgettableBefore(now),
+        retentionCutoff(now),
         after,
-        FORGOTTEN_AT_ONCE,
+        PURGE_BATCH,
       );
-      const batch = await this.forgetting(
+      const batch = await this.purging(
         candidates,
         (candidate) =>
           this.pullRequests.lockedUnlessBusy(
             candidate.workspaceId,
             candidate.url,
           ),
-        (known) => known.forgettableAt(now),
+        (known) => known.isPastRetention(now),
       );
-      forgotten += batch.forgotten;
+      purged += batch.purged;
       after = candidates[candidates.length - 1] ?? after;
 
-      if (candidates.length < FORGOTTEN_AT_ONCE) {
-        return forgotten;
+      if (candidates.length < PURGE_BATCH) {
+        return purged;
       }
     }
   }
 
   async uninstalled(workspaceId: WorkspaceId): Promise<number> {
-    let forgotten = 0;
+    let purged = 0;
     let left = 0;
     let after: PullRequestUrl | null = null;
 
@@ -189,31 +189,31 @@ export class RecordPullRequests {
       const candidates = await this.pullRequests.ofWorkspace(
         workspaceId,
         after,
-        FORGOTTEN_AT_ONCE,
+        PURGE_BATCH,
       );
-      const batch = await this.forgetting(
+      const batch = await this.purging(
         candidates,
         (candidate) =>
           this.pullRequests.lockedAt(candidate.workspaceId, candidate.url),
         () => true,
       );
-      forgotten += batch.forgotten;
+      purged += batch.purged;
       left += batch.left;
       after = candidates[candidates.length - 1]?.url ?? after;
 
-      if (candidates.length < FORGOTTEN_AT_ONCE) {
+      if (candidates.length < PURGE_BATCH) {
         break;
       }
     }
 
     if (left > 0) {
-      throw new PullRequestsNotForgottenError(left);
+      throw new PullRequestsNotPurgedError(left);
     }
 
-    return forgotten;
+    return purged;
   }
 
-  async workspaceClosed(workspaceId: WorkspaceId): Promise<void> {
+  async workspaceDeleted(workspaceId: WorkspaceId): Promise<void> {
     await this.transaction.inTransaction(async () => {
       const connection = await this.connections.of(workspaceId);
 
@@ -226,12 +226,12 @@ export class RecordPullRequests {
     await this.pullRequests.removeForWorkspace(workspaceId);
   }
 
-  private async forgetting(
+  private async purging(
     candidates: readonly PullRequest[],
     locked: (candidate: PullRequest) => Promise<PullRequest | null>,
-    forgettable: (pullRequest: PullRequest) => boolean,
-  ): Promise<Forgetting> {
-    let forgotten = 0;
+    purgeable: (pullRequest: PullRequest) => boolean,
+  ): Promise<Purging> {
+    let purged = 0;
     let left = 0;
 
     for (const candidate of candidates) {
@@ -239,21 +239,21 @@ export class RecordPullRequests {
         await this.transaction.inTransaction(async () => {
           const current = await locked(candidate);
 
-          if (current && forgettable(current)) {
-            await this.pullRequests.remove(current.forgotten());
-            forgotten += 1;
+          if (current && purgeable(current)) {
+            await this.pullRequests.remove(current.purge());
+            purged += 1;
           }
         });
       } catch (error) {
         left += 1;
         this.logger.error(
           { err: error, pullRequest: candidate.url.value },
-          'Forgetting a pull request',
+          'Purging a pull request',
         );
       }
     }
 
-    return { forgotten, left };
+    return { purged, left };
   }
 
   private changing(

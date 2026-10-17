@@ -52,7 +52,7 @@ type run struct {
 	bound     map[string]bool
 	allowed   reach.List
 	transport *http.Transport
-	forgotten bool
+	evicted   bool
 
 	used   atomic.Int64
 	active atomic.Int32
@@ -183,7 +183,7 @@ func (e *Egress) fetchedSecrets(ctx context.Context, r *run, now bool) error {
 
 	at := e.now()
 	r.mu.Lock()
-	done := r.fetched || r.forgotten || (!now && !r.triedAt.IsZero() && at.Sub(r.triedAt) < fetchAgain)
+	done := r.fetched || r.evicted || (!now && !r.triedAt.IsZero() && at.Sub(r.triedAt) < fetchAgain)
 	r.mu.Unlock()
 	if done {
 		return nil
@@ -225,8 +225,8 @@ func (e *Egress) fetchedSecrets(ctx context.Context, r *run, now bool) error {
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.forgotten {
-		injector.Forget()
+	if r.evicted {
+		injector.Wipe()
 		return nil
 	}
 	r.allowed = allowed
@@ -283,7 +283,7 @@ func (r *run) bindsFor(host string) (forwarding, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if !r.fetched || r.forgotten || !r.bound[host] || (host == r.controlPlane && r.port != "443") {
+	if !r.fetched || r.evicted || !r.bound[host] || (host == r.controlPlane && r.port != "443") {
 		return forwarding{}, false
 	}
 	return forwarding{injector: r.injector, transport: r.transport, named: r.allowed.Names(host)}, true
@@ -306,16 +306,16 @@ func (r *run) boundHosts() []string {
 	return hosts
 }
 
-func (r *run) forget() {
+func (r *run) evict() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.forgotten = true
+	r.evicted = true
 	if r.transport != nil {
 		r.transport.CloseIdleConnections()
 	}
 	if r.active.Load() == 0 && r.injector != nil {
-		r.injector.Forget()
+		r.injector.Wipe()
 	}
 }
 
@@ -323,30 +323,30 @@ func (r *run) evictIfStale() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.forgotten && r.injector != nil {
-		r.injector.Forget()
+	if r.evicted && r.injector != nil {
+		r.injector.Wipe()
 	}
 }
 
-func (e *Egress) forget(ctx context.Context, runs []*run, why string) {
+func (e *Egress) evict(ctx context.Context, runs []*run, why string) {
 	e.mu.Lock()
-	var forgotten []*run
+	var evicted []*run
 	for _, found := range runs {
 		if e.runs[found.credential] == found {
-			forgotten = append(forgotten, found)
+			evicted = append(evicted, found)
 			delete(e.runs, found.credential)
 		}
 	}
 	e.mu.Unlock()
 
-	if len(forgotten) > 0 {
+	if len(evicted) > 0 {
 		e.records.flush(ctx)
 	}
-	for _, found := range forgotten {
-		found.forget()
+	for _, found := range evicted {
+		found.evict()
 	}
-	if len(forgotten) > 0 {
-		e.log.Info("evicted runs", "runs", len(forgotten), "why", why)
+	if len(evicted) > 0 {
+		e.log.Info("evicted runs", "runs", len(evicted), "why", why)
 	}
 }
 
@@ -385,7 +385,7 @@ func (e *Egress) checkActiveRuns(ctx context.Context) {
 			continue
 		}
 
-		e.forget(ctx, slices.DeleteFunc(slices.Clone(asked), func(found *run) bool {
+		e.evict(ctx, slices.DeleteFunc(slices.Clone(asked), func(found *run) bool {
 			return slices.Contains(active, found.credential)
 		}), "their runs are no longer active")
 	}
@@ -408,7 +408,7 @@ func (e *Egress) sweep(ctx context.Context) {
 		e.records.flush(ctx)
 	}
 	for _, found := range unused {
-		found.forget()
+		found.evict()
 	}
 	if len(unused) > 0 {
 		e.log.Info("evicted runs", "runs", len(unused), "why", "no use for "+unusedFor.String())

@@ -11,7 +11,7 @@ export function SettingUpWorkspace() {
       />
       <div role="status">
         <AuthTitle title="Setting up your workspace…" large>
-          Spotlight opens the lines of your team and adds a setup task to your
+          Spotlight creates the lines of your team and adds a setup task to your
           inbox.
         </AuthTitle>
       </div>

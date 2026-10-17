@@ -23,7 +23,7 @@ import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo'
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -60,7 +60,7 @@ const PLATFORM = Team.rehydrate({
 const sentInvite = (
   over: { workspaceId?: WorkspaceId; revoked?: boolean } = {},
 ) => {
-  const offered = WorkspaceInvite.offer({
+  const created = WorkspaceInvite.create({
     id: InviteId.of('invite_1'),
     workspaceId: over.workspaceId ?? ACME,
     email: EmailAddress.of('ada@example.com'),
@@ -73,8 +73,8 @@ const sentInvite = (
     now: new Date('2026-09-01T09:00:00.000Z'),
   });
   const invite = over.revoked
-    ? offered.revoke(UserId.of('user_leon'), NOW)
-    : offered;
+    ? created.revoke(UserId.of('user_leon'), NOW)
+    : created;
 
   return WorkspaceInvite.rehydrate({ ...invite, version: 1 });
 };
@@ -107,8 +107,8 @@ const resending = (
       { warn: vi.fn() } as unknown as LoggerPort,
     ),
     {
-      mint: () => ({ token: 'fresh', hash: 'f'.repeat(64) }),
-    } as unknown as TokenMintPort,
+      issue: () => ({ token: 'fresh', hash: 'f'.repeat(64) }),
+    } as unknown as TokenIssuer,
     { now: () => NOW } as ClockPort,
   );
 
@@ -140,7 +140,7 @@ describe('ResendInviteHandler', () => {
     });
   });
 
-  it('lets another admin send it again, on its current terms, as its inviter now', async () => {
+  it('lets another admin resend it, on its current terms, as its inviter now', async () => {
     const { handler, save, send } = resending({ role: WorkspaceRole.admin });
 
     await expect(handler.execute(resend)).resolves.toMatchObject({
@@ -151,7 +151,7 @@ describe('ResendInviteHandler', () => {
     expect(save.mock.calls[0]?.[0].invitedBy).toEqual(LEON);
     expect(save.mock.calls[0]?.[0].terms.teams).toEqual([TeamId.of('team_1')]);
     expect(save.mock.calls[0]?.[0].pullEvents()).toMatchObject([
-      { kind: 'workspace-invite.offered', again: true, invitedBy: LEON },
+      { kind: 'workspace-invite.created', resent: true, invitedBy: LEON },
     ]);
     expect(send).toHaveBeenCalledTimes(1);
   });

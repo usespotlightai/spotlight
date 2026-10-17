@@ -143,7 +143,7 @@ export class RunnerTrustResourceController {
 
   @RunnerTrustResource.Delete(
     'runner-trusts/:id',
-    'Stop trusting a workload, so it can claim no more work through the trust',
+    'Delete a runner trust; no workload can claim more work through it',
   )
   @ID
   async delete(

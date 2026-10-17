@@ -2,7 +2,7 @@ import { checkReasonOf } from '@change-review/application/rendering/check-reason
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
-import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
+import { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -1047,28 +1047,28 @@ describe('StackCheck', () => {
     });
   });
 
-  describe('forgetting it with its task', () => {
+  describe('deleting it with its task', () => {
     it('releases the runner reserved for it', () => {
-      const forgotten = waiting()
+      const deleted = waiting()
         .reservedFor(RUNNER, PoolId.of('pool_burst'), LATER)
-        .forgotten(LATER);
+        .delete(LATER);
 
-      expect(forgotten.reservation).toBeNull();
-      expect(forgotten.pullEvents()).toEqual([
+      expect(deleted.reservation).toBeNull();
+      expect(deleted.pullEvents()).toEqual([
         new CheckReservationDropped(ChangeStackId.of('stack-1'), RUNNER),
       ]);
     });
 
     it('releases nobody where no runner was reserved for it', () => {
-      expect(kinds(waiting().forgotten(LATER))).toEqual([]);
+      expect(kinds(waiting().delete(LATER))).toEqual([]);
     });
 
     it('releases the runner still checking it', () => {
-      const forgotten = checking().forgotten(LATER);
+      const deleted = checking().delete(LATER);
 
-      expect(forgotten.claim.claimedBy).toBeNull();
-      expect(forgotten.pullEvents()).toEqual([
-        new LeasedCheckForgotten(ChangeStackId.of('stack-1')),
+      expect(deleted.claim.claimedBy).toBeNull();
+      expect(deleted.pullEvents()).toEqual([
+        new LeasedCheckDeleted(ChangeStackId.of('stack-1')),
       ]);
     });
 
@@ -1078,7 +1078,7 @@ describe('StackCheck', () => {
         (check.claim.leaseExpiresAt?.getTime() ?? 0) + 1000,
       );
 
-      expect(kinds(check.forgotten(expired))).toEqual([]);
+      expect(kinds(check.delete(expired))).toEqual([]);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { Team } from '@identity/domain/aggregates/team.aggregate';
-import type { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event';
+import type { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 
 export const FIRST_TEAM = 'identity.first-team';
@@ -7,17 +7,17 @@ export const FIRST_TEAM = 'identity.first-team';
 export class FirstTeam {
   constructor(private readonly teams: TeamRepository) {}
 
-  async openFor(opened: WorkspaceOpened): Promise<void> {
-    if (!opened.firstTeam) {
+  async createFor(created: WorkspaceCreated): Promise<void> {
+    if (!created.firstTeam) {
       return;
     }
 
-    const team = Team.open({
-      id: opened.firstTeam.id,
-      workspaceId: opened.workspaceId,
-      name: opened.firstTeam.name,
-      openedBy: opened.owner,
-      by: opened.change.by,
+    const team = Team.createAtSignUp({
+      id: created.firstTeam.id,
+      workspaceId: created.workspaceId,
+      name: created.firstTeam.name,
+      createdBy: created.owner,
+      by: created.change.by,
     });
 
     await this.teams.add(team);

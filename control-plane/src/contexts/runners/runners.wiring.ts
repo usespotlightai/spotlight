@@ -104,8 +104,8 @@ import {
   ReadRunnerTrustQuery,
   ReadWorkspaceRunnersQuery,
 } from '@runners/application/queries/runner-resource.queries';
-import { AbandonWorkspaceRunners } from '@runners/application/services/abandon-workspace-runners.service';
-import { PruneStaleHosts } from '@runners/application/services/prune-stale-hosts.service';
+import { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
+import { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
 import { RunnerAdmissions } from '@runners/application/services/runner-admissions.service';
 import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
 import { RunnerDependents } from '@runners/application/services/runner-dependents.service';
@@ -155,9 +155,9 @@ import {
 } from '@shared-kernel/application/ports/logger.port';
 import { RUNNER_IDENTITY } from '@shared-kernel/application/ports/runner-identity.port';
 import {
-  TOKEN_MINT,
-  type TokenMintPort,
-} from '@shared-kernel/application/ports/token-mint.port';
+  TOKEN_ISSUER,
+  type TokenIssuer,
+} from '@shared-kernel/application/ports/token-issuer.port';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -188,10 +188,10 @@ export const RUNNERS_CONTROLLERS: readonly Type[] = [
 export const RUNNERS_PROVIDERS: readonly Provider[] = [
   {
     provide: PLATFORM_EGRESS,
-    inject: [ENV, TOKEN_MINT],
+    inject: [ENV, TOKEN_ISSUER],
     useFactory: (
       env: Env,
-      tokens: TokenMintPort,
+      tokens: TokenIssuer,
     ): PlatformEgressSettings | null =>
       env.SPOTLIGHT_PLATFORM_EGRESS_URL && env.SPOTLIGHT_PLATFORM_EGRESS_TOKEN
         ? {
@@ -212,7 +212,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       DrizzleWorkspaceRunnersRepository,
       DrizzleRunnerPoolRepository,
       DrizzleEgressRepository,
-      PruneStaleHosts,
+      PurgeStaleHosts,
       TRANSACTION,
     ],
     useFactory: (
@@ -223,21 +223,21 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       declarations: DrizzleWorkspaceRunnersRepository,
       pools: DrizzleRunnerPoolRepository,
       egresses: DrizzleEgressRepository,
-      forgetting: PruneStaleHosts,
+      purging: PurgeStaleHosts,
       transaction: TransactionPort,
     ) => {
       types.register('runners', RUNNERS_PAYLOAD_TYPES);
       mappers.register(RUNNERS_EVENT_MAPPERS);
       subscribers.register(
         runnersSubscribers({
-          abandoning: new AbandonWorkspaceRunners(
+          deleting: new DeleteRunnersOfDeletedWorkspace(
             trusts,
             declarations,
             pools,
             egresses,
             transaction,
           ),
-          forgetting,
+          hosts: purging,
         }),
       );
       return true;
@@ -290,22 +290,22 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
-    provide: PruneStaleHosts,
+    provide: PurgeStaleHosts,
     inject: [DrizzleRunnerHostRepository, CLOCK],
     useFactory: (hosts: DrizzleRunnerHostRepository, clock: ClockPort) =>
-      new PruneStaleHosts(hosts, clock),
+      new PurgeStaleHosts(hosts, clock),
   },
   {
     provide: StaleHostsWorker,
-    inject: [PruneStaleHosts, LOGGER],
-    useFactory: (pruning: PruneStaleHosts, logger: LoggerPort) =>
-      new StaleHostsWorker(pruning, logger),
+    inject: [PurgeStaleHosts, LOGGER],
+    useFactory: (purging: PurgeStaleHosts, logger: LoggerPort) =>
+      new StaleHostsWorker(purging, logger),
   },
   {
     provide: RUNNER_EGRESS,
     inject: [
       DrizzleRunnerRepository,
-      TOKEN_MINT,
+      TOKEN_ISSUER,
       DrizzleEgressRepository,
       DrizzleRunnerPoolRepository,
       WORKSPACE_READER,
@@ -313,7 +313,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       runners: DrizzleRunnerRepository,
-      tokens: TokenMintPort,
+      tokens: TokenIssuer,
       egresses: DrizzleEgressRepository,
       pools: DrizzleRunnerPoolRepository,
       workspaces: WorkspaceReaderPort,
@@ -334,14 +334,14 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       DrizzleRunnerTrustRepository,
       WORKLOAD_TOKENS,
       WORKSPACE_READER,
-      TOKEN_MINT,
+      TOKEN_ISSUER,
     ],
     useFactory: (
       pools: DrizzleRunnerPoolRepository,
       trusts: DrizzleRunnerTrustRepository,
       workloads: WorkloadTokensPort,
       workspaces: WorkspaceReaderPort,
-      tokens: TokenMintPort,
+      tokens: TokenIssuer,
     ) => new RunnerAdmissions(pools, trusts, workloads, workspaces, tokens),
   },
   { provide: RUNNER_ADMISSIONS, useExisting: RunnerAdmissions },
@@ -367,7 +367,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       PROVISION_SECRETS,
       ENV,
       PLATFORM_EGRESS,
-      TOKEN_MINT,
+      TOKEN_ISSUER,
       ID_GENERATOR,
       TRANSACTION,
       LOGGER,
@@ -382,7 +382,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       secrets: ProvisionSecretsPort,
       env: Env,
       platformEgress: PlatformEgressSettings | null,
-      tokens: TokenMintPort,
+      tokens: TokenIssuer,
       ids: IdGeneratorPort,
       transaction: TransactionPort,
       logger: LoggerPort,
@@ -509,7 +509,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     PLATFORM_EGRESS,
     IDEMPOTENT_CREATES,
     ID_GENERATOR,
-    TOKEN_MINT,
+    TOKEN_ISSUER,
     TRANSACTION,
   ]),
   ...bindCommandHandler(UpdateRunnerPoolCommand, UpdateRunnerPoolHandler, [
@@ -520,7 +520,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     PROVISION_SECRETS,
     DrizzleEgressRepository,
     PLATFORM_EGRESS,
-    TOKEN_MINT,
+    TOKEN_ISSUER,
     TRANSACTION,
   ]),
   ...bindCommandHandler(DeleteRunnerPoolCommand, DeleteRunnerPoolHandler, [
@@ -549,7 +549,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     DrizzleUsedEgressTokensRepository,
     IDEMPOTENT_CREATES,
     ID_GENERATOR,
-    TOKEN_MINT,
+    TOKEN_ISSUER,
     TRANSACTION,
   ]),
   ...bindCommandHandler(UpdateEgressCommand, UpdateEgressHandler, [
@@ -557,7 +557,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     RUNNER_DEFINITIONS,
     DrizzleEgressRepository,
     DrizzleUsedEgressTokensRepository,
-    TOKEN_MINT,
+    TOKEN_ISSUER,
     TRANSACTION,
   ]),
   ...bindCommandHandler(DeleteEgressCommand, DeleteEgressHandler, [

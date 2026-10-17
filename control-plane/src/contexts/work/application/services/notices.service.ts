@@ -51,7 +51,7 @@ export class Notices implements NoticesPort {
     });
   }
 
-  forgetTeam(teamId: TeamId): Promise<void> {
-    return this.notices.forgetTeam(teamId);
+  deleteForTeam(teamId: TeamId): Promise<void> {
+    return this.notices.deleteForTeam(teamId);
   }
 }

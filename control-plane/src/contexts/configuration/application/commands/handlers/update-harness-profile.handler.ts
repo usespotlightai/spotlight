@@ -2,7 +2,7 @@ import type { UpdateHarnessProfileCommand } from '@configuration/application/com
 import type { HarnessProfileCompilerPort } from '@configuration/application/ports/harness-profile-compiler.port';
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
-import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
+import type { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
@@ -15,6 +15,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
 export class UpdateHarnessProfileHandler
@@ -34,8 +35,11 @@ export class UpdateHarnessProfileHandler
   ): Promise<ResourceUpdated | null> {
     const id = HarnessProfileId.of(command.profileId);
 
+    let loaded: HarnessProfile | null = null;
+
     try {
       const existing = await this.profiles.withId(id);
+      loaded = existing;
       const permissions = existing
         ? await this.access.permissionsOnTeam(
             existing.teamId.value,
@@ -61,7 +65,7 @@ export class UpdateHarnessProfileHandler
 
       await this.transaction.inTransaction(async () =>
         this.profiles.save(
-          existing.redefinedAs(
+          existing.update(
             compiled,
             Attribution.of(command.actor, permissions.workspaceId),
             await this.secrets.ofTeam(existing.teamId),
@@ -86,10 +90,15 @@ export class UpdateHarnessProfileHandler
         };
       }
 
-      if (error instanceof HarnessProfileKeyFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [HarnessProfileProblems.keyFixed(error)],
+          problems: [
+            HarnessProfileProblems.immutableField(
+              loaded?.key.value ?? '',
+              error,
+            ),
+          ],
         };
       }
 

@@ -2,7 +2,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { CreateRunnerTrustCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { RunnerTrustAlreadyDefinedError } from '@runners/domain/exceptions/runner-trust-already-defined.error';
+import { RunnerTrustAlreadyExistsError } from '@runners/domain/exceptions/runner-trust-already-exists.error';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import {
@@ -71,7 +71,7 @@ export class CreateRunnerTrustHandler
       try {
         return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
-            const defined = RunnerTrust.define({
+            const trust = RunnerTrust.create({
               id: RunnerTrustId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               by: Attribution.of(command.actor, permissions.workspaceId),
@@ -80,13 +80,13 @@ export class CreateRunnerTrustHandler
               labels: compiled.labels,
             });
 
-            await this.trusts.add(defined);
+            await this.trusts.add(trust);
 
-            return defined.id.value;
+            return trust.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof RunnerTrustAlreadyDefinedError) {
+        if (error instanceof RunnerTrustAlreadyExistsError) {
           return { outcome: 'taken', address: compiled.key.value };
         }
 

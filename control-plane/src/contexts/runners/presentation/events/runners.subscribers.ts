@@ -1,11 +1,11 @@
-import type { AbandonWorkspaceRunners } from '@runners/application/services/abandon-workspace-runners.service';
-import type { PruneStaleHosts } from '@runners/application/services/prune-stale-hosts.service';
-import type { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.event';
-import type { RunnerTrustWithdrawn } from '@runners/domain/events/runner-trust-withdrawn.event';
+import type { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
+import type { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
+import type { RunnerPoolDeleted } from '@runners/domain/events/runner-pool-deleted.event';
+import type { RunnerTrustDeleted } from '@runners/domain/events/runner-trust-deleted.event';
 import {
-  WORKSPACE_CLOSED,
-  type WorkspaceClosedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+  WORKSPACE_DELETED,
+  type WorkspaceDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -13,38 +13,38 @@ import {
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const runnersSubscribers = (reactions: {
-  abandoning: AbandonWorkspaceRunners;
-  forgetting: PruneStaleHosts;
+  deleting: DeleteRunnersOfDeletedWorkspace;
+  hosts: PurgeStaleHosts;
 }): readonly DomainEventSubscriber[] => [
-  subscribing<RunnerPoolRetired>(
-    'runners.forget-hosts-of-retired-pool',
-    ['runner-pool.retired'],
-    (event) => reactions.forgetting.servingThrough(event.poolId),
+  subscribing<RunnerPoolDeleted>(
+    'runners.delete-hosts-of-deleted-pool',
+    ['runner-pool.deleted'],
+    (event) => reactions.hosts.servingThrough(event.poolId),
   ),
-  subscribing<RunnerTrustWithdrawn>(
-    'runners.forget-hosts-of-withdrawn-trust',
-    ['runner-trust.withdrawn'],
-    (event) => reactions.forgetting.servingThrough(event.trustId),
+  subscribing<RunnerTrustDeleted>(
+    'runners.delete-hosts-of-deleted-trust',
+    ['runner-trust.deleted'],
+    (event) => reactions.hosts.servingThrough(event.trustId),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'runners.withdraw-trusts-of-closed-workspace',
-    [WORKSPACE_CLOSED],
-    (event) => reactions.abandoning.trustsOf(WorkspaceId.of(event.workspaceId)),
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'runners.delete-trusts-of-deleted-workspace',
+    [WORKSPACE_DELETED],
+    (event) => reactions.deleting.trustsOf(WorkspaceId.of(event.workspaceId)),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'runners.retire-pools-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'runners.delete-pools-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     async (event) => {
       const workspaceId = WorkspaceId.of(event.workspaceId);
 
-      await reactions.abandoning.poolsOf(workspaceId);
-      await reactions.abandoning.egressesOf(workspaceId);
+      await reactions.deleting.poolsOf(workspaceId);
+      await reactions.deleting.egressesOf(workspaceId);
     },
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'runners.drop-runners-declared-by-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'runners.delete-runners-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.abandoning.declarationOf(WorkspaceId.of(event.workspaceId)),
+      reactions.deleting.declarationOf(WorkspaceId.of(event.workspaceId)),
   ),
 ];

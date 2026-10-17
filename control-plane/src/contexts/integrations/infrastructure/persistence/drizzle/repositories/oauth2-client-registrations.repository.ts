@@ -95,7 +95,7 @@ export class DrizzleOAuth2ClientRegistrations
     }
   }
 
-  async forgetTeam(teamId: TeamId): Promise<void> {
+  async deleteForTeam(teamId: TeamId): Promise<void> {
     await this.context.db
       .delete(oauth2ClientRegistration)
       .where(eq(oauth2ClientRegistration.teamId, teamId.value));

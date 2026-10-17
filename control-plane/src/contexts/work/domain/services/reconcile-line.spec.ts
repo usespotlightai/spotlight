@@ -1,9 +1,9 @@
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
-import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -27,7 +27,7 @@ const MERGED = Happening.of('github.pull_request.merged');
 const existingLine = () => {
   let next = 0;
 
-  return Line.open({
+  return Line.create({
     by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -297,6 +297,6 @@ describe('reconciling a line with the plan describing it', () => {
 
     expect(() =>
       reconciling(like(asPlan(line), { key: LineKey.of('release') }), line),
-    ).toThrow(LineKeyFixedError);
+    ).toThrow(ImmutableFieldError);
   });
 });

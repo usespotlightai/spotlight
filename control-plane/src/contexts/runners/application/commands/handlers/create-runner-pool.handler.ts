@@ -15,7 +15,7 @@ import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
 import { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
-import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
+import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-pool-already-exists.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { UsedPoolTokensRepository } from '@runners/domain/repositories/used-pool-tokens.repository';
@@ -28,7 +28,7 @@ import type {
   IdempotentCreate,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createdOnce } from '@shared-kernel/application/services/created-once';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -49,7 +49,7 @@ export class CreateRunnerPoolHandler
     private readonly platform: PlatformEgressSettings | null,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -80,8 +80,10 @@ export class CreateRunnerPoolHandler
       }
 
       const supplied = compiled.access;
-      const minted =
-        supplied.mode === 'pull' && !supplied.token ? this.tokens.mint() : null;
+      const issued =
+        supplied.mode === 'pull' && !supplied.token
+          ? this.tokens.issue()
+          : null;
 
       const create: IdempotentCreate = {
         by: command.actor.principal.toString(),
@@ -131,37 +133,32 @@ export class CreateRunnerPoolHandler
               this.tokens,
               this.secrets,
             );
-            const defined = RunnerPool.define({
+            const pool = RunnerPool.create({
               id,
               workspaceId: permissions.workspaceId,
               by: Attribution.of(command.actor, permissions.workspaceId),
               key: compiled.key,
               labels: compiled.labels,
               maxRuns: compiled.maxRuns,
-              access: minted ? issuedTo(given, minted) : given,
+              access: issued ? issuedTo(given, issued) : given,
             });
 
-            await this.pools.add(defined);
-            await recordPoolTokenUse(
-              this.usedTokens,
-              this.pools,
-              defined,
-              null,
-            );
+            await this.pools.add(pool);
+            await recordPoolTokenUse(this.usedTokens, this.pools, pool, null);
 
-            return defined.id.value;
+            return pool.id.value;
           }),
         );
 
         return {
           created,
           token:
-            minted && created.outcome === 'created' && !created.replayed
-              ? minted.token
+            issued && created.outcome === 'created' && !created.replayed
+              ? issued.token
               : null,
         };
       } catch (error) {
-        if (error instanceof RunnerPoolAlreadyDefinedError) {
+        if (error instanceof RunnerPoolAlreadyExistsError) {
           return {
             created: { outcome: 'taken', address: compiled.key.value },
             token: null,

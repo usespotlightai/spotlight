@@ -372,10 +372,10 @@ func TestInjectsWhatEgressFetchedByReplacingTheStandInTheSandboxSent(t *testing.
 		t.Errorf("sent on a stand-in it has no value for, or injected a secret nobody asked for: %v", got)
 	}
 
-	injector.Forget()
+	injector.Wipe()
 	r.get(t, "https://mcp.example.com/", http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"}})
 	if got := r.upstream.last().Header.Get("Authorization"); got != "" && got != "Bearer spotlight-egress:LINEAR_API_KEY" {
-		t.Errorf("injected %q after forgetting", got)
+		t.Errorf("injected %q after the wipe", got)
 	}
 }
 

@@ -12,6 +12,6 @@ export interface WorkspaceTokenTrustResourceDto {
   readonly claims: Readonly<Record<string, string>>;
   readonly scopes: readonly string[];
   readonly lifetimeMinutes: number;
-  readonly definedBy: string;
+  readonly createdBy: string;
   readonly warnings: readonly ConfigurationProblem[];
 }

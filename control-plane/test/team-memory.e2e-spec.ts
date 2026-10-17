@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 interface MemoryBody {
   readonly id: string;
@@ -35,7 +35,7 @@ interface MemoryBody {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 const LINE = randomUUID();
 const STATION = randomUUID();
 
@@ -54,7 +54,7 @@ const writing = (body: Record<string, unknown>) =>
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `memory-${randomUUID().slice(0, 8)}`,
@@ -295,7 +295,7 @@ describe('the team’s memory', () => {
   });
 
   it('knows no memory of another team', async () => {
-    const other = await openTeam(
+    const other = await createTeam(
       db,
       app.get(DrizzleTaskRepository),
       `other-${randomUUID().slice(0, 8)}`,

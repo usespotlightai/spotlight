@@ -42,8 +42,8 @@ export class CreateWorkspaceHandler
     try {
       const { principal } = command.actor;
 
-      if (!Permissions.beyondWorkspaces(principal).opensWorkspaces) {
-        return forbiddenTo('open-workspaces');
+      if (!Permissions.beyondWorkspaces(principal).createsWorkspaces) {
+        return forbiddenTo('create-workspaces');
       }
 
       const compiled = this.definitions.workspace(command.definition);
@@ -62,7 +62,7 @@ export class CreateWorkspaceHandler
         return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             const id = WorkspaceId.of(this.ids.generate());
-            const opened = await this.registration.register({
+            const created = await this.registration.register({
               id,
               name: compiled.name,
               slug: compiled.slug,
@@ -70,9 +70,9 @@ export class CreateWorkspaceHandler
               by: Attribution.of(command.actor, id),
             });
 
-            await this.workspaces.add(opened);
+            await this.workspaces.add(created);
 
-            return opened.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {

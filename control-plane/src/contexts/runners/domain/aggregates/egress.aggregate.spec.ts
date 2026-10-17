@@ -1,15 +1,15 @@
 import { anEgress } from '@runners/domain/aggregates/egress.fake-spec';
 import { hashOf } from '@runners/domain/aggregates/runner-pool.fake-spec';
-import { EgressDefined } from '@runners/domain/events/egress-defined.event';
-import { EgressRedefined } from '@runners/domain/events/egress-redefined.event';
-import { EgressRetired } from '@runners/domain/events/egress-retired.event';
+import { EgressCreated } from '@runners/domain/events/egress-created.event';
+import { EgressDeleted } from '@runners/domain/events/egress-deleted.event';
+import { EgressUpdated } from '@runners/domain/events/egress-updated.event';
 import { EgressInUseError } from '@runners/domain/exceptions/egress-in-use.error';
-import { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
 import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { describe, expect, it } from 'vitest';
 
@@ -21,19 +21,19 @@ const keeping = (url = 'https://egress.example.com') => ({
 });
 
 describe('Egress', () => {
-  it('is defined as a change to the workspace’s configuration', () => {
-    const [defined] = anEgress().pullEvents();
+  it('is created as a change to the workspace’s configuration', () => {
+    const [created] = anEgress().pullEvents();
 
-    expect(defined).toBeInstanceOf(EgressDefined);
-    expect((defined as EgressDefined).change.resource).toBe('egress');
-    expect((defined as EgressDefined).change.action).toBe('created');
+    expect(created).toBeInstanceOf(EgressCreated);
+    expect((created as EgressCreated).change.resource).toBe('egress');
+    expect((created as EgressCreated).change.action).toBe('created');
   });
 
   it('moves to another URL and keeps its token when none is given', () => {
     const egress = anEgress();
     egress.pullEvents();
 
-    const moved = egress.redefinedAs(
+    const moved = egress.update(
       keeping('https://egress-2.example.com'),
       { tokenHash: null, tokenVersion: 1 },
       BY,
@@ -42,15 +42,15 @@ describe('Egress', () => {
 
     expect(moved.url.value).toBe('https://egress-2.example.com');
     expect(moved.tokenHash.equals(hashOf('9'))).toBe(true);
-    expect(event).toBeInstanceOf(EgressRedefined);
-    expect((event as EgressRedefined).change.detail?.recorded()).toEqual({});
+    expect(event).toBeInstanceOf(EgressUpdated);
+    expect((event as EgressUpdated).change.detail?.recorded()).toEqual({});
   });
 
   it('rotates its token in place, and records that it did', () => {
     const egress = anEgress();
     egress.pullEvents();
 
-    const rotated = egress.redefinedAs(
+    const rotated = egress.update(
       keeping(),
       { tokenHash: hashOf('8'), tokenVersion: 2 },
       BY,
@@ -60,44 +60,40 @@ describe('Egress', () => {
     expect(rotated.id.equals(egress.id)).toBe(true);
     expect(rotated.tokenHash.equals(hashOf('8'))).toBe(true);
     expect(rotated.tokenVersion).toBe(2);
-    expect((event as EgressRedefined).change.detail?.recorded()).toEqual({
+    expect((event as EgressUpdated).change.detail?.recorded()).toEqual({
       rekeyed: true,
     });
   });
 
   it('asks for a token whenever tokenVersion changes', () => {
     expect(() =>
-      anEgress().redefinedAs(
-        keeping(),
-        { tokenHash: null, tokenVersion: 2 },
-        BY,
-      ),
+      anEgress().update(keeping(), { tokenHash: null, tokenVersion: 2 }, BY),
     ).toThrow(InvalidEgressError);
   });
 
   it('keeps its key for its life', () => {
     expect(() =>
-      anEgress().redefinedAs(
+      anEgress().update(
         { ...keeping(), key: EgressKey.of('other') },
         { tokenHash: null, tokenVersion: 1 },
         BY,
       ),
-    ).toThrow(EgressKeyFixedError);
+    ).toThrow(ImmutableFieldError);
   });
 
-  it('is retired only when no runner pool names it', () => {
+  it('is deleted only when no runner pool names it', () => {
     const egress = anEgress();
     egress.pullEvents();
 
-    expect(() => egress.retire([PoolKey.of('sandboxes')], BY)).toThrow(
+    expect(() => egress.delete([PoolKey.of('sandboxes')], BY)).toThrow(
       EgressInUseError,
     );
 
-    const retired = egress.retire([], BY);
-    const [event] = retired.pullEvents();
+    const deleted = egress.delete([], BY);
+    const [event] = deleted.pullEvents();
 
-    expect(retired.isRetired).toBe(true);
-    expect(event).toBeInstanceOf(EgressRetired);
+    expect(deleted.isDeleted).toBe(true);
+    expect(event).toBeInstanceOf(EgressDeleted);
   });
 
   it('rejects a write based on another version', () => {

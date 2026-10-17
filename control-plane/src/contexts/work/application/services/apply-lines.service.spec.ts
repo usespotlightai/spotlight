@@ -7,7 +7,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
-import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
+import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
 import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
@@ -34,7 +34,7 @@ const TEAM = TeamId.of('team_1');
 const line = () => {
   let next = 0;
 
-  return Line.open({
+  return Line.create({
     by: attributedIn(),
     workspaceId: WORKSPACE,
     teamId: TeamId.of('team_1'),
@@ -148,7 +148,7 @@ const applying = (
     applied: (): Promise<Line> =>
       plan.key.equals(existing.key)
         ? applier.reconcile(existing, plan, attributedIn())
-        : applier.open(TEAM_PROFILE, plan, attributedIn()),
+        : applier.create(TEAM_PROFILE, plan, attributedIn()),
     save,
     add,
     existing,
@@ -239,7 +239,7 @@ describe('ApplyLines', () => {
     );
   });
 
-  it('opens a line the team does not have from its definition', async () => {
+  it('creates a line the team does not have from its definition', async () => {
     const existing = line();
     const { applied, add, save } = applying(
       like(asPlan(existing), { key: LineKey.of('release') }),
@@ -251,13 +251,13 @@ describe('ApplyLines', () => {
     expect(save).not.toHaveBeenCalled();
     expect(add).toHaveBeenCalledTimes(1);
 
-    const [opened] = add.mock.calls[0] as never as [Line];
+    const [created] = add.mock.calls[0] as never as [Line];
 
-    expect(opened.key).toEqual(LineKey.of('release'));
-    expect(opened.teamId).toEqual(existing.teamId);
+    expect(created.key).toEqual(LineKey.of('release'));
+    expect(created.teamId).toEqual(existing.teamId);
   });
 
-  it('opens no line under a key the team already has', async () => {
+  it('creates no line under a key the team already has', async () => {
     const existing = line();
     const { add } = applying(asPlan(existing), { existing });
     const applier = new ApplyLines(
@@ -270,12 +270,12 @@ describe('ApplyLines', () => {
     );
 
     await expect(
-      applier.open(TEAM_PROFILE, asPlan(existing), attributedIn()),
-    ).rejects.toThrow(LineAlreadyOpenedError);
+      applier.create(TEAM_PROFILE, asPlan(existing), attributedIn()),
+    ).rejects.toThrow(LineAlreadyExistsError);
     expect(add).not.toHaveBeenCalled();
   });
 
-  it('opens no line that claims a role another line already has', async () => {
+  it('creates no line that claims a role another line already has', async () => {
     const existing = line();
     const base = asPlan(existing);
     const claiming = like(base, {

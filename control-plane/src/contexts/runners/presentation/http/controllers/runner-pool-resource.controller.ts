@@ -179,7 +179,7 @@ export class RunnerPoolResourceController {
   @CREATED
   @RunnerPoolResource.Create(
     'workspaces/:workspaceId/runner-pools',
-    'Define a pool of one-run runners, pulled from with a token or pushed to through provision',
+    'Create a pool of one-run runners, pulled from with a token or pushed to through provision',
   )
   @WORKSPACE
   @DEFINITION
@@ -238,7 +238,7 @@ export class RunnerPoolResourceController {
 
   @RunnerPoolResource.Delete(
     'runner-pools/:id',
-    'Retire a runner pool. Runs that its runners already have a lease on continue until they end',
+    'Delete a runner pool. Runs that its runners already have a lease on continue until they end',
   )
   @ID
   async delete(

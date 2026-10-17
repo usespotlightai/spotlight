@@ -247,7 +247,7 @@ describe('AnswerHostCallHandler', () => {
     expect(saved).toEqual([]);
   });
 
-  it('forgets what the call sent once it keeps the answer', async () => {
+  it('discards what the call sent once it keeps the answer', async () => {
     const { answer, saved } = hosting();
 
     await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER));

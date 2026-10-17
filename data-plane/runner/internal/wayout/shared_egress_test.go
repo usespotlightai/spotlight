@@ -370,7 +370,7 @@ func TestTheRunnersControlClientReachesTheControlPlaneThroughTheTunnel(t *testin
 	}
 }
 
-func TestTheSharedEgressForgetsARunThatIsNoLongerActive(t *testing.T) {
+func TestTheSharedEgressEvictsARunThatIsNoLongerActive(t *testing.T) {
 	s := sharedEgress(t)
 	one := s.sandbox(t, "one")
 	if status, _ := one.get(t, "https://mcp.example.com/"); status != http.StatusOK {

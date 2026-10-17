@@ -59,12 +59,12 @@ const KEPT_TRUST = {
   claims: workspaceTokenTrust.claims,
   scopes: workspaceTokenTrust.scopes,
   lifetimeMinutes: workspaceTokenTrust.lifetimeMinutes,
-  definedBy: workspaceTokenTrust.definedBy,
+  createdBy: workspaceTokenTrust.createdBy,
 };
 
 const issuedByHand = and(
-  isNull(workspaceToken.mintedThrough),
-  isNull(workspaceToken.mintedForRun),
+  isNull(workspaceToken.issuedByTrustId),
+  isNull(workspaceToken.runId),
 );
 
 type Row<Kept> = Omit<Kept, 'id' | 'workspaceId'> & {
@@ -164,7 +164,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     ).map((each) => each.name);
   }
 
-  async mintingTrustKeysIn(
+  async issuingTrustKeysIn(
     workspaceId: WorkspaceId,
   ): Promise<readonly string[]> {
     return (
@@ -174,7 +174,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
         .where(
           and(
             eq(workspaceToken.workspaceId, workspaceId.value),
-            isNotNull(workspaceToken.mintedThrough),
+            isNotNull(workspaceToken.issuedByTrustId),
           ),
         )
         .orderBy(asc(workspaceToken.name))

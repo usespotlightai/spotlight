@@ -22,7 +22,7 @@ import {
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -216,7 +216,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     await db
       .delete(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, workspaceId));
-    await forgetRunnersOf(db, workspaceId);
+    await deleteRunnersOf(db, workspaceId);
     await unseat();
   });
 

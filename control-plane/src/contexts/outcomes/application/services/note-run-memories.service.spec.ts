@@ -1,4 +1,4 @@
-import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
+import { deletionsInMemory } from '@outcomes/application/ports/deletions.fake-spec';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
 import {
@@ -16,11 +16,11 @@ const TASK = TaskId.of('task_1');
 
 const noting = () => {
   const records = new RunRecordsInMemory();
-  const forgotten = forgottenInMemory();
+  const deletions = deletionsInMemory();
   const service = new NoteRunMemories(
     { endedRun: async () => null } as unknown as WorkPort,
     records,
-    forgotten,
+    deletions,
     inTransaction,
   );
   const heard = (way: 'briefed' | 'recalled', memories: readonly string[]) =>
@@ -32,7 +32,7 @@ const noting = () => {
       memories,
     });
 
-  return { records, forgotten, heard };
+  return { records, deletions, heard };
 };
 
 describe('NoteRunMemories', () => {
@@ -67,21 +67,21 @@ describe('NoteRunMemories', () => {
     expect((await records.of(RUN))?.memories.recalled).toEqual([]);
   });
 
-  it('keeps nothing for a task that was forgotten, and lets go of what it kept', async () => {
-    const { records, forgotten, heard } = noting();
+  it('keeps nothing for a task that was deleted, and lets go of what it kept', async () => {
+    const { records, deletions, heard } = noting();
 
     await heard('briefed', ['mem_1']);
-    await forgotten.forgetTask(WORKSPACE, TASK);
+    await deletions.deleteTask(WORKSPACE, TASK);
     await heard('recalled', ['mem_2']);
 
     expect(await records.of(RUN)).toBeNull();
-    expect(forgotten.locks).toContain(`${WORKSPACE.value} ${TASK.value}`);
+    expect(deletions.locks).toContain(`${WORKSPACE.value} ${TASK.value}`);
   });
 
-  it('keeps nothing for a workspace that was closed', async () => {
-    const { records, forgotten, heard } = noting();
+  it('keeps nothing for a workspace that was deleted', async () => {
+    const { records, deletions, heard } = noting();
 
-    await forgotten.forgetWorkspace(WORKSPACE);
+    await deletions.deleteWorkspace(WORKSPACE);
     await heard('briefed', ['mem_1']);
 
     expect(await records.of(RUN)).toBeNull();

@@ -55,14 +55,14 @@ describe('SearchBriefing', () => {
         replayRunId: RunId.of('replayed_7'),
       }),
       cause: 'config',
-      evidence: 'It never ran the migration the prompt forgot.',
+      evidence: 'It never ran the migration the prompt did not mention.',
       suggestion: 'Tell it to run migrations first.',
       at: new Date('2026-10-01T09:00:00.000Z'),
     });
 
     expect(briefed('success')).not.toContain('looking into the stall');
     expect(briefed('success', [found])).toContain(
-      '- Task `task_7`: It never ran the migration the prompt forgot. Suggested: Tell it to run migrations first.',
+      '- Task `task_7`: It never ran the migration the prompt did not mention. Suggested: Tell it to run migrations first.',
     );
   });
 });

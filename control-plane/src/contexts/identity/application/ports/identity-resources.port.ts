@@ -44,7 +44,7 @@ export interface WorkspaceTokenTrustRecord {
   readonly claims: Readonly<Record<string, string>>;
   readonly scopes: readonly string[];
   readonly lifetimeMinutes: number;
-  readonly definedBy: string;
+  readonly createdBy: string;
 }
 
 export interface IdentityResourcesPort {
@@ -64,7 +64,7 @@ export interface IdentityResourcesPort {
 
   tokenNamesIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
 
-  mintingTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
+  issuingTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
 
   tokensIn(workspaceId: WorkspaceId): Promise<readonly WorkspaceTokenRecord[]>;
 

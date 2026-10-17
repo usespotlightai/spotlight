@@ -1,16 +1,16 @@
-import { EgressDefined } from '@runners/domain/events/egress-defined.event';
-import { EgressRedefined } from '@runners/domain/events/egress-redefined.event';
-import { EgressRetired } from '@runners/domain/events/egress-retired.event';
+import { EgressCreated } from '@runners/domain/events/egress-created.event';
+import { EgressDeleted } from '@runners/domain/events/egress-deleted.event';
+import { EgressUpdated } from '@runners/domain/events/egress-updated.event';
 import { RunnerHostStartedServing } from '@runners/domain/events/runner-host-started-serving.event';
-import { RunnerPoolDefined } from '@runners/domain/events/runner-pool-defined.event';
-import { RunnerPoolRedefined } from '@runners/domain/events/runner-pool-redefined.event';
-import { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.event';
-import { RunnerTrustDefined } from '@runners/domain/events/runner-trust-defined.event';
-import { RunnerTrustRedefined } from '@runners/domain/events/runner-trust-redefined.event';
-import { RunnerTrustWithdrawn } from '@runners/domain/events/runner-trust-withdrawn.event';
-import { WorkspaceRunnersDeclared } from '@runners/domain/events/workspace-runners-declared.event';
-import { WorkspaceRunnersDropped } from '@runners/domain/events/workspace-runners-dropped.event';
-import { WorkspaceRunnersRedeclared } from '@runners/domain/events/workspace-runners-redeclared.event';
+import { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
+import { RunnerPoolDeleted } from '@runners/domain/events/runner-pool-deleted.event';
+import { RunnerPoolUpdated } from '@runners/domain/events/runner-pool-updated.event';
+import { RunnerTrustCreated } from '@runners/domain/events/runner-trust-created.event';
+import { RunnerTrustDeleted } from '@runners/domain/events/runner-trust-deleted.event';
+import { RunnerTrustUpdated } from '@runners/domain/events/runner-trust-updated.event';
+import { WorkspaceRunnersCreated } from '@runners/domain/events/workspace-runners-created.event';
+import { WorkspaceRunnersDeleted } from '@runners/domain/events/workspace-runners-deleted.event';
+import { WorkspaceRunnersUpdated } from '@runners/domain/events/workspace-runners-updated.event';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { EgressChangeDetail } from '@runners/domain/value-objects/egress-change-detail.vo';
@@ -79,17 +79,17 @@ export const RUNNERS_PAYLOAD_TYPES = [
   TrustKey,
   TrustedWorkload,
   WorkspaceRunnersId,
-  EgressDefined,
-  EgressRedefined,
-  EgressRetired,
+  EgressCreated,
+  EgressUpdated,
+  EgressDeleted,
   RunnerHostStartedServing,
-  RunnerPoolDefined,
-  RunnerPoolRedefined,
-  RunnerPoolRetired,
-  RunnerTrustDefined,
-  RunnerTrustRedefined,
-  RunnerTrustWithdrawn,
-  WorkspaceRunnersDeclared,
-  WorkspaceRunnersDropped,
-  WorkspaceRunnersRedeclared,
+  RunnerPoolCreated,
+  RunnerPoolUpdated,
+  RunnerPoolDeleted,
+  RunnerTrustCreated,
+  RunnerTrustUpdated,
+  RunnerTrustDeleted,
+  WorkspaceRunnersCreated,
+  WorkspaceRunnersDeleted,
+  WorkspaceRunnersUpdated,
 ] as const;

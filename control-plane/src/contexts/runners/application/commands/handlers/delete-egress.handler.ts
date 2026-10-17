@@ -48,12 +48,12 @@ export class DeleteEgressHandler
       existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(async () => {
-        const locked = (await this.egresses.findToRetire(id)) ?? existing;
+        const locked = (await this.egresses.findToDelete(id)) ?? existing;
 
         locked.assertVersion(command.expectedVersion);
 
         await this.egresses.save(
-          locked.retire(
+          locked.delete(
             poolsNaming(
               locked,
               await this.pools.inWorkspace(locked.workspaceId),

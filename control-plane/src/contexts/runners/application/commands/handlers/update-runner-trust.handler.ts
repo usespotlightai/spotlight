@@ -2,7 +2,6 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { UpdateRunnerTrustCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
-import { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
 import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
@@ -13,6 +12,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
 export class UpdateRunnerTrustHandler
@@ -58,7 +58,7 @@ export class UpdateRunnerTrustHandler
 
       await this.transaction.inTransaction(() =>
         this.trusts.save(
-          existing.redefinedAs(
+          existing.update(
             compiled,
             Attribution.of(command.actor, permissions.workspaceId),
           ),
@@ -75,10 +75,10 @@ export class UpdateRunnerTrustHandler
           : null;
       }
 
-      if (error instanceof RunnerTrustKeyFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [RunnerProblems.keyFixed(error)],
+          problems: [RunnerProblems.immutableField(error)],
         };
       }
 

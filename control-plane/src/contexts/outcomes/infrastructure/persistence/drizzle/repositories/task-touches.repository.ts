@@ -162,7 +162,7 @@ export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
         )
         .returning({ taskId: taskTouches.taskId });
 
-      await this.facts.forgetOpenings({
+      await this.facts.deleteOpenings({
         kind: 'tasks',
         workspaceId: workspaceId.value,
         taskIds: removed.map((each) => each.taskId),
@@ -176,7 +176,7 @@ export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
         .delete(taskTouches)
         .where(eq(taskTouches.workspaceId, workspaceId.value));
 
-      await this.facts.forgetOpenings({
+      await this.facts.deleteOpenings({
         kind: 'workspace',
         workspaceId: workspaceId.value,
       });

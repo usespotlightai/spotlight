@@ -23,9 +23,9 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-mcp-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -111,7 +111,7 @@ const authorizing = (asked: Heard[]) => {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 let tracker: FakeMcpServer;
 let guarded: FakeMcpServer;
 const authorized: Heard[] = [];
@@ -156,7 +156,7 @@ const integrationNamed = async (source: string) =>
     }[]
   ).find((each) => each.source === source);
 
-const defineIntegration = (body: object) =>
+const createIntegration = (body: object) =>
   asOwner.post(`/api/resources/teams/${team.teamId.value}/integrations`, body);
 
 const TOOLS = [
@@ -267,7 +267,7 @@ beforeAll(async () => {
   );
   app = await openApp();
   db = app.get<DrizzleDatabase>(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `mcp-${randomUUID().slice(0, 8)}`,
@@ -315,7 +315,7 @@ beforeAll(async () => {
     .send({ key: 'hosts', labels: ['linux'], token: POOL_TOKEN })
     .expect(201);
 
-  const made = await defineIntegration({
+  const made = await createIntegration({
     integration: 'tracker',
     name: 'Tracker',
     mcp: { url: tracker.url },
@@ -325,7 +325,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
   await tracker?.close();
   await guarded?.close();
@@ -552,7 +552,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
   });
 
   it('connects to a server behind OAuth by what it publishes, registering Spotlight, with PKCE and the resource', async () => {
-    const made = await defineIntegration({
+    const made = await createIntegration({
       integration: 'secure',
       name: 'Secure tracker',
       connection: { oauth2: { discover: true } },

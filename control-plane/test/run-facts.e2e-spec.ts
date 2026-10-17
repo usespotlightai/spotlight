@@ -400,7 +400,7 @@ describe('run facts', () => {
     expect(await factOf('run_1')).toMatchObject({ deliveryState: 'merged' });
   });
 
-  it('forgets a team’s runs, and the openings and deliveries of its tasks wherever their runs are', async () => {
+  it('deletes a team’s runs, and the openings and deliveries of its tasks wherever their runs are', async () => {
     await records.add(ended('run_ours', 'task_ours'));
     await records.add(
       ended('run_shared', 'task_shared', { teamId: NEXT_DOOR }),
@@ -434,7 +434,7 @@ describe('run facts', () => {
     });
   });
 
-  it('keeps no fact for a disbanded team’s run when its delivery changes meanwhile', async () => {
+  it('keeps no fact for a deleted team’s run when its delivery changes meanwhile', async () => {
     await records.add(ended('run_1', 'task_1'));
     await deliveries.add(
       TaskDelivery.open({
@@ -461,7 +461,7 @@ describe('run facts', () => {
     expect(await factOf('run_1')).toBeNull();
   });
 
-  it('keeps a forgotten delivery forgotten when the task’s opening changes meanwhile', async () => {
+  it('keeps a deleted delivery deleted when the task’s opening changes meanwhile', async () => {
     await records.add(ended('run_1', 'task_1', { teamId: NEXT_DOOR }));
     await deliveries.add(merged('task_1', TEAM));
     const second = elsewhere();
@@ -477,7 +477,7 @@ describe('run facts', () => {
     });
   });
 
-  it('drops the facts of the runs it forgets', async () => {
+  it('deletes the facts of the runs it deletes', async () => {
     await records.add(ended('run_1', 'task_1'));
     await records.add(ended('run_2', 'task_2'));
     await records.add(ended('run_3', 'task_3', { workspaceId: ELSEWHERE }));

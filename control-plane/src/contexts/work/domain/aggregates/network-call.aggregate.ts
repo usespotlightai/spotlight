@@ -154,11 +154,11 @@ export class NetworkCall extends EventRecorder {
       : progress.at;
   }
 
-  static completedForgettablyBy(now: Date): Date {
+  static retentionCutoff(now: Date): Date {
     return new Date(now.getTime() - RETENTION_MS);
   }
 
-  isForgettableAt(now: Date): boolean {
+  isPastRetention(now: Date): boolean {
     const completedAt = this.completedAt;
 
     return (
@@ -167,17 +167,17 @@ export class NetworkCall extends EventRecorder {
     );
   }
 
-  forgotten(now: Date): NetworkCall {
-    if (!this.isForgettableAt(now)) {
+  purge(now: Date): NetworkCall {
+    if (!this.isPastRetention(now)) {
       throw new InvalidNetworkCallTransitionError(
         `Network call ${this.state.id.value} is kept for a week after it completes.`,
       );
     }
 
-    const forgotten = new NetworkCall(this.state, true);
-    forgotten.inheritEvents(this);
+    const purged = new NetworkCall(this.state, true);
+    purged.inheritEvents(this);
 
-    return forgotten;
+    return purged;
   }
 
   belongsTo(workspaceId: WorkspaceId): boolean {

@@ -87,7 +87,7 @@ const usd = (amount: number) => Spend.of(amount, 'USD');
 const charged = (amount: number) => ({ spent: usd(amount), unpriced: 0 });
 
 const searchAt = (id: string): Search => {
-  const set = ReplaySet.open({
+  const set = ReplaySet.create({
     id: ReplaySetId.of(`set_of_${id}`),
     station: STATION,
     name: ReplaySetName.of('Searched'),
@@ -274,7 +274,7 @@ describe('DrizzleSearchRepository', () => {
     ).toHaveLength(2);
   });
 
-  it('rejects a write from a search that changed, and deletes an abandoned one', async () => {
+  it('rejects a write from a search that changed, and deletes a stopped one', async () => {
     const started = aSearch();
 
     await searches.add(started);
@@ -288,7 +288,7 @@ describe('DrizzleSearchRepository', () => {
 
     const current = (await searches.locked(SEARCH_ID)) as Search;
 
-    await searches.save(current.abandon());
+    await searches.save(current.delete());
 
     expect(await searches.find(SEARCH_ID)).toBeNull();
   });
@@ -409,7 +409,7 @@ describe('replays, candidates and sets a search keeps', () => {
 
   it('keeps which set guards a station’s changes, one per station', async () => {
     const first = aSet(1);
-    const second = ReplaySet.open({
+    const second = ReplaySet.create({
       id: ReplaySetId.of('set_2'),
       station: STATION,
       name: ReplaySetName.of('Other'),

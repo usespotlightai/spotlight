@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 describe('poolTokenUsedBy', () => {
   const pool = aPullPool({ tokenVersion: 1 });
   const pulled = (tokenHash: TokenHash | null, tokenVersion: number) =>
-    pool.redefinedAs(
+    pool.update(
       {
         key: PoolKey.of('ephemeral'),
         labels: RunnerLabels.of(['gpu']),
@@ -29,7 +29,7 @@ describe('poolTokenUsedBy', () => {
       attributedIn(),
     );
 
-  it('uses the token a pool is defined with, and none for a pool that provisions', () => {
+  it('uses the token a pool is created with, and none for a pool that provisions', () => {
     expect(poolTokenUsedBy(pool, null)?.equals(hashOf('a'))).toBe(true);
     expect(poolTokenUsedBy(aPushPool(), null)).toBeNull();
   });
@@ -42,8 +42,8 @@ describe('poolTokenUsedBy', () => {
     expect(poolTokenUsedBy(pulled(hashOf('a'), 2), pool)).toBeNull();
   });
 
-  it('uses no token for a pool being retired', () => {
-    expect(poolTokenUsedBy(pool.retire(attributedIn()), pool)).toBeNull();
+  it('uses no token for a pool being deleted', () => {
+    expect(poolTokenUsedBy(pool.delete(attributedIn()), pool)).toBeNull();
   });
 });
 

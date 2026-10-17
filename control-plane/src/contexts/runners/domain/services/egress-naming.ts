@@ -32,7 +32,7 @@ export const validateEgress = (
 
   if (
     !named ||
-    named.isRetired ||
+    named.isDeleted ||
     !named.belongsTo(input.workspaceId) ||
     !reference.egressId?.equals(named.id)
   ) {

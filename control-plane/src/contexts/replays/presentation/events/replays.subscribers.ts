@@ -1,17 +1,17 @@
-import type { AbandonConfigPullRequests } from '@replays/application/services/abandon-config-pull-requests.service';
-import type { AbandonReplayChecks } from '@replays/application/services/abandon-replay-checks.service';
-import type { AbandonReplays } from '@replays/application/services/abandon-replays.service';
-import type { AbandonSearches } from '@replays/application/services/abandon-searches.service';
 import type { AskForPairJudging } from '@replays/application/services/ask-for-pair-judging.service';
 import type { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
 import type { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
 import type { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
 import type { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
 import type { CancelSearch } from '@replays/application/services/cancel-search.service';
+import type { DeleteConfigPullRequests } from '@replays/application/services/delete-config-pull-requests.service';
+import type { DeleteReplayChecks } from '@replays/application/services/delete-replay-checks.service';
+import type { DeleteReplays } from '@replays/application/services/delete-replays.service';
+import type { DeleteSearches } from '@replays/application/services/delete-searches.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import type { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
-import type { NoteLineRedefined } from '@replays/application/services/note-line-redefined.service';
+import type { NoteLineChanged } from '@replays/application/services/note-line-changed.service';
 import type { NoteReplayChangeReviewed } from '@replays/application/services/note-replay-change-reviewed.service';
 import type { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
 import type { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
@@ -22,11 +22,11 @@ import type { NoticeSearchReflections } from '@replays/application/services/noti
 import type { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import type { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
-import type { CandidateAbandonmentDue } from '@replays/domain/events/candidate-abandonment-due.event';
-import type { ConfigPullRequestAbandonmentDue } from '@replays/domain/events/config-pull-request-abandonment-due.event';
-import type { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-due.event';
+import type { CandidateDeletionDue } from '@replays/domain/events/candidate-deletion-due.event';
+import type { ConfigPullRequestDeletionDue } from '@replays/domain/events/config-pull-request-deletion-due.event';
 import type { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
-import type { ReplayCheckAbandonmentDue } from '@replays/domain/events/replay-check-abandonment-due.event';
+import type { ReplayCheckDeletionDue } from '@replays/domain/events/replay-check-deletion-due.event';
+import type { ReplayDeletionDue } from '@replays/domain/events/replay-deletion-due.event';
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
@@ -38,14 +38,14 @@ import type { ReplayRecheckUnavailable } from '@replays/domain/events/replay-rec
 import type { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
 import type { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import type { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
-import type { ReplaySetAbandonmentDue } from '@replays/domain/events/replay-set-abandonment-due.event';
 import type { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
+import type { ReplaySetDeletionDue } from '@replays/domain/events/replay-set-deletion-due.event';
 import type { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import type { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
 import type { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
 import type { ReplayStackRecheckWanted } from '@replays/domain/events/replay-stack-recheck-wanted.event';
 import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
-import type { SearchAbandonmentDue } from '@replays/domain/events/search-abandonment-due.event';
+import type { SearchDeletionDue } from '@replays/domain/events/search-deletion-due.event';
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
 import type { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
 import type { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
@@ -62,9 +62,9 @@ import {
   type ChangeJudgingFailedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/change-judging-failed.integration-event';
 import {
-  LINE_REDEFINED,
-  type LineRedefinedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+  LINE_CHANGED,
+  type LineChangedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import {
   PAIR_JUDGED,
   type PairJudgedIntegrationEvent,
@@ -102,9 +102,9 @@ import {
   type SearchRunEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/search-run-ended.integration-event';
 import {
-  TEAM_DISBANDED,
-  type TeamDisbandedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -125,17 +125,17 @@ export interface ReplaysReactions {
   readonly paired: NoteReplayPaired;
   readonly startingPointHolds: HoldSetStartingPoints;
   readonly cancellingRuns: CancelReplayRuns;
-  readonly abandoning: AbandonReplays;
-  readonly redefining: NoteLineRedefined;
+  readonly deleting: DeleteReplays;
+  readonly lineChanges: NoteLineChanged;
   readonly baselines: StartWantedBaseline;
   readonly oracles: StartOracleReplay;
   readonly searching: NoteSearchProgress;
   readonly iterating: DispatchSearchIteration;
   readonly holdingOut: HoldOutSearch;
   readonly cancellingSearches: CancelSearch;
-  readonly abandoningSearches: AbandonSearches;
-  readonly abandoningChecks: AbandonReplayChecks;
-  readonly abandoningPullRequests: AbandonConfigPullRequests;
+  readonly deletingSearches: DeleteSearches;
+  readonly deletingChecks: DeleteReplayChecks;
+  readonly deletingPullRequests: DeleteConfigPullRequests;
   readonly noticingReflections: NoticeSearchReflections;
 }
 
@@ -348,49 +348,49 @@ export const replaysSubscribers = (
     ['replay.over-budget'],
     (event) => reactions.cancellingRuns.overBudget(event.runs),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'replays.abandon-replays-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-replays-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.abandoning.ofTeam(
+      reactions.deleting.deleteForTeam(
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
   ),
   subscribing<ReplaySetDeleted>(
-    'replays.abandon-replays-of-deleted-set',
+    'replays.delete-replays-of-deleted-set',
     ['replay-set.deleted'],
-    (event) => reactions.abandoning.ofSet(event.setId, event.workspaceId),
+    (event) => reactions.deleting.deleteForSet(event.setId, event.workspaceId),
   ),
-  subscribing<ReplayAbandonmentDue>(
-    'replays.abandon-replay',
-    ['replays.replay-abandonment-due'],
-    (event) => reactions.abandoning.replay(event.replayId),
+  subscribing<ReplayDeletionDue>(
+    'replays.delete-replay',
+    ['replays.replay-deletion-due'],
+    (event) => reactions.deleting.replay(event.replayId),
   ),
-  subscribing<ReplaySetAbandonmentDue>(
-    'replays.abandon-replay-set',
-    ['replays.replay-set-abandonment-due'],
-    (event) => reactions.abandoning.set(event.setId),
+  subscribing<ReplaySetDeletionDue>(
+    'replays.delete-replay-set',
+    ['replays.replay-set-deletion-due'],
+    (event) => reactions.deleting.set(event.setId),
   ),
-  subscribing<CandidateAbandonmentDue>(
-    'replays.abandon-candidate',
-    ['replays.candidate-abandonment-due'],
-    (event) => reactions.abandoning.candidate(event.candidateId),
+  subscribing<CandidateDeletionDue>(
+    'replays.delete-candidate',
+    ['replays.candidate-deletion-due'],
+    (event) => reactions.deleting.candidate(event.candidateId),
   ),
   subscribing<ReplaySetStationCheckDue>(
     'replays.check-station-of-replay-set',
     ['replays.replay-set-station-check-due'],
-    (event) => reactions.redefining.check(event.setId),
+    (event) => reactions.lineChanges.check(event.setId),
   ),
   subscribing<ReplayBaselineWanted>(
     'replays.start-wanted-baseline',
     ['replay.baseline-wanted'],
     (event) => reactions.baselines.wanted(event),
   ),
-  subscribing<LineRedefinedIntegrationEvent>(
-    'replays.note-sets-of-redefined-line',
-    [LINE_REDEFINED],
-    (event) => reactions.redefining.redefined(event.lineId),
+  subscribing<LineChangedIntegrationEvent>(
+    'replays.note-sets-of-changed-line',
+    [LINE_CHANGED],
+    (event) => reactions.lineChanges.changed(event.lineId),
   ),
   subscribing<ReplayEnded>(
     'replays.start-oracle-after-baseline',
@@ -443,62 +443,62 @@ export const replaysSubscribers = (
     ['replays.search-ended'],
     (event) => reactions.cancellingSearches.ended(event),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'replays.abandon-searches-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-searches-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.abandoningSearches.ofTeam(
+      reactions.deletingSearches.deleteForTeam(
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
   ),
-  subscribing<SearchAbandonmentDue>(
-    'replays.abandon-search',
-    ['replays.search-abandonment-due'],
-    (event) => reactions.abandoningSearches.search(event.searchId),
+  subscribing<SearchDeletionDue>(
+    'replays.delete-search',
+    ['replays.search-deletion-due'],
+    (event) => reactions.deletingSearches.search(event.searchId),
   ),
   subscribing<ReplaySetDeleted>(
     'replays.end-search-of-deleted-set',
     ['replay-set.deleted'],
-    (event) => reactions.abandoningSearches.setGone(event.setId),
+    (event) => reactions.deletingSearches.setGone(event.setId),
   ),
   subscribing<ReplaySetStationGone>(
     'replays.end-search-of-gone-station',
     ['replay-set.station-gone'],
-    (event) => reactions.abandoningSearches.stationGone(event.setId),
+    (event) => reactions.deletingSearches.stationGone(event.setId),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'replays.abandon-replay-checks-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-replay-checks-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.abandoningChecks.ofTeam(
+      reactions.deletingChecks.deleteForTeam(
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
   ),
   subscribing<ReplaySetDeleted>(
-    'replays.abandon-replay-checks-of-deleted-set',
+    'replays.delete-replay-checks-of-deleted-set',
     ['replay-set.deleted'],
-    (event) => reactions.abandoningChecks.ofSet(event.setId, event.workspaceId),
-  ),
-  subscribing<ReplayCheckAbandonmentDue>(
-    'replays.abandon-replay-check',
-    ['replays.replay-check-abandonment-due'],
-    (event) => reactions.abandoningChecks.check(event.checkId),
-  ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'replays.abandon-config-pull-requests-of-disbanded-team',
-    [TEAM_DISBANDED],
     (event) =>
-      reactions.abandoningPullRequests.ofTeam(
+      reactions.deletingChecks.deleteForSet(event.setId, event.workspaceId),
+  ),
+  subscribing<ReplayCheckDeletionDue>(
+    'replays.delete-replay-check',
+    ['replays.replay-check-deletion-due'],
+    (event) => reactions.deletingChecks.check(event.checkId),
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-config-pull-requests-of-deleted-team',
+    [TEAM_DELETED],
+    (event) =>
+      reactions.deletingPullRequests.deleteForTeam(
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
   ),
-  subscribing<ConfigPullRequestAbandonmentDue>(
-    'replays.abandon-config-pull-request',
-    ['replays.config-pull-request-abandonment-due'],
-    (event) =>
-      reactions.abandoningPullRequests.pullRequest(event.pullRequestId),
+  subscribing<ConfigPullRequestDeletionDue>(
+    'replays.delete-config-pull-request',
+    ['replays.config-pull-request-deletion-due'],
+    (event) => reactions.deletingPullRequests.pullRequest(event.pullRequestId),
   ),
 ];

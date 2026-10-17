@@ -172,7 +172,7 @@ func (s *checkServer) serve() *httptest.Server {
 				return
 			}
 			s.exchanges++
-			_, _ = io.WriteString(w, `{"token":"minted","expiresAt":"2026-10-02T10:00:00Z"}`)
+			_, _ = io.WriteString(w, `{"token":"issued","expiresAt":"2026-10-02T10:00:00Z"}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/teams/"+coreTeam+"/replay-checks":
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -427,7 +427,7 @@ func TestCheckExchangesTheJobsOIDCTokenThroughATrust(t *testing.T) {
 	if got.code != 0 {
 		t.Fatalf("code = %d\n%s%s", got.code, got.out, got.errOut)
 	}
-	if s.tokens[1] != "Bearer minted" {
+	if s.tokens[1] != "Bearer issued" {
 		t.Fatalf("tokens = %v", s.tokens)
 	}
 

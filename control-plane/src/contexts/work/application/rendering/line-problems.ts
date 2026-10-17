@@ -19,10 +19,14 @@ export const LineProblems = {
     });
   },
 
-  keyFixed(key: string, because: string): ConfigurationProblem {
+  immutableField(
+    key: string,
+    field: string,
+    because: string,
+  ): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: lineAt(key),
-      at: FieldPath.of(['key']),
+      at: FieldPath.of([field]),
       reason: because,
     });
   },

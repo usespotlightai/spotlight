@@ -1,4 +1,4 @@
-import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
+import { deletionsInMemory } from '@outcomes/application/ports/deletions.fake-spec';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
@@ -34,7 +34,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
   const records = new RunRecordsInMemory();
   const deliveries = new TaskDeliveriesInMemory();
   const watches = new StationWatchesInMemory();
-  const forgotten = forgottenInMemory();
+  const deletions = deletionsInMemory();
   let next = 0;
   const work: WorkPort = {
     endedRun: async () => null,
@@ -49,7 +49,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
       records,
       deliveries,
       watches,
-      forgotten,
+      deletions,
     },
     inTransaction,
     {
@@ -106,9 +106,9 @@ const watching = (initially: readonly AlertRule[] | null) => {
 
   const kinds = () => watches.raised.map((each) => each.kind);
 
-  const redefined = async (next: readonly AlertRule[] | null) => {
+  const updated = async (next: readonly AlertRule[] | null) => {
     alerts = next;
-    await service.lineRedefined({
+    await service.lineChanged({
       lineId: 'line_1',
       workspaceId: WORKSPACE.value,
       teamId: 'team_1',
@@ -117,14 +117,14 @@ const watching = (initially: readonly AlertRule[] | null) => {
   };
 
   return {
-    redefined,
+    updated,
     ran,
     ended,
     actedOn,
     delivered,
     kinds,
     watches,
-    forgotten,
+    deletions,
     service,
   };
 };
@@ -202,7 +202,7 @@ describe('WatchStations', () => {
     ]);
     await station.ran(1, 'sent-back');
 
-    await station.redefined([]);
+    await station.updated([]);
 
     expect(station.kinds()).toEqual([
       'station-alert.raised',
@@ -216,7 +216,7 @@ describe('WatchStations', () => {
     ]);
     await station.ran(1, 'sent-back');
 
-    await station.redefined(null);
+    await station.updated(null);
 
     expect(station.kinds()).toEqual([
       'station-alert.raised',
@@ -224,24 +224,24 @@ describe('WatchStations', () => {
     ]);
   });
 
-  it('takes the team and the alert’s task in hand before asking whether they were forgotten', async () => {
+  it('takes the team and the alert’s task in hand before asking whether they were deleted', async () => {
     const station = watching([
       AlertRule.of({ measure: 'sent_back_rate', above: 0.4, over: 1 }),
     ]);
 
     await station.ran(1, 'sent-back');
 
-    expect(station.forgotten.locks).toEqual([
+    expect(station.deletions.locks).toEqual([
       `${WORKSPACE.value} team_1`,
       `${WORKSPACE.value} team_1 task_1`,
     ]);
   });
 
-  it('raises nothing on a run whose task was forgotten while it was read', async () => {
+  it('raises nothing on a run whose task was deleted while it was read', async () => {
     const station = watching([
       AlertRule.of({ measure: 'sent_back_rate', above: 0.4, over: 1 }),
     ]);
-    await station.forgotten.forgetTask(WORKSPACE, TaskId.of('task_1'));
+    await station.deletions.deleteTask(WORKSPACE, TaskId.of('task_1'));
 
     await station.ran(1, 'sent-back');
 
@@ -256,11 +256,11 @@ describe('WatchStations', () => {
     expect(station.watches.stored.size).toBe(0);
   });
 
-  it('watches nothing for a run whose task was forgotten', async () => {
+  it('watches nothing for a run whose task was deleted', async () => {
     const station = watching([
       AlertRule.of({ measure: 'sent_back_rate', above: 0.4, over: 1 }),
     ]);
-    await station.forgotten.forgetWorkspace(WORKSPACE);
+    await station.deletions.deleteWorkspace(WORKSPACE);
 
     await station.ran(1, 'sent-back');
 
@@ -317,7 +317,7 @@ describe('WatchStations', () => {
     ]);
   });
 
-  it('keeps an alert forgotten once its task is, even when a check read before the forgetting saves after it', async () => {
+  it('keeps an alert deleted once its task is, even when a check read before the deletion saves after it', async () => {
     const station = watching([
       AlertRule.of({ measure: 'accepted_rate', below: 0.5, over: 1 }),
     ]);

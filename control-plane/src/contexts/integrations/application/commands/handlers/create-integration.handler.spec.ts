@@ -1,7 +1,7 @@
 import { CreateIntegrationCommand } from '@integrations/application/commands/create-integration.command';
 import { CreateIntegrationHandler } from '@integrations/application/commands/handlers/create-integration.handler';
 import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
-import { IntegrationAlreadyDefinedError } from '@integrations/domain/exceptions/integration-already-defined.error';
+import { IntegrationAlreadyExistsError } from '@integrations/domain/exceptions/integration-already-exists.error';
 import {
   access,
   creates,
@@ -164,7 +164,7 @@ describe('CreateIntegrationHandler', () => {
 
   it('answers a create for a host the team already has with its address', async () => {
     const { create, keys } = creating({
-      failing: new IntegrationAlreadyDefinedError('linear'),
+      failing: new IntegrationAlreadyExistsError('linear'),
     });
 
     expect(await create(LINEAR)).toEqual({

@@ -1,5 +1,5 @@
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
-import { SkillAlreadyDefinedError } from '@configuration/domain/exceptions/skill-already-defined.error';
+import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-already-exists.error';
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
@@ -92,7 +92,7 @@ export class DrizzleSkillDefinitions implements SkillDefinitionRepository {
         });
       } catch (error) {
         if (collided(error)) {
-          throw new SkillAlreadyDefinedError(definition.key.value);
+          throw new SkillAlreadyExistsError(definition.key.value);
         }
 
         throw error;
@@ -101,7 +101,7 @@ export class DrizzleSkillDefinitions implements SkillDefinitionRepository {
       return;
     }
 
-    const touched = definition.isRetired
+    const touched = definition.isDeleted
       ? await this.context.db
           .delete(skillDefinition)
           .where(inPlace(definition))

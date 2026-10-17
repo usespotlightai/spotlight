@@ -143,10 +143,10 @@ describe('describeOutcomes', () => {
     ).toBe('2 invited · 1 already in the workspace');
     expect(
       describeOutcomes([
-        { email: 'a@x.io', outcome: 'sent-again' },
+        { email: 'a@x.io', outcome: 'resent' },
         { email: 'b@x.io', outcome: 'not-sent' },
       ]),
-    ).toBe('1 sent again · 1 not sent');
+    ).toBe('1 resent · 1 not sent');
     expect(describeOutcomes([])).toBe('Invites');
   });
 });

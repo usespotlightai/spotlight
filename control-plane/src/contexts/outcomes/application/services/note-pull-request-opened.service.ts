@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import type { PendingReviewsPort } from '@outcomes/application/ports/pending-reviews.port';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
@@ -22,14 +22,14 @@ export class NotePullRequestOpened {
   constructor(
     private readonly deliveries: TaskDeliveryRepository,
     private readonly reviews: PendingReviewsPort,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
 
   opened(opening: PullRequestOpening): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(
+      await this.deletions.lockDeletion(
         opening.workspaceId,
         opening.taskId,
         opening.teamId,
@@ -38,7 +38,7 @@ export class NotePullRequestOpened {
 
       if (
         !existing &&
-        (await this.forgotten.forgot(
+        (await this.deletions.isDeleted(
           opening.workspaceId,
           opening.taskId,
           opening.teamId,

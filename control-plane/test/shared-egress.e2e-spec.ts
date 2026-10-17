@@ -30,7 +30,7 @@ import {
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -241,7 +241,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     await db
       .delete(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, workspaceId));
-    await forgetRunnersOf(db, workspaceId);
+    await deleteRunnersOf(db, workspaceId);
     await unseat();
   });
 
@@ -593,7 +593,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       await db
         .delete(schema.configurationChange)
         .where(eq(schema.configurationChange.workspaceId, other));
-      await forgetRunnersOf(db, other);
+      await deleteRunnersOf(db, other);
       await elsewhere.unseat();
     }
   });

@@ -56,7 +56,7 @@ import { GitHubWebhookTranslation } from '@github/infrastructure/webhooks/github
 import { githubSubscribers } from '@github/presentation/events/github.subscribers';
 import { GitHubConnectionController } from '@github/presentation/http/controllers/github-connection.controller';
 import { RepositoryController } from '@github/presentation/http/controllers/repository.controller';
-import { ForgottenPullRequestsWorker } from '@github/presentation/workers/forgotten-pull-requests.worker';
+import { PurgePullRequestsWorker } from '@github/presentation/workers/purge-pull-requests.worker';
 import {
   LINKED_ACCOUNTS,
   type LinkedAccountsPort,
@@ -145,10 +145,10 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: ForgottenPullRequestsWorker,
+    provide: PurgePullRequestsWorker,
     inject: [RecordPullRequests, LOGGER],
     useFactory: (recording: RecordPullRequests, logger: LoggerPort) =>
-      new ForgottenPullRequestsWorker(recording, logger),
+      new PurgePullRequestsWorker(recording, logger),
   },
   {
     provide: PULL_REQUEST_COMMENTS,

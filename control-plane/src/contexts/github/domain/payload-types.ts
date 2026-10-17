@@ -1,5 +1,5 @@
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
-import { PullRequestForgotten } from '@github/domain/events/pull-request-forgotten.event';
+import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
 import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
@@ -17,5 +17,5 @@ export const GITHUB_PAYLOAD_TYPES = [
   PullRequestReviewed,
   PullRequestRecorded,
   PullRequestRevertMerged,
-  PullRequestForgotten,
+  PullRequestPurged,
 ] as const;

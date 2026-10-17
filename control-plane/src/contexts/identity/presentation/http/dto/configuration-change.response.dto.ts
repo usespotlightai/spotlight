@@ -30,7 +30,7 @@ export class ChangedByResponseDto {
     type: String,
     nullable: true,
     description:
-      'For a token minted through a workspace token trust, that trust; the person is then whoever defined the trust',
+      'For a token issued by a workspace token trust, that trust; the person is then whoever created the trust',
   })
   readonly trust: string | null;
 

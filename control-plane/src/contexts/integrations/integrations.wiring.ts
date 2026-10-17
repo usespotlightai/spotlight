@@ -132,8 +132,8 @@ import { ListHappeningsQuery } from '@integrations/application/queries/list-happ
 import { ListHostConnectionsQuery } from '@integrations/application/queries/list-host-connections.query';
 import { ListIntegrationResourcesQuery } from '@integrations/application/queries/list-integration-resources.query';
 import { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
-import { AbandonTeamIntegrations } from '@integrations/application/services/abandon-team-integrations.service';
 import { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
+import { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
 import { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
 import { HostReach } from '@integrations/application/services/host-reach.service';
 import { IntegrationSources } from '@integrations/application/services/integration-sources.service';
@@ -336,7 +336,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       mappers.register(INTEGRATIONS_EVENT_MAPPERS);
       subscribers.register(
         integrationsSubscribers(
-          new AbandonTeamIntegrations(
+          new DeleteTeamIntegrations(
             definitions,
             hooks,
             connections,

@@ -20,7 +20,7 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
@@ -64,7 +64,7 @@ const readBack = async (task: Task): Promise<Task> => {
 
 describe('an approval a run asked for', () => {
   const asking = async (subject: ApprovalSubject = CALL) => {
-    const { list, owner } = await openTeam(
+    const { list, owner } = await createTeam(
       db,
       tasks,
       `approvals-${randomUUID()}`,
@@ -340,7 +340,7 @@ describe('an approval a run asked for', () => {
   });
 
   it('is read back with what the agent said it wants to do', async () => {
-    const { list } = await openTeam(db, tasks, `approvals-${randomUUID()}`);
+    const { list } = await createTeam(db, tasks, `approvals-${randomUUID()}`);
     const runId = RunId.of(randomUUID());
 
     await tasks.save(

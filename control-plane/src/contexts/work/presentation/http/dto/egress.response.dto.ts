@@ -93,7 +93,7 @@ export class DeniedSecretResponseDto {
 
   @ApiProperty({
     example:
-      'The workspace has no secret named LINEAR_API_KEY; define it before anything uses it',
+      'The workspace has no secret named LINEAR_API_KEY; create it before anything uses it',
   })
   readonly reason: string;
 
@@ -223,7 +223,7 @@ export class EgressActiveRunsResponseDto {
   @ApiProperty({
     type: [String],
     description:
-      'The proxy credentials whose runner still leases its work, or has no work yet. Egress forgets every other run',
+      'The proxy credentials whose runner still leases its work, or has no work yet. Egress evicts the secrets of every other run',
   })
   readonly active: readonly string[];
 

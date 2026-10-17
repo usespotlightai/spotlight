@@ -1,5 +1,5 @@
 import type { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
-import type { PullRequestForgotten } from '@github/domain/events/pull-request-forgotten.event';
+import type { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import type { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
 import type { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import type { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
@@ -9,9 +9,9 @@ import {
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import {
-  PULL_REQUEST_FORGOTTEN,
-  type PullRequestForgottenIntegrationEvent,
-} from '@shared-kernel/application/integration-events/pull-request-forgotten.integration-event';
+  PULL_REQUEST_PURGED,
+  type PullRequestPurgedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
 import {
   PULL_REQUEST_RECORDED,
   type PullRequestRecordedIntegrationEvent,
@@ -115,10 +115,10 @@ export const GITHUB_EVENT_MAPPERS = [
       ),
     }),
   ),
-  mapping<PullRequestForgotten>(
-    'pull-request.forgotten',
-    (event): PullRequestForgottenIntegrationEvent => ({
-      kind: PULL_REQUEST_FORGOTTEN,
+  mapping<PullRequestPurged>(
+    'pull-request.purged',
+    (event): PullRequestPurgedIntegrationEvent => ({
+      kind: PULL_REQUEST_PURGED,
       workspaceId: event.workspaceId.value,
       pullRequest: event.pullRequest,
       updatedAt: event.updatedAt.toISOString(),

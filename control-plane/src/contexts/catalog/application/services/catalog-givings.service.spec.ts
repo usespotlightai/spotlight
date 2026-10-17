@@ -30,7 +30,7 @@ const givings = (
       record: async (call) => {
         metered.push(call);
       },
-      forget: async () => undefined,
+      deleteForWorkspace: async () => undefined,
     },
     {
       call: async (tool) => {

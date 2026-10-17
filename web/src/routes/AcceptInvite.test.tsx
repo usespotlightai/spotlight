@@ -47,14 +47,14 @@ const showing = () =>
     </MemoryRouter>,
   );
 
-const offered = (over: Record<string, unknown> = {}) => ({
+const preview = (over: Record<string, unknown> = {}) => ({
   data: {
     email: 'ada@example.com',
     workspaceName: 'Acme',
     invitedBy: 'Leon Liang',
     role: 'member',
     teamNames: ['Platform'],
-    status: 'open',
+    status: 'pending',
     ...over,
   },
   isPending: false,
@@ -64,7 +64,7 @@ const offered = (over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
-  invite.mockReturnValue(offered());
+  invite.mockReturnValue(preview());
   session.mockReturnValue({ data: null, isPending: false });
   accept.mockReset();
   signIn.mockReset();
@@ -87,7 +87,7 @@ describe('AcceptInvite', () => {
   });
 
   it('says someone who has left asked, where their account is gone', () => {
-    invite.mockReturnValue(offered({ invitedBy: null }));
+    invite.mockReturnValue(preview({ invitedBy: null }));
     showing();
 
     expect(
@@ -99,7 +99,7 @@ describe('AcceptInvite', () => {
 
   it('names every team an invitation joins', () => {
     invite.mockReturnValue(
-      offered({ teamNames: ['Platform', 'Growth', 'Mobile'] }),
+      preview({ teamNames: ['Platform', 'Growth', 'Mobile'] }),
     );
     showing();
 
@@ -111,7 +111,7 @@ describe('AcceptInvite', () => {
   });
 
   it('says an admin invitation onto no team joins the workspace only', () => {
-    invite.mockReturnValue(offered({ role: 'admin', teamNames: [] }));
+    invite.mockReturnValue(preview({ role: 'admin', teamNames: [] }));
     showing();
 
     expect(
@@ -180,10 +180,10 @@ describe('AcceptInvite', () => {
 
   it.each([
     ['accepted', 'This invitation is already accepted.'],
-    ['revoked', 'This invitation is withdrawn.'],
+    ['revoked', 'This invitation is revoked.'],
     ['expired', 'This invitation has expired. Please ask for a new one.'],
   ])('says an invitation that is %s is no longer open', (status, text) => {
-    invite.mockReturnValue(offered({ status }));
+    invite.mockReturnValue(preview({ status }));
     session.mockReturnValue({
       data: { user: { email: 'ada@example.com' } },
       isPending: false,

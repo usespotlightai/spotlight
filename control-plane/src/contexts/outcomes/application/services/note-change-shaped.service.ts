@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import {
   type ChangeShape,
@@ -21,7 +21,7 @@ export class NoteChangeShaped {
   constructor(
     private readonly work: WorkPort,
     private readonly shapes: TaskChangeShapeRepository,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -41,9 +41,9 @@ export class NoteChangeShaped {
     const teamId = TeamId.of(run.teamId);
 
     await this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
+      await this.deletions.lockDeletion(workspaceId, taskId, teamId);
 
-      if (await this.forgotten.forgot(workspaceId, taskId, teamId)) {
+      if (await this.deletions.isDeleted(workspaceId, taskId, teamId)) {
         return;
       }
 

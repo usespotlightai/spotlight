@@ -1,15 +1,15 @@
-import { HookAbandonmentDue } from '@integrations/domain/events/hook-abandonment-due.event';
-import { HookDefined } from '@integrations/domain/events/hook-defined.event';
-import { HookRedefined } from '@integrations/domain/events/hook-redefined.event';
-import { HookRetired } from '@integrations/domain/events/hook-retired.event';
+import { HookCreated } from '@integrations/domain/events/hook-created.event';
+import { HookDeleted } from '@integrations/domain/events/hook-deleted.event';
+import { HookDeletionDue } from '@integrations/domain/events/hook-deletion-due.event';
+import { HookUpdated } from '@integrations/domain/events/hook-updated.event';
 import { HostConnected } from '@integrations/domain/events/host-connected.event';
 import { HostDisconnected } from '@integrations/domain/events/host-disconnected.event';
 import { HostRefreshFailed } from '@integrations/domain/events/host-refresh-failed.event';
-import { IntegrationAbandonmentDue } from '@integrations/domain/events/integration-abandonment-due.event';
-import { IntegrationDefined } from '@integrations/domain/events/integration-defined.event';
-import { IntegrationRedefined } from '@integrations/domain/events/integration-redefined.event';
+import { IntegrationCreated } from '@integrations/domain/events/integration-created.event';
+import { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
+import { IntegrationDeletionDue } from '@integrations/domain/events/integration-deletion-due.event';
 import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
-import { IntegrationRetired } from '@integrations/domain/events/integration-retired.event';
+import { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
@@ -92,16 +92,16 @@ export const INTEGRATIONS_PAYLOAD_TYPES = [
   ToolName,
   ToolUses,
   Webhook,
-  HookAbandonmentDue,
-  HookDefined,
-  HookRedefined,
-  HookRetired,
+  HookDeletionDue,
+  HookCreated,
+  HookUpdated,
+  HookDeleted,
   HostConnected,
   HostDisconnected,
   HostRefreshFailed,
-  IntegrationAbandonmentDue,
-  IntegrationDefined,
-  IntegrationRedefined,
+  IntegrationDeletionDue,
+  IntegrationCreated,
+  IntegrationUpdated,
   IntegrationReread,
-  IntegrationRetired,
+  IntegrationDeleted,
 ] as const;

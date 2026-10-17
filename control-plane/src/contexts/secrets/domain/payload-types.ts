@@ -1,7 +1,6 @@
-import { SecretAbandoned } from '@secrets/domain/events/secret-abandoned.event';
+import { SecretCreated } from '@secrets/domain/events/secret-created.event';
 import { SecretDeleted } from '@secrets/domain/events/secret-deleted.event';
-import { SecretRedefined } from '@secrets/domain/events/secret-redefined.event';
-import { SecretSet } from '@secrets/domain/events/secret-set.event';
+import { SecretUpdated } from '@secrets/domain/events/secret-updated.event';
 import { Recipient } from '@secrets/domain/value-objects/recipient.vo';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import { SecretBinding } from '@secrets/domain/value-objects/secret-binding.vo';
@@ -26,8 +25,7 @@ export const SECRETS_PAYLOAD_TYPES = [
   SecretId,
   SecretSource,
   SecretUses,
-  SecretAbandoned,
   SecretDeleted,
-  SecretRedefined,
-  SecretSet,
+  SecretUpdated,
+  SecretCreated,
 ] as const;

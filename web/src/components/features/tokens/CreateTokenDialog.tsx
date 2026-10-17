@@ -57,7 +57,7 @@ export function CreateTokenDialog({
   const named = slugify(name);
   const busy = create.isPending;
 
-  const forget = () => {
+  const reset = () => {
     setName('');
     setDescription('');
     setReach('configure');
@@ -105,7 +105,7 @@ export function CreateTokenDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(open) => !open && forget()}
+      onOpenChangeComplete={(open) => !open && reset()}
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

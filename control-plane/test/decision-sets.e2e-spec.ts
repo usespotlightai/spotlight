@@ -184,7 +184,7 @@ describe('storing a task’s decisions', () => {
     );
   });
 
-  it('forgets a task’s decisions with the task', async () => {
+  it('deletes a task’s decisions with the task', async () => {
     const set = opened().asked(FIRST, NOW);
     await sets.add(set);
     await sets.save(drafting(set, FIRST, [decided()]));

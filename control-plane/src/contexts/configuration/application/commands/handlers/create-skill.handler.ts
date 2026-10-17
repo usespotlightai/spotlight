@@ -1,7 +1,7 @@
 import type { CreateSkillCommand } from '@configuration/application/commands/create-skill.command';
 import type { SkillCompilerPort } from '@configuration/application/ports/skill-compiler.port';
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
-import { SkillAlreadyDefinedError } from '@configuration/domain/exceptions/skill-already-defined.error';
+import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-already-exists.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
@@ -75,20 +75,20 @@ export class CreateSkillHandler
       try {
         return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
-            const defined = SkillDefinition.define({
+            const created = SkillDefinition.create({
               ...compiled,
               id: SkillDefinitionId.of(this.ids.generate()),
               teamId: team.id,
               by: Attribution.of(command.actor, team.workspaceId),
             });
 
-            await this.definitions.save(defined);
+            await this.definitions.save(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof SkillAlreadyDefinedError) {
+        if (error instanceof SkillAlreadyExistsError) {
           return {
             outcome: 'taken',
             address: TeamAddress.of(

@@ -433,7 +433,7 @@ func (c *cli) report(read followed, asJSON bool) error {
 
 func (c *cli) printReplay(read followed) {
 	replay := read.Replay
-	under := "a candidate since withdrawn"
+	under := "a candidate since deleted"
 	if replay.Candidate != nil {
 		under = fmt.Sprintf("%s (%s)", replay.Candidate.Name, replay.Candidate.Kind)
 	}

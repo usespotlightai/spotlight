@@ -162,7 +162,7 @@ describe('reading what a task’s runs changed', () => {
       RunAttempt.of(second, 1),
       entries(
         { call: 'call_1' },
-        { edit: 'call_1', path: '/runs/r2/api/src/abandoned.ts' },
+        { edit: 'call_1', path: '/runs/r2/api/src/unused.ts' },
       ),
     );
     await requeued(second, 2);

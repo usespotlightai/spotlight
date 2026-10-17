@@ -50,7 +50,7 @@ export class DeleteSkillHandler
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          existing.retire(
+          existing.delete(
             given,
             Attribution.of(command.actor, permissions.workspaceId),
           ),

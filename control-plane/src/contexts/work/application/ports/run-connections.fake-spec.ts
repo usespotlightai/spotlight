@@ -12,5 +12,5 @@ export const connectionsInMemory = (
     recorded.filter(
       (each) => runIds.includes(each.runId) && each.connection.isError,
     ),
-  forgetBefore: async () => 0,
+  purgeBefore: async () => 0,
 });

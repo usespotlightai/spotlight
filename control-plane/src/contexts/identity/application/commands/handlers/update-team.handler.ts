@@ -1,8 +1,10 @@
 import type { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
 import type { IdentityDefinitionsPort } from '@identity/application/ports/identity-definitions.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { IdentityProblems } from '@identity/application/rendering/identity-problems';
-import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
+import {
+  IdentityProblems,
+  TEAM,
+} from '@identity/application/rendering/identity-problems';
 import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import {
@@ -12,6 +14,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -55,7 +58,7 @@ export class UpdateTeamHandler
 
       await this.transaction.inTransaction(() =>
         this.teams.save(
-          existing.redefinedAs(
+          existing.update(
             compiled,
             Attribution.of(command.actor, existing.workspaceId),
           ),
@@ -72,10 +75,10 @@ export class UpdateTeamHandler
           : null;
       }
 
-      if (error instanceof TeamKeyFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [IdentityProblems.keyFixed(error)],
+          problems: [IdentityProblems.immutableField(TEAM, error)],
         };
       }
 

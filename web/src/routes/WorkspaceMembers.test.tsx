@@ -352,21 +352,21 @@ describe('WorkspaceMembers', () => {
     expect(resend).toHaveBeenCalledWith('invite_1');
   });
 
-  it('says an invite was sent again', () => {
+  it('says an invite was resent', () => {
     resending.mockReturnValue('done');
     showing();
 
     expect(within(invitesList()).getByRole('status')).toHaveTextContent(
-      'Sent again',
+      'Resent',
     );
   });
 
-  it('says when an invite could not be sent again', () => {
+  it('says when an invite could not be resent', () => {
     resending.mockReturnValue('failed');
     showing();
 
     expect(within(invitesList()).getByRole('alert')).toHaveTextContent(
-      'Sorry, the invite couldn’t be sent again.',
+      'Sorry, the invite couldn’t be resent.',
     );
   });
 

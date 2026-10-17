@@ -10,7 +10,7 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
@@ -20,7 +20,7 @@ export class RunnerAdmissions implements RunnerAdmissionsPort {
     private readonly trusts: RunnerTrustRepository,
     private readonly workloads: WorkloadTokensPort,
     private readonly workspaces: WorkspaceReaderPort,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
   ) {}
 
   async admit(credential: HostCredential): Promise<AdmittedHost | null> {
@@ -59,7 +59,7 @@ export class RunnerAdmissions implements RunnerAdmissionsPort {
       TokenHash.of(this.tokens.hash(token)),
     );
 
-    return pool?.mode === 'pull' && !pool.isRetired ? pool : null;
+    return pool?.mode === 'pull' && !pool.isDeleted ? pool : null;
   }
 
   private async trusted(

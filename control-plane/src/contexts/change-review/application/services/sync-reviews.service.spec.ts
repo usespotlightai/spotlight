@@ -77,7 +77,7 @@ const syncing = (over: {
     later: async (...args) => void recorded.push({ how: 'later', args }),
     failed: async (...args) => void recorded.push({ how: 'failed', args }),
     failuresFor: async () => new Map(),
-    forgetTask: async () => undefined,
+    deleteTask: async () => undefined,
   };
 
   const task = {

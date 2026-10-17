@@ -74,9 +74,7 @@ export class Runner extends EventRecorder {
   }): Runner {
     const { through } = input;
 
-    if (
-      through instanceof RunnerPool ? through.isRetired : through.isWithdrawn
-    ) {
+    if (through.isDeleted) {
       throw new InconsistentStateError(
         'runner',
         'was started through a pool or trust that is gone',

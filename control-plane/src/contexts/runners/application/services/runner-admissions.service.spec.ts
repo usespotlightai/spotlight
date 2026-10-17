@@ -12,7 +12,7 @@ import {
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type {
   ExpectedWorkload,
   WorkloadTokensPort,
@@ -68,10 +68,10 @@ const admitting = (
     { verify } as WorkloadTokensPort,
     { isOpen } as unknown as WorkspaceReaderPort,
     {
-      mint: () => ({ token: 'unused', hash: 'unused' }),
+      issue: () => ({ token: 'unused', hash: 'unused' }),
       hash: (token: string) =>
         token === POOL_TOKEN ? 'a'.repeat(64) : 'f'.repeat(64),
-    } as TokenMintPort,
+    } as TokenIssuer,
   );
 
   return { admissions, findByTokenHash, verify, isOpen };
@@ -102,10 +102,10 @@ describe('RunnerAdmissions', () => {
       ).resolves.toBeNull();
     });
 
-    it('admits no host to a pool that is retired', async () => {
+    it('admits no host to a pool that is deleted', async () => {
       await expect(
         admitting({
-          pool: aPullPool().retire(attributedIn()),
+          pool: aPullPool().delete(attributedIn()),
         }).admissions.admit(pooled),
       ).resolves.toBeNull();
     });
@@ -147,13 +147,13 @@ describe('RunnerAdmissions', () => {
       ).resolves.toBeNull();
     });
 
-    it('admits nothing through a trust that is unknown or withdrawn', async () => {
+    it('admits nothing through a trust that is unknown or deleted', async () => {
       await expect(
         admitting({ trust: null }).admissions.admit(trusted),
       ).resolves.toBeNull();
       await expect(
         admitting({
-          trust: aTrust().withdraw(attributedIn()),
+          trust: aTrust().delete(attributedIn()),
         }).admissions.admit(trusted),
       ).resolves.toBeNull();
     });
@@ -172,7 +172,7 @@ describe('RunnerAdmissions', () => {
     expect(verify).not.toHaveBeenCalled();
   });
 
-  it('admits nobody to a workspace that is closed', async () => {
+  it('admits nobody to a workspace that is deleted', async () => {
     const { admissions, isOpen } = admitting({ open: false });
 
     await expect(admissions.admit(pooled)).resolves.toBeNull();

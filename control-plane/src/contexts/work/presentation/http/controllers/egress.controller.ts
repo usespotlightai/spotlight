@@ -209,7 +209,7 @@ export class EgressController {
     operationId: 'checkActiveRuns',
     summary: 'The runs of a shared egress that their runners still lease',
     description:
-      'Called by each node of a shared egress about every 30 seconds. The node forgets the secrets of every run that is not in the answer.',
+      'Called by each node of a shared egress about every 30 seconds. The node evicts the secrets of every run that is not in the answer.',
   })
   @ApiOkResponse({ type: EgressActiveRunsResponseDto })
   @ApiUnprocessableEntityResponse({

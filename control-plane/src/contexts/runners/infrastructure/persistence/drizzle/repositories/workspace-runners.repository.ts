@@ -5,7 +5,7 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
-import { WorkspaceRunnersAlreadyDeclaredError } from '@runners/domain/exceptions/workspace-runners-already-declared.error';
+import { WorkspaceRunnersAlreadyExistError } from '@runners/domain/exceptions/workspace-runners-already-exist.error';
 import { WorkspaceRunnersVersionConflictError } from '@runners/domain/exceptions/workspace-runners-version-conflict.error';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
@@ -45,9 +45,7 @@ export class DrizzleWorkspaceRunnersRepository
         });
       } catch (error) {
         if (violates(error, UNIQUE_VIOLATION, 'workspace_runners_workspace')) {
-          throw new WorkspaceRunnersAlreadyDeclaredError(
-            added.workspaceId.value,
-          );
+          throw new WorkspaceRunnersAlreadyExistError(added.workspaceId.value);
         }
 
         throw error;
@@ -63,7 +61,7 @@ export class DrizzleWorkspaceRunnersRepository
         eq(workspaceRunners.id, saved.id.value),
         eq(workspaceRunners.version, saved.version),
       );
-      const written = saved.isDropped
+      const written = saved.isDeleted
         ? await this.context.db
             .delete(workspaceRunners)
             .where(matching)

@@ -1,11 +1,11 @@
-import { AbandonReplays } from '@replays/application/services/abandon-replays.service';
 import { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
 import { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
 import { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
+import { DeleteReplays } from '@replays/application/services/delete-replays.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
-import { NoteLineRedefined } from '@replays/application/services/note-line-redefined.service';
+import { NoteLineChanged } from '@replays/application/services/note-line-changed.service';
 import { NoteReplayChangeReviewed } from '@replays/application/services/note-replay-change-reviewed.service';
 import { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
 import { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
@@ -22,7 +22,7 @@ import {
 } from '@replays/application/services/replays.fake-spec';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-due.event';
+import { ReplayDeletionDue } from '@replays/domain/events/replay-deletion-due.event';
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
 import type { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
@@ -285,8 +285,8 @@ describe('DispatchReplayRuns without the candidate', () => {
   });
 });
 
-const redefiningLines = () =>
-  new NoteLineRedefined(
+const noteLineChanged = () =>
+  new NoteLineChanged(
     memory.setRepository,
     memory.replayRepository,
     memory.candidateRepository,
@@ -295,7 +295,7 @@ const redefiningLines = () =>
     CLOCK,
   );
 
-describe('NoteLineRedefined', () => {
+describe('NoteLineChanged', () => {
   it('stops a replay handed the answer once the live config it replays is no longer live', async () => {
     const set = aSet(3);
     const oracle = Candidate.oracleOf(candidateOf('live'), {
@@ -306,7 +306,7 @@ describe('NoteLineRedefined', () => {
     await memory.candidateRepository.add(oracle);
     await memory.replayRepository.add(handedTheAnswer(oracle));
 
-    await redefiningLines().check(set.id);
+    await noteLineChanged().check(set.id);
     expect(memory.replays.get('replay_oracle')?.stoppedAt).toBeNull();
 
     const live = work.live;
@@ -314,7 +314,7 @@ describe('NoteLineRedefined', () => {
       ...(await live()),
       fingerprint: LIVE_FINGERPRINT,
     });
-    await redefiningLines().check(set.id);
+    await noteLineChanged().check(set.id);
     expect(memory.replays.get('replay_oracle')?.stoppedAt).toEqual(NOW);
   });
 
@@ -322,13 +322,13 @@ describe('NoteLineRedefined', () => {
     const set = aSet(1);
     await memory.setRepository.add(set);
     memory.events.length = 0;
-    const redefining = redefiningLines();
+    const lineChanges = noteLineChanged();
 
-    expect(await redefining.redefined('line_1')).toEqual([
+    expect(await lineChanges.changed('line_1')).toEqual([
       new ReplaySetStationCheckDue(set.id, set.workspaceId),
     ]);
 
-    await redefining.check(set.id);
+    await lineChanges.check(set.id);
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(false);
 
     let asked = 0;
@@ -336,14 +336,14 @@ describe('NoteLineRedefined', () => {
       asked += 1;
       return asked === 1 ? null : { ...STATION_VIEW, lineId, stationId };
     };
-    await redefining.check(set.id);
+    await lineChanges.check(set.id);
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(false);
 
     work.station = async () => null;
-    await redefining.check(set.id);
+    await lineChanges.check(set.id);
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(true);
     expect(memory.events).toHaveLength(1);
-    expect(await redefining.redefined('line_1')).toEqual([]);
+    expect(await lineChanges.changed('line_1')).toEqual([]);
   });
 });
 
@@ -426,64 +426,64 @@ describe('HoldSetStartingPoints', () => {
 
     await startingPointHolds.changed(set.id);
     await memory.setRepository.save(
-      (memory.sets.get('set_1') as typeof set).deleted(false),
+      (memory.sets.get('set_1') as typeof set).delete(false),
     );
     await startingPointHolds.changed(set.id);
     expect(work.startingPointHolds.has('replay-set:set_1')).toBe(false);
   });
 });
 
-describe('AbandonReplays', () => {
-  const abandoning = () =>
-    new AbandonReplays(
+describe('DeleteReplays', () => {
+  const deleting = () =>
+    new DeleteReplays(
       memory.setRepository,
       memory.replayRepository,
       memory.candidateRepository,
       TRANSACTION,
     );
 
-  it('asks for each set and candidate of a disbanded team to be abandoned, one by one, leaving its replays to their sets', async () => {
+  it('asks for each set and candidate of a deleted team to be deleted, one by one, leaving its replays to their sets', async () => {
     const set = aSet(2);
     await memory.setRepository.add(set);
     await memory.replayRepository.add(aReplay({ count: 2 }));
 
-    const due = await abandoning().ofTeam(set.teamId, set.workspaceId);
+    const due = await deleting().deleteForTeam(set.teamId, set.workspaceId);
 
     expect(due.map((each) => each.kind)).toEqual([
-      'replays.replay-set-abandonment-due',
-      'replays.candidate-abandonment-due',
+      'replays.replay-set-deletion-due',
+      'replays.candidate-deletion-due',
     ]);
   });
 
-  it('abandons a replay underway by stopping it through its own event, then a set and a candidate', async () => {
+  it('deletes a replay underway by stopping it through its own event, then a set and a candidate', async () => {
     const set = aSet(2);
     await memory.setRepository.add(set);
     await memory.replayRepository.add(aReplay({ count: 2 }));
     await dispatching().processDue();
     memory.events.length = 0;
 
-    await abandoning().replay(ReplayId.of('replay_1'));
-    await abandoning().set(set.id);
-    await abandoning().candidate(CandidateId.of('candidate_proposed'));
-    await abandoning().replay(ReplayId.of('replay_1'));
+    await deleting().replay(ReplayId.of('replay_1'));
+    await deleting().set(set.id);
+    await deleting().candidate(CandidateId.of('candidate_proposed'));
+    await deleting().replay(ReplayId.of('replay_1'));
 
     expect(memory.events.map((each) => each.kind)).toEqual([
       'replay.stopped',
       'replays.replay-ended',
       'replay-set.deleted',
-      'replays.candidate-withdrawn',
+      'replays.candidate-deleted',
     ]);
     expect(memory.replays.size).toBe(0);
     expect(memory.sets.size).toBe(0);
     expect(memory.candidates.size).toBe(0);
   });
 
-  it('asks for the replays of a deleted set to be abandoned', async () => {
+  it('asks for the replays of a deleted set to be deleted', async () => {
     const set = aSet(1);
     await memory.replayRepository.add(aReplay({ count: 1 }));
 
-    expect(await abandoning().ofSet(set.id, set.workspaceId)).toEqual([
-      new ReplayAbandonmentDue(ReplayId.of('replay_1'), set.workspaceId),
+    expect(await deleting().deleteForSet(set.id, set.workspaceId)).toEqual([
+      new ReplayDeletionDue(ReplayId.of('replay_1'), set.workspaceId),
     ]);
   });
 });

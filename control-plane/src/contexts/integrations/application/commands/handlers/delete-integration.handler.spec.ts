@@ -42,14 +42,14 @@ const deleting = (
 };
 
 describe('DeleteIntegrationHandler', () => {
-  it('retires the version it was asked to', async () => {
+  it('deletes the version it was asked to', async () => {
     const { remove, kept } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
 
     const [saved] = kept.save.mock.calls[0] as [IntegrationDefinition];
 
-    expect(saved.isRetired).toBe(true);
+    expect(saved.isDeleted).toBe(true);
   });
 
   it('does not delete a version no longer current, naming the current one', async () => {

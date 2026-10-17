@@ -1,5 +1,5 @@
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
-import { InviteClosedError } from '@identity/domain/exceptions/invite-closed.error';
+import { InviteNotPendingError } from '@identity/domain/exceptions/invite-not-pending.error';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
@@ -25,8 +25,8 @@ const terms = (role = WorkspaceRole.member, teams = ['team_1']) =>
     teams.map((id) => TeamId.of(id)),
   );
 
-const offered = (to = 'ada@example.com') =>
-  WorkspaceInvite.offer({
+const created = (to = 'ada@example.com') =>
+  WorkspaceInvite.create({
     id: InviteId.of('invite_1'),
     workspaceId: acme,
     email: EmailAddress.of(to),
@@ -39,7 +39,7 @@ const offered = (to = 'ada@example.com') =>
 const acceptedBy = (invite: WorkspaceInvite, as = 'ada@example.com') =>
   invite.acceptBySomeone(ada, EmailAddress.of(as), LATER);
 
-const sentAgain = (invite: WorkspaceInvite, now = LATER) =>
+const resent = (invite: WorkspaceInvite, now = LATER) =>
   invite.resend({
     terms: terms(WorkspaceRole.admin, ['team_2']),
     tokenHash: hash('b'),
@@ -65,32 +65,32 @@ const kept = (over: Partial<Parameters<typeof WorkspaceInvite.rehydrate>[0]>) =>
   });
 
 describe('WorkspaceInvite', () => {
-  it('says it was offered, with the role and teams it gives', () => {
-    expect(offered().pullEvents()).toMatchObject([
+  it('says it was created, with the role and teams it gives', () => {
+    expect(created().pullEvents()).toMatchObject([
       {
-        kind: 'workspace-invite.offered',
-        again: false,
+        kind: 'workspace-invite.created',
+        resent: false,
         terms: { role: WorkspaceRole.member, teams: [{ value: 'team_1' }] },
       },
     ]);
   });
 
-  it('is open until anything happens to it', () => {
-    expect(offered().statusAt(NOW)).toBe('open');
+  it('is pending until anything happens to it', () => {
+    expect(created().statusAt(NOW)).toBe('pending');
   });
 
   it('runs out a fortnight after it was sent', () => {
-    expect(offered().statusAt(LATER)).toBe('open');
-    expect(offered().statusAt(AFTER_IT_RUNS_OUT)).toBe('expired');
+    expect(created().statusAt(LATER)).toBe('pending');
+    expect(created().statusAt(AFTER_IT_RUNS_OUT)).toBe('expired');
   });
 
   it('is taken up by the person it was sent to, carrying its terms to them', () => {
-    const accepted = acceptedBy(offered());
+    const accepted = acceptedBy(created());
 
     expect(accepted.statusAt(LATER)).toBe('accepted');
     expect(accepted.acceptedBy).toBe(ada);
     expect(accepted.pullEvents()).toMatchObject([
-      { kind: 'workspace-invite.offered' },
+      { kind: 'workspace-invite.created' },
       {
         kind: 'workspace-invite.accepted',
         userId: ada,
@@ -100,26 +100,26 @@ describe('WorkspaceInvite', () => {
   });
 
   it('rejects somebody signed in as anybody else', () => {
-    expect(() => acceptedBy(offered(), 'someone@example.com')).toThrow(
+    expect(() => acceptedBy(created(), 'someone@example.com')).toThrow(
       /sent to ada@example.com/,
     );
   });
 
   it('minds nothing but the mailbox in how an address was written', () => {
-    const accepted = acceptedBy(offered('Ada@Example.com'), 'ADA@example.com ');
+    const accepted = acceptedBy(created('Ada@Example.com'), 'ADA@example.com ');
 
     expect(accepted.statusAt(LATER)).toBe('accepted');
   });
 
   it('cannot be taken up twice', () => {
-    expect(() => acceptedBy(acceptedBy(offered()))).toThrow(
+    expect(() => acceptedBy(acceptedBy(created()))).toThrow(
       /already been accepted/,
     );
   });
 
   it('cannot be taken up once it has run out', () => {
     expect(() =>
-      offered().acceptBySomeone(
+      created().acceptBySomeone(
         ada,
         EmailAddress.of('ada@example.com'),
         AFTER_IT_RUNS_OUT,
@@ -128,58 +128,60 @@ describe('WorkspaceInvite', () => {
   });
 
   it('cannot be taken up once it has been taken back', () => {
-    expect(() => acceptedBy(offered().revoke(asker, LATER))).toThrow(
+    expect(() => acceptedBy(created().revoke(asker, LATER))).toThrow(
       /been revoked/,
     );
   });
 
   it('is revoked once however often it is asked, and says so once, naming who revoked it', () => {
-    const revoked = offered().revoke(ada, LATER);
+    const revoked = created().revoke(ada, LATER);
 
     expect(revoked.revoke(asker, AFTER_IT_RUNS_OUT)).toBe(revoked);
     expect(revoked.statusAt(LATER)).toBe('revoked');
     expect(revoked.pullEvents()).toMatchObject([
-      { kind: 'workspace-invite.offered' },
+      { kind: 'workspace-invite.created' },
       { kind: 'workspace-invite.revoked', by: ada },
     ]);
   });
 
   it('cannot be taken back once it has been accepted', () => {
-    expect(() => acceptedBy(offered()).revoke(asker, LATER)).toThrow(
+    expect(() => acceptedBy(created()).revoke(asker, LATER)).toThrow(
       /already been accepted/,
     );
   });
 
-  it('sent again carries a new link, its new terms, and a fresh fortnight', () => {
-    const invite = offered();
-    const again = sentAgain(invite, AFTER_IT_RUNS_OUT);
+  it('a resent invite carries a new link, its new terms, and a fresh fortnight', () => {
+    const invite = created();
+    const resentInvite = resent(invite, AFTER_IT_RUNS_OUT);
 
-    expect(again.id).toBe(invite.id);
-    expect(again.tokenHash.value).toBe(hash('b').value);
-    expect(again.terms.role).toBe(WorkspaceRole.admin);
-    expect(again.terms.teams.map((each) => each.value)).toEqual(['team_2']);
-    expect(again.invitedBy).toBe(ada);
-    expect(again.statusAt(AFTER_IT_RUNS_OUT)).toBe('open');
-    expect(again.expiresAt.getTime()).toBeGreaterThan(
+    expect(resentInvite.id).toBe(invite.id);
+    expect(resentInvite.tokenHash.value).toBe(hash('b').value);
+    expect(resentInvite.terms.role).toBe(WorkspaceRole.admin);
+    expect(resentInvite.terms.teams.map((each) => each.value)).toEqual([
+      'team_2',
+    ]);
+    expect(resentInvite.invitedBy).toBe(ada);
+    expect(resentInvite.statusAt(AFTER_IT_RUNS_OUT)).toBe('pending');
+    expect(resentInvite.expiresAt.getTime()).toBeGreaterThan(
       AFTER_IT_RUNS_OUT.getTime(),
     );
-    expect(again.pullEvents()).toMatchObject([
-      { kind: 'workspace-invite.offered', again: false },
-      { kind: 'workspace-invite.offered', again: true },
+    expect(resentInvite.pullEvents()).toMatchObject([
+      { kind: 'workspace-invite.created', resent: false },
+      { kind: 'workspace-invite.created', resent: true },
     ]);
   });
 
-  it('is not sent again once accepted or revoked', () => {
-    expect(() => sentAgain(acceptedBy(offered()))).toThrow(InviteClosedError);
-    expect(() => sentAgain(offered().revoke(asker, LATER))).toThrow(
-      InviteClosedError,
+  it('is not resent once accepted or revoked', () => {
+    expect(() => resent(acceptedBy(created()))).toThrow(InviteNotPendingError);
+    expect(() => resent(created().revoke(asker, LATER))).toThrow(
+      InviteNotPendingError,
     );
   });
 
-  it('counts as closed only once accepted or revoked, not once run out', () => {
-    expect(offered().isClosedAt(AFTER_IT_RUNS_OUT)).toBe(false);
-    expect(offered().revoke(asker, LATER).isClosedAt(LATER)).toBe(true);
-    expect(acceptedBy(offered()).isClosedAt(LATER)).toBe(true);
+  it('counts as ended only once accepted or revoked, not once run out', () => {
+    expect(created().hasEndedAt(AFTER_IT_RUNS_OUT)).toBe(false);
+    expect(created().revoke(asker, LATER).hasEndedAt(LATER)).toBe(true);
+    expect(acceptedBy(created()).hasEndedAt(LATER)).toBe(true);
   });
 
   it('does not rehydrate as both accepted and revoked', () => {
@@ -192,11 +194,11 @@ describe('WorkspaceInvite', () => {
     const read = kept({ acceptedAt: LATER, acceptedBy: null });
 
     expect(read.statusAt(LATER)).toBe('accepted');
-    expect(read.isClosedAt(LATER)).toBe(true);
+    expect(read.hasEndedAt(LATER)).toBe(true);
   });
 
   it('rehydrates with an inviter whose account was since deleted', () => {
-    expect(kept({ invitedBy: null }).statusAt(NOW)).toBe('open');
+    expect(kept({ invitedBy: null }).statusAt(NOW)).toBe('pending');
   });
 
   it('does not rehydrate as accepted by somebody at no time', () => {
@@ -214,11 +216,11 @@ describe('WorkspaceInvite', () => {
 
     expect(acceptedBy(read).version).toBe(4);
     expect(read.revoke(asker, NOW).version).toBe(4);
-    expect(sentAgain(read).version).toBe(4);
+    expect(resent(read).version).toBe(4);
   });
 
-  it('opens a new invite where there is no open one', () => {
-    const { invite, again } = WorkspaceInvite.offerTo(null, {
+  it('creates a new invite where there is no pending one', () => {
+    const { invite, resent } = WorkspaceInvite.createOrResend(null, {
       id: InviteId.of('invite_2'),
       workspaceId: acme,
       email: EmailAddress.of('ada@example.com'),
@@ -228,14 +230,14 @@ describe('WorkspaceInvite', () => {
       now: LATER,
     });
 
-    expect(again).toBe(false);
+    expect(resent).toBe(false);
     expect(invite.id.value).toBe('invite_2');
     expect(invite.invitedAt).toBe(LATER);
   });
 
-  it('sends the open invite again, on the terms asked now, rather than opening a second', () => {
-    const open = kept({ expiresAt: NOW });
-    const { invite, again } = WorkspaceInvite.offerTo(open, {
+  it('resends the pending invite, on the terms asked now, rather than creating a second', () => {
+    const pending = kept({ expiresAt: NOW });
+    const { invite, resent } = WorkspaceInvite.createOrResend(pending, {
       id: InviteId.of('invite_2'),
       workspaceId: acme,
       email: EmailAddress.of('ada@example.com'),
@@ -245,11 +247,11 @@ describe('WorkspaceInvite', () => {
       now: LATER,
     });
 
-    expect(again).toBe(true);
+    expect(resent).toBe(true);
     expect(invite.id.value).toBe('invite_1');
     expect(invite.terms.invitedAs).toBe('admin');
     expect(invite.invitedBy).toBe(ada);
-    expect(invite.statusAt(LATER)).toBe('open');
+    expect(invite.statusAt(LATER)).toBe('pending');
   });
 
   it('tells its status from when it was accepted, revoked and runs out', () => {
@@ -263,7 +265,7 @@ describe('WorkspaceInvite', () => {
         NOW,
       );
 
-    expect(status({})).toBe('open');
+    expect(status({})).toBe('pending');
     expect(status({ acceptedAt: NOW })).toBe('accepted');
     expect(status({ revokedAt: NOW })).toBe('revoked');
     expect(

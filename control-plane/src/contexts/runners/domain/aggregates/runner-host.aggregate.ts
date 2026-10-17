@@ -12,7 +12,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const ONLINE_WITHIN_MS = 90_000;
 
-const STALE_AFTER_MS = 24 * 60 * 60_000;
+const HOST_RETENTION_MS = 24 * 60 * 60_000;
 
 interface State {
   readonly id: HostId;
@@ -131,7 +131,7 @@ export class RunnerHost extends EventRecorder {
   }
 
   static staleBefore(now: Date): Date {
-    return new Date(now.getTime() - STALE_AFTER_MS);
+    return new Date(now.getTime() - HOST_RETENTION_MS);
   }
 
   get version(): number {

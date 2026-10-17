@@ -1,5 +1,5 @@
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import type { EvidencePort } from '@outcomes/application/ports/evidence.port';
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
 import type { JudgePort } from '@outcomes/application/ports/judge.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import { Judging } from '@outcomes/domain/aggregates/judging.aggregate';
@@ -31,7 +31,7 @@ export class AskForJudging {
     private readonly evidence: EvidencePort,
     private readonly judge: JudgePort,
     private readonly judgings: JudgingRepository,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -69,11 +69,11 @@ export class AskForJudging {
       const taskId = TaskId.of(run.taskId);
       const teamId = TeamId.of(run.teamId);
 
-      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
+      await this.deletions.lockDeletion(workspaceId, taskId, teamId);
 
       if (
         (await this.judgings.of(runId)) ||
-        (await this.forgotten.forgot(workspaceId, taskId, teamId))
+        (await this.deletions.isDeleted(workspaceId, taskId, teamId))
       ) {
         return;
       }

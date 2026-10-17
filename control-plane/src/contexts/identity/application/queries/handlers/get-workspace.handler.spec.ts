@@ -41,17 +41,17 @@ describe('GetWorkspaceHandler', () => {
     ).resolves.toEqual({ ...acme, provisioning: 'done' });
   });
 
-  it('says whether Spotlight still opens the first team of the workspace', async () => {
-    const opening: WorkspaceProvisioningPort = {
+  it('says whether Spotlight still creates the first team of the workspace', async () => {
+    const provisioning: WorkspaceProvisioningPort = {
       of: vi.fn().mockResolvedValue('pending'),
     };
 
     await expect(
-      new GetWorkspaceHandler(reader(acme), opening).execute(
+      new GetWorkspaceHandler(reader(acme), provisioning).execute(
         new GetWorkspaceQuery('acme-inc', 'user_1'),
       ),
     ).resolves.toMatchObject({ provisioning: 'pending' });
-    expect(opening.of).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
+    expect(provisioning.of).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
   });
 
   it('asks only for workspaces the viewer belongs to', async () => {

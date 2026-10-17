@@ -1,7 +1,7 @@
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
-import { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
+import { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -376,15 +376,15 @@ export class StackCheck extends EventRecorder {
     );
   }
 
-  forgotten(now: Date): StackCheck {
-    const forgotten = this.droppingReservation();
+  delete(now: Date): StackCheck {
+    const deleted = this.droppingReservation();
 
     if (!this.claim.isLeasedAt(now)) {
-      return forgotten;
+      return deleted;
     }
 
-    const released = forgotten.with({ claim: this.claim.released() });
-    released.record(new LeasedCheckForgotten(this.stackId));
+    const released = deleted.with({ claim: this.claim.released() });
+    released.record(new LeasedCheckDeleted(this.stackId));
 
     return released;
   }

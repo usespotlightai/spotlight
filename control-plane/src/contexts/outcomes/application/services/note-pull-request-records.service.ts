@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import {
   PullRequestRecord,
   type SeenPullRequest,
@@ -17,7 +17,7 @@ export interface PullRequestSeen {
   readonly seen: SeenPullRequest;
 }
 
-export interface PullRequestForgottenByGitHub {
+export interface PullRequestPurgedByGitHub {
   readonly workspaceId: WorkspaceId;
   readonly pullRequest: PullRequestUrl;
   readonly updatedAt: Date;
@@ -39,23 +39,23 @@ export interface PullRequestReviewed {
 export class NotePullRequestRecords {
   constructor(
     private readonly records: PullRequestRecordRepository,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
   seen(seen: PullRequestSeen): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(seen.workspaceId, null);
-      await this.forgotten.lockForgettingPullRequest(
+      await this.deletions.lockDeletion(seen.workspaceId, null);
+      await this.deletions.lockPullRequestDeletion(
         seen.workspaceId,
         seen.pullRequest,
       );
 
-      if (await this.forgotten.forgot(seen.workspaceId, null)) {
+      if (await this.deletions.isDeleted(seen.workspaceId, null)) {
         return;
       }
 
-      const tombstone = await this.forgotten.tombstoneOf(
+      const tombstone = await this.deletions.tombstoneOf(
         seen.workspaceId,
         seen.pullRequest,
       );
@@ -70,33 +70,33 @@ export class NotePullRequestRecords {
     });
   }
 
-  forgottenByGitHub(forgotten: PullRequestForgottenByGitHub): Promise<void> {
+  purgedByGitHub(purged: PullRequestPurgedByGitHub): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(forgotten.workspaceId, null);
-      await this.forgotten.lockForgettingPullRequest(
-        forgotten.workspaceId,
-        forgotten.pullRequest,
+      await this.deletions.lockDeletion(purged.workspaceId, null);
+      await this.deletions.lockPullRequestDeletion(
+        purged.workspaceId,
+        purged.pullRequest,
       );
 
-      if (await this.forgotten.forgot(forgotten.workspaceId, null)) {
+      if (await this.deletions.isDeleted(purged.workspaceId, null)) {
         return;
       }
 
-      await this.forgotten.forgetPullRequest(
-        forgotten.workspaceId,
-        forgotten.pullRequest,
-        { updatedAt: forgotten.updatedAt },
+      await this.deletions.deletePullRequest(
+        purged.workspaceId,
+        purged.pullRequest,
+        { updatedAt: purged.updatedAt },
       );
       const existing = await this.records.at(
-        forgotten.workspaceId,
-        forgotten.pullRequest,
+        purged.workspaceId,
+        purged.pullRequest,
       );
 
       if (!existing) {
         return;
       }
 
-      const kept = existing.forgottenByGitHub(forgotten.updatedAt);
+      const kept = existing.purgedByGitHub(purged.updatedAt);
 
       if (kept === null) {
         await this.records.remove(existing);
@@ -108,18 +108,18 @@ export class NotePullRequestRecords {
 
   owned(owned: PullRequestOwned): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(
+      await this.deletions.lockDeletion(
         owned.workspaceId,
         owned.taskId,
         owned.teamId,
       );
-      await this.forgotten.lockForgettingPullRequest(
+      await this.deletions.lockPullRequestDeletion(
         owned.workspaceId,
         owned.pullRequest,
       );
 
       if (
-        await this.forgotten.forgot(
+        await this.deletions.isDeleted(
           owned.workspaceId,
           owned.taskId,
           owned.teamId,
@@ -136,16 +136,15 @@ export class NotePullRequestRecords {
 
   reviewed(reviewed: PullRequestReviewed): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(
-        reviewed.workspaceId,
-        reviewed.taskId,
-      );
-      await this.forgotten.lockForgettingPullRequest(
+      await this.deletions.lockDeletion(reviewed.workspaceId, reviewed.taskId);
+      await this.deletions.lockPullRequestDeletion(
         reviewed.workspaceId,
         reviewed.pullRequest,
       );
 
-      if (await this.forgotten.forgot(reviewed.workspaceId, reviewed.taskId)) {
+      if (
+        await this.deletions.isDeleted(reviewed.workspaceId, reviewed.taskId)
+      ) {
         return;
       }
 

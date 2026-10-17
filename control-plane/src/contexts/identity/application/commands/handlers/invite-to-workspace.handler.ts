@@ -28,7 +28,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -56,7 +56,7 @@ export class InviteToWorkspaceHandler
     private readonly teams: TeamRepository,
     private readonly members: MemberDirectoryPort,
     private readonly sending: InviteSending,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
@@ -139,21 +139,21 @@ export class InviteToWorkspaceHandler
   }
 
   private async written(asked: Asked): Promise<Written> {
-    const minted = this.tokens.mint();
-    const { invite, again } = WorkspaceInvite.offerTo(
-      await this.invites.openTo(asked.workspace.id, asked.email),
+    const newToken = this.tokens.issue();
+    const { invite, resent } = WorkspaceInvite.createOrResend(
+      await this.invites.notEndedTo(asked.workspace.id, asked.email),
       {
         id: InviteId.of(this.ids.generate()),
         workspaceId: asked.workspace.id,
         email: asked.email,
         terms: asked.terms,
-        tokenHash: TokenHash.of(minted.hash),
+        tokenHash: TokenHash.of(newToken.hash),
         invitedBy: asked.by,
         now: this.clock.now(),
       },
     );
 
-    if (again) {
+    if (resent) {
       await this.invites.save(invite);
     } else {
       await this.invites.add(invite);
@@ -161,8 +161,8 @@ export class InviteToWorkspaceHandler
 
     return {
       invite,
-      token: minted.token,
-      outcome: again ? 'sent-again' : 'invited',
+      token: newToken.token,
+      outcome: resent ? 'resent' : 'invited',
     };
   }
 }

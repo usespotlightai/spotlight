@@ -36,7 +36,7 @@ const resolving = (configured = '{}') => {
       save: async (registration: OAuth2ClientRegistration) => {
         stored = registration;
       },
-      forgetTeam: async () => {},
+      deleteForTeam: async () => {},
     } as OAuth2ClientRegistrationRepository,
     { register } as OAuth2ClientRegistrarPort,
     {

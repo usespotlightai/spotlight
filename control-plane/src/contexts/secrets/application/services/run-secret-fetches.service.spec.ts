@@ -59,7 +59,7 @@ const setUp = async () => {
 
   const kept = async (id: string, secret: Parameters<typeof definition>[0]) =>
     secrets.save(
-      Secret.set(definition(secret), {
+      Secret.create(definition(secret), {
         id: SecretId.of(id),
         workspaceId: WORKSPACE,
         by: BY,
@@ -179,7 +179,7 @@ describe('RunSecretFetches', () => {
     expect(fetched.denied).toEqual([
       {
         secret: 'NOWHERE',
-        reason: 'Secret NOWHERE not found. Please define it first.',
+        reason: 'Secret NOWHERE not found. Please create it first.',
       },
       {
         secret: 'LOOSE',

@@ -41,7 +41,7 @@ export function NewTaskDialog({
 
   const uncreatable = !title.trim() || draft.uploading;
 
-  const forget = () => {
+  const reset = () => {
     setTitle('');
     description.current = '';
     draft.clear();
@@ -61,7 +61,7 @@ export function NewTaskDialog({
     });
 
     if (more) {
-      forget();
+      reset();
     } else {
       onOpenChange(false);
     }
@@ -71,7 +71,7 @@ export function NewTaskDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(open) => !open && forget()}
+      onOpenChangeComplete={(open) => !open && reset()}
     >
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>

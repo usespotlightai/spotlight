@@ -2,12 +2,12 @@ import type {
   Invalid,
   Rejected,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { LineProblems } from '@work/application/rendering/line-problems';
 import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
-import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
 import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
 
@@ -26,10 +26,10 @@ export const lineRejection = (
     };
   }
 
-  if (error instanceof LineKeyFixedError) {
+  if (error instanceof ImmutableFieldError) {
     return {
       outcome: 'invalid',
-      problems: [LineProblems.keyFixed(error.key, error.because)],
+      problems: [LineProblems.immutableField(key, error.field, error.because)],
     };
   }
 

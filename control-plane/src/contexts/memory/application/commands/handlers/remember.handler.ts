@@ -138,7 +138,7 @@ export class RememberHandler
       const found = await this.drafts.forTask(remembering.taskId);
       const draft =
         found ??
-        MemoryDraft.open({
+        MemoryDraft.create({
           id: MemoryDraftId.of(this.ids.generate()),
           taskId: remembering.taskId,
           workspaceId: task.workspaceId,

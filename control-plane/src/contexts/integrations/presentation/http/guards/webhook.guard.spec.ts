@@ -119,7 +119,7 @@ describe('WebhookGuard', () => {
   it('turns away a delivery it could not verify, telling only the log why', async () => {
     const github = source(() => {
       throw new Error(
-        'Secret GITHUB_SECRET not found. Please define it first.',
+        'Secret GITHUB_SECRET not found. Please create it first.',
       );
     });
     const { guard, context, logger } = asking(delivered(), [github]);
@@ -130,7 +130,7 @@ describe('WebhookGuard', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       {
         source: 'github',
-        error: 'Secret GITHUB_SECRET not found. Please define it first.',
+        error: 'Secret GITHUB_SECRET not found. Please create it first.',
       },
       'A webhook delivery could not be verified',
     );

@@ -10,6 +10,6 @@ export const heardInMemory = (): HeardHappeningsPort => {
       heard.add(`${workspaceId.value}/${key}`);
       return first;
     },
-    forgetBefore: async () => 0,
+    purgeBefore: async () => 0,
   };
 };

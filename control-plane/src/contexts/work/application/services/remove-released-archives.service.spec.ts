@@ -112,7 +112,7 @@ describe('RemoveReleasedArchives', () => {
     expect(logger.error).not.toHaveBeenCalled();
   });
 
-  it('forgets the archive and says so when storage could not delete its object', async () => {
+  it('removes the archive record and says so when storage could not delete its object', async () => {
     const { archives, store, service, logger } = await setUp(async () => [
       {
         id: WorkspaceArchiveId.of('gone'),

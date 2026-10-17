@@ -3,7 +3,7 @@ import type { IdentityDefinitionsPort } from '@identity/application/ports/identi
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
-import { TokenTrustAlreadyDefinedError } from '@identity/domain/exceptions/token-trust-already-defined.error';
+import { TokenTrustAlreadyExistsError } from '@identity/domain/exceptions/token-trust-already-exists.error';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
 import { Grantor } from '@identity/domain/value-objects/grantor.vo';
@@ -75,18 +75,18 @@ export class CreateWorkspaceTokenTrustHandler
       try {
         return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
-            const defined = WorkspaceTokenTrust.define({
+            const created = WorkspaceTokenTrust.create({
               ...compiled.terms,
               id: WorkspaceTokenTrustId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
-              definedBy: principal.userId,
+              createdBy: principal.userId,
               grantor: Grantor.of(principal),
               by: Attribution.of(command.actor, permissions.workspaceId),
             });
 
-            await this.trusts.add(defined);
+            await this.trusts.add(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
@@ -94,7 +94,7 @@ export class CreateWorkspaceTokenTrustHandler
           return forbiddenTo('manage-token-trusts');
         }
 
-        if (error instanceof TokenTrustAlreadyDefinedError) {
+        if (error instanceof TokenTrustAlreadyExistsError) {
           return { outcome: 'taken', address: compiled.terms.key.value };
         }
 

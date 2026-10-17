@@ -216,7 +216,7 @@ describe('RunRecord', () => {
     ).toThrow(InvalidOutcomeError);
   });
 
-  it('forgets an approval answered after the moment it is read as of', () => {
+  it('leaves out an approval answered after the moment it is read as of', () => {
     const approved = endedRecord('run_1').recordAction(
       NextAct.of('approved', LATER),
     );

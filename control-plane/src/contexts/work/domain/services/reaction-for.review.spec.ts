@@ -36,7 +36,7 @@ const openingFor = (role: LineRole) => {
 };
 
 const lineOf = (role: LineRole) =>
-  Line.open({
+  Line.create({
     by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),

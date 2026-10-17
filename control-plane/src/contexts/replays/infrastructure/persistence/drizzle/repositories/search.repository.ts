@@ -428,7 +428,7 @@ export class DrizzleSearchRepository implements SearchRepository {
         eq(replaySearch.id, saved.id.value),
         eq(replaySearch.version, saved.version),
       );
-      const written = saved.isAbandoned
+      const written = saved.isDeleted
         ? await this.context.db
             .delete(replaySearch)
             .where(at)
@@ -443,7 +443,7 @@ export class DrizzleSearchRepository implements SearchRepository {
         throw new SearchVersionConflictError(saved.id.value);
       }
 
-      if (!saved.isAbandoned) {
+      if (!saved.isDeleted) {
         await this.writeIterations(saved);
       }
       await this.events.dispatch(saved.pullEvents());

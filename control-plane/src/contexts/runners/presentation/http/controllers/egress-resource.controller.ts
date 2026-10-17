@@ -131,7 +131,7 @@ export class EgressResourceController {
   @CREATED
   @EgressResource.Create(
     'workspaces/:workspaceId/egresses',
-    'Define an egress that the runners of push pools send their traffic through',
+    'Create an egress that the runners of push pools send their traffic through',
   )
   @WORKSPACE
   @DEFINITION
@@ -190,7 +190,7 @@ export class EgressResourceController {
 
   @EgressResource.Delete(
     'egresses/:id',
-    'Retire an egress that no runner pool names',
+    'Delete an egress that no runner pool names',
   )
   @ID
   async delete(

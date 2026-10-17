@@ -47,7 +47,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const TOKEN_HEADER = 'spotlight-workspace-token';
 const CONFIG = 'a'.repeat(64);
@@ -67,8 +67,8 @@ const ago = (minutes: number) => new Date(NOW - minutes * MINUTE);
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
-let elsewhere: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
+let elsewhere: Awaited<ReturnType<typeof createTeam>>;
 const TASK = TaskId.of(randomUUID());
 const RUN = RunId.of(randomUUID());
 const NEXT = randomUUID();
@@ -83,7 +83,7 @@ const bearing = (path: string, token: string) =>
   served(app).get(path).set('Authorization', `Bearer ${token}`);
 
 const issued = async (
-  of: Awaited<ReturnType<typeof openTeam>>,
+  of: Awaited<ReturnType<typeof createTeam>>,
   scopes: readonly string[],
 ): Promise<string> => {
   const answer = await served(app)
@@ -101,8 +101,8 @@ beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
   const tasks = app.get(DrizzleTaskRepository);
-  team = await openTeam(db, tasks, `insights-${randomUUID().slice(0, 8)}`);
-  elsewhere = await openTeam(
+  team = await createTeam(db, tasks, `insights-${randomUUID().slice(0, 8)}`);
+  elsewhere = await createTeam(
     db,
     tasks,
     `elsewhere-${randomUUID().slice(0, 8)}`,

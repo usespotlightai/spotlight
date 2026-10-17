@@ -15,7 +15,7 @@ import {
   type PairJudgeAsk,
   type PairJudgePort,
 } from '@outcomes/application/ports/pair-judge.port';
-import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import { WorkPairJudgings } from '@outcomes/application/services/work-pair-judgings.service';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
@@ -51,7 +51,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-pairing-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -188,7 +188,7 @@ const pairJudge: PairJudgePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
@@ -454,7 +454,7 @@ beforeAll(async () => {
       .useValue(pairJudge),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `pairing-${randomUUID().slice(0, 8)}`,
@@ -561,10 +561,10 @@ describe('a replay at a station whose judge goes by claims', () => {
       await anOriginal('Drain queue second'),
       await anOriginal('Drain queue third'),
     ];
-    const opened = await owner()
+    const created = await owner()
       .post(`${stationPath()}/replay-sets`, { name: 'Paired' })
       .expect(201);
-    const setId = opened.body.id as string;
+    const setId = created.body.id as string;
     for (const each of originals) {
       await owner()
         .post(`${teamPath()}/replay-sets/${setId}/entries`, {
@@ -807,7 +807,7 @@ describe('a replay at a station whose judge goes by claims', () => {
     ).toHaveLength(3);
 
     await app
-      .get(ForgetOutcomes)
+      .get(DeleteOutcomes)
       .judgingsAndScoresOfTeam(team.workspaceId, team.teamId);
     expect(
       await db

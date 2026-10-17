@@ -10,14 +10,14 @@ export interface RetainedPullRequest {
   readonly updatedAt: Date;
 }
 
-export const forgettableBefore = (now: Date): Date =>
+export const retentionCutoff = (now: Date): Date =>
   new Date(now.getTime() - PULL_REQUEST_RETENTION_DAYS * DAY_MS);
 
 export const pastRetention = (
   pullRequest: RetainedPullRequest,
   now: Date,
 ): boolean => {
-  const before = forgettableBefore(now).getTime();
+  const before = retentionCutoff(now).getTime();
 
   if (pullRequest.state !== 'open') {
     return (

@@ -1,16 +1,16 @@
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import { LineOpened } from '@work/domain/events/line-opened.event';
-import { LineRedefined } from '@work/domain/events/line-redefined.event';
+import { LineCreated } from '@work/domain/events/line-created.event';
+import { LineDeleted } from '@work/domain/events/line-deleted.event';
 import { LineRepositoriesChanged } from '@work/domain/events/line-repositories-changed.event';
-import { LineRetired } from '@work/domain/events/line-retired.event';
+import { LineUpdated } from '@work/domain/events/line-updated.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
-import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import {
@@ -101,9 +101,9 @@ const sends = (to: string, from?: string) =>
     to: StationId.of(to),
   });
 
-const opened = () => {
+const created = () => {
   let next = 0;
-  return Line.open({
+  return Line.create({
     by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -198,12 +198,12 @@ describe('Line', () => {
     expect(moved.image?.equals(image)).toBe(true);
   });
 
-  it('takes the name of the line it opens', () => {
-    expect(opened().name.value).toBe('Delivery');
+  it('takes the name of the line it creates', () => {
+    expect(created().name.value).toBe('Delivery');
   });
 
-  it('opens with the stations a line is made of, left to right', () => {
-    const line = opened();
+  it('starts with the stations a line is made of, left to right', () => {
+    const line = created();
 
     expect(line.stations.map((each) => each.name.value)).toEqual(
       BUILT_IN_STATIONS.map((each) => each.name.value),
@@ -213,40 +213,40 @@ describe('Line', () => {
     ]);
   });
 
-  it('opens each station with what it is there to do', () => {
-    expect(opened().worked[0]?.agentPrompt?.value).toBe(
+  it('creates each station with what it is there to do', () => {
+    expect(created().worked[0]?.agentPrompt?.value).toBe(
       BUILT_IN_STATIONS[1]?.agentPrompt?.value,
     );
   });
 
   it('gives the line and each of its stations an identity of its own', () => {
-    const line = opened();
+    const line = created();
     const ids = [line.id.value, ...line.stations.map((each) => each.id.value)];
 
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('belongs to the workspace and team that opened it', () => {
-    const line = opened();
+  it('belongs to the workspace and team that created it', () => {
+    const line = created();
 
     expect(line.workspaceId).toEqual(WorkspaceId.of('ws_1'));
     expect(line.teamId).toEqual(TeamId.of('team_1'));
   });
 
   describe('the backlog it always has', () => {
-    it('opens with one, whoever asked', () => {
-      const line = opened();
+    it('starts with one, whoever asked', () => {
+      const line = created();
 
       expect(line.backlog.name.value).toBe('Backlog');
       expect(line.backlog.isBacklog).toBe(true);
     });
 
     it('puts it first, where a task waits to be started', () => {
-      expect(opened().backlog.position).toBe(0);
+      expect(created().backlog.position).toBe(0);
     });
 
     it('leaves it out of the stations work moves through', () => {
-      const line = opened();
+      const line = created();
 
       expect(line.worked.map((each) => each.name.value)).toEqual(
         BUILT_IN_STATIONS.filter((each) => each.kind === 'work').map(
@@ -256,7 +256,7 @@ describe('Line', () => {
     });
 
     it('does not run anything at it', () => {
-      const line = opened();
+      const line = created();
 
       expect(() =>
         line.changeStationHarness(line.backlog.id, {
@@ -266,7 +266,7 @@ describe('Line', () => {
     });
 
     it('cannot be told anything, having nothing there to tell', () => {
-      const line = opened();
+      const line = created();
 
       expect(() =>
         line.instructStation(line.backlog.id, AgentPrompt.of('## Sort it')),
@@ -274,7 +274,7 @@ describe('Line', () => {
     });
 
     it('still takes a new name', () => {
-      const line = opened();
+      const line = created();
       const renamed = line.renameStation(
         line.backlog.id,
         StationName.of('Inbox'),
@@ -299,21 +299,21 @@ describe('Line', () => {
   });
 
   describe('the completed it always has', () => {
-    it('opens with one, whoever asked', () => {
-      const line = opened();
+    it('starts with one, whoever asked', () => {
+      const line = created();
 
       expect(line.completed.name.value).toBe('Completed');
       expect(line.completed.isCompleted).toBe(true);
     });
 
     it('puts it last, where a merged task lands', () => {
-      const line = opened();
+      const line = created();
 
       expect(line.completed.position).toBe(line.stations.length - 1);
     });
 
     it('leaves it out of the stations work moves through', () => {
-      const line = opened();
+      const line = created();
 
       expect(line.worked.map((each) => each.name.value)).toEqual(
         BUILT_IN_STATIONS.filter((each) => each.kind === 'work').map(
@@ -323,7 +323,7 @@ describe('Line', () => {
     });
 
     it('does not run anything at it', () => {
-      const line = opened();
+      const line = created();
 
       expect(() =>
         line.changeStationHarness(line.completed.id, {
@@ -333,7 +333,7 @@ describe('Line', () => {
     });
 
     it('cannot be told anything, having nothing there to tell', () => {
-      const line = opened();
+      const line = created();
 
       expect(() =>
         line.instructStation(line.completed.id, AgentPrompt.of('## Sort it')),
@@ -358,8 +358,8 @@ describe('Line', () => {
   });
 
   describe('the way work moves through it', () => {
-    it('opens with the ways out it is laid out with', () => {
-      const line = opened();
+    it('starts with the ways out it is laid out with', () => {
+      const line = created();
       const named = (name: string) =>
         line.stations
           .find((each) => each.name.value === name)
@@ -375,7 +375,7 @@ describe('Line', () => {
     });
 
     it('lets one station end the line, and no other', () => {
-      const finishing = opened()
+      const finishing = created()
         .stations.filter((each) => each.wayOut.ends)
         .map((each) => each.name.value);
 
@@ -420,7 +420,7 @@ describe('Line', () => {
     };
 
     it('is the shortest distance from the backlog along the flow', () => {
-      const line = opened();
+      const line = created();
 
       expect(depth(line, 'Backlog')).toBe(0);
       expect(depth(line, 'Triage')).toBe(1);
@@ -429,19 +429,19 @@ describe('Line', () => {
     });
 
     it('puts a fork’s branches at the same depth', () => {
-      const line = opened();
+      const line = created();
 
       expect(depth(line, 'Implementation')).toBe(depth(line, 'Spec'));
     });
 
     it('does not count rework that loops back', () => {
-      const line = opened();
+      const line = created();
 
       expect(depth(line, 'Implementation')).toBe(2);
     });
 
     it('puts what finishes the line last of all', () => {
-      const line = opened();
+      const line = created();
       const furthest = Math.max(
         ...line.worked.map((each) => line.depthOf(each.id)),
       );
@@ -451,13 +451,13 @@ describe('Line', () => {
   });
 
   describe('what it waits for from outside', () => {
-    const somewhere = () => opened().stations[1]?.id as StationId;
+    const somewhere = () => created().stations[1]?.id as StationId;
 
     const named = (line: Line, reaction: { to: StationId } | null) =>
       reaction ? line.stationAt(reaction.to)?.name.value : null;
 
     it('sends a happening to the station set to wait for it', () => {
-      const line = opened();
+      const line = created();
 
       expect(
         named(
@@ -481,7 +481,7 @@ describe('Line', () => {
 
     it('sends a happening nobody waits for nowhere', () => {
       expect(
-        opened().reactionTo(
+        created().reactionTo(
           Happening.of('github.pull_request.closed-unmerged'),
           somewhere(),
         ),
@@ -588,7 +588,7 @@ describe('Line', () => {
 
   describe('the harness its stations run on', () => {
     it('runs every work station on the one chosen, leaving the rest alone', () => {
-      const line = opened().runsOn(
+      const line = created().runsOn(
         HarnessId.of('claude-code'),
         HarnessModel.of('claude-sonnet-5'),
       );
@@ -604,7 +604,7 @@ describe('Line', () => {
     });
 
     it('takes the harness off every work station when given none', () => {
-      const line = opened()
+      const line = created()
         .runsOn(HarnessId.of('claude-code'), HarnessModel.of('claude-sonnet-5'))
         .runsOn(null, null);
 
@@ -658,7 +658,7 @@ describe('Line, the stations it names by key', () => {
 
 describe('Line, where work may be passed on to', () => {
   const running = () =>
-    opened().runsOn(
+    created().runsOn(
       HarnessId.of('claude-code'),
       HarnessModel.of('claude-sonnet-5'),
     );
@@ -683,7 +683,7 @@ describe('Line, where work may be passed on to', () => {
   });
 
   it('denies passing work to a station nothing runs at', () => {
-    const line = opened();
+    const line = created();
 
     expect(line.passDenial(keyed(line, 'triage').id, keyed(line, 'spec'))).toBe(
       'nothing-runs',
@@ -895,7 +895,7 @@ describe('Line, what it records of its changes', () => {
 
   describe('as a resource', () => {
     const kept = (version = 3) => {
-      const line = opened();
+      const line = created();
 
       return Line.rehydrate({
         id: line.id,
@@ -909,11 +909,11 @@ describe('Line, what it records of its changes', () => {
       });
     };
 
-    it('says it opened', () => {
-      const line = opened();
+    it('says it was created', () => {
+      const line = created();
 
       expect(line.pullEvents()).toEqual([
-        new LineOpened(
+        new LineCreated(
           line.id,
           line.workspaceId,
           line.teamId,
@@ -926,9 +926,9 @@ describe('Line, what it records of its changes', () => {
       ]);
     });
 
-    it('says it was redefined when laid out again', () => {
+    it('says it was updated when laid out again', () => {
       const line = kept();
-      const relaid = line.relaidAs(
+      const updated = line.update(
         {
           key: line.key,
           name: line.name,
@@ -938,8 +938,8 @@ describe('Line, what it records of its changes', () => {
         attributedIn(),
       );
 
-      expect(relaid.pullEvents()).toContainEqual(
-        new LineRedefined(
+      expect(updated.pullEvents()).toContainEqual(
+        new LineUpdated(
           line.id,
           line.workspaceId,
           line.teamId,
@@ -953,9 +953,9 @@ describe('Line, what it records of its changes', () => {
       );
     });
 
-    it('names the stations it had and has when redefined, so a dropped station is told too', () => {
+    it('names the stations it had and has when updated, so a removed station is told too', () => {
       const line = lineOf([at(1), at(2)]);
-      const relaid = line.relaidAs(
+      const updated = line.update(
         {
           key: line.key,
           name: line.name,
@@ -964,11 +964,11 @@ describe('Line, what it records of its changes', () => {
         },
         attributedIn(),
       );
-      const [redefined] = relaid
+      const [lineUpdated] = updated
         .pullEvents()
-        .filter((each) => each instanceof LineRedefined);
+        .filter((each) => each instanceof LineUpdated);
 
-      expect(redefined?.stationIds.map((each) => each.value).sort()).toEqual([
+      expect(lineUpdated?.stationIds.map((each) => each.value).sort()).toEqual([
         'backlog_1',
         'completed_1',
         'station_1',
@@ -985,7 +985,7 @@ describe('Line, what it records of its changes', () => {
       const line = kept();
 
       expect(() =>
-        line.relaidAs(
+        line.update(
           {
             key: LineKey.of('shipping'),
             name: line.name,
@@ -994,16 +994,16 @@ describe('Line, what it records of its changes', () => {
           },
           attributedIn(),
         ),
-      ).toThrow(LineKeyFixedError);
+      ).toThrow(ImmutableFieldError);
     });
 
-    it('retires once no task is on it, and says so', () => {
+    it('is deleted once no task is on it, and says so', () => {
       const line = kept();
-      const retired = line.retire(new Map(), attributedIn());
+      const deleted = line.delete(new Map(), attributedIn());
 
-      expect(retired.isRetired).toBe(true);
-      expect(retired.pullEvents()).toEqual([
-        new LineRetired(
+      expect(deleted.isDeleted).toBe(true);
+      expect(deleted.pullEvents()).toEqual([
+        new LineDeleted(
           line.id,
           line.workspaceId,
           line.teamId,
@@ -1015,18 +1015,18 @@ describe('Line, what it records of its changes', () => {
           line.stations.map((each) => each.id),
         ),
       ]);
-      expect(() => retired.worksIn([])).toThrow(/after it retired/);
+      expect(() => deleted.worksIn([])).toThrow(/after it was deleted/);
     });
 
-    it('will not retire while tasks are on it, naming where', () => {
+    it('will not delete while tasks are on it, naming where', () => {
       const line = kept();
       const [, working] = line.stations;
 
       expect(() =>
-        line.retire(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
+        line.delete(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
       ).toThrow(LineInUseError);
       expect(() =>
-        line.retire(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
+        line.delete(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
       ).toThrow(`${working?.name.value} (2)`);
     });
   });

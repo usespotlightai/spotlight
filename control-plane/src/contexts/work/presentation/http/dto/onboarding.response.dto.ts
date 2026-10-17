@@ -75,7 +75,7 @@ export class SetupChatResponseDto {
 export class OnboardingResponseDto {
   @ApiProperty({
     description:
-      'Whether Spotlight has opened the first lines and the setup task of the team. The value is failed after Spotlight stopped its attempts.',
+      'Whether Spotlight has created the first lines and opened the setup task of the team. The value is failed after Spotlight stopped its attempts.',
     enum: PROVISIONINGS,
     example: 'done',
   })

@@ -6,7 +6,7 @@ import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import type { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
-import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
+import type { DeleteTaskAcrossAggregates } from '@change-review/application/services/delete-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
@@ -17,7 +17,7 @@ import type { CheckReservationDropped } from '@change-review/domain/events/check
 import type { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import type { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
 import type { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
-import type { LeasedCheckForgotten } from '@change-review/domain/events/leased-check-forgotten.event';
+import type { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
 import type { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
 import type { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
 import type { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
@@ -62,7 +62,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 export const changeReviewSubscribers = (
   reactions: ChangeStackReactions,
   announcer: ChangeStackAnnouncerPort,
-  forgetting: ForgetTaskAcrossAggregates,
+  deleting: DeleteTaskAcrossAggregates,
   reviews: ReviewReactions,
   receiving: ReceiveReviewComment,
   signalling: SignalReviewing,
@@ -77,9 +77,9 @@ export const changeReviewSubscribers = (
     ['change-stack.checked', 'change-stack.layers-failed-check'],
     (event) => runners.released(event.stackId),
   ),
-  subscribing<LeasedCheckForgotten>(
-    'change-review.release-runner-of-forgotten-check',
-    ['change-stack.leased-check-forgotten'],
+  subscribing<LeasedCheckDeleted>(
+    'change-review.release-runner-of-deleted-check',
+    ['change-stack.leased-check-deleted'],
     (event) => runners.released(event.stackId),
   ),
   subscribing<CheckReservationDropped>(
@@ -171,9 +171,9 @@ export const changeReviewSubscribers = (
     (event) => decisions.onPullRequestOpened(TaskId.of(event.taskId)),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'change-review.forget-task',
+    'change-review.delete-task',
     [TASK_DELETED],
-    (event) => forgetting.forget(TaskId.of(event.taskId)),
+    (event) => deleting.deleteTask(TaskId.of(event.taskId)),
   ),
   subscribing<ReviewSubmitted>(
     'change-review.post-review',

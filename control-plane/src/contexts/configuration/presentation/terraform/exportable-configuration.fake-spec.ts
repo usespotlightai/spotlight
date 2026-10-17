@@ -348,7 +348,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       id: 'declared_acme',
       address: 'acme',
       trusts: ['production-cluster'],
-      pools: ['burst', 'k8s-jobs', 'retired'],
+      pools: ['burst', 'k8s-jobs', 'deleted'],
     },
     {
       kind: 'team',

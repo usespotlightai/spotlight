@@ -34,11 +34,11 @@ export class NetworkCallsWorker implements OnModuleDestroy {
   private async tended(): Promise<void> {
     try {
       await this.calls.expireDue();
-      await this.calls.forgetCompleted();
+      await this.calls.purgeCompleted();
     } catch (error) {
       this.logger.error(
         { err: error },
-        'Expiring or forgetting network calls failed',
+        'Expiring or purging network calls failed',
       );
     }
   }

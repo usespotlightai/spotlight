@@ -78,12 +78,12 @@ const fresh = (prefix: string): string => {
   return `${prefix}_${made}`;
 };
 
-const opened = (
+const created = (
   role: LineRole,
   over: Partial<LineOpening> = {},
   repositories: readonly string[] = [],
 ) =>
-  Line.open({
+  Line.create({
     by: attributedIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -101,7 +101,7 @@ const opened = (
     );
 
 const reviewing = (over: Partial<LineOpening> = {}, repositories?: string[]) =>
-  opened(LineRole.REVIEW, over, repositories);
+  created(LineRole.REVIEW, over, repositories);
 
 const asked = (
   asking: 'opened' | 'mentioned',
@@ -230,7 +230,7 @@ describe('ReactToHappenings, asked for a review', () => {
   it('opens a task reviewing a pull request as it opens, on the line that reviews them', async () => {
     const line = reviewing({ reviews: policy('opened') });
     const { react, added, dispatched } = world({
-      lines: [opened(LineRole.DELIVERY), line],
+      lines: [created(LineRole.DELIVERY), line],
     });
 
     await react(asked('opened'));
@@ -301,7 +301,7 @@ describe('ReactToHappenings, asked for a review', () => {
 
   it('opens nothing where no line reviews pull requests', async () => {
     const { react, added } = world({
-      lines: [opened(LineRole.DELIVERY), reviewing({ reviews: null })],
+      lines: [created(LineRole.DELIVERY), reviewing({ reviews: null })],
     });
 
     await react(asked('mentioned', { body: '@spotlight review this' }));
@@ -338,7 +338,7 @@ describe('ReactToHappenings, asked for a review', () => {
   });
 
   it('skips a pull request a task of Spotlight’s opened, however its branch is named', async () => {
-    const delivery = opened(LineRole.DELIVERY);
+    const delivery = created(LineRole.DELIVERY);
     const own = Task.add({
       line: delivery,
       // biome-ignore lint/style/noNonNullAssertion: the delivery line has an entry

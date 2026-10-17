@@ -3,7 +3,6 @@ import type { UpdateEgressCommand } from '@runners/application/commands/runner-r
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { recordEgressTokenUse } from '@runners/application/services/record-egress-token-use';
-import { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
 import { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-token-already-used.error';
 import { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
@@ -17,8 +16,9 @@ import {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
@@ -30,7 +30,7 @@ export class UpdateEgressHandler
     private readonly definitions: RunnerDefinitionsPort,
     private readonly egresses: EgressRepository,
     private readonly usedTokens: UsedEgressTokensRepository,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -62,7 +62,7 @@ export class UpdateEgressHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const redefined = existing.redefinedAs(
+      const updated = existing.update(
         compiled,
         {
           tokenHash: compiled.token
@@ -74,11 +74,11 @@ export class UpdateEgressHandler
       );
 
       await this.transaction.inTransaction(async () => {
-        await this.egresses.save(redefined);
+        await this.egresses.save(updated);
         await recordEgressTokenUse(
           this.usedTokens,
           this.egresses,
-          redefined,
+          updated,
           existing,
         );
       });
@@ -94,7 +94,7 @@ export class UpdateEgressHandler
       }
 
       if (
-        error instanceof EgressKeyFixedError ||
+        error instanceof ImmutableFieldError ||
         error instanceof EgressTokenInUseError ||
         error instanceof EgressTokenAlreadyUsedError ||
         error instanceof InvalidEgressError

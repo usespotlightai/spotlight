@@ -139,8 +139,8 @@ describe('setting a team up as code (e2e)', () => {
     await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toBeNull();
   });
 
-  it('lets a token minted for a run read the workspace until the run ends', async () => {
-    const minted = await runTokens().mintFor({
+  it('lets a token issued for a run read the workspace until the run ends', async () => {
+    const issued = await runTokens().issueFor({
       workspaceId,
       runId: randomUUID(),
       attempt: 1,
@@ -149,18 +149,18 @@ describe('setting a team up as code (e2e)', () => {
       expiresAt: new Date(Date.now() + 60 * 60 * 1_000),
     });
 
-    expect((await exported(minted.token)).status).toBe(200);
+    expect((await exported(issued.token)).status).toBe(200);
 
     const [row] = await db
       .select()
       .from(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.id, minted.id));
-    expect(row?.tokenHash).not.toBe(minted.token);
-    expect(row?.mintedForAttempt).toBe(1);
+      .where(eq(schema.workspaceToken.id, issued.id));
+    expect(row?.tokenHash).not.toBe(issued.token);
+    expect(row?.runAttempt).toBe(1);
 
-    await runTokens().revokeFor(workspaceId, row?.mintedForRun as string, null);
+    await runTokens().revokeFor(workspaceId, row?.runId as string, null);
 
-    expect((await exported(minted.token)).status).toBe(401);
+    expect((await exported(issued.token)).status).toBe(401);
   });
 
   it('revokes only the attempt that ended', async () => {
@@ -172,8 +172,8 @@ describe('setting a team up as code (e2e)', () => {
       scopes: ['plan'],
       expiresAt: new Date(Date.now() + 60 * 60 * 1_000),
     };
-    const first = await runTokens().mintFor({ ...wanted, attempt: 1 });
-    const second = await runTokens().mintFor({ ...wanted, attempt: 2 });
+    const first = await runTokens().issueFor({ ...wanted, attempt: 1 });
+    const second = await runTokens().issueFor({ ...wanted, attempt: 2 });
 
     await runTokens().revokeFor(workspaceId, runId, 1);
 
@@ -181,9 +181,9 @@ describe('setting a team up as code (e2e)', () => {
     expect((await exported(second.token)).status).toBe(200);
   });
 
-  it('prunes a run token once it has expired', async () => {
+  it('deletes a run token once it has expired', async () => {
     const expiresAt = new Date(Date.now() + 60 * 1_000);
-    const minted = await runTokens().mintFor({
+    const issued = await runTokens().issueFor({
       workspaceId,
       runId: randomUUID(),
       attempt: 1,
@@ -195,13 +195,13 @@ describe('setting a team up as code (e2e)', () => {
       (
         await app
           .get(DrizzleWorkspaceTokenRepository)
-          .mintedAndExpiredBy(by, 10_000)
+          .issuedAndExpiredBy(by, 10_000)
       ).map((each) => each.id.value);
 
     expect(await expired(new Date(expiresAt.getTime() - 1))).not.toContain(
-      minted.id,
+      issued.id,
     );
-    expect(await expired(expiresAt)).toContain(minted.id);
+    expect(await expired(expiresAt)).toContain(issued.id);
   });
 
   it('rejects a setup that names no repository and folder', async () => {

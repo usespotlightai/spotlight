@@ -6,7 +6,7 @@ import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositorie
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
@@ -33,11 +33,11 @@ const trustAt = (version: number) =>
     }),
     scopes: TokenScopes.named(['configure']),
     lifetime: TokenLifetime.ofMinutes(15),
-    definedBy: UserId.of('admin_1'),
+    createdBy: UserId.of('admin_1'),
     version,
   });
 
-const MINTED = trustAt(1).mintFor(
+const ISSUED_BY_TRUST = trustAt(1).issueFor(
   { issuer: ISSUER, subject: MAIN, audiences: ['spotlight'], named: {} },
   {
     id: WorkspaceTokenId.of('token_1'),
@@ -59,26 +59,30 @@ const bearers = (
     {
       find: vi.fn(async () => trust),
     } as unknown as WorkspaceTokenTrustRepository,
-    { hash: () => 'd'.repeat(64) } as unknown as TokenMintPort,
+    { hash: () => 'd'.repeat(64) } as unknown as TokenIssuer,
     { now: () => at, sleep: async () => {} },
   );
 
 describe('TokenBearers', () => {
-  it('knows a minted token while its trust is the same as when the token was minted', async () => {
-    expect(await bearers(MINTED, trustAt(1)).identify('bearer')).toMatchObject({
-      mintedThrough: WorkspaceTokenTrustId.of('trust_1'),
+  it('knows a token issued by a trust while the trust is the same as when it issued the token', async () => {
+    expect(
+      await bearers(ISSUED_BY_TRUST, trustAt(1)).identify('bearer'),
+    ).toMatchObject({
+      issuedByTrustId: WorkspaceTokenTrustId.of('trust_1'),
     });
   });
 
-  it('knows no minted token once its trust is gone or has changed', async () => {
-    expect(await bearers(MINTED, null).identify('bearer')).toBeNull();
-    expect(await bearers(MINTED, trustAt(2)).identify('bearer')).toBeNull();
+  it('knows no token issued by a trust once the trust is gone or has changed', async () => {
+    expect(await bearers(ISSUED_BY_TRUST, null).identify('bearer')).toBeNull();
+    expect(
+      await bearers(ISSUED_BY_TRUST, trustAt(2)).identify('bearer'),
+    ).toBeNull();
   });
 
   it('knows no token once it has expired', async () => {
     expect(
       await bearers(
-        MINTED,
+        ISSUED_BY_TRUST,
         trustAt(1),
         new Date('2026-09-25T10:15:00.000Z'),
       ).identify('bearer'),

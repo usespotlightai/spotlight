@@ -222,8 +222,6 @@ describe('through', () => {
     expect(through({ kind: 'pool', key: 'build-farm' })).toBe(
       'Pool build-farm',
     );
-    expect(through({ kind: 'trust', key: null })).toBe(
-      'Trust no longer defined',
-    );
+    expect(through({ kind: 'trust', key: null })).toBe('Trust deleted');
   });
 });

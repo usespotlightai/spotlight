@@ -61,7 +61,7 @@ export class ReplaySet extends EventRecorder {
     super();
   }
 
-  static open(input: {
+  static create(input: {
     id: ReplaySetId;
     station: ReplayedStation;
     name: ReplaySetName;
@@ -283,7 +283,7 @@ export class ReplaySet extends EventRecorder {
     return changed;
   }
 
-  deleted(underway: boolean): ReplaySet {
+  delete(underway: boolean): ReplaySet {
     if (underway) {
       throw new ReplaySetUnderwayError(this.id.value);
     }

@@ -98,7 +98,7 @@ const created = async () => {
 };
 
 describe('CreateSecretHandler', () => {
-  it('sets the secret and keeps its value', async () => {
+  it('creates the secret and keeps its value', async () => {
     const { create, keptValue, secrets } = setUp();
 
     expect(await create()).toEqual({
@@ -107,7 +107,7 @@ describe('CreateSecretHandler', () => {
       replayed: false,
     });
     expect(await keptValue()).toBe('lin_api_1');
-    expect(secrets.events.map((each) => each.kind)).toEqual(['secret.set']);
+    expect(secrets.events.map((each) => each.kind)).toEqual(['secret.created']);
   });
 
   it('forbids someone who reads the workspace but may not manage its secrets', async () => {
@@ -220,8 +220,8 @@ describe('UpdateSecretHandler', () => {
     });
 
     expect(secrets.events.map((each) => each.kind)).toEqual([
-      'secret.set',
-      'secret.redefined',
+      'secret.created',
+      'secret.updated',
     ]);
     expect(secrets.events[1]).toMatchObject({
       change: { action: 'updated', by: BY },
@@ -237,7 +237,7 @@ describe('UpdateSecretHandler', () => {
 });
 
 describe('DeleteSecretHandler', () => {
-  it('deletes the secret and forgets its value', async () => {
+  it('deletes the secret and its value', async () => {
     const { remove, store, secrets } = await created();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });

@@ -36,9 +36,9 @@ import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type {
-  MintedToken,
-  TokenMintPort,
-} from '@shared-kernel/application/ports/token-mint.port';
+  NewToken,
+  TokenIssuer,
+} from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -75,7 +75,7 @@ export class Runners implements RunnersPort {
     private readonly calls: ProvisionCallsPort,
     private readonly secrets: ProvisionSecretsPort,
     private readonly settings: RunnersSettings,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
     private readonly logger: LoggerPort,
@@ -116,14 +116,14 @@ export class Runners implements RunnersPort {
     }
 
     const runnerId = RunnerId.of(this.ids.generate());
-    const minted = this.tokens.mint();
-    const egress = this.tokens.mint();
+    const issued = this.tokens.issue();
+    const egress = this.tokens.issue();
     const starting: Starting = (through) =>
       Runner.start({
         id: runnerId,
         through,
         host: hostId,
-        tokenHash: TokenHash.of(minted.hash),
+        tokenHash: TokenHash.of(issued.hash),
         egressTokenHash: TokenHash.of(egress.hash),
         proxyCredentialHash: null,
         installed: offered.harnesses,
@@ -149,7 +149,7 @@ export class Runners implements RunnersPort {
       ? {
           outcome: 'started',
           runnerId,
-          token: minted.token,
+          token: issued.token,
           egressToken: egress.token,
         }
       : began;
@@ -159,20 +159,20 @@ export class Runners implements RunnersPort {
     request: ProvisionRequest,
     at: Date,
   ): Promise<ProvisionedRunner> {
-    const minted = this.tokens.mint();
-    let credential: MintedToken | null = null;
+    const issued = this.tokens.issue();
+    let credential: NewToken | null = null;
     const began = await this.beganThroughPool(
       RunnerPoolId.of(request.poolId),
       'push',
       at,
       (through) => {
-        credential = through.egress ? this.tokens.mint() : null;
+        credential = through.egress ? this.tokens.issue() : null;
 
         return Runner.start({
           id: request.runnerId,
           through,
           host: null,
-          tokenHash: TokenHash.of(minted.hash),
+          tokenHash: TokenHash.of(issued.hash),
           egressTokenHash: null,
           proxyCredentialHash: credential
             ? TokenHash.of(credential.hash)
@@ -203,7 +203,7 @@ export class Runners implements RunnersPort {
     const answer = await this.called(
       began.through,
       request,
-      minted.token,
+      issued.token,
       credential,
       at,
     );
@@ -252,7 +252,7 @@ export class Runners implements RunnersPort {
     pool: RunnerPool,
     request: ProvisionRequest,
     token: string,
-    credential: MintedToken | null,
+    credential: NewToken | null,
     at: Date,
   ): Promise<Answered> {
     const access = pool.provision;
@@ -362,7 +362,7 @@ export class Runners implements RunnersPort {
 
     const named = await this.egresses.find(reference.egressId);
 
-    return named && !named.isRetired && named.belongsTo(pool.workspaceId)
+    return named && !named.isDeleted && named.belongsTo(pool.workspaceId)
       ? { outcome: 'found', url: named.url }
       : {
           outcome: 'unusable',

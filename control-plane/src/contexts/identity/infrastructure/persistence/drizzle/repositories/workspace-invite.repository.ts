@@ -1,5 +1,5 @@
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
-import { WorkspaceInviteOffered } from '@identity/domain/events/workspace-invite-offered.event';
+import { WorkspaceInviteCreated } from '@identity/domain/events/workspace-invite-created.event';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
 import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
@@ -67,7 +67,7 @@ export class DrizzleWorkspaceInviteRepository
 
       await this.stored(saved);
 
-      if (events.some((each) => each instanceof WorkspaceInviteOffered)) {
+      if (events.some((each) => each instanceof WorkspaceInviteCreated)) {
         await this.teamsWritten(saved);
       }
 
@@ -124,7 +124,7 @@ export class DrizzleWorkspaceInviteRepository
     return this.first(eq(workspaceInvite.tokenHash, hash.value));
   }
 
-  async openTo(
+  async notEndedTo(
     workspaceId: WorkspaceId,
     email: EmailAddress,
   ): Promise<WorkspaceInvite | null> {

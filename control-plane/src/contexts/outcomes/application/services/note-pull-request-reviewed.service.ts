@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import type { PendingReviewsPort } from '@outcomes/application/ports/pending-reviews.port';
 import { countsAsReview } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
@@ -19,7 +19,7 @@ export class NotePullRequestReviewed {
   constructor(
     private readonly deliveries: TaskDeliveryRepository,
     private readonly reviews: PendingReviewsPort,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -30,7 +30,7 @@ export class NotePullRequestReviewed {
     }
 
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(review.workspaceId, null);
+      await this.deletions.lockDeletion(review.workspaceId, null);
       const existing = await this.deliveries.forPullRequest(
         review.workspaceId,
         review.pullRequest,
@@ -41,7 +41,7 @@ export class NotePullRequestReviewed {
 
         if (
           review.at.getTime() >= keptFrom.getTime() &&
-          !(await this.forgotten.forgot(review.workspaceId, null))
+          !(await this.deletions.isDeleted(review.workspaceId, null))
         ) {
           await this.reviews.add(review.workspaceId, {
             pullRequest: review.pullRequest,

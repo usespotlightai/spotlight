@@ -1,6 +1,6 @@
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
-import { TeamAlreadyDefinedError } from '@identity/domain/exceptions/team-already-defined.error';
+import { TeamAlreadyExistsError } from '@identity/domain/exceptions/team-already-exists.error';
 import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
@@ -54,7 +54,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         await this.context.db.insert(team).values(this.written(added));
       } catch (error) {
         if (codeOf(error) === UNIQUE_VIOLATION) {
-          throw new TeamAlreadyDefinedError(added.key.value);
+          throw new TeamAlreadyExistsError(added.key.value);
         }
 
         if (codeOf(error) === FOREIGN_KEY_VIOLATION) {
@@ -84,7 +84,7 @@ export class DrizzleTeamRepository implements TeamRepository {
 
   private async stored(saved: Team): Promise<void> {
     await this.context.inTransaction(async () => {
-      if (saved.isDisbanded) {
+      if (saved.isDeleted) {
         const removed = await this.context.db
           .delete(team)
           .where(

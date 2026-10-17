@@ -1,6 +1,6 @@
 import { HarnessProfileMapper } from '@configuration/application/mappers/harness-profile.mapper';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
-import { HarnessProfileAlreadyDefinedError } from '@configuration/domain/exceptions/harness-profile-already-defined.error';
+import { HarnessProfileAlreadyExistsError } from '@configuration/domain/exceptions/harness-profile-already-exists.error';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
@@ -89,7 +89,7 @@ export class DrizzleHarnessProfiles implements HarnessProfileRepository {
         });
       } catch (error) {
         if (codeOf(error) === UNIQUE_VIOLATION) {
-          throw new HarnessProfileAlreadyDefinedError(profile.key.value);
+          throw new HarnessProfileAlreadyExistsError(profile.key.value);
         }
 
         throw error;
@@ -98,7 +98,7 @@ export class DrizzleHarnessProfiles implements HarnessProfileRepository {
       return;
     }
 
-    const touched = profile.isRetired
+    const touched = profile.isDeleted
       ? await this.context.db
           .delete(harnessProfile)
           .where(inPlace(profile))

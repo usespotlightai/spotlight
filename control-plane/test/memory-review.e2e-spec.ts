@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
 const API = Repository.of('acme/api');
@@ -52,7 +52,7 @@ const remembered = (body: string): ProposedMemory => ({
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const proposing = async (
   bodies: readonly string[],
@@ -63,7 +63,7 @@ const proposing = async (
   const existing = await drafts.forTask(team.list.id);
   const asked = (
     existing ??
-    MemoryDraft.open({
+    MemoryDraft.create({
       id: MemoryDraftId.of(randomUUID()),
       taskId: team.list.id,
       workspaceId: team.workspaceId,
@@ -122,7 +122,7 @@ const asideFor = (items: readonly InboxBody[], runId: RunId) =>
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `memories-${randomUUID().slice(0, 8)}`,

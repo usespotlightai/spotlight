@@ -12,7 +12,7 @@ import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo'
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -31,7 +31,7 @@ const workspace = Workspace.rehydrate({
 });
 
 const sentInvite = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
-  const offered = WorkspaceInvite.offer({
+  const created = WorkspaceInvite.create({
     id: InviteId.of('invite_1'),
     workspaceId: workspace.id,
     email: EmailAddress.of('Ada@Example.com'),
@@ -45,8 +45,8 @@ const sentInvite = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
   });
 
   const invite = over.revoked
-    ? offered.revoke(UserId.of('user_leon'), NOW)
-    : offered;
+    ? created.revoke(UserId.of('user_leon'), NOW)
+    : created;
 
   invite.pullEvents();
 
@@ -65,7 +65,7 @@ const accepting = (invite: WorkspaceInvite | null = sentInvite()) => {
       save,
     } as unknown as WorkspaceInviteRepository,
     { find: async () => workspace } as unknown as WorkspaceRepository,
-    { hash: () => 'a'.repeat(64) } as unknown as TokenMintPort,
+    { hash: () => 'a'.repeat(64) } as unknown as TokenIssuer,
     { now: () => NOW } as ClockPort,
   );
 

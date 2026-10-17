@@ -130,7 +130,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       tasks: 16,
       runs: 18,
       hypothesis:
-        'Sent-back runs mostly forgot the migration order; the skill spells it out, and opus follows long skills better.',
+        'Sent-back runs mostly missed the migration order; the skill spells it out, and opus follows long skills better.',
       changes: [
         {
           part: 'model',

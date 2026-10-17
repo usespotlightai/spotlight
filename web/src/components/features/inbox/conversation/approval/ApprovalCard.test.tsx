@@ -173,7 +173,7 @@ describe('ApprovalCard', () => {
     ).toBeDisabled();
   });
 
-  it('forgets the reason on cancel, so dismissing again starts afresh', async () => {
+  it('clears the reason on cancel, so dismissing again starts afresh', async () => {
     showing(COMMENT);
 
     await userEvent.click(

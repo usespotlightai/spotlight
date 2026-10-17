@@ -58,7 +58,7 @@ import { ReadMemoryReviewQuery } from '@memory/application/queries/read-memory-r
 import { ReadRunMemoriesQuery } from '@memory/application/queries/read-run-memories.query';
 import { ReadTeamMemoryQuery } from '@memory/application/queries/read-team-memory.query';
 import { AskForMemories } from '@memory/application/services/ask-for-memories.service';
-import { ForgetMemoryDraft } from '@memory/application/services/forget-memory-draft.service';
+import { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
@@ -367,10 +367,10 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     ) => new AskForMemories(work, drafts, drafter, transaction, ids, clock),
   },
   {
-    provide: ForgetMemoryDraft,
+    provide: DeleteMemoryDraft,
     inject: [DrizzleMemoryDraftRepository],
     useFactory: (drafts: DrizzleMemoryDraftRepository) =>
-      new ForgetMemoryDraft(drafts),
+      new DeleteMemoryDraft(drafts),
   },
   {
     provide: WorkMemoryDrafts,
@@ -424,7 +424,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       IntegrationEventMappers,
       EventSubscribers,
       AskForMemories,
-      ForgetMemoryDraft,
+      DeleteMemoryDraft,
       MemoryReactions,
       NoteMemoryUses,
     ],
@@ -433,14 +433,14 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       asking: AskForMemories,
-      forgetting: ForgetMemoryDraft,
+      deleting: DeleteMemoryDraft,
       reactions: MemoryReactions,
       noting: NoteMemoryUses,
     ) => {
       types.register('memory', MEMORY_PAYLOAD_TYPES);
       mappers.register(MEMORY_EVENT_MAPPERS);
       subscribers.register(
-        memorySubscribers(asking, forgetting, reactions, noting),
+        memorySubscribers(asking, deleting, reactions, noting),
       );
       return true;
     },

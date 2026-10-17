@@ -124,7 +124,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
       error instanceof NotYet ||
       sync.attempts + 1 >= MAX_ATTEMPTS
     ) {
-      await this.abandon(sync);
+      await this.markNotSent(sync);
       await this.outbox.failed(sync.id, failure);
       this.reports.report(error, {
         source: 'Syncing reviews with GitHub',
@@ -142,7 +142,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     );
   }
 
-  private async abandon(sync: ReviewSync): Promise<void> {
+  private async markNotSent(sync: ReviewSync): Promise<void> {
     if (sync.kind === 'review') {
       const review = await this.reviews.find(ReviewId.of(sync.subjectId));
 

@@ -38,7 +38,7 @@ export function StartSearchDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(open) => !open && form.forget()}
+      onOpenChangeComplete={(open) => !open && form.reset()}
     >
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>

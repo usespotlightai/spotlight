@@ -1,10 +1,8 @@
-import { SecretAbandoned } from '@secrets/domain/events/secret-abandoned.event';
+import { SecretCreated } from '@secrets/domain/events/secret-created.event';
 import { SecretDeleted } from '@secrets/domain/events/secret-deleted.event';
-import { SecretRedefined } from '@secrets/domain/events/secret-redefined.event';
-import { SecretSet } from '@secrets/domain/events/secret-set.event';
+import { SecretUpdated } from '@secrets/domain/events/secret-updated.event';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
-import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fixed.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
@@ -20,6 +18,7 @@ import type { SecretSource } from '@secrets/domain/value-objects/secret-source.v
 import type { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -49,7 +48,7 @@ interface Props {
 interface State extends Props {
   readonly deleted: boolean;
   readonly keeping: SecretValue | null;
-  readonly forgetting: boolean;
+  readonly deletingValue: boolean;
 }
 
 const VALUE_FIELD = 'valueWo';
@@ -76,7 +75,7 @@ export class Secret extends EventRecorder {
     super();
   }
 
-  static set(
+  static create(
     definition: SecretDefinition,
     input: {
       id: SecretId;
@@ -93,7 +92,7 @@ export class Secret extends EventRecorder {
       assertValueAllowedFor(definition.source);
     }
 
-    const set = new Secret({
+    const created = new Secret({
       id: input.id,
       workspaceId: input.workspaceId,
       name: definition.name,
@@ -104,23 +103,26 @@ export class Secret extends EventRecorder {
       version: 0,
       deleted: false,
       keeping,
-      forgetting: false,
+      deletingValue: false,
     });
 
-    set.record(
-      new SecretSet(
-        set.workspaceId,
-        set.id,
-        set.name,
+    created.record(
+      new SecretCreated(
+        created.workspaceId,
+        created.id,
+        created.name,
         ConfigurationChange.created(
-          set.whatChanged,
+          created.whatChanged,
           input.by,
-          SecretChangeDetail.set(set.valueVersion, set.bindings.hosts),
+          SecretChangeDetail.created(
+            created.valueVersion,
+            created.bindings.hosts,
+          ),
         ),
       ),
     );
 
-    return set;
+    return created;
   }
 
   static rehydrate(input: Props): Secret {
@@ -132,7 +134,7 @@ export class Secret extends EventRecorder {
       ...input,
       deleted: false,
       keeping: null,
-      forgetting: false,
+      deletingValue: false,
     });
   }
 
@@ -142,13 +144,16 @@ export class Secret extends EventRecorder {
     }
   }
 
-  redefinedAs(definition: SecretDefinition, by: Attribution, at: Date): Secret {
+  update(definition: SecretDefinition, by: Attribution, at: Date): Secret {
     this.assertNotDeleted();
 
     if (!definition.name.equals(this.name)) {
-      throw new SecretNameFixedError(
-        this.name.value,
-        `cannot be renamed to ${definition.name.value}`,
+      const because = `cannot be renamed to ${definition.name.value}`;
+
+      throw new ImmutableFieldError(
+        'name',
+        because,
+        `Secret ${this.name.value} ${because}.`,
       );
     }
 
@@ -174,24 +179,24 @@ export class Secret extends EventRecorder {
       !definition.source.equals(this.source) ||
       !definition.bindings.equals(this.bindings);
 
-    const redefined = this.with({
+    const updated = this.with({
       source: definition.source,
       bindings: definition.bindings,
       valueVersion: definition.valueVersion,
       rotatedAt: keeping || rotating ? at : this.rotatedAt,
       keeping,
-      forgetting: this.source.isBuiltIn && !definition.source.isBuiltIn,
+      deletingValue: this.source.isBuiltIn && !definition.source.isBuiltIn,
     });
 
-    const moved = SecretChangeDetail.redefined({
+    const moved = SecretChangeDetail.updated({
       valueMoved: keeping !== null || rotating,
       valueVersion: definition.valueVersion,
       rebound,
       boundTo: definition.bindings.hosts,
     });
 
-    redefined.record(
-      new SecretRedefined(
+    updated.record(
+      new SecretUpdated(
         this.workspaceId,
         this.id,
         this.name,
@@ -199,15 +204,21 @@ export class Secret extends EventRecorder {
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  deleted(uses: SecretUses, by: Attribution): Secret {
+  delete(uses: SecretUses, by: Attribution): Secret {
     this.assertNotDeleted();
 
     if (!uses.isEmpty) {
       throw new SecretInUseError(this.name.value, uses);
     }
+
+    return this.cascadeDelete(by);
+  }
+
+  cascadeDelete(by: Attribution): Secret {
+    this.assertNotDeleted();
 
     const deleted = this.removed();
 
@@ -221,23 +232,6 @@ export class Secret extends EventRecorder {
     );
 
     return deleted;
-  }
-
-  abandon(by: Attribution): Secret {
-    this.assertNotDeleted();
-
-    const abandoned = this.removed();
-
-    abandoned.record(
-      new SecretAbandoned(
-        this.workspaceId,
-        this.id,
-        this.name,
-        ConfigurationChange.deleted(this.whatChanged, by),
-      ),
-    );
-
-    return abandoned;
   }
 
   bindingForUrl(url: string): SecretBinding {
@@ -353,8 +347,8 @@ export class Secret extends EventRecorder {
     return this.state.keeping;
   }
 
-  get forgetsValue(): boolean {
-    return this.state.forgetting;
+  get deletesValue(): boolean {
+    return this.state.deletingValue;
   }
 
   private get whatChanged() {
@@ -377,7 +371,7 @@ export class Secret extends EventRecorder {
     return this.with({
       deleted: true,
       keeping: null,
-      forgetting: this.source.isBuiltIn,
+      deletingValue: this.source.isBuiltIn,
     });
   }
 

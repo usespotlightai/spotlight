@@ -1,10 +1,9 @@
 import type { Integration } from '@integrations/domain/entities/integration.entity';
-import { IntegrationDefined } from '@integrations/domain/events/integration-defined.event';
-import { IntegrationRedefined } from '@integrations/domain/events/integration-redefined.event';
+import { IntegrationCreated } from '@integrations/domain/events/integration-created.event';
+import { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
 import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
-import { IntegrationRetired } from '@integrations/domain/events/integration-retired.event';
+import { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
-import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
@@ -15,6 +14,7 @@ import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo
 import type { SourceReading } from '@integrations/domain/value-objects/source-reading.vo';
 import type { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -31,7 +31,7 @@ interface Props {
 }
 
 interface State extends Props {
-  readonly retired: boolean;
+  readonly deleted: boolean;
 }
 
 interface Compiled {
@@ -88,7 +88,7 @@ export class IntegrationDefinition extends EventRecorder {
     super();
   }
 
-  static define(
+  static create(
     input: Compiled & {
       id: IntegrationDefinitionId;
       teamId: TeamId;
@@ -99,7 +99,7 @@ export class IntegrationDefinition extends EventRecorder {
     guardDescribes(input);
     guardRead(input, input.reading);
 
-    const defined = new IntegrationDefinition({
+    const created = new IntegrationDefinition({
       id: input.id,
       teamId: input.teamId,
       source: input.integration.source,
@@ -107,20 +107,20 @@ export class IntegrationDefinition extends EventRecorder {
       offers: offeredBy(input),
       reading: input.reading,
       version: 0,
-      retired: false,
+      deleted: false,
     });
 
-    defined.record(
-      new IntegrationDefined(
-        defined.id,
-        defined.teamId,
-        defined.source,
-        defined.offers,
-        ConfigurationChange.created(defined.whatChanged, input.by),
+    created.record(
+      new IntegrationCreated(
+        created.id,
+        created.teamId,
+        created.source,
+        created.offers,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(input: Props): IntegrationDefinition {
@@ -138,7 +138,7 @@ export class IntegrationDefinition extends EventRecorder {
       );
     }
 
-    return new IntegrationDefinition({ ...input, retired: false });
+    return new IntegrationDefinition({ ...input, deleted: false });
   }
 
   assertVersion(version: number): void {
@@ -147,7 +147,7 @@ export class IntegrationDefinition extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     compiled: Compiled,
     reading: SourceReading | null,
     given: ToolUses,
@@ -158,9 +158,12 @@ export class IntegrationDefinition extends EventRecorder {
     guardRead(compiled, reading);
 
     if (!compiled.integration.source.equals(this.source)) {
-      throw new IntegrationHostFixedError(
-        this.source.value,
-        `cannot change its host to ${compiled.integration.source.value}`,
+      const because = `cannot change its host to ${compiled.integration.source.value}`;
+
+      throw new ImmutableFieldError(
+        'integration',
+        because,
+        `Integration ${this.source.value} ${because}.`,
       );
     }
 
@@ -171,14 +174,14 @@ export class IntegrationDefinition extends EventRecorder {
       this.offers.filter((each) => !offers.includes(each)),
     );
 
-    const redefined = this.with({
+    const updated = this.with({
       document: compiled.document,
       offers,
       reading,
     });
 
-    redefined.record(
-      new IntegrationRedefined(
+    updated.record(
+      new IntegrationUpdated(
         this.id,
         this.teamId,
         this.source,
@@ -187,7 +190,7 @@ export class IntegrationDefinition extends EventRecorder {
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
   rereads(reading: SourceReading): boolean {
@@ -243,29 +246,29 @@ export class IntegrationDefinition extends EventRecorder {
     return reread;
   }
 
-  retire(given: ToolUses, by: Attribution): IntegrationDefinition {
+  delete(given: ToolUses, by: Attribution): IntegrationDefinition {
     this.guardLive();
     this.guardUnused(given, this.offers);
 
-    const retired = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    retired.record(this.retiredBy(by));
+    deleted.record(this.deletedBy(by));
 
-    return retired;
+    return deleted;
   }
 
-  abandon(by: Attribution): IntegrationDefinition {
+  cascadeDelete(by: Attribution): IntegrationDefinition {
     this.guardLive();
 
-    const abandoned = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    abandoned.record(this.retiredBy(by));
+    deleted.record(this.deletedBy(by));
 
-    return abandoned;
+    return deleted;
   }
 
-  private retiredBy(by: Attribution): IntegrationRetired {
-    return new IntegrationRetired(
+  private deletedBy(by: Attribution): IntegrationDeleted {
+    return new IntegrationDeleted(
       this.id,
       this.teamId,
       this.source,
@@ -314,8 +317,8 @@ export class IntegrationDefinition extends EventRecorder {
     return this.state.version === 0;
   }
 
-  get isRetired(): boolean {
-    return this.state.retired;
+  get isDeleted(): boolean {
+    return this.state.deleted;
   }
 
   private with(change: Partial<State>): IntegrationDefinition {
@@ -327,16 +330,16 @@ export class IntegrationDefinition extends EventRecorder {
   }
 
   private guardLive(): void {
-    if (this.isRetired) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'integration definition',
-        'was changed after it was retired',
+        'was changed after it was deleted',
       );
     }
   }
 
-  private guardUnused(given: ToolUses, withdrawn: readonly string[]): void {
-    const stranded = given.ofAny(withdrawn);
+  private guardUnused(given: ToolUses, removed: readonly string[]): void {
+    const stranded = given.ofAny(removed);
 
     if (!stranded.isEmpty) {
       throw new IntegrationToolsInUseError(this.source.value, stranded);

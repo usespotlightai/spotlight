@@ -200,8 +200,8 @@ vi.mock('@/hooks/api/useStartSearch', () => ({
   useStartSearch: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
 }));
 
-vi.mock('@/hooks/api/useOpenReplaySet', () => ({
-  useOpenReplaySet: () => ({ mutate: vi.fn(), isPending: false }),
+vi.mock('@/hooks/api/useCreateReplaySet', () => ({
+  useCreateReplaySet: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useStationCandidates', () => ({

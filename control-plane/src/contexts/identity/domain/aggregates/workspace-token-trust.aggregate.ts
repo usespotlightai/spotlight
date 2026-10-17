@@ -1,9 +1,8 @@
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
-import { WorkspaceTokenTrustDefined } from '@identity/domain/events/workspace-token-trust-defined.event';
-import { WorkspaceTokenTrustRedefined } from '@identity/domain/events/workspace-token-trust-redefined.event';
-import { WorkspaceTokenTrustWithdrawn } from '@identity/domain/events/workspace-token-trust-withdrawn.event';
+import { WorkspaceTokenTrustCreated } from '@identity/domain/events/workspace-token-trust-created.event';
+import { WorkspaceTokenTrustDeleted } from '@identity/domain/events/workspace-token-trust-deleted.event';
+import { WorkspaceTokenTrustUpdated } from '@identity/domain/events/workspace-token-trust-updated.event';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
-import { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
 import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
 import type { Grantor } from '@identity/domain/value-objects/grantor.vo';
@@ -12,6 +11,7 @@ import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import type { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import type { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import type { Client } from '@shared-kernel/domain/value-objects/client.vo';
@@ -34,12 +34,12 @@ export interface TokenTrustTerms {
 interface Props extends TokenTrustTerms {
   readonly id: WorkspaceTokenTrustId;
   readonly workspaceId: WorkspaceId;
-  readonly definedBy: UserId;
+  readonly createdBy: UserId;
   readonly version: number;
 }
 
 interface State extends Props {
-  readonly withdrawn: boolean;
+  readonly deleted: boolean;
 }
 
 export class WorkspaceTokenTrust extends EventRecorder {
@@ -47,11 +47,11 @@ export class WorkspaceTokenTrust extends EventRecorder {
     super();
   }
 
-  static define(
+  static create(
     input: TokenTrustTerms & {
       id: WorkspaceTokenTrustId;
       workspaceId: WorkspaceId;
-      definedBy: UserId;
+      createdBy: UserId;
       grantor: Grantor;
       by: Attribution;
     },
@@ -60,28 +60,28 @@ export class WorkspaceTokenTrust extends EventRecorder {
       throw new TokenTrustBeyondGrantorError(input.key.value);
     }
 
-    const defined = new WorkspaceTokenTrust({
+    const created = new WorkspaceTokenTrust({
       id: input.id,
       workspaceId: input.workspaceId,
       key: input.key,
       workload: input.workload,
       scopes: input.scopes,
       lifetime: input.lifetime,
-      definedBy: input.definedBy,
+      createdBy: input.createdBy,
       version: 0,
-      withdrawn: false,
+      deleted: false,
     });
 
-    defined.record(
-      new WorkspaceTokenTrustDefined(
-        defined.id,
-        defined.workspaceId,
-        defined.key,
-        ConfigurationChange.created(defined.whatChanged, input.by),
+    created.record(
+      new WorkspaceTokenTrustCreated(
+        created.id,
+        created.workspaceId,
+        created.key,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(input: Props): WorkspaceTokenTrust {
@@ -92,7 +92,7 @@ export class WorkspaceTokenTrust extends EventRecorder {
       );
     }
 
-    return new WorkspaceTokenTrust({ ...input, withdrawn: false });
+    return new WorkspaceTokenTrust({ ...input, deleted: false });
   }
 
   assertVersion(version: number): void {
@@ -101,7 +101,7 @@ export class WorkspaceTokenTrust extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     terms: TokenTrustTerms,
     grantor: Grantor,
     by: Attribution,
@@ -114,9 +114,12 @@ export class WorkspaceTokenTrust extends EventRecorder {
     }
 
     if (!terms.key.equals(this.key)) {
-      throw new TokenTrustKeyFixedError(
-        this.key.value,
-        `cannot change its key to ${terms.key.value}`,
+      const because = `cannot change its key to ${terms.key.value}`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Token trust ${this.key.value} ${because}.`,
       );
     }
 
@@ -124,14 +127,14 @@ export class WorkspaceTokenTrust extends EventRecorder {
       return this;
     }
 
-    const redefined = this.with({
+    const updated = this.with({
       workload: terms.workload,
       scopes: terms.scopes,
       lifetime: terms.lifetime,
     });
 
-    redefined.record(
-      new WorkspaceTokenTrustRedefined(
+    updated.record(
+      new WorkspaceTokenTrustUpdated(
         this.id,
         this.workspaceId,
         this.key,
@@ -139,17 +142,17 @@ export class WorkspaceTokenTrust extends EventRecorder {
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  withdraw(grantor: Grantor, by: Attribution): WorkspaceTokenTrust {
+  delete(grantor: Grantor, by: Attribution): WorkspaceTokenTrust {
     this.assertNotDeleted();
     this.guardWithin(grantor);
 
-    const withdrawn = this.with({ withdrawn: true });
+    const deleted = this.with({ deleted: true });
 
-    withdrawn.record(
-      new WorkspaceTokenTrustWithdrawn(
+    deleted.record(
+      new WorkspaceTokenTrustDeleted(
         this.id,
         this.workspaceId,
         this.key,
@@ -157,16 +160,16 @@ export class WorkspaceTokenTrust extends EventRecorder {
       ),
     );
 
-    return withdrawn;
+    return deleted;
   }
 
   admits(workload: WorkloadClaims): boolean {
-    return !this.isWithdrawn && this.workload.admits(workload);
+    return !this.isDeleted && this.workload.admits(workload);
   }
 
-  mintFor(
+  issueFor(
     workload: WorkloadClaims,
-    minted: {
+    issued: {
       id: WorkspaceTokenId;
       hash: TokenHash;
       now: Date;
@@ -177,27 +180,27 @@ export class WorkspaceTokenTrust extends EventRecorder {
       throw new WorkloadNotAdmittedError(this.key.value);
     }
 
-    return WorkspaceToken.minted({
-      id: minted.id,
+    return WorkspaceToken.issueByTrust({
+      id: issued.id,
       workspaceId: this.workspaceId,
       name: TokenName.of(this.key.value),
       scopes: this.scopes,
-      expiresAt: this.lifetime.endingFrom(minted.now),
-      hash: minted.hash,
-      issuedBy: this.definedBy,
-      mintedThrough: this.id,
-      mintedUnder: this.version,
+      expiresAt: this.lifetime.endingFrom(issued.now),
+      hash: issued.hash,
+      issuedBy: this.createdBy,
+      issuedByTrustId: this.id,
+      trustVersion: this.version,
       subject: workload.subject,
-      now: minted.now,
-      client: minted.client,
+      now: issued.now,
+      client: issued.client,
     });
   }
 
   stillGrants(token: WorkspaceToken): boolean {
     return (
-      !this.isWithdrawn &&
-      token.mintedThrough?.equals(this.id) === true &&
-      token.mintedUnder === this.version
+      !this.isDeleted &&
+      token.issuedByTrustId?.equals(this.id) === true &&
+      token.trustVersion === this.version
     );
   }
 
@@ -225,16 +228,16 @@ export class WorkspaceTokenTrust extends EventRecorder {
     return this.state.lifetime;
   }
 
-  get definedBy(): UserId {
-    return this.state.definedBy;
+  get createdBy(): UserId {
+    return this.state.createdBy;
   }
 
   get version(): number {
     return this.state.version;
   }
 
-  get isWithdrawn(): boolean {
-    return this.state.withdrawn;
+  get isDeleted(): boolean {
+    return this.state.deleted;
   }
 
   private get whatChanged() {
@@ -260,10 +263,10 @@ export class WorkspaceTokenTrust extends EventRecorder {
   }
 
   private assertNotDeleted(): void {
-    if (this.isWithdrawn) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'workspace token trust',
-        'was changed after it was withdrawn',
+        'was changed after it was deleted',
       );
     }
   }

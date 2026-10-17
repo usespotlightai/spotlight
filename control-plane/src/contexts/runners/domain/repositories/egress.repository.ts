@@ -12,7 +12,7 @@ export interface EgressRepository {
 
   findToName(id: EgressId): Promise<Egress | null>;
 
-  findToRetire(id: EgressId): Promise<Egress | null>;
+  findToDelete(id: EgressId): Promise<Egress | null>;
 
   findByTokenHash(hash: TokenHash): Promise<Egress | null>;
 

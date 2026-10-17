@@ -218,7 +218,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
 
   async save(saved: ReplayCheck): Promise<void> {
     await this.context.inTransaction(async () => {
-      if (saved.isAbandoned) {
+      if (saved.isDeleted) {
         await this.context.db
           .delete(replayCheck)
           .where(eq(replayCheck.id, saved.id.value));

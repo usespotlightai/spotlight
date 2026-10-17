@@ -50,7 +50,7 @@ export class DeleteWorkspaceTokenTrustHandler
 
       await this.transaction.inTransaction(() =>
         this.trusts.save(
-          existing.withdraw(
+          existing.delete(
             Grantor.of(command.actor.principal),
             Attribution.of(command.actor, permissions.workspaceId),
           ),

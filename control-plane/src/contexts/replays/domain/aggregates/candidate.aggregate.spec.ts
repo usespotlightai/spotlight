@@ -1,6 +1,6 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
+import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
-import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
 import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
@@ -98,44 +98,44 @@ describe('Candidate', () => {
     ).toThrow(InvalidCandidateError);
   });
 
-  it('is withdrawn at the version asked for, when none of its replays is running', () => {
+  it('is deleted at the version asked for, when none of its replays is running', () => {
     const proposed = candidateOf('proposed');
     proposed.pullEvents();
 
     expect(() => proposed.assertVersion(1)).toThrow(
       CandidateVersionConflictError,
     );
-    expect(() => proposed.withdraw(true, BY)).toThrow(CandidateUnderwayError);
+    expect(() => proposed.delete(true, BY)).toThrow(CandidateUnderwayError);
 
-    const withdrawn = proposed.withdraw(false, BY);
+    const deleted = proposed.delete(false, BY);
 
-    expect(withdrawn.isAbandoned).toBe(true);
-    expect(changeOf(withdrawn)).toMatchObject({
+    expect(deleted.isDeleted).toBe(true);
+    expect(changeOf(deleted)).toMatchObject({
       resource: 'replay-candidate',
       action: 'deleted',
       by: BY,
     });
   });
 
-  it('is never withdrawn when it is the live config Spotlight replays', () => {
-    expect(() => candidateOf('live').withdraw(false, BY)).toThrow(
+  it('is never deleted when it is the live config Spotlight replays', () => {
+    expect(() => candidateOf('live').delete(false, BY)).toThrow(
       CandidateIsLiveError,
     );
   });
 
-  it('is abandoned by Spotlight, recording the withdrawal only of a proposal', () => {
+  it('is deleted by Spotlight with its team, recording the deletion only of a proposal', () => {
     const proposed = candidateOf('proposed');
     proposed.pullEvents();
-    const live = candidateOf('live').abandon();
+    const live = candidateOf('live').cascadeDelete();
 
-    expect(live.isAbandoned).toBe(true);
+    expect(live.isDeleted).toBe(true);
     expect(live.pullEvents()).toEqual([]);
 
-    const abandoned = proposed.abandon();
-    const [event] = abandoned.pullEvents();
+    const deleted = proposed.cascadeDelete();
+    const [event] = deleted.pullEvents();
 
-    expect(event).toBeInstanceOf(CandidateWithdrawn);
-    expect((event as CandidateWithdrawn).change.by).toEqual(
+    expect(event).toBeInstanceOf(CandidateDeleted);
+    expect((event as CandidateDeleted).change.by).toEqual(
       Attribution.spotlight(STATION.workspaceId),
     );
   });
@@ -289,16 +289,16 @@ describe('Candidate', () => {
       );
     });
 
-    it('is never withdrawn by a person, and goes quietly when abandoned', () => {
+    it('is never deleted by a person, and goes quietly when deleted with its team', () => {
       for (const candidate of [searched(), planned()]) {
-        expect(() => candidate.withdraw(false, BY)).toThrow(
+        expect(() => candidate.delete(false, BY)).toThrow(
           CandidateKeptBySpotlightError,
         );
 
-        const abandoned = candidate.abandon();
+        const deleted = candidate.cascadeDelete();
 
-        expect(abandoned.isAbandoned).toBe(true);
-        expect(abandoned.pullEvents()).toEqual([]);
+        expect(deleted.isDeleted).toBe(true);
+        expect(deleted.pullEvents()).toEqual([]);
       }
     });
 

@@ -48,7 +48,7 @@ export class DeleteRunnerTrustHandler
 
       await this.transaction.inTransaction(() =>
         this.trusts.save(
-          existing.withdraw(
+          existing.delete(
             Attribution.of(command.actor, permissions.workspaceId),
           ),
         ),

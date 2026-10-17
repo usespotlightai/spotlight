@@ -66,7 +66,7 @@ const slugOf = (name: string): string =>
 export class ConfigPullRequest extends EventRecorder {
   private constructor(
     private readonly state: State,
-    readonly isAbandoned = false,
+    readonly isDeleted = false,
   ) {
     super();
   }
@@ -361,7 +361,7 @@ export class ConfigPullRequest extends EventRecorder {
         });
   }
 
-  abandon(): ConfigPullRequest {
+  delete(): ConfigPullRequest {
     return new ConfigPullRequest(this.state, true);
   }
 

@@ -8,8 +8,8 @@ export class InviteOutcomeResponseDto {
 
   @ApiProperty({
     description:
-      'What came of the address: a new invitation, an open one sent again with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent, which sending again may still deliver.',
-    enum: ['invited', 'sent-again', 'already-a-member', 'not-sent'],
+      'What came of the address: a new invitation, a pending one resent with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent. Resend it to try again.',
+    enum: ['invited', 'resent', 'already-a-member', 'not-sent'],
     example: 'invited',
   })
   readonly outcome!: InviteOutcome;
@@ -70,7 +70,7 @@ export class WorkspaceInviteResponseDto {
   readonly expiresAt!: string;
 }
 
-export class InviteOfferResponseDto {
+export class InvitePreviewResponseDto {
   @ApiProperty({
     description: 'The address it was sent to, which is who may accept it.',
     example: 'ada@example.com',
@@ -105,10 +105,10 @@ export class InviteOfferResponseDto {
 
   @ApiProperty({
     description: 'Whether it is still worth following.',
-    enum: ['open', 'accepted', 'revoked', 'expired'],
-    example: 'open',
+    enum: ['pending', 'accepted', 'revoked', 'expired'],
+    example: 'pending',
   })
-  readonly status!: 'open' | 'accepted' | 'revoked' | 'expired';
+  readonly status!: 'pending' | 'accepted' | 'revoked' | 'expired';
 }
 
 export class JoinedWorkspaceResponseDto {

@@ -49,12 +49,15 @@ import { IntegrationEventMappers } from '@platform/events/integration-event-mapp
 import { PayloadTypes } from '@platform/events/payload-types';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import { AddReplaySetEntryCommand } from '@replays/application/commands/add-replay-set-entry.command';
+import { CreateReplaySetCommand } from '@replays/application/commands/create-replay-set.command';
+import { DeleteCandidateCommand } from '@replays/application/commands/delete-candidate.command';
 import { DeleteReplaySetCommand } from '@replays/application/commands/delete-replay-set.command';
 import { GuardChangesCommand } from '@replays/application/commands/guard-changes.command';
 import { AddReplaySetEntryHandler } from '@replays/application/commands/handlers/add-replay-set-entry.handler';
+import { CreateReplaySetHandler } from '@replays/application/commands/handlers/create-replay-set.handler';
+import { DeleteCandidateHandler } from '@replays/application/commands/handlers/delete-candidate.handler';
 import { DeleteReplaySetHandler } from '@replays/application/commands/handlers/delete-replay-set.handler';
 import { GuardChangesHandler } from '@replays/application/commands/handlers/guard-changes.handler';
-import { OpenReplaySetHandler } from '@replays/application/commands/handlers/open-replay-set.handler';
 import { PickSearchCandidateHandler } from '@replays/application/commands/handlers/pick-search-candidate.handler';
 import { ProposeCandidateHandler } from '@replays/application/commands/handlers/propose-candidate.handler';
 import { ProposeSearchCandidateHandler } from '@replays/application/commands/handlers/propose-search-candidate.handler';
@@ -66,8 +69,6 @@ import { StartReplayCheckHandler } from '@replays/application/commands/handlers/
 import { StartSearchHandler } from '@replays/application/commands/handlers/start-search.handler';
 import { StopReplayHandler } from '@replays/application/commands/handlers/stop-replay.handler';
 import { StopSearchHandler } from '@replays/application/commands/handlers/stop-search.handler';
-import { WithdrawCandidateHandler } from '@replays/application/commands/handlers/withdraw-candidate.handler';
-import { OpenReplaySetCommand } from '@replays/application/commands/open-replay-set.command';
 import { PickSearchCandidateCommand } from '@replays/application/commands/pick-search-candidate.command';
 import { ProposeCandidateCommand } from '@replays/application/commands/propose-candidate.command';
 import { ProposeSearchCandidateCommand } from '@replays/application/commands/propose-search-candidate.command';
@@ -79,7 +80,6 @@ import { StartReplayCheckCommand } from '@replays/application/commands/start-rep
 import { StartSearchCommand } from '@replays/application/commands/start-search.command';
 import { StopReplayCommand } from '@replays/application/commands/stop-replay.command';
 import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
-import { WithdrawCandidateCommand } from '@replays/application/commands/withdraw-candidate.command';
 import { REPLAYS_EVENT_MAPPERS } from '@replays/application/integration-events/replays.event-mappers';
 import {
   CHANGE_REVIEW,
@@ -143,10 +143,6 @@ import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-c
 import { ReadReplayOfRunQuery } from '@replays/application/queries/read-replay-of-run.query';
 import { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
 import { ReadSearchQuery } from '@replays/application/queries/read-search.query';
-import { AbandonConfigPullRequests } from '@replays/application/services/abandon-config-pull-requests.service';
-import { AbandonReplayChecks } from '@replays/application/services/abandon-replay-checks.service';
-import { AbandonReplays } from '@replays/application/services/abandon-replays.service';
-import { AbandonSearches } from '@replays/application/services/abandon-searches.service';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { AskForPairJudging } from '@replays/application/services/ask-for-pair-judging.service';
 import { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
@@ -155,13 +151,17 @@ import { AskForReplayRejudging } from '@replays/application/services/ask-for-rep
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
 import { CancelSearch } from '@replays/application/services/cancel-search.service';
 import { CheckReadings } from '@replays/application/services/check-readings.service';
+import { DeleteConfigPullRequests } from '@replays/application/services/delete-config-pull-requests.service';
+import { DeleteReplayChecks } from '@replays/application/services/delete-replay-checks.service';
+import { DeleteReplays } from '@replays/application/services/delete-replays.service';
+import { DeleteSearches } from '@replays/application/services/delete-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import { EnsureCheckBaselines } from '@replays/application/services/ensure-check-baselines.service';
 import { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
 import { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
-import { NoteLineRedefined } from '@replays/application/services/note-line-redefined.service';
+import { NoteLineChanged } from '@replays/application/services/note-line-changed.service';
 import { NoteReplayChangeReviewed } from '@replays/application/services/note-replay-change-reviewed.service';
 import { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
 import { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
@@ -386,7 +386,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       searches: DrizzleSearchRepository,
     ) => new ReplaysAccess(people, work, sets, replays, searches),
   },
-  ...bindCommandHandler(OpenReplaySetCommand, OpenReplaySetHandler, [
+  ...bindCommandHandler(CreateReplaySetCommand, CreateReplaySetHandler, [
     ReplaysAccess,
     DrizzleReplaySetRepository,
     ID_GENERATOR,
@@ -431,7 +431,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     CLOCK,
     TRANSACTION,
   ]),
-  ...bindCommandHandler(WithdrawCandidateCommand, WithdrawCandidateHandler, [
+  ...bindCommandHandler(DeleteCandidateCommand, DeleteCandidateHandler, [
     PEOPLE,
     DrizzleCandidateRepository,
     DrizzleReplayRepository,
@@ -519,12 +519,12 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     WEB_ORIGIN,
   ]),
   {
-    provide: AbandonReplayChecks,
+    provide: DeleteReplayChecks,
     inject: [DrizzleReplayCheckRepository, TRANSACTION],
     useFactory: (
       checks: DrizzleReplayCheckRepository,
       transaction: TransactionPort,
-    ) => new AbandonReplayChecks(checks, transaction),
+    ) => new DeleteReplayChecks(checks, transaction),
   },
   ...bindCommandHandler(StopReplayCommand, StopReplayHandler, [
     ReplaysAccess,
@@ -666,12 +666,12 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
-    provide: AbandonConfigPullRequests,
+    provide: DeleteConfigPullRequests,
     inject: [DrizzleConfigPullRequestRepository, TRANSACTION],
     useFactory: (
       pullRequests: DrizzleConfigPullRequestRepository,
       transaction: TransactionPort,
-    ) => new AbandonConfigPullRequests(pullRequests, transaction),
+    ) => new DeleteConfigPullRequests(pullRequests, transaction),
   },
   ...bindQueryHandler(ListReplaySetsQuery, ListReplaySetsHandler, [
     ReplaysAccess,
@@ -867,14 +867,14 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ) => new CancelSearch(replays, work, clock, transaction),
   },
   {
-    provide: AbandonSearches,
+    provide: DeleteSearches,
     inject: [DrizzleSearchRepository, WORK, CLOCK, TRANSACTION],
     useFactory: (
       searches: DrizzleSearchRepository,
       work: WorkPort,
       clock: ClockPort,
       transaction: TransactionPort,
-    ) => new AbandonSearches(searches, work, clock, transaction),
+    ) => new DeleteSearches(searches, work, clock, transaction),
   },
   {
     provide: AdvanceSearches,
@@ -1082,7 +1082,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     useFactory: (work: WorkPort) => new CancelReplayRuns(work),
   },
   {
-    provide: AbandonReplays,
+    provide: DeleteReplays,
     inject: [
       DrizzleReplaySetRepository,
       DrizzleReplayRepository,
@@ -1094,7 +1094,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       replays: DrizzleReplayRepository,
       candidates: DrizzleCandidateRepository,
       transaction: TransactionPort,
-    ) => new AbandonReplays(sets, replays, candidates, transaction),
+    ) => new DeleteReplays(sets, replays, candidates, transaction),
   },
   {
     provide: StartWantedBaseline,
@@ -1187,7 +1187,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ) => new SetStations(sets, work, transaction, clock),
   },
   {
-    provide: NoteLineRedefined,
+    provide: NoteLineChanged,
     inject: [
       DrizzleReplaySetRepository,
       DrizzleReplayRepository,
@@ -1204,14 +1204,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       transaction: TransactionPort,
       clock: ClockPort,
     ) =>
-      new NoteLineRedefined(
-        sets,
-        replays,
-        candidates,
-        work,
-        transaction,
-        clock,
-      ),
+      new NoteLineChanged(sets, replays, candidates, work, transaction, clock),
   },
   {
     provide: REPLAYS_EVENTS,
@@ -1231,17 +1224,17 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       NoteReplayPaired,
       HoldSetStartingPoints,
       CancelReplayRuns,
-      AbandonReplays,
-      NoteLineRedefined,
+      DeleteReplays,
+      NoteLineChanged,
       StartWantedBaseline,
       StartOracleReplay,
       NoteSearchProgress,
       DispatchSearchIteration,
       HoldOutSearch,
       CancelSearch,
-      AbandonSearches,
-      AbandonReplayChecks,
-      AbandonConfigPullRequests,
+      DeleteSearches,
+      DeleteReplayChecks,
+      DeleteConfigPullRequests,
       NoticeSearchReflections,
     ],
     useFactory: (
@@ -1260,17 +1253,17 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       paired: NoteReplayPaired,
       startingPointHolds: HoldSetStartingPoints,
       cancellingRuns: CancelReplayRuns,
-      abandoning: AbandonReplays,
-      redefining: NoteLineRedefined,
+      deleting: DeleteReplays,
+      lineChanges: NoteLineChanged,
       baselines: StartWantedBaseline,
       oracles: StartOracleReplay,
       searching: NoteSearchProgress,
       iterating: DispatchSearchIteration,
       holdingOut: HoldOutSearch,
       cancellingSearches: CancelSearch,
-      abandoningSearches: AbandonSearches,
-      abandoningChecks: AbandonReplayChecks,
-      abandoningPullRequests: AbandonConfigPullRequests,
+      deletingSearches: DeleteSearches,
+      deletingChecks: DeleteReplayChecks,
+      deletingPullRequests: DeleteConfigPullRequests,
       noticingReflections: NoticeSearchReflections,
     ) => {
       types.register('replays', REPLAYS_PAYLOAD_TYPES);
@@ -1289,17 +1282,17 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           paired,
           startingPointHolds,
           cancellingRuns,
-          abandoning,
-          redefining,
+          deleting,
+          lineChanges,
           baselines,
           oracles,
           searching,
           iterating,
           holdingOut,
           cancellingSearches,
-          abandoningSearches,
-          abandoningChecks,
-          abandoningPullRequests,
+          deletingSearches,
+          deletingChecks,
+          deletingPullRequests,
           noticingReflections,
         }),
       );

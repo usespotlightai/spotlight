@@ -1,18 +1,18 @@
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { TeamCreated } from '@identity/domain/events/team-created.event';
-import { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
+import { TeamDeleted } from '@identity/domain/events/team-deleted.event';
 import { TeamMemberJoined } from '@identity/domain/events/team-member-joined.event';
-import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
+import { TeamUpdated } from '@identity/domain/events/team-updated.event';
 import { AlreadyOnTheTeamError } from '@identity/domain/exceptions/already-on-the-team.error';
 import { NotInTheWorkspaceError } from '@identity/domain/exceptions/not-in-the-workspace.error';
 import { TeamInUseError } from '@identity/domain/exceptions/team-in-use.error';
-import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import type { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -20,12 +20,12 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-interface Opening {
+interface Creation {
   readonly id: TeamId;
   readonly workspaceId: WorkspaceId;
   readonly name: TeamName;
   readonly key?: TeamKey;
-  readonly openedBy: UserId;
+  readonly createdBy: UserId;
   readonly by: Attribution;
 }
 
@@ -37,19 +37,19 @@ export class Team extends EventRecorder {
     readonly name: TeamName,
     readonly members: readonly UserId[],
     readonly version: number = 0,
-    readonly isDisbanded: boolean = false,
+    readonly isDeleted: boolean = false,
   ) {
     super();
   }
 
-  static open(input: Opening): Team {
+  static createAtSignUp(input: Creation): Team {
     const team = Team.make(input);
 
     team.record(
       new TeamCreated(
         input.workspaceId,
         input.id,
-        input.openedBy,
+        input.createdBy,
         'sign-up',
         ConfigurationChange.created(team.whatChanged, input.by),
       ),
@@ -58,14 +58,14 @@ export class Team extends EventRecorder {
     return team;
   }
 
-  static define(input: Opening & { key: TeamKey }): Team {
+  static create(input: Creation & { key: TeamKey }): Team {
     const team = Team.make(input);
 
     team.record(
       new TeamCreated(
         input.workspaceId,
         input.id,
-        input.openedBy,
+        input.createdBy,
         'configuration',
         ConfigurationChange.created(team.whatChanged, input.by),
       ),
@@ -74,13 +74,13 @@ export class Team extends EventRecorder {
     return team;
   }
 
-  private static make(input: Opening): Team {
+  private static make(input: Creation): Team {
     return new Team(
       input.id,
       input.workspaceId,
       input.key ?? TeamKey.from(input.name.value),
       input.name,
-      [input.openedBy],
+      [input.createdBy],
     );
   }
 
@@ -146,23 +146,23 @@ export class Team extends EventRecorder {
     }
   }
 
-  redefinedAs(
-    definition: { key: TeamKey; name: TeamName },
-    by: Attribution,
-  ): Team {
+  update(definition: { key: TeamKey; name: TeamName }, by: Attribution): Team {
     this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
-      throw new TeamKeyFixedError(
-        this.key.value,
-        `cannot change its key to ${definition.key.value}`,
+      const because = `cannot change its key to ${definition.key.value}`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Team ${this.key.value} ${because}.`,
       );
     }
 
-    const redefined = this.with({ name: definition.name });
+    const updated = this.with({ name: definition.name });
 
-    redefined.record(
-      new TeamRedefined(
+    updated.record(
+      new TeamUpdated(
         this.workspaceId,
         this.id,
         this.key,
@@ -170,20 +170,20 @@ export class Team extends EventRecorder {
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  disband(dependents: Dependents, by: Attribution): Team {
+  delete(dependents: Dependents, by: Attribution): Team {
     this.assertNotDeleted();
 
     if (!dependents.isEmpty) {
       throw new TeamInUseError(this.key.value, dependents);
     }
 
-    const disbanded = this.with({ disbanded: true });
+    const deleted = this.with({ deleted: true });
 
-    disbanded.record(
-      new TeamDisbanded(
+    deleted.record(
+      new TeamDeleted(
         this.workspaceId,
         this.id,
         this.key,
@@ -191,7 +191,7 @@ export class Team extends EventRecorder {
       ),
     );
 
-    return disbanded;
+    return deleted;
   }
 
   private get whatChanged() {
@@ -207,16 +207,16 @@ export class Team extends EventRecorder {
   }
 
   private assertNotDeleted(): void {
-    if (this.isDisbanded) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'team',
-        'was changed after it was disbanded',
+        'was changed after it was deleted',
       );
     }
   }
 
   private with(
-    over: Partial<Pick<Team, 'name' | 'members'>> & { disbanded?: boolean },
+    over: Partial<Pick<Team, 'name' | 'members'>> & { deleted?: boolean },
   ): Team {
     const next = new Team(
       this.id,
@@ -225,7 +225,7 @@ export class Team extends EventRecorder {
       over.name ?? this.name,
       over.members ?? this.members,
       this.version,
-      over.disbanded ?? this.isDisbanded,
+      over.deleted ?? this.isDeleted,
     );
     next.inheritEvents(this);
 

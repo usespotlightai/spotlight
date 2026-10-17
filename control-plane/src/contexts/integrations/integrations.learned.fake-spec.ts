@@ -46,7 +46,7 @@ export class InMemoryLearnedOutputs implements LearnedOutputRepository {
     );
   }
 
-  async forgetSource(teamId: TeamId, source: SourceKey): Promise<void> {
+  async deleteForSource(teamId: TeamId, source: SourceKey): Promise<void> {
     for (const [key, each] of this.stored) {
       if (each.teamId.equals(teamId) && each.source.equals(source)) {
         this.stored.delete(key);
@@ -54,7 +54,7 @@ export class InMemoryLearnedOutputs implements LearnedOutputRepository {
     }
   }
 
-  async forgetTeam(teamId: TeamId): Promise<void> {
+  async deleteForTeam(teamId: TeamId): Promise<void> {
     for (const [key, each] of this.stored) {
       if (each.teamId.equals(teamId)) {
         this.stored.delete(key);

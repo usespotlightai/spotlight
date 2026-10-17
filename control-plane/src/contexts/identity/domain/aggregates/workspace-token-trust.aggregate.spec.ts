@@ -1,15 +1,14 @@
 import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
+import { WorkspaceTokenExpired } from '@identity/domain/events/workspace-token-expired.event';
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
-import { WorkspaceTokenLapsed } from '@identity/domain/events/workspace-token-lapsed.event';
-import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
-import { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
 import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
 import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
@@ -49,7 +48,7 @@ const kept = (version = 2) =>
     ...terms(),
     id: ID,
     workspaceId: WORKSPACE,
-    definedBy: ADMIN,
+    createdBy: ADMIN,
     version,
   });
 
@@ -60,8 +59,8 @@ const workload = (subject = MAIN): WorkloadClaims => ({
   named: {},
 });
 
-const minted = (trust = kept(), claims = workload()) =>
-  trust.mintFor(claims, {
+const issuedToken = (trust = kept(), claims = workload()) =>
+  trust.issueFor(claims, {
     id: WorkspaceTokenId.of('token_9'),
     hash: TokenHash.of('b'.repeat(64)),
     now: NOW,
@@ -69,42 +68,45 @@ const minted = (trust = kept(), claims = workload()) =>
   });
 
 describe('WorkspaceTokenTrust', () => {
-  it('says it was defined, by whom, and remembers who defined it', () => {
-    const defined = WorkspaceTokenTrust.define({
+  it('says it was created, by whom, and remembers who created it', () => {
+    const created = WorkspaceTokenTrust.create({
       ...terms(),
       id: ID,
       workspaceId: WORKSPACE,
-      definedBy: ADMIN,
+      createdBy: ADMIN,
       grantor: Grantor.unlimited,
       by: BY,
     });
 
-    expect(defined.definedBy).toEqual(ADMIN);
-    expect(defined.pullEvents().map((each) => each.kind)).toEqual([
-      'workspace-token-trust.defined',
+    expect(created.createdBy).toEqual(ADMIN);
+    expect(created.pullEvents().map((each) => each.kind)).toEqual([
+      'workspace-token-trust.created',
     ]);
   });
 
-  it('mints a token that acts for whoever defined it, through the trust, until its lifetime runs out', () => {
-    const token = minted();
+  it('issues a token that acts for whoever created it, through the trust, until its lifetime runs out', () => {
+    const token = issuedToken();
 
-    expect(token.mintedThrough).toEqual(ID);
+    expect(token.issuedByTrustId).toEqual(ID);
     expect(token.name.value).toBe('github-main');
     expect(token.scopes.toString()).toBe('configure, secrets');
     expect(token.expiresAt).toEqual(new Date('2026-09-25T10:15:00.000Z'));
-    expect(token.principal).toMatchObject({ userId: ADMIN, mintedThrough: ID });
+    expect(token.principal).toMatchObject({
+      userId: ADMIN,
+      issuedByTrustId: ID,
+    });
     expect(token.admitsAt(new Date('2026-09-25T10:14:59.000Z'))).toBe(true);
     expect(token.admitsAt(new Date('2026-09-25T10:15:00.000Z'))).toBe(false);
   });
 
-  it('records the exchange as the minted token itself, naming the trust and the workload', () => {
-    const [issued] = minted().pullEvents();
+  it('records the exchange as the issued token itself, naming the trust and the workload', () => {
+    const [issued] = issuedToken().pullEvents();
 
     expect(issued).toBeInstanceOf(WorkspaceTokenIssued);
     expect((issued as WorkspaceTokenIssued).change.by.actor).toMatchObject({
       principal: {
         tokenId: WorkspaceTokenId.of('token_9'),
-        mintedThrough: ID,
+        issuedByTrustId: ID,
       },
     });
     expect((issued as WorkspaceTokenIssued).change.recordedDetail).toEqual({
@@ -115,43 +117,43 @@ describe('WorkspaceTokenTrust', () => {
     });
   });
 
-  it('mints nothing for a workload it does not admit', () => {
+  it('issues nothing for a workload it does not admit', () => {
     expect(() =>
-      minted(kept(), workload('repo:acme/platform:pull_request')),
+      issuedToken(kept(), workload('repo:acme/platform:pull_request')),
     ).toThrow(WorkloadNotAdmittedError);
   });
 
-  it('still grants a token only while it is the same as when the token was minted', () => {
-    const token = minted(kept(2));
+  it('still grants a token only while it is the same as when the token was issued', () => {
+    const token = issuedToken(kept(2));
 
-    expect(token.mintedUnder).toBe(2);
+    expect(token.trustVersion).toBe(2);
     expect(kept(2).stillGrants(token)).toBe(true);
     expect(kept(3).stillGrants(token)).toBe(false);
-    expect(kept(2).withdraw(Grantor.unlimited, BY).stillGrants(token)).toBe(
+    expect(kept(2).delete(Grantor.unlimited, BY).stillGrants(token)).toBe(
       false,
     );
   });
 
-  it('changes nothing, and so cuts no token, when redefined as it already is', () => {
+  it('changes nothing, and so cuts no token, when updated to what it already is', () => {
     const trust = kept();
 
-    expect(trust.redefinedAs(terms(), Grantor.unlimited, BY)).toBe(trust);
+    expect(trust.update(terms(), Grantor.unlimited, BY)).toBe(trust);
     expect(trust.pullEvents()).toEqual([]);
     expect(
       kept()
-        .redefinedAs(terms({ minutes: 5 }), Grantor.unlimited, BY)
+        .update(terms({ minutes: 5 }), Grantor.unlimited, BY)
         .pullEvents()
         .map((each) => each.kind),
-    ).toEqual(['workspace-token-trust.redefined']);
+    ).toEqual(['workspace-token-trust.updated']);
   });
 
-  it('grants no scope beyond those of a token defining or redefining it', () => {
+  it('grants no scope beyond those of a token creating or updating it', () => {
     const defining = (scopes: string[]) =>
-      WorkspaceTokenTrust.define({
+      WorkspaceTokenTrust.create({
         ...terms(),
         id: ID,
         workspaceId: WORKSPACE,
-        definedBy: ADMIN,
+        createdBy: ADMIN,
         grantor: Grantor.withScopes(TokenScopes.named(scopes)),
         by: BY,
       });
@@ -163,7 +165,7 @@ describe('WorkspaceTokenTrust', () => {
       'configure, secrets',
     );
     expect(() =>
-      kept().redefinedAs(
+      kept().update(
         terms({ scopes: ['plan'] }),
         Grantor.withScopes(TokenScopes.named(['configure', 'trusts'])),
         BY,
@@ -171,7 +173,7 @@ describe('WorkspaceTokenTrust', () => {
     ).toThrow(TokenTrustBeyondGrantorError);
     expect(
       kept()
-        .redefinedAs(
+        .update(
           terms({ scopes: ['plan'] }),
           Grantor.withScopes(
             TokenScopes.named(['configure', 'secrets', 'trusts']),
@@ -182,31 +184,27 @@ describe('WorkspaceTokenTrust', () => {
     ).toBe('plan');
   });
 
-  it('is withdrawn only by a grantor with every scope it grants', () => {
+  it('is deleted only by a grantor with every scope it grants', () => {
     expect(() =>
-      kept().withdraw(
+      kept().delete(
         Grantor.withScopes(TokenScopes.named(['plan', 'trusts'])),
         BY,
       ),
     ).toThrow(TokenTrustBeyondGrantorError);
     expect(
-      kept().withdraw(
+      kept().delete(
         Grantor.withScopes(
           TokenScopes.named(['configure', 'secrets', 'trusts']),
         ),
         BY,
-      ).isWithdrawn,
+      ).isDeleted,
     ).toBe(true);
   });
 
   it('keeps its key for life', () => {
     expect(() =>
-      kept().redefinedAs(
-        terms({ key: 'github-release' }),
-        Grantor.unlimited,
-        BY,
-      ),
-    ).toThrow(TokenTrustKeyFixedError);
+      kept().update(terms({ key: 'github-release' }), Grantor.unlimited, BY),
+    ).toThrow(ImmutableFieldError);
   });
 
   it('is written over only at the version it was read at', () => {
@@ -215,41 +213,41 @@ describe('WorkspaceTokenTrust', () => {
     );
   });
 
-  it('admits nothing, and cannot change, once withdrawn', () => {
-    const withdrawn = kept().withdraw(Grantor.unlimited, BY);
+  it('admits nothing, and cannot change, once deleted', () => {
+    const deleted = kept().delete(Grantor.unlimited, BY);
 
-    expect(withdrawn.admits(workload())).toBe(false);
-    expect(withdrawn.pullEvents().map((each) => each.kind)).toEqual([
-      'workspace-token-trust.withdrawn',
+    expect(deleted.admits(workload())).toBe(false);
+    expect(deleted.pullEvents().map((each) => each.kind)).toEqual([
+      'workspace-token-trust.deleted',
     ]);
-    expect(() => withdrawn.withdraw(Grantor.unlimited, BY)).toThrow(
+    expect(() => deleted.delete(Grantor.unlimited, BY)).toThrow(
       InconsistentStateError,
     );
   });
 });
 
-describe('a minted WorkspaceToken', () => {
-  it('lapses once expired, saying so without changing configuration', () => {
-    const token = minted();
+describe('an issued WorkspaceToken', () => {
+  it('expires once its time ends, saying so without changing configuration', () => {
+    const token = issuedToken();
     token.pullEvents();
 
-    const lapsed = token.lapsed(new Date('2026-09-25T10:16:00.000Z'));
+    const expired = token.expire(new Date('2026-09-25T10:16:00.000Z'));
 
-    expect(lapsed.isRevoked).toBe(true);
-    expect(lapsed.pullEvents()).toEqual([
-      new WorkspaceTokenLapsed(token.id, token.workspaceId, token.name),
+    expect(expired.isRevoked).toBe(true);
+    expect(expired.pullEvents()).toEqual([
+      new WorkspaceTokenExpired(token.id, token.workspaceId, token.name),
     ]);
   });
 
-  it('does not lapse while it still admits its bearer', () => {
-    expect(() => minted().lapsed(NOW)).toThrow(InconsistentStateError);
+  it('does not expire while it still admits its bearer', () => {
+    expect(() => issuedToken().expire(NOW)).toThrow(InconsistentStateError);
   });
 
   it('is never described anew, since it is not configuration', () => {
-    const token = minted();
+    const token = issuedToken();
 
     expect(() =>
-      token.redescribe(
+      token.update(
         {
           name: token.name,
           description: token.description,
@@ -258,11 +256,11 @@ describe('a minted WorkspaceToken', () => {
         },
         BY,
       ),
-    ).toThrow(MintedTokenFixedError);
+    ).toThrow(ImmutableFieldError);
   });
 
   it('is revoked like any other token, saying so', () => {
-    const token = minted();
+    const token = issuedToken();
     token.pullEvents();
 
     const revoked = token.revoke(BY);

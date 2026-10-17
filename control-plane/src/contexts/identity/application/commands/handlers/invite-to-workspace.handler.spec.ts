@@ -27,7 +27,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -67,12 +67,12 @@ const TEAMS = [team('team_1', 'Platform'), team('team_2', 'Mobile')];
 const kept = (invite: WorkspaceInvite): WorkspaceInvite =>
   WorkspaceInvite.rehydrate({ ...invite, version: invite.version + 1 });
 
-const openInvite = (
+const pendingInvite = (
   email = 'ada@example.com',
   sentAt = new Date('2026-09-01T09:00:00.000Z'),
 ) =>
   kept(
-    WorkspaceInvite.offer({
+    WorkspaceInvite.create({
       id: InviteId.of(`invite_${email}`),
       workspaceId: ACME,
       email: EmailAddress.of(email),
@@ -98,7 +98,7 @@ const inviting = (
   const save = vi.fn(over.save ?? (async (_: WorkspaceInvite) => {}));
   const send = vi.fn(over.mail ?? (async (_: InviteToSend) => {}));
   const warn = vi.fn();
-  let minted = 0;
+  let issued = 0;
   let generated = 0;
 
   const handler = new InviteToWorkspaceHandler(
@@ -108,7 +108,7 @@ const inviting = (
     {
       add,
       save,
-      openTo: async (_: WorkspaceId, email: EmailAddress) =>
+      notEndedTo: async (_: WorkspaceId, email: EmailAddress) =>
         over.previous?.(email.value) ?? null,
     } as unknown as WorkspaceInviteRepository,
     { ofWorkspace: async () => TEAMS } as unknown as TeamRepository,
@@ -127,11 +127,11 @@ const inviting = (
       { warn } as unknown as LoggerPort,
     ),
     {
-      mint: () => {
-        minted += 1;
-        return { token: `tok_${minted}`, hash: `${minted}`.repeat(64) };
+      issue: () => {
+        issued += 1;
+        return { token: `tok_${issued}`, hash: `${issued}`.repeat(64) };
       },
-    } as unknown as TokenMintPort,
+    } as unknown as TokenIssuer,
     {
       generate: () => {
         generated += 1;
@@ -254,14 +254,14 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('sends an open invite again, on the terms asked now, rather than opening a second', async () => {
+  it('resends a pending invite, on the terms asked now, rather than creating a second', async () => {
     const { handler, add, save, send } = inviting({
-      previous: () => openInvite(),
+      previous: () => pendingInvite(),
     });
 
     await expect(handler.execute(invite(['ada@example.com']))).resolves.toEqual(
       {
-        outcomes: [{ email: 'ada@example.com', outcome: 'sent-again' }],
+        outcomes: [{ email: 'ada@example.com', outcome: 'resent' }],
       },
     );
     expect(add).not.toHaveBeenCalled();
@@ -273,23 +273,23 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('sends a run-out invite again', async () => {
+  it('resends a run-out invite', async () => {
     const { handler, save } = inviting({
-      previous: () => openInvite('ada@example.com', new Date('2026-08-01')),
+      previous: () => pendingInvite('ada@example.com', new Date('2026-08-01')),
     });
 
     await handler.execute(invite(['ada@example.com']));
 
-    expect(save.mock.calls[0]?.[0].statusAt(NOW)).toBe('open');
+    expect(save.mock.calls[0]?.[0].statusAt(NOW)).toBe('pending');
   });
 
-  it('sends the invite another first offer just opened, where that offer wrote first, and carries on', async () => {
-    const opened = new Map<string, WorkspaceInvite>();
+  it('resends the invite that another first send just created, where that send wrote first, and carries on', async () => {
+    const created = new Map<string, WorkspaceInvite>();
     const { handler, add, save, send } = inviting({
-      previous: (email) => opened.get(email) ?? null,
+      previous: (email) => created.get(email) ?? null,
       add: async (added) => {
         if (added.email.value === 'ada@example.com') {
-          opened.set('ada@example.com', openInvite());
+          created.set('ada@example.com', pendingInvite());
           throw new AlreadyInvitedError(added.email.value);
         }
       },
@@ -299,7 +299,7 @@ describe('InviteToWorkspaceHandler', () => {
       handler.execute(invite(['ada@example.com', 'grace@example.com'])),
     ).resolves.toEqual({
       outcomes: [
-        { email: 'ada@example.com', outcome: 'sent-again' },
+        { email: 'ada@example.com', outcome: 'resent' },
         { email: 'grace@example.com', outcome: 'invited' },
       ],
     });
@@ -308,10 +308,10 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).toHaveBeenCalledTimes(2);
   });
 
-  it('sends again from what the invite became, where another send wrote first', async () => {
+  it('resends from what the invite became, where another send wrote first', async () => {
     let saves = 0;
     const { handler, save, send } = inviting({
-      previous: () => openInvite(),
+      previous: () => pendingInvite(),
       save: async (saved) => {
         saves += 1;
         if (saves === 1) {

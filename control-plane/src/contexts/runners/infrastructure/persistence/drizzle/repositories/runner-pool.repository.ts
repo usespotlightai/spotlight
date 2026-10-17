@@ -6,7 +6,7 @@ import {
 } from '@platform/persistence/drizzle/violations';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
-import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
+import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-pool-already-exists.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
@@ -94,7 +94,7 @@ const toPool = (row: Row): RunnerPool =>
 
 const domainErrorOf = (error: unknown, key: string): unknown => {
   if (violates(error, UNIQUE_VIOLATION, 'runner_pool_workspace_key')) {
-    return new RunnerPoolAlreadyDefinedError(key);
+    return new RunnerPoolAlreadyExistsError(key);
   }
 
   if (violates(error, UNIQUE_VIOLATION, 'runner_pool_token_hash')) {
@@ -135,7 +135,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
         eq(runnerPool.id, saved.id.value),
         eq(runnerPool.version, saved.version),
       );
-      const stored = !saved.isRetired
+      const stored = !saved.isDeleted
         ? await this.context.db
             .update(runnerPool)
             .set({ ...written(saved), version: saved.version + 1 })

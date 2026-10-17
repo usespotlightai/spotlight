@@ -78,7 +78,7 @@ export class SkillResourceController {
     private readonly commandBus: CommandBus,
   ) {}
 
-  @SkillResource.Create('teams/:teamId/skills', 'Define a skill for a team')
+  @SkillResource.Create('teams/:teamId/skills', 'Create a skill for a team')
   @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
   @DEFINITION
   async create(

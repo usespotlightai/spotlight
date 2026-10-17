@@ -186,7 +186,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
         )
         .returning({ taskId: taskDelivery.taskId });
 
-      await this.facts.forgetDeliveries({
+      await this.facts.deleteDeliveries({
         kind: 'tasks',
         workspaceId: workspaceId.value,
         taskIds: removed.map((each) => each.taskId),
@@ -200,7 +200,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
         .delete(taskDelivery)
         .where(eq(taskDelivery.workspaceId, workspaceId.value));
 
-      await this.facts.forgetDeliveries({
+      await this.facts.deleteDeliveries({
         kind: 'workspace',
         workspaceId: workspaceId.value,
       });

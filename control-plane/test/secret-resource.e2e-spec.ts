@@ -87,7 +87,7 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
 
 conformsAsResource({ kind: 'secret', open: seated });
 
-describe('a secret, set through the resource API (e2e)', () => {
+describe('a secret, created through the resource API (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
   let fixture: ResourceFixture;
@@ -347,7 +347,7 @@ describe('a secret, set through the resource API (e2e)', () => {
     expect(audit.text).not.toContain(VALUE);
   });
 
-  it('forgets its value when deleted', async () => {
+  it('deletes its value with the secret', async () => {
     const made = await admin().create(LINEAR);
 
     await admin().remove(made.body.id, made.body.version);

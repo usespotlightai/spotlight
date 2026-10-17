@@ -12,11 +12,11 @@ export class RunnerPoolChangeDetail implements ChangeDetail {
     readonly egressMoved: boolean,
   ) {}
 
-  static defined(mode: PoolMode): RunnerPoolChangeDetail {
+  static created(mode: PoolMode): RunnerPoolChangeDetail {
     return new RunnerPoolChangeDetail(mode, false, false, false);
   }
 
-  static redefined(
+  static updated(
     mode: PoolMode,
     moved: { rekeyed: boolean; secretRotated: boolean; egressMoved?: boolean },
   ): RunnerPoolChangeDetail {

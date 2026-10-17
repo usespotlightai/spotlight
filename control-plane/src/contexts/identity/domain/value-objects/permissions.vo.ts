@@ -51,7 +51,7 @@ export class Permissions {
 
   static beyondWorkspaces(principal: Principal): Permissions {
     return principal.kind === 'person'
-      ? new Permissions(['plan', 'open-workspaces'])
+      ? new Permissions(['plan', 'create-workspaces'])
       : new Permissions(
           principal.scopes.allow(TokenScope.plan) ? ['plan'] : [],
         );
@@ -85,7 +85,7 @@ export class Permissions {
     return this.granted.has('administer');
   }
 
-  get opensWorkspaces(): boolean {
-    return this.granted.has('open-workspaces');
+  get createsWorkspaces(): boolean {
+    return this.granted.has('create-workspaces');
   }
 }

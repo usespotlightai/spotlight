@@ -1,5 +1,5 @@
-import type { HookKeyFixedError } from '@integrations/domain/exceptions/hook-key-fixed.error';
 import type { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
+import type { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -16,10 +16,13 @@ export const HookProblems = {
     });
   },
 
-  keyFixed(key: string, error: HookKeyFixedError): ConfigurationProblem {
+  immutableField(
+    key: string,
+    error: ImmutableFieldError,
+  ): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: hookAt(key),
-      at: FieldPath.of(['key']),
+      at: FieldPath.of([error.field]),
       reason: error.because,
     });
   },

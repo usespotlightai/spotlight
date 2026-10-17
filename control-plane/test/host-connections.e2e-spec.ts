@@ -29,7 +29,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const NOW = new Date('2026-10-05T10:00:00.000Z');
 const LINEAR = SourceKey.of('linear');
@@ -189,7 +189,7 @@ describe('host connections kept per holder', () => {
     expect(renewed?.hasToken(AccessToken.of('alice'))).toBe(false);
   });
 
-  it('replaces a person’s connection when they connect again, and forgets it when they disconnect', async () => {
+  it('replaces a person’s connection when they connect again, and deletes it when they disconnect', async () => {
     const teamId = TeamId.of(randomUUID());
     const alice = ConnectionHolder.person(UserId.of('user_alice'));
 
@@ -241,7 +241,7 @@ describe('OAuth client registrations', () => {
 
 describe('tasks waiting on a connection', () => {
   it('are found by the team, person and integration asked about, until the ask is met', async () => {
-    const { list, owner, teamId } = await openTeam(
+    const { list, owner, teamId } = await createTeam(
       db,
       tasks,
       `connections-${randomUUID()}`,

@@ -48,7 +48,9 @@ export class DeleteWorkspaceRunnersHandler
 
       await this.transaction.inTransaction(() =>
         this.declarations.save(
-          existing.drop(Attribution.of(command.actor, permissions.workspaceId)),
+          existing.delete(
+            Attribution.of(command.actor, permissions.workspaceId),
+          ),
         ),
       );
 

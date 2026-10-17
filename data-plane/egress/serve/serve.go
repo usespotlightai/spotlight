@@ -138,7 +138,7 @@ func (e *Egress) Serve(ctx context.Context, listener net.Listener) error {
 
 	flushing, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer cancel()
-	e.forget(flushing, e.allRuns(), "egress stopped")
+	e.evict(flushing, e.allRuns(), "egress stopped")
 	e.records.flush(flushing)
 
 	if errors.Is(err, http.ErrServerClosed) {

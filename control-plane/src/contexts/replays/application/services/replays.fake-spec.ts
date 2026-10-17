@@ -145,7 +145,7 @@ export class InMemoryReplays {
     },
     save: async (candidate) => {
       this.events.push(...candidate.pullEvents());
-      if (candidate.isAbandoned) {
+      if (candidate.isDeleted) {
         this.candidates.delete(candidate.id.value);
       }
     },
@@ -233,7 +233,7 @@ export class InMemoryReplays {
         throw new ReplayVersionConflictError(replay.id.value);
       }
       this.events.push(...replay.pullEvents());
-      if (replay.isAbandoned) {
+      if (replay.isDeleted) {
         this.replays.delete(replay.id.value);
       } else {
         this.replays.set(replay.id.value, replay);
@@ -308,7 +308,7 @@ export class InMemoryReplays {
     },
     save: async (search) => {
       this.events.push(...search.pullEvents());
-      if (search.isAbandoned) {
+      if (search.isDeleted) {
         this.searches.delete(search.id.value);
       } else {
         this.searches.set(search.id.value, search);
@@ -674,7 +674,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
 
     this.events.push(...saved.pullEvents());
 
-    if (saved.isAbandoned) {
+    if (saved.isDeleted) {
       this.kept.delete(saved.id.value);
       return;
     }

@@ -182,7 +182,7 @@ describe('McpSessions', () => {
     }
   });
 
-  it('starts again once when the server has forgotten the session', async () => {
+  it('starts again once when the server no longer knows the session', async () => {
     const search = () =>
       sessions.call(
         'team_1:tracker:team:none',
@@ -193,7 +193,7 @@ describe('McpSessions', () => {
       );
 
     await search();
-    server.forgetSessions();
+    server.evictSessions();
 
     await expect(search()).resolves.toMatchObject({
       structuredContent: { issues: [{ id: 'ENG-1' }] },

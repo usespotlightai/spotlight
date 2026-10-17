@@ -8,7 +8,7 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 
-describe('setting up the team a workspace opens with (e2e)', () => {
+describe('setting up the team a workspace starts with (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
   let owner: string;
@@ -31,7 +31,7 @@ describe('setting up the team a workspace opens with (e2e)', () => {
 
   it('reads as done only once the workspace has its team, and the team its lines and its setup task', async () => {
     const slug = `acme-${randomUUID().slice(0, 8)}`;
-    const opened = await served(app)
+    const created = await served(app)
       .post('/api/workspaces')
       .set(TEST_USER_HEADER, owner)
       .send({
@@ -40,7 +40,7 @@ describe('setting up the team a workspace opens with (e2e)', () => {
         teamName: 'Core',
       })
       .expect(201);
-    const teamId = opened.body.teams[0].id as string;
+    const teamId = created.body.teams[0].id as string;
 
     const workspace = await eventually(async () => {
       const { body } = await read(`workspaces/${slug}`).expect(200);
@@ -70,7 +70,7 @@ describe('setting up the team a workspace opens with (e2e)', () => {
       .innerJoin(schema.taskNote, eq(schema.taskNote.taskId, schema.task.id))
       .where(
         and(
-          eq(schema.task.workspaceId, opened.body.id),
+          eq(schema.task.workspaceId, created.body.id),
           eq(schema.taskNote.form, 'setup'),
         ),
       );

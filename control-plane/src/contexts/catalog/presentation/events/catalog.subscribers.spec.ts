@@ -1,26 +1,26 @@
 import { catalogSubscribers } from '@catalog/presentation/events/catalog.subscribers';
-import { WORKSPACE_CLOSED } from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const WORKSPACE = 'workspace_acme';
 
-const closed = {
-  kind: WORKSPACE_CLOSED,
+const deletedWorkspace = {
+  kind: WORKSPACE_DELETED,
   workspaceId: WORKSPACE,
   slug: 'acme',
 } as never;
 
-const forgetting = () => {
+const deleting = () => {
   const plans: WorkspaceId[] = [];
   const calls: WorkspaceId[] = [];
   const subscribers = catalogSubscribers({
     plans: {
-      forget: async (workspaceId) => void plans.push(workspaceId),
+      deleteForWorkspace: async (workspaceId) => void plans.push(workspaceId),
     },
     meter: {
       record: async () => undefined,
-      forget: async (workspaceId) => void calls.push(workspaceId),
+      deleteForWorkspace: async (workspaceId) => void calls.push(workspaceId),
     },
   });
 
@@ -28,23 +28,23 @@ const forgetting = () => {
 };
 
 describe('catalogSubscribers', () => {
-  it('forgets the plan of a closed workspace', async () => {
-    const { plans, calls, subscribers } = forgetting();
+  it('deletes the plan of a deleted workspace', async () => {
+    const { plans, calls, subscribers } = deleting();
 
     await subscribers
-      .find((each) => each.name === 'catalog.forget-plan-of-closed-workspace')
-      ?.handle(closed);
+      .find((each) => each.name === 'catalog.delete-plan-of-deleted-workspace')
+      ?.handle(deletedWorkspace);
 
     expect(plans.map((each) => each.value)).toEqual([WORKSPACE]);
     expect(calls).toEqual([]);
   });
 
-  it('forgets the metered calls of a closed workspace', async () => {
-    const { plans, calls, subscribers } = forgetting();
+  it('deletes the metered calls of a deleted workspace', async () => {
+    const { plans, calls, subscribers } = deleting();
 
     await subscribers
-      .find((each) => each.name === 'catalog.forget-calls-of-closed-workspace')
-      ?.handle(closed);
+      .find((each) => each.name === 'catalog.delete-calls-of-deleted-workspace')
+      ?.handle(deletedWorkspace);
 
     expect(calls.map((each) => each.value)).toEqual([WORKSPACE]);
     expect(plans).toEqual([]);

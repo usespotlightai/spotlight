@@ -52,14 +52,14 @@ describe('validateEgress', () => {
     ).toBeNull();
   });
 
-  it('rejects an egress that is not there, retired, of another workspace, or another than the one named', () => {
+  it('rejects an egress that is not there, deleted, of another workspace, or another than the one named', () => {
     const reference = EgressReference.to(EGRESS_ID);
     const reason =
       "provision.egress names egress_1. Egress egress_1 doesn't exist in this workspace";
 
     expect(problemOf(reference)).toBe(reason);
     expect(
-      problemOf(reference, { named: anEgress().retire([], attributedIn()) }),
+      problemOf(reference, { named: anEgress().delete([], attributedIn()) }),
     ).toBe(reason);
     expect(
       problemOf(reference, {

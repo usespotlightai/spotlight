@@ -90,12 +90,12 @@ describe('resource answers', () => {
   it('says why a request was forbidden, by what it was forbidden to do', async () => {
     expect(
       await problemOf(() =>
-        answerCreated('workspace', forbiddenTo('open-workspaces'), answer),
+        answerCreated('workspace', forbiddenTo('create-workspaces'), answer),
       ),
     ).toMatchObject({
       status: 403,
       detail: expect.stringContaining(
-        'A workspace token cannot open a workspace',
+        'A workspace token cannot create a workspace',
       ),
     });
     expect(

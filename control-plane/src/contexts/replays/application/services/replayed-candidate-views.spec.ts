@@ -454,7 +454,7 @@ describe('replayedCandidatesView', () => {
           NOW,
           false,
         ),
-      ReplaySet.open({
+      ReplaySet.create({
         id: ReplaySetId.of('set_twice'),
         station: STATION,
         name: ReplaySetName.of('Twice'),

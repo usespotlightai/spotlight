@@ -27,7 +27,7 @@ const toRecord = (row: PullRequestRow): PullRequestRecord =>
           }
         : null,
     reviewTasks: row.reviewTaskIds.map((each) => TaskId.of(each)),
-    githubForgotAt: row.githubForgotAt,
+    githubPurgedAt: row.githubPurgedAt,
     version: row.version,
   });
 
@@ -67,7 +67,7 @@ const columnsOf = (record: PullRequestRecord) => {
     ownerTaskId: record.owner?.taskId.value ?? null,
     ownerTeamId: record.owner?.teamId.value ?? null,
     reviewTaskIds: record.reviewTasks.map((each) => each.value),
-    githubForgotAt: record.githubForgotAt,
+    githubPurgedAt: record.githubPurgedAt,
   };
 };
 

@@ -104,7 +104,7 @@ export class DispatchSearch implements SearchDispatchPort {
       const stationId = StationId.of(order.stationId);
       const line = await this.lines.find(LineId.of(order.lineId));
 
-      if (!line || line.isRetired || !line.stationAt(stationId)?.isWorked) {
+      if (!line || line.isDeleted || !line.stationAt(stationId)?.isWorked) {
         return unstartable('the line no longer has the station it searches');
       }
 

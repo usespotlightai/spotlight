@@ -1,8 +1,7 @@
-import { HarnessProfileDefined } from '@configuration/domain/events/harness-profile-defined.event';
-import { HarnessProfileRedefined } from '@configuration/domain/events/harness-profile-redefined.event';
-import { HarnessProfileRetired } from '@configuration/domain/events/harness-profile-retired.event';
+import { HarnessProfileCreated } from '@configuration/domain/events/harness-profile-created.event';
+import { HarnessProfileDeleted } from '@configuration/domain/events/harness-profile-deleted.event';
+import { HarnessProfileUpdated } from '@configuration/domain/events/harness-profile-updated.event';
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
-import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import { missingSecrets } from '@configuration/domain/services/missing-secrets';
@@ -11,6 +10,7 @@ import type { ProfileKey } from '@configuration/domain/value-objects/profile-key
 import type { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import type { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -26,7 +26,7 @@ interface Props {
 }
 
 interface State extends Props {
-  readonly retired: boolean;
+  readonly deleted: boolean;
 }
 
 export interface ReadProfile {
@@ -50,7 +50,7 @@ export class HarnessProfile extends EventRecorder {
     super();
   }
 
-  static define(
+  static create(
     input: ReadProfile & {
       id: HarnessProfileId;
       teamId: TeamId;
@@ -60,25 +60,25 @@ export class HarnessProfile extends EventRecorder {
   ): HarnessProfile {
     rejectMissing(input, input.existingSecrets);
 
-    const defined = new HarnessProfile({
+    const created = new HarnessProfile({
       id: input.id,
       teamId: input.teamId,
       key: input.key,
       settings: input.settings,
       version: 0,
-      retired: false,
+      deleted: false,
     });
 
-    defined.record(
-      new HarnessProfileDefined(
-        defined.id,
-        defined.teamId,
-        defined.key,
-        ConfigurationChange.created(defined.whatChanged, input.by),
+    created.record(
+      new HarnessProfileCreated(
+        created.id,
+        created.teamId,
+        created.key,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(input: Props): HarnessProfile {
@@ -89,7 +89,7 @@ export class HarnessProfile extends EventRecorder {
       );
     }
 
-    return new HarnessProfile({ ...input, retired: false });
+    return new HarnessProfile({ ...input, deleted: false });
   }
 
   assertVersion(version: number): void {
@@ -98,7 +98,7 @@ export class HarnessProfile extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     read: ReadProfile,
     by: Attribution,
     existingSecrets: readonly SecretName[],
@@ -106,18 +106,21 @@ export class HarnessProfile extends EventRecorder {
     this.guardLive();
 
     if (!read.key.equals(this.key)) {
-      throw new HarnessProfileKeyFixedError(
-        this.key.value,
-        `cannot be renamed to ${read.key.value}. Please replace it instead`,
+      const because = `cannot be renamed to ${read.key.value}. Please replace it instead`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Harness profile ${this.key.value} ${because}.`,
       );
     }
 
     rejectMissing(read, existingSecrets);
 
-    const redefined = this.with({ settings: read.settings });
+    const updated = this.with({ settings: read.settings });
 
-    redefined.record(
-      new HarnessProfileRedefined(
+    updated.record(
+      new HarnessProfileUpdated(
         this.id,
         this.teamId,
         this.key,
@@ -125,10 +128,10 @@ export class HarnessProfile extends EventRecorder {
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  retire(named: StationUses, by: Attribution): HarnessProfile {
+  delete(named: StationUses, by: Attribution): HarnessProfile {
     this.guardLive();
 
     const using = named.of(this.key);
@@ -137,16 +140,16 @@ export class HarnessProfile extends EventRecorder {
       throw new HarnessProfileInUseError(this.key.value, using);
     }
 
-    return this.abandon(by);
+    return this.cascadeDelete(by);
   }
 
-  abandon(by: Attribution): HarnessProfile {
+  cascadeDelete(by: Attribution): HarnessProfile {
     this.guardLive();
 
-    const retired = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    retired.record(
-      new HarnessProfileRetired(
+    deleted.record(
+      new HarnessProfileDeleted(
         this.id,
         this.teamId,
         this.key,
@@ -154,7 +157,7 @@ export class HarnessProfile extends EventRecorder {
       ),
     );
 
-    return retired;
+    return deleted;
   }
 
   get id(): HarnessProfileId {
@@ -181,8 +184,8 @@ export class HarnessProfile extends EventRecorder {
     return this.state.version === 0;
   }
 
-  get isRetired(): boolean {
-    return this.state.retired;
+  get isDeleted(): boolean {
+    return this.state.deleted;
   }
 
   private get whatChanged() {
@@ -202,10 +205,10 @@ export class HarnessProfile extends EventRecorder {
   }
 
   private guardLive(): void {
-    if (this.isRetired) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'harness profile',
-        'was changed after it was retired',
+        'was changed after it was deleted',
       );
     }
   }

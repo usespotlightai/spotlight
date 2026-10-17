@@ -6,7 +6,7 @@ import { UpdateSkillHandler } from '@configuration/application/commands/handlers
 import { UpdateSkillCommand } from '@configuration/application/commands/update-skill.command';
 import type { StationGifts } from '@configuration/application/services/station-gifts.service';
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
-import { SkillAlreadyDefinedError } from '@configuration/domain/exceptions/skill-already-defined.error';
+import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-already-exists.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
@@ -105,7 +105,7 @@ describe('CreateSkillHandler', () => {
     };
   };
 
-  it('defines the skill its files describe', async () => {
+  it('creates the skill its files describe', async () => {
     const { create, kept } = creating();
 
     expect(await create(GRAFANA)).toEqual({
@@ -121,12 +121,12 @@ describe('CreateSkillHandler', () => {
   it('says a key the team already has is taken', async () => {
     expect(
       await creating({
-        throwing: new SkillAlreadyDefinedError('grafana'),
+        throwing: new SkillAlreadyExistsError('grafana'),
       }).create(GRAFANA),
     ).toEqual({ outcome: 'taken', address: 'core/grafana' });
   });
 
-  it('says what is wrong, and defines nothing', async () => {
+  it('says what is wrong, and creates nothing', async () => {
     const { create, kept } = creating();
     const rejected = await create({ key: 'grafana', files: {} });
 
@@ -223,16 +223,16 @@ describe('DeleteSkillHandler', () => {
     };
   };
 
-  it('retires a skill no station gives', async () => {
+  it('deletes a skill that no station gives', async () => {
     const { remove, kept } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((kept.save.mock.calls[0] as [SkillDefinition])[0].isRetired).toBe(
+    expect((kept.save.mock.calls[0] as [SkillDefinition])[0].isDeleted).toBe(
       true,
     );
   });
 
-  it('will not retire a skill a station gives', async () => {
+  it('will not delete a skill that a station gives', async () => {
     const { remove, kept } = deleting(
       StationUses.of([{ name: 'grafana', by: 'delivery/implementation' }]),
     );

@@ -1,13 +1,13 @@
-import { CandidateAbandonmentDue } from '@replays/domain/events/candidate-abandonment-due.event';
+import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
+import { CandidateDeletionDue } from '@replays/domain/events/candidate-deletion-due.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
-import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
-import { ConfigPullRequestAbandonmentDue } from '@replays/domain/events/config-pull-request-abandonment-due.event';
+import { ConfigPullRequestDeletionDue } from '@replays/domain/events/config-pull-request-deletion-due.event';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
-import { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-due.event';
 import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
-import { ReplayCheckAbandonmentDue } from '@replays/domain/events/replay-check-abandonment-due.event';
+import { ReplayCheckDeletionDue } from '@replays/domain/events/replay-check-deletion-due.event';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
+import { ReplayDeletionDue } from '@replays/domain/events/replay-deletion-due.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
@@ -19,8 +19,8 @@ import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-
 import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
 import { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
-import { ReplaySetAbandonmentDue } from '@replays/domain/events/replay-set-abandonment-due.event';
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
+import { ReplaySetDeletionDue } from '@replays/domain/events/replay-set-deletion-due.event';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import { ReplaySetGuardChanged } from '@replays/domain/events/replay-set-guard-changed.event';
 import { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
@@ -29,7 +29,7 @@ import { ReplayStackRecheckWanted } from '@replays/domain/events/replay-stack-re
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
 import { ReplayStopAsked } from '@replays/domain/events/replay-stop-asked.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
-import { SearchAbandonmentDue } from '@replays/domain/events/search-abandonment-due.event';
+import { SearchDeletionDue } from '@replays/domain/events/search-deletion-due.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
 import { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
@@ -137,16 +137,16 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplayStackRecheckWanted,
   ReplayBaselineWanted,
   ReplayJudgingWanted,
-  ReplayAbandonmentDue,
-  ReplaySetAbandonmentDue,
-  CandidateAbandonmentDue,
+  ReplayDeletionDue,
+  ReplaySetDeletionDue,
+  CandidateDeletionDue,
   ReplaySetStationCheckDue,
   CandidateProposed,
-  CandidateWithdrawn,
+  CandidateDeleted,
   ReplayStarted,
   ReplayStopAsked,
   ReplayEnded,
-  SearchAbandonmentDue,
+  SearchDeletionDue,
   SearchEnded,
   SearchHoldingOutWanted,
   SearchIterationWanted,
@@ -158,7 +158,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplayThreshold,
   ReplayedPeriod,
   ReplayCheckStarted,
-  ReplayCheckAbandonmentDue,
+  ReplayCheckDeletionDue,
   StationDigests,
   PlannedLine,
   ChangesGuardDetail,
@@ -168,5 +168,5 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ConfigPullRequestReason,
   ConfigPullRequestWanted,
   ConfigPullRequestOpened,
-  ConfigPullRequestAbandonmentDue,
+  ConfigPullRequestDeletionDue,
 ] as const;

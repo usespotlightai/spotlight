@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
@@ -47,7 +47,7 @@ const withCurrentRun = (task: Task, runId: RunId): Task =>
 
 describe('writing a task somebody else has written', () => {
   const opened = async () => {
-    const { list } = await openTeam(db, tasks, `nolan-${randomUUID()}`);
+    const { list } = await createTeam(db, tasks, `nolan-${randomUUID()}`);
     const id = list.id;
 
     const one = await tasks.find(id);
@@ -132,12 +132,12 @@ describe('a person moving a task by hand', () => {
   const SHIP = randomUUID();
 
   let app: INestApplication;
-  let team: Awaited<ReturnType<typeof openTeam>>;
+  let team: Awaited<ReturnType<typeof createTeam>>;
 
   beforeAll(async () => {
     app = await openApp();
     const servedDb = app.get<DrizzleDatabase>(DRIZZLE);
-    team = await openTeam(
+    team = await createTeam(
       servedDb,
       app.get(DrizzleTaskRepository),
       `movers-${randomUUID().slice(0, 8)}`,

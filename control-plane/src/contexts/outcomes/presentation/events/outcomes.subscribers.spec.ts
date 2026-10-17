@@ -1,10 +1,10 @@
-import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
+import { deletionsInMemory } from '@outcomes/application/ports/deletions.fake-spec';
 import { pendingReviewsInMemory } from '@outcomes/application/ports/pending-reviews.fake-spec';
 import { stationConfigPullRequestsInMemory } from '@outcomes/application/ports/station-config-pull-requests.fake-spec';
 import type { EndedRun } from '@outcomes/application/ports/work.port';
 import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
-import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
@@ -62,11 +62,11 @@ import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/ch
 import { CHANGE_STACK_READY } from '@shared-kernel/application/integration-events/change-stack-ready.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import { CONFIG_PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
-import { LINE_REDEFINED } from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+import { LINE_CHANGED } from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import { MEMORIES_USED } from '@shared-kernel/application/integration-events/memories-used.integration-event';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
-import { PULL_REQUEST_FORGOTTEN } from '@shared-kernel/application/integration-events/pull-request-forgotten.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
+import { PULL_REQUEST_PURGED } from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
 import { PULL_REQUEST_RECORDED } from '@shared-kernel/application/integration-events/pull-request-recorded.integration-event';
 import { PULL_REQUEST_REVIEW_TAKEN } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
 import { PULL_REQUEST_REVIEWED } from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
@@ -79,8 +79,8 @@ import { TASK_DELETED } from '@shared-kernel/application/integration-events/task
 import { TASK_FAILED } from '@shared-kernel/application/integration-events/task-failed.integration-event';
 import { TASK_OPENED } from '@shared-kernel/application/integration-events/task-opened.integration-event';
 import { TASK_PASSED } from '@shared-kernel/application/integration-events/task-passed.integration-event';
-import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
-import { WORKSPACE_CLOSED } from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
+import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -134,34 +134,34 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const shapes = new TaskChangeShapesInMemory();
   const reviews = pendingReviewsInMemory();
   const configPullRequests = stationConfigPullRequestsInMemory();
-  const forgotten = forgottenInMemory();
+  const deletions = deletionsInMemory();
   const asked: string[] = [];
   let next = 0;
   const subscribers = outcomesSubscribers({
-    ending: new NoteRunEnded(WORK, records, forgotten, inTransaction, {
+    ending: new NoteRunEnded(WORK, records, deletions, inTransaction, {
       debug: () => {},
       info: () => {},
       warn: () => {},
       error: () => {},
     }),
-    superseding: new NoteRunSuperseded(records, forgotten, inTransaction, {
+    superseding: new NoteRunSuperseded(records, deletions, inTransaction, {
       now: () => HEARD_AT,
       sleep: async () => {},
     }),
-    checking: new NoteChangeChecked(records, forgotten, inTransaction, {
+    checking: new NoteChangeChecked(records, deletions, inTransaction, {
       now: () => HEARD_AT,
       sleep: async () => {},
     }),
-    acting: new NotePersonAct(WORK, records, forgotten, inTransaction),
+    acting: new NotePersonAct(WORK, records, deletions, inTransaction),
     opening: new NotePullRequestOpened(
       deliveries,
       reviews,
-      forgotten,
+      deletions,
       inTransaction,
       CLOCK,
     ),
     closing: new NotePullRequestClosed(deliveries, inTransaction),
-    forgetting: new ForgetOutcomes(
+    deleting: new DeleteOutcomes(
       {
         records,
         deliveries,
@@ -177,7 +177,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         watches,
         reviews,
         configPullRequests,
-        forgotten,
+        deletions,
       },
       inTransaction,
     ),
@@ -207,7 +207,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         }),
       },
       judgings,
-      forgotten,
+      deletions,
       inTransaction,
       CLOCK,
     ),
@@ -225,28 +225,28 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         asked.push(`resolve ${taskId.value} ${runId.value}`);
       },
     }),
-    digesting: new NoteRunDigested(WORK, records, forgotten, inTransaction),
-    remembering: new NoteRunMemories(WORK, records, forgotten, inTransaction),
-    passing: new NoteRunPassed(records, forgotten, inTransaction),
+    digesting: new NoteRunDigested(WORK, records, deletions, inTransaction),
+    remembering: new NoteRunMemories(WORK, records, deletions, inTransaction),
+    passing: new NoteRunPassed(records, deletions, inTransaction),
     reviewing: new NotePullRequestReviewed(
       deliveries,
       reviews,
-      forgotten,
+      deletions,
       inTransaction,
       CLOCK,
     ),
-    failing: new NoteTaskFailed(failures, forgotten, inTransaction),
-    touching: new NoteTaskTouch(touches, forgotten, inTransaction),
-    chatting: new NoteChatStarted(chats, forgotten, inTransaction),
+    failing: new NoteTaskFailed(failures, deletions, inTransaction),
+    touching: new NoteTaskTouch(touches, deletions, inTransaction),
+    chatting: new NoteChatStarted(chats, deletions, inTransaction),
     recording: new NotePullRequestRecords(
       pullRequests,
-      forgotten,
+      deletions,
       inTransaction,
     ),
-    shaping: new NoteChangeShaped(WORK, shapes, forgotten, inTransaction),
+    shaping: new NoteChangeShaped(WORK, shapes, deletions, inTransaction),
     watching: new WatchStations(
       work,
-      { records, deliveries, watches, forgotten },
+      { records, deliveries, watches, deletions },
       inTransaction,
       {
         generate: () => {
@@ -269,7 +269,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     ),
     openingConfigPullRequests: new NoteConfigPullRequestOpened(
       configPullRequests,
-      forgotten,
+      deletions,
       inTransaction,
     ),
   });
@@ -559,7 +559,7 @@ describe('outcomesSubscribers', () => {
       });
 
     await used(null, 'briefed');
-    await used('task_1', 'forgotten');
+    await used('task_1', 'unknown');
 
     expect(await heard.record()).toBeNull();
   });
@@ -688,7 +688,7 @@ describe('outcomesSubscribers', () => {
     expect(heard.chats.stored.size).toBe(1);
   });
 
-  it('keeps the config pull requests Spotlight opened, each once, until their team is disbanded and after none heard late', async () => {
+  it('keeps the config pull requests Spotlight opened, each once, until their team is deleted and after none heard late', async () => {
     const heard = subscribed();
     const opened = (id: string, teamId = 'team_1') => ({
       kind: CONFIG_PULL_REQUEST_OPENED,
@@ -717,9 +717,9 @@ describe('outcomesSubscribers', () => {
     expect([...heard.configPullRequests.stored.keys()]).toEqual(['1', '2']);
 
     await heard.deliver(
-      'outcomes.forget-config-pull-requests-of-disbanded-team',
+      'outcomes.delete-config-pull-requests-of-deleted-team',
       {
-        kind: TEAM_DISBANDED,
+        kind: TEAM_DELETED,
         workspaceId: 'ws_1',
         teamId: 'team_1',
         key: 'core',
@@ -733,14 +733,14 @@ describe('outcomesSubscribers', () => {
     expect([...heard.configPullRequests.stored.keys()]).toEqual(['2']);
 
     await heard.deliver(
-      'outcomes.forget-config-pull-requests-of-closed-workspace',
-      { kind: WORKSPACE_CLOSED, workspaceId: 'ws_1', slug: 'acme' },
+      'outcomes.delete-config-pull-requests-of-deleted-workspace',
+      { kind: WORKSPACE_DELETED, workspaceId: 'ws_1', slug: 'acme' },
     );
 
     expect(heard.configPullRequests.stored.size).toBe(0);
   });
 
-  it('forgets a deleted task’s touches and failures, and a closed workspace’s chats', async () => {
+  it('deletes the touches and failures of a deleted task, and the chats of a deleted workspace', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.record-inbox-ask', {
       kind: TASK_ASKED,
@@ -775,10 +775,10 @@ describe('outcomesSubscribers', () => {
       workspaceId: 'ws_1',
     };
 
-    await heard.deliver('outcomes.forget-touches-of-deleted-task', deleted);
-    await heard.deliver('outcomes.forget-failures-of-deleted-task', deleted);
-    await heard.deliver('outcomes.forget-chats-of-closed-workspace', {
-      kind: WORKSPACE_CLOSED,
+    await heard.deliver('outcomes.delete-touches-of-deleted-task', deleted);
+    await heard.deliver('outcomes.delete-failures-of-deleted-task', deleted);
+    await heard.deliver('outcomes.delete-chats-of-deleted-workspace', {
+      kind: WORKSPACE_DELETED,
       workspaceId: 'ws_1',
       slug: 'acme',
     });
@@ -788,7 +788,7 @@ describe('outcomesSubscribers', () => {
     expect(heard.chats.stored.size).toBe(0);
   });
 
-  it('forgets a deleted task’s runs and delivery', async () => {
+  it('deletes the runs and delivery of a deleted task', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.record-ended-run', runEnded());
     await heard.deliver('outcomes.record-opened-pull-request', {
@@ -805,19 +805,19 @@ describe('outcomesSubscribers', () => {
       workspaceId: 'ws_1',
     };
 
-    await heard.deliver('outcomes.forget-runs-of-deleted-task', deleted);
-    await heard.deliver('outcomes.forget-delivery-of-deleted-task', deleted);
+    await heard.deliver('outcomes.delete-runs-of-deleted-task', deleted);
+    await heard.deliver('outcomes.delete-delivery-of-deleted-task', deleted);
 
     expect(await heard.record()).toBeNull();
     expect(heard.deliveries.stored.size).toBe(0);
   });
 
-  it('forgets the runs of a disbanded team', async () => {
+  it('deletes the runs of a deleted team', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.record-ended-run', runEnded());
 
-    await heard.deliver('outcomes.forget-runs-of-disbanded-team', {
-      kind: TEAM_DISBANDED,
+    await heard.deliver('outcomes.delete-runs-of-deleted-team', {
+      kind: TEAM_DELETED,
       workspaceId: 'ws_1',
       teamId: 'team_1',
       key: 'core',
@@ -853,7 +853,7 @@ describe('outcomesSubscribers', () => {
     expect(heard.reviews.stored.size).toBe(0);
   });
 
-  it('forgets the failures and pull requests of a disbanded team', async () => {
+  it('deletes the failures and pull requests of a deleted team', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.record-task-failure', {
       kind: TASK_FAILED,
@@ -875,29 +875,29 @@ describe('outcomesSubscribers', () => {
       url: PULL,
       at: '2026-09-30T10:30:00.000Z',
     });
-    const disbanded = {
-      kind: TEAM_DISBANDED,
+    const deletedTeam = {
+      kind: TEAM_DELETED,
       workspaceId: 'ws_1',
       teamId: 'team_1',
       key: 'core',
     };
 
     await heard.deliver(
-      'outcomes.forget-failures-of-disbanded-team',
-      disbanded,
+      'outcomes.delete-failures-of-deleted-team',
+      deletedTeam,
     );
     await heard.deliver(
-      'outcomes.forget-deliveries-of-disbanded-team',
-      disbanded,
+      'outcomes.delete-deliveries-of-deleted-team',
+      deletedTeam,
     );
 
     expect(heard.failures.stored.size).toBe(0);
     expect(heard.deliveries.stored.size).toBe(0);
   });
 
-  it('records nothing more of a task heard of after it was deleted, whichever forgetting came first', async () => {
+  it('records nothing more of a task heard of after it was deleted, whichever deletion came first', async () => {
     const heard = subscribed();
-    await heard.deliver('outcomes.forget-touches-of-deleted-task', {
+    await heard.deliver('outcomes.delete-touches-of-deleted-task', {
       kind: TASK_DELETED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -992,7 +992,7 @@ describe('outcomesSubscribers', () => {
     expect(heard.deliveries.stored.size).toBe(0);
   });
 
-  it('records nothing more of a team heard of after it was disbanded, and lets go of what it heard before it knew the team', async () => {
+  it('records nothing more of a team heard of after it was deleted, and lets go of what it heard before it knew the team', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.record-inbox-ask', {
       kind: TASK_ASKED,
@@ -1001,8 +1001,8 @@ describe('outcomesSubscribers', () => {
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
     });
-    await heard.deliver('outcomes.forget-chats-of-disbanded-team', {
-      kind: TEAM_DISBANDED,
+    await heard.deliver('outcomes.delete-chats-of-deleted-team', {
+      kind: TEAM_DELETED,
       workspaceId: 'ws_1',
       teamId: 'team_1',
       key: 'core',
@@ -1046,10 +1046,10 @@ describe('outcomesSubscribers', () => {
     expect(heard.failures.stored.size).toBe(0);
   });
 
-  it('records nothing more of a workspace heard of after it was closed', async () => {
+  it('records nothing more of a workspace heard of after it was deleted', async () => {
     const heard = subscribed();
-    await heard.deliver('outcomes.forget-chats-of-closed-workspace', {
-      kind: WORKSPACE_CLOSED,
+    await heard.deliver('outcomes.delete-chats-of-deleted-workspace', {
+      kind: WORKSPACE_DELETED,
       workspaceId: 'ws_1',
       slug: 'acme',
     });
@@ -1089,7 +1089,7 @@ describe('outcomesSubscribers', () => {
     expect(heard.reviews.stored.size).toBe(0);
   });
 
-  it('forgets everything of a closed workspace', async () => {
+  it('deletes everything of a deleted workspace', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.record-ended-run', runEnded());
     await heard.deliver('outcomes.record-opened-pull-request', {
@@ -1100,16 +1100,19 @@ describe('outcomesSubscribers', () => {
       url: PULL,
       at: '2026-09-30T10:30:00.000Z',
     });
-    const closed = {
-      kind: WORKSPACE_CLOSED,
+    const deletedWorkspace = {
+      kind: WORKSPACE_DELETED,
       workspaceId: 'ws_1',
       slug: 'acme',
     };
 
-    await heard.deliver('outcomes.forget-runs-of-closed-workspace', closed);
     await heard.deliver(
-      'outcomes.forget-deliveries-of-closed-workspace',
-      closed,
+      'outcomes.delete-runs-of-deleted-workspace',
+      deletedWorkspace,
+    );
+    await heard.deliver(
+      'outcomes.delete-deliveries-of-deleted-workspace',
+      deletedWorkspace,
     );
 
     expect(heard.records.stored.size).toBe(0);
@@ -1172,7 +1175,7 @@ describe('outcomesSubscribers', () => {
 
   it('asks for no judging of a run heard to end after its task was deleted', async () => {
     const heard = subscribed();
-    await heard.deliver('outcomes.forget-runs-of-deleted-task', {
+    await heard.deliver('outcomes.delete-runs-of-deleted-task', {
       kind: TASK_DELETED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1186,7 +1189,7 @@ describe('outcomesSubscribers', () => {
   it('records no score for a verdict heard after its task was deleted', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.judge-ended-run', runEnded());
-    await heard.deliver('outcomes.forget-judgings-and-scores-of-deleted-task', {
+    await heard.deliver('outcomes.delete-judgings-and-scores-of-deleted-task', {
       kind: TASK_DELETED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1227,14 +1230,14 @@ describe('outcomesSubscribers', () => {
     expect(heard.asked).toEqual(['resolve task_1 run_1']);
   });
 
-  it('forgets a deleted task’s judgings and scores together', async () => {
+  it('deletes the judgings and scores of a deleted task together', async () => {
     const heard = subscribed();
     await heard.deliver('outcomes.judge-ended-run', runEnded());
     await heard.scores.add(
       judgeScore('run_1', ScoreScale.yesNo(), 1, { taskId: 'task_1' }),
     );
 
-    await heard.deliver('outcomes.forget-judgings-and-scores-of-deleted-task', {
+    await heard.deliver('outcomes.delete-judgings-and-scores-of-deleted-task', {
       kind: TASK_DELETED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1402,8 +1405,8 @@ describe('outcomesSubscribers', () => {
         ...change,
       });
 
-    const forgottenEvent = (updatedAt = CLOSED_AT) => ({
-      kind: PULL_REQUEST_FORGOTTEN,
+    const purgedEvent = (updatedAt = CLOSED_AT) => ({
+      kind: PULL_REQUEST_PURGED,
       workspaceId: 'ws_1',
       pullRequest: PULL,
       updatedAt,
@@ -1418,13 +1421,13 @@ describe('outcomesSubscribers', () => {
       at: '2026-09-30T08:00:00.000Z',
     });
 
-    it('forgets people’s pull request once GitHub forgets it, and never takes it back from a late word', async () => {
+    it('deletes people’s pull request once GitHub purges it, and never takes it back from a late word', async () => {
       const heard = subscribed();
 
       await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
       await heard.deliver(
-        'outcomes.forget-pull-request-github-forgot',
-        forgottenEvent(),
+        'outcomes.delete-pull-request-purged-by-github',
+        purgedEvent(),
       );
       await heard.deliver(
         'outcomes.record-seen-pull-request',
@@ -1434,13 +1437,13 @@ describe('outcomesSubscribers', () => {
       expect(await recordOf(heard)).toBeNull();
     });
 
-    it('turns away a late word GitHub said no later than it forgot, even one saying it is open', async () => {
+    it('turns away a late word GitHub said no later than it purged it, even one saying it is open', async () => {
       const heard = subscribed();
 
       await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
       await heard.deliver(
-        'outcomes.forget-pull-request-github-forgot',
-        forgottenEvent(),
+        'outcomes.delete-pull-request-purged-by-github',
+        purgedEvent(),
       );
       await heard.deliver(
         'outcomes.record-seen-pull-request',
@@ -1450,15 +1453,15 @@ describe('outcomesSubscribers', () => {
       expect(await recordOf(heard)).toBeNull();
     });
 
-    it('takes a forgotten pull request back once GitHub changes it later, at any version', async () => {
+    it('takes a purged pull request back once GitHub changes it later, at any version', async () => {
       const reopened = subscribed();
       const closedLater = subscribed();
 
       for (const heard of [reopened, closedLater]) {
         await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
         await heard.deliver(
-          'outcomes.forget-pull-request-github-forgot',
-          forgottenEvent(),
+          'outcomes.delete-pull-request-purged-by-github',
+          purgedEvent(),
         );
       }
       await reopened.deliver(
@@ -1478,7 +1481,7 @@ describe('outcomesSubscribers', () => {
       expect((await recordOf(closedLater))?.seen?.title).toBe('Again');
     });
 
-    it('keeps Spotlight’s pull request after GitHub forgets it, and hears it anew once GitHub records it again', async () => {
+    it('keeps Spotlight’s pull request after GitHub purges it, and hears it anew once GitHub records it again', async () => {
       const heard = subscribed();
 
       await heard.deliver(
@@ -1487,8 +1490,8 @@ describe('outcomesSubscribers', () => {
       );
       await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
       await heard.deliver(
-        'outcomes.forget-pull-request-github-forgot',
-        forgottenEvent(),
+        'outcomes.delete-pull-request-purged-by-github',
+        purgedEvent(),
       );
 
       expect((await recordOf(heard))?.seen?.number).toBe(3);
@@ -1501,16 +1504,16 @@ describe('outcomesSubscribers', () => {
       expect((await recordOf(heard))?.seen?.title).toBe('Reopened');
     });
 
-    it('lets go of a deleted task’s pull request GitHub already forgot', async () => {
+    it('lets go of a deleted task’s pull request GitHub already purged', async () => {
       const heard = subscribed();
 
       await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
       await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
       await heard.deliver(
-        'outcomes.forget-pull-request-github-forgot',
-        forgottenEvent(),
+        'outcomes.delete-pull-request-purged-by-github',
+        purgedEvent(),
       );
-      await heard.deliver('outcomes.forget-pull-requests-of-deleted-task', {
+      await heard.deliver('outcomes.delete-pull-requests-of-deleted-task', {
         kind: TASK_DELETED,
         taskId: 'task_1',
         workspaceId: 'ws_1',
@@ -1519,13 +1522,13 @@ describe('outcomesSubscribers', () => {
       expect(await recordOf(heard)).toBeNull();
     });
 
-    it('keeps what GitHub said of a disbanded team’s pull request, as nobody’s', async () => {
+    it('keeps what GitHub said of a deleted team’s pull request, as nobody’s', async () => {
       const heard = subscribed();
 
       await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
       await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
-      await heard.deliver('outcomes.forget-pull-requests-of-disbanded-team', {
-        kind: TEAM_DISBANDED,
+      await heard.deliver('outcomes.delete-pull-requests-of-deleted-team', {
+        kind: TEAM_DELETED,
         workspaceId: 'ws_1',
         teamId: 'team_1',
       });
@@ -1535,17 +1538,17 @@ describe('outcomesSubscribers', () => {
       expect(record?.seen?.number).toBe(3);
     });
 
-    it('lets go of a disbanded team’s pull request GitHub already forgot', async () => {
+    it('lets go of a deleted team’s pull request GitHub already purged', async () => {
       const heard = subscribed();
 
       await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
       await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
       await heard.deliver(
-        'outcomes.forget-pull-request-github-forgot',
-        forgottenEvent(),
+        'outcomes.delete-pull-request-purged-by-github',
+        purgedEvent(),
       );
-      await heard.deliver('outcomes.forget-pull-requests-of-disbanded-team', {
-        kind: TEAM_DISBANDED,
+      await heard.deliver('outcomes.delete-pull-requests-of-deleted-team', {
+        kind: TEAM_DELETED,
         workspaceId: 'ws_1',
         teamId: 'team_1',
       });
@@ -1553,7 +1556,7 @@ describe('outcomesSubscribers', () => {
       expect(await recordOf(heard)).toBeNull();
     });
 
-    it('leaves another team’s pull request alone when a team disbands', async () => {
+    it('leaves another team’s pull request alone when a team is deleted', async () => {
       const heard = subscribed();
 
       await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
@@ -1561,8 +1564,8 @@ describe('outcomesSubscribers', () => {
         'outcomes.record-pull-request-owner',
         ownedEvent('task_1', 'team_2'),
       );
-      await heard.deliver('outcomes.forget-pull-requests-of-disbanded-team', {
-        kind: TEAM_DISBANDED,
+      await heard.deliver('outcomes.delete-pull-requests-of-deleted-team', {
+        kind: TEAM_DELETED,
         workspaceId: 'ws_1',
         teamId: 'team_1',
       });
@@ -1582,7 +1585,7 @@ describe('outcomesSubscribers', () => {
         url: PULL,
         at: '2026-09-30T08:00:00.000Z',
       });
-      await heard.deliver('outcomes.forget-pull-requests-of-deleted-task', {
+      await heard.deliver('outcomes.delete-pull-requests-of-deleted-task', {
         kind: TASK_DELETED,
         taskId: 'task_1',
         workspaceId: 'ws_1',
@@ -1601,14 +1604,17 @@ describe('outcomesSubscribers', () => {
       expect(record?.seen?.number).toBe(3);
     });
 
-    it('forgets every pull request of a closed workspace', async () => {
+    it('deletes every pull request of a deleted workspace', async () => {
       const heard = subscribed();
 
       await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
-      await heard.deliver('outcomes.forget-pull-requests-of-closed-workspace', {
-        kind: WORKSPACE_CLOSED,
-        workspaceId: 'ws_1',
-      });
+      await heard.deliver(
+        'outcomes.delete-pull-requests-of-deleted-workspace',
+        {
+          kind: WORKSPACE_DELETED,
+          workspaceId: 'ws_1',
+        },
+      );
       await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
 
       expect(await recordOf(heard)).toBeNull();
@@ -1760,13 +1766,13 @@ describe('outcomesSubscribers', () => {
       ]);
     });
 
-    it('forgets a disbanded team’s alerts and raises none for it after', async () => {
+    it('deletes the alerts of a deleted team and raises none for it after', async () => {
       const heard = subscribed([FAILING_ABOVE_HALF]);
       await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
       await watched(heard, 'run_1');
 
-      await heard.deliver('outcomes.forget-alerts-of-disbanded-team', {
-        kind: TEAM_DISBANDED,
+      await heard.deliver('outcomes.delete-alerts-of-deleted-team', {
+        kind: TEAM_DELETED,
         teamId: 'team_1',
         workspaceId: 'ws_1',
       });
@@ -1775,14 +1781,14 @@ describe('outcomesSubscribers', () => {
       expect(heard.watches.stored.size).toBe(0);
     });
 
-    it('re-checks a redefined line’s stations, recovering an alert whose threshold is gone', async () => {
+    it('re-checks a changed line’s stations, recovering an alert whose threshold is gone', async () => {
       const heard = subscribed([FAILING_ABOVE_HALF]);
       await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
       await watched(heard, 'run_1');
       heard.alertsNow([]);
 
-      await heard.deliver('outcomes.watch-stations-after-line-redefined', {
-        kind: LINE_REDEFINED,
+      await heard.deliver('outcomes.watch-stations-after-line-changed', {
+        kind: LINE_CHANGED,
         lineId: 'line_1',
         workspaceId: 'ws_1',
         teamId: 'team_1',
@@ -1804,12 +1810,12 @@ describe('outcomesSubscribers', () => {
       expect(heard.watches.stored.size).toBe(0);
     });
 
-    it('raises no alert for a run whose task was deleted, and forgets the alerts a deleted task raised', async () => {
+    it('raises no alert for a run whose task was deleted, and deletes the alerts a deleted task raised', async () => {
       const heard = subscribed([FAILING_ABOVE_HALF]);
       await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
       await watched(heard, 'run_1');
 
-      await heard.deliver('outcomes.forget-alerts-of-deleted-task', {
+      await heard.deliver('outcomes.delete-alerts-of-deleted-task', {
         kind: TASK_DELETED,
         taskId: 'task_1',
         workspaceId: 'ws_1',

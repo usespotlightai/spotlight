@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
 import type { ChatRecordRepository } from '@outcomes/domain/repositories/chat-record.repository';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -17,7 +17,7 @@ export interface ChatStartedHeard {
 export class NoteChatStarted {
   constructor(
     private readonly chats: ChatRecordRepository,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -26,11 +26,11 @@ export class NoteChatStarted {
       const workspaceId = WorkspaceId.of(heard.workspaceId);
       const teamId = TeamId.of(heard.teamId);
 
-      await this.forgotten.lockForgetting(workspaceId, null, teamId);
+      await this.deletions.lockDeletion(workspaceId, null, teamId);
 
       if (
         (await this.chats.of(heard.chatId)) ||
-        (await this.forgotten.forgot(workspaceId, null, teamId))
+        (await this.deletions.isDeleted(workspaceId, null, teamId))
       ) {
         return;
       }

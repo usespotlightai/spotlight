@@ -8,9 +8,9 @@ import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import type { WorkspaceResponseDto } from '@/lib/api';
 import {
-  forgetOpenedHere,
-  markOpenedHere,
-  wasOpenedHere,
+  clearCreatedHere,
+  markCreatedHere,
+  wasCreatedHere,
 } from '@/lib/provisioning';
 
 const readOnboarding = vi.fn();
@@ -32,7 +32,7 @@ const ACME: WorkspaceResponseDto = {
   provisioning: 'done',
 };
 
-const OPENING: WorkspaceResponseDto = {
+const CREATING: WorkspaceResponseDto = {
   ...ACME,
   teams: [],
   provisioning: 'pending',
@@ -61,7 +61,7 @@ type Props = {
 
 const watching = (workspace: WorkspaceResponseDto, opened = false) => {
   if (opened) {
-    markOpenedHere('acme');
+    markCreatedHere('acme');
   }
 
   const client = new QueryClient({
@@ -103,10 +103,10 @@ describe('useSettingUp', () => {
   });
 
   afterEach(() => {
-    forgetOpenedHere('acme');
+    clearCreatedHere('acme');
   });
 
-  it('reads as setting up while Spotlight still provisions the team of a workspace opened here', async () => {
+  it('reads as setting up while Spotlight still provisions the team of a workspace created here', async () => {
     readOnboarding.mockResolvedValue(onboarding('pending'));
 
     const { result, loaded } = watching(ACME, true);
@@ -115,7 +115,7 @@ describe('useSettingUp', () => {
     expect(result.current).toBe(true);
   });
 
-  it('reads as set up once the team is provisioned, fetches the workspace, inbox and lines anew, and forgets the opening', async () => {
+  it('reads as set up once the team is provisioned, fetches the workspace, inbox and lines anew, and clears the mark of a workspace created here', async () => {
     readOnboarding.mockResolvedValue(onboarding('pending'));
 
     const { result, client, invalidated, loaded } = watching(ACME, true);
@@ -128,13 +128,13 @@ describe('useSettingUp', () => {
 
     await waitFor(() => expect(result.current).toBe(false));
     refreshed(invalidated);
-    expect(wasOpenedHere('acme')).toBe(false);
+    expect(wasCreatedHere('acme')).toBe(false);
   });
 
-  it('waits for the first team while Spotlight opens it, and then for that team', async () => {
+  it('waits for the first team while Spotlight creates it, and then for that team', async () => {
     const answer = answering();
 
-    const { result, rerender } = watching(OPENING);
+    const { result, rerender } = watching(CREATING);
 
     expect(result.current).toBe(true);
 
@@ -147,7 +147,7 @@ describe('useSettingUp', () => {
     await waitFor(() => expect(result.current).toBe(false));
   });
 
-  it('waits while the team of a workspace opened here still loads', async () => {
+  it('waits while the team of a workspace created here still loads', async () => {
     const answer = answering();
 
     const { result } = watching(ACME, true);

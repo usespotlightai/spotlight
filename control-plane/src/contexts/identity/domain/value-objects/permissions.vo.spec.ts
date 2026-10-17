@@ -104,12 +104,12 @@ describe('Permissions of a token’s scopes', () => {
 });
 
 describe('Permissions beyond any one workspace', () => {
-  it('lets a person plan and open workspaces', () => {
+  it('lets a person plan and create workspaces', () => {
     const permissions = Permissions.beyondWorkspaces(
       PersonPrincipal.of(UserId.of('user_1')),
     );
 
-    expect([permissions.plans, permissions.opensWorkspaces]).toEqual([
+    expect([permissions.plans, permissions.createsWorkspaces]).toEqual([
       true,
       true,
     ]);
@@ -122,13 +122,13 @@ describe('Permissions beyond any one workspace', () => {
     [['plan'], true],
     [['configure', 'secrets'], true],
   ])(
-    'lets a %j token plan only as its scopes allow, and never open a workspace',
+    'lets a %j token plan only as its scopes allow, and never create a workspace',
     (scopes, plans) => {
       const permissions = Permissions.beyondWorkspaces(token(scopes));
 
       expect([
         permissions.plans,
-        permissions.opensWorkspaces,
+        permissions.createsWorkspaces,
         permissions.reads,
       ]).toEqual([plans, false, false]);
     },

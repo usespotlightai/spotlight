@@ -20,7 +20,7 @@ import type {
   IdempotentCreate,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { createdOnce } from '@shared-kernel/application/services/created-once';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -47,7 +47,7 @@ export class CreateWorkspaceTokenHandler
     private readonly tokens: WorkspaceTokenRepository,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
-    private readonly mint: TokenMintPort,
+    private readonly issuer: TokenIssuer,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
   ) {}
@@ -76,7 +76,7 @@ export class CreateWorkspaceTokenHandler
         return rejected({ outcome: 'invalid', problems: compiled.problems });
       }
 
-      const minted = this.mint.mint();
+      const newToken = this.issuer.issue();
       const create: IdempotentCreate = {
         by: principal.toString(),
         key: IdempotencyKey.of(command.idempotencyKey),
@@ -94,7 +94,7 @@ export class CreateWorkspaceTokenHandler
               ...compiled.terms,
               id: WorkspaceTokenId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
-              hash: TokenHash.of(minted.hash),
+              hash: TokenHash.of(newToken.hash),
               issuedBy: principal.userId,
               now: this.clock.now(),
               by: Attribution.of(command.actor, permissions.workspaceId),
@@ -110,7 +110,7 @@ export class CreateWorkspaceTokenHandler
           created,
           token:
             created.outcome === 'created' && !created.replayed
-              ? minted.token
+              ? newToken.token
               : null,
         };
       } catch (error) {

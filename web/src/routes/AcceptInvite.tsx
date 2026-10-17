@@ -13,45 +13,45 @@ const WIDTH = 'w-80';
 
 const STATUS_TEXT: Record<string, string> = {
   accepted: 'This invitation is already accepted.',
-  revoked: 'This invitation is withdrawn.',
+  revoked: 'This invitation is revoked.',
   expired: 'This invitation has expired. Please ask for a new one.',
 };
 
 export function AcceptInvite() {
   const { token } = useParams();
   const { data: session, isPending: reading } = useSession();
-  const offer = useInvite(token);
+  const preview = useInvite(token);
 
-  if (loading(offer) || reading) {
+  if (loading(preview) || reading) {
     return null;
   }
 
-  if (failed(offer)) {
+  if (failed(preview)) {
     return (
       <AuthScreen className={WIDTH}>
         <CouldNotLoad
           what="The invitation"
-          retrying={offer.isFetching}
-          onRetry={() => void offer.refetch()}
+          retrying={preview.isFetching}
+          onRetry={() => void preview.refetch()}
         />
       </AuthScreen>
     );
   }
 
-  const invite = offer.data;
+  const invite = preview.data;
 
   if (!invite) {
     return (
       <AuthScreen className={WIDTH}>
         <AuthTitle title="Invitation link doesn’t work">
-          The invitation may be withdrawn, or the link may be incomplete. Please
+          The invitation may be revoked, or the link may be incomplete. Please
           ask for a new one.
         </AuthTitle>
       </AuthScreen>
     );
   }
 
-  const closed = invite.status !== 'open';
+  const ended = invite.status !== 'pending';
 
   return (
     <AuthScreen className={WIDTH}>
@@ -61,7 +61,7 @@ export function AcceptInvite() {
         {joiningAs(invite.role, invite.teamNames)}
       </AuthTitle>
 
-      {closed ? (
+      {ended ? (
         <p role="alert" className="text-center text-muted-foreground text-sm">
           {STATUS_TEXT[invite.status]}
         </p>

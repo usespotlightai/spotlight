@@ -13,14 +13,14 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import { sameHash } from '@runners/domain/services/same-hash';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class RunnerEgress implements RunnerEgressPort {
   constructor(
     private readonly runners: RunnerRepository,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly egresses: EgressRepository,
     private readonly pools: RunnerPoolRepository,
     private readonly workspaces: WorkspaceReaderPort,
@@ -60,7 +60,7 @@ export class RunnerEgress implements RunnerEgressPort {
     const egress = await this.egresses.findByTokenHash(hash);
 
     return egress &&
-      !egress.isRetired &&
+      !egress.isDeleted &&
       (await this.workspaces.isOpen(egress.workspaceId.value))
       ? { egressId: egress.id.value }
       : null;
@@ -135,6 +135,6 @@ export class RunnerEgress implements RunnerEgressPort {
 
     const named = await this.egresses.find(through.egressId);
 
-    return named !== null && !named.isRetired && named.belongsTo(workspaceId);
+    return named !== null && !named.isDeleted && named.belongsTo(workspaceId);
   }
 }

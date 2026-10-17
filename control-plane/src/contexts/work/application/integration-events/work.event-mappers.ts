@@ -3,9 +3,9 @@ import {
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import {
-  LINE_REDEFINED,
-  type LineRedefinedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+  LINE_CHANGED,
+  type LineChangedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
@@ -81,8 +81,8 @@ import {
 } from '@shared-kernel/application/integration-events/task-passed.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
-import type { LineRedefined } from '@work/domain/events/line-redefined.event';
-import type { LineRetired } from '@work/domain/events/line-retired.event';
+import type { LineDeleted } from '@work/domain/events/line-deleted.event';
+import type { LineUpdated } from '@work/domain/events/line-updated.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import type { ReplayDigested } from '@work/domain/events/replay-digested.event';
@@ -177,10 +177,10 @@ const ended = (
   });
 };
 
-const redefined = (
-  event: LineRedefined | LineRetired,
-): LineRedefinedIntegrationEvent => ({
-  kind: LINE_REDEFINED,
+const lineChanged = (
+  event: LineUpdated | LineDeleted,
+): LineChangedIntegrationEvent => ({
+  kind: LINE_CHANGED,
   lineId: event.lineId.value,
   workspaceId: event.workspaceId.value,
   teamId: event.teamId.value,
@@ -419,6 +419,6 @@ export const WORK_EVENT_MAPPERS = [
       at: event.at.toISOString(),
     }),
   ),
-  mapping<LineRedefined>('line.redefined', redefined),
-  mapping<LineRetired>('line.retired', redefined),
+  mapping<LineUpdated>('line.updated', lineChanged),
+  mapping<LineDeleted>('line.deleted', lineChanged),
 ] as const;

@@ -11,8 +11,8 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 
 type Planned<T> = T | Forbidden;
 
-export type SetOpened = Planned<{
-  readonly outcome: 'opened';
+export type SetCreated = Planned<{
+  readonly outcome: 'created';
   readonly id: string;
 }>;
 

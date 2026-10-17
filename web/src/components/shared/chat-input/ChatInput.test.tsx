@@ -176,7 +176,7 @@ describe('ChatInput', () => {
     expect(send()).toBeDisabled();
   });
 
-  it('forgets the words and the files once they are sent', async () => {
+  it('clears the words and the files once they are sent', async () => {
     input({ onSend: (_message, sent) => sent() });
 
     fireEvent.paste(box(), { clipboardData: { files: [notes()] } });

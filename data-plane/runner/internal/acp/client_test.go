@@ -297,20 +297,20 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-func TestForgottenTellsAMissingSessionFromAnyOtherError(t *testing.T) {
+func TestIsSessionNotFoundTellsAMissingSessionFromAnyOtherError(t *testing.T) {
 	client, _ := start(t, failingLoads, nil)
 
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
 	missing := client.Resume(ctx, "gone")
-	if missing == nil || !acp.Forgotten(missing) {
-		t.Errorf("a missing session did not read as forgotten: %v", missing)
+	if missing == nil || !acp.IsSessionNotFound(missing) {
+		t.Errorf("a missing session did not read as not found: %v", missing)
 	}
 
 	other := client.Resume(ctx, "other")
-	if other == nil || acp.Forgotten(other) {
-		t.Errorf("an unrelated error read as forgotten: %v", other)
+	if other == nil || acp.IsSessionNotFound(other) {
+		t.Errorf("an unrelated error read as a missing session: %v", other)
 	}
 }
 

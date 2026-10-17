@@ -17,7 +17,7 @@ export interface InviteSummary {
   readonly expiresAt: Date;
 }
 
-export interface InviteOffer {
+export interface InvitePreview {
   readonly email: string;
   readonly workspaceName: string;
   readonly invitedBy: string | null;
@@ -27,10 +27,10 @@ export interface InviteOffer {
 }
 
 export interface InviteReaderPort {
-  openInWorkspace(
+  pendingInWorkspace(
     workspaceId: WorkspaceId,
     now: Date,
   ): Promise<readonly InviteSummary[]>;
 
-  withToken(hash: TokenHash, now: Date): Promise<InviteOffer | null>;
+  withToken(hash: TokenHash, now: Date): Promise<InvitePreview | null>;
 }

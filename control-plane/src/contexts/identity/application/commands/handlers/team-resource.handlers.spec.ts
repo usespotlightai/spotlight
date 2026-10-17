@@ -5,7 +5,7 @@ import { DeleteTeamHandler } from '@identity/application/commands/handlers/delet
 import { UpdateTeamHandler } from '@identity/application/commands/handlers/update-team.handler';
 import { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
 import type { Team } from '@identity/domain/aggregates/team.aggregate';
-import { TeamAlreadyDefinedError } from '@identity/domain/exceptions/team-already-defined.error';
+import { TeamAlreadyExistsError } from '@identity/domain/exceptions/team-already-exists.error';
 import {
   access,
   creates,
@@ -49,7 +49,7 @@ describe('CreateTeamHandler', () => {
     };
   };
 
-  it('defines a bare team keyed as asked', async () => {
+  it('creates a bare team keyed as asked', async () => {
     const { create, kept } = creating();
 
     expect(await create(CORE)).toMatchObject({
@@ -67,7 +67,7 @@ describe('CreateTeamHandler', () => {
 
   it('says a key the workspace already has is taken', async () => {
     expect(
-      await creating({ throwing: new TeamAlreadyDefinedError('core') }).create(
+      await creating({ throwing: new TeamAlreadyExistsError('core') }).create(
         CORE,
       ),
     ).toEqual({ outcome: 'taken', address: 'core' });
@@ -158,14 +158,14 @@ describe('DeleteTeamHandler', () => {
     };
   };
 
-  it('disbands a team that has nothing', async () => {
+  it('deletes a team that has nothing', async () => {
     const { remove, kept } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((kept.save.mock.calls[0] as [Team])[0].isDisbanded).toBe(true);
+    expect((kept.save.mock.calls[0] as [Team])[0].isDeleted).toBe(true);
   });
 
-  it('will not disband a team that still has configuration, and says what', async () => {
+  it('will not delete a team that still has configuration, and says what', async () => {
     const { remove, kept } = deleting(['line delivery', 'integration linear']);
 
     expect(await remove()).toEqual({

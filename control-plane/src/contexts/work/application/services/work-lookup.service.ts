@@ -137,7 +137,7 @@ export class WorkLookup implements WorkLookupPort {
 
   async linesOf(teamId: TeamId): Promise<readonly TeamLine[]> {
     return (await this.lines.ofTeam(teamId))
-      .filter((line) => !line.isRetired)
+      .filter((line) => !line.isDeleted)
       .map((line) => ({
         id: line.id.value,
         name: line.name.value,

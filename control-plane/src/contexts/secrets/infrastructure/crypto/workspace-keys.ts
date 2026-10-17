@@ -57,13 +57,13 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
     return this.unwrapped(workspaceId, first);
   }
 
-  async forget(workspaceId: WorkspaceId): Promise<void> {
-    const forgotten = await this.context.db
+  async deleteDataKey(workspaceId: WorkspaceId): Promise<void> {
+    const deleted = await this.context.db
       .delete(secretDataKey)
       .where(eq(secretDataKey.workspaceId, workspaceId.value))
       .returning({ wrapped: secretDataKey.wrapped });
 
-    for (const each of forgotten) {
+    for (const each of deleted) {
       this.#unwrapped.delete(each.wrapped);
     }
   }

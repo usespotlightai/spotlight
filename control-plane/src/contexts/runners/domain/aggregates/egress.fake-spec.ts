@@ -16,7 +16,7 @@ export const anEgress = (
     tokenVersion?: number | null;
   } = {},
 ): Egress =>
-  Egress.define({
+  Egress.create({
     id: input.id ?? EGRESS_ID,
     workspaceId: input.workspaceId ?? WorkspaceId.of('ws_1'),
     key: EgressKey.of('shared'),

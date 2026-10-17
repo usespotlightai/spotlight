@@ -1,6 +1,6 @@
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
-import { HookAlreadyDefinedError } from '@integrations/domain/exceptions/hook-already-defined.error';
+import { HookAlreadyExistsError } from '@integrations/domain/exceptions/hook-already-exists.error';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
@@ -162,7 +162,7 @@ export class DrizzleHookDefinitions
         });
       } catch (error) {
         if (collided(error)) {
-          throw new HookAlreadyDefinedError(definition.key.value);
+          throw new HookAlreadyExistsError(definition.key.value);
         }
 
         throw error;
@@ -171,7 +171,7 @@ export class DrizzleHookDefinitions
       return;
     }
 
-    const touched = definition.isRetired
+    const touched = definition.isDeleted
       ? await this.context.db
           .delete(hookDefinition)
           .where(inPlace(definition))

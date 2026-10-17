@@ -137,7 +137,7 @@ export interface OracleTerms {
 export class Replay extends EventRecorder {
   private constructor(
     private readonly state: State,
-    readonly isAbandoned = false,
+    readonly isDeleted = false,
   ) {
     super();
   }
@@ -933,21 +933,21 @@ export class Replay extends EventRecorder {
     return stopped;
   }
 
-  abandon(): Replay {
+  delete(): Replay {
     const toCancel =
       this.isUnderway && !this.state.stoppedAt ? this.runsInFlight : [];
-    const abandoned = new Replay(this.state, true);
+    const deleted = new Replay(this.state, true);
 
-    abandoned.inheritEvents(this);
+    deleted.inheritEvents(this);
 
     if (toCancel.length > 0) {
-      abandoned.record(new ReplayStopped(this.id, this.workspaceId, toCancel));
+      deleted.record(new ReplayStopped(this.id, this.workspaceId, toCancel));
     }
     if (this.isDispatching) {
-      abandoned.record(this.endedAs('abandoned'));
+      deleted.record(this.endedAs('deleted'));
     }
 
-    return abandoned;
+    return deleted;
   }
 
   private endedAs(state: ReplayEnd): ReplayEnded {
@@ -1134,7 +1134,7 @@ export class Replay extends EventRecorder {
   }
 
   private with(part: Partial<State>): Replay {
-    const next = new Replay({ ...this.state, ...part }, this.isAbandoned);
+    const next = new Replay({ ...this.state, ...part }, this.isDeleted);
 
     next.inheritEvents(this);
 

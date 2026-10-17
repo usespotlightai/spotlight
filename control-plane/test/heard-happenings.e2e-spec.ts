@@ -35,7 +35,7 @@ describe('happenings heard, kept in the database (e2e)', () => {
     await expect(heard.hearing(two, key, NEW)).resolves.toBe(true);
   });
 
-  it('forgets no more than it is asked to at once, and only what was heard before the moment', async () => {
+  it('purges no more than it is asked to at once, and only what was heard before the moment', async () => {
     const workspace = WorkspaceId.of(`ws_${randomUUID()}`);
     const old = ['a', 'b', 'c'].map((each) => `${each}:${randomUUID()}`);
     const kept = `kept:${randomUUID()}`;
@@ -46,8 +46,8 @@ describe('happenings heard, kept in the database (e2e)', () => {
     await heard.hearing(workspace, kept, NEW);
 
     const before = new Date(OLD.getTime() + 1);
-    const first = await heard.forgetBefore(before, 2);
-    const rest = await heard.forgetBefore(before, 1_000);
+    const first = await heard.purgeBefore(before, 2);
+    const rest = await heard.purgeBefore(before, 1_000);
 
     expect(first).toBe(2);
     expect(rest).toBeGreaterThanOrEqual(1);

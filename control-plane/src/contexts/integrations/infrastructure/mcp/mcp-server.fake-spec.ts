@@ -35,7 +35,7 @@ export interface FakeMcpServer {
   readonly heard: McpHeard[];
   readonly called: McpCalled[];
   started(): number;
-  forgetSessions(): void;
+  evictSessions(): void;
   close(): Promise<void>;
 }
 
@@ -201,7 +201,7 @@ export const fakeMcpServer = async (
     heard,
     called,
     started: () => started,
-    forgetSessions: () => sessions.clear(),
+    evictSessions: () => sessions.clear(),
     close: async () => {
       for (const transport of sessions.values()) {
         await transport.close();

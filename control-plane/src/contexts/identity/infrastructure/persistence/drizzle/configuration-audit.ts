@@ -39,7 +39,7 @@ const actorColumns = (actor: Actor | null) => {
     tokenId: principal.kind === 'token' ? principal.tokenId.value : null,
     trustId:
       principal.kind === 'token'
-        ? (principal.mintedThrough?.value ?? null)
+        ? (principal.issuedByTrustId?.value ?? null)
         : null,
     client: actor.client.toString(),
   };

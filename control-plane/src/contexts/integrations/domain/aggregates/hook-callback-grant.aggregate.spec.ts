@@ -27,7 +27,7 @@ describe('HookCallbackGrant', () => {
     expect(grant().isValidAt(later(15))).toBe(false);
   });
 
-  it('has expired once it is no longer valid, so one expiring before the expiry cutoff can be forgotten', () => {
+  it('has expired once it is no longer valid, so one expiring before the expiry cutoff can be purged', () => {
     const cutoff = HookCallbackGrant.expiredBefore(later(15));
 
     expect(grant().expiresAt.getTime()).toBeLessThanOrEqual(cutoff.getTime());

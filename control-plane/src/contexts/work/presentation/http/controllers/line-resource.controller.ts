@@ -95,7 +95,7 @@ export class LineResourceController {
     private readonly commandBus: CommandBus,
   ) {}
 
-  @LineResource.Create('teams/:teamId/lines', 'Open a line for a team')
+  @LineResource.Create('teams/:teamId/lines', 'Create a line for a team')
   @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
   @DEFINITION
   async create(

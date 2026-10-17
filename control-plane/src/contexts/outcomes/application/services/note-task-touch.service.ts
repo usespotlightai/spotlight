@@ -1,4 +1,4 @@
-import type { ForgottenPort } from '@outcomes/application/ports/forgotten.port';
+import type { DeletionsPort } from '@outcomes/application/ports/deletions.port';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
 import type { TaskTouchesRepository } from '@outcomes/domain/repositories/task-touches.repository';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
@@ -40,7 +40,7 @@ export interface TaskActedOnHeard {
 export class NoteTaskTouch {
   constructor(
     private readonly touches: TaskTouchesRepository,
-    private readonly forgotten: ForgottenPort,
+    private readonly deletions: DeletionsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -92,12 +92,12 @@ export class NoteTaskTouch {
     const workspaceId = WorkspaceId.of(heard.workspaceId);
 
     return this.transaction.inTransaction(async () => {
-      await this.forgotten.lockForgetting(workspaceId, taskId, teamId);
+      await this.deletions.lockDeletion(workspaceId, taskId, teamId);
       const existing = await this.touches.of(taskId);
 
       if (
         teamId &&
-        (await this.forgotten.forgot(workspaceId, taskId, teamId))
+        (await this.deletions.isDeleted(workspaceId, taskId, teamId))
       ) {
         if (existing) {
           await this.touches.removeForTask(taskId);
@@ -106,7 +106,7 @@ export class NoteTaskTouch {
       }
 
       if (!existing) {
-        if (!(await this.forgotten.forgot(workspaceId, taskId))) {
+        if (!(await this.deletions.isDeleted(workspaceId, taskId))) {
           await this.touches.add(
             change(TaskTouches.heardOf(taskId, workspaceId)),
           );

@@ -45,7 +45,7 @@ export class DeleteHookHandler
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          existing.retire(
+          existing.delete(
             Attribution.of(command.actor, permissions.workspaceId),
           ),
         ),

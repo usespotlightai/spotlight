@@ -8,5 +8,5 @@ export interface HookCallbackGrantRepository {
 
   withToken(hash: TokenHash): Promise<HookCallbackGrant | null>;
 
-  forgetExpiringBefore(at: Date): Promise<void>;
+  purgeExpiringBefore(at: Date): Promise<void>;
 }

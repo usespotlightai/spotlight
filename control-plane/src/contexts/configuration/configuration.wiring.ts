@@ -76,8 +76,8 @@ import { ReadSkillQuery } from '@configuration/application/queries/read-skill.qu
 import { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
 import { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
 import { WorkspaceConfigurationQuery } from '@configuration/application/queries/workspace-configuration.query';
-import { AbandonTeamProfiles } from '@configuration/application/services/abandon-team-profiles.service';
-import { AbandonTeamSkills } from '@configuration/application/services/abandon-team-skills.service';
+import { DeleteTeamProfiles } from '@configuration/application/services/delete-team-profiles.service';
+import { DeleteTeamSkills } from '@configuration/application/services/delete-team-skills.service';
 import { ExportableConfigurations } from '@configuration/application/services/exportable-configurations.service';
 import { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
 import { ProfileSecretUses } from '@configuration/application/services/profile-secret-uses.service';
@@ -493,8 +493,8 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
       types.register('configuration', CONFIGURATION_PAYLOAD_TYPES);
       subscribers.register(
         configurationSubscribers(
-          new AbandonTeamSkills(skills, transaction),
-          new AbandonTeamProfiles(profiles, transaction),
+          new DeleteTeamSkills(skills, transaction),
+          new DeleteTeamProfiles(profiles, transaction),
         ),
       );
       return true;

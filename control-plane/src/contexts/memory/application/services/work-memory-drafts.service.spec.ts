@@ -140,7 +140,7 @@ const working = (input: {
 }) => {
   let stored =
     input.existing ??
-    MemoryDraft.open({
+    MemoryDraft.create({
       id: MemoryDraftId.of('draft_1'),
       taskId: TASK,
       workspaceId: WorkspaceId.of('ws_1'),

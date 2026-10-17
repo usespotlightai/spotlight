@@ -1,8 +1,8 @@
 import type { UpdateSkillCommand } from '@configuration/application/commands/update-skill.command';
 import type { SkillCompilerPort } from '@configuration/application/ports/skill-compiler.port';
 import { SkillProblems } from '@configuration/application/rendering/skill-problems';
+import type { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
-import { SkillKeyFixedError } from '@configuration/domain/exceptions/skill-key-fixed.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
@@ -13,6 +13,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
 export class UpdateSkillHandler
@@ -28,8 +29,11 @@ export class UpdateSkillHandler
   async execute(command: UpdateSkillCommand): Promise<ResourceUpdated | null> {
     const id = SkillDefinitionId.of(command.skillId);
 
+    let loaded: SkillDefinition | null = null;
+
     try {
       const existing = await this.definitions.withId(id);
+      loaded = existing;
       const permissions = existing
         ? await this.access.permissionsOnTeam(
             existing.teamId.value,
@@ -55,7 +59,7 @@ export class UpdateSkillHandler
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          existing.redefinedAs(
+          existing.update(
             compiled,
             Attribution.of(command.actor, permissions.workspaceId),
           ),
@@ -72,10 +76,12 @@ export class UpdateSkillHandler
           : null;
       }
 
-      if (error instanceof SkillKeyFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [SkillProblems.keyFixed(error)],
+          problems: [
+            SkillProblems.immutableField(loaded?.key.value ?? '', error),
+          ],
         };
       }
 

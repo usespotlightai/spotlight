@@ -49,7 +49,7 @@ const recording = () => {
     },
     of: async () => [],
     errorsIn: async () => [],
-    forgetBefore: async () => 0,
+    purgeBefore: async () => 0,
   };
   const handler = new RecordEgressConnectionsHandler(
     sharedEgress(

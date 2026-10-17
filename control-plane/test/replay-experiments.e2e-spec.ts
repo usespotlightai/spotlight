@@ -30,9 +30,9 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-experiment-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -64,7 +64,7 @@ const archiveStore: WorkspaceArchiveStorePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 let readToken: string;
 let planToken: string;
 let stranger: string;
@@ -216,18 +216,18 @@ const turnedOut = async (
   });
 };
 
-const openSet = async (name: string, ...originals: Original[]) =>
-  openSetAt(BUILD, name, ...originals);
+const createSet = async (name: string, ...originals: Original[]) =>
+  createSetAt(BUILD, name, ...originals);
 
-const openSetAt = async (
+const createSetAt = async (
   stationId: string,
   name: string,
   ...originals: Original[]
 ) => {
-  const opened = await owner()
+  const created = await owner()
     .post(`${stationPath(stationId)}/replay-sets`, { name })
     .expect(201);
-  const setId = opened.body.id as string;
+  const setId = created.body.id as string;
 
   for (const each of originals) {
     await owner()
@@ -398,7 +398,7 @@ beforeAll(async () => {
       .useValue(attachmentStore),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `experiment-${randomUUID().slice(0, 8)}`,
@@ -504,7 +504,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 
@@ -531,7 +531,7 @@ describe('a replay set', () => {
     ).toBe('no-starting-point');
     expect(picks.some((each) => each.runId === elsewhere.runId)).toBe(false);
 
-    const setId = await openSet('Queue fixes', first, second);
+    const setId = await createSet('Queue fixes', first, second);
 
     const rejected = await owner()
       .post(`${teamPath()}/replay-sets/${setId}/entries`, {
@@ -595,7 +595,7 @@ describe('a replay set', () => {
 
   it('shows a run whose task was deleted as one that can no longer be replayed', async () => {
     const kept = await anOriginal();
-    const setId = await openSet('Deleted later', kept);
+    const setId = await createSet('Deleted later', kept);
 
     await db.delete(schema.task).where(eq(schema.task.id, kept.taskId));
 
@@ -612,7 +612,7 @@ describe('a replay set', () => {
 
   it('keeps the archives its runs started from while it holds them, and releases them after', async () => {
     const original = await anOriginal();
-    const setId = await openSet('Pinned', original);
+    const setId = await createSet('Pinned', original);
     const references = app.get<ArchiveReferencesPort>(ARCHIVE_REFERENCES);
     const archives = app.get(DrizzleWorkspaceArchiveRepository);
     const archiveId = WorkspaceArchiveId.of(original.archiveId);
@@ -659,7 +659,7 @@ describe('a replay set', () => {
     await turnedOut(passedOn, { ending: 'failed', next: null });
     const accepted = await anOriginal();
     await turnedOut(accepted, { ending: 'completed', next: 'closed' });
-    const setId = await openSet(
+    const setId = await createSet(
       'Lopsided',
       ...failures,
       heard,
@@ -752,7 +752,7 @@ describe('a replay set', () => {
   });
 
   it('is read by those who may read the team, changed by those who may plan, and unseen by anyone else', async () => {
-    const setId = await openSet('Access');
+    const setId = await createSet('Access');
 
     await as(stranger).get(`${stationPath()}/replay-sets`).expect(404);
     await as(stranger)
@@ -877,7 +877,7 @@ describe('a replay', () => {
   it('replays a set under a candidate beside a baseline of the live config, two runs of the team at a time, and compares them task by task', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
-    const setId = await openSet('Compared', first, second);
+    const setId = await createSet('Compared', first, second);
     const candidate = await proposed('Build it, then drain the queue.');
 
     const { id, baselineId } = await startReplay(setId, candidate, 5);
@@ -983,7 +983,7 @@ describe('a replay', () => {
 
   it('tells each replay run what it replays, under which candidate, and what it did and spent', async () => {
     const original = await anOriginal();
-    const setId = await openSet('Read back', original);
+    const setId = await createSet('Read back', original);
     const candidate = await proposed('Build it, and say what you drained.');
     const { id, baselineId } = await startReplay(setId, candidate, 5);
     await eventually(
@@ -1105,7 +1105,7 @@ describe('a replay', () => {
   });
 
   it('stops dispatching once it has spent its ceiling, cancelling what was queued while running runs finish', async () => {
-    const setId = await openSet(
+    const setId = await createSet(
       'Budget',
       await anOriginal(),
       await anOriginal(),
@@ -1150,7 +1150,7 @@ describe('a replay', () => {
   });
 
   it('is stopped by a person: nothing more starts, its runs stop, and its set may then be deleted, which releases the archives', async () => {
-    const setId = await openSet(
+    const setId = await createSet(
       'Stopped',
       await anOriginal(),
       await anOriginal(),
@@ -1197,7 +1197,7 @@ describe('a replay', () => {
   it('replays each run as many times as asked, rating each task by the mean of its copies with an interval, and measures the set’s noise', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
-    const setId = await openSet('Repeated', first, second);
+    const setId = await createSet('Repeated', first, second);
     const started = (
       await owner()
         .post(`${teamPath()}/replay-sets/${setId}/replays`, {
@@ -1311,7 +1311,7 @@ describe('a replay', () => {
   });
 
   it('is proposed, started, read and stopped through tokens that may plan or read, each write audited with its token', async () => {
-    const setId = await openSet('Through tokens', await anOriginal());
+    const setId = await createSet('Through tokens', await anOriginal());
     const live = await app
       .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
       .live(DELIVERY, BUILD);
@@ -1417,7 +1417,7 @@ describe('a replay', () => {
 describe('a replay set whose station leaves its line', () => {
   it('is still listed for the team, releases its archives, starts nothing, and may be deleted', async () => {
     const original = await anOriginal({ stationId: POLISH });
-    const setId = await openSetAt(POLISH, 'Reviewed', original);
+    const setId = await createSetAt(POLISH, 'Reviewed', original);
     const startingPointHoldsOf = () =>
       db
         .select()

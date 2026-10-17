@@ -1,6 +1,6 @@
 import type { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import type { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
-import type { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
+import type { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import type { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import type { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import type { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
@@ -46,9 +46,9 @@ import {
   type ConfigPullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
 import {
-  LINE_REDEFINED,
-  type LineRedefinedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+  LINE_CHANGED,
+  type LineChangedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import {
   MEMORIES_USED,
   type MemoriesUsedIntegrationEvent,
@@ -58,13 +58,13 @@ import {
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import {
-  PULL_REQUEST_FORGOTTEN,
-  type PullRequestForgottenIntegrationEvent,
-} from '@shared-kernel/application/integration-events/pull-request-forgotten.integration-event';
-import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
+import {
+  PULL_REQUEST_PURGED,
+  type PullRequestPurgedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
 import {
   PULL_REQUEST_RECORDED,
   type PullRequestRecordedIntegrationEvent,
@@ -114,13 +114,13 @@ import {
   type TaskPassedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-passed.integration-event';
 import {
-  TEAM_DISBANDED,
-  type TeamDisbandedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
-  WORKSPACE_CLOSED,
-  type WorkspaceClosedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+  WORKSPACE_DELETED,
+  type WorkspaceDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -138,7 +138,7 @@ export interface OutcomesReactions {
   readonly acting: NotePersonAct;
   readonly opening: NotePullRequestOpened;
   readonly closing: NotePullRequestClosed;
-  readonly forgetting: ForgetOutcomes;
+  readonly deleting: DeleteOutcomes;
   readonly judging: AskForJudging;
   readonly scoring: RecordJudgeScore;
   readonly grading: GradeAsides;
@@ -245,10 +245,10 @@ export const outcomesSubscribers = (
     ],
     (event) => reactions.alerting.moved(event),
   ),
-  subscribing<LineRedefinedIntegrationEvent>(
-    'outcomes.watch-stations-after-line-redefined',
-    [LINE_REDEFINED],
-    (event) => reactions.watching.lineRedefined(event),
+  subscribing<LineChangedIntegrationEvent>(
+    'outcomes.watch-stations-after-line-changed',
+    [LINE_CHANGED],
+    (event) => reactions.watching.lineChanged(event),
   ),
   subscribing<RunSupersededIntegrationEvent>(
     'outcomes.record-superseded-run',
@@ -372,11 +372,11 @@ export const outcomesSubscribers = (
         seen: seenOf(event),
       }),
   ),
-  subscribing<PullRequestForgottenIntegrationEvent>(
-    'outcomes.forget-pull-request-github-forgot',
-    [PULL_REQUEST_FORGOTTEN],
+  subscribing<PullRequestPurgedIntegrationEvent>(
+    'outcomes.delete-pull-request-purged-by-github',
+    [PULL_REQUEST_PURGED],
     (event) =>
-      reactions.recording.forgottenByGitHub({
+      reactions.recording.purgedByGitHub({
         workspaceId: WorkspaceId.of(event.workspaceId),
         pullRequest: PullRequestUrl.of(event.pullRequest),
         updatedAt: new Date(event.updatedAt),
@@ -434,214 +434,210 @@ export const outcomesSubscribers = (
         openedAt: new Date(event.at),
       }),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'outcomes.forget-config-pull-requests-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'outcomes.delete-config-pull-requests-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.forgetting.configPullRequestsOfTeam(
+      reactions.deleting.configPullRequestsOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'outcomes.forget-config-pull-requests-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'outcomes.delete-config-pull-requests-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.forgetting.configPullRequestsOfWorkspace(
+      reactions.deleting.configPullRequestsOfWorkspace(
         WorkspaceId.of(event.workspaceId),
       ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'outcomes.forget-pull-requests-of-deleted-task',
+    'outcomes.delete-pull-requests-of-deleted-task',
     [TASK_DELETED],
     (event) =>
-      reactions.forgetting.pullRequestsOfTask(
+      reactions.deleting.pullRequestsOfTask(
         WorkspaceId.of(event.workspaceId),
         TaskId.of(event.taskId),
       ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'outcomes.forget-pull-requests-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'outcomes.delete-pull-requests-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.forgetting.pullRequestsOfTeam(
+      reactions.deleting.pullRequestsOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'outcomes.forget-pull-requests-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'outcomes.delete-pull-requests-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.forgetting.pullRequestsOfWorkspace(
+      reactions.deleting.pullRequestsOfWorkspace(
         WorkspaceId.of(event.workspaceId),
       ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'outcomes.forget-runs-of-deleted-task',
+    'outcomes.delete-runs-of-deleted-task',
     [TASK_DELETED],
     (event) =>
-      reactions.forgetting.runsOfTask(
-        WorkspaceId.of(event.workspaceId),
-        TaskId.of(event.taskId),
-      ),
-  ),
-  subscribing<TaskDeletedIntegrationEvent>(
-    'outcomes.forget-delivery-of-deleted-task',
-    [TASK_DELETED],
-    (event) =>
-      reactions.forgetting.deliveryOfTask(
+      reactions.deleting.runsOfTask(
         WorkspaceId.of(event.workspaceId),
         TaskId.of(event.taskId),
       ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'outcomes.forget-judgings-and-scores-of-deleted-task',
+    'outcomes.delete-delivery-of-deleted-task',
     [TASK_DELETED],
     (event) =>
-      reactions.forgetting.judgingsAndScoresOfTask(
+      reactions.deleting.deliveryOfTask(
         WorkspaceId.of(event.workspaceId),
         TaskId.of(event.taskId),
       ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'outcomes.forget-touches-of-deleted-task',
+    'outcomes.delete-judgings-and-scores-of-deleted-task',
     [TASK_DELETED],
     (event) =>
-      reactions.forgetting.touchesOfTask(
+      reactions.deleting.judgingsAndScoresOfTask(
         WorkspaceId.of(event.workspaceId),
         TaskId.of(event.taskId),
       ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'outcomes.forget-failures-of-deleted-task',
+    'outcomes.delete-touches-of-deleted-task',
     [TASK_DELETED],
     (event) =>
-      reactions.forgetting.failuresOfTask(
+      reactions.deleting.touchesOfTask(
         WorkspaceId.of(event.workspaceId),
         TaskId.of(event.taskId),
       ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'outcomes.forget-alerts-of-deleted-task',
+    'outcomes.delete-failures-of-deleted-task',
     [TASK_DELETED],
     (event) =>
-      reactions.forgetting.alertsOfTask(
+      reactions.deleting.failuresOfTask(
         WorkspaceId.of(event.workspaceId),
         TaskId.of(event.taskId),
       ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'outcomes.forget-alerts-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TaskDeletedIntegrationEvent>(
+    'outcomes.delete-alerts-of-deleted-task',
+    [TASK_DELETED],
     (event) =>
-      reactions.forgetting.alertsOfTeam(
+      reactions.deleting.alertsOfTask(
+        WorkspaceId.of(event.workspaceId),
+        TaskId.of(event.taskId),
+      ),
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'outcomes.delete-alerts-of-deleted-team',
+    [TEAM_DELETED],
+    (event) =>
+      reactions.deleting.alertsOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'outcomes.forget-touches-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'outcomes.delete-touches-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.forgetting.touchesOfTeam(
+      reactions.deleting.touchesOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'outcomes.forget-chats-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'outcomes.delete-chats-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.forgetting.chatsOfTeam(
+      reactions.deleting.chatsOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'outcomes.forget-judgings-and-scores-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'outcomes.delete-judgings-and-scores-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.forgetting.judgingsAndScoresOfTeam(
+      reactions.deleting.judgingsAndScoresOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'outcomes.forget-failures-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'outcomes.delete-failures-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.forgetting.failuresOfTeam(
+      reactions.deleting.failuresOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'outcomes.forget-deliveries-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'outcomes.delete-deliveries-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.forgetting.deliveriesOfTeam(
+      reactions.deleting.deliveriesOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'outcomes.forget-runs-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'outcomes.delete-runs-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      reactions.forgetting.runsOfTeam(
+      reactions.deleting.runsOfTeam(
         WorkspaceId.of(event.workspaceId),
         TeamId.of(event.teamId),
       ),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'outcomes.forget-runs-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'outcomes.delete-runs-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.forgetting.runsOfWorkspace(WorkspaceId.of(event.workspaceId)),
+      reactions.deleting.runsOfWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'outcomes.forget-deliveries-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'outcomes.delete-deliveries-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.forgetting.deliveriesOfWorkspace(
+      reactions.deleting.deliveriesOfWorkspace(
         WorkspaceId.of(event.workspaceId),
       ),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'outcomes.forget-judgings-and-scores-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'outcomes.delete-judgings-and-scores-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.forgetting.judgingsAndScoresOfWorkspace(
+      reactions.deleting.judgingsAndScoresOfWorkspace(
         WorkspaceId.of(event.workspaceId),
       ),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'outcomes.forget-touches-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'outcomes.delete-touches-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.forgetting.touchesOfWorkspace(
-        WorkspaceId.of(event.workspaceId),
-      ),
+      reactions.deleting.touchesOfWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'outcomes.forget-failures-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'outcomes.delete-failures-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.forgetting.failuresOfWorkspace(
-        WorkspaceId.of(event.workspaceId),
-      ),
+      reactions.deleting.failuresOfWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'outcomes.forget-chats-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'outcomes.delete-chats-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.forgetting.chatsOfWorkspace(WorkspaceId.of(event.workspaceId)),
+      reactions.deleting.chatsOfWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'outcomes.forget-alerts-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'outcomes.delete-alerts-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.forgetting.alertsOfWorkspace(WorkspaceId.of(event.workspaceId)),
+      reactions.deleting.alertsOfWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
 ];

@@ -115,17 +115,17 @@ export class DrizzleRunConnections implements RunConnectionsPort {
     }));
   }
 
-  async forgetBefore(before: Date, max: number): Promise<number> {
+  async purgeBefore(before: Date, max: number): Promise<number> {
     const doomed = this.context.db
       .select({ id: runConnection.id })
       .from(runConnection)
       .where(lt(runConnection.at, before))
       .limit(max);
-    const forgotten = await this.context.db
+    const purged = await this.context.db
       .delete(runConnection)
       .where(inArray(runConnection.id, doomed))
       .returning({ id: runConnection.id });
 
-    return forgotten.length;
+    return purged.length;
   }
 }
