@@ -59,7 +59,7 @@ func replayOf(state string, regressed bool) string {
 	return `{"id":"replay_1","setId":"set_1","state":"` + state + `","isBaseline":false,
   "candidate":{"id":"cand_1","name":"Shorter prompt","kind":"proposed"},
   "ceiling":{"amount":5,"currency":"USD"},
-  "totals":{"entries":2,"settled":2,"succeeded":1,"successRate":0.5,"scored":2,"unscored":0,"spent":{"amount":1.25,"currency":"USD"}},
+  "totals":{"entries":2,"ended":2,"succeeded":1,"successRate":0.5,"scored":2,"unscored":0,"spent":{"amount":1.25,"currency":"USD"}},
   "comparedWith":{"replayId":"replay_base","successRate":1,"interval":{"rate":1,"low":0.34,"high":1}},
   "baselineReplayId":"replay_base",
   "comparison":[
@@ -71,7 +71,7 @@ func replayOf(state string, regressed bool) string {
 const baseline = `{"id":"replay_base","setId":"set_1","state":"finished","isBaseline":true,
   "candidate":{"id":"cand_live","name":"Live config, 2026-10-01","kind":"live"},
   "ceiling":{"amount":5,"currency":"USD"},
-  "totals":{"entries":2,"settled":2,"succeeded":2,"successRate":1,"interval":{"rate":1,"low":0.34,"high":1},"tasks":2,"tasksScored":2,"scored":2,"unscored":0,"spent":{"amount":1,"currency":"USD"}},
+  "totals":{"entries":2,"ended":2,"succeeded":2,"successRate":1,"interval":{"rate":1,"low":0.34,"high":1},"tasks":2,"tasksScored":2,"scored":2,"unscored":0,"spent":{"amount":1,"currency":"USD"}},
   "comparedWith":null,"baselineReplayId":"replay_base","comparison":[]}`
 
 func replayUnder(kind, against string) string {

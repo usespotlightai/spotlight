@@ -15,9 +15,9 @@ import {
   groupCountsOf,
   inEndOrder,
   iso,
+  measuredColumns,
   msOf,
   onTeam,
-  settledColumns,
   tallyColumns,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
@@ -146,7 +146,7 @@ const sidesIn = async (
       ${runFact}.marker,
       ${runFact}.side,
       ${tallyColumns},
-      ${settledColumns}
+      ${measuredColumns}
     from sides as ${runFact}
     group by ${runFact}.marker, ${runFact}.side
   `);

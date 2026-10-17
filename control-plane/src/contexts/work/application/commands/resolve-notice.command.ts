@@ -1,7 +1,7 @@
-export class SettleNoticeCommand {
+export class ResolveNoticeCommand {
   constructor(
     readonly noticeId: string,
     readonly slug: string,
-    readonly settledBy: string,
+    readonly resolvedBy: string,
   ) {}
 }

@@ -6,7 +6,7 @@ import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event'
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
-import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
+import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import type { DraftEvidence } from '@memory/domain/services/draft-evidence';
@@ -233,7 +233,7 @@ export class MemoryDraft
     });
     for (const runId of runsOf(replaced)) {
       if (!drafted.proposals.some((each) => each.proposedIn(runId))) {
-        drafted.record(new MemoryReviewSettled(this.id, this.taskId, runId));
+        drafted.record(new MemoryReviewResolved(this.id, this.taskId, runId));
       }
     }
     drafted.record(
@@ -358,7 +358,7 @@ export class MemoryDraft
       );
     }
 
-    return next.settledWhereDone(decided);
+    return next.resolveDecidedReviews(decided);
   }
 
   reject(input: {
@@ -370,7 +370,7 @@ export class MemoryDraft
       this.proposalNamed(input.id, input.runId).reject(input.decision),
     ];
 
-    return this.decided(decided).settledWhereDone(decided);
+    return this.decided(decided).resolveDecidedReviews(decided);
   }
 
   private proposalNamed(id: MemoryId, runId: RunId): MemoryProposal {
@@ -393,10 +393,12 @@ export class MemoryDraft
     });
   }
 
-  private settledWhereDone(decided: readonly MemoryProposal[]): MemoryDraft {
+  private resolveDecidedReviews(
+    decided: readonly MemoryProposal[],
+  ): MemoryDraft {
     for (const runId of runsOf(decided)) {
       if (!this.proposals.some((each) => each.proposedIn(runId))) {
-        this.record(new MemoryReviewSettled(this.id, this.taskId, runId));
+        this.record(new MemoryReviewResolved(this.id, this.taskId, runId));
       }
     }
 

@@ -280,7 +280,7 @@ const published = (kind: string, runId: string) =>
       ),
     );
 
-const settled = (runId: string) =>
+const untilDelivered = (runId: string) =>
   eventually(async () => {
     const pending = await db
       .select({ subscriber: schema.eventDelivery.subscriber })
@@ -596,7 +596,7 @@ describe('a replay ending', () => {
       ).body,
     ).toEqual({ waiting: false });
 
-    await settled(replayId);
+    await untilDelivered(replayId);
 
     const after = await taskRow(original.taskId);
     expect(after?.stationId).toBe(before?.stationId);
@@ -647,7 +647,7 @@ describe('a replay ending', () => {
       ).body,
     ).toEqual({ waiting: false });
 
-    await settled(replayId);
+    await untilDelivered(replayId);
 
     expect((await runRow(replayId))?.state).toBe('completed');
     expect((await runRow(replayId))?.askedAPerson).toBe(true);
@@ -664,7 +664,7 @@ describe('a replay ending', () => {
     await runner(token)
       .post(`/api/runs/${replayId}/completion`, finishing('ship'))
       .expect(200);
-    await settled(replayId);
+    await untilDelivered(replayId);
 
     for (const kind of [
       'work.run-ended.v1',

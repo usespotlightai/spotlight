@@ -34,7 +34,7 @@ const toAside = (row: Row, reads: readonly ReadRow[]): TaskAside =>
     reads: reads.map((each) =>
       AsideRead.of({ by: UserId.of(each.userId), at: each.readAt }),
     ),
-    settledAt: row.settledAt,
+    resolvedAt: row.resolvedAt,
     version: row.version,
   });
 
@@ -55,7 +55,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
         form: added.form,
         about: added.about.value,
         raisedAt: added.raisedAt,
-        settledAt: added.settledAt,
+        resolvedAt: added.resolvedAt,
         version: added.version,
       });
       await this.readsKept(added);
@@ -69,7 +69,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
         .update(taskAside)
         .set({
           raisedAt: saved.raisedAt,
-          settledAt: saved.settledAt,
+          resolvedAt: saved.resolvedAt,
           version: saved.version + 1,
         })
         .where(

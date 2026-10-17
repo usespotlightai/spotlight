@@ -7,7 +7,7 @@ export class GradeAsides {
 
   async recorded(event: ScoreRecorded): Promise<void> {
     if (event.source === 'person') {
-      await this.grades.settle(event.place.taskId, event.runId);
+      await this.grades.resolve(event.place.taskId, event.runId);
       return;
     }
 

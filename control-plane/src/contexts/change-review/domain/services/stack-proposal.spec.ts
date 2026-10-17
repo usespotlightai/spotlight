@@ -68,12 +68,12 @@ const NOTED: FileNote[] = [
   { path: 'src/routes.ts', note: 'Mounts it under /invitations.' },
 ];
 
-const settled = (cohorts: ProposedCohort[]) =>
-  StackProposal.settle({ diff: DIFF, facts: NO_FACTS, cohorts });
+const validated = (cohorts: ProposedCohort[]) =>
+  StackProposal.validate({ diff: DIFF, facts: NO_FACTS, cohorts });
 
 const problemsOf = (cohorts: ProposedCohort[]) => {
   try {
-    settled(cohorts);
+    validated(cohorts);
   } catch (error) {
     if (error instanceof InvalidChangeStackError) {
       return error.problems;
@@ -85,7 +85,7 @@ const problemsOf = (cohorts: ProposedCohort[]) => {
 
 describe('StackProposal', () => {
   it('keeps one note per file a layer touches', () => {
-    const [cohort] = settled(proposal(NOTED));
+    const [cohort] = validated(proposal(NOTED));
 
     expect(cohort?.layers[0]?.ranges).toEqual([
       { hunk: HunkId.of('h1') },

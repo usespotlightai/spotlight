@@ -29,7 +29,7 @@ const NOW = new Date('2026-09-23T09:00:00.000Z');
 const LAPTOP = RunnerTerms.of(['laptop']);
 const RUNNER = RunnerId.of('pooled_1');
 
-const settled = () =>
+const completed = () =>
   ChangeStack.draft({
     id: ChangeStackId.of('stack_1'),
     runId: RunId.of('run_1'),
@@ -81,7 +81,7 @@ const settled = () =>
   );
 
 const waitingCheck = (placement = RunnerPlacement.anywhere()) => {
-  const stack = settled();
+  const stack = completed();
 
   return StackCheck.begin({
     stackId: stack.id,
@@ -112,7 +112,7 @@ const claimingReserved = (found: StackCheck | null) => {
           saved.push(check);
         },
       } as unknown as StackCheckRepository,
-      { find: async () => settled() } as unknown as ChangeStackRepository,
+      { find: async () => completed() } as unknown as ChangeStackRepository,
       { patchOf: () => 'diff' } as PatchWriterPort,
       { inTransaction: (work) => work() } as TransactionPort,
     ),
@@ -397,7 +397,7 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved).toEqual([]);
     });
 
-    it('tells the runner to stop once the check was settled, or its lease lapsed past the hour', async () => {
+    it('tells the runner to stop once the check ended, or its lease lapsed past the hour', async () => {
       const skipped = renewing(
         leased().skip(RUNNER, skipOf('no-room', null), NOW),
       );

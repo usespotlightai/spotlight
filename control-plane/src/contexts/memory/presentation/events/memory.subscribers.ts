@@ -5,7 +5,7 @@ import type { NoteMemoryUses } from '@memory/application/services/note-memory-us
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
-import type { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
+import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import {
   RUN_BRIEFED,
   type RunBriefedIntegrationEvent,
@@ -50,10 +50,10 @@ export const memorySubscribers = (
     ['memory-draft.proposed'],
     (event) => reactions.onProposed(event),
   ),
-  subscribing<MemoryReviewSettled>(
-    'memory.settle-review',
-    ['memory-draft.review-settled'],
-    (event) => reactions.onReviewSettled(event),
+  subscribing<MemoryReviewResolved>(
+    'memory.resolve-review',
+    ['memory-draft.review-resolved'],
+    (event) => reactions.onReviewResolved(event),
   ),
   subscribing<MemoryApproved>(
     'memory.keep-approved-memory',

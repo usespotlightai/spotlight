@@ -494,7 +494,7 @@ const workWaiting = async (replayIds: readonly string[]) => {
   return queued.length > 0 || checks.length > 0;
 };
 
-const settled = async (
+const workUntil = async (
   replayIds: readonly string[],
   done: (entries: Awaited<ReturnType<typeof entriesOf>>) => boolean,
   plan: Plan,
@@ -517,7 +517,7 @@ const settled = async (
     }
   }
 
-  throw new Error('the replays never settled');
+  throw new Error('the replays never ended');
 };
 
 const probedAgain = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
@@ -727,7 +727,7 @@ describe('checking a replay set’s health', () => {
       status: 'started',
     });
 
-    await settled([probeId], probedAgain, () => 5);
+    await workUntil([probeId], probedAgain, () => 5);
 
     const runs = (await entriesOf([probeId])).flatMap((each) =>
       each.runId ? [each.runId] : [],
@@ -840,7 +840,7 @@ describe('checking a replay set’s health', () => {
       answered: originals.length,
     });
 
-    await settled([started.replayId], scoredAll, () => 5);
+    await workUntil([started.replayId], scoredAll, () => 5);
 
     const oracle = await eventually(async () => {
       await worked();

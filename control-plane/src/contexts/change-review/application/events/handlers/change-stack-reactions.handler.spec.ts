@@ -1,6 +1,6 @@
 import { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -31,19 +31,23 @@ const checked = (replay: boolean) =>
   );
 
 describe('ChangeStackReactions', () => {
-  it('points the pull request at a stack once it settles or is checked', async () => {
+  it('points the pull request at a stack once it completes or is checked', async () => {
     const { announced, reactions } = announcing();
 
-    await reactions.onSettled(new ChangeStackSettled(STACK_ID, RUN_ID, false));
+    await reactions.onCompleted(
+      new ChangeStackCompleted(STACK_ID, RUN_ID, false),
+    );
     await reactions.onChecked(checked(false));
 
     expect(announced).toEqual([RUN_ID, RUN_ID]);
   });
 
-  it('never announces a replay’s stack, settled or checked', async () => {
+  it('never announces a replay’s stack, completed or checked', async () => {
     const { announced, reactions } = announcing();
 
-    await reactions.onSettled(new ChangeStackSettled(STACK_ID, RUN_ID, true));
+    await reactions.onCompleted(
+      new ChangeStackCompleted(STACK_ID, RUN_ID, true),
+    );
     await reactions.onChecked(checked(true));
 
     expect(announced).toEqual([]);

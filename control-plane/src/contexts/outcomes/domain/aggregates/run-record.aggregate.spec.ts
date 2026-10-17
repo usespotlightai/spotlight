@@ -1,6 +1,6 @@
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
-import { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
+import { RunRecordEnriched } from '@outcomes/domain/events/run-record-enriched.event';
 import { InvalidOutcomeError } from '@outcomes/domain/exceptions/invalid-outcome.error';
 import {
   costOf,
@@ -43,14 +43,14 @@ describe('RunRecord', () => {
     const events = ended.pullEvents();
     expect(events.map((each) => each.kind)).toEqual([
       'run-record.ended',
-      'run-record.settled',
+      'run-record.enriched',
     ]);
     expect(events[0]).toBeInstanceOf(RunRecordEnded);
     expect((events[0] as RunRecordEnded).place.stationId).toBe('station_1');
     expect(ended.pullEvents()).toEqual([]);
   });
 
-  it('tells it settled once for each outcome it learns after it ended, and not for one it already knew', () => {
+  it('records that it is enriched once for each outcome it learns after it ended, and not for one it already knew', () => {
     const heard = RunRecord.heardOf(RUN, WORKSPACE).recordAction(
       NextAct.of('closed', AT),
     );
@@ -70,13 +70,13 @@ describe('RunRecord', () => {
     const events = learned.pullEvents();
     expect(events.map((each) => each.kind)).toEqual([
       'run-record.ended',
-      'run-record.settled',
-      'run-record.settled',
-      'run-record.settled',
-      'run-record.settled',
+      'run-record.enriched',
+      'run-record.enriched',
+      'run-record.enriched',
+      'run-record.enriched',
     ]);
-    expect(events[1]).toBeInstanceOf(RunRecordSettled);
-    expect((events[1] as RunRecordSettled).place.stationId).toBe('station_1');
+    expect(events[1]).toBeInstanceOf(RunRecordEnriched);
+    expect((events[1] as RunRecordEnriched).place.stationId).toBe('station_1');
   });
 
   it('keeps the first end it hears of', () => {

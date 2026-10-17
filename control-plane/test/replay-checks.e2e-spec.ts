@@ -243,7 +243,7 @@ const startCheck = async (station: unknown): Promise<CheckRead> =>
 const baselineOf = (check: CheckRead) =>
   eventually(async () => (await readCheck(check.id)).baselineReplayId);
 
-const settled = async (
+const endReplay = async (
   replayId: string,
   succeeded: (position: number) => boolean | null,
   state: 'finished' | 'stopped' = 'finished',
@@ -674,8 +674,8 @@ describe('a replay check', () => {
     const passing = await startCheck(
       planned({ prompt: 'Build it, and pass.' }),
     );
-    await settled(await baselineOf(passing), () => true);
-    await settled(passing.replayId, () => true);
+    await endReplay(await baselineOf(passing), () => true);
+    await endReplay(passing.replayId, () => true);
 
     expect(await readCheck(passing.id)).toMatchObject({
       verdict: 'passed',
@@ -687,7 +687,7 @@ describe('a replay check', () => {
     const failing = await startCheck(
       planned({ prompt: 'Build it, and fail.' }),
     );
-    await settled(failing.replayId, (position) => position !== 1);
+    await endReplay(failing.replayId, (position) => position !== 1);
 
     const failed = await readCheck(failing.id);
     expect(failed.verdict).toBe('failed');
@@ -704,7 +704,7 @@ describe('a replay check', () => {
     const stopping = await startCheck(
       planned({ prompt: 'Build it, then stop.' }),
     );
-    await settled(stopping.replayId, () => true, 'stopped');
+    await endReplay(stopping.replayId, () => true, 'stopped');
 
     expect(await readCheck(stopping.id)).toMatchObject({
       verdict: 'undecided',
@@ -714,7 +714,7 @@ describe('a replay check', () => {
     const unscored = await startCheck(
       planned({ prompt: 'Build it, unscored.' }),
     );
-    await settled(unscored.replayId, (position) =>
+    await endReplay(unscored.replayId, (position) =>
       position === 0 ? true : null,
     );
 
@@ -730,7 +730,7 @@ describe('a replay check', () => {
     const first = await startCheck(change);
     expect(first.attempt).toBe(1);
 
-    await settled(first.replayId, () => true, 'stopped');
+    await endReplay(first.replayId, () => true, 'stopped');
     const second = await startCheck(change);
     expect(second.attempt).toBe(2);
 
@@ -899,9 +899,9 @@ describe('a replay check', () => {
 
       return row?.baseline === 'found';
     });
-    await settled(baseline, () => true);
+    await endReplay(baseline, () => true);
     await db.delete(schema.replay).where(eq(schema.replay.id, baseline));
-    await settled(check.replayId, () => true);
+    await endReplay(check.replayId, () => true);
 
     expect(await readCheck(check.id)).toMatchObject({
       verdict: 'undecided',
@@ -967,8 +967,8 @@ describe('a replay check', () => {
 
     const check = await startCheck(planned({ prompt: 'Build it, then go.' }));
     const baseline = await baselineOf(check);
-    await settled(check.replayId, () => true);
-    await settled(baseline, () => true);
+    await endReplay(check.replayId, () => true);
+    await endReplay(baseline, () => true);
 
     await owner().delete(`${teamPath()}/replay-sets/${doomed}`).expect(204);
 

@@ -174,13 +174,13 @@ func (u *redactingReader) Read(into []byte) (int, error) {
 		case err != nil:
 			return 0, err
 		}
-		u.settle()
+		u.flush()
 	}
 
 	return u.out.Read(into)
 }
 
-func (u *redactingReader) settle() {
+func (u *redactingReader) flush() {
 	at := 0
 	for at < len(u.pending) {
 		if each, found := matching(u.pending[at:], u.swaps); found {

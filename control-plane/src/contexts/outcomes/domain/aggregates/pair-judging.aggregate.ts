@@ -139,11 +139,11 @@ export class PairJudging
   }
 
   static rehydrate(state: State): PairJudging {
-    const settled = [state.work, state.judgedAt, state.failure].filter(
+    const outcomes = [state.work, state.judgedAt, state.failure].filter(
       (each) => each !== null,
     );
 
-    if (settled.length !== 1) {
+    if (outcomes.length !== 1) {
       throw new InconsistentStateError(
         'pair judging',
         'is either still owed, judged or failed, and only one of these',

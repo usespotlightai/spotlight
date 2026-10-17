@@ -90,7 +90,7 @@ export class DrizzleSecrets implements SecretRepository {
   async save(record: Secret): Promise<void> {
     await this.context.inTransaction(async () => {
       await this.stored(record);
-      await this.settled(record);
+      await this.applyValueChange(record);
 
       await this.events.dispatch(record.pullEvents());
     });
@@ -146,7 +146,7 @@ export class DrizzleSecrets implements SecretRepository {
     }
   }
 
-  private async settled(record: Secret): Promise<void> {
+  private async applyValueChange(record: Secret): Promise<void> {
     if (record.keeping) {
       await this.values.keep(record, record.keeping);
     } else if (record.forgetsValue) {

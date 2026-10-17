@@ -3,7 +3,7 @@ import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
-import type { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
+import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -22,8 +22,8 @@ export class MemoryReactions {
     }
   }
 
-  async onReviewSettled(event: MemoryReviewSettled): Promise<void> {
-    await this.reviews.settle(event.taskId, event.runId);
+  async onReviewResolved(event: MemoryReviewResolved): Promise<void> {
+    await this.reviews.resolve(event.taskId, event.runId);
   }
 
   async onApproved(event: MemoryApproved): Promise<void> {

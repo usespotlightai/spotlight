@@ -226,7 +226,7 @@ const numbered = (
 };
 
 export const StackProposal = {
-  settle(input: {
+  validate(input: {
     diff: Diff;
     facts: DiffFacts;
     cohorts: readonly ProposedCohort[];

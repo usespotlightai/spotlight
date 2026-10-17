@@ -217,7 +217,7 @@ describe('a search for a better station config, ranking and picking its candidat
     });
 
     const pullRequestPath = `${teamPath()}/config-pull-requests/${one.body.id}`;
-    const settled = () =>
+    const attempted = () =>
       eventually(async () => {
         await app.get(OpenConfigPullRequests).workDue();
         const read = (await owner().get(pullRequestPath).expect(200)).body as {
@@ -227,7 +227,7 @@ describe('a search for a better station config, ranking and picking its candidat
         return read.state === 'opening' ? null : read;
       }, WITHIN);
 
-    expect(await settled()).toMatchObject({
+    expect(await attempted()).toMatchObject({
       state: 'failed',
       url: null,
       reason: { code: 'base-changed', attribute: 'prompt' },
@@ -245,7 +245,7 @@ describe('a search for a better station config, ranking and picking its candidat
       attempts: 2,
       reason: null,
     });
-    expect(await settled()).toMatchObject({
+    expect(await attempted()).toMatchObject({
       state: 'opened',
       url: `https://github.com/${CONFIG}/pull/1`,
       reason: null,

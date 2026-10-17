@@ -26,6 +26,6 @@ export class AlertInbox {
 
     await (crossing.open
       ? this.asides.open(crossing.taskId, crossing.id)
-      : this.asides.settle(crossing.taskId, crossing.id));
+      : this.asides.resolve(crossing.taskId, crossing.id));
   }
 }

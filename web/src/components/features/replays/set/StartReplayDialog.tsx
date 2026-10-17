@@ -106,7 +106,7 @@ export function StartReplayDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(settled) => !settled && forget()}
+      onOpenChangeComplete={(open) => !open && forget()}
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

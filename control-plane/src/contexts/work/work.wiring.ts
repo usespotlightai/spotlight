@@ -159,10 +159,10 @@ import { RecordRunImageHandler } from '@work/application/commands/handlers/recor
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
+import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
 import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
 import { SealWorkspaceArchiveHandler } from '@work/application/commands/handlers/seal-workspace-archive.handler';
-import { SettleNoticeHandler } from '@work/application/commands/handlers/settle-notice.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
@@ -175,6 +175,7 @@ import {
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
+import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import {
   AppendRunJournalCommand,
   ClaimHostWorkCommand,
@@ -188,7 +189,6 @@ import {
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
 import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
-import { SettleNoticeCommand } from '@work/application/commands/settle-notice.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
@@ -534,6 +534,7 @@ import { ProvisionWork } from '@work/application/services/provision-work.service
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
 import { RaiseTask } from '@work/application/services/raise-task';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
+import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import { RemoveReleasedArchives } from '@work/application/services/remove-released-archives.service';
 import { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import { ReplayCandidates } from '@work/application/services/replay-candidates.service';
@@ -548,7 +549,6 @@ import { RunStartHooks } from '@work/application/services/run-start-hooks.servic
 import { RunWorks } from '@work/application/services/run-works.service';
 import { RunnerLeases } from '@work/application/services/runner-leases.service';
 import { SearchRuns } from '@work/application/services/search-runs.service';
-import { SettleSetup } from '@work/application/services/settle-setup.service';
 import { SetupPullRequestToolUse } from '@work/application/services/setup-pull-request.tool-use';
 import { SetupStatus } from '@work/application/services/setup-status.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
@@ -1142,7 +1142,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: SettleSetup,
+    provide: ReconcileSetup,
     inject: [
       DrizzleTaskRepository,
       DrizzleLineRepository,
@@ -1156,7 +1156,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       setup: SetupStatus,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new SettleSetup(tasks, lines, setup, clock, logger),
+    ) => new ReconcileSetup(tasks, lines, setup, clock, logger),
   },
 
   {
@@ -1624,7 +1624,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       CLOCK,
       CreateTaskFromProposal,
-      SettleSetup,
+      ReconcileSetup,
       DrizzleTaskRepository,
       OUTBOUND_TASK_NOTIFIER,
       DrizzleLineRepository,
@@ -1655,7 +1655,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       clock: ClockPort,
       acceptances: CreateTaskFromProposal,
-      setup: SettleSetup,
+      setup: ReconcileSetup,
       tasks: DrizzleTaskRepository,
       notifier: OutboundTaskNotifierPort,
       lines: DrizzleLineRepository,
@@ -2075,7 +2075,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DrizzleTaskAsideRepository,
     CLOCK,
   ]),
-  ...bindCommandHandler(SettleNoticeCommand, SettleNoticeHandler, [
+  ...bindCommandHandler(ResolveNoticeCommand, ResolveNoticeHandler, [
     NoticeLoader,
     DrizzleNoticeRepository,
     CLOCK,

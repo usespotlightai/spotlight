@@ -73,7 +73,7 @@ export function useSnapCarousel(count: number) {
 
   useEffect(() => () => window.clearTimeout(quiet.current), []);
 
-  const settle = useCallback(() => {
+  const snap = useCallback(() => {
     const element = track.current;
     if (!element || drag.current) {
       return;
@@ -93,11 +93,11 @@ export function useSnapCarousel(count: number) {
       return;
     }
     window.clearTimeout(quiet.current);
-    quiet.current = window.setTimeout(settle, QUIET);
+    quiet.current = window.setTimeout(snap, QUIET);
     if (!drag.current) {
       setAt(nearestStop(stops, element.scrollLeft));
     }
-  }, [settle, stops]);
+  }, [snap, stops]);
 
   const go = useCallback(
     (to: number) => {

@@ -205,7 +205,7 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
         ),
       )
       .orderBy(asc(stationAlert.raisedAt), asc(stationAlert.id));
-    const settling = await this.context.db
+    const cooling = await this.context.db
       .selectDistinctOn([stationAlert.measure, stationAlert.threshold])
       .from(stationAlert)
       .where(
@@ -224,7 +224,7 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
 
     return toWatch(row, [
       ...alerts,
-      ...settling.filter((each) => !openIds.has(each.id)),
+      ...cooling.filter((each) => !openIds.has(each.id)),
     ]);
   }
 

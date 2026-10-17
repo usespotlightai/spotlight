@@ -12,7 +12,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayTotals {
   readonly entries: number;
-  readonly settled: number;
+  readonly ended: number;
   readonly endings: Readonly<Record<ReplayEnding, number>>;
   readonly succeeded: number | null;
   readonly successRate: number | null;
@@ -112,7 +112,7 @@ const judgedIn = (
 ): readonly ReplayEntry[] =>
   entries.filter(
     (each) =>
-      each.isSettled && each.concludedFor(scoring) && each.succeeded !== null,
+      each.hasEnded && each.concludedFor(scoring) && each.succeeded !== null,
   );
 
 export const copiesByOriginal = (
@@ -178,13 +178,13 @@ export const totalsOf = (
         spentElsewhere: replay.spentElsewhere,
         unpricedCalls: replay.unpricedCalls,
       };
-  const settled = entries.filter((each) => each.isSettled);
-  const measured = settled.flatMap((each) =>
+  const ended = entries.filter((each) => each.hasEnded);
+  const measured = ended.flatMap((each) =>
     each.measures ? [each.measures] : [],
   );
   const endings = { ...NO_ENDINGS };
 
-  for (const each of settled) {
+  for (const each of ended) {
     const ending = each.ending;
 
     if (ending) {
@@ -192,7 +192,7 @@ export const totalsOf = (
     }
   }
 
-  const concluded = settled.filter((each) => each.concludedFor(replay.scoring));
+  const concluded = ended.filter((each) => each.concludedFor(replay.scoring));
   const judged = judgedIn(entries, replay.scoring);
   const succeeded = judged.filter((each) => each.succeeded).length;
   const perTask = [...taskSuccessesOf(replay, among).values()];
@@ -201,7 +201,7 @@ export const totalsOf = (
 
   return {
     entries: entries.length,
-    settled: settled.length,
+    ended: ended.length,
     endings,
     succeeded: judged.length > 0 ? succeeded : null,
     successRate: interval?.rate ?? null,
@@ -342,14 +342,14 @@ export const comparedWith = (
   return [...copiesByOriginal(within(candidate.entries, among))]
     .map(([original, copies]) => {
       const theirs = against.get(original) ?? [];
-      const settled =
-        copies.every((each) => each.isSettled) &&
+      const bothEnded =
+        copies.every((each) => each.hasEnded) &&
         theirs.length > 0 &&
-        theirs.every((each) => each.isSettled);
+        theirs.every((each) => each.hasEnded);
       const measured = (
         measureOf: (entry: ReplayEntry) => number | null | undefined,
       ): number | null =>
-        settled
+        bothEnded
           ? delta(meanOver(copies, measureOf), meanOver(theirs, measureOf))
           : null;
       const scores = scoresOf(
@@ -357,7 +357,7 @@ export const comparedWith = (
         { copies: theirs, rubric: baseline?.rubricVersion ?? null },
       );
       const concluded =
-        settled &&
+        bothEnded &&
         copies.every((each) => each.concludedFor(candidate.scoring)) &&
         baseline !== null &&
         theirs.every((each) => each.concludedFor(baseline.scoring));

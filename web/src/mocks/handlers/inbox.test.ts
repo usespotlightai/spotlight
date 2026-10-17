@@ -19,7 +19,7 @@ import {
   readTaskDecisions,
   readTaskJournal,
   rejectMemory,
-  settleInboxNotice,
+  resolveInboxNotice,
   submitReview,
 } from '@/lib/api';
 import { serveMockApi } from '@/mocks/testing';
@@ -71,7 +71,7 @@ const scoresAbout = async (asideId: string) => {
 describe('the mock inbox', () => {
   serveMockApi();
 
-  it('contains open and settled work across both teams', async () => {
+  it('contains open and resolved work across both teams', async () => {
     const entries = await inbox();
     const ids = entries.map((entry) => entry.id);
 
@@ -92,7 +92,7 @@ describe('the mock inbox', () => {
     );
   });
 
-  it('answers a question, settling the review it owed', async () => {
+  it('answers a question, and the review it owed is answered', async () => {
     await answerInboxItem({
       path: { slug: SLUG, itemId: 'task_rate_limits:0' },
       body: { body: 'Per API key.' },
@@ -168,7 +168,7 @@ describe('the mock inbox', () => {
     });
   });
 
-  it('marks items and asides read, and settles notices', async () => {
+  it('marks items and asides read, and resolves notices', async () => {
     await readInboxItem({
       path: { slug: SLUG, itemId: 'task_rate_limits:0' },
       throwOnError: true,
@@ -177,7 +177,7 @@ describe('the mock inbox', () => {
       path: { slug: SLUG, asideId: MEMORIES_ASIDE_ID },
       throwOnError: true,
     });
-    await settleInboxNotice({
+    await resolveInboxNotice({
       path: { slug: SLUG, noticeId: STALLED_NOTICE_ID },
       throwOnError: true,
     });
@@ -253,7 +253,7 @@ describe('the mock inbox', () => {
     expect(five.judge?.kind).toBe('number');
   });
 
-  it('grades a judged run and settles the grade it asked for', async () => {
+  it('grades a judged run and resolves the grade it asked for', async () => {
     const { data: before } = await readRunScores({
       path: POSTGRES_RUN,
       throwOnError: true,
@@ -331,7 +331,7 @@ describe('the mock inbox', () => {
     ]);
   });
 
-  it('shows the memory the run kept as approved, and settles the aside once the last is decided', async () => {
+  it('shows the memory the run kept as approved, and resolves the aside once the last is decided', async () => {
     const { data: review } = await readMemoryReview({
       path: RETRIES,
       throwOnError: true,

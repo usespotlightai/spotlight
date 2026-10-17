@@ -109,7 +109,7 @@ export class AlertCrossing {
   ): AlertCrossing {
     if (!this.cooling) {
       throw new InvalidAlertError(
-        'can reopen only while settling after a recovery',
+        'can reopen only in the cooldown after a recovery',
       );
     }
 

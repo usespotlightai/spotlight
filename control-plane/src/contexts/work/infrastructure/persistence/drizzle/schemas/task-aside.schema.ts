@@ -24,7 +24,7 @@ export const taskAside = pgTable(
     form: asideForm('form').notNull(),
     about: text('about').notNull(),
     raisedAt: timestamp('raised_at').notNull(),
-    settledAt: timestamp('settled_at'),
+    resolvedAt: timestamp('resolved_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -33,7 +33,7 @@ export const taskAside = pgTable(
       table.form,
       table.about,
     ),
-    index('task_aside_workspace_idx').on(table.workspaceId, table.settledAt),
+    index('task_aside_workspace_idx').on(table.workspaceId, table.resolvedAt),
   ],
 );
 

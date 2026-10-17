@@ -2197,11 +2197,13 @@ describe('the memories a team’s runs used', () => {
 
     expect(groups.every((each) => each.tally.runs > 10)).toBe(true);
     expect(
-      groups.some((each) => each.settled.finished > each.settled.finishedTasks),
+      groups.some(
+        (each) => each.measured.finished > each.measured.finishedTasks,
+      ),
     ).toBe(true);
-    expect(groups.every((each) => each.settled.acted > 0)).toBe(true);
+    expect(groups.every((each) => each.measured.acted > 0)).toBe(true);
     expect(
-      groups.every((each) => each.settled.digested < each.tally.runs),
+      groups.every((each) => each.measured.digested < each.tally.runs),
     ).toBe(true);
     expect(counts.runsBriefed).toBeLessThan(counts.withMemories.tally.runs);
     expect(counts.runsRecalled).toBeLessThan(counts.withMemories.tally.runs);
@@ -2291,7 +2293,7 @@ describe('how the memory counts leave out what did not run', () => {
     });
   });
 
-  it('counts the memories of a withdrawn run but not the run, and settles merges only on finished deliveries', async () => {
+  it('counts the memories of a withdrawn run but not the run, and counts merges only on finished deliveries', async () => {
     const counts = await reader.memoryCounts({
       workspaceId: WORKSPACE,
       teamId: REMEMBERING,
@@ -2310,11 +2312,11 @@ describe('how the memory counts leave out what did not run', () => {
       memoriesRecalled: 1,
       withMemories: {
         tally: { runs: 2, withdrawn: 0, failed: 1, accepted: 1, merged: 1 },
-        settled: { acted: 1, finished: 1, finishedTasks: 1, digested: 0 },
+        measured: { acted: 1, finished: 1, finishedTasks: 1, digested: 0 },
       },
       withoutMemories: {
         tally: { runs: 1, merged: 0 },
-        settled: { acted: 0, finished: 0, finishedTasks: 0, digested: 0 },
+        measured: { acted: 0, finished: 0, finishedTasks: 0, digested: 0 },
       },
     });
     expect(counts).toEqual(memoryCountsOf(history, period.current));
@@ -2391,7 +2393,7 @@ describe('the setups a team’s runs used', () => {
     expect(all.setups.some((each) => each.profileKey !== null)).toBe(true);
     expect(all.setups.every((each) => each.rubrics.length === 0)).toBe(true);
     expect(
-      all.setups.some((each) => each.answered > each.counts.settled.acted),
+      all.setups.some((each) => each.answered > each.counts.measured.acted),
     ).toBe(true);
     expect(review.setups.some((each) => each.rubrics.length === 2)).toBe(true);
     for (const size of RUN_SIZES) {

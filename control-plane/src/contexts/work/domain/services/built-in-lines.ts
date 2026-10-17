@@ -97,7 +97,7 @@ question for a person, not a guess for you to make.`;
 
 const SPEC = `## Spec
 
-Take the request as triage settled it and turn it into a plan someone can
+Take the request as triage decided it and turn it into a plan someone can
 implement without going back to the requester. What is being asked is decided;
 do not reopen it — your job is the how, not the what.
 
@@ -175,8 +175,8 @@ formatting to the linter.
 
 Be sure. Before you call something a bug, find how the codebase does the same
 thing elsewhere, and read the documentation of the library it uses. Name a
-real case where it goes wrong, not a hypothetical one. When you cannot settle
-a doubt, ask it as a question rather than state it as a fault.
+real case where it goes wrong, not a hypothetical one. When a doubt
+remains, ask it as a question rather than state it as a fault.
 
 Give each finding a severity, and do not overstate it:
 

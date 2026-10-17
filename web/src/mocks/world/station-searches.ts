@@ -319,8 +319,8 @@ export const searchCandidateOf = (
     searchedPairs: against?.pairs ?? null,
     heldOutPairs: heldOutAgainst?.pairs ?? null,
     costPerRun:
-      totals && totals.settled > 0
-        ? rounded(totals.spent.amount / totals.settled)
+      totals && totals.ended > 0
+        ? rounded(totals.spent.amount / totals.ended)
         : null,
     spent: {
       amount: rounded(spentIn(replay) + spentIn(heldOut)),

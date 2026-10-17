@@ -59,7 +59,7 @@ import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subscribers';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
-import { CHANGE_STACK_SHAPED } from '@shared-kernel/application/integration-events/change-stack-shaped.integration-event';
+import { CHANGE_STACK_READY } from '@shared-kernel/application/integration-events/change-stack-ready.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import { CONFIG_PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
 import { LINE_REDEFINED } from '@shared-kernel/application/integration-events/line-redefined.integration-event';
@@ -221,8 +221,8 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       ask: async (taskId, runId) => {
         asked.push(`ask ${taskId.value} ${runId.value}`);
       },
-      settle: async (taskId, runId) => {
-        asked.push(`settle ${taskId.value} ${runId.value}`);
+      resolve: async (taskId, runId) => {
+        asked.push(`resolve ${taskId.value} ${runId.value}`);
       },
     }),
     digesting: new NoteRunDigested(WORK, records, forgotten, inTransaction),
@@ -261,8 +261,8 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         open: async (taskId, alertId) => {
           alerted.push(`open ${taskId.value} ${alertId.value}`);
         },
-        settle: async (taskId, alertId) => {
-          alerted.push(`settle ${taskId.value} ${alertId.value}`);
+        resolve: async (taskId, alertId) => {
+          alerted.push(`resolve ${taskId.value} ${alertId.value}`);
         },
       },
       watches,
@@ -1213,10 +1213,10 @@ describe('outcomesSubscribers', () => {
     expect(heard.scores.stored.size).toBe(0);
   });
 
-  it('settles a run’s grade aside once a person grades it', async () => {
+  it('resolves a run’s grade aside once a person grades it', async () => {
     const heard = subscribed();
 
-    await heard.deliver('outcomes.ask-or-settle-grade', {
+    await heard.deliver('outcomes.ask-or-resolve-grade', {
       kind: 'score.recorded',
       scoreId: 'score_1',
       runId: RunId.of('run_1'),
@@ -1224,7 +1224,7 @@ describe('outcomesSubscribers', () => {
       source: 'person',
     } as never);
 
-    expect(heard.asked).toEqual(['settle task_1 run_1']);
+    expect(heard.asked).toEqual(['resolve task_1 run_1']);
   });
 
   it('forgets a deleted task’s judgings and scores together', async () => {
@@ -1618,7 +1618,7 @@ describe('outcomesSubscribers', () => {
       const heard = subscribed();
 
       await heard.deliver('outcomes.record-change-shape', {
-        kind: CHANGE_STACK_SHAPED,
+        kind: CHANGE_STACK_READY,
         runId: 'run_1',
         taskId: 'task_2',
         workspaceId: 'ws_1',
@@ -1627,7 +1627,7 @@ describe('outcomesSubscribers', () => {
         at: '2026-09-30T10:00:00.000Z',
       });
       await heard.deliver('outcomes.record-change-shape', {
-        kind: CHANGE_STACK_SHAPED,
+        kind: CHANGE_STACK_READY,
         runId: 'run_1',
         taskId: 'task_1',
         workspaceId: 'ws_2',
@@ -1644,7 +1644,7 @@ describe('outcomesSubscribers', () => {
       const heard = subscribed();
 
       await heard.deliver('outcomes.record-change-shape', {
-        kind: CHANGE_STACK_SHAPED,
+        kind: CHANGE_STACK_READY,
         runId: 'run_1',
         taskId: 'task_1',
         workspaceId: 'ws_1',
@@ -1653,7 +1653,7 @@ describe('outcomesSubscribers', () => {
         at: '2026-09-30T10:00:00.000Z',
       });
       await heard.deliver('outcomes.record-change-shape', {
-        kind: CHANGE_STACK_SHAPED,
+        kind: CHANGE_STACK_READY,
         runId: 'run_unknown',
         taskId: 'task_2',
         workspaceId: 'ws_1',
@@ -1699,7 +1699,7 @@ describe('outcomesSubscribers', () => {
       );
     };
 
-    it('raises one inbox aside on the run that crossed a station’s alert, and settles it once the station recovers', async () => {
+    it('raises one inbox aside on the run that crossed a station’s alert, and resolves it once the station recovers', async () => {
       const heard = subscribed([FAILING_ABOVE_HALF]);
       await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
 
@@ -1728,11 +1728,11 @@ describe('outcomesSubscribers', () => {
 
       expect(heard.alerted).toEqual([
         'open task_1 alert_1',
-        'settle task_1 alert_1',
+        'resolve task_1 alert_1',
       ]);
     });
 
-    it('settles the aside even when the raising is heard after the recovery', async () => {
+    it('resolves the aside even when the raising is heard after the recovery', async () => {
       const heard = subscribed([FAILING_ABOVE_HALF]);
       await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
       await watched(heard, 'run_1');
@@ -1755,8 +1755,8 @@ describe('outcomesSubscribers', () => {
       );
 
       expect(heard.alerted).toEqual([
-        'settle task_1 alert_1',
-        'settle task_1 alert_1',
+        'resolve task_1 alert_1',
+        'resolve task_1 alert_1',
       ]);
     });
 

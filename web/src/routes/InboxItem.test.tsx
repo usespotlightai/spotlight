@@ -512,7 +512,7 @@ describe('InboxItem', () => {
     expect(screen.getByText(/moved on to Code Review/)).toBeInTheDocument();
   });
 
-  it('says only that it is settled where it was closed in place', () => {
+  it('says only that the conversation is closed here when the conversation closed in place', () => {
     const [only] = item([message()]);
     waiting.mockReturnValue([
       {
@@ -524,7 +524,7 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    expect(screen.getByText(/settled here/)).toBeInTheDocument();
+    expect(screen.getByText(/closed here/)).toBeInTheDocument();
     expect(screen.queryByText(/moved on/)).not.toBeInTheDocument();
   });
 

@@ -5,7 +5,7 @@ import {
   type Dot,
   type FlowGeometry,
   halfAt,
-  settledDots,
+  spreadDots,
   TYPE_COLORS,
   type TypeShare,
 } from '@/lib/pipeline-flow';
@@ -99,7 +99,7 @@ export function usePipelineParticles({
 
   useEffect(() => {
     if (width > 0 && stages > 0) {
-      dots.current = settledDots(latest.current.geometry, shares);
+      dots.current = spreadDots(latest.current.geometry, shares);
     }
     draw.current();
   }, [width, stages, shares]);

@@ -160,14 +160,14 @@ const outcomesOf = (
   { counts, answered }: SetupCounts,
   judge: JudgeShare | null,
 ): Record<OutcomeMeasure, number | null> => ({
-  accepted: rateOf(tally.accepted, counts.settled.acted),
-  sent_back: rateOf(tally.sentBack, counts.settled.acted),
+  accepted: rateOf(tally.accepted, counts.measured.acted),
+  sent_back: rateOf(tally.sentBack, counts.measured.acted),
   handed_on: rateOf(tally.handedOn, answered),
   checks_passed: rateOf(
     tally.checksPassed,
     tally.checksPassed + tally.checksFailed,
   ),
-  merged: rateOf(tally.merged, counts.settled.finishedTasks),
+  merged: rateOf(tally.merged, counts.measured.finishedTasks),
   judge: judge?.mean ?? null,
 });
 

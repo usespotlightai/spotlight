@@ -49,8 +49,8 @@ const owed = run('run_1', 'Fix the login bug', {
   state: 'owed',
   conversationId: 'conv_1',
 });
-const settled = run('run_2', 'Tidy the settings page', {
-  state: 'settled',
+const answered = run('run_2', 'Tidy the settings page', {
+  state: 'answered',
   conversationId: 'conv_2',
 });
 const unreviewed = run('run_3', 'Upgrade the harness', null);
@@ -66,7 +66,7 @@ const filter = (name: string) => screen.getByRole('button', { name });
 
 beforeEach(() => {
   localStorage.clear();
-  runs.mockReturnValue([owed, settled, unreviewed]);
+  runs.mockReturnValue([owed, answered, unreviewed]);
   failing.mockReturnValue(false);
   refetch.mockClear();
 });
@@ -96,7 +96,7 @@ describe('TeamRuns', () => {
   });
 
   it('says so when nothing is waiting for you', async () => {
-    runs.mockReturnValue([settled, unreviewed]);
+    runs.mockReturnValue([answered, unreviewed]);
     showing();
 
     await userEvent.click(filter('Waiting for you'));

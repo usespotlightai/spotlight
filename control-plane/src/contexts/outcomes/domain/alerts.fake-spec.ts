@@ -97,15 +97,14 @@ export class StationWatchesInMemory implements StationWatchRepository {
       }
     }
 
-    const settling = new Set(
+    const cooling = new Set(
       [...lastRecovered.values()].map((each) => each.id.value),
     );
 
     return StationWatch.rehydrate({
       station: existing.station,
       crossings: existing.crossings.filter(
-        (each) =>
-          each.open || alsoIncluded(each) || settling.has(each.id.value),
+        (each) => each.open || alsoIncluded(each) || cooling.has(each.id.value),
       ),
       version: existing.version,
     });

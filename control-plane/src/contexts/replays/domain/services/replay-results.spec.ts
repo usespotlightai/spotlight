@@ -9,10 +9,10 @@ import {
   measuresOf,
   NOW,
   RUBRIC,
+  ranToEnd,
   replayedAs,
   replayFor,
   runIds,
-  settledAs,
 } from '@replays/domain/replays.fake-spec';
 import {
   comparedWith,
@@ -43,7 +43,7 @@ const checksOf = (state: StackState) =>
     },
   ]);
 
-const settled = (replay: Replay, at: number, how: Ran, cost: number) => {
+const ranToEndHow = (replay: Replay, at: number, how: Ran, cost: number) => {
   const confirmed = replay
     .confirm(run(at), FINGERPRINT, NOW)
     .recordRunEnd(
@@ -72,7 +72,7 @@ const ran = (
   rubric: string | null = null,
 ) =>
   runs.reduce(
-    (replay, how, at) => settled(replay, at, how, costs[at] ?? 1),
+    (replay, how, at) => ranToEndHow(replay, at, how, costs[at] ?? 1),
     aReplay({
       id,
       count: runs.length,
@@ -135,7 +135,7 @@ describe('totalsOf', () => {
     const totals = totalsOf(replay);
 
     expect(totals.entries).toBe(3);
-    expect(totals.settled).toBe(3);
+    expect(totals.ended).toBe(3);
     expect(totals.endings.completed).toBe(2);
     expect(totals.endings.failed).toBe(1);
     expect(totals.spent.amount).toBe(7);
@@ -181,12 +181,12 @@ describe('totalsOf', () => {
       .reserving(1, runIds())
       .measure(run(0), measuresOf(null), NOW);
 
-    expect(totalsOf(replay).settled).toBe(0);
+    expect(totalsOf(replay).ended).toBe(0);
   });
 });
 
 describe('comparedWith', () => {
-  it('sets each task against the baseline, regressions first, with deltas once both settled', () => {
+  it('sets each task against the baseline, regressions first, with deltas once both ended', () => {
     const baseline = ran(
       'baseline',
       ['passed', 'passed', 'failed-run'],
@@ -441,7 +441,7 @@ describe('results with repeats', () => {
       .filter((each) => each.repeat === 1)
       .reduce(
         (built, entry) =>
-          settledAs(
+          ranToEnd(
             built,
             entry.run as RunId,
             entry.original.value === 'original_0' ? 'failed' : 'completed',
@@ -461,7 +461,7 @@ describe('results with repeats', () => {
       .filter((each) => each.repeat > 1)
       .reduce(
         (built, entry) =>
-          settledAs(
+          ranToEnd(
             built,
             entry.run as RunId,
             entry.original.value === 'original_0' ? 'failed' : 'completed',

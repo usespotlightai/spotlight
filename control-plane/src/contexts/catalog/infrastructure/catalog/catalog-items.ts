@@ -38,7 +38,7 @@ name: spotlight-catalog-research
 description: Research a question on the web before answering it, citing the pages the answer rests on.
 ---
 Search with \`catalog.web-search\` first, then read the pages that matter with \`catalog.fetch-page\`.
-Cite each page an answer rests on by its address. Say so when the web does not settle a question.
+Cite each page an answer rests on by its address. Say so when the web does not answer a question.
 `;
 
 export const CATALOG_ITEMS: readonly CatalogItem[] = [

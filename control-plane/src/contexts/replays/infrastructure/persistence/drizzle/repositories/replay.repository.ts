@@ -75,17 +75,17 @@ const NEWEST_READ_FOR_HEALTH = 3;
 
 const ofThisReplay = eq(replayEntry.replayId, replay.id);
 
-const unsettled = and(
+const notEnded = and(
   isNull(replayEntry.unreplayableReason),
   eq(replayEntry.notRun, false),
 );
 
-const waiting = and(ofThisReplay, isNull(replayEntry.runId), unsettled);
+const waiting = and(ofThisReplay, isNull(replayEntry.runId), notEnded);
 
 const occupying = and(
   ofThisReplay,
   isNotNull(replayEntry.runId),
-  unsettled,
+  notEnded,
   or(
     isNull(replayEntry.outcome),
     and(eq(replayEntry.measured, false), ne(replayEntry.outcome, 'withdrawn')),
@@ -96,7 +96,7 @@ const unqueued = and(
   ofThisReplay,
   isNotNull(replayEntry.runId),
   eq(replayEntry.queued, false),
-  unsettled,
+  notEnded,
   isNull(replayEntry.outcome),
 );
 

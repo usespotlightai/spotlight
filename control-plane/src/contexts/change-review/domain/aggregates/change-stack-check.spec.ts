@@ -145,7 +145,7 @@ describe('ChangeStack, on the check it asks for', () => {
     expect(reordered.owesWork).toBe(false);
     expect(kinds(reordered)).toEqual([
       'change-stack.reordered',
-      'change-stack.shaped',
+      'change-stack.ready',
     ]);
   });
 
@@ -181,8 +181,8 @@ describe('ChangeStack, on the check it asks for', () => {
 
     expect(kinds(stack)).toEqual([
       'change-stack.drafting-began',
-      'change-stack.settled',
-      'change-stack.shaped',
+      'change-stack.completed',
+      'change-stack.ready',
     ]);
   });
 });

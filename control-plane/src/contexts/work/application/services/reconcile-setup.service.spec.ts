@@ -4,7 +4,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { SettleSetup } from '@work/application/services/settle-setup.service';
+import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
 import { listed } from '@work/application/services/setup-steps';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -82,7 +82,7 @@ const done: SetupState = {
   configured: true,
 };
 
-const settling = (given: { task?: Task; state?: SetupState } = {}) => {
+const reconciling = (given: { task?: Task; state?: SetupState } = {}) => {
   const task = given.task ?? list();
   const save = vi.fn(async () => {});
 
@@ -108,7 +108,7 @@ const settling = (given: { task?: Task; state?: SetupState } = {}) => {
     tasks,
     logger,
     setup,
-    service: new SettleSetup(
+    service: new ReconcileSetup(
       tasks,
       lines,
       setup,
@@ -118,20 +118,20 @@ const settling = (given: { task?: Task; state?: SetupState } = {}) => {
   };
 };
 
-const settled = (save: ReturnType<typeof vi.fn>): Task =>
+const savedTask = (save: ReturnType<typeof vi.fn>): Task =>
   save.mock.calls[0]?.[0] as Task;
 
 beforeEach(() => {
   ids = 0;
 });
 
-describe('SettleSetup', () => {
-  it('settles the list once nothing is left on it', async () => {
-    const { service, save } = settling();
+describe('ReconcileSetup', () => {
+  it('closes the list once nothing is left on it', async () => {
+    const { service, save } = reconciling();
 
     await service.forWorkspace(WORKSPACE);
 
-    const task = settled(save);
+    const task = savedTask(save);
     expect(task.notes[task.notes.length - 1]?.kind).toBe('passed');
   });
 
@@ -140,20 +140,20 @@ describe('SettleSetup', () => {
       ...list(),
       currentRunId: RunId.of('123e4567-e89b-42d3-a456-426614174009'),
     });
-    const { service, save } = settling({ task: working });
+    const { service, save } = reconciling({ task: working });
 
     await service.forWorkspace(WORKSPACE);
 
-    expect(settled(save).finishedAt).toBeNull();
-    expect(settled(save).currentRunId).toEqual(working.currentRunId);
+    expect(savedTask(save).finishedAt).toBeNull();
+    expect(savedTask(save).currentRunId).toEqual(working.currentRunId);
   });
 
   it('says so on the trail in the board’s own voice', async () => {
-    const { service, save } = settling();
+    const { service, save } = reconciling();
 
     await service.forWorkspace(WORKSPACE);
 
-    const last = settled(save).notes[settled(save).notes.length - 1];
+    const last = savedTask(save).notes[savedTask(save).notes.length - 1];
     expect(last?.voice.isStation).toBe(true);
     expect(last?.station).toEqual(StationName.of('Inbox'));
     expect(last?.body).toEqual(
@@ -162,7 +162,7 @@ describe('SettleSetup', () => {
   });
 
   it('leaves it open while a step is still to be taken', async () => {
-    const { service, save } = settling({
+    const { service, save } = reconciling({
       state: { ...done, hasHarness: false },
     });
 
@@ -172,14 +172,14 @@ describe('SettleSetup', () => {
   });
 
   it('leaves a conversation somebody else closed alone', async () => {
-    const gone = list().settled({
+    const gone = list().closeConversation({
       station: StationName.of('Inbox'),
       body: TaskNoteBody.of('Done here.'),
       at: NOW,
       voice: Voice.station(),
     });
 
-    const { service, save } = settling({ task: gone });
+    const { service, save } = reconciling({ task: gone });
 
     await service.forWorkspace(WORKSPACE);
 
@@ -187,7 +187,7 @@ describe('SettleSetup', () => {
   });
 
   it('goes through every list that is still open', async () => {
-    const { service, tasks, save } = settling();
+    const { service, tasks, save } = reconciling();
 
     await service.wherever();
 
@@ -196,7 +196,7 @@ describe('SettleSetup', () => {
   });
 
   it('asks after the workspace the list is in', async () => {
-    const { service, setup } = settling();
+    const { service, setup } = reconciling();
 
     await service.wherever();
 
@@ -204,7 +204,7 @@ describe('SettleSetup', () => {
   });
 
   it('goes through the lists of one workspace alone', async () => {
-    const { service, tasks, save } = settling();
+    const { service, tasks, save } = reconciling();
 
     await service.forWorkspace(WORKSPACE);
 
@@ -214,7 +214,7 @@ describe('SettleSetup', () => {
   });
 
   it('says so and carries on where the lists cannot be looked for', async () => {
-    const { service, tasks, logger } = settling();
+    const { service, tasks, logger } = reconciling();
     (tasks.settingUpIn as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error('nope'),
     );
@@ -223,8 +223,8 @@ describe('SettleSetup', () => {
     expect(logger.warn).toHaveBeenCalled();
   });
 
-  it('says so and carries on where a list will not settle', async () => {
-    const { service, tasks, logger } = settling();
+  it('says so and carries on where a list cannot be reconciled', async () => {
+    const { service, tasks, logger } = reconciling();
     (tasks.save as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error('nope'),
     );
@@ -233,8 +233,8 @@ describe('SettleSetup', () => {
     expect(logger.warn).toHaveBeenCalled();
   });
 
-  it('settles only the list of the team it is asked about', async () => {
-    const { service, tasks, save } = settling();
+  it('reconciles only the list of the team it is asked about', async () => {
+    const { service, tasks, save } = reconciling();
 
     await service.forTeam(TEAM);
 

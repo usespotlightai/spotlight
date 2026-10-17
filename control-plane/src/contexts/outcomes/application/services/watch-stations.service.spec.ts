@@ -5,7 +5,7 @@ import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate
 import type { StationWatch } from '@outcomes/domain/aggregates/station-watch.aggregate';
 import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
 import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
-import { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
+import { RunRecordEnriched } from '@outcomes/domain/events/run-record-enriched.event';
 import { TaskDeliveryClosed } from '@outcomes/domain/events/task-delivery-closed.event';
 import { StationWatchVersionConflictError } from '@outcomes/domain/exceptions/station-watch-version-conflict.error';
 import { day, deliveredOf } from '@outcomes/domain/insights.fake-spec';
@@ -87,9 +87,9 @@ const watching = (initially: readonly AlertRule[] | null) => {
       NextAct.of(act, day('2026-09-30', hour + 1)),
     );
     const [event] = acted?.pullEvents() ?? [];
-    expect(event).toBeInstanceOf(RunRecordSettled);
+    expect(event).toBeInstanceOf(RunRecordEnriched);
     await records.save(acted as RunRecord);
-    await service.runSettled(event as RunRecordSettled);
+    await service.runEnriched(event as RunRecordEnriched);
   };
 
   const delivered = async (hour: number, merged: boolean) => {
@@ -147,7 +147,7 @@ describe('WatchStations', () => {
     );
   });
 
-  it('reopens the alert it recovered when the station rises again within its settling runs', async () => {
+  it('reopens the alert it recovered when the station rises again within its cooldown runs', async () => {
     const station = watching([SENT_BACK_RISES]);
 
     for (const [hour, act] of [
@@ -171,7 +171,7 @@ describe('WatchStations', () => {
     expect(station.watches.stored.get('station_1')?.crossings).toHaveLength(1);
   });
 
-  it('raises a new alert once the station has stayed clear past its settling runs', async () => {
+  it('raises a new alert once the station has stayed clear past its cooldown runs', async () => {
     const station = watching([SENT_BACK_RISES]);
 
     for (const [hour, act] of [

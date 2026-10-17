@@ -154,7 +154,7 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
   const original = runOfStation(entry.originalRunId);
   const title = original?.title ?? null;
   const { startedHoursAgo } = entryTiming(replay, entry.position);
-  const settled = entry.phase === 'settled';
+  const ended = entry.phase === 'ended';
   const endedHoursAgo = startedHoursAgo - (entry.ms ?? 0) / 3_600_000;
   const place = placeOfSet(replay.setId);
   const stations =
@@ -171,11 +171,11 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
 
   return {
     id: runId,
-    state: settled ? 'completed' : 'claimed',
+    state: ended ? 'completed' : 'claimed',
     attempt: 1,
-    exitCode: settled ? 0 : null,
+    exitCode: ended ? 0 : null,
     startedAt: hoursAgo(startedHoursAgo),
-    updatedAt: hoursAgo(settled ? endedHoursAgo : 0),
+    updatedAt: hoursAgo(ended ? endedHoursAgo : 0),
     harness,
     image: null,
     station: runStationOf(stations, place?.stationId ?? ''),
@@ -209,7 +209,7 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
           cacheWriteTokens: entry.cacheWriteTokens,
         }
       : null,
-    journals: settled
+    journals: ended
       ? [
           {
             runId,

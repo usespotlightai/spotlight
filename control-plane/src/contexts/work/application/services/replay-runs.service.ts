@@ -107,10 +107,10 @@ export class ReplayRuns implements ReplayDispatchPort {
 
       const run = await this.runs.findById(id);
       const replayed = run?.replayOf ? run : null;
-      const settled = claim.forgone(replayed !== null);
+      const forgoneClaim = claim.forgone(replayed !== null);
 
       if (!replayed) {
-        await this.claims.save(settled);
+        await this.claims.save(forgoneClaim);
         return { outcome: 'never-queued' as const };
       }
 

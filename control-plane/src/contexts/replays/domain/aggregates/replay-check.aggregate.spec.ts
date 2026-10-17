@@ -165,7 +165,7 @@ describe('ReplayCheck', () => {
     ).toBe(3);
   });
 
-  it('awaits its baseline until it is found or cannot come, and then stays settled', () => {
+  it('awaits its baseline until it is found or cannot come, and then keeps that baseline status', () => {
     const check = started();
 
     expect(check.baseline).toBe('awaiting');

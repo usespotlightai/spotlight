@@ -18,17 +18,17 @@ const cancel = (animations: readonly Animation[]) => {
 
 export function useGlide(): Glide {
   const running = useRef<Running | null>(null);
-  const settled = useRef<readonly Animation[]>([]);
+  const finished = useRef<readonly Animation[]>([]);
 
   useLayoutEffect(() => {
-    cancel(settled.current);
-    settled.current = [];
+    cancel(finished.current);
+    finished.current = [];
   });
 
   useEffect(
     () => () => {
       cancel(running.current?.animations ?? []);
-      cancel(settled.current);
+      cancel(finished.current);
     },
     [],
   );
@@ -55,7 +55,7 @@ export function useGlide(): Glide {
             cancel(animations);
             return;
           }
-          settled.current = [...settled.current, ...animations];
+          finished.current = [...finished.current, ...animations];
           playing.end();
         };
       },

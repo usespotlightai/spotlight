@@ -183,9 +183,9 @@ func (e *Egress) fetchedSecrets(ctx context.Context, r *run, now bool) error {
 
 	at := e.now()
 	r.mu.Lock()
-	settled := r.fetched || r.forgotten || (!now && !r.triedAt.IsZero() && at.Sub(r.triedAt) < fetchAgain)
+	done := r.fetched || r.forgotten || (!now && !r.triedAt.IsZero() && at.Sub(r.triedAt) < fetchAgain)
 	r.mu.Unlock()
-	if settled {
+	if done {
 		return nil
 	}
 

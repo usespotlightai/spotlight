@@ -253,7 +253,7 @@ export class HostWorkController {
   })
   @ApiConflictResponse({
     description:
-      'The call was already answered, lapsed before it was answered, or was never claimed (`call-settled`), or another host claimed it (`not-this-hosts-call`)',
+      'The call was already answered, lapsed before it was answered, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)',
   })
   async answerCall(
     @Headers('authorization') authorization: string | undefined,
@@ -296,9 +296,9 @@ export class HostWorkController {
       });
     }
 
-    if (answered.outcome === 'settled') {
+    if (answered.outcome === 'completed') {
       throw new ConflictException({
-        reason: 'call-settled',
+        reason: 'call-completed',
         message: answered.reason,
       });
     }

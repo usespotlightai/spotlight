@@ -10,10 +10,10 @@ import {
   LIVE_FINGERPRINT,
   later,
   NOW,
+  ranToEnd,
   replayedAs,
   runIds,
   STATION,
-  settledAs,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
 import {
@@ -61,7 +61,7 @@ describe('baselineOf', () => {
   });
 
   it('passes over a baseline that went over its budget', () => {
-    const over = settledAs(
+    const over = ranToEnd(
       aBaseline('replay_over', 0, 2).reserving(1, runIds()),
       RunId.of('replay_run_0'),
       'completed',

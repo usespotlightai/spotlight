@@ -25,7 +25,7 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
-import { SettleNoticeCommand } from '@work/application/commands/settle-notice.command';
+import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import type {
   InboxEntryDto,
   InboxItemDto,
@@ -221,23 +221,23 @@ export class InboxController {
     await this.commandBus.execute(new ReadInboxAsideCommand(asideId, user.id));
   }
 
-  @Post('notices/:noticeId/settle')
+  @Post('notices/:noticeId/resolve')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'settleInboxNotice',
-    summary: 'Settle a notice, once its person has dealt with it',
+    operationId: 'resolveInboxNotice',
+    summary: 'Resolve a notice, once its person has dealt with it',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'noticeId', type: String })
-  @ApiNoContentResponse({ description: 'It is settled' })
+  @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such notice for this caller' })
-  async settleNotice(
+  async resolveNotice(
     @Param('slug') slug: string,
     @Param('noticeId') noticeId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(
-      new SettleNoticeCommand(noticeId, slug, user.id),
+      new ResolveNoticeCommand(noticeId, slug, user.id),
     );
   }
 

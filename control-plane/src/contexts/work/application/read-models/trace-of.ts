@@ -313,7 +313,10 @@ const grouped = (arriving: readonly Arriving[], until: Date): TraceNode[] => {
 const covers = (node: TraceNode, when: Date): boolean =>
   node.kind !== 'connection' && node.from <= when && when <= node.to;
 
-const settled = (node: TraceNode, arriving: readonly Arriving[]): TraceNode => {
+const withConnections = (
+  node: TraceNode,
+  arriving: readonly Arriving[],
+): TraceNode => {
   if (arriving.length === 0) {
     return node;
   }
@@ -336,7 +339,9 @@ const settled = (node: TraceNode, arriving: readonly Arriving[]): TraceNode => {
   return {
     ...node,
     children: [
-      ...node.children.map((child) => settled(child, below.get(child) ?? [])),
+      ...node.children.map((child) =>
+        withConnections(child, below.get(child) ?? []),
+      ),
       ...grouped(own, node.to),
     ].sort((one, other) => at(one.from) - at(other.from)),
   };
@@ -389,7 +394,7 @@ const runNode = (run: WorkedRun): TraceNode => {
       connection,
     }));
 
-  return settled(
+  return withConnections(
     {
       id: `run:${run.id.value}`,
       kind: 'run',

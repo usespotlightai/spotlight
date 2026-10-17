@@ -6,7 +6,7 @@ export const REVIEWS = Symbol('REVIEWS');
 export interface ReviewsPort {
   raise(taskId: TaskId, runId: RunId): Promise<void>;
 
-  settle(taskId: TaskId, runId: RunId): Promise<void>;
+  resolve(taskId: TaskId, runId: RunId): Promise<void>;
 
   reviewItemOf(taskId: TaskId, runId: RunId): Promise<string | null>;
 }

@@ -248,7 +248,7 @@ export class ChatController {
   @ApiParam({ name: 'position', type: Number })
   @ApiNoContentResponse({ description: 'The task is being created' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
-  @ApiConflictResponse({ description: 'The proposal is already settled' })
+  @ApiConflictResponse({ description: 'The proposal is already decided' })
   async accept(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,
@@ -270,7 +270,7 @@ export class ChatController {
   @ApiParam({ name: 'position', type: Number })
   @ApiNoContentResponse({ description: 'The proposal was dismissed' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
-  @ApiConflictResponse({ description: 'The proposal is already settled' })
+  @ApiConflictResponse({ description: 'The proposal is already decided' })
   async dismiss(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,

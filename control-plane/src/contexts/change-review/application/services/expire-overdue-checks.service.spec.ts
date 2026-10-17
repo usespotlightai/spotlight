@@ -1,4 +1,4 @@
-import { SettleOverdueChecks } from '@change-review/application/services/settle-overdue-checks.service';
+import { ExpireOverdueChecks } from '@change-review/application/services/expire-overdue-checks.service';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
@@ -30,7 +30,7 @@ const waiting = (stack: string) =>
     now: BEGAN,
   });
 
-const settling = (
+const expiring = (
   overdue: readonly StackCheck[],
   conflicting: readonly string[] = [],
 ) => {
@@ -49,7 +49,7 @@ const settling = (
     save,
     listed,
     logged,
-    settle: new SettleOverdueChecks(
+    expire: new ExpireOverdueChecks(
       { overdue: listed, save } as unknown as StackCheckRepository,
       { now: () => NOW, sleep: async () => {} },
       { error: logged } as unknown as LoggerPort,
@@ -57,14 +57,14 @@ const settling = (
   };
 };
 
-describe('SettleOverdueChecks', () => {
+describe('ExpireOverdueChecks', () => {
   it('skips every check nobody took up in time as nobody checked', async () => {
-    const { settle, saved, listed } = settling([
+    const { expire, saved, listed } = expiring([
       waiting('stack_1'),
       waiting('stack_2'),
     ]);
 
-    await settle.workDue();
+    await expire.workDue();
 
     expect(listed).toHaveBeenCalledWith(NOW, 50);
     expect(saved.map((each) => each.stackId.value)).toEqual([
@@ -83,38 +83,38 @@ describe('SettleOverdueChecks', () => {
       RunnerTerms.none(),
       new Date(NOW.getTime() - 1_000),
     );
-    const { settle, save } = settling([taken]);
+    const { expire, save } = expiring([taken]);
 
-    await settle.workDue();
+    await expire.workDue();
 
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('carries on past a check that changed while it was being settled', async () => {
+  it('carries on past a check that changed while it was being expired', async () => {
     const reserved = waiting('stack_1').reservedFor(
       RunnerId.of('pooled_1'),
       PoolId.of('pool_1'),
       new Date(BEGAN.getTime() + WAITING_LIMIT_MS - 60_000),
     );
-    const { settle, saved } = settling(
+    const { expire, saved } = expiring(
       [reserved, waiting('stack_2')],
       ['stack_1'],
     );
 
-    await settle.workDue();
+    await expire.workDue();
 
     expect(saved.map((each) => each.stackId.value)).toEqual(['stack_2']);
   });
 
-  it('saves the runner provisioned for a check it settles as let go, alongside the settling', async () => {
+  it('saves the runner provisioned for a check it expires as let go, together with the expired check', async () => {
     const reserved = waiting('stack_1').reservedFor(
       RunnerId.of('pooled_1'),
       PoolId.of('pool_1'),
       new Date(BEGAN.getTime() + WAITING_LIMIT_MS - 60_000),
     );
-    const { settle, saved } = settling([reserved]);
+    const { expire, saved } = expiring([reserved]);
 
-    await settle.workDue();
+    await expire.workDue();
 
     expect(saved[0]?.pullEvents()).toContainEqual(
       new CheckReservationDropped(
@@ -127,7 +127,7 @@ describe('SettleOverdueChecks', () => {
   it('logs any other failure and carries on with the rest', async () => {
     const saved: string[] = [];
     const logged = vi.fn();
-    const settle = new SettleOverdueChecks(
+    const expire = new ExpireOverdueChecks(
       {
         overdue: async () => [waiting('stack_1'), waiting('stack_2')],
         save: async (check: StackCheck) => {
@@ -141,7 +141,7 @@ describe('SettleOverdueChecks', () => {
       { error: logged } as unknown as LoggerPort,
     );
 
-    await settle.workDue();
+    await expire.workDue();
 
     expect(logged).toHaveBeenCalledOnce();
     expect(saved).toEqual(['stack_2']);

@@ -51,7 +51,7 @@ export function ConfirmStopButton({
       <Dialog
         open={open}
         onOpenChange={setOpen}
-        onOpenChangeComplete={(settled) => !settled && onClosed()}
+        onOpenChangeComplete={(open) => !open && onClosed()}
       >
         <DialogContent>
           <DialogHeader>

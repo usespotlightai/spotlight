@@ -42,14 +42,14 @@ export const conversationsOf = (
   return cut;
 };
 
-export type ReviewState = 'owed' | 'settled';
+export type ReviewState = 'owed' | 'answered';
 
 export interface Review {
   readonly from: number;
   readonly state: ReviewState;
 }
 
-const settledAfter = <T extends { kind: TaskNoteKind }>(
+const answeredAfter = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
   at: number,
 ): boolean =>
@@ -78,7 +78,7 @@ export const reviewsIn = <
     if (conversation) {
       reviews.set(note.runId, {
         from: conversation.from,
-        state: settledAfter(notes, at) ? 'settled' : 'owed',
+        state: answeredAfter(notes, at) ? 'answered' : 'owed',
       });
     }
   });
@@ -97,7 +97,7 @@ export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(
     }
   });
 
-  return asked !== -1 && !settledAfter(notes, asked);
+  return asked !== -1 && !answeredAfter(notes, asked);
 };
 
 export const owedIn = <T extends { kind: TaskNoteKind }>(

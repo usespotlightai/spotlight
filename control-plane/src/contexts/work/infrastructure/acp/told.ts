@@ -205,7 +205,7 @@ const bare = (kind: StepKind, text: string, at: Date): Building => ({
 
 const WORKING = 'in_progress';
 
-const SETTLED = new Set(['completed', 'failed']);
+const ENDED_STATUSES = new Set(['completed', 'failed']);
 
 interface Span {
   readonly from: number;
@@ -382,7 +382,7 @@ export class Told {
   }
 
   private ranHook(event: Journalled): void {
-    this.settle();
+    this.flushText();
 
     const step = bare(
       'hook',
@@ -425,7 +425,7 @@ export class Told {
   }
 
   private failedToProvision(event: Journalled): void {
-    this.settle();
+    this.flushText();
 
     const step = bare('hook', event.message ?? 'Provisioning failed', event.at);
     step.status = 'failed';
@@ -437,7 +437,7 @@ export class Told {
   }
 
   steps(): JournalStep[] {
-    this.settle();
+    this.flushText();
 
     return this.#hooks.reduce(
       inPlace,
@@ -459,7 +459,7 @@ export class Told {
   }
 
   calls(): CalledStep[] {
-    this.settle();
+    this.flushText();
 
     const turns = this.turns();
 
@@ -566,7 +566,7 @@ export class Told {
       return;
     }
 
-    this.settle();
+    this.flushText();
 
     const step = bare(
       'planned',
@@ -589,7 +589,7 @@ export class Told {
       return;
     }
 
-    this.settle();
+    this.flushText();
     this.#saying = bare(kind, text, at);
   }
 
@@ -599,7 +599,7 @@ export class Told {
       return;
     }
 
-    this.settle();
+    this.flushText();
 
     const step = bare('tool', update.title ?? 'a tool', at);
     step.id = update.toolCallId ?? null;
@@ -642,11 +642,13 @@ export class Told {
       change: changed(update.content) ?? step.change,
       workingAt: step.workingAt ?? (update.status === WORKING ? at : null),
       endedAt:
-        step.status !== null && SETTLED.has(step.status) ? step.endedAt : at,
+        step.status !== null && ENDED_STATUSES.has(step.status)
+          ? step.endedAt
+          : at,
     };
   }
 
-  private settle(): void {
+  private flushText(): void {
     if (this.#saying) {
       this.#steps.push({ ...this.#saying, text: this.#saying.text.trim() });
       this.#saying = null;

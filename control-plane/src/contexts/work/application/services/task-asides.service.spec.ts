@@ -80,30 +80,30 @@ describe('TaskAsides', () => {
     expect(stored).toHaveLength(0);
   });
 
-  it('settles the aside it raised, and no other', async () => {
+  it('resolves the aside it raised, and no other', async () => {
     const { asides, stored } = asiding();
     await asides.raise(MEMORIES);
 
-    await asides.settle(MEMORIES);
+    await asides.resolve(MEMORIES);
 
     expect(stored.find((each) => each.about.value === 'run_1')?.open).toBe(
       false,
     );
   });
 
-  it('keeps an aside settled when its settling arrives before its raising', async () => {
+  it('keeps an aside resolved when its resolution arrives before its raising', async () => {
     const { asides, stored } = asiding();
 
-    await asides.settle(MEMORIES);
+    await asides.resolve(MEMORIES);
     await asides.raise(MEMORIES);
 
     expect(stored).toHaveLength(1);
     expect(stored[0]?.open).toBe(false);
   });
 
-  it('reopens a settled aside, or raises it when none was raised yet', async () => {
+  it('reopens a resolved aside, or raises it when none was raised yet', async () => {
     const { asides, stored } = asiding();
-    await asides.settle(MEMORIES);
+    await asides.resolve(MEMORIES);
 
     await asides.reopen(MEMORIES);
     await asides.reopen(MEMORIES);

@@ -5,21 +5,21 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface ShapedCohort {
+export interface ReadyCohort {
   readonly kind: CohortKind;
   readonly title: string;
   readonly intent: string;
 }
 
-export class ChangeStackShaped implements DomainEvent {
-  readonly kind = 'change-stack.shaped';
+export class ChangeStackReady implements DomainEvent {
+  readonly kind = 'change-stack.ready';
 
   constructor(
     readonly stackId: ChangeStackId,
     readonly runId: RunId,
     readonly taskId: TaskId | null,
     readonly workspaceId: WorkspaceId,
-    readonly cohorts: readonly ShapedCohort[],
+    readonly cohorts: readonly ReadyCohort[],
     readonly at: Date,
   ) {}
 }

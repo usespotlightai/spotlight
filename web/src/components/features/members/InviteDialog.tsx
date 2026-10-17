@@ -43,8 +43,8 @@ export function InviteDialog({
           onOpenChange(next);
         }
       }}
-      onOpenChangeComplete={(settled) => {
-        if (!settled) {
+      onOpenChangeComplete={(open) => {
+        if (!open) {
           setSent(null);
           setRound((was) => was + 1);
           invite.reset();

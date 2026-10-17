@@ -7,8 +7,8 @@ import {
 } from '@outcomes/domain/services/change-verdict';
 import { spendingOf } from '@outcomes/domain/services/measures';
 import {
+  measuredFor,
   measureOf,
-  settledFor,
 } from '@outcomes/domain/services/station-measures';
 import {
   ALERT_MEASURES,
@@ -20,14 +20,14 @@ const readingOfRuns = (
   records: readonly RunRecord[],
   deliveries: readonly TaskDelivery[],
 ): MeasureReading => {
-  const settled = settledFor(measure, deliveries);
-  const settledRuns = records.filter((each) => each.ran && settled(each));
+  const measured = measuredFor(measure, deliveries);
+  const measuredRuns = records.filter((each) => each.ran && measured(each));
 
   return {
-    value: measureOf(measure, settledRuns, deliveries),
-    settled: settledRuns.length,
+    value: measureOf(measure, measuredRuns, deliveries),
+    measured: measuredRuns.length,
     currency:
-      spendingOf(settledRuns.map((each) => each.cost?.spend ?? null)).spend
+      spendingOf(measuredRuns.map((each) => each.cost?.spend ?? null)).spend
         ?.currency ?? null,
   };
 };

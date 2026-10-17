@@ -240,7 +240,7 @@ export class FireHooks {
           throw error;
         }
 
-        await this.settled(
+        await this.recordFailure(
           leased.firing,
           error instanceof StepFailed
             ? error.failure
@@ -278,7 +278,7 @@ export class FireHooks {
     return finished.length;
   }
 
-  private async settled(
+  private async recordFailure(
     firing: HookFiring,
     failure: HookFailure,
   ): Promise<void> {

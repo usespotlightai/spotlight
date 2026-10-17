@@ -416,7 +416,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
   },
   run_retries_3: {
     spend: null,
-    before: `The spec in \`docs/specs/drain-retry-queues.md\` settled the change. Maya Chen answered: ${DRAIN_ANSWER}`,
+    before: `The spec in \`docs/specs/drain-retry-queues.md\` decided the change. Maya Chen answered: ${DRAIN_ANSWER}`,
     steps: [
       read('docs/specs/drain-retry-queues.md'),
       read('src/retries/deliver.ts'),
@@ -785,7 +785,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
   run_pricing_2: {
     spend: null,
     before:
-      'Design settled the toggle: monthly by default, behind the `pricing_annual` flag.',
+      'Design decided the toggle: monthly by default, behind the `pricing_annual` flag.',
     steps: [
       read('src/pricing/PlansPage.tsx'),
       edit(

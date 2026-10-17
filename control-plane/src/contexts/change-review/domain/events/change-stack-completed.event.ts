@@ -2,8 +2,8 @@ import type { ChangeStackId } from '@change-review/domain/value-objects/change-s
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-export class ChangeStackSettled implements DomainEvent {
-  readonly kind = 'change-stack.settled';
+export class ChangeStackCompleted implements DomainEvent {
+  readonly kind = 'change-stack.completed';
 
   constructor(
     readonly stackId: ChangeStackId,

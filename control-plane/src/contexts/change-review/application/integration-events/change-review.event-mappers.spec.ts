@@ -1,7 +1,7 @@
 import { CHANGE_REVIEW_EVENT_MAPPERS } from '@change-review/application/integration-events/change-review.event-mappers';
 import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import { ChangeStackShaped } from '@change-review/domain/events/change-stack-shaped.event';
-import { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
+import { ChangeStackReady } from '@change-review/domain/events/change-stack-ready.event';
+import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -35,7 +35,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
     ]);
   });
   it('publishes what the change cohorts of a run’s stack set out to do, leaving incidental ones out', () => {
-    const shaped = new ChangeStackShaped(
+    const ready = new ChangeStackReady(
       ChangeStackId.of('stack_1'),
       RunId.of('run_1'),
       TaskId.of('task_1'),
@@ -53,11 +53,11 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
 
     expect(
       CHANGE_REVIEW_EVENT_MAPPERS.filter(
-        (each) => each.from === shaped.kind,
-      ).map((each) => each.map(shaped, new Date())),
+        (each) => each.from === ready.kind,
+      ).map((each) => each.map(ready, new Date())),
     ).toEqual([
       {
-        kind: 'change-review.change-stack-shaped.v1',
+        kind: 'change-review.change-stack-ready.v1',
         runId: 'run_1',
         taskId: 'task_1',
         workspaceId: 'ws_1',
@@ -118,8 +118,8 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes that a replay’s stack settled, so its replay can take it up', () => {
-    const settled = new ReplayStackSettled(
+  it('publishes that a replay’s stack completed, so its replay can take it up', () => {
+    const completed = new ReplayStackCompleted(
       ChangeStackId.of('stack_1'),
       RunId.of('replay_1'),
       WorkspaceId.of('ws_1'),
@@ -127,11 +127,11 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
 
     expect(
       CHANGE_REVIEW_EVENT_MAPPERS.filter(
-        (each) => each.from === settled.kind,
-      ).map((each) => each.map(settled, new Date())),
+        (each) => each.from === completed.kind,
+      ).map((each) => each.map(completed, new Date())),
     ).toEqual([
       {
-        kind: 'change-review.replay-stack-settled.v1',
+        kind: 'change-review.replay-stack-completed.v1',
         runId: 'replay_1',
         workspaceId: 'ws_1',
       },

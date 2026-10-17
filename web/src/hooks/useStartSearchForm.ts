@@ -1,8 +1,8 @@
 import { type FormEvent, useState } from 'react';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useStartSearch } from '@/hooks/api/useStartSearch';
+import { useDebouncedSearchEstimate } from '@/hooks/useDebouncedSearchEstimate';
 import { useFollowStarted } from '@/hooks/useFollowStarted';
-import { useSettledSearchEstimate } from '@/hooks/useSettledSearchEstimate';
 import { andReset } from '@/lib/and-reset';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 import {
@@ -55,7 +55,7 @@ export function useStartSearchForm({
   const setId = chosenSet || firstStartable(sets);
   const harness = harnessOf(harnesses, chosenHarness);
   const { budget, problems } = budgetFrom(inputs);
-  const { settled, estimate } = useSettledSearchEstimate(
+  const { debounced, estimate } = useDebouncedSearchEstimate(
     at,
     open,
     setId,
@@ -130,7 +130,7 @@ export function useStartSearchForm({
       saturatedRateOf(suggested, saturation),
     ),
     budget,
-    settled,
+    debounced,
     estimate,
     suggested,
     pending: start.isPending,

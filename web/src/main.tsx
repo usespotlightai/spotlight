@@ -49,5 +49,5 @@ const REPORTING_WAIT_MS = 1000;
 
 Promise.race([
   startErrorReporting().catch(() => undefined),
-  new Promise((settled) => setTimeout(settled, REPORTING_WAIT_MS)),
+  new Promise((resolve) => setTimeout(resolve, REPORTING_WAIT_MS)),
 ]).finally(render);

@@ -202,15 +202,15 @@ export class ThreadedSourceReader implements SourceReaderPort {
         void worker.terminate();
         reject(new DescriptionUnreadable(TOO_SLOW));
       }, left);
-      const settled = () => clearTimeout(timer);
+      const stopTimer = () => clearTimeout(timer);
 
       worker.once('message', (answered: DescriptionAnswered) => {
-        settled();
+        stopTimer();
         void worker.terminate();
         resolve(answered);
       });
       worker.once('error', (error) => {
-        settled();
+        stopTimer();
         reject(
           new DescriptionUnreadable(
             `could not be made sense of: ${reasonOf(error)}`,
@@ -218,7 +218,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
         );
       });
       worker.once('exit', (code) => {
-        settled();
+        stopTimer();
         reject(
           new DescriptionUnreadable(
             `could not be made sense of: reading it stopped with code ${code}`,

@@ -166,7 +166,7 @@ describe('Task', () => {
         run({ id: 'run_2' }),
         run({
           id: 'run_3',
-          review: { state: 'settled', conversationId: 'task_1:0' },
+          review: { state: 'answered', conversationId: 'task_1:0' },
         }),
       ]);
       renderAt('task_1');

@@ -4,7 +4,7 @@ type Box = { readonly top: number; readonly height: number };
 
 export type Placement = ReadonlyMap<HTMLElement, Box>;
 
-const SETTLED = 0.5;
+const MIN_MOVE = 0.5;
 
 const boxOf = (element: HTMLElement): Box => {
   const { top, height } = element.getBoundingClientRect();
@@ -80,7 +80,7 @@ const clipOf = (element: HTMLElement, by: number): string => {
 };
 
 const apart = (one: number, other: number): boolean =>
-  Math.abs(one - other) > SETTLED;
+  Math.abs(one - other) > MIN_MOVE;
 
 export const glideBetween = (
   now: Placement,

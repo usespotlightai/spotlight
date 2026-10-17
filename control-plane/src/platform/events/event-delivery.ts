@@ -85,7 +85,7 @@ export class EventDelivery {
         return;
       }
 
-      await new Promise((settle) => setTimeout(settle, 25));
+      await new Promise((resolve) => setTimeout(resolve, 25));
     }
   }
 

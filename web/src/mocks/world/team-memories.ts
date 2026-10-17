@@ -25,7 +25,7 @@ import {
   SEARCH_SCAN_THOUGHT,
 } from '@/mocks/world/work-stories';
 
-const SETTLED_DRAIN = () => minutesAfter(runEnded('run_retries_2'), 20);
+const DRAIN_APPROVED = () => minutesAfter(runEnded('run_retries_2'), 20);
 
 export type MemoryRecord = Omit<
   TeamMemoryDetailResponseDto,
@@ -92,7 +92,7 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     kind: 'correction',
     body: 'Leave billing-retries alone while billing is being reconciled; drain webhook-retries first.',
     approvedBy: person(MAYA),
-    approvedAt: SETTLED_DRAIN(),
+    approvedAt: DRAIN_APPROVED(),
     grounds: { taskId: 'task_retries', runId: 'run_retries_2' },
     runs: 2,
     harness: 'claude-code',
@@ -109,7 +109,7 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     paths: ['src/retries/deliver.ts'],
     body: 'A 410 Gone from a webhook endpoint is permanent, so its deliveries are dropped rather than retried.',
     approvedBy: person(MAYA),
-    approvedAt: SETTLED_DRAIN(),
+    approvedAt: DRAIN_APPROVED(),
     grounds: { taskId: 'task_retries', runId: 'run_retries_2' },
     runs: 1,
     harness: 'claude-code',

@@ -126,7 +126,7 @@ describe('visibleJudgeOf', () => {
 });
 
 describe('latestJudgeOf', () => {
-  it('settles two scores given at the same moment by their ids', () => {
+  it('orders two scores given at the same moment by their ids', () => {
     const scores = [
       judgeScore('run_1', ScoreScale.yesNo(), 1),
       judgeScore('run_1', ScoreScale.yesNo(), 0, {

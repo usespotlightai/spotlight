@@ -27,9 +27,9 @@ import {
   measuresOf,
   NOW,
   RUBRIC,
+  ranToEnd,
   runIds,
   STATION,
-  settledAs,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
@@ -213,7 +213,7 @@ describe('Replay', () => {
       expect(replay.occupying).toHaveLength(1);
     });
 
-    it('settles an entry Work could not queue, saying why', () => {
+    it('ends an entry Work could not queue, saying why', () => {
       const replay = reserved(aReplay({ count: 2 }), 1).unreplayable(
         run(0),
         'archive-gone',
@@ -487,7 +487,7 @@ describe('Replay', () => {
   });
 
   describe('results', () => {
-    it('settles an entry once its run ended and was digested, in either order', () => {
+    it('ends an entry once its run ended and was digested, in either order', () => {
       const started = reserved(aReplay({ count: 2 }), 2);
       const endedFirst = started
         .recordRunEnd(run(0), endOf('completed'))
@@ -497,22 +497,22 @@ describe('Replay', () => {
         .recordRunEnd(run(0), endOf('completed'));
 
       for (const replay of [endedFirst, digestedFirst]) {
-        expect(replay.entries[0]?.isSettled).toBe(true);
+        expect(replay.entries[0]?.hasEnded).toBe(true);
         expect(replay.entries[0]?.ending).toBe('completed');
         expect(replay.occupying).toHaveLength(1);
       }
       expect(
-        started.recordRunEnd(run(0), endOf('completed')).entries[0]?.isSettled,
+        started.recordRunEnd(run(0), endOf('completed')).entries[0]?.hasEnded,
       ).toBe(false);
     });
 
-    it('settles a withdrawn run without awaiting a digest, as stopped', () => {
+    it('ends the entry of a withdrawn run without awaiting a digest, as stopped', () => {
       const replay = reserved(aReplay({ count: 2 }), 1).recordRunEnd(
         run(0),
         endOf('withdrawn'),
       );
 
-      expect(replay.entries[0]?.isSettled).toBe(true);
+      expect(replay.entries[0]?.hasEnded).toBe(true);
       expect(replay.entries[0]?.ending).toBe('stopped');
     });
 
@@ -526,17 +526,17 @@ describe('Replay', () => {
     it('finishes once every entry has a result', () => {
       let replay = reserved(aReplay({ count: 2 }), 2);
 
-      replay = settledAs(replay, run(0), 'completed', 1);
+      replay = ranToEnd(replay, run(0), 'completed', 1);
       expect(replay.current).toBe('running');
 
-      replay = settledAs(replay, run(1), 'failed', 1);
+      replay = ranToEnd(replay, run(1), 'failed', 1);
       expect(replay.current).toBe('finished');
       expect(replay.endedAt).not.toBeNull();
       expect(replay.isUnderway).toBe(false);
     });
 
     it('records each result once', () => {
-      const replay = settledAs(reserved(aReplay(), 1), run(0), 'completed', 1);
+      const replay = ranToEnd(reserved(aReplay(), 1), run(0), 'completed', 1);
 
       expect(replay.recordRunEnd(run(0), endOf('failed'))).toBe(replay);
       expect(replay.measure(run(0), measuresOf(9), NOW)).toBe(replay);
@@ -560,7 +560,7 @@ describe('Replay', () => {
         .confirm(run(0), FINGERPRINT, NOW)
         .confirm(run(1), FINGERPRINT, NOW);
 
-      replay = settledAs(replay, run(0), 'completed', 2.5);
+      replay = ranToEnd(replay, run(0), 'completed', 2.5);
 
       expect(replay.current).toBe('over-budget');
       expect(replay.entries.map((each) => each.ending)).toEqual([
@@ -582,7 +582,7 @@ describe('Replay', () => {
       ]);
       expect(replay.isUnderway).toBe(true);
 
-      replay = settledAs(replay, run(1), 'completed', 1);
+      replay = ranToEnd(replay, run(1), 'completed', 1);
       expect(replay.current).toBe('over-budget');
       expect(replay.isUnderway).toBe(false);
     });
@@ -611,7 +611,7 @@ describe('Replay', () => {
     });
 
     it('still records what its stopped runs did', () => {
-      const replay = settledAs(
+      const replay = ranToEnd(
         reserved(aReplay({ count: 1 }), 1).stop(later(1), BY),
         run(0),
         'completed',
@@ -623,7 +623,7 @@ describe('Replay', () => {
     });
 
     it('cannot be stopped once it has ended', () => {
-      const finished = settledAs(
+      const finished = ranToEnd(
         reserved(aReplay({ count: 1 }), 1),
         run(0),
         'completed',
@@ -643,7 +643,7 @@ describe('Replay', () => {
     });
 
     it('may be stopped while over budget, staying over budget and stopping the runs still running', () => {
-      const over = settledAs(
+      const over = ranToEnd(
         reserved(aReplay({ count: 3, ceiling: 1 }), 2).confirm(
           run(1),
           FINGERPRINT,
@@ -714,7 +714,7 @@ describe('Replay', () => {
       ).toBe('finished');
     });
 
-    it('asks its judge once its change stack is settled, once, then finishes on the verdict', () => {
+    it('asks its judge once its change stack is complete, once, then finishes on the verdict', () => {
       const drafted = done(judging()).recordReview(
         run(0),
         drafting,
@@ -725,24 +725,29 @@ describe('Replay', () => {
 
       expect(drafted.entries[0]?.judging).toBeNull();
 
-      const settled = drafted.recordReview(run(0), passed, null, later(63_000));
-      const wanted = settled.pullEvents();
+      const reviewed = drafted.recordReview(
+        run(0),
+        passed,
+        null,
+        later(63_000),
+      );
+      const wanted = reviewed.pullEvents();
 
       expect(wanted).toEqual([
         new ReplayJudgingWanted(
-          settled.id,
-          settled.workspaceId,
-          settled.candidateId,
+          reviewed.id,
+          reviewed.workspaceId,
+          reviewed.candidateId,
           run(0),
           RunId.of('original_0'),
         ),
       ]);
-      expect(settled.current).toBe('running');
+      expect(reviewed.current).toBe('running');
       expect(
-        settled.recordReview(run(0), passed, null, later(64_000)).pullEvents(),
+        reviewed.recordReview(run(0), passed, null, later(64_000)).pullEvents(),
       ).toEqual([]);
 
-      const judged = settled.recordVerdict(
+      const judged = reviewed.recordVerdict(
         run(0),
         JudgeVerdict.of({
           scale: 'number',
@@ -808,15 +813,20 @@ describe('Replay', () => {
         .stop(later(62_500), BY);
       stopped.pullEvents();
 
-      const settled = stopped.recordReview(run(0), passed, null, later(63_000));
+      const reviewed = stopped.recordReview(
+        run(0),
+        passed,
+        null,
+        later(63_000),
+      );
 
-      expect(settled.pullEvents().map((each) => each.kind)).not.toContain(
+      expect(reviewed.pullEvents().map((each) => each.kind)).not.toContain(
         'replay.judging-wanted',
       );
-      expect(settled.entries[0]?.judging?.unjudged).toBe(
+      expect(reviewed.entries[0]?.judging?.unjudged).toBe(
         'stopped-before-judging',
       );
-      expect(settled.entries[0]?.succeeded).toBeNull();
+      expect(reviewed.entries[0]?.succeeded).toBeNull();
     });
 
     it('spends what drafting and judging its change cost against its ceiling', () => {
@@ -890,10 +900,10 @@ describe('Replay', () => {
     it('says it finished once, for its search', () => {
       let replay = reserved(aReplay({ count: 2, searchId: SEARCH }), 2);
 
-      replay = settledAs(replay, run(0), 'completed', 1);
+      replay = ranToEnd(replay, run(0), 'completed', 1);
       expect(endedEvents(replay)).toEqual([]);
 
-      replay = settledAs(replay, run(1), 'completed', 1);
+      replay = ranToEnd(replay, run(1), 'completed', 1);
       expect(endedEvents(replay)).toEqual([
         new ReplayEnded(replay.id, replay.workspaceId, SEARCH, 'finished'),
       ]);
@@ -908,17 +918,17 @@ describe('Replay', () => {
         NOW,
       );
 
-      replay = settledAs(replay, run(0), 'completed', 2);
+      replay = ranToEnd(replay, run(0), 'completed', 2);
       expect(endedEvents(replay)).toEqual([
         new ReplayEnded(replay.id, replay.workspaceId, null, 'over-budget'),
       ]);
 
-      replay = settledAs(replay, run(1), 'completed', 1);
+      replay = ranToEnd(replay, run(1), 'completed', 1);
       expect(endedEvents(replay)).toEqual([]);
       expect(endedEvents(replay.abandon())).toEqual([]);
     });
 
-    it('says it was stopped once, though its stopped runs settle after', () => {
+    it('says it was stopped once, though its stopped runs end later', () => {
       let replay = reserved(aReplay({ count: 2 }), 1)
         .confirm(run(0), FINGERPRINT, NOW)
         .stop(NOW, BY);
@@ -927,7 +937,7 @@ describe('Replay', () => {
         new ReplayEnded(replay.id, replay.workspaceId, null, 'stopped'),
       ]);
 
-      replay = settledAs(replay, run(0), 'completed', 1);
+      replay = ranToEnd(replay, run(0), 'completed', 1);
       expect(endedEvents(replay)).toEqual([]);
       expect(endedEvents(replay.abandon())).toEqual([]);
     });
@@ -1004,8 +1014,8 @@ describe('Replay', () => {
     it('adds up what only some of its runs spent', () => {
       let replay = reserved(aReplay({ count: 3, ceiling: 100 }), 3);
 
-      replay = settledAs(replay, run(0), 'completed', 1);
-      replay = settledAs(replay, run(1), 'completed', 2);
+      replay = ranToEnd(replay, run(0), 'completed', 1);
+      replay = ranToEnd(replay, run(1), 'completed', 2);
 
       expect(replay.spent.amount).toBe(3);
       expect(replay.spendAmong([RunId.of('original_1')]).spent.amount).toBe(2);

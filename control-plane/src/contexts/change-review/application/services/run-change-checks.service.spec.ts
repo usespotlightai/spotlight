@@ -48,7 +48,7 @@ const DIFF = Diff.of([
 const stackOf = (
   id: string,
   request: CheckRequest | null,
-  settled: 'ready' | 'failed' | 'drafting' = 'ready',
+  state: 'ready' | 'failed' | 'drafting' = 'ready',
 ) => {
   const drafting = ChangeStack.draft({
     id: ChangeStackId.of(id),
@@ -65,11 +65,11 @@ const stackOf = (
     now: NOW,
   });
 
-  if (settled === 'drafting') {
+  if (state === 'drafting') {
     return drafting;
   }
 
-  return settled === 'failed'
+  return state === 'failed'
     ? drafting.fail('No.', NOW)
     : drafting.propose(
         [

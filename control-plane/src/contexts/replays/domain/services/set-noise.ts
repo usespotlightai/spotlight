@@ -56,7 +56,7 @@ const rateOfCopy = (replay: Replay, repeat: number): number | null => {
   const judged = replay.entries.filter(
     (each) =>
       each.repeat === repeat &&
-      each.isSettled &&
+      each.hasEnded &&
       each.concludedFor(replay.scoring) &&
       each.succeeded !== null,
   );
@@ -73,7 +73,7 @@ const flippedIn = (replay: Replay): readonly string[] => [
         copies
           .filter(
             (each) =>
-              each.isSettled &&
+              each.hasEnded &&
               each.concludedFor(replay.scoring) &&
               each.succeeded !== null,
           )

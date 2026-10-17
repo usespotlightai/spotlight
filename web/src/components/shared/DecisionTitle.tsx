@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { TerminalSpinner } from '@/components/shared/TerminalSpinner';
 import type { ApprovalStatus } from '@/lib/approval-status';
 
-const SETTLED: Record<ApprovalStatus, 'filled' | 'faded' | null> = {
+const STOPPED: Record<ApprovalStatus, 'filled' | 'faded' | null> = {
   waiting: null,
   approved: 'filled',
   declined: 'faded',
@@ -27,7 +27,7 @@ export function DecisionTitle({
   return (
     <Heading className="flex min-w-0 items-center gap-2 font-medium text-foreground text-sm">
       {marked.status ? (
-        <TerminalSpinner settled={SETTLED[marked.status]} />
+        <TerminalSpinner stopped={STOPPED[marked.status]} />
       ) : (
         Icon && <Icon aria-hidden className="size-4 shrink-0" />
       )}

@@ -343,7 +343,7 @@ describe('recalling what the team remembers from inside a run', () => {
         handle: sql`nextval('memory_handle_seq')`,
         workspaceId: team.workspaceId.value,
         kind: 'rationale',
-        body: 'Deploys wait for the canary to settle.',
+        body: 'Deploys wait for the canary to become stable.',
         teamId: team.teamId.value,
         paths: [],
         source: 'person',
@@ -355,7 +355,7 @@ describe('recalling what the team remembers from inside a run', () => {
 
     expect(
       ((await recall('canary')).body as Recalled[]).map((each) => each.body),
-    ).toEqual(['Deploys wait for the canary to settle.']);
+    ).toEqual(['Deploys wait for the canary to become stable.']);
 
     const files = (
       await http()

@@ -40,7 +40,7 @@ export function DeleteReplaySetButton({
         <Dialog
           open={open}
           onOpenChange={onOpenChange}
-          onOpenChangeComplete={(settled) => !settled && deleting.reset()}
+          onOpenChangeComplete={(open) => !open && deleting.reset()}
         >
           <DialogContent>
             <DialogHeader>

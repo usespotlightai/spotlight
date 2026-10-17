@@ -406,7 +406,7 @@ export class ReplayEntry {
     );
   }
 
-  get isSettled(): boolean {
+  get hasEnded(): boolean {
     if (this.state.unreplayableReason !== null || this.state.notRun) {
       return true;
     }
@@ -417,7 +417,7 @@ export class ReplayEntry {
   }
 
   get occupiesARunner(): boolean {
-    return this.state.run !== null && !this.isSettled;
+    return this.state.run !== null && !this.hasEnded;
   }
 
   get ending(): ReplayEnding | null {
@@ -427,7 +427,7 @@ export class ReplayEntry {
     if (this.state.notRun) {
       return 'not-run';
     }
-    return this.isSettled ? (this.state.end?.ending ?? null) : null;
+    return this.hasEnded ? (this.state.end?.ending ?? null) : null;
   }
 
   ranAs(run: RunId): boolean {
@@ -470,7 +470,7 @@ export class ReplayEntry {
   }
 
   forgone(): ReplayEntry {
-    return this.state.run !== null && !this.state.queued && !this.isSettled
+    return this.state.run !== null && !this.state.queued && !this.hasEnded
       ? this.with({ notRun: true })
       : this;
   }

@@ -148,7 +148,7 @@ export class InboxAsideResponseDto {
     enum: INBOX_ASIDE_FORMS,
     example: 'memories',
     description:
-      'What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run',
+      'What is put aside for a person to resolve, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run',
   })
   readonly form: string;
 
@@ -420,7 +420,7 @@ export class InboxItemResponseDto {
 
   @ApiProperty({
     example: false,
-    description: 'True once it is settled, and is no longer yours to answer',
+    description: 'True once it is resolved, and is no longer yours to answer',
   })
   readonly resolved: boolean;
 
@@ -463,7 +463,7 @@ export class InboxItemResponseDto {
     type: InboxAsideResponseDto,
     nullable: true,
     description:
-      'What this item puts aside for a person to settle, where it is not a conversation; it never blocks the task',
+      'What this item puts aside for a person to resolve, where it is not a conversation; it never blocks the task',
   })
   readonly aside: InboxAsideResponseDto | null;
 
@@ -575,7 +575,7 @@ export class InboxNoticeResponseDto {
 
   @ApiProperty({
     example: false,
-    description: 'True once its person settled it',
+    description: 'True once its person resolved it',
   })
   readonly resolved: boolean;
 

@@ -142,7 +142,7 @@ export class ChatMessage {
     return this.with({ deliveredAt: null, deliveredTo: null });
   }
 
-  settled(proposal: TaskProposal): ChatMessage {
+  withProposal(proposal: TaskProposal): ChatMessage {
     if (!this.proposal?.equals(proposal)) {
       throw new InconsistentStateError(
         'chat message',

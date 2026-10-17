@@ -104,7 +104,7 @@ CREATE TABLE "change_stack" (
 	"cohorts" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"failure" text,
 	"drafted_at" timestamp NOT NULL,
-	"settled_at" timestamp,
+	"completed_at" timestamp,
 	"facts" jsonb NOT NULL,
 	"check_command" text,
 	"check_setup" text,
@@ -1557,7 +1557,7 @@ CREATE TABLE "notice" (
 	"headline" text NOT NULL,
 	"points" jsonb NOT NULL,
 	"raised_at" timestamp NOT NULL,
-	"settled_at" timestamp,
+	"resolved_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1681,7 +1681,7 @@ CREATE TABLE "task_aside" (
 	"form" "aside_form" NOT NULL,
 	"about" text NOT NULL,
 	"raised_at" timestamp NOT NULL,
-	"settled_at" timestamp,
+	"resolved_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -2001,7 +2001,7 @@ CREATE INDEX "run_search_idx" ON "run" USING btree ("search_id");--> statement-b
 CREATE INDEX "run_reserved_idx" ON "run" USING btree ("reserved_for");--> statement-breakpoint
 CREATE INDEX "run_started_from_idx" ON "run" USING btree ("started_from_archive_id","started_from_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "task_aside_about_idx" ON "task_aside" USING btree ("task_id","form","about");--> statement-breakpoint
-CREATE INDEX "task_aside_workspace_idx" ON "task_aside" USING btree ("workspace_id","settled_at");--> statement-breakpoint
+CREATE INDEX "task_aside_workspace_idx" ON "task_aside" USING btree ("workspace_id","resolved_at");--> statement-breakpoint
 CREATE INDEX "task_station_idx" ON "task" USING btree ("station_id","rank");--> statement-breakpoint
 CREATE INDEX "task_workspace_idx" ON "task" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "task_attachment_task_idx" ON "task_attachment" USING btree ("task_id","note_position");--> statement-breakpoint

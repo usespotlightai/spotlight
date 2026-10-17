@@ -151,7 +151,7 @@ describe('reviewing the memories a run proposed', () => {
     ).toEqual(['One.', 'Two.', 'Three.']);
   });
 
-  it('makes approved memories active, edited or not, and settles the item once all are decided', async () => {
+  it('makes approved memories active, edited or not, and resolves the item once all are decided', async () => {
     const runId = await proposing(['Keep me.', 'Edit me.', 'Drop me.']);
     await eventually(async () =>
       asideFor(await inbox(team.owner.value), runId),
@@ -204,11 +204,11 @@ describe('reviewing the memories a run proposed', () => {
     );
     expect(active.every((each) => each.steps?.join() === '5')).toBe(true);
 
-    const settled = await eventually(async () => {
+    const resolvedItem = await eventually(async () => {
       const item = asideFor(await inbox(team.owner.value), runId);
       return item?.resolved && item;
     });
-    expect(settled.resolved).toBe(true);
+    expect(resolvedItem.resolved).toBe(true);
   });
 
   it('never keeps a rejected memory', async () => {

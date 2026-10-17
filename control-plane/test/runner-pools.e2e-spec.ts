@@ -596,7 +596,7 @@ describe('runner pools (e2e)', () => {
         .expect(401);
     });
 
-    it('settles the Setup list once a host reports in through it, in a workspace connected to GitHub and set up as code', async () => {
+    it('closes the Setup list once a host reports in through it, in a workspace connected to GitHub and set up as code', async () => {
       const { list } = await listSetUp(
         db,
         new DrizzleTaskRepository(new DrizzleContext(db), {
@@ -622,27 +622,27 @@ describe('runner pools (e2e)', () => {
           pullRequest: 'https://github.com/acme/infra/pull/12',
         },
       });
-      const settledNotes = () =>
+      const resolvedNotes = () =>
         db
           .select({ body: schema.taskNote.body })
           .from(schema.taskNote)
           .where(
             and(
               eq(schema.taskNote.taskId, list.id.value),
-              eq(schema.taskNote.form, 'settled'),
+              eq(schema.taskNote.form, 'resolved'),
             ),
           );
 
       const token = tokenOf('v');
       await define({ key: 'ephemeral', token }).expect(201);
 
-      expect(await settledNotes()).toEqual([]);
+      expect(await resolvedNotes()).toEqual([]);
 
       await report(token).expect(200);
 
       expect(
         await eventually(async () => {
-          const notes = await settledNotes();
+          const notes = await resolvedNotes();
 
           return notes.length > 0 ? notes : null;
         }),
@@ -1176,7 +1176,7 @@ describe('runner pools (e2e)', () => {
       });
     }, 30_000);
 
-    it('settles a check nobody took up within its hour, letting go of the runner reserved for it', async () => {
+    it('expires a check nobody took up within its hour, letting go of the runner reserved for it', async () => {
       const stackId = await awaitingCheck(db, workspaceId, []);
       const reserved = randomUUID();
       await db.insert(schema.runner).values({
@@ -1197,7 +1197,7 @@ describe('runner pools (e2e)', () => {
         })
         .where(eq(schema.stackCheck.stackId, stackId));
 
-      const settled = await eventually(async () => {
+      const expired = await eventually(async () => {
         const [row] = await db
           .select()
           .from(schema.stackCheck)
@@ -1206,9 +1206,9 @@ describe('runner pools (e2e)', () => {
         return row?.phase === 'skipped' ? row : null;
       });
 
-      expect(settled.reservedFor).toBeNull();
-      expect(settled.outcome?.skip).toMatchObject({ code: 'nobody-checked' });
-      expect(await checkReadFor(settled.runId)).toMatchObject({
+      expect(expired.reservedFor).toBeNull();
+      expect(expired.outcome?.skip).toMatchObject({ code: 'nobody-checked' });
+      expect(await checkReadFor(expired.runId)).toMatchObject({
         state: 'skipped',
         reason: 'No runner checked the layers in time.',
       });

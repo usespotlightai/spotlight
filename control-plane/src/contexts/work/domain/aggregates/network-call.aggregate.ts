@@ -86,7 +86,7 @@ export class NetworkCall extends EventRecorder {
     ) {
       throw new InconsistentStateError(
         'network call',
-        'still has what it sent once it was settled',
+        'still has what it sent after it completed',
       );
     }
 
@@ -142,11 +142,11 @@ export class NetworkCall extends EventRecorder {
       : kind;
   }
 
-  get settled(): boolean {
-    return this.settledAt !== null;
+  get isCompleted(): boolean {
+    return this.completedAt !== null;
   }
 
-  get settledAt(): Date | null {
+  get completedAt(): Date | null {
     const { progress } = this.state;
 
     return progress.kind === 'waiting' || progress.kind === 'claimed'
@@ -154,22 +154,23 @@ export class NetworkCall extends EventRecorder {
       : progress.at;
   }
 
-  static settledForgettablyBy(now: Date): Date {
+  static completedForgettablyBy(now: Date): Date {
     return new Date(now.getTime() - RETENTION_MS);
   }
 
   isForgettableAt(now: Date): boolean {
-    const settledAt = this.settledAt;
+    const completedAt = this.completedAt;
 
     return (
-      settledAt !== null && now.getTime() >= settledAt.getTime() + RETENTION_MS
+      completedAt !== null &&
+      now.getTime() >= completedAt.getTime() + RETENTION_MS
     );
   }
 
   forgotten(now: Date): NetworkCall {
     if (!this.isForgettableAt(now)) {
       throw new InvalidNetworkCallTransitionError(
-        `Network call ${this.state.id.value} is kept for a week after it settles.`,
+        `Network call ${this.state.id.value} is kept for a week after it completes.`,
       );
     }
 
@@ -242,7 +243,7 @@ export class NetworkCall extends EventRecorder {
   }
 
   lapsed(now: Date): NetworkCall {
-    if (this.settled) {
+    if (this.isCompleted) {
       return this;
     }
 
@@ -259,7 +260,7 @@ export class NetworkCall extends EventRecorder {
   }
 
   givenUp(now: Date): NetworkCall {
-    if (this.settled) {
+    if (this.isCompleted) {
       return this;
     }
 

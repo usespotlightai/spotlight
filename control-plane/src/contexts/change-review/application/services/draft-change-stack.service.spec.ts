@@ -229,7 +229,7 @@ describe('DraftChangeStack', () => {
     expect(asked).toEqual([]);
   });
 
-  it('keeps the draft, then settles it ready once the drafter places every change', async () => {
+  it('keeps the draft, then completes it as ready once the drafter places every change', async () => {
     const { service, saved, dispatched, asked, stacks } = drafting();
 
     const stack = await service.begin(RUN, {
@@ -251,8 +251,8 @@ describe('DraftChangeStack', () => {
     expect(saved.map((each) => each.state)).toEqual(['drafting', 'ready']);
     expect(dispatched.map((each) => each.kind)).toEqual([
       'change-stack.drafting-began',
-      'change-stack.settled',
-      'change-stack.shaped',
+      'change-stack.completed',
+      'change-stack.ready',
     ]);
     expect(saved[1]?.cohorts[0]?.layers[0]?.ranges).toHaveLength(2);
   });

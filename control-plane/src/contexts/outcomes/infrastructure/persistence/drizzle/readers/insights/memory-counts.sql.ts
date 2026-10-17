@@ -10,9 +10,9 @@ import {
   endedIn,
   type GroupColumns,
   groupCountsOf,
+  measuredColumns,
   onTeam,
   ran,
-  settledColumns,
   tallyColumns,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import { runFact } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
@@ -51,7 +51,7 @@ const groupsIn = async (
     select
       ${withMemories} as with_memories,
       ${tallyColumns},
-      ${settledColumns}
+      ${measuredColumns}
     from ${endedInWindow(team)}
     where ${ran}
     group by ${withMemories}

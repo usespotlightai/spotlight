@@ -4,7 +4,7 @@ import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
-import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
+import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -51,7 +51,7 @@ const approved = (supersedes: MemoryId | null = null) =>
   );
 
 const reacting = (stored: Memory[] = []) => {
-  const reviews = { raise: vi.fn(), settle: vi.fn() };
+  const reviews = { raise: vi.fn(), resolve: vi.fn() };
   let handles = 100;
   const memories = {
     nextHandle: async () => {
@@ -102,12 +102,14 @@ describe('reacting to memories being proposed and decided', () => {
     expect(reviews.raise).not.toHaveBeenCalled();
   });
 
-  it('settles a run’s review once nothing is left to decide', async () => {
+  it('resolves a run’s review once nothing is left to decide', async () => {
     const { reactions, reviews } = reacting();
 
-    await reactions.onReviewSettled(new MemoryReviewSettled(DRAFT, TASK, RUN));
+    await reactions.onReviewResolved(
+      new MemoryReviewResolved(DRAFT, TASK, RUN),
+    );
 
-    expect(reviews.settle).toHaveBeenCalledWith(TASK, RUN);
+    expect(reviews.resolve).toHaveBeenCalledWith(TASK, RUN);
   });
 
   it('keeps an approved memory active, once however often it hears so', async () => {

@@ -55,7 +55,7 @@ export const currentStacks = (
 export const drafting = (stacks: readonly ChangeStack[]): boolean =>
   currentStacks(stacks).some((stack) => stack.state === 'drafting');
 
-export const settling = (stacks: readonly ChangeStack[]): boolean =>
+export const inProgress = (stacks: readonly ChangeStack[]): boolean =>
   currentStacks(stacks).some(
     (stack) => stack.state === 'drafting' || stack.check?.state === 'waiting',
   );

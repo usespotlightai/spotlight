@@ -114,15 +114,15 @@ describe('workSubscribers', () => {
     ]);
   });
 
-  it('settles the setup list of the team whose setup chat opened its pull request', async () => {
+  it('reconciles the setup list of the team whose setup chat opened its pull request', async () => {
     const forTeam = vi.fn(async () => undefined);
-    const settling = workSubscribers({
+    const reconciling = workSubscribers({
       setup: { forTeam },
     } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.settle-on-setup-pull-request',
+      (each) => each.name === 'work.reconcile-setup-on-pull-request',
     );
 
-    await settling?.handle(
+    await reconciling?.handle(
       new SetupPullRequestOpened(
         ChatId.of('chat_1'),
         WorkspaceId.of('ws_1'),
@@ -132,7 +132,7 @@ describe('workSubscribers', () => {
       ),
     );
 
-    expect(settling?.kinds).toEqual(['chat.setup-pull-request-opened']);
+    expect(reconciling?.kinds).toEqual(['chat.setup-pull-request-opened']);
     expect(forTeam).toHaveBeenCalledWith(TeamId.of('team_1'));
   });
 

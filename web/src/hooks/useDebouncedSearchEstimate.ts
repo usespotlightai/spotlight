@@ -7,15 +7,18 @@ import { estimateAskedOf, estimateKey } from '@/lib/search-start';
 
 const ESTIMATE_MS = 400;
 
-export function useSettledSearchEstimate(
+export function useDebouncedSearchEstimate(
   at: ReplayedStation,
   open: boolean,
   setId: string,
   budget: SearchBudget | null,
 ) {
-  const settledKey = useDebounced(estimateKey(setId, budget), ESTIMATE_MS);
-  const settled = useMemo(() => estimateAskedOf(settledKey), [settledKey]);
-  const estimate = useSearchEstimate(at, open ? settled : null);
+  const debouncedKey = useDebounced(estimateKey(setId, budget), ESTIMATE_MS);
+  const debounced = useMemo(
+    () => estimateAskedOf(debouncedKey),
+    [debouncedKey],
+  );
+  const estimate = useSearchEstimate(at, open ? debounced : null);
 
-  return { settled, estimate };
+  return { debounced, estimate };
 }

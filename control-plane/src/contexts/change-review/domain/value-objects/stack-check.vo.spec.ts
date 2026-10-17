@@ -47,7 +47,7 @@ describe('checkStateAt', () => {
     expect(checkStateAt(checkOf({ lease }), ceiling)).toBe('skipped');
   });
 
-  it('waits while it is reordered and keeps the state it settled in', () => {
+  it('waits while it is reordered and keeps the state it ended in', () => {
     expect(checkStateAt(checkOf({ phase: 'reordering' }), PAST_THE_HOUR)).toBe(
       'waiting',
     );

@@ -1,12 +1,12 @@
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
 import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import type { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import { reachesBeyondSpotlight } from '@change-review/domain/services/replay-isolation';
 
 export class ChangeStackReactions {
   constructor(private readonly announcer: ChangeStackAnnouncerPort) {}
 
-  async onSettled(event: ChangeStackSettled): Promise<void> {
+  async onCompleted(event: ChangeStackCompleted): Promise<void> {
     if (reachesBeyondSpotlight(event)) {
       await this.announcer.ofRun(event.runId);
     }

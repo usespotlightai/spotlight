@@ -269,7 +269,7 @@ export const measuresOf = (
     tokens: { input: 100, output: 50, cacheRead: null, cacheWrite: null },
   });
 
-export const settledAs = (
+export const ranToEnd = (
   replay: Replay,
   run: RunId,
   outcome: RunOutcome,

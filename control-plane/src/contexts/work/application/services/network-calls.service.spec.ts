@@ -58,9 +58,9 @@ const calling = (
       stored = call.isDiscarded ? null : call;
     },
     lapsingBy: async (at: Date) =>
-      stored && stored.lapsesAt <= at && !stored.settled ? [stored] : [],
-    settledBy: async (at: Date) =>
-      stored?.settledAt && stored.settledAt <= at ? [stored] : [],
+      stored && stored.lapsesAt <= at && !stored.isCompleted ? [stored] : [],
+    completedBy: async (at: Date) =>
+      stored?.completedAt && stored.completedAt <= at ? [stored] : [],
   } as unknown as NetworkCallRepository;
 
   return {
@@ -162,17 +162,17 @@ describe('NetworkCalls', () => {
     expect(watching.saves).toBe(0);
   });
 
-  it('forgets calls settled more than a week ago', async () => {
+  it('forgets calls completed more than a week ago', async () => {
     const watching = calling();
     const { calls, clock, stored } = watching;
     await calls.queue('ws_1', REQUEST, later(15_000));
     await calls.answered('call_1', later(1_000));
 
     await clock.sleep(7 * 24 * 60 * 60_000 - 1);
-    expect(await calls.forgetSettled()).toBe(0);
+    expect(await calls.forgetCompleted()).toBe(0);
 
     await clock.sleep(1);
-    expect(await calls.forgetSettled()).toBe(1);
+    expect(await calls.forgetCompleted()).toBe(1);
     expect(stored()).toBeNull();
   });
 

@@ -82,7 +82,7 @@ export interface ChangeStackDto {
   readonly state: (typeof CHANGE_STACK_STATE_NAMES)[number];
   readonly failure: string | null;
   readonly draftedAt: string;
-  readonly settledAt: string | null;
+  readonly completedAt: string | null;
   readonly files: readonly DiffFileDto[];
   readonly cohorts: readonly StackCohortDto[];
   readonly check: StackCheckDto | null;

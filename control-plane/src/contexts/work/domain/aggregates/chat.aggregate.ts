@@ -451,7 +451,7 @@ export class Chat extends EventRecorder {
     this.assertStarter(by);
 
     const proposal = this.proposalAt(position).accept(at);
-    const next = this.settle(proposal);
+    const next = this.replaceProposal(proposal);
 
     next.record(
       new ProposalAccepted(
@@ -469,17 +469,19 @@ export class Chat extends EventRecorder {
   }
 
   proposalBecame(position: MessagePosition, taskId: TaskId, at: Date): Chat {
-    return this.settle(this.proposalAt(position).createdAs(taskId, at));
+    return this.replaceProposal(
+      this.proposalAt(position).createdAs(taskId, at),
+    );
   }
 
   recordAcceptanceFailure(position: MessagePosition): Chat {
-    return this.settle(this.proposalAt(position).reopen());
+    return this.replaceProposal(this.proposalAt(position).reopen());
   }
 
   dismiss(position: MessagePosition, by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
-    const next = this.settle(this.proposalAt(position).dismiss(at));
+    const next = this.replaceProposal(this.proposalAt(position).dismiss(at));
 
     next.record(new ProposalDismissed(this.id, position));
 
@@ -518,11 +520,11 @@ export class Chat extends EventRecorder {
     }
   }
 
-  private settle(proposal: TaskProposal): Chat {
+  private replaceProposal(proposal: TaskProposal): Chat {
     return this.with({
       messages: this.messages.map((message) =>
         message.position.equals(proposal.position)
-          ? message.settled(proposal)
+          ? message.withProposal(proposal)
           : message,
       ),
     });

@@ -6,7 +6,7 @@ import { tasksOf } from '@outcomes/domain/services/team-history';
 import type {
   AlertMeasure,
   AlertRule,
-  SettledReading,
+  FinalReading,
 } from '@outcomes/domain/value-objects/alert-rule.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -27,7 +27,7 @@ const ranNewestFirst = (records: readonly RunRecord[]): readonly RunRecord[] =>
         endedAt(b) - endedAt(a) || b.runId.value.localeCompare(a.runId.value),
     );
 
-export const settledFor = (
+export const measuredFor = (
   measure: AlertMeasure,
   deliveries: readonly TaskDelivery[],
 ): ((record: RunRecord) => boolean) => {
@@ -53,12 +53,12 @@ export const settledFor = (
   }
 };
 
-const settledNewestFirst = (
+const measuredNewestFirst = (
   measure: AlertMeasure,
   records: readonly RunRecord[],
   deliveries: readonly TaskDelivery[],
 ): readonly RunRecord[] =>
-  ranNewestFirst(records).filter(settledFor(measure, deliveries));
+  ranNewestFirst(records).filter(measuredFor(measure, deliveries));
 
 export const measureOf = (
   measure: AlertMeasure,
@@ -102,8 +102,8 @@ export const readingOf = (
   rule: AlertRule,
   newestFirst: readonly RunRecord[],
   deliveries: readonly TaskDelivery[],
-): SettledReading | null => {
-  const ran = settledNewestFirst(rule.measure, newestFirst, deliveries);
+): FinalReading | null => {
+  const ran = measuredNewestFirst(rule.measure, newestFirst, deliveries);
   const last = ran.slice(0, rule.over);
   const through = last[0];
 
@@ -142,7 +142,7 @@ export const measureAround = (
   deliveries: readonly TaskDelivery[],
 ): readonly MeasurePoint[] => {
   const oldestFirst = [
-    ...settledNewestFirst(rule.measure, newestFirst, deliveries),
+    ...measuredNewestFirst(rule.measure, newestFirst, deliveries),
   ].reverse();
   const at = oldestFirst.findIndex((each) => each.runId.equals(pinned.runId));
 

@@ -6,29 +6,29 @@ const TRAVEL: KeyframeAnimationOptions = {
   fill: 'forwards',
 };
 
-const settledBy = (settles: HTMLElement | null): Promise<void> =>
+const transitionEnded = (unfolding: HTMLElement | null): Promise<void> =>
   new Promise((resolve) => {
-    if (!settles) {
+    if (!unfolding) {
       resolve();
       return;
     }
     const done = () => {
-      settles.removeEventListener('transitionend', onEnd);
+      unfolding.removeEventListener('transitionend', onEnd);
       resolve();
     };
     const onEnd = (event: TransitionEvent) => {
-      if (event.target === settles) {
+      if (event.target === unfolding) {
         done();
       }
     };
-    settles.addEventListener('transitionend', onEnd);
+    unfolding.addEventListener('transitionend', onEnd);
     setTimeout(done, Number(TRAVEL.duration) + 100);
   });
 
 export const travel = (
   from: DOMRect,
   to: HTMLElement,
-  settles: HTMLElement | null,
+  unfolding: HTMLElement | null,
   landed: () => void,
 ): (() => void) | null => {
   if (!canGlide(to)) {
@@ -62,7 +62,7 @@ export const travel = (
     [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
     TRAVEL,
   );
-  const unfolded = settledBy(settles);
+  const unfolded = transitionEnded(unfolding);
   let done = false;
   const land = (fade: () => void) => {
     if (!done) {

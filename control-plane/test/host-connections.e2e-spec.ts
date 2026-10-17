@@ -254,10 +254,10 @@ describe('tasks waiting on a connection', () => {
       voice: Voice.station(),
     };
 
-    await tasks.save(list.settled(saying));
-    const settled = (await tasks.find(list.id)) as Task;
+    await tasks.save(list.closeConversation(saying));
+    const closed = (await tasks.find(list.id)) as Task;
     await tasks.save(
-      Task.rehydrate({ ...settled, currentRunId: runId }).askToConnect(
+      Task.rehydrate({ ...closed, currentRunId: runId }).askToConnect(
         runId,
         { ...saying, body: TaskNoteBody.of('Connect Linear.') },
         ConnectionAsk.of({

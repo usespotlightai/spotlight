@@ -39,17 +39,17 @@ describe('Notice', () => {
   it('is raised open, for one person only', () => {
     const notice = raised();
 
-    expect(notice.settledAt).toBeNull();
+    expect(notice.resolvedAt).toBeNull();
     expect(notice.version).toBe(0);
     expect(notice.isFor(PERSON)).toBe(true);
     expect(notice.isFor(UserId.of('user_2'))).toBe(false);
   });
 
-  it('settles once', () => {
-    const settled = raised().settled(later(3));
+  it('resolves once', () => {
+    const resolved = raised().resolve(later(3));
 
-    expect(settled.settledAt).toEqual(later(3));
-    expect(settled.settled(later(4))).toBe(settled);
+    expect(resolved.resolvedAt).toEqual(later(3));
+    expect(resolved.resolve(later(4))).toBe(resolved);
   });
 
   it('rejects a subject it cannot name, a form it does not know, a link out of its team or unnamed, and wording out of bounds', () => {
@@ -79,13 +79,13 @@ describe('Notice', () => {
     ).toThrow(InvalidNoticeError);
   });
 
-  it('keeps showing a settled notice for 30 days', () => {
-    expect(Notice.settledShownSince(NOW)).toEqual(
+  it('keeps showing a resolved notice for 30 days', () => {
+    expect(Notice.resolvedShownSince(NOW)).toEqual(
       new Date('2026-09-01T09:00:00.000Z'),
     );
   });
 
-  it('rejects a stored notice settled before it was raised', () => {
+  it('rejects a stored notice resolved before it was raised', () => {
     const notice = raised();
     const state = {
       id: notice.id,
@@ -97,12 +97,12 @@ describe('Notice', () => {
       link: notice.link,
       wording: notice.wording,
       raisedAt: NOW,
-      settledAt: null,
+      resolvedAt: null,
       version: 1,
     };
 
     expect(Notice.rehydrate(state).version).toBe(1);
-    expect(() => Notice.rehydrate({ ...state, settledAt: later(-1) })).toThrow(
+    expect(() => Notice.rehydrate({ ...state, resolvedAt: later(-1) })).toThrow(
       InconsistentStateError,
     );
   });

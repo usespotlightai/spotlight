@@ -160,7 +160,7 @@ describe('DispatchReplayRuns', () => {
     ]);
   });
 
-  it('settles an entry Work cannot queue, and moves on to the next', async () => {
+  it('ends an entry Work cannot queue, and moves on to the next', async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
     work.unqueued = { queued: false, unreplayableReason: 'archive-gone' };
 
@@ -271,7 +271,7 @@ describe('DispatchReplayRuns when Work fails', () => {
 });
 
 describe('DispatchReplayRuns without the candidate', () => {
-  it('forgoes the run in Work and settles the entry as unfit, so it takes no slot', async () => {
+  it('forgoes the run in Work and ends the entry as unfit, so it takes no slot', async () => {
     await memory.replayRepository.add(aReplay({ count: 1 }));
     memory.candidates.clear();
 

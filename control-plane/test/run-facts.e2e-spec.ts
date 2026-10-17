@@ -145,17 +145,17 @@ const whileLocked = async (
   meanwhile: () => Promise<void>,
 ): Promise<void> => {
   const first = elsewhere();
-  let settled = false;
+  let done = false;
   let waiting: Promise<void> = Promise.resolve();
 
   await first.context.inTransaction(async () => {
     await lock(first);
     waiting = meanwhile().finally(() => {
-      settled = true;
+      done = true;
     });
     waiting.catch(() => {});
-    await new Promise((settle) => setTimeout(settle, 300));
-    expect(settled).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(done).toBe(false);
   });
   await waiting;
 };

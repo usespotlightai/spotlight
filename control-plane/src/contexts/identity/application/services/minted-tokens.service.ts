@@ -20,7 +20,7 @@ export class MintedTokens {
     const by = Attribution.spotlight(withdrawn.workspaceId);
 
     for (const token of await this.tokens.mintedThrough(withdrawn.trustId)) {
-      await this.settled(() =>
+      await this.ignoringVersionConflict(() =>
         this.transaction.inTransaction(() =>
           this.tokens.save(token.revoke(by)),
         ),
@@ -33,7 +33,7 @@ export class MintedTokens {
     const expired = await this.tokens.mintedAndExpiredBy(now, PRUNED_AT_ONCE);
 
     for (const token of expired) {
-      await this.settled(() =>
+      await this.ignoringVersionConflict(() =>
         this.transaction.inTransaction(() =>
           this.tokens.save(token.lapsed(now)),
         ),
@@ -43,7 +43,9 @@ export class MintedTokens {
     return expired.length;
   }
 
-  private async settled(write: () => Promise<void>): Promise<void> {
+  private async ignoringVersionConflict(
+    write: () => Promise<void>,
+  ): Promise<void> {
     try {
       await write();
     } catch (error) {

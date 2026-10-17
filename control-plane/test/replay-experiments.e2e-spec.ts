@@ -334,7 +334,7 @@ const finishes = async (
     .expect(200);
 };
 
-const settledRun = (runId: string) =>
+const untilEnded = (runId: string) =>
   eventually(async () => {
     const [entry] = await db
       .select()
@@ -908,7 +908,7 @@ describe('a replay', () => {
           entry?.originalRunId,
         );
         await finishes(each, ofCandidate ? 0.1 : 0.2, failsAt);
-        await settledRun(each.runId);
+        await untilEnded(each.runId);
       }
 
       await dispatched();
@@ -993,7 +993,7 @@ describe('a replay', () => {
     await dispatched();
     for (const each of [await claimed(), await claimed()]) {
       await finishes(each, 0.3);
-      await settledRun(each.runId);
+      await untilEnded(each.runId);
     }
 
     const [runId] = await replayRunsOf([id]);
@@ -1118,7 +1118,7 @@ describe('a replay', () => {
     const [one, two] = [await claimed(), await claimed()];
 
     await finishes(one, 0.4);
-    await settledRun(one.runId);
+    await untilEnded(one.runId);
     await dispatched();
 
     const [, , third] = await entriesOf(id);
@@ -1126,7 +1126,7 @@ describe('a replay', () => {
     expect((await runRow(third?.runId ?? ''))?.state).toBe('queued');
 
     await finishes(two, 0.4);
-    await settledRun(two.runId);
+    await untilEnded(two.runId);
 
     await eventually(async () => {
       const entries = await entriesOf(id);
@@ -1177,7 +1177,7 @@ describe('a replay', () => {
     await owner().post(`${teamPath()}/replays/${id}/stop`).expect(409);
 
     await finishes(running, 0.1);
-    await settledRun(running.runId);
+    await untilEnded(running.runId);
     await dispatched();
     expect(
       (await entriesOf(id)).filter((each) => each.runId !== null),
@@ -1237,7 +1237,7 @@ describe('a replay', () => {
           (entry?.originalRunId === first.runId && entry?.repeat === 1) ||
             (entry?.originalRunId === second.runId && entry?.repeat === 2),
         );
-        await settledRun(each.runId);
+        await untilEnded(each.runId);
       }
 
       await dispatched();

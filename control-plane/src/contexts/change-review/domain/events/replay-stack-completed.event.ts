@@ -3,8 +3,8 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ReplayStackSettled implements DomainEvent {
-  readonly kind = 'change-stack.replay-settled';
+export class ReplayStackCompleted implements DomainEvent {
+  readonly kind = 'change-stack.replay-completed';
 
   constructor(
     readonly stackId: ChangeStackId,

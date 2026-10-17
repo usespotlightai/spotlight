@@ -7,7 +7,7 @@ import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event'
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
-import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
+import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
@@ -543,7 +543,7 @@ describe('MemoryDraft', () => {
       ).toThrow(InvalidMemoryError);
     });
 
-    it('settles a run’s review once nothing it proposed is left to decide', () => {
+    it('resolves a run’s review once nothing it proposed is left to decide', () => {
       let draft = three();
 
       draft = draft.approve({
@@ -552,7 +552,7 @@ describe('MemoryDraft', () => {
         decision: ADA,
       });
       expect(draft.pullEvents()).not.toContainEqual(
-        expect.any(MemoryReviewSettled),
+        expect.any(MemoryReviewResolved),
       );
 
       draft = draft.reject({
@@ -561,11 +561,11 @@ describe('MemoryDraft', () => {
         decision: ADA,
       });
       expect(draft.pullEvents()).toEqual([
-        new MemoryReviewSettled(draft.id, TASK, FIRST),
+        new MemoryReviewResolved(draft.id, TASK, FIRST),
       ]);
     });
 
-    it('settles an earlier run’s review when a later run replaces what it left undecided', () => {
+    it('resolves an earlier run’s review when a later run replaces what it left undecided', () => {
       const draft = three();
 
       const later = drafting(draft.asked(SECOND, LATER), SECOND, [
@@ -574,7 +574,7 @@ describe('MemoryDraft', () => {
 
       expect(later.pullEvents()).toEqual(
         expect.arrayContaining([
-          new MemoryReviewSettled(later.id, TASK, FIRST),
+          new MemoryReviewResolved(later.id, TASK, FIRST),
           new MemoriesProposed(later.id, TASK, SECOND, 1, 0, 3),
         ]),
       );
@@ -708,7 +708,7 @@ describe('MemoryDraft', () => {
       expect(
         redrafted
           .pullEvents()
-          .some((event) => event instanceof MemoryReviewSettled),
+          .some((event) => event instanceof MemoryReviewResolved),
       ).toBe(false);
     });
   });

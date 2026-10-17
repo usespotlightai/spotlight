@@ -22,7 +22,7 @@ export class TaskProposal {
     readonly description: TaskDescription | null,
     readonly state: ProposalState,
     readonly taskId: TaskId | null,
-    readonly settledAt: Date | null,
+    readonly decidedAt: Date | null,
   ) {}
 
   static open(input: {
@@ -49,7 +49,7 @@ export class TaskProposal {
     description: TaskDescription | null;
     state: ProposalState;
     taskId: TaskId | null;
-    settledAt: Date | null;
+    decidedAt: Date | null;
   }): TaskProposal {
     return new TaskProposal(
       input.position,
@@ -58,7 +58,7 @@ export class TaskProposal {
       input.description,
       input.state,
       input.taskId,
-      input.settledAt,
+      input.decidedAt,
     );
   }
 
@@ -69,25 +69,25 @@ export class TaskProposal {
   accept(at: Date): TaskProposal {
     this.require('open', 'accepted');
 
-    return this.with({ state: 'accepted', settledAt: at });
+    return this.with({ state: 'accepted', decidedAt: at });
   }
 
   createdAs(taskId: TaskId, at: Date): TaskProposal {
     this.require('accepted', 'created');
 
-    return this.with({ state: 'created', taskId, settledAt: at });
+    return this.with({ state: 'created', taskId, decidedAt: at });
   }
 
   reopen(): TaskProposal {
     this.require('accepted', 'reopened');
 
-    return this.with({ state: 'open', settledAt: null });
+    return this.with({ state: 'open', decidedAt: null });
   }
 
   dismiss(at: Date): TaskProposal {
     this.require('open', 'dismissed');
 
-    return this.with({ state: 'dismissed', settledAt: at });
+    return this.with({ state: 'dismissed', decidedAt: at });
   }
 
   equals(other: TaskProposal): boolean {
@@ -105,7 +105,7 @@ export class TaskProposal {
   private with(part: {
     state: ProposalState;
     taskId?: TaskId | null;
-    settledAt: Date | null;
+    decidedAt: Date | null;
   }): TaskProposal {
     return new TaskProposal(
       this.position,
@@ -114,7 +114,7 @@ export class TaskProposal {
       this.description,
       part.state,
       part.taskId !== undefined ? part.taskId : this.taskId,
-      part.settledAt,
+      part.decidedAt,
     );
   }
 }

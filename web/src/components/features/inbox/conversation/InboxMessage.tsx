@@ -66,7 +66,7 @@ export function InboxMessage({
     return () => element.removeEventListener('click', following);
   }, [navigate]);
 
-  if (message.form === 'settled') {
+  if (message.form === 'resolved') {
     return null;
   }
 
