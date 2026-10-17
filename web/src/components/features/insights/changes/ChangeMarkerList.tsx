@@ -4,6 +4,7 @@ import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import type { StationNames } from '@/lib/insights';
 import {
   CHANGE_HEADINGS,
+  CHANGES_NOTE,
   type ChangeMarker,
   changeKey,
 } from '@/lib/insights-changes';
@@ -22,10 +23,7 @@ export function ChangeMarkerList({
   names,
 }: ChangeMarkerListProps) {
   return (
-    <InsightsCard
-      title="Config changes"
-      description="Every station config change, latest first. Open one to compare runs before and after."
-    >
+    <InsightsCard title="Config changes" description={CHANGES_NOTE}>
       {markers.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           No station changed its config in this period.

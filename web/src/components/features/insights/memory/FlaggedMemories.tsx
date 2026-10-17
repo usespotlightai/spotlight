@@ -7,17 +7,10 @@ import {
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { FlaggedMemory } from '@/lib/insights-memory';
+import { FLAGGED_HEADINGS, FLAGGED_NOTE } from '@/lib/insights-memory';
 import { formatDay } from '@/lib/judge';
 import { memoryPath } from '@/lib/memory';
-import { SPREAD } from '@/lib/nested-table';
 import { cn } from '@/lib/utils';
-
-const HEADINGS = [
-  { label: 'Memory', indent: 'edge' as const, size: 'minmax(16rem,3fr)' },
-  { label: 'Reason', size: 'minmax(12rem,2fr)' },
-  { label: 'Flagged by', size: SPREAD },
-  { label: 'Date', numeric: true, size: SPREAD },
-];
 
 type FlaggedMemoriesProps = {
   slug: string;
@@ -34,14 +27,14 @@ export function FlaggedMemories({
     <InsightsCard
       tableOnly={flagged.length > 0}
       title="Flagged wrong"
-      description="Memories that people retired as wrong in this period. Replaced memories don’t count."
+      description={FLAGGED_NOTE}
     >
       {flagged.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           No memory flagged wrong in this period.
         </p>
       ) : (
-        <NestedTable label="Memories flagged wrong" headings={HEADINGS}>
+        <NestedTable label="Memories flagged wrong" headings={FLAGGED_HEADINGS}>
           {flagged.map((memory) => (
             <li
               key={memory.memoryId}

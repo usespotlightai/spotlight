@@ -84,7 +84,10 @@ export function TaskTrace() {
             action={
               <TrailLink
                 to={taskPath(slug, teamId, taskId)}
-                className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'sm' }),
+                  'rounded-full bg-card shadow-none',
+                )}
               >
                 Open the task
               </TrailLink>

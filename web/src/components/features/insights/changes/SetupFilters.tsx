@@ -1,8 +1,8 @@
 import { FilterMenu } from '@/components/shared/filter/FilterMenu';
 import { FilterRow } from '@/components/shared/filter/FilterRow';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
-import type { SetupsNarrowed } from '@/hooks/api/useInsightsSetups';
 import type { StationNames } from '@/lib/insights';
+import type { SetupsNarrowed } from '@/lib/insights-changes';
 import {
   asOutcome,
   asSize,

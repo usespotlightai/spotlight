@@ -6,6 +6,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { WAIT_SERIES } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StationWaitsTable } from '@/components/features/insights/StationWaitsTable';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
@@ -14,17 +15,12 @@ import {
   lasted,
   type StationFlow,
   type StationNames,
+  WAITS_NOTE,
   type WaitRow,
   waitRows,
 } from '@/lib/insights';
 
-const ROW_HEIGHT = 32;
-
-const WAITS = [
-  { key: 'queued', label: 'Queued', fill: 'var(--chart-3)' },
-  { key: 'running', label: 'Running', fill: 'var(--chart-primary)' },
-  { key: 'inbox', label: 'In the inbox', fill: 'var(--chart-5)' },
-] as const;
+export const WAIT_ROW_HEIGHT = 32;
 
 const Said = ({
   placement,
@@ -44,7 +40,7 @@ const Said = ({
   return (
     <ChartTip placement={placement}>
       <p className="text-foreground">{row.label}, typically</p>
-      {WAITS.map((wait) => (
+      {WAIT_SERIES.map((wait) => (
         <p key={wait.key} className="text-muted-foreground">
           {wait.label} {lasted(row[wait.key])}
         </p>
@@ -72,7 +68,7 @@ export function StationWaits({
   return (
     <InsightsCard
       title="Where tasks wait"
-      description="Median time that tasks spend queued, running and in the inbox at each station. Stations show in the order they first ran."
+      description={WAITS_NOTE}
       table={
         <StationWaitsTable
           slug={slug}
@@ -84,7 +80,7 @@ export function StationWaits({
     >
       <figure data-slot="waits-chart" className="flex flex-col gap-1">
         <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-[0.7rem]">
-          {WAITS.map((wait) => (
+          {WAIT_SERIES.map((wait) => (
             <span key={wait.key} className="flex items-center gap-1">
               <span
                 aria-hidden
@@ -100,7 +96,7 @@ export function StationWaits({
           <div {...cursor.area}>
             <ResponsiveContainer
               width="100%"
-              height={rows.length * ROW_HEIGHT + 16}
+              height={rows.length * WAIT_ROW_HEIGHT + 16}
             >
               <BarChart
                 data={rows}
@@ -121,7 +117,7 @@ export function StationWaits({
                   content={<Said placement={cursor.placement} />}
                   cursor={{ fill: 'var(--accent)' }}
                 />
-                {WAITS.map((wait) => (
+                {WAIT_SERIES.map((wait) => (
                   <Bar
                     key={wait.key}
                     dataKey={wait.key}

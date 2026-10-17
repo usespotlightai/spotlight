@@ -4,6 +4,7 @@ import { CandidatesTable } from '@/components/features/insights/candidates/Candi
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import type { StationNames } from '@/lib/insights';
 import type { CandidatesStation } from '@/lib/insights-candidates';
+import { CANDIDATES_NOTE } from '@/lib/insights-candidates';
 
 type CandidatesCardProps = {
   slug: string;
@@ -24,7 +25,7 @@ export function CandidatesCard({
   return (
     <InsightsCard
       title="Replayed candidates"
-      description="Each candidate config replayed on past tasks, compared with the live config on the same runs. The candidate’s own checks and judge decide success. Replays don’t change the station’s config."
+      description={CANDIDATES_NOTE}
       actions={
         <ChartTableSwitch
           tabled={!charted}

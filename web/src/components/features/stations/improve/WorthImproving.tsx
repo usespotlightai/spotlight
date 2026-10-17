@@ -2,7 +2,7 @@ import { CircleCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { SignalRow } from '@/components/features/insights/SignalRow';
-import { ImproveCardSkeleton } from '@/components/features/stations/improve/ImproveCardSkeleton';
+import { WorthImprovingSkeleton } from '@/components/features/stations/improve/WorthImprovingSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
@@ -10,14 +10,11 @@ import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import {
   DEFAULT_PERIOD,
   type SignalReading,
-  signalHeadings,
+  WORTH_IMPROVING_HEADINGS,
+  WORTH_IMPROVING_NOTE,
+  WORTH_IMPROVING_SPAN,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
-import { rangeOf } from '@/lib/range';
-
-const HEADINGS = signalHeadings('edge');
-
-const span = rangeOf(DEFAULT_PERIOD).label.toLowerCase();
 
 type WorthImprovingProps = {
   teamId: string;
@@ -38,20 +35,14 @@ export function WorthImproving({
   );
 
   if (loading(overview)) {
-    return (
-      <ImproveCardSkeleton
-        label="Loading the station’s signals"
-        rows={2}
-        rowHeight={40}
-      />
-    );
+    return <WorthImprovingSkeleton />;
   }
 
   return (
     <InsightsCard
       tableOnly
       title="Worth improving"
-      description={`Signals that got worse over the ${span}, or that trail the rest of the team. The team’s agent reads these signals, the config and recent runs, and suggests what to change.`}
+      description={WORTH_IMPROVING_NOTE}
     >
       {failed(overview) ? (
         <CouldNotLoad
@@ -63,7 +54,7 @@ export function WorthImproving({
       ) : flagged && flagged.signals.length > 0 ? (
         <NestedTable
           label="Signals worth improving"
-          headings={HEADINGS}
+          headings={WORTH_IMPROVING_HEADINGS}
           compact
           trailing
         >
@@ -80,7 +71,7 @@ export function WorthImproving({
         <div className="flex justify-center pt-2 pb-10">
           <EmptyState
             icon={CircleCheck}
-            title={`Every signal looks healthy over the ${span}`}
+            title={`Every signal looks healthy over the ${WORTH_IMPROVING_SPAN}`}
             action={action}
             className="max-w-md"
           >

@@ -12,10 +12,10 @@ import {
   type TypeShare,
 } from '@/lib/pipeline-flow';
 
-const HEIGHT = 216;
+export const PIPELINE_HEIGHT = 216;
 const LABELS = 52;
 const MIDDLE = LABELS + 62;
-const MARKS_END = HEIGHT - 34;
+const MARKS_END = PIPELINE_HEIGHT - 34;
 const BRACKET_REACH = 24;
 
 type PipelineFlowChartProps = {
@@ -46,7 +46,7 @@ export function PipelineFlowChart({
     canvas,
     geometry,
     middle: MIDDLE,
-    height: HEIGHT,
+    height: PIPELINE_HEIGHT,
     shares,
     focus,
     playing,
@@ -61,14 +61,14 @@ export function PipelineFlowChart({
         role="img"
         aria-label={label}
         className="relative min-w-[40rem]"
-        style={{ height: HEIGHT }}
+        style={{ height: PIPELINE_HEIGHT }}
       >
         {width > 0 && (
           <svg
             aria-hidden
             className="absolute inset-0"
             width={width}
-            height={HEIGHT}
+            height={PIPELINE_HEIGHT}
           >
             <defs>
               <linearGradient
@@ -130,7 +130,7 @@ export function PipelineFlowChart({
           ref={canvas}
           aria-hidden
           className="absolute inset-0"
-          style={{ width, height: HEIGHT }}
+          style={{ width, height: PIPELINE_HEIGHT }}
         />
 
         {stations.length > 0 && width > 0 && (

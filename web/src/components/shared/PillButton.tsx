@@ -1,17 +1,19 @@
 import type { ComponentProps } from 'react';
 import { Button } from '@/components/ui/button';
-import { type PillVariant, pillClass } from '@/lib/pill';
+import { type PillSize, type PillVariant, pillClass } from '@/lib/pill';
 
 type PillButtonProps = Omit<
   ComponentProps<typeof Button>,
   'size' | 'variant' | 'className'
 > & {
   variant?: PillVariant;
+  size?: PillSize;
   className?: string;
 };
 
 export function PillButton({
   variant = 'outline',
+  size = 'small',
   className,
   ...props
 }: PillButtonProps) {
@@ -19,7 +21,7 @@ export function PillButton({
     <Button
       size="sm"
       variant={variant}
-      className={pillClass(variant, className)}
+      className={pillClass(variant, className, size)}
       {...props}
     />
   );

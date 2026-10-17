@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useInsightsPullRequestList } from '@/hooks/api/useInsightsPullRequestList';
 import { type InsightsView, lastPageOf, pageShownOf } from '@/lib/insights';
 import {
+  PULL_REQUEST_LIST_NOTE,
   PULL_REQUESTS_LIST_ID,
   pullRequestsNarrowedBy,
 } from '@/lib/insights-pull-requests';
@@ -51,7 +52,7 @@ export function PullRequestList({
     <div ref={here} id={PULL_REQUESTS_LIST_ID} className="scroll-mt-4">
       <InsightsCard
         title="Pull requests"
-        description="Pull requests in the team’s repositories: opened or closed this period, or still open. Latest first."
+        description={PULL_REQUEST_LIST_NOTE}
         actions={
           <PullRequestFilters
             filter={view.filter}

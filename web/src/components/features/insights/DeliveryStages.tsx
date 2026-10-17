@@ -2,6 +2,7 @@ import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { TileGroup } from '@/components/features/insights/TileGroup';
 import {
   changeDelta,
+  DELIVERY_NOTE,
   type Flow,
   formatCount,
   formatSpread,
@@ -18,10 +19,7 @@ export function DeliveryStages({ delivery }: DeliveryStagesProps) {
   const reviewed = tasksFilter(delivery.reviewedTaskIds);
 
   return (
-    <TileGroup
-      title="Past the last station"
-      note="Time from when a task opens to its pull request, first human review and merge. Times: median and p90"
-    >
+    <TileGroup title="Past the last station" note={DELIVERY_NOTE}>
       <InsightsTile
         label="PRs opened"
         value={formatCount(delivery.opened)}

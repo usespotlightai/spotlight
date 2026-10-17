@@ -8,6 +8,7 @@ import { formatCount } from '@/lib/insights';
 import {
   formatRounds,
   groupFilter,
+  REVIEW_DEPTH_NOTE,
   type RoundsShare,
 } from '@/lib/insights-pull-requests';
 
@@ -53,7 +54,7 @@ export function ReviewDepth({ depth, repositories }: ReviewDepthProps) {
     <InsightsCard
       tableOnly
       title="Review depth"
-      description="Review rounds per merged pull request. A person’s approval or change request is a round. Comments after the last round add one more round. Dismissed reviews don’t count."
+      description={REVIEW_DEPTH_NOTE}
     >
       <InsightsTable
         label="Merged pull requests by review rounds"

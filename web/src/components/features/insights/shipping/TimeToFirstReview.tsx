@@ -6,6 +6,7 @@ import { Segmented } from '@/components/shared/Segmented';
 import { lasted } from '@/lib/insights';
 import {
   DEFAULT_PERCENTILE,
+  FIRST_REVIEW_NOTE,
   type Percentile,
   type ReviewDay,
   SMOOTHINGS,
@@ -19,7 +20,7 @@ export function TimeToFirstReview({ days }: { days: readonly ReviewDay[] }) {
   return (
     <InsightsCard
       title="Time to first review"
-      description="Time from when a pull request opens to its first human review, at the chosen percentile."
+      description={FIRST_REVIEW_NOTE}
       actions={
         <div className="flex items-center gap-1.5">
           <PercentilePicker value={percentile} onChange={setPercentile} />

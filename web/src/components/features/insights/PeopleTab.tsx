@@ -8,6 +8,7 @@ import { PeopleSkeleton } from '@/components/features/insights/PeopleSkeleton';
 import { PeopleTable } from '@/components/features/insights/PeopleTable';
 import { useInsightsPeople } from '@/hooks/api/useInsightsPeople';
 import {
+  ADOPTION_NOTE,
   changeDelta,
   formatCount,
   formatPer,
@@ -91,10 +92,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
         </InsightsTiles>
       </InsightsSection>
 
-      <InsightsSection
-        title="Who is using Spotlight"
-        note="Weekly and monthly always count the last 7 and 30 days."
-      >
+      <InsightsSection title="Who is using Spotlight" note={ADOPTION_NOTE}>
         <InsightsTiles label="Adoption">
           <InsightsTile
             label="Active people"

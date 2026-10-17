@@ -9,11 +9,10 @@ import { failed, loading } from '@/lib/query';
 import { stationInsightsPath } from '@/lib/station';
 import {
   GLANCE_COLUMNS,
+  GLANCE_TITLE,
   type GlanceColumn,
   runsInForce,
 } from '@/lib/station-outcomes';
-
-const TITLE = 'Latest runs on this config';
 
 const trendable = (values: readonly (number | null)[]): boolean =>
   new Set(values.filter((value) => value !== null)).size > 1;
@@ -69,13 +68,13 @@ export function StationGlance({
   return (
     <section className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-medium text-foreground text-xs">{TITLE}</h2>
+        <h2 className="font-medium text-foreground text-xs">{GLANCE_TITLE}</h2>
         <SectionLink to={stationInsightsPath(slug, teamId, stationId)}>
           See in Insights
         </SectionLink>
       </div>
       <dl
-        aria-label={TITLE}
+        aria-label={GLANCE_TITLE}
         data-slot="station-glance"
         className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
       >

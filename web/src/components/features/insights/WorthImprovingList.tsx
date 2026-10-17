@@ -16,14 +16,13 @@ import {
   formatCount,
   formatStation,
   improvingOf,
+  STATIONS_WORTH_IMPROVING_HEADINGS,
+  STATIONS_WORTH_IMPROVING_NOTE,
   type StationNames,
-  signalHeadings,
   type WorthImproving,
 } from '@/lib/insights';
 import { stationPath } from '@/lib/station';
 import { cn } from '@/lib/utils';
-
-const HEADINGS = signalHeadings('outer');
 
 type WorthImprovingListProps = {
   slug: string;
@@ -43,7 +42,7 @@ export function WorthImprovingList({
   return (
     <InsightsCard
       title="Stations worth improving"
-      description="Stations that do worse than in the previous period, or worse than the rest of the team."
+      description={STATIONS_WORTH_IMPROVING_NOTE}
     >
       {stations.length === 0 ? (
         <p className="py-2 text-muted-foreground text-sm">
@@ -52,7 +51,7 @@ export function WorthImprovingList({
       ) : (
         <NestedTable
           label="Stations worth improving"
-          headings={HEADINGS}
+          headings={STATIONS_WORTH_IMPROVING_HEADINGS}
           trailing
         >
           {stations.map((station) => {

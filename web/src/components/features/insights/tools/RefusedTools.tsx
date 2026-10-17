@@ -9,6 +9,7 @@ import {
 import { formatCount } from '@/lib/insights';
 import {
   REFUSAL_HEADINGS,
+  REFUSALS_NOTE,
   refusedToolFilter,
   type ToolRefusals,
 } from '@/lib/insights-tools';
@@ -23,7 +24,7 @@ export function RefusedTools({
     <InsightsCard
       tableOnly
       title="Refused approvals"
-      description="Runs where a person refused a tool approval, per server and tool."
+      description={REFUSALS_NOTE}
     >
       <NestedTable
         label="Refused approvals per tool"

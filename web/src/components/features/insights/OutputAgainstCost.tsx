@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { ConfigMarkers } from '@/components/features/insights/ConfigMarkers';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
+import { OutputLegend } from '@/components/features/insights/OutputLegend';
 import { OutputTable } from '@/components/features/insights/OutputTable';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
@@ -17,12 +18,13 @@ import { spentIn } from '@/lib/inbox';
 import {
   type DayOutput,
   formatStation,
+  OUTPUT_NOTE,
   type StationNames,
 } from '@/lib/insights';
 import { changeKey } from '@/lib/insights-changes';
 import { formatDay } from '@/lib/judge';
 
-const HEIGHT = 200;
+export const OUTPUT_CHART_HEIGHT = 200;
 
 const spendOf = (day: DayOutput): number | null => day.spend?.amount ?? null;
 
@@ -91,7 +93,7 @@ export function OutputAgainstCost({
       title="Output against cost"
       description={
         priced
-          ? 'Spend and merged pull requests per day. A diamond marks a station’s new config.'
+          ? OUTPUT_NOTE
           : `Merged pull requests per day. Spend not shown. ${noSpend}.`
       }
       table={
@@ -105,22 +107,11 @@ export function OutputAgainstCost({
       }
     >
       <figure data-slot="output-chart" className="flex flex-col gap-1">
-        <figcaption className="flex items-center gap-3 text-muted-foreground text-[0.7rem]">
-          {priced && (
-            <span className="flex items-center gap-1">
-              <span aria-hidden className="h-0.5 w-3 bg-chart-primary" />
-              Spend
-            </span>
-          )}
-          <span className="flex items-center gap-1">
-            <span aria-hidden className="size-2 rounded-sm bg-chart-2" />
-            PRs merged
-          </span>
-        </figcaption>
+        <OutputLegend priced={priced} />
 
         <div className="[&_*:focus:not(:focus-visible)]:outline-none">
           <div {...cursor.area}>
-            <ResponsiveContainer width="100%" height={HEIGHT}>
+            <ResponsiveContainer width="100%" height={OUTPUT_CHART_HEIGHT}>
               <ComposedChart
                 data={[...days]}
                 margin={{ top: 8, right: INSET, bottom: 0, left: INSET }}

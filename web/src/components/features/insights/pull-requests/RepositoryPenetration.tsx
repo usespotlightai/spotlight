@@ -6,6 +6,7 @@ import {
 } from '@/components/features/insights/InsightsTable';
 import { formatCount, formatShare } from '@/lib/insights';
 import {
+  BY_REPOSITORY_NOTE,
   mergedPullRequestsFilter,
   type RepositoryPenetration as Repository,
   type WeekShare,
@@ -86,7 +87,7 @@ export function RepositoryPenetration({
     <InsightsCard
       tableOnly
       title="By repository"
-      description="Share of each repository’s weekly merges that Spotlight made or reviewed."
+      description={BY_REPOSITORY_NOTE}
     >
       <InsightsTable
         label="Spotlight’s share by repository and week"

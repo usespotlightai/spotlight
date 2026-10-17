@@ -7,6 +7,7 @@ import { formatCount, formatShare } from '@/lib/insights';
 import {
   type InsightsPullRequests,
   mergedPullRequestsFilter,
+  WEEK_BY_WEEK_NOTE,
 } from '@/lib/insights-pull-requests';
 
 type PenetrationProps = {
@@ -48,7 +49,7 @@ export function Penetration({ penetration }: PenetrationProps) {
 
       <InsightsCard
         title="Week by week"
-        description="Merged pull requests each week, by who made them: Spotlight, others with a Spotlight review task, people alone, bots alone."
+        description={WEEK_BY_WEEK_NOTE}
         table={<PenetrationTable weeks={penetration.weeks} repository={null} />}
       >
         <PenetrationChart weeks={penetration.weeks} />

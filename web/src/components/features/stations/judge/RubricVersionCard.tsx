@@ -4,7 +4,11 @@ import { ConfusionMatrix } from '@/components/features/stations/judge/ConfusionM
 import { JudgeStatistics } from '@/components/features/stations/judge/JudgeStatistics';
 import { JudgeTrend } from '@/components/features/stations/judge/JudgeTrend';
 import { ScoreDistribution } from '@/components/features/stations/judge/ScoreDistribution';
-import { comparisonStats, type RubricVersion } from '@/lib/judge';
+import {
+  comparisonStats,
+  DISTRIBUTION_NOTE,
+  type RubricVersion,
+} from '@/lib/judge';
 
 const CENTERED = 'flex flex-1 items-center justify-center pb-8';
 
@@ -39,10 +43,7 @@ export function RubricVersionCard({
         )}
 
         {agreement.pairs > 0 && (
-          <InsightsCard
-            title="Distribution"
-            description="How often each score was given. Only runs with both scores count."
-          >
+          <InsightsCard title="Distribution" description={DISTRIBUTION_NOTE}>
             <ScoreDistribution counts={version.distribution} />
           </InsightsCard>
         )}

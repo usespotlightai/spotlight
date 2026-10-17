@@ -7,12 +7,12 @@ import { SetupScatter } from '@/components/features/insights/changes/SetupScatte
 import { SetupTable } from '@/components/features/insights/changes/SetupTable';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
-import type { SetupsNarrowed } from '@/hooks/api/useInsightsSetups';
 import type { StationNames } from '@/lib/insights';
 import {
   type InsightsCandidates,
   stationReplayedPoints,
 } from '@/lib/insights-candidates';
+import type { SetupsNarrowed } from '@/lib/insights-changes';
 import {
   formatSizeRule,
   type InsightsSetups,

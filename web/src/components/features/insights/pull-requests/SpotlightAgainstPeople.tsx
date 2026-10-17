@@ -13,6 +13,7 @@ import {
   formatTail,
 } from '@/lib/insights';
 import {
+  AGAINST_PEOPLE_NOTE,
   formatMean,
   type GroupMeasures,
   groupFilter,
@@ -121,7 +122,7 @@ export function SpotlightAgainstPeople({
       title="Spotlight against people"
       description={
         comparison.repositories.length > 0
-          ? `People’s exclude bots’ and any with a Spotlight review task. Times are medians, with the p90 under the info icon; rounds and comments per pull request. Repositories Spotlight merged into: ${comparison.repositories.join(', ')}`
+          ? `${AGAINST_PEOPLE_NOTE} Repositories Spotlight merged into: ${comparison.repositories.join(', ')}`
           : 'Spotlight merged no pull requests in this period. There is nothing to compare people’s pull requests with.'
       }
     >

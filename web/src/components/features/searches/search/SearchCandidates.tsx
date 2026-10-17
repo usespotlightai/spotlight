@@ -68,7 +68,10 @@ export function SearchCandidates({
             action={
               <TrailLink
                 to={replayPath(at, search.seed.replayId)}
-                className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'sm' }),
+                  'rounded-full bg-card shadow-none',
+                )}
               >
                 Watch the live config’s replay
               </TrailLink>

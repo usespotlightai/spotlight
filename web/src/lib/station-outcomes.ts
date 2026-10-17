@@ -125,7 +125,7 @@ const columnNamed = (label: string): TallyColumn => {
 export const countedColumnsOf = (counted: TallyCounted): TallyColumn[] =>
   TALLY_COLUMNS.filter((column) => !column.counted || counted[column.counted]);
 
-type GlanceVisual = 'share' | 'strip' | 'cost' | 'duration';
+export type GlanceVisual = 'share' | 'strip' | 'cost' | 'duration';
 
 export type GlanceColumn = TallyColumn & { readonly visual: GlanceVisual };
 
@@ -133,6 +133,8 @@ const glanced = (label: string, visual: GlanceVisual): GlanceColumn => ({
   ...columnNamed(label),
   visual,
 });
+
+export const GLANCE_TITLE = 'Latest runs on this config';
 
 export const GLANCE_COLUMNS: readonly GlanceColumn[] = [
   glanced('Runs', 'strip'),
@@ -249,3 +251,27 @@ export const configVersion = (
       }
     : null;
 };
+
+export const TYPICAL_COUNTED: TallyCounted = {
+  failed: true,
+  stopped: true,
+  checksPassed: true,
+  checksFailed: true,
+  accepted: true,
+  sentBack: true,
+  handedOn: true,
+  merged: true,
+  withdrawn: false,
+};
+
+export const stationTableHeadings = (
+  counted: TallyCounted,
+): NestedHeading[] => [
+  { label: 'Station', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  { label: 'Runs per day', size: 'max-content' },
+  ...countedColumnsOf(counted).map((column) => ({
+    label: column.label,
+    numeric: true,
+    size: SPREAD,
+  })),
+];

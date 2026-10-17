@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 
 type GlanceTileProps = {
   label: string;
-  value: string;
-  detail?: string;
+  value: ReactNode;
+  detail?: ReactNode;
   children?: ReactNode;
 };
 

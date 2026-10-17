@@ -32,9 +32,9 @@ type CostTabProps = {
 
 export function CostTab({ slug, teamId, period, names }: CostTabProps) {
   const cost = useInsightsCost(teamId, period);
-  const harnesses = useHarnesses().data;
+  const harnesses = useHarnesses();
 
-  if (loading(cost)) {
+  if (loading(cost) || loading(harnesses)) {
     return <CostSkeleton />;
   }
 
@@ -58,7 +58,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
     );
   }
 
-  const named = sliceNamer(names, harnesses);
+  const named = sliceNamer(names, harnesses.data);
 
   return (
     <div className="flex flex-col gap-3">

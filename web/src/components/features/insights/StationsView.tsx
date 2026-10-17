@@ -1,7 +1,5 @@
-import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
-import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
-import { InsightsSection } from '@/components/features/insights/InsightsSection';
-import { StationsTab } from '@/components/features/insights/StationsTab';
+import { EveryStationView } from '@/components/features/insights/EveryStationView';
+import { StationInsightsView } from '@/components/features/insights/station/StationInsightsView';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
 
 type StationsViewProps = {
@@ -14,22 +12,8 @@ type StationsViewProps = {
 
 export function StationsView({ stationId, ...shared }: StationsViewProps) {
   if (stationId) {
-    return <StationsTab {...shared} stationId={stationId} />;
+    return <StationInsightsView {...shared} stationId={stationId} />;
   }
 
-  return (
-    <>
-      <InsightsSection title="Runs at each station">
-        <StationsTab {...shared} />
-      </InsightsSection>
-
-      <InsightsSection title="Config changes">
-        <ChangesTab {...shared} />
-      </InsightsSection>
-
-      <InsightsSection title="Candidates">
-        <CandidatesTab {...shared} />
-      </InsightsSection>
-    </>
-  );
+  return <EveryStationView {...shared} />;
 }

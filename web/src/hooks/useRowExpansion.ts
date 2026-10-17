@@ -12,12 +12,15 @@ import { canGlide } from '@/lib/glide';
 
 const CLAMPED = 'data-clamped';
 
+const GLIDING = 'data-gliding';
+
 const PART = '[data-glide-part]';
 
 type RowExpansion = {
   readonly row: RefObject<HTMLLIElement | null>;
   readonly expanded: boolean;
   readonly clamped: boolean;
+  readonly closing: boolean;
   readonly toggle: () => void;
 };
 
@@ -46,6 +49,20 @@ const measuredAs = <T>(
 };
 
 type Glide = ReturnType<typeof useGlide>;
+
+const marked = (
+  element: HTMLElement,
+  animations: readonly Animation[],
+): readonly Animation[] => {
+  if (animations.length > 0) {
+    element.setAttribute(GLIDING, '');
+    void Promise.allSettled(
+      animations.map((animation) => animation.finished),
+    ).then(() => element.removeAttribute(GLIDING));
+  }
+
+  return animations;
+};
 
 type RowControl = {
   readonly open: boolean;
@@ -127,15 +144,23 @@ export function useRowExpansion(control?: RowControl): RowExpansion {
       const now = placedWithCells(element);
       const spots = partSpots(element);
 
-      glide.play([
-        ...glideBetween(now, glided.from, now),
-        ...shiftBetween(spots, glided.spots, spots),
-      ]);
+      glide.play(
+        marked(element, [
+          ...glideBetween(now, glided.from, now),
+          ...shiftBetween(spots, glided.spots, spots),
+        ]),
+      );
     }
   }, [clamped, glide]);
 
   const toggle = () =>
     control ? control.onOpenChange(!expanded) : setOwn(!expanded);
 
-  return { row, expanded, clamped, toggle };
+  return {
+    row,
+    expanded,
+    clamped,
+    closing: !expanded && !clamped,
+    toggle,
+  };
 }

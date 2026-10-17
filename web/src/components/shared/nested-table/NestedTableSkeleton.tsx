@@ -16,6 +16,7 @@ type NestedTableSkeletonProps = {
   rows?: number;
   compact?: boolean;
   trailing?: boolean;
+  rowClassName?: string;
 };
 
 export function NestedTableSkeleton({
@@ -24,6 +25,7 @@ export function NestedTableSkeleton({
   rows = 2,
   compact = false,
   trailing = false,
+  rowClassName,
 }: NestedTableSkeletonProps) {
   const [lead, ...rest] = headings;
 
@@ -40,7 +42,12 @@ export function NestedTableSkeleton({
             // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
             key={row}
             aria-hidden
-            className={cn(TABLE_ROW, ROW_DIVIDER, 'hover:bg-transparent')}
+            className={cn(
+              TABLE_ROW,
+              ROW_DIVIDER,
+              'hover:bg-transparent',
+              rowClassName,
+            )}
           >
             <span className={cn(LEAD_CELL, lead?.indent && EDGE_INDENT)}>
               <SkeletonLine className="w-24" />

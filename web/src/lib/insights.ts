@@ -40,7 +40,7 @@ import {
 } from '@/lib/insights-pull-requests';
 import { formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
-import { RANGES, type Range } from '@/lib/range';
+import { RANGES, type Range, rangeOf } from '@/lib/range';
 import { teamSectionPath } from '@/lib/team';
 
 export type InsightsOverview = InsightsOverviewResponseDto;
@@ -994,9 +994,7 @@ export const insightsCrumbs = (
     : [{ label: tab }];
 };
 
-export const signalHeadings = (
-  indent: 'edge' | 'outer',
-): readonly NestedHeading[] => [
+const signalHeadings = (indent: 'edge' | 'outer'): readonly NestedHeading[] => [
   { label: 'Signal', indent, size: 'minmax(10rem,1fr)' },
   {
     label: 'Compared',
@@ -1011,3 +1009,75 @@ export const signalHeadings = (
 
 export const signalAsk = (reading: SignalReading): string =>
   `${formatSignal(reading)}. What should change at this station?`;
+
+export const WORTH_IMPROVING_SPAN = rangeOf(DEFAULT_PERIOD).label.toLowerCase();
+
+export const WORTH_IMPROVING_NOTE = `Signals that got worse over the ${WORTH_IMPROVING_SPAN}, or that trail the rest of the team. The team’s agent reads these signals, the config and recent runs, and suggests what to change.`;
+
+export const WORTH_IMPROVING_HEADINGS = signalHeadings('edge');
+
+export const STATIONS_WORTH_IMPROVING_HEADINGS = signalHeadings('outer');
+
+export const STATIONS_WORTH_IMPROVING_NOTE =
+  'Stations that do worse than in the previous period, or worse than the rest of the team.';
+
+export const OUTPUT_NOTE =
+  'Spend and merged pull requests per day. A diamond marks a station’s new config.';
+
+export const CACHE_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Station', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  { label: 'Cache share', numeric: true, size: SPREAD },
+  { label: 'Cache read', numeric: true, size: SPREAD },
+  { label: 'Cache write', numeric: true, size: SPREAD },
+  { label: 'Input', numeric: true, size: SPREAD },
+];
+
+export const CACHE_NOTE =
+  'Cache reads as a share of all tokens read, which are input, cache reads and cache writes. If a harness doesn’t report input or cache reads, its runs don’t count.';
+
+export const COST_SANKEY_NOTE =
+  'Spend from model to station to repository. A run on several repositories splits its cost evenly.';
+
+export const PEOPLE_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Person', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  { label: 'Tasks opened', numeric: true, size: SPREAD },
+  { label: 'Acts', numeric: true, size: SPREAD },
+  { label: 'Chats', numeric: true, size: SPREAD },
+  { label: 'First seen', numeric: true, size: SPREAD },
+  { label: 'Last active', numeric: true, size: SPREAD },
+];
+
+export const ADOPTION_NOTE =
+  'Weekly and monthly always count the last 7 and 30 days.';
+
+export const INSIGHTS_RUN_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Outcome', indent: 'edge', size: SPREAD },
+  { label: 'Failure', size: 'minmax(10rem,2fr)' },
+  { label: 'Station', size: SPREAD },
+  { label: 'Person', size: SPREAD },
+  { label: 'Setup', size: SPREAD },
+  { label: 'Took', numeric: true, size: SPREAD },
+  { label: 'Cost', numeric: true, size: SPREAD },
+  { label: 'Ended', numeric: true, size: SPREAD },
+];
+
+export const INSIGHTS_RUNS_NOTE =
+  'Every run that ended in this period, newest first.';
+
+export const WAITS_NOTE =
+  'Median time that tasks spend queued, running and in the inbox at each station. Stations show in the order they first ran.';
+
+export const DELIVERY_NOTE =
+  'Time from when a task opens to its pull request, first human review and merge. Times: median and p90';
+
+const SOME_STATIONS = 4;
+
+export const workStationCount = (names: StationNames): number =>
+  [...names.values()].filter((each) => each.kind === 'work').length ||
+  SOME_STATIONS;
+
+export const BY_STATION_NOTE =
+  'The counts are the same as on each station’s page. The line shows runs per day, with failures in red. The number beside it is the change in runs since the previous period.';
+
+export const RUNS_BY_CONFIG_NOTE =
+  'Each config change starts a new group. Compare runs before and after it.';

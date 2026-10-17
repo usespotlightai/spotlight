@@ -5,14 +5,15 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { StationsSkeleton } from '@/components/features/insights/StationsSkeleton';
 import { StationsTable } from '@/components/features/insights/StationsTable';
-import { StationInsights } from '@/components/features/insights/station/StationInsights';
 import { useInsightsStations } from '@/hooks/api/useInsightsStations';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import {
+  BY_STATION_NOTE,
   type InsightsPeriod,
   type StationNames,
   tallyTiles,
   trendOf,
+  workStationCount,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 
@@ -21,21 +22,14 @@ type StationsTabProps = {
   teamId: string;
   period: InsightsPeriod;
   names: StationNames;
-  stationId?: string;
 };
 
-export function StationsTab({
-  slug,
-  teamId,
-  period,
-  names,
-  stationId,
-}: StationsTabProps) {
+export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
   const stations = useInsightsStations(teamId, period);
   useScrollToHash(Boolean(stations.data));
 
   if (loading(stations)) {
-    return <StationsSkeleton />;
+    return <StationsSkeleton stations={workStationCount(names)} />;
   }
 
   if (failed(stations) || !stations.data) {
@@ -50,18 +44,6 @@ export function StationsTab({
     teamTrend,
     stations: reports,
   } = stations.data;
-
-  if (stationId) {
-    return (
-      <StationInsights
-        slug={slug}
-        teamId={teamId}
-        stationId={stationId}
-        report={reports.find((each) => each.stationId === stationId)}
-        names={names}
-      />
-    );
-  }
 
   if (reports.length === 0) {
     return (
@@ -89,10 +71,7 @@ export function StationsTab({
         )}
       </InsightsTiles>
 
-      <InsightsCard
-        title="By station"
-        description="The counts are the same as on each station’s page. The line shows runs per day, with failures in red. The number beside it is the change in runs since the previous period."
-      >
+      <InsightsCard title="By station" description={BY_STATION_NOTE}>
         <StationsTable stations={reports} counted={teamCounted} names={names} />
       </InsightsCard>
     </div>

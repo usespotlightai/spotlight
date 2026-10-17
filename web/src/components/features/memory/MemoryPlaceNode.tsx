@@ -68,7 +68,8 @@ export function MemoryPlaceNode({
         {node.joinedBy && (
           <span
             aria-hidden
-            className="absolute whitespace-pre opacity-0 transition-opacity duration-200 group-data-clamped/row:static group-data-clamped/row:px-1 group-data-clamped/row:opacity-100"
+            data-glide-part
+            className="absolute whitespace-pre px-1 opacity-0 transition-opacity duration-200 group-data-closing/row:opacity-100 group-data-clamped/row:static group-data-clamped/row:opacity-100"
           >
             {node.joinedBy}
           </span>

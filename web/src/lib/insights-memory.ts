@@ -5,6 +5,7 @@ import type {
 } from '@/lib/api';
 import { formatCount, formatShare } from '@/lib/insights';
 import { formatDay } from '@/lib/judge';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 
 export type InsightsMemory = InsightsMemoryResponseDto;
 export type FlaggedMemory = FlaggedMemoryResponseDto;
@@ -68,3 +69,23 @@ export const usedNoMemory = (memory: InsightsMemory): boolean =>
   memory.memoriesBriefed === 0 &&
   memory.memoriesRecalled === 0 &&
   memory.flagged.length === 0;
+
+export const FLAGGED_NOTE =
+  'Memories that people retired as wrong in this period. Replaced memories don’t count.';
+
+export const MEMORY_COMPARISON_NOTE =
+  'Outcomes of runs that got a memory in their brief or read one, compared with the other runs in this period.';
+
+export const MEMORY_COMPARISON_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Measure', indent: 'edge', size: SPREAD },
+  { label: 'Without', numeric: true, size: SPREAD },
+  { label: 'With', numeric: true, size: SPREAD },
+  { label: 'Change', numeric: true, size: SPREAD },
+];
+
+export const FLAGGED_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Memory', indent: 'edge', size: 'minmax(16rem,3fr)' },
+  { label: 'Reason', size: 'minmax(12rem,2fr)' },
+  { label: 'Flagged by', size: SPREAD },
+  { label: 'Date', numeric: true, size: SPREAD },
+];

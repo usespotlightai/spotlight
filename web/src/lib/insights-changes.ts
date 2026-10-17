@@ -25,6 +25,13 @@ export type StationStanding = StationStandingResponseDto;
 export type SizeBound = SizeBoundResponseDto;
 type JudgeShare = JudgeShareResponseDto;
 export type RunSize = SizeBound['size'];
+
+export type SetupsNarrowed = {
+  readonly stationId: string | null;
+  readonly size: RunSize | null;
+};
+
+export const EVERY_SETUP: SetupsNarrowed = { stationId: null, size: null };
 export type OutcomeMeasure = SetupOutcome['frontier'][number];
 
 export type ChangeAt = {
@@ -220,3 +227,6 @@ export const CHANGE_HEADINGS: readonly NestedHeading[] = [
   { label: 'Runs before', numeric: true, size: SPREAD },
   { label: 'Runs after', numeric: true, size: SPREAD },
 ];
+
+export const CHANGES_NOTE =
+  'Every station config change, latest first. Open one to compare runs before and after.';

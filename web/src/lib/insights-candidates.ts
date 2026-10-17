@@ -309,3 +309,6 @@ export const REPLAYED_HEADINGS: readonly NestedHeading[] = [
   { label: 'Replay success', numeric: true, size: SPREAD },
   { label: 'Held out', numeric: true, size: SPREAD },
 ];
+
+export const CANDIDATES_NOTE =
+  'Each candidate config replayed on past tasks, compared with the live config on the same runs. The candidate’s own checks and judge decide success. Replays don’t change the station’s config.';

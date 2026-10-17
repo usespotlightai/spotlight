@@ -95,7 +95,7 @@ export function TeamMemoryResults({
         <EmptyState
           icon={Spool}
           title="No memories yet"
-          action={<WriteMemoryButton />}
+          action={<WriteMemoryButton size="regular" />}
         >
           Stations that keep memories propose them after runs. Approve them in
           the inbox, or write one yourself.

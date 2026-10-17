@@ -66,6 +66,9 @@ export const LIVE = 'live';
 
 export const REPLAYS_ANCHOR = 'replays';
 
+export const REPLAY_SETS_NOTE =
+  'A few past runs to replay under a candidate. Spotlight compares the results with the original runs.';
+
 const MAX_CEILING = 1_000;
 
 export type CountBounds = { readonly min: number; readonly max: number };
