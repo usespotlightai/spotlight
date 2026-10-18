@@ -10,7 +10,7 @@ const parts = (over: Partial<RunSpecParts> = {}): RunSpecParts => ({
   command: { executable: 'claude-agent-acp', args: [] },
   briefing: 'do the thing',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task-task_1' },
+  resume: { key: 'task-task_1' },
   ...over,
 });
 
@@ -30,18 +30,16 @@ describe('RunSpec', () => {
     ).toThrow(InvalidRunSpecError);
   });
 
-  it('carries on the work its continuity names, and its conversation only once there is one', () => {
+  it('carries on the work its resume key names, and its conversation only once there is one', () => {
     const afresh = RunSpec.of(parts());
     const continuing = RunSpec.of(
-      parts({ continuity: { key: 'task-task_1', sessionId: 's_1' } }),
+      parts({ resume: { key: 'task-task_1', sessionId: 's_1' } }),
     );
 
-    expect(afresh.continuity?.value).toBe('task-task_1');
+    expect(afresh.resumeKey?.value).toBe('task-task_1');
     expect(afresh.continuesASession).toBe(false);
     expect(continuing.continuesASession).toBe(true);
-    expect(
-      RunSpec.of(parts({ continuity: { key: ' ' } })).continuity,
-    ).toBeNull();
+    expect(RunSpec.of(parts({ resume: { key: ' ' } })).resumeKey).toBeNull();
   });
 
   it('keeps that the run reports the diff it leaves', () => {
@@ -144,7 +142,7 @@ describe('RunSpec', () => {
         checkouts: [
           { remote: 'spotlight:repository', path: 'api', ref: COMMIT },
         ],
-        continuity: { key: 'replay-run_1' },
+        resume: { key: 'replay-run_1' },
         replay: {
           archive: 'archive_1',
           checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
@@ -205,7 +203,7 @@ describe('RunSpec', () => {
       );
       expect(() =>
         RunSpec.of(
-          replayed({ continuity: { key: 'replay-run_1', sessionId: 's_1' } }),
+          replayed({ resume: { key: 'replay-run_1', sessionId: 's_1' } }),
         ),
       ).toThrow(InvalidRunSpecError);
     });
@@ -239,7 +237,7 @@ describe('RunSpec', () => {
     const searching = (over: Partial<RunSpecParts> = {}): RunSpecParts =>
       parts({
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: 'search-run_1' },
+        resume: { key: 'search-run_1' },
         search: {},
         ...over,
       });
@@ -294,7 +292,7 @@ describe('RunSpec', () => {
     it('never reports where it started, carries on a conversation, replays at once, hands over a diff, checks a change or hands work on', () => {
       for (const parts of [
         { startingPoint: true },
-        { continuity: { key: 'search-run_1', sessionId: 's_1' } },
+        { resume: { key: 'search-run_1', sessionId: 's_1' } },
         {
           replay: { archive: null, checkouts: [], movesOnAfter: [] },
         },

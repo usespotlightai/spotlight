@@ -8,7 +8,7 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -38,7 +38,7 @@ const created = (workspaceId = 'ws_1') =>
     id: InviteId.of('invite_1'),
     workspaceId: WorkspaceId.of(workspaceId),
     email: EmailAddress.of('ada@example.com'),
-    terms: InviteTerms.of(WorkspaceRole.member, []),
+    spec: InviteSpec.of(WorkspaceRole.member, []),
     tokenHash: TokenHash.of('a'.repeat(64)),
     invitedBy: LEON,
     now: new Date('2026-09-12T09:00:00.000Z'),

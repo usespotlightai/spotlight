@@ -45,7 +45,7 @@ export interface WorkPort {
 
   teamOfRun(runId: RunId): Promise<TeamId | null>;
 
-  wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
+  wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 
   reasoning(runId: RunId): Promise<RunReasoning | null>;
 

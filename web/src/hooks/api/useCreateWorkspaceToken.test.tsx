@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCreateWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken';
 import { tokenKeys } from '@/hooks/api/useWorkspaceTokens';
-import type { TokenTerms } from '@/lib/token';
+import type { TokenSpec } from '@/lib/token';
 
 const createWorkspaceToken = vi.fn();
 
@@ -12,7 +12,7 @@ vi.mock('@/lib/api', () => ({
   createWorkspaceToken: (options: unknown) => createWorkspaceToken(options),
 }));
 
-const TERMS: TokenTerms = {
+const SPEC: TokenSpec = {
   name: 'terraform',
   description: 'Applies the platform repository',
   scopes: ['configure', 'secrets'],
@@ -60,7 +60,7 @@ describe('useCreateWorkspaceToken', () => {
     );
     const { result, invalidated } = creating();
 
-    act(() => result.current.mutate(TERMS));
+    act(() => result.current.mutate(SPEC));
 
     await waitFor(() =>
       expect(result.current.data).toEqual({
@@ -71,7 +71,7 @@ describe('useCreateWorkspaceToken', () => {
     expect(createWorkspaceToken).toHaveBeenCalledWith({
       path: { workspaceId: 'workspace_acme' },
       headers: { 'Idempotency-Key': expect.any(String) },
-      body: TERMS,
+      body: SPEC,
     });
     expect(invalidated).toHaveBeenCalledWith({
       queryKey: tokenKeys.forWorkspace('workspace_acme'),
@@ -87,7 +87,7 @@ describe('useCreateWorkspaceToken', () => {
     );
     const { result } = creating();
 
-    act(() => result.current.mutate(TERMS));
+    act(() => result.current.mutate(SPEC));
 
     await waitFor(() =>
       expect(result.current.error?.message).toBe(
@@ -104,7 +104,7 @@ describe('useCreateWorkspaceToken', () => {
     );
     const { result } = creating();
 
-    act(() => result.current.mutate(TERMS));
+    act(() => result.current.mutate(SPEC));
 
     await waitFor(() =>
       expect(result.current.error?.message).toBe(
@@ -119,7 +119,7 @@ describe('useCreateWorkspaceToken', () => {
     );
     const { result } = creating();
 
-    act(() => result.current.mutate(TERMS));
+    act(() => result.current.mutate(SPEC));
 
     await waitFor(() =>
       expect(result.current.error?.message).toBe(

@@ -235,7 +235,7 @@ func (e *fakeEngine) Read(_ context.Context, id, path string) ([]byte, error) {
 		if e.callMute || path != protocol.EgressSendPath {
 			return nil, os.ErrNotExist
 		}
-		return json.Marshal(protocol.HostCallAnswer{Status: 200, Body: "c2VudA==", Ms: 7})
+		return json.Marshal(protocol.HostCallResponse{Status: 200, Body: "c2VudA==", Ms: 7})
 	}
 	return authorityFor(id), nil
 }
@@ -343,7 +343,7 @@ type runClient struct {
 	checkLost  error
 	images     map[string]string
 	completed  map[string]protocol.Completion
-	checked    map[string]protocol.StackChecked
+	checked    map[string]protocol.StackCheckResult
 }
 
 func (c *runClient) RenewLease(_ context.Context, runID string) (bool, error) {
@@ -367,7 +367,7 @@ func (c *runClient) RecordImage(_ context.Context, runID, image string) error {
 	return nil
 }
 
-func (c *runClient) Complete(_ context.Context, runID string, done protocol.Completion) (protocol.Completed, error) {
+func (c *runClient) Complete(_ context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.completed[runID] = done
@@ -375,10 +375,10 @@ func (c *runClient) Complete(_ context.Context, runID string, done protocol.Comp
 		c.renewedBy = map[string]int{}
 	}
 	c.renewedBy[runID] = len(c.renewed)
-	return protocol.Completed{}, nil
+	return protocol.CompleteResponse{}, nil
 }
 
-func (c *runClient) RecordChangeStackCheck(_ context.Context, _, stackID string, _ bool, checked protocol.StackChecked) error {
+func (c *runClient) RecordChangeStackCheck(_ context.Context, _, stackID string, _ bool, checked protocol.StackCheckResult) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.checked[stackID] = checked
@@ -398,7 +398,7 @@ func (c *runClient) completion(runID string) (protocol.Completion, bool) {
 	return done, ok
 }
 
-func (c *runClient) check(stackID string) (protocol.StackChecked, bool) {
+func (c *runClient) check(stackID string) (protocol.StackCheckResult, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	checked, ok := c.checked[stackID]
@@ -422,7 +422,7 @@ type pool struct {
 
 	calls       chan protocol.HostCall
 	revokeCalls chan struct{}
-	answers     map[string]protocol.HostCallAnswer
+	responses   map[string]protocol.HostCallResponse
 }
 
 func newPool() *pool {
@@ -433,11 +433,11 @@ func newPool() *pool {
 
 		calls:       make(chan protocol.HostCall, 8),
 		revokeCalls: make(chan struct{}),
-		answers:     map[string]protocol.HostCallAnswer{},
+		responses:   map[string]protocol.HostCallResponse{},
 		runClient: &runClient{
 			images:    map[string]string{},
 			completed: map[string]protocol.Completion{},
-			checked:   map[string]protocol.StackChecked{},
+			checked:   map[string]protocol.StackCheckResult{},
 		},
 	}
 }
@@ -448,7 +448,7 @@ func (p *pool) Requirements(context.Context) (protocol.HostRequirements, error) 
 
 	return protocol.HostRequirements{
 		Runner:    protocol.RunnerRequirement{Minimum: p.minimumOr()},
-		Harnesses: []protocol.Installable{{ID: "claude-code", Executable: "claude"}},
+		Harnesses: []protocol.HarnessProbe{{ID: "claude-code", Executable: "claude"}},
 		Images:    slices.Clone(p.named),
 	}, nil
 }
@@ -523,18 +523,18 @@ func (p *pool) ClaimCall(ctx context.Context) (*protocol.HostCall, error) {
 	}
 }
 
-func (p *pool) AnswerCall(_ context.Context, id string, answer protocol.HostCallAnswer) error {
+func (p *pool) RecordCallResponse(_ context.Context, id string, response protocol.HostCallResponse) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.answers[id] = answer
+	p.responses[id] = response
 	return nil
 }
 
-func (p *pool) answered(id string) (protocol.HostCallAnswer, bool) {
+func (p *pool) responded(id string) (protocol.HostCallResponse, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	answer, ok := p.answers[id]
-	return answer, ok
+	response, ok := p.responses[id]
+	return response, ok
 }
 
 func (p *pool) Heartbeat(_ context.Context, heartbeat protocol.HostHeartbeat) (protocol.HeartbeatResponse, error) {
@@ -586,7 +586,7 @@ func assignment(runner string) protocol.Assignment {
 		RunnerID:    runner,
 		Token:       "one-run-" + runner,
 		EgressToken: "egress-" + runner,
-		Work: protocol.Claimed{Kind: protocol.ClaimedRun, Run: &protocol.Run{
+		Work: protocol.ClaimResponse{Kind: protocol.ClaimedRun, Run: &protocol.Run{
 			ID: "run-" + runner, Harness: "claude-code",
 		}},
 	}
@@ -803,7 +803,7 @@ func TestARunWhoseSandboxRanPastItsTimeIsReportedAsTimedOut(t *testing.T) {
 	pool.work <- assignment("runner_1")
 	eventually(t, "the run reported timed out", func() bool {
 		done, ok := pool.runClient.completion("run-runner_1")
-		return ok && done.Failed && done.TimedOut && !done.Unprepared && strings.Contains(done.Message, "time limit")
+		return ok && done.Failed && done.TimedOut && !done.SetupFailed && strings.Contains(done.Message, "time limit")
 	})
 }
 
@@ -976,7 +976,7 @@ func TestDoesNotSpinOnAQueueThatAnswersAtOnce(t *testing.T) {
 	}
 }
 
-func TestAHostWhoseIDServesAnotherWayInStops(t *testing.T) {
+func TestAHostWhoseIDServesAnotherCredentialSourceStops(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.left = []string{"someone_elses"}
 	pool.inUse = true
@@ -1089,7 +1089,7 @@ func TestLooksInsideAgainWhenATagMovesAndFailsARunItsHarnessLeft(t *testing.T) {
 	})
 
 	done, _ := pool.runClient.completion("run-runner_1")
-	if !done.Failed || !done.Unprepared || !strings.Contains(done.Message, "no longer has the claude-code harness") {
+	if !done.Failed || !done.SetupFailed || !strings.Contains(done.Message, "no longer has the claude-code harness") {
 		t.Errorf("completed %+v", done)
 	}
 	if got := len(engine.workSandboxes()); got != 0 {
@@ -1133,7 +1133,7 @@ func TestSkipsACheckWhenThereIsNoImageAtAll(t *testing.T) {
 	pool.work <- protocol.Assignment{
 		RunnerID: "runner_1",
 		Token:    "one-run",
-		Work: protocol.Claimed{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
+		Work: protocol.ClaimResponse{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
 			StackID: "stack_1", RunID: "run_1",
 		}},
 	}
@@ -1302,7 +1302,7 @@ func TestKeepsTheCheckLeasedWhileItPullsAndStarts(t *testing.T) {
 		RunnerID:    "runner_1",
 		Token:       "one-run",
 		EgressToken: "egress-runner_1",
-		Work: protocol.Claimed{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
+		Work: protocol.ClaimResponse{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
 			StackID: "stack_1", RunID: "run_1",
 		}},
 	}
@@ -1342,7 +1342,7 @@ func TestStartsNoSandboxForACheckItNoLongerLeasesWhileItPulls(t *testing.T) {
 				RunnerID:    "runner_1",
 				Token:       "one-run",
 				EgressToken: "egress-runner_1",
-				Work: protocol.Claimed{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
+				Work: protocol.ClaimResponse{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
 					StackID: "stack_1", RunID: "run_1",
 				}},
 			}
@@ -1491,11 +1491,11 @@ func TestFailsTheRunWhenItsEgressIsNeverReady(t *testing.T) {
 	pool.work <- assignment("runner_1")
 	eventually(t, "the run failed", func() bool {
 		done, ok := pool.runClient.completion("run-runner_1")
-		return ok && done.Failed && done.Unprepared && strings.Contains(done.Message, "egress didn't start")
+		return ok && done.Failed && done.SetupFailed && strings.Contains(done.Message, "egress didn't start")
 	})
 
 	if got := len(engine.workSandboxes()); got != 0 {
-		t.Errorf("started %d sandboxes with no way out", got)
+		t.Errorf("started %d sandboxes with no egress sidecar", got)
 	}
 	egressID, _, _ := engine.egressOf("runner_1")
 	eventually(t, "the egress destroyed", func() bool { return engine.wasDestroyed(egressID) })
@@ -1691,7 +1691,7 @@ func hookCall(id string) protocol.HostCall {
 	}
 }
 
-func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWithItsResponse(t *testing.T) {
+func TestSendsACallThroughAnEgressOfItsOwnAndRecordsItsResponse(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
 	opts.Network = "spotlight"
@@ -1699,11 +1699,11 @@ func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWithItsResponse(t *testing.T
 	serving(t, opts, engine, pool)
 
 	pool.calls <- hookCall("call_1")
-	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
+	eventually(t, "the call response recorded", func() bool { _, ok := pool.responded("call_1"); return ok })
 
-	answer, _ := pool.answered("call_1")
-	if answer.Status != 200 || answer.Body != "c2VudA==" || answer.Ms != 7 || answer.Error != "" {
-		t.Errorf("answered %+v", answer)
+	response, _ := pool.responded("call_1")
+	if response.Status != 200 || response.Body != "c2VudA==" || response.Ms != 7 || response.Error != "" {
+		t.Errorf("recorded %+v", response)
 	}
 
 	id, spec, ok := engine.egressFor("call_1")
@@ -1730,21 +1730,21 @@ func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWithItsResponse(t *testing.T
 	}
 }
 
-func TestAnswersACallWhoseEgressWillNotStart(t *testing.T) {
+func TestRecordsACallWhoseEgressWillNotStart(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.egressFails = true
 	serving(t, options(t), engine, pool)
 
 	pool.calls <- hookCall("call_1")
-	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
+	eventually(t, "the call response recorded", func() bool { _, ok := pool.responded("call_1"); return ok })
 
-	answer, _ := pool.answered("call_1")
-	if answer.Status != 0 || answer.Error != "The host's egress didn't start. Error: the egress image will not run" {
-		t.Errorf("answered %+v", answer)
+	response, _ := pool.responded("call_1")
+	if response.Status != 0 || response.Error != "The host's egress didn't start. Error: the egress image will not run" {
+		t.Errorf("recorded %+v", response)
 	}
 }
 
-func TestAnswersACallWhoseEgressNeverAnswers(t *testing.T) {
+func TestRecordsACallWhoseEgressNeverResponds(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.callMute = true
 	opts := options(t)
@@ -1752,11 +1752,11 @@ func TestAnswersACallWhoseEgressNeverAnswers(t *testing.T) {
 	serving(t, opts, engine, pool)
 
 	pool.calls <- hookCall("call_1")
-	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
+	eventually(t, "the call response recorded", func() bool { _, ok := pool.responded("call_1"); return ok })
 
-	answer, _ := pool.answered("call_1")
-	if answer.Status != 0 || answer.Error != "The host's egress didn't answer in time. Time limit: 150ms" {
-		t.Errorf("answered %+v", answer)
+	response, _ := pool.responded("call_1")
+	if response.Status != 0 || response.Error != "The host's egress didn't respond in time. Time limit: 150ms" {
+		t.Errorf("recorded %+v", response)
 	}
 	id, _, _ := engine.egressFor("call_1")
 	eventually(t, "the call's egress destroyed", func() bool { return engine.wasDestroyed(id) })

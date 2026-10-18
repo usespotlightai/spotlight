@@ -8,9 +8,9 @@ import type { AddTaskCommand } from '@work/application/commands/add-task.command
 import type { TaskDto } from '@work/application/dto/task.dto';
 import { TaskMapper } from '@work/application/mappers/task.mapper';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { CreateTask } from '@work/application/services/create-task';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { LineLoader } from '@work/application/services/line-loader.service';
-import type { RaiseTask } from '@work/application/services/raise-task';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -25,7 +25,7 @@ export class AddTaskHandler
     private readonly lines: LineLoader,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
-    private readonly raise: RaiseTask,
+    private readonly createTask: CreateTask,
     private readonly people: PersonReaderPort,
     private readonly files: FilesLoader,
   ) {}
@@ -40,12 +40,12 @@ export class AddTaskHandler
 
   private async addTask(command: AddTaskCommand): Promise<TaskDto> {
     const stationId = StationId.of(command.stationId);
-    const raisedBy = UserId.of(command.raisedBy);
+    const createdBy = UserId.of(command.createdBy);
 
     const line = await this.lines.onTeam(
       command.teamId,
       command.lineId,
-      raisedBy.value,
+      createdBy.value,
     );
     const placed = await this.placements.placementsAt(stationId);
 
@@ -63,19 +63,19 @@ export class AddTaskHandler
         : null,
       attachments,
       rank: Placement.atTheBack(placed.map((each) => each.rank)),
-      raisedBy,
+      createdBy,
       now: this.clock.now(),
       newId: () => this.ids.generate(),
     });
 
-    const raised = await this.raise.raise({ task: added, line });
+    const created = await this.createTask.create({ task: added, line });
 
-    const person = await this.people.find(raisedBy);
+    const person = await this.people.find(createdBy);
 
     return TaskMapper.taskToDto(
-      raised,
+      created,
       person,
-      raised.assignee ? person : null,
+      created.assignee ? person : null,
     );
   }
 }

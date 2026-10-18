@@ -1,5 +1,5 @@
 export class InvalidFailureCauseError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
     readonly field: 'cause' | 'evidence' | 'suggestion',

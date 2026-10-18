@@ -1,5 +1,5 @@
-import { bound } from '@platform/expressions/bindings';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import {
   ExpressionError,
   ExpressionFailedError,
@@ -16,18 +16,18 @@ import { describe, expect, it } from 'vitest';
 const expressions = new CelExpressionEngine();
 const compile = expressions.compile.bind(expressions);
 
-const delivery = {
-  body: bound({
+const payload = {
+  body: sanitizedForCel({
     type: 'Issue',
     action: 'update',
     data: { identifier: 'ENG-42', state: { name: 'Done' }, labels: ['bug'] },
   }),
-  headers: bound({ 'linear-delivery': 'd_1' }),
+  headers: sanitizedForCel({ 'linear-delivery': 'd_1' }),
 };
 
 describe('compiling an expression', () => {
-  it('parses it once, and evaluates it against a delivery', () => {
-    expect(compile('body.data.identifier').evaluate(delivery)).toBe('ENG-42');
+  it('parses it once, and evaluates it against a payload', () => {
+    expect(compile('body.data.identifier').evaluate(payload)).toBe('ENG-42');
   });
 
   it('rejects one that will not parse', () => {
@@ -46,12 +46,12 @@ describe('compiling an expression', () => {
 
 describe('whether an expression is true', () => {
   it('is true only where it is plainly true', () => {
-    expect(isTrue(compile('body.type == "Issue"'), delivery)).toBe(true);
-    expect(isTrue(compile('body.type == "Comment"'), delivery)).toBe(false);
+    expect(isTrue(compile('body.type == "Issue"'), payload)).toBe(true);
+    expect(isTrue(compile('body.type == "Comment"'), payload)).toBe(false);
   });
 
   it('reads a nested value the way a person would write it', () => {
-    expect(isTrue(compile('body.data.state.name == "Done"'), delivery)).toBe(
+    expect(isTrue(compile('body.data.state.name == "Done"'), payload)).toBe(
       true,
     );
   });
@@ -60,62 +60,62 @@ describe('whether an expression is true', () => {
     expect(
       isTrue(
         compile('body.type == "Issue" && body.data.state.name == "Done"'),
-        delivery,
+        payload,
       ),
     ).toBe(true);
   });
 
-  it('is not true where the delivery has no such field', () => {
+  it('is not true where the payload has no such field', () => {
     expect(
       isTrue(compile('body.data.state.name == "Done"'), {
-        body: bound({ type: 'Comment' }),
+        body: sanitizedForCel({ type: 'Comment' }),
       }),
     ).toBe(false);
-    expect(isTrue(compile('nothing.at.all'), delivery)).toBe(false);
+    expect(isTrue(compile('nothing.at.all'), payload)).toBe(false);
   });
 
   it('lets a person check whether a field is there at all', () => {
-    expect(isTrue(compile('has(body.data)'), delivery)).toBe(true);
-    expect(isTrue(compile('has(body.nothing)'), delivery)).toBe(false);
+    expect(isTrue(compile('has(body.data)'), payload)).toBe(true);
+    expect(isTrue(compile('has(body.nothing)'), payload)).toBe(false);
   });
 
   it('is false for anything that is not a boolean', () => {
-    expect(isTrue(compile('body.type'), delivery)).toBe(false);
-    expect(isTrue(compile('1'), delivery)).toBe(false);
+    expect(isTrue(compile('body.type'), payload)).toBe(false);
+    expect(isTrue(compile('1'), payload)).toBe(false);
   });
 });
 
 describe('what an expression evaluates to as text', () => {
   it('reads text as it is', () => {
-    expect(evaluateText(compile('body.data.identifier'), delivery)).toBe(
+    expect(evaluateText(compile('body.data.identifier'), payload)).toBe(
       'ENG-42',
     );
   });
 
   it('reads a header the service set', () => {
-    expect(evaluateText(compile('headers["linear-delivery"]'), delivery)).toBe(
+    expect(evaluateText(compile('headers["linear-delivery"]'), payload)).toBe(
       'd_1',
     );
   });
 
   it('reads a number as the name it is', () => {
-    expect(evaluateText(compile('42'), delivery)).toBe('42');
+    expect(evaluateText(compile('42'), payload)).toBe('42');
   });
 
-  it('reads nothing where the delivery names nothing', () => {
-    expect(evaluateText(compile('body.nothing'), delivery)).toBeNull();
-    expect(evaluateText(compile('""'), delivery)).toBeNull();
+  it('reads nothing where the payload names nothing', () => {
+    expect(evaluateText(compile('body.nothing'), payload)).toBeNull();
+    expect(evaluateText(compile('""'), payload)).toBeNull();
   });
 
   it('reads nothing where the value is not a single thing', () => {
-    expect(evaluateText(compile('body.data'), delivery)).toBeNull();
-    expect(evaluateText(compile('body.data.labels'), delivery)).toBeNull();
+    expect(evaluateText(compile('body.data'), payload)).toBeNull();
+    expect(evaluateText(compile('body.data.labels'), payload)).toBeNull();
   });
 });
 
-describe('binding a delivery', () => {
+describe('sanitizing a payload for CEL', () => {
   it('keeps what an expression is meant to read', () => {
-    const value = bound({ a: 1, b: { c: 'x' }, d: [1, 2] }) as Record<
+    const value = sanitizedForCel({ a: 1, b: { c: 'x' }, d: [1, 2] }) as Record<
       string,
       unknown
     >;
@@ -126,7 +126,7 @@ describe('binding a delivery', () => {
   });
 
   it('drops the names that go past a plain object', () => {
-    const value = bound(
+    const value = sanitizedForCel(
       JSON.parse('{"__proto__":{"polluted":true},"ok":1}'),
     ) as Record<string, unknown>;
 
@@ -136,30 +136,30 @@ describe('binding a delivery', () => {
   });
 
   it('leaves objects inheriting nothing at all', () => {
-    expect(Object.getPrototypeOf(bound({ a: 1 }))).toBeNull();
+    expect(Object.getPrototypeOf(sanitizedForCel({ a: 1 }))).toBeNull();
   });
 
-  it('rejects a delivery nested deeper than anyone would read', () => {
+  it('rejects a payload nested deeper than anyone would read', () => {
     let deep: Record<string, unknown> = { end: true };
     for (let at = 0; at < 40; at += 1) {
       deep = { deep };
     }
 
-    expect(() => bound(deep)).toThrow(/nested deeper/);
+    expect(() => sanitizedForCel(deep)).toThrow(/nested deeper/);
   });
 
   it('rejects a list longer than anyone would walk', () => {
-    expect(() => bound({ many: new Array(600).fill(1) })).toThrow(
+    expect(() => sanitizedForCel({ many: new Array(600).fill(1) })).toThrow(
       /longer list/,
     );
   });
 
-  it('rejects a delivery that has more than can be read', () => {
+  it('rejects a payload that has more than can be read', () => {
     const wide = Object.fromEntries(
       new Array(400).fill(0).map((_, at) => [`k${at}`, new Array(400).fill(1)]),
     );
 
-    expect(() => bound(wide)).toThrow(/more than can be read/);
+    expect(() => sanitizedForCel(wide)).toThrow(/more than can be read/);
   });
 });
 
@@ -208,15 +208,15 @@ describe('checking an expression against what it may read', () => {
 
     expect(reason(source)).toBeNull();
     expect(
-      compile(source).evaluate({ body: bound({ channel: 'C1' }) }),
+      compile(source).evaluate({ body: sanitizedForCel({ channel: 'C1' }) }),
     ).toEqual({ channel: 'C1', text: 'Got it.' });
   });
 
   it('remembers where in the file it is written', () => {
-    expect(compile('body.x', { at: 'actions.post.body' }).at).toBe(
+    expect(compile('body.x', { location: 'actions.post.body' }).location).toBe(
       'actions.post.body',
     );
-    expect(compile('body.x').at).toBeNull();
+    expect(compile('body.x').location).toBeNull();
   });
 });
 
@@ -254,26 +254,26 @@ describe('suggesting what a misspelling meant', () => {
 });
 
 describe('what a call cannot be made without', () => {
-  const at = 'actions.post-message.request.body';
+  const location = 'actions.post-message.request.body';
 
   it('is what the expression evaluates to', () => {
-    expect(required(compile('body.type', { at }), delivery)).toBe('Issue');
-    expect(requiredText(compile('body.data.identifier'), delivery)).toBe(
+    expect(required(compile('body.type', { location }), payload)).toBe('Issue');
+    expect(requiredText(compile('body.data.identifier'), payload)).toBe(
       'ENG-42',
     );
   });
 
   it('throws, naming where it is written, where it cannot be read', () => {
     const failing = () =>
-      required(compile('body.data.missing', { at }), delivery);
+      required(compile('body.data.missing', { location }), payload);
 
     expect(failing).toThrow(ExpressionFailedError);
-    expect(failing).toThrow(`${at}: No such key: missing`);
+    expect(failing).toThrow(`${location}: No such key: missing`);
   });
 
   it('is nothing, not a failure, where it plainly reads as nothing', () => {
-    expect(requiredText(compile('""'), delivery)).toBeNull();
-    expect(requiredText(compile('body.data'), delivery)).toBeNull();
+    expect(requiredText(compile('""'), payload)).toBeNull();
+    expect(requiredText(compile('body.data'), payload)).toBeNull();
   });
 });
 

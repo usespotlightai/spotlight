@@ -61,7 +61,7 @@ const toChangeStack = (row: Row): ChangeStack =>
       ? CheckRequest.of(
           row.checkCommand,
           row.checkSetup,
-          RunnerPlacement.ofClauses(
+          RunnerPlacement.ofLabelGroups(
             row.checkPlacement,
             row.checkPlacementImage
               ? RunnerImage.of(row.checkPlacementImage)
@@ -109,7 +109,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       jobDueAt: added.job.nextAttemptAt,
       checkCommand: added.request?.command ?? null,
       checkSetup: added.request?.setup ?? null,
-      checkPlacement: added.request?.placement.clauses ?? [],
+      checkPlacement: added.request?.placement.labelGroups ?? [],
       checkPlacementImage: added.request?.placement.image?.value ?? null,
       redrafting: added.redrafting,
       usage: usageRow(added.usage),

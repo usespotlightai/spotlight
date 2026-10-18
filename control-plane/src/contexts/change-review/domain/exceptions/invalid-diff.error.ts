@@ -1,5 +1,5 @@
 export class InvalidDiffError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(reason: string) {
     super(`A diff ${reason}.`);

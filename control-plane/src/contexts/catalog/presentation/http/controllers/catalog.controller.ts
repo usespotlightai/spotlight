@@ -25,7 +25,7 @@ const exampleQuery = (example: string): readonly DataSourceQuery[] => [
   {
     name: 'version',
     description:
-      'The versions you accept, as Terraform writes a constraint; the newest it accepts is answered',
+      'The versions you accept, as Terraform writes a constraint; Spotlight returns the newest version that matches',
     example: '~> 1.0',
   },
 ];
@@ -63,14 +63,14 @@ const notEntitled = (kind: string, detail: string): ProblemException =>
     detail,
   });
 
-const answered = <R>(
+const respondResolved = <R>(
   kind: string,
   resolution: CatalogResolution | null,
-  answer: (item: Extract<CatalogResolution, { outcome: 'resolved' }>) => R,
+  toResponse: (item: Extract<CatalogResolution, { outcome: 'resolved' }>) => R,
 ): R => {
   switch (resolution?.outcome) {
     case 'resolved':
-      return answer(resolution);
+      return toResponse(resolution);
     case 'invalid':
       throw ProblemException.invalid(kind, resolution.problems);
     case 'unmatched':
@@ -98,7 +98,7 @@ export class CatalogController {
     @Query('version') version: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<CatalogToolResponseDto> {
-    return answered(
+    return respondResolved(
       TOOL,
       await this.resolve(workspaceId, 'tool', name, version, principal),
       ({ item }) => new CatalogToolResponseDto(item),
@@ -117,7 +117,7 @@ export class CatalogController {
     @Query('version') version: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<CatalogSkillResponseDto> {
-    return answered(
+    return respondResolved(
       SKILL,
       await this.resolve(workspaceId, 'skill', name, version, principal),
       ({ item }) => new CatalogSkillResponseDto(item),

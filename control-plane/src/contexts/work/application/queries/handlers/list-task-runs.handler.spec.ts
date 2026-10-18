@@ -31,7 +31,7 @@ const reading = (found: TaskRunSummary[]) => {
   const runs = {
     listForTask,
     listForTeam: vi.fn(),
-    conversationFor: vi.fn(),
+    notesFor: vi.fn(),
     configFor: vi.fn(),
     replayFor: vi.fn(),
     searchRunFor: vi.fn(),

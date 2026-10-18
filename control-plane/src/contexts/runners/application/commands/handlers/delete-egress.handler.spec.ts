@@ -12,7 +12,7 @@ import type { EgressRepository } from '@runners/domain/repositories/egress.repos
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const deleting = (pools: readonly RunnerPool[]) => {

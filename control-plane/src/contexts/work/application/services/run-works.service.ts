@@ -16,10 +16,10 @@ import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { repositoryWorkedOnNamed } from '@work/domain/services/task-checkouts';
+import { repositoryForTaskNamed } from '@work/domain/services/task-checkouts';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
-export interface WorkedRun {
+export interface LeasedRunWork {
   readonly run: Run;
   readonly work: RunWork | null;
 }
@@ -39,7 +39,7 @@ export class RunWorks {
     private readonly clock: ClockPort,
   ) {}
 
-  async leasedBy(runId: string, runnerId: string): Promise<WorkedRun> {
+  async leasedBy(runId: string, runnerId: string): Promise<LeasedRunWork> {
     const run = await this.runs.findById(RunId.of(runId));
 
     if (!run) {
@@ -93,7 +93,7 @@ export class RunWorks {
         search: async () => null,
       })) ?? null;
     const line = await this.lines.findByStation(run.stationId);
-    const repository = line ? repositoryWorkedOnNamed(name, task, line) : null;
+    const repository = line ? repositoryForTaskNamed(name, task, line) : null;
 
     return repository ? { workspaceId: run.workspaceId, repository } : null;
   }

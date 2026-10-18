@@ -51,7 +51,7 @@ const approved = (supersedes: MemoryId | null = null) =>
   );
 
 const reacting = (stored: Memory[] = []) => {
-  const reviews = { raise: vi.fn(), resolve: vi.fn() };
+  const reviews = { create: vi.fn(), resolve: vi.fn() };
   let handles = 100;
   const memories = {
     nextHandle: async () => {
@@ -86,20 +86,20 @@ const reacting = (stored: Memory[] = []) => {
 };
 
 describe('reacting to memories being proposed and decided', () => {
-  it('raises a review on the task for a run that proposed memories', async () => {
+  it('creates a review on the task for a run that proposed memories', async () => {
     const { reactions, reviews } = reacting();
 
     await reactions.onProposed(new MemoriesProposed(DRAFT, TASK, RUN, 3, 0, 0));
 
-    expect(reviews.raise).toHaveBeenCalledWith(TASK, RUN);
+    expect(reviews.create).toHaveBeenCalledWith(TASK, RUN);
   });
 
-  it('raises nothing for a run that proposed none', async () => {
+  it('creates nothing for a run that proposed none', async () => {
     const { reactions, reviews } = reacting();
 
     await reactions.onProposed(new MemoriesProposed(DRAFT, TASK, RUN, 0, 2, 0));
 
-    expect(reviews.raise).not.toHaveBeenCalled();
+    expect(reviews.create).not.toHaveBeenCalled();
   });
 
   it('resolves a run’s review once nothing is left to decide', async () => {

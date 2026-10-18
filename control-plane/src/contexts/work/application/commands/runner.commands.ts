@@ -69,7 +69,7 @@ export class CompleteRunCommand {
     readonly sessionId?: string | null,
     readonly stopped: boolean = false,
     readonly archived: boolean = false,
-    readonly unprepared: boolean = false,
+    readonly setupFailed: boolean = false,
     readonly timedOut: boolean = false,
   ) {}
 }

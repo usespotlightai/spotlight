@@ -3,9 +3,9 @@ import type {
   InviteReaderPort,
   InviteSummary,
 } from '@identity/application/ports/invite-reader.port';
-import type { TeamNamed } from '@identity/application/read-models/team-named';
+import type { TeamRef } from '@identity/application/read-models/team-ref';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
-import { invitable } from '@identity/domain/value-objects/invite-terms.vo';
+import { invitable } from '@identity/domain/value-objects/invite-spec.vo';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import {
   team,
@@ -107,7 +107,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
 
   private async teamsOf(
     inviteIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly TeamNamed[]>> {
+  ): Promise<ReadonlyMap<string, readonly TeamRef[]>> {
     if (inviteIds.length === 0) {
       return new Map();
     }
@@ -123,7 +123,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
       .where(inArray(workspaceInviteTeam.inviteId, [...inviteIds]))
       .orderBy(asc(team.name));
 
-    const teams = new Map<string, TeamNamed[]>();
+    const teams = new Map<string, TeamRef[]>();
 
     for (const row of rows) {
       const inviteTeams = teams.get(row.inviteId) ?? [];

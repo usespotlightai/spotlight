@@ -33,7 +33,7 @@ type journal struct {
 	renewals         int
 	done             *protocol.Completion
 	completions      []protocol.Completion
-	sealedBy         []int
+	completedBy      []int
 	waits            []bool
 	calls            []string
 	lostWhileWaiting bool
@@ -51,7 +51,7 @@ type journal struct {
 	files            map[string]string
 	generated        []generated
 	decision         string
-	asked            []protocol.PermissionAsked
+	asked            []protocol.PermissionRequest
 	archives         *archives
 	remembered       []remembered
 	memory           []protocol.MemoryFile
@@ -63,7 +63,7 @@ type journal struct {
 }
 
 type remembered struct {
-	received protocol.Remembering
+	received protocol.RememberRequest
 	journal  []protocol.Event
 }
 
@@ -112,14 +112,14 @@ func (conflict) Error() string { return "409 Conflict: the run changed while its
 
 func (conflict) RunNoLongerLeased() bool { return false }
 
-func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion) (protocol.Completed, error) {
+func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion) (protocol.CompleteResponse, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.calls = append(j.calls, "complete")
 	j.done = &done
 	j.completions = append(j.completions, done)
 	if j.archives != nil {
-		j.sealedBy = append(j.sealedBy, j.archives.count())
+		j.completedBy = append(j.completedBy, j.archives.count())
 	}
 
 	waiting := len(j.waits) > 0 && j.waits[0]
@@ -127,7 +127,7 @@ func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion
 		j.waits = j.waits[1:]
 	}
 	j.paused = waiting && !done.Stopped
-	return protocol.Completed{Waiting: j.paused}, nil
+	return protocol.CompleteResponse{Waiting: j.paused}, nil
 }
 
 func (j *journal) Suspend(_ context.Context, _ string, requeue bool) (protocol.Suspension, error) {
@@ -193,7 +193,7 @@ func (j *journal) RecallMemory(
 }
 
 func (j *journal) Remember(
-	_ context.Context, _ string, received protocol.Remembering,
+	_ context.Context, _ string, received protocol.RememberRequest,
 ) (json.RawMessage, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -216,7 +216,7 @@ func (j *journal) RecordCause(
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.caused = append(j.caused, record)
-	return json.Marshal(protocol.RecordedCause{TaskID: record.TaskID, Cause: record.Cause, ReplayRunID: "replayed_1"})
+	return json.Marshal(protocol.RecordCauseResponse{TaskID: record.TaskID, Cause: record.Cause, ReplayRunID: "replayed_1"})
 }
 
 func (j *journal) MemoryFiles(context.Context, string) ([]protocol.MemoryFile, error) {
@@ -266,15 +266,15 @@ func (j *journal) Attachment(_ context.Context, _ string, id string, into io.Wri
 }
 
 func (j *journal) AskPermission(
-	_ context.Context, _ string, asked protocol.PermissionAsked,
-) (protocol.PermissionAnswer, error) {
+	_ context.Context, _ string, asked protocol.PermissionRequest,
+) (protocol.PermissionResponse, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.asked = append(j.asked, asked)
 	if j.decision == "" {
-		return protocol.PermissionAnswer{}, errors.New("503 Service Unavailable")
+		return protocol.PermissionResponse{}, errors.New("503 Service Unavailable")
 	}
-	return protocol.PermissionAnswer{Decision: j.decision}, nil
+	return protocol.PermissionResponse{Decision: j.decision}, nil
 }
 
 func (j *journal) WorkspaceArchive(_ context.Context, _ string) (*protocol.StoredArchive, error) {
@@ -296,8 +296,8 @@ func (j *journal) GrantArchive(
 	return j.archives.grant(size, sha256), nil
 }
 
-func (j *journal) SealArchive(_ context.Context, _ string, archiveID string) error {
-	return j.archives.seal(archiveID)
+func (j *journal) CompleteArchive(_ context.Context, _ string, archiveID string) error {
+	return j.archives.complete(archiveID)
 }
 
 func (j *journal) RecordStartingPoint(_ context.Context, _ string, point protocol.StartingPoint) error {
@@ -424,7 +424,7 @@ type runOptions struct {
 	agentUser   *account.User
 	root        string
 	env         map[string]string
-	continuity  protocol.Continuity
+	resume      protocol.Resume
 	stopAfter   int
 	attachments []protocol.Attachment
 	skills      []protocol.SkillFile
@@ -441,7 +441,7 @@ type runOptions struct {
 	replay      *protocol.Replay
 	search      *protocol.SearchSpec
 	checkouts   []protocol.Checkout
-	wayOut      map[string]string
+	proxyEnv    map[string]string
 	enforced    func(context.Context) bool
 }
 
@@ -476,7 +476,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 			Command:       protocol.Command{Executable: executable, Env: settings.env},
 			Briefing:      settings.briefing,
 			Handover:      protocol.HandoverSpec{Options: settings.handover},
-			Continuity:    settings.continuity,
+			Resume:        settings.resume,
 			Attachments:   settings.attachments,
 			Skills:        settings.skills,
 			SkillHomes:    settings.skillHomes,
@@ -494,7 +494,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		AgentUser:  settings.agentUser,
 		AnswerWait: settings.answerWait,
 		Heartbeat:  settings.heartbeat,
-		WayOut:     settings.wayOut,
+		ProxyEnv:   settings.proxyEnv,
 		Enforced:   settings.enforced,
 	})
 	if err != nil {
@@ -654,7 +654,7 @@ func TestARunThatCannotStartIsStillReported(t *testing.T) {
 	}
 }
 
-func TestARunWithoutItsWayOutFailsBeforeTheAgentStarts(t *testing.T) {
+func TestARunWithoutItsLocalProxyFailsBeforeTheAgentStarts(t *testing.T) {
 	written := &journal{}
 	err := session.Execute(context.Background(), protocol.Run{
 		ID:   "run_1",
@@ -663,13 +663,13 @@ func TestARunWithoutItsWayOutFailsBeforeTheAgentStarts(t *testing.T) {
 		Workspace: t.TempDir(),
 		Journal:   written,
 		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Unready:   errors.New("the way out through egress did not open"),
+		Unready:   errors.New("the local proxy did not open"),
 	})
 
-	if err == nil || written.done == nil || !written.done.Failed || !written.done.Unprepared {
+	if err == nil || written.done == nil || !written.done.Failed || !written.done.SetupFailed {
 		t.Fatalf("completion %+v: %v", written.done, err)
 	}
-	if !strings.Contains(written.done.Message, "the way out through egress did not open") {
+	if !strings.Contains(written.done.Message, "the local proxy did not open") {
 		t.Errorf("got %q", written.done.Message)
 	}
 	if agentOutput(t, written) != "" {
@@ -686,7 +686,7 @@ func TestTheAgentGetsItsOwnAccount(t *testing.T) {
 		t.Skipf("no agent account here: %v", err)
 	}
 
-	t.Setenv("SPOTLIGHT_TOKEN", "the-runners-control-plane-token")
+	t.Setenv("SPOTLIGHT_RUN_TOKEN", "the-runners-control-plane-token")
 
 	root, err := os.MkdirTemp("", "account")
 	if err != nil {
@@ -696,7 +696,7 @@ func TestTheAgentGetsItsOwnAccount(t *testing.T) {
 
 	written := run(t, harness(t,
 		`output = [process.getuid(), process.env.HOME, process.env.USER, process.env.SHELL,
-                 process.env.SPOTLIGHT_TOKEN ?? "no-token"].join(" ");`, "end_turn"),
+                 process.env.SPOTLIGHT_RUN_TOKEN ?? "no-token"].join(" ");`, "end_turn"),
 		func(o *runOptions) { o.agentUser = as; o.root = root })
 
 	output := agentOutput(t, written)
@@ -798,7 +798,7 @@ func TestTheWorkspaceGoesWithTheRun(t *testing.T) {
 
 func TestTakesUpTheSessionInTheSpec(t *testing.T) {
 	written := run(t, harness(t, `output = sessionId;`, "end_turn"), func(o *runOptions) {
-		o.continuity = protocol.Continuity{SessionID: "session_known"}
+		o.resume = protocol.Resume{SessionID: "session_known"}
 	})
 
 	if got := agentOutput(t, written); got != "session_known" {
@@ -811,7 +811,7 @@ func TestTakesUpTheSessionInTheSpec(t *testing.T) {
 
 func TestOpensAFreshSessionWhenTheHarnessHasNoSuchSession(t *testing.T) {
 	written := run(t, harness(t, `output = sessionId;`, "end_turn"), func(o *runOptions) {
-		o.continuity = protocol.Continuity{SessionID: "session_long_gone"}
+		o.resume = protocol.Resume{SessionID: "session_long_gone"}
 	})
 
 	if got := agentOutput(t, written); got != "session_opened" {
@@ -845,7 +845,7 @@ func TestExpandsTheStateDirectoryIntoWhatTheHarnessGets(t *testing.T) {
 
 	written := run(t, harness(t, `output = process.env.HARNESS_STATE_DIR ?? "unset";`, "end_turn"), func(o *runOptions) {
 		o.root = root
-		o.continuity = protocol.Continuity{Key: "task_1"}
+		o.resume = protocol.Resume{Key: "task_1"}
 		o.env = map[string]string{"HARNESS_STATE_DIR": "${" + session.StateVar + "}/somewhere"}
 	})
 
@@ -855,11 +855,11 @@ func TestExpandsTheStateDirectoryIntoWhatTheHarnessGets(t *testing.T) {
 	}
 }
 
-func TestTheHarnessGoesOutThroughTheWayOut(t *testing.T) {
+func TestTheHarnessConnectsThroughTheLocalProxy(t *testing.T) {
 	written := run(t, harness(t, `output = [process.env.HTTPS_PROXY, process.env.NODE_USE_ENV_PROXY].join(" ");`, "end_turn"),
 		func(o *runOptions) {
 			o.env = map[string]string{"HTTPS_PROXY": "http://elsewhere:8080"}
-			o.wayOut = map[string]string{"HTTPS_PROXY": "http://127.0.0.1:3128", "NODE_USE_ENV_PROXY": "1"}
+			o.proxyEnv = map[string]string{"HTTPS_PROXY": "http://127.0.0.1:3128", "NODE_USE_ENV_PROXY": "1"}
 		})
 
 	if got := agentOutput(t, written); got != "http://127.0.0.1:3128 1" {
@@ -1025,7 +1025,7 @@ output = JSON.stringify([
   fs.existsSync("elsewhere.md"),
 ]);`, "end_turn"), func(o *runOptions) {
 		o.root = root
-		o.continuity = protocol.Continuity{Key: "task_1"}
+		o.resume = protocol.Resume{Key: "task_1"}
 		o.memory = []protocol.MemoryFile{
 			{Path: ".spotlight/memory/repositories/acme/api/src/uploads/M-18.md", Body: "# M-18 · rationale"},
 			{Path: "elsewhere.md", Body: "not memory"},
@@ -1059,7 +1059,7 @@ func TestTheMemoryFolderIsLaidEvenWhereARestoredWorkspaceLeftAFileInItsPlace(t *
 
 	written := run(t, harness(t, reading(".spotlight/memory/team/M-1.md"), "end_turn"), func(o *runOptions) {
 		o.root = root
-		o.continuity = protocol.Continuity{Key: "task_1"}
+		o.resume = protocol.Resume{Key: "task_1"}
 		o.memory = []protocol.MemoryFile{{Path: ".spotlight/memory/team/M-1.md", Body: "# M-1"}}
 	})
 
@@ -1097,7 +1097,7 @@ output = JSON.stringify([
   fs.existsSync(".claude/skills/spotlight-pull-request"),
 ]);`, "end_turn"), func(o *runOptions) {
 		o.root = root
-		o.continuity = protocol.Continuity{Key: "task_1"}
+		o.resume = protocol.Resume{Key: "task_1"}
 		o.skills = []protocol.SkillFile{handingOver, migrating}
 	})
 
@@ -1122,7 +1122,7 @@ output = JSON.stringify([
   fs.existsSync("notes/SKILL.md"),
 ]);`, "end_turn"), func(o *runOptions) {
 		o.root = root
-		o.continuity = protocol.Continuity{Key: "task-task_1"}
+		o.resume = protocol.Resume{Key: "task-task_1"}
 		o.skillHomes = []string{".claude/skills", ".spotlight/skills"}
 	})
 
@@ -1147,7 +1147,7 @@ output = JSON.stringify([
   fs.existsSync(".spotlight/state/claude/projects/-workspace/session_1.jsonl"),
 ]);`, "end_turn"), func(o *runOptions) {
 		o.root = root
-		o.continuity = protocol.Continuity{Key: "task-task_1"}
+		o.resume = protocol.Resume{Key: "task-task_1"}
 		o.settings = []string{"claude/settings.json", "codex/config.toml", "codex/rules/spotlight.rules"}
 		o.setup = protocol.HarnessSetup{Files: []protocol.SetupFile{{Path: "codex/config.toml", Text: "model = \"given\""}}}
 	})
@@ -1382,7 +1382,7 @@ func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 			continue
 		}
 
-		want := protocol.PermissionAsked{
+		want := protocol.PermissionRequest{
 			SessionID: "session_opened",
 			Kind:      "execute",
 			Title:     "rm -rf build",
@@ -1437,7 +1437,7 @@ func TestAPermissionEscalatedToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testi
 	}
 }
 
-func TestAFailureBeforeTheAgentIsHandedTheRunIsReportedAsUnprepared(t *testing.T) {
+func TestAFailureBeforeTheAgentIsHandedTheRunIsReportedAsSetupFailed(t *testing.T) {
 	agent := protocol.Command{Executable: "nothing-of-that-name"}
 	notADirectory := filepath.Join(t.TempDir(), "file")
 	if err := os.WriteFile(notADirectory, []byte("x"), 0o600); err != nil {
@@ -1464,7 +1464,7 @@ func TestAFailureBeforeTheAgentIsHandedTheRunIsReportedAsUnprepared(t *testing.T
 				Attachments: []protocol.Attachment{{ID: "att_gone", Path: ".spotlight/attachments/att_gone/notes.txt"}},
 			},
 		},
-		"a skill cannot be laid": {
+		"a skill cannot be written": {
 			spec: protocol.Spec{
 				Command: agent,
 				Skills:  []protocol.SkillFile{{Path: "../outside/SKILL.md", Text: "x"}},
@@ -1496,7 +1496,7 @@ func TestAFailureBeforeTheAgentIsHandedTheRunIsReportedAsUnprepared(t *testing.T
 			if err == nil {
 				t.Fatal("expected the run to fail")
 			}
-			if written.done == nil || !written.done.Failed || !written.done.Unprepared {
+			if written.done == nil || !written.done.Failed || !written.done.SetupFailed {
 				t.Fatalf("completion %+v, want it failed before the handover", written.done)
 			}
 		})
@@ -1514,7 +1514,7 @@ func TestAnAgentThatCannotStartIsNoFailureOfPreparation(t *testing.T) {
 		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
-	if written.done == nil || !written.done.Failed || written.done.Unprepared {
+	if written.done == nil || !written.done.Failed || written.done.SetupFailed {
 		t.Fatalf("completion %+v, want a failure after the handover", written.done)
 	}
 }

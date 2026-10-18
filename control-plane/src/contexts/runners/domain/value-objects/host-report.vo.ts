@@ -89,14 +89,15 @@ export class HostReport {
     );
   }
 
-  get servesAHarness(): boolean {
-    return this.images.some((each) => each.servesAHarness);
+  get supportsAHarness(): boolean {
+    return this.images.some((each) => each.supportsAHarness);
   }
 
-  offering(image: RunnerImage): HostImage | null {
+  supportedImage(image: RunnerImage): HostImage | null {
     return (
-      this.images.find((each) => each.isServed && each.image.equals(image)) ??
-      null
+      this.images.find(
+        (each) => each.isSupported && each.image.equals(image),
+      ) ?? null
     );
   }
 }

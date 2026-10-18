@@ -1,5 +1,5 @@
 export class NotAllowedInSearchError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(what: string) {
     super(

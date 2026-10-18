@@ -9,8 +9,8 @@ import {
   listTeamRuns,
   listTeamTraces,
   moveTask,
-  readRunConversation,
   readRunMemories,
+  readRunNotes,
   readTaskChangeStack,
   readTaskTrace,
   sendMessage,
@@ -49,7 +49,7 @@ describe('the mock work area', () => {
   });
 
   it('reads a run conversation with its answer and spend', async () => {
-    const { data } = await readRunConversation({
+    const { data } = await readRunNotes({
       path: { teamId, runId: 'run_retries_2' },
       throwOnError: true,
     });
@@ -62,7 +62,7 @@ describe('the mock work area', () => {
   });
 
   it('reads a failed run with its failure', async () => {
-    const { data } = await readRunConversation({
+    const { data } = await readRunNotes({
       path: { teamId, runId: 'run_billing_1' },
       throwOnError: true,
     });
@@ -116,7 +116,7 @@ describe('the mock work area', () => {
       'run:run_retries_2',
       'run:run_retries_3',
     ]);
-    expect(data.faults).toBeGreaterThan(0);
+    expect(data.errors).toBeGreaterThan(0);
   });
 
   it('lists the team traces in a range', async () => {
@@ -195,7 +195,7 @@ describe('the mock work area', () => {
       body: { body: 'Skip the billing queue entirely.' },
       throwOnError: true,
     });
-    const { data: conversation } = await readRunConversation({
+    const { data: conversation } = await readRunNotes({
       path: { teamId, runId: 'run_retries_3' },
       throwOnError: true,
     });
@@ -232,7 +232,7 @@ describe('the mock work area in an empty workspace', () => {
       path: { teamId },
       throwOnError: true,
     });
-    const conversation = await readRunConversation({
+    const conversation = await readRunNotes({
       path: { teamId, runId: 'run_retries_2' },
     });
     const trace = await readTaskTrace({

@@ -23,15 +23,15 @@ import (
 	"usespotlight.ai/data-plane/egress/internal/proxy"
 	"usespotlight.ai/data-plane/egress/internal/send"
 	"usespotlight.ai/data-plane/egress/serve"
-	"usespotlight.ai/data-plane/egressing/authority"
-	"usespotlight.ai/data-plane/egressing/inject"
-	"usespotlight.ai/data-plane/egressing/seal"
+	"usespotlight.ai/data-plane/egresskit/authority"
+	"usespotlight.ai/data-plane/egresskit/inject"
+	"usespotlight.ai/data-plane/egresskit/seal"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/telemetry"
 )
 
-const Usage = `  spotlight egress            the one way out of a sandbox, which injects its run's secrets for their hosts
-  spotlight egress serve      the shared way out for the sandboxes of push pools`
+const Usage = `  spotlight egress            egress sidecar for one sandbox, which injects its run's secrets for their hosts
+  spotlight egress serve      shared egress for push pools`
 
 const (
 	fetchBudget   = time.Minute
@@ -132,7 +132,7 @@ func run() error {
 	if err := publish(issuer.PEM()); err != nil {
 		return err
 	}
-	log.Info("egress is the sandbox's way out", "injects", injector.Hosts(), "port", protocol.EgressPort)
+	log.Info("egress is the sidecar of the sandbox", "injects", injector.Hosts(), "port", protocol.EgressPort)
 
 	select {
 	case err := <-serving:
@@ -175,7 +175,7 @@ func serveShared() error {
 	if err != nil {
 		return fmt.Errorf("listen for sandboxes: %w", err)
 	}
-	log.Info("egress is the shared way out for sandboxes", "listen", settings.Listen, "tls", settings.Certificate != nil)
+	log.Info("egress is the shared egress for sandboxes", "listen", settings.Listen, "tls", settings.Certificate != nil)
 
 	return shared.Serve(ctx, listener)
 }
@@ -262,23 +262,23 @@ func externalSecretReader(ctx context.Context) func() (inject.Reader, error) {
 }
 
 type Sender interface {
-	Send(ctx context.Context, call protocol.HostCall) protocol.HostCallAnswer
+	Send(ctx context.Context, call protocol.HostCall) protocol.HostCallResponse
 }
 
 func sent(ctx context.Context, call protocol.HostCall, sender Sender, path string, log *slog.Logger) error {
-	answer := sender.Send(ctx, call)
-	if answer.Error != "" {
-		log.Warn("could not send the call", "call", call.ID, "error", answer.Error, "ms", answer.Ms)
+	response := sender.Send(ctx, call)
+	if response.Error != "" {
+		log.Warn("could not send the call", "call", call.ID, "error", response.Error, "ms", response.Ms)
 	} else {
-		log.Info("sent the call", "call", call.ID, "status", answer.Status, "ms", answer.Ms)
+		log.Info("sent the call", "call", call.ID, "status", response.Status, "ms", response.Ms)
 	}
 
-	body, err := json.Marshal(answer)
+	body, err := json.Marshal(response)
 	if err != nil {
 		return err
 	}
 	if err := written(path, body); err != nil {
-		return fmt.Errorf("hand the host the call's answer: %w", err)
+		return fmt.Errorf("hand the host the call's response: %w", err)
 	}
 
 	<-ctx.Done()

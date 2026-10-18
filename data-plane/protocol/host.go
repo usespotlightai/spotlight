@@ -6,7 +6,7 @@ const AnswerWaitVar = "SPOTLIGHT_ANSWER_WAIT"
 
 type HostRequirements struct {
 	Runner    RunnerRequirement `json:"runner"`
-	Harnesses []Installable     `json:"harnesses"`
+	Harnesses []HarnessProbe    `json:"harnesses"`
 	Images    []string          `json:"images"`
 }
 

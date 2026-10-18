@@ -31,7 +31,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class StartSearchHandler
   implements CommandHandlerPort<StartSearchCommand, SearchStartedOutcome>
@@ -107,7 +107,7 @@ export class StartSearchHandler
           );
           const ceilingSplit = ceilingSplitOf(budget, split);
           const at = this.clock.now();
-          const by = Attribution.of(command.actor, set.workspaceId);
+          const by = ChangeActor.of(command.actor, set.workspaceId);
 
           await this.searches.add(
             Search.start({

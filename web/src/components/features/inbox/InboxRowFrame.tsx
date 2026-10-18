@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router';
-import { raisedOn } from '@/lib/task';
+import { createdOn } from '@/lib/task';
 import { useForwardTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
@@ -66,7 +66,7 @@ export function InboxRowFrame({
           dateTime={at}
           className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums"
         >
-          {raisedOn(at)}
+          {createdOn(at)}
         </time>
       </span>
 

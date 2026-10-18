@@ -5,7 +5,7 @@ import { WorkspaceRegistration } from '@identity/domain/services/workspace-regis
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -23,7 +23,7 @@ const register = (slugs: WorkspaceSlugRegistry, teamName = 'Platform') =>
     slug: WorkspaceSlug.of('acme-inc'),
     firstTeam: { id: TeamId.of('team_1'), name: TeamName.of(teamName) },
     owner: UserId.of('user_1'),
-    by: attributedIn('ws_1'),
+    by: changeActorIn('ws_1'),
   });
 
 describe('WorkspaceRegistration', () => {
@@ -43,7 +43,7 @@ describe('WorkspaceRegistration', () => {
         { id: TeamId.of('team_1'), name: TeamName.of('Payments') },
         ConfigurationChange.created(
           { resource: 'workspace', id: 'ws_1', key: 'acme-inc' },
-          attributedIn('ws_1'),
+          changeActorIn('ws_1'),
         ),
       ),
     ]);

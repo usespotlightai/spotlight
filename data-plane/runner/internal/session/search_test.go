@@ -160,7 +160,7 @@ func TestASearchFindsNoneOfTheTeamsMemoryInItsWorkspace(t *testing.T) {
 	written := run(t, harness(t, `output = String(require("node:fs").existsSync(".spotlight/memory"));`, "end_turn"),
 		searching, func(o *runOptions) {
 			o.root = root
-			o.continuity = protocol.Continuity{Key: "search_1"}
+			o.resume = protocol.Resume{Key: "search_1"}
 			o.memory = []protocol.MemoryFile{{Path: ".spotlight/memory/team/M-2.md", Body: "# M-2 · rationale"}}
 		})
 
@@ -175,13 +175,13 @@ func TestASearchRestoresNoWorkspaceAndArchivesNone(t *testing.T) {
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn}
+			o.resume = protocol.Resume{Key: resumeKey}
 		})
 
 	searched := run(t, harness(t, `output = String(require("node:fs").existsSync("notes.md"));`, "end_turn"),
 		searching, func(o *runOptions) {
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn}
+			o.resume = protocol.Resume{Key: resumeKey}
 		})
 
 	if got := agentOutput(t, searched); got != "false" {
@@ -215,7 +215,7 @@ output = JSON.stringify([
   fs.readFileSync("claude/settings.json", "utf8"),
 ]);`, "end_turn"), searching, func(o *runOptions) {
 		o.root = root
-		o.continuity = protocol.Continuity{Key: "search_1"}
+		o.resume = protocol.Resume{Key: "search_1"}
 		o.skills = []protocol.SkillFile{{Path: ".claude/skills/review/SKILL.md", Text: "how to review"}}
 		o.settings = []string{"claude/settings.json"}
 		o.setup = protocol.HarnessSetup{Files: []protocol.SetupFile{{Path: ".claude/CLAUDE.md", Text: "be brief"}}}

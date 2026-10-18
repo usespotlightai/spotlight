@@ -35,7 +35,7 @@ const SPEC = {
   command: { executable: 'sh', args: [] },
   briefing: 'do the thing',
   handover: { options: [], noteLimit: 0 },
-  continuity: { key: 'task:station' },
+  resume: { key: 'task:station' },
 };
 
 const MINUTE = 60_000;
@@ -49,18 +49,18 @@ let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
 let elsewhere: Awaited<ReturnType<typeof createTeam>>;
 
-const asideOf = async (taskId: string) => {
-  const [aside] = await db
+const inboxRequestOf = async (taskId: string) => {
+  const [inboxRequest] = await db
     .select()
-    .from(schema.taskAside)
+    .from(schema.inboxRequest)
     .where(
       and(
-        eq(schema.taskAside.taskId, taskId),
-        eq(schema.taskAside.form, 'alert'),
+        eq(schema.inboxRequest.taskId, taskId),
+        eq(schema.inboxRequest.form, 'alert'),
       ),
     );
 
-  return aside ?? null;
+  return inboxRequest ?? null;
 };
 
 const ranAndEnded = async (minutesAgo: number) => {
@@ -123,7 +123,7 @@ const actedOn = async (
     stationId: team.stationId.value,
     action: act,
     by: team.owner.value,
-    after: runId,
+    afterRunId: runId,
     at: ago(minutesAgo).toISOString(),
     tool: null,
     server: null,
@@ -177,7 +177,7 @@ afterAll(async () => {
 });
 
 describe('a station alert (e2e)', () => {
-  it('raises an inbox aside on the task whose run crossed the station’s threshold once a person answered it, and shows it', async () => {
+  it('creates an inbox request on the task whose run crossed the station’s threshold once a person answered it, and shows it', async () => {
     const runId = await ranAndEnded(10);
     await eventuallyFound(async () => {
       const [record] = await db
@@ -186,14 +186,18 @@ describe('a station alert (e2e)', () => {
         .where(eq(schema.runRecord.runId, runId));
       return record?.endedAt;
     });
-    expect(await asideOf(team.list.id.value)).toBeNull();
+    expect(await inboxRequestOf(team.list.id.value)).toBeNull();
 
     await actedOn(runId, 'sent-back', 9);
 
-    const aside = await eventuallyFound(() => asideOf(team.list.id.value));
+    const inboxRequest = await eventuallyFound(() =>
+      inboxRequestOf(team.list.id.value),
+    );
 
     const answer = await served(app)
-      .get(`/api/teams/${team.teamId.value}/insights/alerts/${aside.about}`)
+      .get(
+        `/api/teams/${team.teamId.value}/insights/alerts/${inboxRequest.about}`,
+      )
       .set(TEST_USER_HEADER, team.owner.value);
 
     expect(answer.status).toBe(200);
@@ -216,14 +220,17 @@ describe('a station alert (e2e)', () => {
 
     expect(inbox.status).toBe(200);
     expect(
-      (inbox.body as { aside: { form: string; about: string } | null }[]).some(
+      (
+        inbox.body as { inboxRequest: { form: string; about: string } | null }[]
+      ).some(
         (each) =>
-          each.aside?.form === 'alert' && each.aside.about === aside.about,
+          each.inboxRequest?.form === 'alert' &&
+          each.inboxRequest.about === inboxRequest.about,
       ),
     ).toBe(true);
   });
 
-  it('raises no second aside while the station stays past the threshold, nor on a run nobody answered yet', async () => {
+  it('creates no second inbox request while the station stays past the threshold, nor on a run nobody answered yet', async () => {
     const runId = await ranAndEnded(5);
     await eventuallyFound(async () => {
       const [record] = await db
@@ -235,14 +242,14 @@ describe('a station alert (e2e)', () => {
     await app.get(EventDelivery).drain(2_000);
     await app.get(EventDelivery).drain(2_000);
 
-    const asides = await db
+    const inboxRequests = await db
       .select()
-      .from(schema.taskAside)
-      .where(eq(schema.taskAside.form, 'alert'));
+      .from(schema.inboxRequest)
+      .where(eq(schema.inboxRequest.form, 'alert'));
     const alerts = await alertsAtStation();
 
     expect(
-      asides.filter((each) => each.taskId === team.list.id.value),
+      inboxRequests.filter((each) => each.taskId === team.list.id.value),
     ).toHaveLength(1);
     expect(alerts).toHaveLength(1);
     expect(alerts[0]?.resolvedAt).toBeNull();
@@ -269,11 +276,11 @@ describe('a station alert (e2e)', () => {
     expect(recovered?.resolvedAt).not.toBeNull();
   });
 
-  it('resolves the aside when the alert resolves, and reopens the same alert and aside when the station crosses again soon after', async () => {
+  it('resolves the inbox request when the alert resolves, and reopens the same alert and inbox request when the station crosses again soon after', async () => {
     const [recovered] = await alertsAtStation();
-    const resolvedAside = await eventuallyFound(async () => {
-      const aside = await asideOf(team.list.id.value);
-      return aside?.resolvedAt ? aside : null;
+    const resolvedRequest = await eventuallyFound(async () => {
+      const inboxRequest = await inboxRequestOf(team.list.id.value);
+      return inboxRequest?.resolvedAt ? inboxRequest : null;
     });
 
     const runId = await ranAndEnded(3);
@@ -290,14 +297,14 @@ describe('a station alert (e2e)', () => {
       const alerts = await alertsAtStation();
       return alerts[0]?.resolvedAt === null ? alerts : null;
     });
-    const aside = await eventuallyFound(async () => {
-      const found = await asideOf(team.list.id.value);
+    const inboxRequest = await eventuallyFound(async () => {
+      const found = await inboxRequestOf(team.list.id.value);
       return found && found.resolvedAt === null ? found : null;
     });
 
     expect(await alertsAtStation()).toHaveLength(1);
     expect(reopened?.id).toBe(recovered?.id);
-    expect(aside.id).toBe(resolvedAside.id);
+    expect(inboxRequest.id).toBe(resolvedRequest.id);
   });
 
   it('resolves at once when the line no longer sets the threshold', async () => {

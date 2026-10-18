@@ -18,7 +18,7 @@ export interface TeamTraceDto {
   readonly output: string | null;
   readonly ms: number | null;
   readonly steps: number;
-  readonly faults: number;
+  readonly errors: number;
   readonly cost: number | null;
   readonly currency: string | null;
 }
@@ -27,7 +27,7 @@ interface TraceVolumeBucketDto {
   readonly from: string;
   readonly to: string;
   readonly count: number;
-  readonly faults: number;
+  readonly errors: number;
 }
 
 export interface TeamTracesDto {

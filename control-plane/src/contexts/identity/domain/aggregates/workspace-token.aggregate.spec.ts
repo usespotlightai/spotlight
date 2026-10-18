@@ -8,7 +8,7 @@ import { TokenDescription } from '@identity/domain/value-objects/token-descripti
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -23,10 +23,10 @@ const NOW = new Date('2026-09-24T09:00:00.000Z');
 const LATER = new Date('2026-12-31T00:00:00.000Z');
 const ID = WorkspaceTokenId.of('token_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
-const BY = attributedIn('ws_1');
+const BY = changeActorIn('ws_1');
 const CI = { resource: 'workspace-token' as const, id: 'token_1', key: 'ci' };
 
-const terms = (
+const spec = (
   over: Partial<{
     name: string;
     scopes: readonly string[];
@@ -40,9 +40,9 @@ const terms = (
   description: TokenDescription.of(over.description ?? 'Plans on every PR'),
 });
 
-const issued = (over: Parameters<typeof terms>[0] = {}) =>
+const issued = (over: Parameters<typeof spec>[0] = {}) =>
   WorkspaceToken.issue({
-    ...terms(over),
+    ...spec(over),
     id: ID,
     workspaceId: WORKSPACE,
     hash: TokenHash.of('a'.repeat(64)),
@@ -53,7 +53,7 @@ const issued = (over: Parameters<typeof terms>[0] = {}) =>
 
 const stored = (version = 2) =>
   WorkspaceToken.rehydrate({
-    ...terms(),
+    ...spec(),
     id: ID,
     workspaceId: WORKSPACE,
     hash: TokenHash.of('a'.repeat(64)),
@@ -112,7 +112,7 @@ describe('WorkspaceToken', () => {
 
   it('takes a new description, and says so', () => {
     const updated = stored().update(
-      terms({ description: 'Applies from main' }),
+      spec({ description: 'Applies from main' }),
       BY,
     );
 
@@ -128,9 +128,9 @@ describe('WorkspaceToken', () => {
   });
 
   it.each([
-    ['name', terms({ name: 'deploy' })],
-    ['scopes', terms({ scopes: ['plan', 'secrets'] })],
-    ['expiresAt', terms({ expiresAt: null })],
+    ['name', spec({ name: 'deploy' })],
+    ['scopes', spec({ scopes: ['plan', 'secrets'] })],
+    ['expiresAt', spec({ expiresAt: null })],
   ])('keeps its %s as issued', (field, changed) => {
     expect(() => stored().update(changed, BY)).toThrow(
       expect.objectContaining({ field }),

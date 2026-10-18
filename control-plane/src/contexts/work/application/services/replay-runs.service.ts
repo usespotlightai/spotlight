@@ -142,7 +142,7 @@ export class ReplayRuns implements ReplayDispatchPort {
     if (!current) {
       return unreplayable(
         'not-at-the-station',
-        'the line no longer has the station it worked at',
+        'the line no longer has the station of the run',
       );
     }
 

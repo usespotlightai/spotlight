@@ -17,7 +17,7 @@ import {
   sameHost,
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import type { Bindings } from '@platform/expressions/bindings';
+import type { CelVariables } from '@platform/expressions/cel-variables';
 import { isTrue, value } from '@platform/expressions/readings';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
@@ -51,7 +51,7 @@ interface Dispatched {
 
 export const MAX_ANSWER_BYTES = 4 * 1024 * 1024;
 
-const connectionOf = (against: Bindings): string | null =>
+const connectionOf = (against: CelVariables): string | null =>
   typeof against.connection === 'string' && against.connection !== ''
     ? against.connection
     : null;
@@ -68,7 +68,7 @@ export class HttpOutbound {
 
   async run(
     request: RequestIR,
-    against: Bindings,
+    against: CelVariables,
     credentials: Credentials,
   ): Promise<OutboundResult> {
     const sent = await this.send(request, against, credentials);
@@ -80,7 +80,7 @@ export class HttpOutbound {
     const { reply, injected } = sent;
     const response = injected.redactedIn(await parse(reply));
     const status = reply.status;
-    const beside: Bindings = { ...against, response, status };
+    const beside: CelVariables = { ...against, response, status };
 
     const capture: Record<string, unknown> = {};
     for (const each of request.capture) {
@@ -92,7 +92,7 @@ export class HttpOutbound {
 
   async bytes(
     request: RequestIR,
-    against: Bindings,
+    against: CelVariables,
     credentials: Credentials,
   ): Promise<Uint8Array> {
     const sent = await this.send(request, against, credentials);
@@ -105,7 +105,7 @@ export class HttpOutbound {
     }
 
     const { reply } = sent;
-    const beside: Bindings = {
+    const beside: CelVariables = {
       ...against,
       status: reply.status,
       headers: Object.fromEntries(reply.headers),
@@ -158,7 +158,7 @@ export class HttpOutbound {
 
   private async send(
     request: RequestIR,
-    against: Bindings,
+    against: CelVariables,
     credentials: Credentials,
   ): Promise<Dispatched | null> {
     const plain = this.render(request, against);
@@ -168,7 +168,10 @@ export class HttpOutbound {
       : null;
   }
 
-  private render(request: RequestIR, against: Bindings): PlainRequest | null {
+  private render(
+    request: RequestIR,
+    against: CelVariables,
+  ): PlainRequest | null {
     const url = this.templated(request.url, against);
 
     if (!url) {
@@ -257,13 +260,13 @@ export class HttpOutbound {
     }
   }
 
-  private templated(template: Templated, against: Bindings): string | null {
+  private templated(template: Templated, against: CelVariables): string | null {
     return requiredTextOf(template, against);
   }
 
   private body(
     request: RequestIR,
-    against: Bindings,
+    against: CelVariables,
   ): { text: string; json: boolean } | undefined {
     if (!request.body) {
       return undefined;
@@ -303,7 +306,7 @@ export class HttpOutbound {
   }
 }
 
-const succeeded = (request: RequestIR, beside: Bindings): boolean => {
+const succeeded = (request: RequestIR, beside: CelVariables): boolean => {
   const status = beside.status as number;
 
   return request.expect?.success

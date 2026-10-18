@@ -20,11 +20,11 @@ import {
   type SearchRunsPort,
 } from '@work/application/ports/search-runs.port';
 import {
-  aSight,
+  aSearchVisibility,
   BUILD_BLOCK,
-  sightsInMemory,
-} from '@work/application/ports/search-sight.fake-spec';
-import { SEARCH_SIGHT } from '@work/application/ports/search-sight.port';
+  searchVisibilitiesInMemory,
+} from '@work/application/ports/search-visibility.fake-spec';
+import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -41,7 +41,7 @@ const DELIVERY = randomUUID();
 const BUILD = randomUUID();
 const SHIP = randomUUID();
 
-const sights = sightsInMemory({
+const visibilities = searchVisibilitiesInMemory({
   of: async (runId) => {
     throw new UnknownSearchRunError(runId);
   },
@@ -138,8 +138,8 @@ const aTask = async (title: string): Promise<string> => {
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title,
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
   });
 
@@ -171,7 +171,7 @@ const aTaskRun = async (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
     },
     ...ended(at),
   });
@@ -212,7 +212,7 @@ const aCandidateRun = async (original: string, at: string): Promise<string> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `replay-${runId}` },
+      resume: { key: `replay-${runId}` },
       replay: { archive: null, checkouts: [], movesOnAfter: ['ship'] },
     },
     ...ended(at),
@@ -309,7 +309,7 @@ const finishing = (next: string) => ({
 
 beforeAll(async () => {
   app = await openApp((module) =>
-    module.overrideProvider(SEARCH_SIGHT).useValue(sights),
+    module.overrideProvider(SEARCH_VISIBILITY).useValue(visibilities),
   );
   db = app.get(DRIZZLE);
   team = await createTeam(
@@ -411,7 +411,7 @@ describe('a search run claimed by a runner', () => {
       command: expect.objectContaining({ args: expect.any(Array) }),
       briefing: queued.briefing,
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: `search-${runId}` },
+      resume: { key: `search-${runId}` },
       search: {},
     });
 
@@ -519,9 +519,9 @@ describe('a search run reading its station’s history', () => {
       '2026-09-30T10:00:00Z',
     );
 
-    sights.sees(
+    visibilities.sees(
       runId,
-      aSight({
+      aSearchVisibility({
         stationId: BUILD,
         heldOutTasks: [heldOut],
         shownOriginals: [original, shown],
@@ -621,7 +621,10 @@ describe('a search run reading its station’s history', () => {
     const atShip = await aTaskRun(seen, '2026-09-21T10:00:00Z', SHIP);
     await aTaskRun(heldOut, '2026-09-22T09:00:00Z');
     await aTaskRun(elsewhere, '2026-09-23T09:00:00Z', SHIP);
-    sights.sees(runId, aSight({ stationId: BUILD, heldOutTasks: [heldOut] }));
+    visibilities.sees(
+      runId,
+      aSearchVisibility({ stationId: BUILD, heldOutTasks: [heldOut] }),
+    );
 
     const trace = JSON.stringify(
       (await runner(token).get(`/api/runs/${runId}/trace/${seen}`).expect(200))

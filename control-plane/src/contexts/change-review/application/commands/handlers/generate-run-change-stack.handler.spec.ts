@@ -18,7 +18,7 @@ const RUN = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 
 const generating = (
   over: {
-    worked?: boolean;
+    claimed?: boolean;
     checking?: CheckingPlan | null;
     replay?: boolean;
     isSearch?: boolean;
@@ -38,7 +38,7 @@ const generating = (
       isReplay: over.replay === true,
       isSearch: over.isSearch === true,
     }),
-    wasWorkedBy: async () => over.worked !== false,
+    wasClaimedBy: async () => over.claimed !== false,
     teamOfRun: async () => null,
     reasoning: async () => null,
     task: async () => null,
@@ -149,7 +149,7 @@ describe('GenerateRunChangeStackHandler', () => {
   });
 
   it('generates nothing for a run this runner did not work', async () => {
-    const { handler, begin } = generating({ worked: false });
+    const { handler, begin } = generating({ claimed: false });
 
     await expect(handler.execute(handed())).rejects.toThrow(ApplicationError);
     expect(begin).not.toHaveBeenCalled();

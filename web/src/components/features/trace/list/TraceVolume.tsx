@@ -86,7 +86,7 @@ const TipContent = ({
         {bucket.count} {bucket.count === 1 ? 'trace' : 'traces'}
       </p>
       <p className="text-muted-foreground">
-        {bucket.faults} {bucket.faults === 1 ? 'fault' : 'faults'}
+        {bucket.errors} {bucket.errors === 1 ? 'error' : 'errors'}
       </p>
     </ChartTip>
   );
@@ -105,7 +105,7 @@ export function TraceVolume({
   const spanMs = Date.parse(to) - Date.parse(from);
   const cursor = useCursorTooltip();
   const max = Math.max(
-    ...buckets.map((each) => Math.max(each.faults, each.count)),
+    ...buckets.map((each) => Math.max(each.errors, each.count)),
     1,
   );
 
@@ -151,8 +151,8 @@ export function TraceVolume({
               isAnimationActive={false}
             />
             <Bar
-              dataKey="faults"
-              name="Faults"
+              dataKey="errors"
+              name="Errors"
               fill="var(--destructive)"
               isAnimationActive={false}
             />

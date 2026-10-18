@@ -2,7 +2,7 @@ import type { OAuth2Client } from '@integrations/application/ports/oauth2-client
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { OAuth2Endpoints } from '@integrations/infrastructure/integrations/integration.compile';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import { bound } from '@platform/expressions/bindings';
+import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import type { Expression } from '@platform/expressions/expression-engine.port';
 import { value } from '@platform/expressions/readings';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -107,7 +107,7 @@ export class OAuth2Exchange {
       expiresAt,
       scopes,
       linkedAccount: identity
-        ? this.named(value(identity, { response: bound(response) }))
+        ? this.named(value(identity, { response: sanitizedForCel(response) }))
         : null,
     });
   }

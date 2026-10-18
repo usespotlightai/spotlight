@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
-import type { ImprovedStation, SharedTrace } from '@/lib/chat';
+import type { SharedTrace, TargetStation } from '@/lib/chat';
 import { erase, pressEnter, textOf, write } from '@/test/lexical';
 
 const started = vi.fn();
@@ -33,7 +33,7 @@ const CLAUDE = {
 
 const RETRIES = { taskId: 'task_1', title: 'Drain the stuck retry queues' };
 
-const SPEC: ImprovedStation = {
+const SPEC: TargetStation = {
   lineId: 'line_1',
   lineKey: 'delivery',
   lineName: 'Delivery',
@@ -45,7 +45,7 @@ const SPEC: ImprovedStation = {
 const showing = (
   onStarted = vi.fn(),
   traces: readonly SharedTrace[] = [],
-  improving: ImprovedStation | null = null,
+  targetStation: TargetStation | null = null,
   prompt: string | null = null,
 ) => {
   render(
@@ -53,7 +53,7 @@ const showing = (
       slug="acme"
       teamId="team_1"
       traces={traces}
-      defaultImproving={improving}
+      defaultTargetStation={targetStation}
       defaultPrompt={prompt}
       onStarted={onStarted}
     />,
@@ -139,7 +139,7 @@ describe('NewChatComposer', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(started).toHaveBeenCalledWith(
-      expect.objectContaining({ body: '', improving: 'station_spec' }),
+      expect.objectContaining({ body: '', targetStation: 'station_spec' }),
       expect.anything(),
     );
   });
@@ -162,7 +162,7 @@ describe('NewChatComposer', () => {
     expect(started).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.stringContaining('What should change at this station?'),
-        improving: 'station_spec',
+        targetStation: 'station_spec',
       }),
       expect.anything(),
     );
@@ -178,7 +178,7 @@ describe('NewChatComposer', () => {
     expect(
       within(box()).queryByText('Spec on Delivery'),
     ).not.toBeInTheDocument();
-    expect(started.mock.calls[0]?.[0]).not.toHaveProperty('improving');
+    expect(started.mock.calls[0]?.[0]).not.toHaveProperty('targetStation');
   });
 
   it('shows which harness it will talk to', () => {

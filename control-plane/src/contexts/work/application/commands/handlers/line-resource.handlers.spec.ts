@@ -5,8 +5,8 @@ import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/ide
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import {
   actorFor,
-  attributedIn,
-} from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+  changeActorIn,
+} from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -49,7 +49,7 @@ const DELIVERY = {
 const lineAt = (version: number): Line => {
   let next = 0;
   const created = Line.create({
-    by: attributedIn(),
+    by: changeActorIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -68,7 +68,7 @@ const lineAt = (version: number): Line => {
   });
 };
 
-const access = (administers = true) => teamAccess(TEAM, administers);
+const access = (isAdmin = true) => teamAccess(TEAM, isAdmin);
 
 const teams = {
   find: vi.fn(async () => ({
@@ -122,8 +122,8 @@ const enabling = (tools: string[], skills: string[] = []) => ({
 
 const creates = () =>
   ({
-    claim: vi.fn(async () => ({ kind: 'fresh' as const })),
-    created: vi.fn(async () => {}),
+    reserve: vi.fn(async () => ({ kind: 'new' as const })),
+    recordCreated: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
 const lines = (existing: Line | null, thenAt: Line | null = existing) => {
@@ -144,7 +144,7 @@ const lines = (existing: Line | null, thenAt: Line | null = existing) => {
 };
 
 describe('CreateLineHandler', () => {
-  const creating = (over: { administers?: boolean; throwing?: Error } = {}) => {
+  const creating = (over: { isAdmin?: boolean; throwing?: Error } = {}) => {
     const apply = vi.fn(async () => {
       if (over.throwing) {
         throw over.throwing;
@@ -153,7 +153,7 @@ describe('CreateLineHandler', () => {
       return lineAt(0);
     });
     const handler = new CreateLineHandler(
-      access(over.administers),
+      access(over.isAdmin),
       teams,
       new LineCompiler(),
       { create: apply } as unknown as ApplyLines,
@@ -183,7 +183,7 @@ describe('CreateLineHandler', () => {
     expect(apply).toHaveBeenCalledWith(
       expect.objectContaining({ key: 'core' }),
       expect.objectContaining({ key: LineKey.of('delivery') }),
-      attributedIn('ws_1', actorFor('user_1')),
+      changeActorIn('ws_1', actorFor('user_1')),
     );
   });
 
@@ -237,7 +237,7 @@ describe('CreateLineHandler', () => {
       await creating({
         throwing: new LineAlreadyExistsError('delivery'),
       }).create(DELIVERY),
-    ).toEqual({ outcome: 'taken', address: 'core/delivery' });
+    ).toEqual({ outcome: 'already-exists', address: 'core/delivery' });
   });
 
   it('points at the role when another line already claims it', async () => {
@@ -256,7 +256,7 @@ describe('CreateLineHandler', () => {
   });
 
   it('forbids someone on the team who does not administer it', async () => {
-    expect(await creating({ administers: false }).create(DELIVERY)).toEqual(
+    expect(await creating({ isAdmin: false }).create(DELIVERY)).toEqual(
       forbiddenTo('configure'),
     );
   });
@@ -264,7 +264,7 @@ describe('CreateLineHandler', () => {
 
 describe('UpdateLineHandler', () => {
   const updating = (
-    over: { administers?: boolean; throwing?: Error; thenAt?: Line } = {},
+    over: { isAdmin?: boolean; throwing?: Error; thenAt?: Line } = {},
   ) => {
     const stored = lines(lineAt(3));
     const reconcile = vi.fn(async (line: Line) => {
@@ -276,7 +276,7 @@ describe('UpdateLineHandler', () => {
       return line;
     });
     const handler = new UpdateLineHandler(
-      access(over.administers),
+      access(over.isAdmin),
       new LineCompiler(),
       stored,
       { reconcile } as unknown as ApplyLines,
@@ -347,7 +347,7 @@ describe('UpdateLineHandler', () => {
   });
 
   it('forbids someone on the team who does not administer it', async () => {
-    expect(await updating({ administers: false }).update(DELIVERY)).toEqual(
+    expect(await updating({ isAdmin: false }).update(DELIVERY)).toEqual(
       forbiddenTo('configure'),
     );
   });

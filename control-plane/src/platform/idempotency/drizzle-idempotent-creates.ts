@@ -3,14 +3,14 @@ import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { idempotentCreate } from '@platform/persistence/drizzle/schemas/idempotency.schema';
 import type {
-  IdempotentClaim,
   IdempotentCreate,
   IdempotentCreatesPort,
+  IdempotentReservation,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type {
-  IdempotentRecall,
-  IdempotentRecallsPort,
-} from '@shared-kernel/application/ports/idempotent-recalls.port';
+  IdempotentLookup,
+  IdempotentLookupsPort,
+} from '@shared-kernel/application/ports/idempotent-lookups.port';
 import { and, eq, type SQL, sql } from 'drizzle-orm';
 
 const RETENTION = '24 hours';
@@ -35,11 +35,11 @@ const matching = (create: IdempotentCreate) =>
 
 @Injectable()
 export class DrizzleIdempotentCreates
-  implements IdempotentCreatesPort, IdempotentRecallsPort
+  implements IdempotentCreatesPort, IdempotentLookupsPort
 {
   constructor(private readonly context: DrizzleContext) {}
 
-  async recall(create: IdempotentCreate): Promise<IdempotentRecall> {
+  async lookup(create: IdempotentCreate): Promise<IdempotentLookup> {
     const existing = await this.find(
       and(
         matching(create),
@@ -48,21 +48,21 @@ export class DrizzleIdempotentCreates
     );
 
     if (!existing) {
-      return { kind: 'unseen' };
+      return { kind: 'new' };
     }
 
     if (existing.fingerprint !== fingerprintOf(create)) {
-      return { kind: 'reused' };
+      return { kind: 'key-reused' };
     }
 
     return existing.createdId
-      ? { kind: 'replay', createdId: existing.createdId }
-      : { kind: 'unseen' };
+      ? { kind: 'already-created', createdId: existing.createdId }
+      : { kind: 'new' };
   }
 
-  async claim(create: IdempotentCreate): Promise<IdempotentClaim> {
+  async reserve(create: IdempotentCreate): Promise<IdempotentReservation> {
     const fingerprint = fingerprintOf(create);
-    const [claimed] = await this.context.db
+    const [reserved] = await this.context.db
       .insert(idempotentCreate)
       .values({ scope: create.by, key: create.key.value, fingerprint })
       .onConflictDoUpdate({
@@ -72,18 +72,18 @@ export class DrizzleIdempotentCreates
       })
       .returning({ key: idempotentCreate.key });
 
-    if (claimed) {
-      return { kind: 'fresh' };
+    if (reserved) {
+      return { kind: 'new' };
     }
 
     const existing = await this.find(matching(create));
 
     return existing?.fingerprint === fingerprint && existing.createdId
-      ? { kind: 'replay', createdId: existing.createdId }
-      : { kind: 'reused' };
+      ? { kind: 'already-created', createdId: existing.createdId }
+      : { kind: 'key-reused' };
   }
 
-  async created(create: IdempotentCreate, id: string): Promise<void> {
+  async recordCreated(create: IdempotentCreate, id: string): Promise<void> {
     await this.context.db
       .update(idempotentCreate)
       .set({ createdId: id })

@@ -88,12 +88,12 @@ func sampleHistory() protocol.History {
 					{Path: "api/retry.go", Before: "", After: "package api\n"},
 				},
 				Trace: protocol.Trace{
-					Ms: 90000, Rows: 3, Faults: 1,
+					Ms: 90000, Rows: 3, Errors: 1,
 					Roots: []protocol.TraceNode{{
-						ID: "run:2", Kind: "run", Name: "Run", Ms: 90000, Tone: "agent",
+						ID: "run:2", Kind: "run", Name: "Run", Ms: 90000, Category: "agent",
 						Children: []protocol.TraceNode{
 							{
-								ID: "2:step:0", Kind: "step", Name: "go test ./...", Ms: 800, Tone: "failed",
+								ID: "2:step:0", Kind: "step", Name: "go test ./...", Ms: 800, Category: "failed",
 								Step: &protocol.TraceStep{
 									Kind: "tool", Text: "go test ./...", Tool: &tool, Status: &status,
 									Input: &input, Output: &output,
@@ -101,13 +101,13 @@ func sampleHistory() protocol.History {
 								},
 							},
 							{
-								ID: "2:step:1", Kind: "step", Name: "Edit upload.go", Ms: 20, Tone: "agent",
+								ID: "2:step:1", Kind: "step", Name: "Edit upload.go", Ms: 20, Category: "agent",
 								Step: &protocol.TraceStep{
 									Kind: "edit", Text: "Edit upload.go",
 									Change: &protocol.TraceChange{Path: &editedPath, Before: "func upload() {}\n", After: "func upload() { retry() }\n"},
 								},
 								Children: []protocol.TraceNode{{
-									ID: "span:1", Kind: "span", Name: "gopls check", Ms: 5, Tone: "span",
+									ID: "span:1", Kind: "span", Name: "gopls check", Ms: 5, Category: "span",
 									Span: &protocol.TraceSpan{
 										ID: "span:1", Name: "gopls check", Ms: 5,
 										Attributes: []protocol.TraceAttribute{{Name: "file", Value: "api/upload.go"}},

@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"usespotlight.ai/data-plane/allowlist"
-	"usespotlight.ai/data-plane/egressing/authority"
-	"usespotlight.ai/data-plane/egressing/guard"
-	"usespotlight.ai/data-plane/egressing/inject"
+	"usespotlight.ai/data-plane/egresskit/authority"
+	"usespotlight.ai/data-plane/egresskit/guard"
+	"usespotlight.ai/data-plane/egresskit/inject"
 	"usespotlight.ai/data-plane/protocol"
 )
 

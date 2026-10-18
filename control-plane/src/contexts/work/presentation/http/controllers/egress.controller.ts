@@ -101,7 +101,7 @@ export class EgressController {
     summary:
       'The secrets that egress injects into the run’s requests, for their bound hosts',
     description:
-      'Called by the egress beside a sandbox with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the answer gives the external reference that egress reads.',
+      'Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the response gives the external reference that egress reads.',
   })
   @ApiOkResponse({ type: EgressSecretsResponseDto })
   @ApiUnprocessableEntityResponse({
@@ -209,7 +209,7 @@ export class EgressController {
     operationId: 'checkActiveRuns',
     summary: 'The runs of a shared egress that their runners still lease',
     description:
-      'Called by each node of a shared egress about every 30 seconds. The node evicts the secrets of every run that is not in the answer.',
+      'Called by each node of a shared egress about every 30 seconds. The node evicts the secrets of every run that is not in the response.',
   })
   @ApiOkResponse({ type: EgressActiveRunsResponseDto })
   @ApiUnprocessableEntityResponse({
@@ -250,7 +250,7 @@ export class EgressController {
     description:
       'Called by a shared egress with its egress token. Spotlight stores each record with its run for 30 days. It stores a record only when the run still names the runner of the proxy credential, and that runner is active, or ended at most 2 minutes before.',
   })
-  @ApiNoContentResponse({ description: 'The records were taken' })
+  @ApiNoContentResponse({ description: 'Spotlight accepted the records' })
   @ApiUnprocessableEntityResponse({
     description: 'The request has more than 2000 records',
   })

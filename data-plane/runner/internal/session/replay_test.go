@@ -13,7 +13,7 @@ import (
 
 func replaying(archive *string) func(*runOptions) {
 	return func(o *runOptions) {
-		o.continuity = protocol.Continuity{Key: "replay-run_1"}
+		o.resume = protocol.Resume{Key: "replay-run_1"}
 		o.replay = &protocol.Replay{Archive: archive, Checkouts: []protocol.StartedCheckout{}}
 	}
 }
@@ -24,7 +24,7 @@ func TestAReplayRestoresTheArchiveItReplaysAndArchivesNoneOfItsOwn(t *testing.T)
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn}
+			o.resume = protocol.Resume{Key: resumeKey}
 		})
 
 	started := archives.newest().ID
@@ -57,7 +57,7 @@ func TestAReplayThatStartedAfreshRestoresNothing(t *testing.T) {
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn}
+			o.resume = protocol.Resume{Key: resumeKey}
 		})
 
 	replayed := run(t, harness(t, `output = String(require("node:fs").existsSync("notes.md"));`, "end_turn"),
@@ -76,9 +76,9 @@ func TestAReplayWhoseArchiveIsGoneEndsFailedRatherThanStartingAfresh(t *testing.
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
-			Command:    protocol.Command{Executable: harness(t, `output = "worked";`, "end_turn")},
-			Continuity: protocol.Continuity{Key: "replay-run_1"},
-			Replay:     &protocol.Replay{Archive: &gone},
+			Command: protocol.Command{Executable: harness(t, `output = "worked";`, "end_turn")},
+			Resume:  protocol.Resume{Key: "replay-run_1"},
+			Replay:  &protocol.Replay{Archive: &gone},
 		},
 	}, session.Options{
 		Workspace: t.TempDir(),

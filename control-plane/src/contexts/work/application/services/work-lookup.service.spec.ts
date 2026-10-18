@@ -1,4 +1,4 @@
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -25,7 +25,7 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import type { Concerns } from '@work/domain/value-objects/concerns.vo';
+import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -48,7 +48,7 @@ const fresh = () => {
 const [opening] = BUILT_IN_LINES;
 
 const line = Line.create({
-  by: attributedIn(),
+  by: changeActorIn(),
   workspaceId: WORKSPACE,
   teamId: TeamId.of('team_1'),
   // biome-ignore lint/style/noNonNullAssertion: Spotlight has built-in lines
@@ -71,9 +71,9 @@ const lookingUp = (markedTasks: readonly Task[]) =>
   new WorkLookup(
     {} as RunRepository,
     {
-      findByMarks: async (_at: WorkspaceId, concerns: Concerns) =>
+      findByMarks: async (_at: WorkspaceId, correlationKeys: CorrelationKeys) =>
         markedTasks.find((each) =>
-          concerns.marks.some((mark) =>
+          correlationKeys.marks.some((mark) =>
             each.marks.some((marked) => marked.equals(mark)),
           ),
         ) ?? null,
@@ -147,7 +147,7 @@ describe('WorkLookup, looking up a run', () => {
             command: { executable: 'claude', args: [] },
             briefing: 'Retry uploads',
             handover: { options: [], noteLimit: 0 },
-            continuity: { key: 'task_1' },
+            resume: { key: 'task_1' },
             check: 'npm run verify',
           }),
         }),
@@ -192,7 +192,7 @@ describe('WorkLookup, looking up a run', () => {
   it('places a check where its run was placed once its station is gone', async () => {
     expect(
       (await runAt('gone', 'completed', RunnerPlacement.of(['vpc-internal'])))
-        ?.placement.clauses,
+        ?.placement.labelGroups,
     ).toEqual([['vpc-internal']]);
   });
 
@@ -251,7 +251,7 @@ describe('WorkLookup, reading how a run reasoned', () => {
       command: { executable: 'claude', args: [] },
       briefing: 'Retry uploads',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task_1' },
+      resume: { key: 'task_1' },
     });
 
   const changesOf = (
@@ -384,7 +384,7 @@ describe('WorkLookup, reading what a run changed', () => {
             command: { executable: 'claude', args: [] },
             briefing: 'Retry uploads',
             handover: { options: [], noteLimit: 0 },
-            continuity: { key: 'task_1' },
+            resume: { key: 'task_1' },
           }),
         }),
       } as unknown as RunRepository,
@@ -479,7 +479,7 @@ describe('WorkLookup, reading a team’s lines', () => {
     expect(lines.map((each) => each.id)).toEqual([line.id.value]);
     expect(lines[0]?.stations.map((each) => each.name)).toEqual(
       line.stations
-        .filter((each) => each.isWorked)
+        .filter((each) => each.isAgentStation)
         .map((each) => each.name.value),
     );
     expect(lines[0]?.stations.some((each) => each.name === 'Backlog')).toBe(

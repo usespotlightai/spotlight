@@ -1,11 +1,14 @@
-import type { Bindings } from '@platform/expressions/bindings';
+import type { CelVariables } from '@platform/expressions/cel-variables';
 import {
   ExpressionFailedError,
   firstLine,
 } from '@platform/expressions/expression.errors';
 import type { Expression } from '@platform/expressions/expression-engine.port';
 
-export const isTrue = (expression: Expression, against: Bindings): boolean => {
+export const isTrue = (
+  expression: Expression,
+  against: CelVariables,
+): boolean => {
   try {
     return expression.evaluate(against) === true;
   } catch {
@@ -23,7 +26,7 @@ const asText = (read: unknown): string | null => {
 
 export const evaluateText = (
   expression: Expression,
-  against: Bindings,
+  against: CelVariables,
 ): string | null => {
   try {
     return asText(expression.evaluate(against));
@@ -32,7 +35,10 @@ export const evaluateText = (
   }
 };
 
-export const value = (expression: Expression, against: Bindings): unknown => {
+export const value = (
+  expression: Expression,
+  against: CelVariables,
+): unknown => {
   try {
     const read = expression.evaluate(against);
 
@@ -44,7 +50,7 @@ export const value = (expression: Expression, against: Bindings): unknown => {
 
 export const required = (
   expression: Expression,
-  against: Bindings,
+  against: CelVariables,
 ): unknown => {
   try {
     const read = expression.evaluate(against);
@@ -52,7 +58,7 @@ export const required = (
     return read === undefined ? null : read;
   } catch (error) {
     throw new ExpressionFailedError(
-      expression.at,
+      expression.location,
       expression.source,
       firstLine(error, 'could not be read'),
     );
@@ -61,5 +67,5 @@ export const required = (
 
 export const requiredText = (
   expression: Expression,
-  against: Bindings,
+  against: CelVariables,
 ): string | null => asText(required(expression, against));

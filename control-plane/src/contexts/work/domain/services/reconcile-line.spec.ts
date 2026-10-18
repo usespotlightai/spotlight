@@ -1,5 +1,5 @@
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -28,7 +28,7 @@ const existingLine = () => {
   let next = 0;
 
   return Line.create({
-    by: attributedIn(),
+    by: changeActorIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -96,7 +96,7 @@ const reconciling = (
   return {
     line,
     result: reconcileLine({
-      by: attributedIn(),
+      by: changeActorIn(),
       existing: line,
       plan,
       taskCounts: new Map(
@@ -255,7 +255,7 @@ describe('reconciling a line with the plan describing it', () => {
     expect(result.ok).toBe(true);
     expect(
       result.ok &&
-        result.line.stations[0]?.wayOut.leadsTo(
+        result.line.stations[0]?.routes.routesTo(
           result.line.stations[1]?.id as StationId,
         ),
     ).toBe(true);

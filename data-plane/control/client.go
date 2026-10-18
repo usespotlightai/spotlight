@@ -120,7 +120,7 @@ func (c *Client) RunnerID() string { return c.runnerID }
 func (c *Client) Token() string { return c.token }
 
 func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
-	var out protocol.Registered
+	var out protocol.RegisterResponse
 	if err := c.do(ctx, http.MethodPost, "/api/runners/register", in, &out); err != nil {
 		return fmt.Errorf("register: %w", err)
 	}
@@ -132,10 +132,10 @@ func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
 	return nil
 }
 
-func (c *Client) Installable(ctx context.Context) ([]protocol.Installable, error) {
-	var out []protocol.Installable
+func (c *Client) HarnessProbes(ctx context.Context) ([]protocol.HarnessProbe, error) {
+	var out []protocol.HarnessProbe
 	if err := c.do(ctx, http.MethodGet, "/api/runners/harnesses", nil, &out); err != nil {
-		return nil, fmt.Errorf("read what to look for: %w", err)
+		return nil, fmt.Errorf("read the harness probes: %w", err)
 	}
 
 	return out, nil
@@ -155,13 +155,13 @@ func (c *Client) UseTool(
 }
 
 func (c *Client) AskPermission(
-	ctx context.Context, runID string, asked protocol.PermissionAsked,
-) (protocol.PermissionAnswer, error) {
-	var out protocol.PermissionAnswer
+	ctx context.Context, runID string, asked protocol.PermissionRequest,
+) (protocol.PermissionResponse, error) {
+	var out protocol.PermissionResponse
 	path := fmt.Sprintf("/api/runs/%s/permissions", url.PathEscape(runID))
 
 	if err := c.do(ctx, http.MethodPost, path, asked, &out); err != nil {
-		return protocol.PermissionAnswer{}, fmt.Errorf("ask for permission: %w", err)
+		return protocol.PermissionResponse{}, fmt.Errorf("ask for permission: %w", err)
 	}
 
 	return out, nil
@@ -270,7 +270,7 @@ func (c *Client) MemoryFiles(ctx context.Context, runID string) ([]protocol.Memo
 }
 
 func (c *Client) Remember(
-	ctx context.Context, runID string, remembered protocol.Remembering,
+	ctx context.Context, runID string, remembered protocol.RememberRequest,
 ) (json.RawMessage, error) {
 	var out json.RawMessage
 	path := fmt.Sprintf("/api/runs/%s/memories", url.PathEscape(runID))
@@ -328,11 +328,11 @@ func (c *Client) RecordCause(
 	return out, nil
 }
 
-func (c *Client) Claim(ctx context.Context) (*protocol.Claimed, error) {
+func (c *Client) Claim(ctx context.Context) (*protocol.ClaimResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)
 	defer cancel()
 
-	var claimed protocol.Claimed
+	var claimed protocol.ClaimResponse
 	const path = "/api/runners/claim"
 
 	status, err := c.request(ctx, http.MethodPost, path, nil, &claimed)
@@ -366,10 +366,10 @@ func (c *Client) ClaimCall(ctx context.Context, host string) (*protocol.HostCall
 	return &call, nil
 }
 
-func (c *Client) AnswerCall(ctx context.Context, id string, answer protocol.HostCallAnswer) error {
-	path := strings.Replace(protocol.HostCallAnswerPath, "{id}", url.PathEscape(id), 1)
-	if err := c.do(ctx, http.MethodPost, path, answer, nil); err != nil {
-		return fmt.Errorf("answer a call: %w", err)
+func (c *Client) RecordCallResponse(ctx context.Context, id string, response protocol.HostCallResponse) error {
+	path := strings.Replace(protocol.HostCallResponsePath, "{id}", url.PathEscape(id), 1)
+	if err := c.do(ctx, http.MethodPost, path, response, nil); err != nil {
+		return fmt.Errorf("record the response of a call: %w", err)
 	}
 
 	return nil
@@ -436,12 +436,12 @@ func (c *Client) RecordImage(ctx context.Context, runID, image string) error {
 	return nil
 }
 
-func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error) {
+func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error) {
 	path := fmt.Sprintf("/api/runs/%s/completion", url.PathEscape(runID))
 
-	var completed protocol.Completed
+	var completed protocol.CompleteResponse
 	if err := c.do(ctx, http.MethodPost, path, done, &completed); err != nil {
-		return protocol.Completed{}, fmt.Errorf("complete: %w", err)
+		return protocol.CompleteResponse{}, fmt.Errorf("complete: %w", err)
 	}
 
 	return completed, nil
@@ -523,14 +523,14 @@ func (c *Client) GrantArchive(
 	return granted, nil
 }
 
-func (c *Client) SealArchive(ctx context.Context, runID, archiveID string) error {
+func (c *Client) CompleteArchive(ctx context.Context, runID, archiveID string) error {
 	path := fmt.Sprintf(
-		"/api/runs/%s/workspace-archive/%s/sealed",
+		"/api/runs/%s/workspace-archive/%s/complete",
 		url.PathEscape(runID), url.PathEscape(archiveID),
 	)
 
 	if err := c.do(ctx, http.MethodPost, path, nil, nil); err != nil {
-		return fmt.Errorf("seal the workspace archive: %w", err)
+		return fmt.Errorf("complete the workspace archive: %w", err)
 	}
 
 	return nil
@@ -570,7 +570,7 @@ func checkPath(runID, stackID string, recheck bool, rest string) string {
 }
 
 func (c *Client) RecordChangeStackCheck(
-	ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackChecked,
+	ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult,
 ) error {
 	path := checkPath(runID, stackID, recheck, "")
 

@@ -80,7 +80,7 @@ const assigned = () =>
     at: BUILD,
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   }).assignRun(RUN, line);

@@ -12,7 +12,7 @@ import {
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { PoolTokenUsage } from '@runners/domain/value-objects/pool-token-usage.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -26,7 +26,7 @@ describe('poolTokenUsedBy', () => {
         maxRuns: null,
       },
       { mode: 'pull', tokenHash, tokenVersion },
-      attributedIn(),
+      changeActorIn(),
     );
 
   it('uses the token a pool is created with, and none for a pool that provisions', () => {
@@ -43,7 +43,7 @@ describe('poolTokenUsedBy', () => {
   });
 
   it('uses no token for a pool being deleted', () => {
-    expect(poolTokenUsedBy(pool.delete(attributedIn()), pool)).toBeNull();
+    expect(poolTokenUsedBy(pool.delete(changeActorIn()), pool)).toBeNull();
   });
 });
 

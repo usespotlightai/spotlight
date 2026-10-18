@@ -1,5 +1,5 @@
 export class UnreadableSecretError extends Error {
-  readonly violation = 'upstream-error' as const;
+  readonly kind = 'upstream-error' as const;
 
   constructor(secretName: string, because: string) {
     super(`Secret ${secretName} could not be read. ${because}`);

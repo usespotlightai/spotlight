@@ -16,7 +16,7 @@ import {
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -173,7 +173,7 @@ describe('RunnerPools', () => {
       ).resolves.toBe(0);
       await expect(
         pooling(null, {
-          pool: aPullPool().delete(attributedIn()),
+          pool: aPullPool().delete(changeActorIn()),
         }).pools.roomIn(POOL_ID.value, NOW),
       ).resolves.toBe(0);
     });

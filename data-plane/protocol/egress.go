@@ -155,6 +155,6 @@ type EgressBound struct {
 	Hosts []string `json:"hosts"`
 }
 
-type EgressChecked struct {
+type EgressCheckResult struct {
 	Enforced bool `json:"enforced"`
 }

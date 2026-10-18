@@ -6,7 +6,7 @@ const MIN_WIDTH = 0.4;
 
 export const LABEL_ROOM = 128;
 
-const fills: Record<TraceNode['tone'], string> = {
+const fills: Record<TraceNode['category'], string> = {
   agent: 'bg-primary',
   overhead: 'bg-faint',
   failed: 'bg-destructive',
@@ -23,7 +23,7 @@ export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {
       style={{ marginRight: LABEL_ROOM }}
     >
       <div
-        className={cn('absolute h-2 rounded-[2px]', fills[node.tone])}
+        className={cn('absolute h-2 rounded-[2px]', fills[node.category])}
         style={{
           left: `${left}%`,
           width: `${drawn}%`,

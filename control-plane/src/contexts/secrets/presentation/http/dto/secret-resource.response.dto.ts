@@ -104,7 +104,7 @@ export class SecretResourceResponseDto extends ResourceResponseDto {
     nullable: true,
     example: 1,
     description:
-      'Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never answered',
+      'Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never returned',
   })
   readonly valueWoVersion: number | null;
 

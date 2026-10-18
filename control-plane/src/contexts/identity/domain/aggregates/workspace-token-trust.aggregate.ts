@@ -2,10 +2,10 @@ import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggr
 import { WorkspaceTokenTrustCreated } from '@identity/domain/events/workspace-token-trust-created.event';
 import { WorkspaceTokenTrustDeleted } from '@identity/domain/events/workspace-token-trust-deleted.event';
 import { WorkspaceTokenTrustUpdated } from '@identity/domain/events/workspace-token-trust-updated.event';
-import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
+import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
-import type { Grantor } from '@identity/domain/value-objects/grantor.vo';
+import type { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import type { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import type { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
@@ -13,7 +13,7 @@ import type { WorkloadRule } from '@identity/domain/value-objects/workload-rule.
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -24,14 +24,14 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
-export interface TokenTrustTerms {
+export interface TokenTrustSpec {
   readonly key: TokenTrustKey;
   readonly workload: WorkloadRule;
   readonly scopes: TokenScopes;
   readonly lifetime: TokenLifetime;
 }
 
-interface Props extends TokenTrustTerms {
+interface Props extends TokenTrustSpec {
   readonly id: WorkspaceTokenTrustId;
   readonly workspaceId: WorkspaceId;
   readonly createdBy: UserId;
@@ -48,16 +48,16 @@ export class WorkspaceTokenTrust extends EventRecorder {
   }
 
   static create(
-    input: TokenTrustTerms & {
+    input: TokenTrustSpec & {
       id: WorkspaceTokenTrustId;
       workspaceId: WorkspaceId;
       createdBy: UserId;
-      grantor: Grantor;
-      by: Attribution;
+      scopeCeiling: ScopeCeiling;
+      by: ChangeActor;
     },
   ): WorkspaceTokenTrust {
-    if (!input.grantor.covers(input.scopes)) {
-      throw new TokenTrustBeyondGrantorError(input.key.value);
+    if (!input.scopeCeiling.allows(input.scopes)) {
+      throw new ScopesExceedCallerError(input.key.value);
     }
 
     const created = new WorkspaceTokenTrust({
@@ -102,19 +102,19 @@ export class WorkspaceTokenTrust extends EventRecorder {
   }
 
   update(
-    terms: TokenTrustTerms,
-    grantor: Grantor,
-    by: Attribution,
+    spec: TokenTrustSpec,
+    scopeCeiling: ScopeCeiling,
+    by: ChangeActor,
   ): WorkspaceTokenTrust {
     this.assertNotDeleted();
-    this.guardWithin(grantor);
+    this.guardWithin(scopeCeiling);
 
-    if (!grantor.covers(terms.scopes)) {
-      throw new TokenTrustBeyondGrantorError(this.key.value);
+    if (!scopeCeiling.allows(spec.scopes)) {
+      throw new ScopesExceedCallerError(this.key.value);
     }
 
-    if (!terms.key.equals(this.key)) {
-      const because = `cannot change its key to ${terms.key.value}`;
+    if (!spec.key.equals(this.key)) {
+      const because = `cannot change its key to ${spec.key.value}`;
 
       throw new ImmutableFieldError(
         'key',
@@ -123,14 +123,14 @@ export class WorkspaceTokenTrust extends EventRecorder {
       );
     }
 
-    if (this.hasTerms(terms)) {
+    if (this.hasSpec(spec)) {
       return this;
     }
 
     const updated = this.with({
-      workload: terms.workload,
-      scopes: terms.scopes,
-      lifetime: terms.lifetime,
+      workload: spec.workload,
+      scopes: spec.scopes,
+      lifetime: spec.lifetime,
     });
 
     updated.record(
@@ -145,9 +145,9 @@ export class WorkspaceTokenTrust extends EventRecorder {
     return updated;
   }
 
-  delete(grantor: Grantor, by: Attribution): WorkspaceTokenTrust {
+  delete(scopeCeiling: ScopeCeiling, by: ChangeActor): WorkspaceTokenTrust {
     this.assertNotDeleted();
-    this.guardWithin(grantor);
+    this.guardWithin(scopeCeiling);
 
     const deleted = this.with({ deleted: true });
 
@@ -248,17 +248,17 @@ export class WorkspaceTokenTrust extends EventRecorder {
     };
   }
 
-  private hasTerms(terms: TokenTrustTerms): boolean {
+  private hasSpec(spec: TokenTrustSpec): boolean {
     return (
-      terms.workload.equals(this.workload) &&
-      terms.scopes.equals(this.scopes) &&
-      terms.lifetime.equals(this.lifetime)
+      spec.workload.equals(this.workload) &&
+      spec.scopes.equals(this.scopes) &&
+      spec.lifetime.equals(this.lifetime)
     );
   }
 
-  private guardWithin(grantor: Grantor): void {
-    if (!grantor.covers(this.scopes)) {
-      throw new TokenTrustBeyondGrantorError(this.key.value);
+  private guardWithin(scopeCeiling: ScopeCeiling): void {
+    if (!scopeCeiling.allows(this.scopes)) {
+      throw new ScopesExceedCallerError(this.key.value);
     }
   }
 

@@ -1,4 +1,4 @@
-import type { CredentialSourceKeys } from '@runners/domain/services/runner-drift';
+import type { CredentialSourceKeys } from '@runners/domain/services/dangling-keys';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const RUNNER_RESOURCES = Symbol('RUNNER_RESOURCES');

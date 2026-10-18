@@ -24,9 +24,9 @@ import (
 
 	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
-	"usespotlight.ai/data-plane/egressing/authority"
-	"usespotlight.ai/data-plane/egressing/guard"
-	"usespotlight.ai/data-plane/egressing/seal/sealtest"
+	"usespotlight.ai/data-plane/egresskit/authority"
+	"usespotlight.ai/data-plane/egresskit/guard"
+	"usespotlight.ai/data-plane/egresskit/seal/sealtest"
 	"usespotlight.ai/data-plane/protocol"
 )
 
@@ -688,8 +688,8 @@ func TestReadsItsSettingsFromTheEnvironment(t *testing.T) {
 	t.Setenv(envURL, "https://spotlight.example.com")
 	t.Setenv(envToken, "egress-token")
 	t.Setenv(envAllow, "api.anthropic.com, *.example.com")
-	t.Setenv(envRate, "20")
-	t.Setenv(envConnections, "10")
+	t.Setenv(envRateLimit, "20")
+	t.Setenv(envMaxConnections, "10")
 
 	settings, err := Load()
 	if err != nil {
@@ -707,10 +707,10 @@ func TestSaysWhatIsWrongWithItsSettings(t *testing.T) {
 	t.Setenv(envURL, "spotlight")
 	t.Setenv(envToken, "")
 	t.Setenv(envCertificate, "/tmp/cert.pem")
-	t.Setenv(envRate, "fast")
+	t.Setenv(envRateLimit, "fast")
 
 	_, err := Load()
-	for _, named := range []string{envURL, envToken, envKey, envRate} {
+	for _, named := range []string{envURL, envToken, envKey, envRateLimit} {
 		if err == nil || !strings.Contains(err.Error(), named) {
 			t.Errorf("does not name %s: %v", named, err)
 		}

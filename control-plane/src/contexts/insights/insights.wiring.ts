@@ -10,9 +10,9 @@ import { GradeRunCommand } from '@insights/application/commands/grade-run.comman
 import { GradeRunHandler } from '@insights/application/commands/handlers/grade-run.handler';
 import { INSIGHTS_EVENT_MAPPERS } from '@insights/application/integration-events/insights.event-mappers';
 import {
-  ALERT_ASIDES,
-  type AlertAsidesPort,
-} from '@insights/application/ports/alert-asides.port';
+  ALERT_INBOX_REQUESTS,
+  type AlertInboxRequestsPort,
+} from '@insights/application/ports/alert-inbox-requests.port';
 import { CHANGE_JUDGING } from '@insights/application/ports/change-judging.port';
 import {
   EVIDENCE,
@@ -86,7 +86,7 @@ import { ReadStationJudgeQuery } from '@insights/application/queries/read-statio
 import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { CheckRunFacts } from '@insights/application/services/check-run-facts.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
-import { GradeAsides } from '@insights/application/services/grade-asides.service';
+import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { PurgeExpiredTombstones } from '@insights/application/services/purge-expired-tombstones.service';
 import { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
@@ -121,7 +121,7 @@ import { WorkChangeJudgings } from '@insights/application/services/work-change-j
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import { WorkSideBySideJudgings } from '@insights/application/services/work-side-by-side-judgings.service';
 import { INSIGHTS_PAYLOAD_TYPES } from '@insights/domain/payload-types';
-import { AlertAsides } from '@insights/infrastructure/acl/alert-asides.adapter';
+import { AlertInboxRequests } from '@insights/infrastructure/acl/alert-inbox-requests.adapter';
 import { Evidence } from '@insights/infrastructure/acl/evidence.adapter';
 import { Grades } from '@insights/infrastructure/acl/grades.adapter';
 import { MemoryUse } from '@insights/infrastructure/acl/memory-use.adapter';
@@ -187,6 +187,10 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import {
+  INBOX_REQUESTS,
+  type InboxRequestsPort,
+} from '@work/application/ports/inbox-requests.port';
+import {
   LINE_RESOURCES,
   type LineResourcesPort,
 } from '@work/application/ports/line-resources.port';
@@ -199,10 +203,6 @@ import {
   STATION_RUNS,
   type StationRunsPort,
 } from '@work/application/ports/station-runs.port';
-import {
-  TASK_ASIDES,
-  type TaskAsidesPort,
-} from '@work/application/ports/task-asides.port';
 
 const INSIGHTS_EVENTS = Symbol('INSIGHTS_EVENTS');
 
@@ -236,13 +236,14 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: GRADES,
-    inject: [TASK_ASIDES],
-    useFactory: (asides: TaskAsidesPort) => new Grades(asides),
+    inject: [INBOX_REQUESTS],
+    useFactory: (inboxRequests: InboxRequestsPort) => new Grades(inboxRequests),
   },
   {
-    provide: ALERT_ASIDES,
-    inject: [TASK_ASIDES],
-    useFactory: (asides: TaskAsidesPort) => new AlertAsides(asides),
+    provide: ALERT_INBOX_REQUESTS,
+    inject: [INBOX_REQUESTS],
+    useFactory: (inboxRequests: InboxRequestsPort) =>
+      new AlertInboxRequests(inboxRequests),
   },
   {
     provide: MEMORY_USE,
@@ -395,11 +396,11 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: AlertInbox,
-    inject: [ALERT_ASIDES, DrizzleStationAlertStateRepository],
+    inject: [ALERT_INBOX_REQUESTS, DrizzleStationAlertStateRepository],
     useFactory: (
-      asides: AlertAsidesPort,
+      inboxRequests: AlertInboxRequestsPort,
       alertStates: DrizzleStationAlertStateRepository,
-    ) => new AlertInbox(asides, alertStates),
+    ) => new AlertInbox(inboxRequests, alertStates),
   },
   ...bindQueryHandler(ReadInsightsOverviewQuery, ReadInsightsOverviewHandler, [
     TeamScopes,
@@ -681,9 +682,9 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     ) => new RecordJudgeScore(judgings, scores, transaction, ids),
   },
   {
-    provide: GradeAsides,
+    provide: GradeInboxRequests,
     inject: [GRADES],
-    useFactory: (grades: GradesPort) => new GradeAsides(grades),
+    useFactory: (grades: GradesPort) => new GradeInboxRequests(grades),
   },
   {
     provide: RecordRunEnding,
@@ -951,7 +952,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       DeleteInsights,
       RequestJudging,
       RecordJudgeScore,
-      GradeAsides,
+      GradeInboxRequests,
       RecordRunUsageSummary,
       RecordRunMemories,
       RecordStationPass,
@@ -978,7 +979,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       deleting: DeleteInsights,
       judging: RequestJudging,
       scoring: RecordJudgeScore,
-      grading: GradeAsides,
+      grading: GradeInboxRequests,
       recordingUsage: RecordRunUsageSummary,
       remembering: RecordRunMemories,
       passing: RecordStationPass,

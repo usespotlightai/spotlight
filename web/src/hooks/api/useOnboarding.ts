@@ -1,6 +1,6 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import { type OnboardingResponseDto, readOnboarding } from '@/lib/api';
-import { provisioningPollFor } from '@/lib/provisioning';
+import { setupStatusPollFor } from '@/lib/setup-status';
 
 const onboardingKeys = {
   forTeam: (teamId?: string) => ['onboarding', teamId ?? null] as const,
@@ -9,7 +9,7 @@ const onboardingKeys = {
 const POLL_MS = 10_000;
 
 const provisioningPoll = (onboarding: OnboardingResponseDto | undefined) =>
-  provisioningPollFor(onboarding?.provisioning);
+  setupStatusPollFor(onboarding?.provisioning);
 
 const onboardingQuery = (teamId: string | undefined) =>
   queryOptions({

@@ -36,7 +36,7 @@ func TestReadsItsAssignmentAndLeavesNoCredentialBehind(t *testing.T) {
 	path := assignmentFile(t, protocol.Assignment{
 		RunnerID: "runner_1",
 		Token:    "one-run",
-		Work:     protocol.Claimed{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "run_1"}},
+		Work:     protocol.ClaimResponse{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "run_1"}},
 	})
 
 	assigned, err := assignment(context.Background(), config.Config{AssignmentFile: path}, "test", nil, quiet)
@@ -73,16 +73,16 @@ func TestAPushRunnerRegistersThenClaimsWhatWasReservedForIt(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/api/runners/harnesses":
-			_ = json.NewEncoder(w).Encode([]protocol.Installable{})
+			_ = json.NewEncoder(w).Encode([]protocol.HarnessProbe{})
 		case "/api/runners/register":
 			_ = json.NewDecoder(r.Body).Decode(&registered)
-			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_9"})
+			_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_9"})
 		case "/api/runners/claim":
 			if polls.Add(1) == 1 {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(protocol.Claimed{
+			_ = json.NewEncoder(w).Encode(protocol.ClaimResponse{
 				Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "run_7"},
 			})
 		default:

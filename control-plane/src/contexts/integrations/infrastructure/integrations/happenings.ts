@@ -5,7 +5,10 @@ import type {
   RaiseIR,
   RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
-import { type Bindings, bound } from '@platform/expressions/bindings';
+import {
+  type CelVariables,
+  sanitizedForCel,
+} from '@platform/expressions/cel-variables';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type {
@@ -16,20 +19,23 @@ import type {
 
 const identity = async (
   _event: EventIR,
-  against: Bindings,
-): Promise<Bindings> => against;
+  against: CelVariables,
+): Promise<CelVariables> => against;
 
 export type Fetching = (
   request: RequestIR,
-  against: Bindings,
+  against: CelVariables,
 ) => Promise<Uint8Array>;
 
 export const readEvents = async (
   events: readonly EventIR[],
   declaring: (happening: string) => DeclaredHappening | null,
-  against: Bindings,
-  ourOwn: (against: Bindings) => boolean,
-  enrich: (event: EventIR, against: Bindings) => Promise<Bindings> = identity,
+  against: CelVariables,
+  ourOwn: (against: CelVariables) => boolean,
+  enrich: (
+    event: EventIR,
+    against: CelVariables,
+  ) => Promise<CelVariables> = identity,
   fetching: Fetching | null = null,
 ): Promise<Happened[]> => {
   const raised: Happened[] = [];
@@ -46,7 +52,7 @@ export const readEvents = async (
 
       if (Array.isArray(list)) {
         for (const item of list) {
-          const per = { ...against, item: bound(item) };
+          const per = { ...against, item: sanitizedForCel(item) };
 
           if (isTrue(event.when, per)) {
             const filled = await enrich(event, per);
@@ -79,7 +85,7 @@ export const readEvents = async (
 
 const arriving = (
   attachments: AttachmentsIR,
-  against: Bindings,
+  against: CelVariables,
   fetching: Fetching,
 ): Arriving[] => {
   const files = value(attachments.each, against);
@@ -89,7 +95,7 @@ const arriving = (
   }
 
   return files.flatMap((file) => {
-    const per = { ...against, file: bound(file) };
+    const per = { ...against, file: sanitizedForCel(file) };
     const name = evaluateText(attachments.name, per);
     const size = attachments.size
       ? Number(value(attachments.size, per))
@@ -113,7 +119,7 @@ const arriving = (
 const raiseFrom = (
   raise: RaiseIR,
   declared: DeclaredHappening,
-  against: Bindings,
+  against: CelVariables,
   ourOwn: boolean,
   fetching: Fetching | null,
 ): Happened => {
@@ -153,7 +159,7 @@ const raiseFrom = (
     summary: declared.summary,
     answers: declared.answers,
     state: 'raised',
-    concerns: { branch, marks: finding },
+    correlationKeys: { branch, marks: finding },
     message: messageText ? { body: messageText } : null,
     ourOwn,
     opens:

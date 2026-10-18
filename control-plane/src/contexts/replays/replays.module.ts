@@ -8,7 +8,7 @@ import {
   REPLAYS_PROVIDERS,
 } from '@replays/replays.wiring';
 import { SEARCH_AGENTS } from '@work/application/ports/search-agents.port';
-import { SEARCH_SIGHT } from '@work/application/ports/search-sight.port';
+import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
 import { WorkModule } from '@work/work.module';
 
 @Module({
@@ -21,6 +21,6 @@ import { WorkModule } from '@work/work.module';
   ],
   controllers: [...REPLAYS_CONTROLLERS],
   providers: [...REPLAYS_PROVIDERS],
-  exports: [SEARCH_AGENTS, SEARCH_SIGHT],
+  exports: [SEARCH_AGENTS, SEARCH_VISIBILITY],
 })
 export class ReplaysModule {}

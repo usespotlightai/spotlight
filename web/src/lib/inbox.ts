@@ -283,19 +283,19 @@ export const shownAt = (
   notes.find((note) => runId && note.runId === runId)?.position ?? null;
 
 export const previewOf = (item: InboxItem): string => {
-  if (item.aside?.form === 'memories') {
+  if (item.inboxRequest?.form === 'memories') {
     return item.resolved
       ? 'Proposed memories decided.'
       : 'A run proposed memories for the team.';
   }
 
-  if (item.aside?.form === 'alert') {
+  if (item.inboxRequest?.form === 'alert') {
     return item.resolved
       ? 'Station back within its alert threshold.'
       : 'Station crossed an alert threshold.';
   }
 
-  if (item.aside?.form === 'grade') {
+  if (item.inboxRequest?.form === 'grade') {
     return item.resolved
       ? 'Run graded.'
       : 'A judged run needs your grade. Grades check the judge.';

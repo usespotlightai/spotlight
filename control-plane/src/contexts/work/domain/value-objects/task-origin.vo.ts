@@ -22,7 +22,7 @@ export class TaskOrigin {
     if (raw !== PERSON && !INTEGRATION.test(raw)) {
       throw new InconsistentStateError(
         'task',
-        'was raised by a person or received from an integration it names',
+        'was created by a person or received from an integration it names',
       );
     }
 

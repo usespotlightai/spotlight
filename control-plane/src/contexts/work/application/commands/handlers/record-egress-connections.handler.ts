@@ -78,14 +78,14 @@ export class RecordEgressConnectionsHandler
       let recorded = 0;
 
       for (const [credential, records] of byCredential) {
-        const recording = await this.egress.recordsThrough(
+        const recording = await this.egress.runnerForConnectionRecords(
           shared,
           credential,
           this.clock.now(),
         );
         const attempt =
           recording?.work?.kind === 'run'
-            ? await this.fetches.attemptWorkedBy(
+            ? await this.fetches.attemptClaimedBy(
                 RunId.of(recording.work.id),
                 RunnerId.of(recording.runnerId),
                 recording.workspaceId,

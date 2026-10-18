@@ -6,7 +6,7 @@ export type StationJudgeField =
   | 'minAgreement';
 
 export class InvalidStationJudgeError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
     readonly field: StationJudgeField,

@@ -46,7 +46,7 @@ import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -149,7 +149,7 @@ export class Replay extends EventRecorder {
     baseline: boolean;
     ceiling: Money;
     at: Date;
-    by: Attribution;
+    by: ChangeActor;
     wanting?: WantedBaseline | null;
     runSubset?: readonly RunId[];
     repeats?: number;
@@ -909,7 +909,7 @@ export class Replay extends EventRecorder {
       : this.with({ entries });
   }
 
-  stop(at: Date, by: Attribution): Replay {
+  stop(at: Date, by: ChangeActor): Replay {
     if (this.state.stoppedAt || !this.isInProgress) {
       throw new ReplayEndedError(this.id.value);
     }

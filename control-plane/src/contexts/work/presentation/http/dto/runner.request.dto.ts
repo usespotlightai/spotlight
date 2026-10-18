@@ -52,7 +52,7 @@ export class CompleteRunRequestDto {
     description:
       'With failed: it failed before the agent was handed the run, while the runner made its workspace ready',
   })
-  readonly unprepared?: boolean;
+  readonly setupFailed?: boolean;
 
   @ApiPropertyOptional({
     example: false,
@@ -84,7 +84,7 @@ export class CompleteRunRequestDto {
   @ApiPropertyOptional({
     example: true,
     description:
-      'The workspace archive is sealed as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.',
+      'The workspace archive is complete as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.',
   })
   readonly archived?: boolean;
 }
@@ -100,7 +100,7 @@ export class EnqueueRunRequestDto {
   @ApiProperty({
     description:
       'Sent to the runner unchanged: checkouts, briefing, handover and ' +
-      'continuity. The command is filled in from the harness, so it is not ' +
+      'resume. The command is filled in from the harness, so it is not ' +
       'sent here.',
     example: {
       checkouts: [

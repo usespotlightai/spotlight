@@ -1,10 +1,10 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type {
-  EgressFor,
+  EgressAuthentication,
   RunnerEgressPort,
   SharedEgress,
-  SharedEgressFor,
+  SharedEgressAuthentication,
 } from '@runners/application/ports/runner-egress.port';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
@@ -30,7 +30,7 @@ export class RunnerEgress implements RunnerEgressPort {
   async authenticate(
     token: string | undefined,
     at: Date,
-  ): Promise<EgressFor | null> {
+  ): Promise<EgressAuthentication | null> {
     if (!token) {
       return null;
     }
@@ -38,7 +38,7 @@ export class RunnerEgress implements RunnerEgressPort {
     const runner = await this.runners.findByEgressTokenHash(
       TokenHash.of(this.tokens.hash(token)),
     );
-    const work = runner?.workEgressActsFor(at);
+    const work = runner?.authenticateEgressToken(at);
 
     return runner && work
       ? {
@@ -73,29 +73,29 @@ export class RunnerEgress implements RunnerEgressPort {
     egress: SharedEgress,
     proxyCredential: string,
     at: Date,
-  ): Promise<SharedEgressFor | null> {
-    return this.through(egress, proxyCredential, (runner) =>
+  ): Promise<SharedEgressAuthentication | null> {
+    return this.resolveRunner(egress, proxyCredential, (runner) =>
       runner.isAlive(at) ? { work: runner.work } : null,
     );
   }
 
-  recordsThrough(
+  runnerForConnectionRecords(
     egress: SharedEgress,
     proxyCredential: string,
     at: Date,
-  ): Promise<SharedEgressFor | null> {
-    return this.through(egress, proxyCredential, (runner) => {
-      const work = runner.workEgressRecordsFor(at);
+  ): Promise<SharedEgressAuthentication | null> {
+    return this.resolveRunner(egress, proxyCredential, (runner) => {
+      const work = runner.workForConnectionRecords(at);
 
       return work ? { work } : null;
     });
   }
 
-  private async through(
+  private async resolveRunner(
     egress: SharedEgress,
     proxyCredential: string,
-    actsFor: (runner: Runner) => { work: RunnerWork | null } | null,
-  ): Promise<SharedEgressFor | null> {
+    workOf: (runner: Runner) => { work: RunnerWork | null } | null,
+  ): Promise<SharedEgressAuthentication | null> {
     if (!proxyCredential) {
       return null;
     }
@@ -103,22 +103,22 @@ export class RunnerEgress implements RunnerEgressPort {
     const runner = await this.runners.findByProxyCredentialHash(
       TokenHash.of(this.tokens.hash(proxyCredential)),
     );
-    const acting = runner ? actsFor(runner) : null;
-    const poolId = acting ? runner?.source.poolId : null;
+    const active = runner ? workOf(runner) : null;
+    const poolId = active ? runner?.source.poolId : null;
     const pool = poolId ? await this.pools.find(poolId) : null;
     const through = EgressReference.of(egress.egressId);
 
     if (
       !runner ||
-      !acting ||
+      !active ||
       !pool?.belongsTo(runner.workspaceId) ||
-      !pool.goesOutThrough(through) ||
+      !pool.usesEgress(through) ||
       !(await this.servesIn(through, runner.workspaceId))
     ) {
       return null;
     }
 
-    const { work } = acting;
+    const { work } = active;
 
     return {
       egressId: through.value,

@@ -44,8 +44,10 @@ function setup(
 
   const read = vi.fn().mockResolvedValue(options.session ? USER : null);
   const sessions = { read } as unknown as SessionReaderPort;
-  const identify = vi.fn().mockResolvedValue(options.known ? TOKEN : null);
-  const tokens = { identify } satisfies WorkspaceTokenIdentityPort;
+  const authenticate = vi.fn().mockResolvedValue(options.known ? TOKEN : null);
+  const tokens = {
+    authenticate,
+  } satisfies WorkspaceTokenIdentityPort;
 
   const request: Record<string | symbol, unknown> = {
     headers: {
@@ -63,7 +65,7 @@ function setup(
     guard: new AuthenticatedGuard(reflector, sessions, tokens),
     context,
     read,
-    identify,
+    authenticate,
     request,
   };
 }
@@ -96,14 +98,14 @@ describe('AuthenticatedGuard', () => {
   });
 
   it('accepts a workspace token where the route allows tokens, as that token', async () => {
-    const { guard, context, request, identify, read } = setup({
+    const { guard, context, request, authenticate, read } = setup({
       allowsTokens: true,
       bearer: 'abc',
       known: true,
     });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(identify).toHaveBeenCalledWith('abc');
+    expect(authenticate).toHaveBeenCalledWith('abc');
     expect(read).not.toHaveBeenCalled();
     expect(request[REQUEST_PRINCIPAL]).toBe(TOKEN);
   });
@@ -122,7 +124,7 @@ describe('AuthenticatedGuard', () => {
   });
 
   it('never takes a workspace token on a route that allows only people', async () => {
-    const { guard, context, identify } = setup({
+    const { guard, context, authenticate } = setup({
       bearer: 'abc',
       known: true,
     });
@@ -130,6 +132,6 @@ describe('AuthenticatedGuard', () => {
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
-    expect(identify).not.toHaveBeenCalled();
+    expect(authenticate).not.toHaveBeenCalled();
   });
 });

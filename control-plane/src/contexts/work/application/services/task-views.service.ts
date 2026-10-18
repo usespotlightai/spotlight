@@ -23,8 +23,8 @@ import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-c
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
-import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { repositoriesForTask } from '@work/domain/services/task-checkouts';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -70,11 +70,14 @@ export class TaskViews implements TaskViewsPort, TaskNotesFromHooksPort {
     workspaceId: string,
     pullRequest: string,
   ): Promise<TaskViewDto | null> {
-    const concerns = Concerns.of({
+    const correlationKeys = CorrelationKeys.of({
       marks: [Mark.pullRequest(PullRequestUrl.of(pullRequest))],
     });
-    const task = concerns
-      ? await this.tasks.findByMarks(WorkspaceId.of(workspaceId), concerns)
+    const task = correlationKeys
+      ? await this.tasks.findByMarks(
+          WorkspaceId.of(workspaceId),
+          correlationKeys,
+        )
       : null;
 
     return task ? this.viewOf(task, task.currentRunId?.value ?? null) : null;
@@ -235,7 +238,7 @@ export class TaskViews implements TaskViewsPort, TaskNotesFromHooksPort {
       marks: Object.fromEntries(
         task.marks.map((mark) => [mark.kind, mark.value]),
       ),
-      repositories: repositoriesWorkedOn(task, line).map((each) => each.value),
+      repositories: repositoriesForTask(task, line).map((each) => each.value),
       pullRequest: task.pullRequest?.value ?? null,
       runId,
     };

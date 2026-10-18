@@ -19,11 +19,11 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const membership = (administers = true): WorkspaceMembership => ({
+const membership = (isAdmin = true): WorkspaceMembership => ({
   workspaceId: WorkspaceId.of('ws_1'),
   slug: 'acme',
   viewer: UserId.of('user_1'),
-  administers,
+  isAdmin,
 });
 
 const connecting = (

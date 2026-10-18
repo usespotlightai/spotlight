@@ -199,8 +199,8 @@ describe('a person moving a task by hand', () => {
       workspaceId: team.workspaceId.value,
       stationId,
       title: 'Drain the queue',
-      raisedAtStationId: stationId,
-      raisedById: team.owner.value,
+      originStationId: stationId,
+      createdById: team.owner.value,
       assigneeId: team.owner.value,
     });
 

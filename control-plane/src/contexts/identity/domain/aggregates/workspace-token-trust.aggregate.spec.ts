@@ -1,16 +1,16 @@
 import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { WorkspaceTokenExpired } from '@identity/domain/events/workspace-token-expired.event';
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
-import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
+import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
-import { Grantor } from '@identity/domain/value-objects/grantor.vo';
+import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
@@ -25,11 +25,11 @@ const NOW = new Date('2026-09-25T10:00:00.000Z');
 const ID = WorkspaceTokenTrustId.of('trust_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const ADMIN = UserId.of('admin_1');
-const BY = attributedIn('ws_1');
+const BY = changeActorIn('ws_1');
 const ISSUER = 'https://token.actions.githubusercontent.com';
 const MAIN = 'repo:acme/platform:ref:refs/heads/main';
 
-const terms = (
+const spec = (
   over: Partial<{ key: string; scopes: string[]; minutes: number }> = {},
 ) => ({
   key: TokenTrustKey.of(over.key ?? 'github-main'),
@@ -45,7 +45,7 @@ const terms = (
 
 const stored = (version = 2) =>
   WorkspaceTokenTrust.rehydrate({
-    ...terms(),
+    ...spec(),
     id: ID,
     workspaceId: WORKSPACE,
     createdBy: ADMIN,
@@ -56,7 +56,7 @@ const workload = (subject = MAIN): WorkloadClaims => ({
   issuer: ISSUER,
   subject,
   audiences: ['spotlight'],
-  named: {},
+  customClaims: {},
 });
 
 const issuedToken = (trust = stored(), claims = workload()) =>
@@ -70,11 +70,11 @@ const issuedToken = (trust = stored(), claims = workload()) =>
 describe('WorkspaceTokenTrust', () => {
   it('says it was created, by whom, and remembers who created it', () => {
     const created = WorkspaceTokenTrust.create({
-      ...terms(),
+      ...spec(),
       id: ID,
       workspaceId: WORKSPACE,
       createdBy: ADMIN,
-      grantor: Grantor.unlimited,
+      scopeCeiling: ScopeCeiling.unlimited,
       by: BY,
     });
 
@@ -129,19 +129,19 @@ describe('WorkspaceTokenTrust', () => {
     expect(token.trustVersion).toBe(2);
     expect(stored(2).stillGrants(token)).toBe(true);
     expect(stored(3).stillGrants(token)).toBe(false);
-    expect(stored(2).delete(Grantor.unlimited, BY).stillGrants(token)).toBe(
-      false,
-    );
+    expect(
+      stored(2).delete(ScopeCeiling.unlimited, BY).stillGrants(token),
+    ).toBe(false);
   });
 
   it('changes nothing, and so cuts no token, when updated to what it already is', () => {
     const trust = stored();
 
-    expect(trust.update(terms(), Grantor.unlimited, BY)).toBe(trust);
+    expect(trust.update(spec(), ScopeCeiling.unlimited, BY)).toBe(trust);
     expect(trust.pullEvents()).toEqual([]);
     expect(
       stored()
-        .update(terms({ minutes: 5 }), Grantor.unlimited, BY)
+        .update(spec({ minutes: 5 }), ScopeCeiling.unlimited, BY)
         .pullEvents()
         .map((each) => each.kind),
     ).toEqual(['workspace-token-trust.updated']);
@@ -150,32 +150,32 @@ describe('WorkspaceTokenTrust', () => {
   it('grants no scope beyond those of a token creating or updating it', () => {
     const defining = (scopes: string[]) =>
       WorkspaceTokenTrust.create({
-        ...terms(),
+        ...spec(),
         id: ID,
         workspaceId: WORKSPACE,
         createdBy: ADMIN,
-        grantor: Grantor.withScopes(TokenScopes.named(scopes)),
+        scopeCeiling: ScopeCeiling.withScopes(TokenScopes.named(scopes)),
         by: BY,
       });
 
     expect(() => defining(['configure', 'trusts'])).toThrow(
-      TokenTrustBeyondGrantorError,
+      ScopesExceedCallerError,
     );
     expect(defining(['configure', 'secrets', 'trusts']).scopes.toString()).toBe(
       'configure, secrets',
     );
     expect(() =>
       stored().update(
-        terms({ scopes: ['plan'] }),
-        Grantor.withScopes(TokenScopes.named(['configure', 'trusts'])),
+        spec({ scopes: ['plan'] }),
+        ScopeCeiling.withScopes(TokenScopes.named(['configure', 'trusts'])),
         BY,
       ),
-    ).toThrow(TokenTrustBeyondGrantorError);
+    ).toThrow(ScopesExceedCallerError);
     expect(
       stored()
         .update(
-          terms({ scopes: ['plan'] }),
-          Grantor.withScopes(
+          spec({ scopes: ['plan'] }),
+          ScopeCeiling.withScopes(
             TokenScopes.named(['configure', 'secrets', 'trusts']),
           ),
           BY,
@@ -184,16 +184,16 @@ describe('WorkspaceTokenTrust', () => {
     ).toBe('plan');
   });
 
-  it('is deleted only by a grantor with every scope it grants', () => {
+  it('is deleted only by a caller whose scope ceiling has every scope it grants', () => {
     expect(() =>
       stored().delete(
-        Grantor.withScopes(TokenScopes.named(['plan', 'trusts'])),
+        ScopeCeiling.withScopes(TokenScopes.named(['plan', 'trusts'])),
         BY,
       ),
-    ).toThrow(TokenTrustBeyondGrantorError);
+    ).toThrow(ScopesExceedCallerError);
     expect(
       stored().delete(
-        Grantor.withScopes(
+        ScopeCeiling.withScopes(
           TokenScopes.named(['configure', 'secrets', 'trusts']),
         ),
         BY,
@@ -203,7 +203,11 @@ describe('WorkspaceTokenTrust', () => {
 
   it('keeps its key for life', () => {
     expect(() =>
-      stored().update(terms({ key: 'github-release' }), Grantor.unlimited, BY),
+      stored().update(
+        spec({ key: 'github-release' }),
+        ScopeCeiling.unlimited,
+        BY,
+      ),
     ).toThrow(ImmutableFieldError);
   });
 
@@ -214,13 +218,13 @@ describe('WorkspaceTokenTrust', () => {
   });
 
   it('matches nothing, and cannot change, once deleted', () => {
-    const deleted = stored().delete(Grantor.unlimited, BY);
+    const deleted = stored().delete(ScopeCeiling.unlimited, BY);
 
     expect(deleted.matches(workload())).toBe(false);
     expect(deleted.pullEvents().map((each) => each.kind)).toEqual([
       'workspace-token-trust.deleted',
     ]);
-    expect(() => deleted.delete(Grantor.unlimited, BY)).toThrow(
+    expect(() => deleted.delete(ScopeCeiling.unlimited, BY)).toThrow(
       InconsistentStateError,
     );
   });

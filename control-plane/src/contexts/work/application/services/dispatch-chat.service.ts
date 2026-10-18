@@ -5,8 +5,8 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
+  REMOTE_VIA_GIT_PROXY,
   RunSpecContract,
-  THROUGH_SPOTLIGHT,
   TRACE_PARENT_VAR,
 } from '@work/application/contracts/run-spec.contract';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
@@ -76,7 +76,7 @@ export class DispatchChat implements ChatDispatching {
       return false;
     }
 
-    const continuity = chat.continuity();
+    const resume = chat.resume();
     const id = runId;
     const lines =
       chat.repositories.length > 0 ? await this.lines.ofTeam(chat.teamId) : [];
@@ -86,7 +86,7 @@ export class DispatchChat implements ChatDispatching {
       return false;
     }
 
-    const memories = continuity.sessionId
+    const memories = resume.sessionId
       ? NOTHING_REMEMBERED
       : await this.savepoint
           .inSavepoint(() =>
@@ -106,7 +106,7 @@ export class DispatchChat implements ChatDispatching {
             );
             return NOTHING_REMEMBERED;
           });
-    const briefing = continuity.sessionId
+    const briefing = resume.sessionId
       ? ChatBriefing.followUp(chat, handed)
       : await this.briefed(chat, memories.briefed, memories.folder);
 
@@ -126,7 +126,7 @@ export class DispatchChat implements ChatDispatching {
           const setup = chatSetupOf(repository, lines);
 
           return {
-            remote: THROUGH_SPOTLIGHT,
+            remote: REMOTE_VIA_GIT_PROXY,
             path: repository.name,
             ...(setup ? { setup: setup.value } : {}),
           };
@@ -136,7 +136,7 @@ export class DispatchChat implements ChatDispatching {
         }),
         briefing,
         handover: { options: [], noteLimit: 0 },
-        continuity: RunSpecContract.continuityOf(continuity),
+        resume: RunSpecContract.resumeOf(resume),
         manifest: builtInToolsForChat(chat.setup !== null).map((each) =>
           toolManifestOf(each.declared),
         ),

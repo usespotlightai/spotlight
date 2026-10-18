@@ -16,7 +16,7 @@ import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -137,7 +137,7 @@ describe('RecordChangeStackCheckHandler', () => {
     const stack = ready();
     const leased = checkFor(stack).claimedFor(
       RunnerId.of('runner_1'),
-      RunnerTerms.none(),
+      RunnerOffer.none(),
       LATER,
     );
     const { handler, saved } = recording(stack, leased);
@@ -152,7 +152,7 @@ describe('RecordChangeStackCheckHandler', () => {
     const stack = ready();
     const leased = checkFor(stack).claimedFor(
       RunnerId.of('runner_1'),
-      RunnerTerms.none(),
+      RunnerOffer.none(),
       LATER,
     );
     const { handler, saved } = recording(stack, leased);

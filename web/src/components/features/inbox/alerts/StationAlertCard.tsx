@@ -12,7 +12,7 @@ import { PillLink } from '@/components/shared/PillLink';
 import { useLines } from '@/hooks/api/useLines';
 import { useStationAlert } from '@/hooks/api/useStationAlert';
 import { notFound } from '@/lib/error';
-import { formatStation, improvingOf, stationNamesOf } from '@/lib/insights';
+import { formatStation, stationNamesOf, targetStationOf } from '@/lib/insights';
 import { formatDay } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 import { stationPath } from '@/lib/station';
@@ -104,7 +104,7 @@ export function StationAlertCard({
           <ImproveStationLink
             slug={slug}
             teamId={teamId}
-            improving={improvingOf(named)}
+            targetStation={targetStationOf(named)}
           />
         )}
       </div>

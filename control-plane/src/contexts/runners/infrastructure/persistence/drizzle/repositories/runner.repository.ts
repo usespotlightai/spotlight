@@ -80,7 +80,7 @@ const toRunner = (row: Row): Runner =>
     installed: row.harnesses.map((id) =>
       InstalledHarness.of(
         HarnessId.of(id),
-        row.advertisedModels[id].map(HarnessModel.of),
+        row.supportedModels[id].map(HarnessModel.of),
         row.harnessVersions[id]
           ? HarnessVersion.of(row.harnessVersions[id])
           : null,
@@ -100,7 +100,7 @@ const toRunner = (row: Row): Runner =>
 
 const columnsOf = (runner: Runner) => ({
   harnesses: runner.installed.map((each) => each.id.value),
-  advertisedModels: Object.fromEntries(
+  supportedModels: Object.fromEntries(
     runner.installed.map((each) => [
       each.id.value,
       each.models.map((model) => model.value),

@@ -72,7 +72,7 @@ export const runnersPath = (slug: string) => `${settingsPath(slug)}/runners`;
 export const addHostPath = (slug: string) => `${runnersPath(slug)}/new`;
 
 export const installCommand = (token: string) =>
-  `curl -fsSL ${window.location.origin}/api/install.sh | SPOTLIGHT_TOKEN=${token} sh`;
+  `curl -fsSL ${window.location.origin}/api/install.sh | SPOTLIGHT_POOL_TOKEN=${token} sh`;
 
 export const onlineCount = (fleet: Fleet) =>
   fleet.hosts.filter((host) => host.online).length;

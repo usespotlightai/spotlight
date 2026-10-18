@@ -29,9 +29,9 @@ export function InviteDialog({
   const [round, setRound] = useState(0);
   const sending = invite.isPending;
 
-  const send = (terms: InviteToWorkspaceRequestDto) => {
+  const send = (spec: InviteToWorkspaceRequestDto) => {
     if (slug && !sending) {
-      invite.mutate(terms, { onSuccess: setSent });
+      invite.mutate(spec, { onSuccess: setSent });
     }
   };
 

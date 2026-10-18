@@ -38,7 +38,7 @@ const claimed = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task_1:station_1' },
+      resume: { key: 'task_1:station_1' },
     }),
   }).claim(RUNNER, NOW);
 
@@ -80,10 +80,10 @@ describe('a run that asks a person', () => {
     });
 
     it('remembers the session it paused in, for a runner that takes it up later', () => {
-      expect(waiting().spec.value.continuity).toEqual({
+      expect(waiting().spec.value.resume).toEqual({
         key: 'task_1:station_1',
         sessionId: 'session_1',
-        resumes: true,
+        resumeSession: true,
       });
       expect(waiting().restoresFrom?.value).toBe('task_1:station_1');
     });
@@ -212,7 +212,7 @@ describe('a run that asks a person', () => {
       expect(run.state).toBe('queued');
       expect(run.attempt).toBe(2);
       expect(run.suspendedAttempts).toEqual([1]);
-      expect(run.spec.resumes).toBe(true);
+      expect(run.spec.resumesSession).toBe(true);
       expect(run.restoresFrom?.value).toBe('task_1:station_1');
       expect(lastEvent(run)).toEqual(
         new RunResumed(
@@ -273,7 +273,7 @@ describe('a run that asks a person', () => {
     expect(run.state).toBe('queued');
     expect(run.attempt).toBe(2);
     expect(run.suspendedAttempts).toEqual([1]);
-    expect(run.spec.resumes).toBe(true);
+    expect(run.spec.resumesSession).toBe(true);
     expect(lastEvent(run)).toBeInstanceOf(RunSuspended);
   });
 

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -566,7 +566,7 @@ describe('a line, created through the resource API (e2e)', () => {
     let next = 0;
     const newLine = (key: string) =>
       Line.create({
-        by: attributedIn(),
+        by: changeActorIn(),
         workspaceId: WorkspaceId.of(teamId),
         teamId: TeamId.of(teamId),
         line: { ...opening, key: LineKey.of(key) },

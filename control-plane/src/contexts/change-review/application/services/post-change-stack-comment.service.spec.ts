@@ -123,7 +123,7 @@ const posting = (
           isSearch: false,
         };
       },
-      wasWorkedBy: async () => true,
+      wasClaimedBy: async () => true,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => {

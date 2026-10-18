@@ -31,8 +31,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: OPENING_PULL_REQUESTS,
     declared: DeclaredTool.of({
       tool: PULL_REQUEST,
-      description:
-        'Open a pull request for the branch this task was worked on.',
+      description: 'Open a pull request for the branch of this task.',
       inputs: [
         {
           name: 'title',

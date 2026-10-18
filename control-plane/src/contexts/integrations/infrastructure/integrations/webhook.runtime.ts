@@ -28,7 +28,10 @@ import {
   textOf,
 } from '@integrations/infrastructure/integrations/templating';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
-import { type Bindings, bound } from '@platform/expressions/bindings';
+import {
+  type CelVariables,
+  sanitizedForCel,
+} from '@platform/expressions/cel-variables';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -305,7 +308,10 @@ export class WebhookRuntime implements WebhookProviderPort {
     );
   }
 
-  private async enriched(event: EventIR, against: Bindings): Promise<Bindings> {
+  private async enriched(
+    event: EventIR,
+    against: CelVariables,
+  ): Promise<CelVariables> {
     if (!event.lookup) {
       return against;
     }
@@ -330,7 +336,7 @@ export class WebhookRuntime implements WebhookProviderPort {
       return against;
     }
 
-    const beside = { ...against, response: bound(result.response) };
+    const beside = { ...against, response: sanitizedForCel(result.response) };
     const captured: Record<string, unknown> = {};
 
     for (const each of event.lookup.capture) {
@@ -350,8 +356,8 @@ export class WebhookRuntime implements WebhookProviderPort {
 
   private bindings(delivered: Delivered): Record<string, unknown> {
     return {
-      body: bound(delivered.body ?? {}),
-      headers: bound(delivered.headers ?? {}),
+      body: sanitizedForCel(delivered.body ?? {}),
+      headers: sanitizedForCel(delivered.headers ?? {}),
       raw: delivered.raw ? Buffer.from(delivered.raw).toString('utf8') : '',
     };
   }

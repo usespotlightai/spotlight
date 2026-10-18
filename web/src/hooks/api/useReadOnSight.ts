@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { useReadInboxAside } from '@/hooks/api/useReadInboxAside';
 import { useReadInboxItem } from '@/hooks/api/useReadInboxItem';
+import { useReadInboxRequest } from '@/hooks/api/useReadInboxRequest';
 import type { InboxItem } from '@/lib/inbox';
 
 export function useReadOnSight(
@@ -8,7 +8,7 @@ export function useReadOnSight(
   item: InboxItem | undefined,
 ) {
   const read = useReadInboxItem();
-  const readAside = useReadInboxAside();
+  const readInboxRequest = useReadInboxRequest();
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
@@ -20,10 +20,10 @@ export function useReadOnSight(
 
     seen.current = at;
 
-    if (item.aside) {
-      readAside.mutate({ slug, asideId: item.id });
+    if (item.inboxRequest) {
+      readInboxRequest.mutate({ slug, requestId: item.id });
     } else {
       read.mutate({ slug, itemId: item.id });
     }
-  }, [slug, item, read.mutate, readAside.mutate]);
+  }, [slug, item, read.mutate, readInboxRequest.mutate]);
 }

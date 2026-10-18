@@ -112,11 +112,11 @@ func TestTrustsAnAuthorityItKeepsInMemory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := adding([]byte("WAY OUT\n"), authority, bundle, []string{system}); err != nil {
+	if err := adding([]byte("LOCAL PROXY\n"), authority, bundle, []string{system}); err != nil {
 		t.Fatal(err)
 	}
 
-	for path, want := range map[string]string{authority: "WAY OUT\n", bundle: "PUBLIC\nWAY OUT\n", system: "PUBLIC\nWAY OUT\n"} {
+	for path, want := range map[string]string{authority: "LOCAL PROXY\n", bundle: "PUBLIC\nLOCAL PROXY\n", system: "PUBLIC\nLOCAL PROXY\n"} {
 		if got, _ := os.ReadFile(path); string(got) != want {
 			t.Errorf("%s contains %q", filepath.Base(path), got)
 		}

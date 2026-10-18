@@ -13,7 +13,7 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class EnsureCheckBaselines implements PendingJobsPort {
   readonly name = 'EnsureCheckBaselines';
@@ -89,7 +89,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
           ),
           repeats: check.repeats,
           at: this.clock.now(),
-          by: Attribution.spotlight(locked.workspaceId),
+          by: ChangeActor.spotlight(locked.workspaceId),
         }),
       );
     });

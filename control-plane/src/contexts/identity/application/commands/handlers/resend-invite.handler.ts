@@ -45,12 +45,12 @@ export class ResendInviteHandler
       }
 
       const joining = (await this.teams.ofWorkspace(workspace.id)).filter(
-        (team) => invite.terms.joins(team.id),
+        (team) => invite.spec.joins(team.id),
       );
       const newToken = this.tokens.issue();
       const resent = invite.resend({
-        terms: workspace.inviteTerms({
-          role: invite.terms.role,
+        spec: workspace.inviteSpec({
+          role: invite.spec.role,
           teams: joining.map((team) => team.id),
           among: joining,
         }),
@@ -69,7 +69,7 @@ export class ResendInviteHandler
       return {
         id: resent.id.value,
         email: resent.email.value,
-        role: resent.terms.invitedAs,
+        role: resent.spec.invitedAs,
         teams: joining.map((team) => ({
           id: team.id.value,
           name: team.name.value,

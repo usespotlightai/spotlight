@@ -20,12 +20,12 @@ import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.even
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
-import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { IssuedTokenDetail } from '@identity/domain/value-objects/issued-token-detail.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import { RunTokenDetail } from '@identity/domain/value-objects/run-token-detail.vo';
+import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
@@ -41,9 +41,9 @@ export const IDENTITY_PAYLOAD_TYPES = [
   ClaimPattern,
   Permissions,
   EmailAddress,
-  Grantor,
+  ScopeCeiling,
   InviteId,
-  InviteTerms,
+  InviteSpec,
   IssuedTokenDetail,
   RunTokenDetail,
   Dependents,

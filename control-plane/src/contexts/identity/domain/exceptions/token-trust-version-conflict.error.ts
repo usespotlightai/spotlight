@@ -1,5 +1,5 @@
 export class TokenTrustVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(trustId: string) {
     super(

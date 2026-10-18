@@ -60,7 +60,7 @@ const node = (
   kind: 'step',
   startedAt: iso(0),
   ms: 1_000,
-  tone: 'agent',
+  category: 'agent',
   cost: null,
   currency: null,
   step: null,
@@ -75,7 +75,7 @@ const trace = (): Trace => ({
   startedAt: iso(0),
   ms: 60_000,
   rows: 8,
-  faults: 1,
+  errors: 1,
   roots: [
     node({
       id: 'run:run_1',
@@ -89,13 +89,13 @@ const trace = (): Trace => ({
           id: 'run_1:prepare',
           name: 'Prepare',
           kind: 'phase',
-          tone: 'overhead',
+          category: 'overhead',
           ms: 10_000,
           children: [
             node({
               id: 'run_1:step:0',
               name: 'prepare',
-              tone: 'overhead',
+              category: 'overhead',
               startedAt: iso(1_000),
               ms: 8_000,
               step: step({
@@ -117,7 +117,7 @@ const trace = (): Trace => ({
             node({
               id: 'run_1:step:1',
               name: 'npm test',
-              tone: 'failed',
+              category: 'failed',
               startedAt: iso(20_000),
               ms: 5_000,
               step: step({
@@ -166,7 +166,7 @@ const trace = (): Trace => ({
           id: 'run_1:publish',
           name: 'Publish',
           kind: 'phase',
-          tone: 'overhead',
+          category: 'overhead',
           startedAt: iso(50_000),
           ms: 10_000,
         }),
@@ -297,7 +297,7 @@ describe('TraceView', () => {
       startedAt: iso(0),
       ms: 60_000,
       rows: 3,
-      faults: 1,
+      errors: 1,
       roots: [
         node({
           id: 'run:run_1',
@@ -316,7 +316,7 @@ describe('TraceView', () => {
                   id: 'run_1:connection:0',
                   name: 'paste.example.net',
                   kind: 'connection',
-                  tone: 'failed',
+                  category: 'failed',
                   startedAt: iso(21_000),
                   ms: 1_000,
                   connection: {
@@ -333,7 +333,7 @@ describe('TraceView', () => {
                   id: 'run_1:connection:1',
                   name: 'mcp.linear.app',
                   kind: 'connection',
-                  tone: 'failed',
+                  category: 'failed',
                   startedAt: iso(22_000),
                   ms: 200,
                   connection: {

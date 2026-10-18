@@ -19,7 +19,7 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export class UpdateEgressHandler
@@ -51,7 +51,7 @@ export class UpdateEgressHandler
       }
 
       if (!permissions.managesRunners) {
-        return forbiddenTo('manage-runners');
+        return forbiddenTo('runners');
       }
 
       existing.assertVersion(command.expectedVersion);
@@ -70,7 +70,7 @@ export class UpdateEgressHandler
             : null,
           tokenVersion: compiled.tokenVersion,
         },
-        Attribution.of(command.actor, permissions.workspaceId),
+        ChangeActor.of(command.actor, permissions.workspaceId),
       );
 
       await this.transaction.inTransaction(async () => {

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
-import { AmbientCausation } from '@platform/events/ambient-causation';
+import { AsyncLocalCausation } from '@platform/events/async-local-causation';
 import { DeliveryBacklog } from '@platform/events/delivery-backlog';
 import { EventDelivery, MAX_ATTEMPTS } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
@@ -21,11 +21,11 @@ import { mapping } from '@shared-kernel/application/ports/integration-event-mapp
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types';
+import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import {
   actorFor,
-  attributedIn,
-} from '@shared-kernel/domain/value-objects/attribution.fake-spec';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+  changeActorIn,
+} from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -63,7 +63,7 @@ let context: DrizzleContext;
 let now = new Date();
 const received: string[] = [];
 let failing = 0;
-const causation = new AmbientCausation();
+const causation = new AsyncLocalCausation();
 const causes: string[] = [];
 
 const logger = {
@@ -181,7 +181,7 @@ describe('the event outbox', () => {
       new Reconfigured(
         ConfigurationChange.updated(
           { resource: 'team', id: `team-${key}`, key },
-          attributedIn('ws_audited', actorFor('user_audited')),
+          changeActorIn('ws_audited', actorFor('user_audited')),
         ),
       );
 
@@ -228,13 +228,13 @@ describe('the event outbox', () => {
   it('carries the chain of causes an event was recorded in to what its subscribers raise', async () => {
     causes.length = 0;
     const { outbox, delivery } = outboxWith();
-    const chain = CausalChain.none().followedBy({
+    const chain = CausalChain.none().append({
       kind: 'hook',
       key: 'hook:bell',
       description: 'the hook bell',
     });
 
-    await causation.within(chain, () =>
+    await causation.runWith(chain, () =>
       outbox.record([new Rang(Marker.of('caused'))]),
     );
     await delivery.processDue();

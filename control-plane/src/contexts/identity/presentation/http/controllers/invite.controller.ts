@@ -158,7 +158,8 @@ export class WorkspaceInviteController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'revokeInvite',
-    summary: 'Take an invitation back, so its link stops working',
+    summary: 'Revoke an invitation',
+    description: 'The link of the invitation stops working.',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
   @ApiParam({ name: 'inviteId' })

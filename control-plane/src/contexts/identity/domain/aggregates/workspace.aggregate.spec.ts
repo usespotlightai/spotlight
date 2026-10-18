@@ -16,7 +16,7 @@ import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo'
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import {
   PersonPrincipal,
@@ -29,7 +29,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const BY = attributedIn('ws_1');
+const BY = changeActorIn('ws_1');
 
 const ACME = { resource: 'workspace' as const, id: 'ws_1', key: 'acme-inc' };
 
@@ -173,36 +173,36 @@ describe('Workspace', () => {
       workspaceId,
     });
     const AMONG = [team('team_1'), team('team_2')];
-    const terms = (role: WorkspaceRole, teams = ['team_1']) =>
-      build().inviteTerms({
+    const spec = (role: WorkspaceRole, teams = ['team_1']) =>
+      build().inviteSpec({
         role,
         teams: teams.map((id) => TeamId.of(id)),
         among: AMONG,
       });
 
     it('offers to make them an admin or a member, on teams of its own', () => {
-      expect(terms(WorkspaceRole.admin).invitedAs).toBe('admin');
+      expect(spec(WorkspaceRole.admin).invitedAs).toBe('admin');
       expect(
-        terms(WorkspaceRole.member, ['team_1', 'team_2']).teams.map(
+        spec(WorkspaceRole.member, ['team_1', 'team_2']).teams.map(
           (each) => each.value,
         ),
       ).toEqual(['team_1', 'team_2']);
     });
 
     it('offers to make nobody an owner', () => {
-      expect(() => terms(WorkspaceRole.owner)).toThrow(NotYoursToInviteError);
-      expect(() => terms(WorkspaceRole.owner)).toThrow(/invited as an owner/);
+      expect(() => spec(WorkspaceRole.owner)).toThrow(NotYoursToInviteError);
+      expect(() => spec(WorkspaceRole.owner)).toThrow(/invited as an owner/);
     });
 
     it('offers no team of another workspace, nor one it does not know', () => {
       expect(() =>
-        build().inviteTerms({
+        build().inviteSpec({
           role: WorkspaceRole.member,
           teams: [TeamId.of('team_9')],
           among: [...AMONG, team('team_9', WorkspaceId.of('ws_2'))],
         }),
       ).toThrow(TeamOutsideWorkspaceError);
-      expect(() => terms(WorkspaceRole.member, ['team_gone'])).toThrow(
+      expect(() => spec(WorkspaceRole.member, ['team_gone'])).toThrow(
         /Team team_gone is not in this workspace/,
       );
     });
@@ -539,7 +539,7 @@ describe('Workspace', () => {
         managesSecrets: permissions.managesSecrets,
         managesRunners: permissions.managesRunners,
         managesTokenTrusts: permissions.managesTokenTrusts,
-        administers: permissions.administers,
+        isAdmin: permissions.isAdmin,
       };
     };
 
@@ -549,7 +549,7 @@ describe('Workspace', () => {
       ['member', false, false],
     ])(
       'lets its %s read and plan, configuring, managing secrets, runners and token trusts, and administering only as an admin',
-      (who, configures, administers) => {
+      (who, configures, isAdmin) => {
         expect(permissionsOf(person(who))).toEqual({
           reads: true,
           plans: true,
@@ -557,7 +557,7 @@ describe('Workspace', () => {
           managesSecrets: configures,
           managesRunners: configures,
           managesTokenTrusts: configures,
-          administers,
+          isAdmin,
         });
       },
     );
@@ -570,7 +570,7 @@ describe('Workspace', () => {
         managesSecrets: false,
         managesRunners: false,
         managesTokenTrusts: false,
-        administers: false,
+        isAdmin: false,
       });
     });
 
@@ -591,7 +591,7 @@ describe('Workspace', () => {
           managesSecrets,
           managesRunners,
           managesTokenTrusts,
-          administers: false,
+          isAdmin: false,
         });
       },
     );
@@ -604,7 +604,7 @@ describe('Workspace', () => {
         managesSecrets: false,
         managesRunners: false,
         managesTokenTrusts: false,
-        administers: false,
+        isAdmin: false,
       });
     });
 

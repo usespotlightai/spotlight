@@ -7,7 +7,7 @@ import type {
   HistoryUsage,
   RunnerHistoryDto,
 } from '@work/application/dto/runner-history.dto';
-import type { SightedBlock } from '@work/application/ports/search-sight.port';
+import type { VisibleBlock } from '@work/application/ports/search-visibility.port';
 import type { FileChange } from '@work/application/read-models/file-changes-of';
 import { StationConfigResponseDto } from '@work/presentation/http/dto/station-config.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
@@ -331,7 +331,7 @@ export class HistoryCandidateResponseDto {
       passesTo: ['ship'],
     },
   })
-  readonly block: SightedBlock;
+  readonly block: VisibleBlock;
 
   @ApiProperty({ type: () => [HistoryCandidateRunResponseDto] })
   readonly runs: HistoryCandidateRunResponseDto[];
@@ -383,7 +383,7 @@ export class RunnerHistoryResponseDto {
       passesTo: ['ship'],
     },
   })
-  readonly seedBlock: SightedBlock | null;
+  readonly seedBlock: VisibleBlock | null;
 
   constructor(
     from: RunnerHistoryDto,

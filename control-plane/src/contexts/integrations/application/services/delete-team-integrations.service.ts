@@ -9,7 +9,7 @@ import type { PersonToolPolicyRepository } from '@integrations/domain/repositori
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -54,7 +54,7 @@ export class DeleteTeamIntegrations {
 
     if (hook) {
       await this.hooks.save(
-        hook.cascadeDelete(Attribution.spotlight(workspaceId)),
+        hook.cascadeDelete(ChangeActor.spotlight(workspaceId)),
       );
     }
   }
@@ -67,7 +67,7 @@ export class DeleteTeamIntegrations {
 
     if (integration) {
       await this.definitions.save(
-        integration.cascadeDelete(Attribution.spotlight(workspaceId)),
+        integration.cascadeDelete(ChangeActor.spotlight(workspaceId)),
       );
     }
   }

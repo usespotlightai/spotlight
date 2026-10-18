@@ -23,9 +23,9 @@ export class Notices implements NoticesPort {
     private readonly clock: ClockPort,
   ) {}
 
-  async raise(input: NoticeOf): Promise<void> {
+  async create(input: NoticeOf): Promise<void> {
     const form = noticeForm(input.form);
-    const raised = Notice.raise({
+    const created = Notice.create({
       id: NoticeId.of(this.ids.generate()),
       workspaceId: input.workspaceId,
       teamId: input.teamId,
@@ -45,8 +45,10 @@ export class Notices implements NoticesPort {
     }
 
     return this.transaction.inTransaction(async () => {
-      if (!(await this.notices.about(raised.addressee, form, raised.subject))) {
-        await this.notices.add(raised);
+      if (
+        !(await this.notices.about(created.addressee, form, created.subject))
+      ) {
+        await this.notices.add(created);
       }
     });
   }

@@ -22,8 +22,8 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -66,7 +66,7 @@ export class CreateWorkspaceTokenHandler
         return null;
       }
 
-      if (!permissions.administers) {
+      if (!permissions.isAdmin) {
         return rejected(forbiddenTo('administer'));
       }
 
@@ -89,15 +89,15 @@ export class CreateWorkspaceTokenHandler
 
       try {
         const created = await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const issued = WorkspaceToken.issue({
-              ...compiled.terms,
+              ...compiled.spec,
               id: WorkspaceTokenId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               hash: TokenHash.of(newToken.hash),
               issuedBy: principal.userId,
               now: this.clock.now(),
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
             });
 
             await this.tokens.add(issued);
@@ -115,7 +115,10 @@ export class CreateWorkspaceTokenHandler
         };
       } catch (error) {
         if (error instanceof WorkspaceTokenAlreadyIssuedError) {
-          return rejected({ outcome: 'taken', address: error.tokenName });
+          return rejected({
+            outcome: 'already-exists',
+            address: error.tokenName,
+          });
         }
 
         if (error instanceof InvalidWorkspaceTokenError) {

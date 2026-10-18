@@ -27,12 +27,12 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-29T09:00:00.000Z');
@@ -65,7 +65,7 @@ const line = Line.rehydrate({
     station('station_backlog', 'Backlog', 0, { kind: 'backlog' }),
     station('station_review', 'Code Review', 1, {
       harness: HarnessId.of('dev'),
-      wayOut: WayOut.of({ stations: [], ends: true }),
+      routes: StationRoutes.of({ stations: [], ends: true }),
     }),
     station('station_completed', 'Completed', 2, { kind: 'completed' }),
   ],
@@ -79,7 +79,7 @@ const run = Run.enqueue({
     command: { executable: 'sh', args: [] },
     briefing: 'Review the change.',
     handover: { options: ['done'], noteLimit: 0 },
-    continuity: { key: `task_1:${REVIEW.value}` },
+    resume: { key: `task_1:${REVIEW.value}` },
   }),
   subject: RunSubject.task(TaskId.of('task_1'), REVIEW, TaskRevision.of(0)),
 });
@@ -97,7 +97,7 @@ const handed = () =>
     at: REVIEW,
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: OWNER,
+    createdBy: OWNER,
     now: NOW,
     newId: () => 'task_1',
   }).assignRun(RUN, line);

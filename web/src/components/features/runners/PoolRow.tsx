@@ -4,7 +4,7 @@ import {
   HOST_ROW_HOVER,
 } from '@/components/features/runners/columns';
 import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
-import { PoolWayOut } from '@/components/features/runners/PoolWayOut';
+import { PoolEgress } from '@/components/features/runners/PoolEgress';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import { StatusDot } from '@/components/features/runners/StatusDot';
 import {
@@ -30,7 +30,7 @@ export function PoolRow({ slug, pool, harnesses }: PoolRowProps) {
       <div className={cn(HOST_ROW, HOST_ROW_HOVER, HOST_COLUMNS)}>
         <span className="min-w-0 truncate text-foreground">{name}</span>
 
-        <PoolWayOut slug={slug} poolKey={pool.source.key} />
+        <PoolEgress slug={slug} poolKey={pool.source.key} />
 
         <StatusDot
           tone={

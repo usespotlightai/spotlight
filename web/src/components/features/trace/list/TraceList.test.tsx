@@ -48,7 +48,7 @@ const traced: Traced = {
   output: null,
   ms: 12_000,
   steps: 4,
-  faults: 0,
+  errors: 0,
   cost: 0.42,
   currency: 'USD',
 };

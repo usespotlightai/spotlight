@@ -18,7 +18,7 @@ import { teamAccess } from '@identity/application/ports/workspace-access.fake-sp
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -34,7 +34,7 @@ const GRAFANA = {
   },
 };
 
-const access = (administers = true) => teamAccess(TEAM, administers);
+const access = (isAdmin = true) => teamAccess(TEAM, isAdmin);
 
 const teams = {
   find: vi.fn(async () => ({
@@ -76,16 +76,16 @@ const definitions = (
 };
 
 describe('CreateSkillHandler', () => {
-  const creating = (over: { administers?: boolean; throwing?: Error } = {}) => {
+  const creating = (over: { isAdmin?: boolean; throwing?: Error } = {}) => {
     const repository = definitions({ throwing: over.throwing });
     const handler = new CreateSkillHandler(
-      access(over.administers),
+      access(over.isAdmin),
       teams,
       new SkillCompiler(),
       repository,
       {
-        claim: vi.fn(async () => ({ kind: 'fresh' as const })),
-        created: vi.fn(async () => {}),
+        reserve: vi.fn(async () => ({ kind: 'new' as const })),
+        recordCreated: vi.fn(async () => {}),
       } satisfies IdempotentCreatesPort,
       { generate: () => 'skill_new' },
       transaction,
@@ -123,7 +123,7 @@ describe('CreateSkillHandler', () => {
       await creating({
         throwing: new SkillAlreadyExistsError('grafana'),
       }).create(GRAFANA),
-    ).toEqual({ outcome: 'taken', address: 'core/grafana' });
+    ).toEqual({ outcome: 'already-exists', address: 'core/grafana' });
   });
 
   it('says what is wrong, and creates nothing', async () => {
@@ -138,7 +138,7 @@ describe('CreateSkillHandler', () => {
   });
 
   it('forbids someone on the team who does not administer it', async () => {
-    expect(await creating({ administers: false }).create(GRAFANA)).toEqual(
+    expect(await creating({ isAdmin: false }).create(GRAFANA)).toEqual(
       forbiddenTo('configure'),
     );
   });

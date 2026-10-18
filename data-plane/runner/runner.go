@@ -18,9 +18,9 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/config"
 	"usespotlight.ai/data-plane/runner/internal/gitproxy"
 	"usespotlight.ai/data-plane/runner/internal/harness"
+	"usespotlight.ai/data-plane/runner/internal/localproxy"
 	"usespotlight.ai/data-plane/runner/internal/session"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
-	"usespotlight.ai/data-plane/runner/internal/wayout"
 	"usespotlight.ai/data-plane/telemetry"
 )
 
@@ -49,7 +49,7 @@ func Main(args []string, version string) int {
 }
 
 func report(candidatesJSON, version string, out io.Writer) error {
-	var candidates []protocol.Installable
+	var candidates []protocol.HarnessProbe
 	if err := json.Unmarshal([]byte(candidatesJSON), &candidates); err != nil {
 		return fmt.Errorf("read the harnesses to look for: %w", err)
 	}
@@ -81,9 +81,9 @@ func run(args []string, version string) error {
 		return err
 	}
 
-	var egress *wayout.Egress
+	var egress *localproxy.Egress
 	if cfg.Egress.Configured() {
-		if egress, err = wayout.To(cfg.Egress.URL, cfg.Egress.Credential, nil); err != nil {
+		if egress, err = localproxy.To(cfg.Egress.URL, cfg.Egress.Credential, nil); err != nil {
 			return err
 		}
 	}
@@ -107,12 +107,12 @@ func run(args []string, version string) error {
 		r.transport = egress.Transport(nil)
 		client.Through(r.transport)
 
-		way, err := r.openWayOut(ctx, egress)
+		proxy, err := r.openLocalProxy(ctx, egress)
 		if err != nil {
 			r.unready = err
 		} else {
-			defer way.close()
-			r.wayOut = way.env
+			defer proxy.close()
+			r.proxyEnv = proxy.env
 		}
 	}
 	r.serve(ctx, client, assigned.Work)
@@ -126,11 +126,11 @@ type runner struct {
 	agentUser *account.User
 	log       *slog.Logger
 	transport http.RoundTripper
-	wayOut    map[string]string
+	proxyEnv  map[string]string
 	unready   error
 }
 
-func (r runner) serve(ctx context.Context, client *control.Client, work protocol.Claimed) {
+func (r runner) serve(ctx context.Context, client *control.Client, work protocol.ClaimResponse) {
 	switch {
 	case work.Kind == protocol.ClaimedRun && work.Run != nil:
 		r.log.Info("running", "run", work.Run.ID)
@@ -145,7 +145,7 @@ func (r runner) serve(ctx context.Context, client *control.Client, work protocol
 			Token:        client.Token(),
 			AnswerWait:   r.cfg.AnswerWait,
 			Transport:    r.transport,
-			WayOut:       r.wayOut,
+			ProxyEnv:     r.proxyEnv,
 			Enforced:     r.enforced(),
 			Unready:      r.unready,
 		}); err != nil {
@@ -163,7 +163,7 @@ func (r runner) check(ctx context.Context, client *control.Client, claimed proto
 	log.Info("checking a change stack")
 
 	if r.unready != nil {
-		log.Error("could not check, because the way out through egress did not open", "error", r.unready)
+		log.Error("could not check, because the local proxy did not open", "error", r.unready)
 		if err := client.RecordChangeStackCheck(ctx, claimed.RunID, claimed.StackID, claimed.Recheck, unready(r.unready)); err != nil {
 			log.Warn("could not report a change stack check", "error", err)
 		}
@@ -186,7 +186,7 @@ func (r runner) check(ctx context.Context, client *control.Client, claimed proto
 		Remote:  serving.Remote,
 		Mirrors: os.Getenv("SPOTLIGHT_MIRRORS"),
 		RunAs:   r.agentUser,
-		Env:     r.wayOut,
+		Env:     r.proxyEnv,
 		Log:     log,
 	})
 }
@@ -196,26 +196,26 @@ type opened struct {
 	close func()
 }
 
-func (r runner) openWayOut(ctx context.Context, egress *wayout.Egress) (opened, error) {
-	way, err := wayout.Open(ctx, egress, wayout.Options{Direct: r.cfg.Egress.Direct, Log: r.log})
+func (r runner) openLocalProxy(ctx context.Context, egress *localproxy.Egress) (opened, error) {
+	proxy, err := localproxy.Open(ctx, egress, localproxy.Options{Direct: r.cfg.Egress.Direct, Log: r.log})
 	if err != nil {
-		r.log.Error("could not open the way out through egress, so the work fails", "error", err)
-		return opened{}, fmt.Errorf("the way out through egress did not open, so the agent cannot go out with its run's secrets: %w", err)
+		r.log.Error("could not open the local proxy, so the work fails", "error", err)
+		return opened{}, fmt.Errorf("the local proxy did not open, so the agent cannot send requests with its run's secrets: %w", err)
 	}
 
-	if err := cacerts.Add(way.PEM(), protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
-		r.log.Warn("could not trust the way out's authority, so TLS through it may fail", "error", err)
+	if err := cacerts.Add(proxy.PEM(), protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
+		r.log.Warn("could not trust the authority of the local proxy, so TLS through it can fail", "error", err)
 	}
 
-	return opened{env: way.Env(), close: func() {
-		if err := way.Close(); err != nil {
-			r.log.Warn("could not close the way out", "error", err)
+	return opened{env: proxy.Env(), close: func() {
+		if err := proxy.Close(); err != nil {
+			r.log.Warn("could not close the local proxy", "error", err)
 		}
 	}}, nil
 }
 
-func unready(err error) protocol.StackChecked {
-	return protocol.StackChecked{Skipped: &protocol.SkippedCheck{Code: protocol.SkipSetupFailed, Detail: err.Error()}}
+func unready(err error) protocol.StackCheckResult {
+	return protocol.StackCheckResult{Skipped: &protocol.SkippedCheck{Code: protocol.SkipSetupFailed, Detail: err.Error()}}
 }
 
 func (r runner) enforced() func(ctx context.Context) bool {
@@ -223,5 +223,5 @@ func (r runner) enforced() func(ctx context.Context) bool {
 		return nil
 	}
 
-	return func(ctx context.Context) bool { return wayout.Enforced(ctx, r.cfg.URL) }
+	return func(ctx context.Context) bool { return localproxy.Enforced(ctx, r.cfg.URL) }
 }

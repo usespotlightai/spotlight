@@ -9,7 +9,7 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { ClaimRunCommand } from '@work/application/commands/runner.commands';
@@ -34,7 +34,7 @@ const spec = RunSpec.of({
   command: { executable: 'claude-agent-acp', args: ['--acp'] },
   briefing: 'work out what the request wants',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task-task_1' },
+  resume: { key: 'task-task_1' },
 });
 
 const waiting = (harness = 'claude-code') =>
@@ -73,7 +73,7 @@ const seenAs = (
 ): RunnerHeartbeat => ({
   workspaceId: WorkspaceId.of('ws_1'),
   harnesses,
-  terms: RunnerTerms.of(['runner-1']),
+  offer: RunnerOffer.of(['runner-1']),
   claims,
 });
 
@@ -171,7 +171,7 @@ describe('ClaimRunHandler', () => {
       command: { executable: 'claude-agent-acp', args: ['--acp'] },
       briefing: 'work out what the request wants',
       handover: { options: ['Spec'], noteLimit: 4_000 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
     });
   });
 
@@ -192,7 +192,7 @@ describe('ClaimRunHandler', () => {
     await claiming(claimNext).execute(new ClaimRunCommand('runner_1'));
 
     expect(claimNext).toHaveBeenCalledWith(
-      expect.objectContaining({ terms: RunnerTerms.of(['runner-1']) }),
+      expect.objectContaining({ offer: RunnerOffer.of(['runner-1']) }),
       NOW,
     );
   });
@@ -304,7 +304,7 @@ describe('ClaimRunHandler', () => {
       expect(claimCheck).not.toHaveBeenCalled();
       expect(handler.claimReserved).toHaveBeenCalledWith(
         RunnerId.of('runner_1'),
-        RunnerTerms.of(['runner-1']),
+        RunnerOffer.of(['runner-1']),
         NOW,
       );
     });

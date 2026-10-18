@@ -9,7 +9,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export class DeleteWorkspaceTokenHandler
@@ -40,7 +40,7 @@ export class DeleteWorkspaceTokenHandler
         return null;
       }
 
-      if (!permissions.administers) {
+      if (!permissions.isAdmin) {
         return forbiddenTo('administer');
       }
 
@@ -48,7 +48,7 @@ export class DeleteWorkspaceTokenHandler
 
       await this.transaction.inTransaction(() =>
         this.tokens.save(
-          existing.revoke(Attribution.of(command.actor, existing.workspaceId)),
+          existing.revoke(ChangeActor.of(command.actor, existing.workspaceId)),
         ),
       );
 

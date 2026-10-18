@@ -16,7 +16,7 @@ import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo
 import type { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -178,7 +178,7 @@ export class ReplaySet extends EventRecorder {
     return this.with({});
   }
 
-  gatingChanges(atStation: readonly ReplaySet[], by: Attribution): ReplaySet {
+  gatingChanges(atStation: readonly ReplaySet[], by: ChangeActor): ReplaySet {
     this.stillAtItsStation();
 
     const checking = atStation.find(
@@ -195,11 +195,11 @@ export class ReplaySet extends EventRecorder {
     return this.gating(true, by);
   }
 
-  notGatingChanges(by: Attribution): ReplaySet {
+  notGatingChanges(by: ChangeActor): ReplaySet {
     return this.gating(false, by);
   }
 
-  private gating(gatesChanges: boolean, by: Attribution): ReplaySet {
+  private gating(gatesChanges: boolean, by: ChangeActor): ReplaySet {
     if (this.state.gatesChanges === gatesChanges) {
       return this;
     }

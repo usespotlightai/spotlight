@@ -105,8 +105,8 @@ const SECRETS_DEPENDENTS = Symbol('SECRETS_DEPENDENTS');
 export const SECRETS_CONTROLLERS: readonly Type[] = [SecretResourceController];
 
 const keyManagementFor = (env: Env): KeyManagement =>
-  env.SECRETS_KMS_KEY_ID
-    ? new AwsKeyManagement(new KMSClient({}), env.SECRETS_KMS_KEY_ID)
+  env.SPOTLIGHT_SECRETS_KMS_KEY_ID
+    ? new AwsKeyManagement(new KMSClient({}), env.SPOTLIGHT_SECRETS_KMS_KEY_ID)
     : new LocalKeyManagement(env.SPOTLIGHT_SECRETS_KEY ?? '');
 
 export const SECRETS_PROVIDERS: readonly Provider[] = [

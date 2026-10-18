@@ -39,12 +39,12 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
@@ -63,7 +63,7 @@ const leased = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
@@ -92,7 +92,7 @@ const line = () =>
         position: 1,
         color: StationColor.of('#a3a8b0'),
         harness: HarnessId.of('dev'),
-        wayOut: WayOut.of({ stations: [StationId.of('station_2')] }),
+        routes: StationRoutes.of({ stations: [StationId.of('station_2')] }),
       }),
       Station.of({
         id: StationId.of('station_2'),
@@ -113,13 +113,13 @@ const line = () =>
     ],
   });
 
-const workedByTheRun = () =>
+const claimedByTheRun = () =>
   Task.add({
     line: line(),
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   }).assignRun(RunId.of('run_1'), line());
@@ -187,7 +187,7 @@ describe('CompleteRunHandler', () => {
       const answered = await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
         stored,
       ).execute(reviewing);
 
@@ -211,13 +211,13 @@ describe('CompleteRunHandler', () => {
       await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
       ).execute(reviewing);
 
-      expect(saved[0]?.spec.value.continuity).toEqual({
+      expect(saved[0]?.spec.value.resume).toEqual({
         key: 'task:station',
         sessionId: 'session_1',
-        resumes: true,
+        resumeSession: true,
       });
     });
 
@@ -227,7 +227,7 @@ describe('CompleteRunHandler', () => {
       const answered = await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
       ).execute(
         new CompleteRunCommand('run_1', 'runner_1', 0, false, undefined, {
           next: 'deploy',
@@ -244,7 +244,7 @@ describe('CompleteRunHandler', () => {
       const answered = await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
       ).execute(
         new CompleteRunCommand('run_1', 'runner_1', 1, true, 'boom', {
           next: 'review',
@@ -258,7 +258,7 @@ describe('CompleteRunHandler', () => {
     it('carries on at once, without pausing or asking again, when the person already answered', async () => {
       const saved: Run[] = [];
       const stored = { tasks: [] as Task[] };
-      const answeredAlready = workedByTheRun()
+      const answeredAlready = claimedByTheRun()
         .putToAPerson(RunId.of('run_1'), {
           station: StationName.of('Build'),
           body: TaskNoteBody.of('Approve?'),
@@ -297,7 +297,7 @@ describe('CompleteRunHandler', () => {
       const handler = completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
         { tasks: [], run: waiting },
       );
 
@@ -314,7 +314,7 @@ describe('CompleteRunHandler', () => {
       const answered = await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
       ).execute(
         new CompleteRunCommand(
           'run_1',
@@ -336,7 +336,7 @@ describe('CompleteRunHandler', () => {
     it('reads the task again when a person answered it while the turn was being reported', async () => {
       const saved: Run[] = [];
       let reads = 0;
-      const asked = workedByTheRun().putToAPerson(RunId.of('run_1'), {
+      const asked = claimedByTheRun().putToAPerson(RunId.of('run_1'), {
         station: StationName.of('Build'),
         body: TaskNoteBody.of('Approve?'),
         at: NOW,

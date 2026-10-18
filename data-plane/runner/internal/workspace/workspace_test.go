@@ -29,7 +29,7 @@ func TestOpenMakesTheWorkspaceWhereItIsMissing(t *testing.T) {
 
 func TestOpenKeepsWhatAnImageLaidDown(t *testing.T) {
 	dir := t.TempDir()
-	lay(t, filepath.Join(dir, "acme", "api", "go.sum"), "baked")
+	writeFile(t, filepath.Join(dir, "acme", "api", "go.sum"), "baked")
 
 	if _, err := workspace.Open(dir); err != nil {
 		t.Fatalf("open: %v", err)
@@ -61,10 +61,10 @@ func TestStateMakesADirectoryInsideTheWorkspace(t *testing.T) {
 
 func TestClearPreservesOnlyWhatItIsToldToPreserve(t *testing.T) {
 	dir := t.TempDir()
-	lay(t, filepath.Join(dir, "acme", "api", "main.go"), "tracked")
-	lay(t, filepath.Join(dir, "acme", "api", "node_modules", "left-pad", "index.js"), "installed")
-	lay(t, filepath.Join(dir, "acme", "web", "index.html"), "another checkout")
-	lay(t, filepath.Join(dir, ".spotlight", "state", "session"), "old")
+	writeFile(t, filepath.Join(dir, "acme", "api", "main.go"), "tracked")
+	writeFile(t, filepath.Join(dir, "acme", "api", "node_modules", "left-pad", "index.js"), "installed")
+	writeFile(t, filepath.Join(dir, "acme", "web", "index.html"), "another checkout")
+	writeFile(t, filepath.Join(dir, ".spotlight", "state", "session"), "old")
 
 	space, err := workspace.Open(dir)
 	if err != nil {
@@ -92,10 +92,10 @@ func TestIgnoredNamesWhatACheckoutIgnores(t *testing.T) {
 
 	dir := t.TempDir()
 	tree := filepath.Join(dir, "acme", "api")
-	lay(t, filepath.Join(tree, ".gitignore"), "node_modules/\n*.log\n")
-	lay(t, filepath.Join(tree, "node_modules", "x", "index.js"), "installed")
-	lay(t, filepath.Join(tree, "debug.log"), "noise")
-	lay(t, filepath.Join(tree, "main.go"), "tracked")
+	writeFile(t, filepath.Join(tree, ".gitignore"), "node_modules/\n*.log\n")
+	writeFile(t, filepath.Join(tree, "node_modules", "x", "index.js"), "installed")
+	writeFile(t, filepath.Join(tree, "debug.log"), "noise")
+	writeFile(t, filepath.Join(tree, "main.go"), "tracked")
 	if output, err := exec.Command("git", "-C", tree, "init", "--quiet").CombinedOutput(); err != nil {
 		t.Fatalf("init: %v: %s", err, output)
 	}
@@ -116,7 +116,7 @@ func TestIgnoredNamesWhatACheckoutIgnores(t *testing.T) {
 	}
 }
 
-func lay(t *testing.T, path, content string) {
+func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

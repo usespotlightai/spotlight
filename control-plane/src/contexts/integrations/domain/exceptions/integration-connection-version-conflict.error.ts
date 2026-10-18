@@ -1,5 +1,5 @@
 export class IntegrationConnectionVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(integration: string) {
     super(

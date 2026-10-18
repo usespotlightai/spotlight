@@ -15,7 +15,7 @@ import (
 
 	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
-	"usespotlight.ai/data-plane/egressing/inject"
+	"usespotlight.ai/data-plane/egresskit/inject"
 	"usespotlight.ai/data-plane/protocol"
 )
 

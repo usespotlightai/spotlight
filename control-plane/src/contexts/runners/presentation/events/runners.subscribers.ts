@@ -19,12 +19,12 @@ export const runnersSubscribers = (reactions: {
   subscribing<RunnerPoolDeleted>(
     'runners.delete-hosts-of-deleted-pool',
     ['runner-pool.deleted'],
-    (event) => reactions.hosts.servingThrough(event.poolId),
+    (event) => reactions.hosts.deleteHostsOf(event.poolId),
   ),
   subscribing<RunnerTrustDeleted>(
     'runners.delete-hosts-of-deleted-trust',
     ['runner-trust.deleted'],
-    (event) => reactions.hosts.servingThrough(event.trustId),
+    (event) => reactions.hosts.deleteHostsOf(event.trustId),
   ),
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'runners.delete-trusts-of-deleted-workspace',

@@ -14,19 +14,19 @@ import {
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
 const updating = (
   over: {
-    administers?: boolean;
+    isAdmin?: boolean;
     enabled?: ToolUses;
   } & Parameters<typeof definitions>[0] = {},
 ) => {
   const repository = definitions({ stored: storedAt(3), ...over });
   const handler = new UpdateIntegrationHandler(
-    access(over.administers),
+    access(over.isAdmin),
     specs,
     repository,
     enabledTools(over.enabled),
@@ -128,7 +128,7 @@ describe('UpdateIntegrationHandler', () => {
 
   it('answers nothing for an integration it cannot find, and forbids one it may not change', async () => {
     expect(await updating({ stored: null }).update(LINEAR)).toBeNull();
-    expect(await updating({ administers: false }).update(LINEAR)).toEqual(
+    expect(await updating({ isAdmin: false }).update(LINEAR)).toEqual(
       forbiddenTo('configure'),
     );
   });

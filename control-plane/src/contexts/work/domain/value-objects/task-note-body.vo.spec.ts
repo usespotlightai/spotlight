@@ -53,7 +53,7 @@ describe('TaskNoteBody.deferredMove', () => {
       ).value,
     ).toBe(
       [
-        'This arrived while a run worked on the task. If the run does not pass the task on, the task moves to Implementation when the run ends.',
+        'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Implementation when the run ends.',
         '',
         'The checks failed on the pull request.',
       ].join('\n'),

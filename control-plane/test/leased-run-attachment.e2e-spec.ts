@@ -82,7 +82,7 @@ const aChatRun = async (): Promise<{
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Plan with me.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: `chat-${chatId}` },
+      resume: { key: `chat-${chatId}` },
     },
   });
 

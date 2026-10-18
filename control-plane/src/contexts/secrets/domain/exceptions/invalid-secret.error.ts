@@ -1,7 +1,7 @@
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 export class InvalidSecretError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   readonly field: FieldPath;
 

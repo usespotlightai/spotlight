@@ -6,7 +6,7 @@ const WHY: Record<MoveDenial, string> = {
 };
 
 export class MoveDeniedError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(denial: MoveDenial, from: string, to: string) {
     super(`Task cannot move from ${from} to ${to}. ${WHY[denial]}`);

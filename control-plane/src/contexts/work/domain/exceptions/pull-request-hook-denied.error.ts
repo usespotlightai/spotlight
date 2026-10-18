@@ -1,5 +1,5 @@
 export class PullRequestHookDeniedError extends Error {
-  readonly violation = 'not-allowed' as const;
+  readonly kind = 'not-allowed' as const;
 
   constructor(reason: string) {
     super(

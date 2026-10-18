@@ -18,7 +18,7 @@ export interface HumanActionReceived {
   readonly workspaceId: string;
   readonly stationId: string;
   readonly action: string;
-  readonly after: string | null;
+  readonly afterRunId: string | null;
   readonly at: string;
   readonly tool: string | null;
   readonly server: string | null;
@@ -52,13 +52,15 @@ export class RecordHumanAction {
 
     const workspaceId = WorkspaceId.of(event.workspaceId);
     const taskId = TaskId.of(event.taskId);
-    const run = event.after ? await this.work.endedRun(event.after) : null;
+    const run = event.afterRunId
+      ? await this.work.endedRun(event.afterRunId)
+      : null;
     const teamId = run ? TeamId.of(run.teamId) : null;
 
     await this.transaction.inTransaction(async () => {
       await this.deletions.lockDeletion(workspaceId, taskId, teamId);
-      const existing = event.after
-        ? await this.records.of(RunId.of(event.after))
+      const existing = event.afterRunId
+        ? await this.records.of(RunId.of(event.afterRunId))
         : await this.records.lastEndedOfTaskAt(
             taskId,
             event.stationId,
@@ -79,10 +81,10 @@ export class RecordHumanAction {
       }
 
       if (!existing) {
-        if (event.after) {
+        if (event.afterRunId) {
           await this.records.add(
             withAction(
-              RunRecord.empty(RunId.of(event.after), workspaceId, taskId),
+              RunRecord.empty(RunId.of(event.afterRunId), workspaceId, taskId),
             ),
           );
         }

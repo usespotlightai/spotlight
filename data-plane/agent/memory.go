@@ -122,7 +122,7 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 		absolute = append(absolute, resolved)
 	}
 
-	answered, err := memoryCall(protocol.AgentAPIRememberPath, protocol.Remembering{
+	answered, err := memoryCall(protocol.AgentAPIRememberPath, protocol.RememberRequest{
 		Kind:       strings.TrimSpace(*kind),
 		Body:       memory,
 		Scope:      strings.TrimSpace(*scope),
@@ -140,7 +140,7 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 
 	fmt.Fprintf(
 		out,
-		"Proposed %s for the %s: %s\nIt waits beside the task for a person to approve it; it goes into the team's memory only then.\n",
+		"Proposed %s for the %s: %s\nIt waits in the inbox for a person to approve it. It goes into the team's memory only after approval.\n",
 		strings.ReplaceAll(proposed.Kind, "-", " "), scopeOf(proposed.Scope, proposed.Repository, proposed.Paths), proposed.Body,
 	)
 

@@ -72,7 +72,7 @@ const replay = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'replay-run_2' },
+      resume: { key: 'replay-run_2' },
       replay: {
         archive: null,
         checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],

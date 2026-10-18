@@ -15,7 +15,7 @@ export class RunPaused implements DomainEvent {
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
     readonly subject: RunSubject | null,
-    readonly workedBy: RunnerId,
+    readonly claimedBy: RunnerId,
     readonly outcome: RunOutcome,
     readonly handover: Handover | null,
     readonly session: HarnessSession | null,

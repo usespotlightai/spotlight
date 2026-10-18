@@ -119,7 +119,7 @@ const added = () =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.between(null, null),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   });
@@ -201,7 +201,7 @@ const claimed = (
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
       manifest: enabled.map(describedAs),
       ...(over.catalog ? { catalog: over.catalog } : {}),
     }),

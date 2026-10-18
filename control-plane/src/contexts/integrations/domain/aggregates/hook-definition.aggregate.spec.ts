@@ -16,7 +16,7 @@ import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signi
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -28,7 +28,7 @@ const WORKSPACE = WorkspaceId.of('workspace_1');
 
 const ID = HookDefinitionId.of('hook_1');
 
-const BY = attributedIn();
+const BY = changeActorIn();
 
 const secret = (fill: string) =>
   HookSigningSecret.of(

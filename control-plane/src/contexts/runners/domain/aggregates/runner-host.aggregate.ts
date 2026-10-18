@@ -1,4 +1,4 @@
-import { RunnerHostStartedServing } from '@runners/domain/events/runner-host-started-serving.event';
+import { HostReady } from '@runners/domain/events/host-ready.event';
 import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
 import type { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
@@ -49,7 +49,7 @@ export class RunnerHost extends EventRecorder {
       onlineSince: input.at,
       lastHeartbeatAt: input.at,
       version: 0,
-    }).noticingItStartedServing(null);
+    }).recordReadyOnFirstHarness(null);
   }
 
   static rehydrate(state: State): RunnerHost {
@@ -110,11 +110,11 @@ export class RunnerHost extends EventRecorder {
     return this.state.lastHeartbeatAt;
   }
 
-  offering(image: RunnerImage): HostImage | null {
-    return this.state.report.offering(image);
+  supportedImage(image: RunnerImage): HostImage | null {
+    return this.state.report.supportedImage(image);
   }
 
-  servesThrough(source: CredentialSource): boolean {
+  hasSource(source: CredentialSource): boolean {
     return this.state.source.equals(source);
   }
 
@@ -145,7 +145,7 @@ export class RunnerHost extends EventRecorder {
     report: HostReport;
     at: Date;
   }): RunnerHost {
-    if (this.servesThrough(input.source)) {
+    if (this.hasSource(input.source)) {
       if (input.at <= this.state.lastHeartbeatAt) {
         return this;
       }
@@ -158,7 +158,7 @@ export class RunnerHost extends EventRecorder {
           ? input.at
           : this.state.onlineSince,
         lastHeartbeatAt: input.at,
-      }).noticingItStartedServing(this);
+      }).recordReadyOnFirstHarness(this);
     }
 
     if (
@@ -177,22 +177,20 @@ export class RunnerHost extends EventRecorder {
       firstHeartbeatAt: input.at,
       onlineSince: input.at,
       lastHeartbeatAt: input.at,
-    }).noticingItStartedServing(null);
+    }).recordReadyOnFirstHarness(null);
   }
 
   private cameOnlineAgain(bootId: BootId, at: Date): boolean {
     return !bootId.equals(this.state.bootId) || !this.isOnlineAt(at);
   }
 
-  get servesAHarness(): boolean {
-    return this.state.report.servesAHarness;
+  get supportsAHarness(): boolean {
+    return this.state.report.supportsAHarness;
   }
 
-  private noticingItStartedServing(before: RunnerHost | null): RunnerHost {
-    if (this.servesAHarness && !before?.servesAHarness) {
-      this.record(
-        new RunnerHostStartedServing(this.state.id, this.state.workspaceId),
-      );
+  private recordReadyOnFirstHarness(before: RunnerHost | null): RunnerHost {
+    if (this.supportsAHarness && !before?.supportsAHarness) {
+      this.record(new HostReady(this.state.id, this.state.workspaceId));
     }
 
     return this;

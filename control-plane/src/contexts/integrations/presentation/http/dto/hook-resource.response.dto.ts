@@ -166,7 +166,7 @@ export class HookSigningDto {
   @ApiPropertyOptional({
     example: 1,
     description:
-      'The version of the HMAC secret; changed to rotate secret, which is write-only and never answered',
+      'The version of the HMAC secret; changed to rotate secret, which is write-only and never returned',
   })
   readonly secretVersion?: number;
 

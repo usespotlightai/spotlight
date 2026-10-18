@@ -10,7 +10,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class HoldOutSearch {
   constructor(
@@ -82,7 +82,7 @@ export class HoldOutSearch {
             ceiling: search.ceilingSplit.heldOutReplay,
             unpricedRate: search.ceilingSplit.perRun,
             at,
-            by: Attribution.spotlight(search.workspaceId),
+            by: ChangeActor.spotlight(search.workspaceId),
             runSubset: search.split.heldOutRuns,
             repeats: search.budget.repeats,
             searchId: search.id,

@@ -49,8 +49,8 @@ func (a *archiver) replays() bool {
 	return a.run.Spec.Replay != nil
 }
 
-func (a *archiver) carriesOn() bool {
-	return !a.replays() && !searches(a.run) && a.run.Spec.Continuity.Key != ""
+func (a *archiver) restoresWorkspace() bool {
+	return !a.replays() && !searches(a.run) && a.run.Spec.Resume.Key != ""
 }
 
 func (a *archiver) restore(ctx context.Context) error {
@@ -58,7 +58,7 @@ func (a *archiver) restore(ctx context.Context) error {
 		return a.restoreReplayed(ctx)
 	}
 
-	if a.carriesOn() {
+	if a.restoresWorkspace() {
 		a.leased(ctx, a.restored)
 	}
 
@@ -154,18 +154,18 @@ func (a *archiver) recordBaseline() {
 }
 
 func (a *archiver) archive(ctx context.Context) bool {
-	if !a.carriesOn() {
+	if !a.restoresWorkspace() {
 		return false
 	}
 
-	var sealed bool
+	var completed bool
 	a.leased(ctx, func(ctx context.Context) {
 		var summary string
-		summary, sealed = a.archived(ctx)
+		summary, completed = a.archived(ctx)
 		a.report(archiveStep, "%s", summary)
 	})
 
-	return sealed
+	return completed
 }
 
 func (a *archiver) archived(ctx context.Context) (string, bool) {
@@ -198,7 +198,7 @@ func (a *archiver) archived(ctx context.Context) (string, bool) {
 		return "Skipped: " + err.Error(), false
 	}
 
-	if err := a.control.SealArchive(ctx, a.run.ID, grant.ID); err != nil {
+	if err := a.control.CompleteArchive(ctx, a.run.ID, grant.ID); err != nil {
 		return "Skipped: " + err.Error(), false
 	}
 	a.baseline = now

@@ -20,10 +20,10 @@ import (
 	"time"
 
 	"usespotlight.ai/data-plane/allowlist"
-	"usespotlight.ai/data-plane/egressing/guard"
-	"usespotlight.ai/data-plane/egressing/inject"
-	"usespotlight.ai/data-plane/egressing/seal"
-	"usespotlight.ai/data-plane/egressing/tunnel"
+	"usespotlight.ai/data-plane/egresskit/guard"
+	"usespotlight.ai/data-plane/egresskit/inject"
+	"usespotlight.ai/data-plane/egresskit/seal"
+	"usespotlight.ai/data-plane/egresskit/tunnel"
 	"usespotlight.ai/data-plane/protocol"
 )
 
@@ -333,7 +333,7 @@ func (e *Egress) connect(w http.ResponseWriter, r *http.Request, found *run) {
 		return
 	}
 
-	upstream, err := e.dial(guard.Naming(r.Context(), named), "tcp", target)
+	upstream, err := e.dial(guard.WithListed(r.Context(), named), "tcp", target)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			e.record(found, host, port, started, unreached(err))
@@ -358,7 +358,7 @@ func (e *Egress) connect(w http.ResponseWriter, r *http.Request, found *run) {
 		return
 	}
 
-	out, in := tunnel.Splice(client, buffered, upstream)
+	out, in := tunnel.Relay(client, buffered, upstream)
 	e.record(found, host, port, started, protocol.EgressConnection{BytesOut: out, BytesIn: in, Outcome: protocol.ConnectionPassthrough})
 }
 
@@ -404,7 +404,7 @@ func (e *Egress) forward(w http.ResponseWriter, r *http.Request, found *run) {
 
 	(&httputil.ReverseProxy{
 		Rewrite: func(out *httputil.ProxyRequest) {
-			out.Out = out.Out.WithContext(guard.Naming(out.Out.Context(), way.named))
+			out.Out = out.Out.WithContext(guard.WithListed(out.Out.Context(), way.named))
 			out.Out.URL.Scheme = "https"
 			out.Out.URL.Host = host + ":443"
 			out.Out.Host = host
@@ -505,7 +505,7 @@ func (m *metered) RoundTrip(request *http.Request) (*http.Response, error) {
 }
 
 func requestHead(request *http.Request) int64 {
-	head := &tally{}
+	head := &countingWriter{}
 	fmt.Fprintf(head, "%s %s HTTP/1.1\r\nHost: %s\r\n", request.Method, request.URL.RequestURI(), request.Host)
 	if request.ContentLength > 0 {
 		fmt.Fprintf(head, "Content-Length: %d\r\n", request.ContentLength)
@@ -515,18 +515,18 @@ func requestHead(request *http.Request) int64 {
 }
 
 func responseHead(response *http.Response) int64 {
-	head := &tally{}
+	head := &countingWriter{}
 	fmt.Fprintf(head, "HTTP/1.1 %s\r\n", response.Status)
 	_ = response.Header.Write(head)
 	return head.bytes + 2
 }
 
-type tally struct {
+type countingWriter struct {
 	bytes int64
 }
 
-func (t *tally) Write(b []byte) (int, error) {
-	t.bytes += int64(len(b))
+func (w *countingWriter) Write(b []byte) (int, error) {
+	w.bytes += int64(len(b))
 	return len(b), nil
 }
 

@@ -10,8 +10,8 @@ import {
   type InboxItemResponseDto,
   listInbox,
   listTasks,
-  readInboxAside,
   readInboxItem,
+  readInboxRequest,
   readMemoryReview,
   readRunReview,
   readRunScores,
@@ -25,15 +25,15 @@ import {
 import { serveMockApi } from '@/mocks/testing';
 import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import {
-  ALERT_ASIDE_ID,
   ALERT_ID,
-  CLAIMS_GRADE_ASIDE_ID,
-  COST_ALERT_ASIDE_ID,
+  ALERT_REQUEST_ID,
+  CLAIMS_GRADE_REQUEST_ID,
   COST_ALERT_ID,
-  DECIDED_MEMORIES_ASIDE_ID,
-  FIVE_POINT_GRADE_ASIDE_ID,
-  GRADE_ASIDE_ID,
-  MEMORIES_ASIDE_ID,
+  COST_ALERT_REQUEST_ID,
+  DECIDED_MEMORIES_REQUEST_ID,
+  FIVE_POINT_GRADE_REQUEST_ID,
+  GRADE_REQUEST_ID,
+  MEMORIES_REQUEST_ID,
   SETUP_ITEM_ID,
   STALLED_NOTICE_ID,
 } from '@/mocks/world/inbox';
@@ -58,10 +58,13 @@ const POSTGRES_RUN = { teamId: PLATFORM_ID, runId: 'run_postgres_2' };
 const approvalIn = async (itemId: string) =>
   (await itemIn(itemId))?.notes.findLast((note) => note.approval)?.approval;
 
-const scoresAbout = async (asideId: string) => {
-  const aside = await itemIn(asideId);
+const scoresAbout = async (requestId: string) => {
+  const inboxRequest = await itemIn(requestId);
   const { data } = await readRunScores({
-    path: { teamId: aside?.teamId ?? '', runId: aside?.aside?.about ?? '' },
+    path: {
+      teamId: inboxRequest?.teamId ?? '',
+      runId: inboxRequest?.inboxRequest?.about ?? '',
+    },
     throwOnError: true,
   });
 
@@ -80,8 +83,8 @@ describe('the mock inbox', () => {
         'task_rate_limits:0',
         'task_postgres:0',
         'task_onboarding_copy:0',
-        MEMORIES_ASIDE_ID,
-        ALERT_ASIDE_ID,
+        MEMORIES_REQUEST_ID,
+        ALERT_REQUEST_ID,
         STALLED_NOTICE_ID,
       ]),
     );
@@ -168,13 +171,13 @@ describe('the mock inbox', () => {
     });
   });
 
-  it('marks items and asides read, and resolves notices', async () => {
+  it('marks items and inbox requests read, and resolves notices', async () => {
     await readInboxItem({
       path: { slug: SLUG, itemId: 'task_rate_limits:0' },
       throwOnError: true,
     });
-    await readInboxAside({
-      path: { slug: SLUG, asideId: MEMORIES_ASIDE_ID },
+    await readInboxRequest({
+      path: { slug: SLUG, requestId: MEMORIES_REQUEST_ID },
       throwOnError: true,
     });
     await resolveInboxNotice({
@@ -187,7 +190,7 @@ describe('the mock inbox', () => {
       entries.find((entry) => entry.id === id)?.unread;
 
     expect(unreadOf('task_rate_limits:0')).toBe(false);
-    expect(unreadOf(MEMORIES_ASIDE_ID)).toBe(false);
+    expect(unreadOf(MEMORIES_REQUEST_ID)).toBe(false);
     expect(
       entries.find((entry) => entry.id === STALLED_NOTICE_ID)?.resolved,
     ).toBe(true);
@@ -235,14 +238,14 @@ describe('the mock inbox', () => {
     expect(cost.rule).toMatchObject({ measure: 'cost_per_run', above: 2 });
     expect(cost.value).toBeGreaterThan(2);
     expect(cost.resolvedAt).toBeNull();
-    expect((await itemIn(COST_ALERT_ASIDE_ID))?.resolved).toBe(false);
+    expect((await itemIn(COST_ALERT_REQUEST_ID))?.resolved).toBe(false);
     expect(sentBack.resolvedAt).not.toBeNull();
-    expect((await itemIn(ALERT_ASIDE_ID))?.resolved).toBe(true);
+    expect((await itemIn(ALERT_REQUEST_ID))?.resolved).toBe(true);
   });
 
   it('requests grades on every scale', async () => {
-    const claims = await scoresAbout(CLAIMS_GRADE_ASIDE_ID);
-    const five = await scoresAbout(FIVE_POINT_GRADE_ASIDE_ID);
+    const claims = await scoresAbout(CLAIMS_GRADE_REQUEST_ID);
+    const five = await scoresAbout(FIVE_POINT_GRADE_REQUEST_ID);
 
     expect(claims).toMatchObject({
       kind: 'claims',
@@ -266,7 +269,7 @@ describe('the mock inbox', () => {
 
     expect(before.judge?.label).toBe('yes');
     expect(after.grades[0]).toMatchObject({ mine: true, label: 'yes' });
-    expect((await itemIn(GRADE_ASIDE_ID))?.resolved).toBe(true);
+    expect((await itemIn(GRADE_REQUEST_ID))?.resolved).toBe(true);
   });
 
   it('drafts, edits, deletes and submits review comments', async () => {
@@ -331,7 +334,7 @@ describe('the mock inbox', () => {
     ]);
   });
 
-  it('shows the memory of the run as approved, and resolves the aside once the last is decided', async () => {
+  it('shows the memory of the run as approved, and resolves the inbox request once the last is decided', async () => {
     const { data: review } = await readMemoryReview({
       path: RETRIES,
       throwOnError: true,
@@ -353,7 +356,7 @@ describe('the mock inbox', () => {
       'approved',
       'rejected',
     ]);
-    expect((await itemIn(MEMORIES_ASIDE_ID))?.resolved).toBe(true);
+    expect((await itemIn(MEMORIES_REQUEST_ID))?.resolved).toBe(true);
   });
 
   it('shows memories already decided', async () => {
@@ -366,7 +369,7 @@ describe('the mock inbox', () => {
       'approved',
       'rejected',
     ]);
-    expect((await itemIn(DECIDED_MEMORIES_ASIDE_ID))?.resolved).toBe(true);
+    expect((await itemIn(DECIDED_MEMORIES_REQUEST_ID))?.resolved).toBe(true);
   });
 
   it('approves a proposed memory', async () => {

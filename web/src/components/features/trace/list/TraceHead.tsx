@@ -15,7 +15,7 @@ export function TraceHead() {
       <span className="truncate">Task</span>
       <span className="truncate">Input</span>
       <span className="truncate">Output</span>
-      <span className="truncate text-right">Faults</span>
+      <span className="truncate text-right">Errors</span>
       <span className="truncate text-right">Took</span>
       <span className="truncate text-right">Cost</span>
     </div>

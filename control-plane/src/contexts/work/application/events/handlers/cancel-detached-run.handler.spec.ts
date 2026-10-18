@@ -28,7 +28,7 @@ const queued = () =>
       command: { executable: 'claude-agent-acp', args: ['--acp'] },
       briefing: 'work out what the request wants',
       handover: { options: ['Spec'], noteLimit: 4_000 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
     }),
     subject: RunSubject.task(
       TaskId.of('task_1'),

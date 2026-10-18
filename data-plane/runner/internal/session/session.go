@@ -32,7 +32,7 @@ import (
 type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	RenewLease(ctx context.Context, runID string) (bool, error)
-	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error)
+	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error)
 	AwaitsPerson(ctx context.Context, runID string, turn protocol.Completion) (bool, error)
 	Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error)
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
@@ -42,17 +42,17 @@ type Journal interface {
 	History(ctx context.Context, runID string, request protocol.HistoryRequest) (json.RawMessage, error)
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
-	Remember(ctx context.Context, runID string, remembered protocol.Remembering) (json.RawMessage, error)
+	Remember(ctx context.Context, runID string, remembered protocol.RememberRequest) (json.RawMessage, error)
 	ProposeCandidate(ctx context.Context, runID string, proposal protocol.CandidateProposal) (json.RawMessage, error)
 	RecordCause(ctx context.Context, runID string, record protocol.CauseRecord) (json.RawMessage, error)
 	MemoryFiles(ctx context.Context, runID string) ([]protocol.MemoryFile, error)
 	Messages(ctx context.Context, runID string) ([]protocol.Message, error)
 	AckMessages(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
-	AskPermission(ctx context.Context, runID string, asked protocol.PermissionAsked) (protocol.PermissionAnswer, error)
+	AskPermission(ctx context.Context, runID string, asked protocol.PermissionRequest) (protocol.PermissionResponse, error)
 	WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
 	GrantArchive(ctx context.Context, runID string, size int64, sha256 string) (protocol.ArchiveGrant, error)
-	SealArchive(ctx context.Context, runID, archiveID string) error
+	CompleteArchive(ctx context.Context, runID, archiveID string) error
 	RecordStartingPoint(ctx context.Context, runID string, point protocol.StartingPoint) error
 }
 
@@ -79,7 +79,7 @@ type Options struct {
 	AnswerWait   time.Duration
 	Heartbeat    time.Duration
 	Transport    http.RoundTripper
-	WayOut       map[string]string
+	ProxyEnv     map[string]string
 	Enforced     func(ctx context.Context) bool
 	Unready      error
 }
@@ -98,27 +98,27 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	lifecycle := &progress{state: Preparing}
 
 	if opts.Unready != nil {
-		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, opts.Unready)
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, opts.Unready)
 	}
 
 	space, err := workspace.Open(opts.Workspace)
 	if err != nil {
-		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	archiver := newArchiver(run, space, journal, opts.Journal, opts.Transport, log)
 	if err := archiver.restore(ctx); err != nil {
-		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	if err := space.Remove(workspace.HandoverPath); err != nil {
-		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear an earlier run's outcome: %w", err))
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear an earlier run's outcome: %w", err))
 	}
 
 	if len(run.Spec.Checkouts) > 0 {
 		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID, replays(run), opts.Transport)
 		if err != nil {
-			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 		defer func() {
 			if err := serving.Close(); err != nil {
@@ -131,7 +131,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	// Prepare as the runner, before the handover, so the agent finds nothing that prepare keeps.
 	if err := opts.prepare(ctx, space.Dir, run, journal); err != nil {
-		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	bases := markBases(ctx, space.Dir, run.Spec.Checkouts, log)
@@ -141,57 +141,57 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	for _, attachment := range run.Spec.Attachments {
 		if err := fetch(ctx, opts.Journal, run.ID, space, nil, attachment); err != nil {
-			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	}
 
-	for home, laid := range skillHomes(run.Spec.SkillHomes, run.Spec.Skills) {
-		if err := space.Prune(home, laid); err != nil {
-			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear skills from %s: %w", home, err))
+	for home, written := range skillHomes(run.Spec.SkillHomes, run.Spec.Skills) {
+		if err := space.Prune(home, written); err != nil {
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear skills from %s: %w", home, err))
 		}
 	}
 
 	for _, skill := range run.Spec.Skills {
-		if err := lay(space, skill); err != nil {
-			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		if err := writeSkill(space, skill); err != nil {
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	}
 
 	if searches(run) {
 		if err := space.Remove(memoryFolder); err != nil {
-			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear the team's memory: %w", err))
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("clear the team's memory: %w", err))
 		}
 	} else {
-		layMemory(ctx, opts.Journal, run.ID, space, log)
+		writeMemoryFiles(ctx, opts.Journal, run.ID, space, log)
 	}
 
 	state, err := space.State()
 	if err != nil {
-		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
 	for _, path := range run.Spec.SettingFiles {
 		if err := unset(space, path, run.Spec.HarnessSetup.Files); err != nil {
-			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	}
 
 	for _, file := range run.Spec.HarnessSetup.Files {
 		if err := setUp(space, file); err != nil {
-			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
 	}
 
 	if opts.AgentUser != nil {
 		if err := space.ChownAll(opts.AgentUser.UID, opts.AgentUser.GID); err != nil {
-			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("hand over workspace: %w", err))
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("hand over workspace: %w", err))
 		}
 	}
 
 	opts.setUp(ctx, space.Dir, run.Spec.Checkouts, journal, log)
 
 	if err := lifecycle.advance(WorkspaceReady); err != nil {
-		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
 	archiver.recordBaseline()
@@ -210,7 +210,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		},
 	)
 	if err != nil {
-		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	defer channel.Close()
 
@@ -238,7 +238,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			journal.append(protocol.Event{Type: protocol.EventSpan, Data: recalled(request, from, time.Now(), answer, err)})
 			return answer, err
 		},
-		func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error) {
+		func(ctx context.Context, remembered protocol.RememberRequest) (json.RawMessage, error) {
 			if replays(run) {
 				return nil, notAllowedInReplay("remember")
 			}
@@ -275,7 +275,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		journal.append(protocol.Event{Type: protocol.EventSpan, Data: span})
 	})
 	if err != nil {
-		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	defer func() {
 		if err := telemetry.Close(); err != nil {
@@ -288,7 +288,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	opts.checkEgress(ctx, journal)
 
 	env := granted(run.Spec.Command.Env, channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane))
-	maps.Copy(env, opts.WayOut)
+	maps.Copy(env, opts.ProxyEnv)
 
 	harness, err := acp.Start(ctx, acp.Options{
 		Executable: run.Spec.Command.Executable,
@@ -316,7 +316,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 	log.Info("agent started", "executable", run.Spec.Command.Executable, "cwd", cwd)
 
-	sessionID, err := open(ctx, harness, run.Spec.Continuity.SessionID, log)
+	sessionID, err := open(ctx, harness, run.Spec.Resume.SessionID, log)
 	if err != nil {
 		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -410,7 +410,7 @@ func (o Options) generateStacks(
 		return
 	}
 
-	checking := stackcheck.Options{Dir: dir, RunAs: o.AgentUser, Log: log, Env: o.WayOut}
+	checking := stackcheck.Options{Dir: dir, RunAs: o.AgentUser, Log: log, Env: o.ProxyEnv}
 
 	for _, checkout := range run.Spec.Checkouts {
 		diffing := checking.Diff
@@ -489,7 +489,7 @@ func decide(
 		return acp.Cancel
 	}
 
-	answer, err := lease.AskPermission(ctx, run.ID, protocol.PermissionAsked{
+	answer, err := lease.AskPermission(ctx, run.ID, protocol.PermissionRequest{
 		SessionID: asked.SessionID,
 		Kind:      asked.Kind,
 		Title:     asked.Title,
@@ -545,25 +545,25 @@ func fetch(
 
 const memoryFolder = ".spotlight/memory"
 
-const unreadMemory = "The team's memory could not be read for this run, so nothing is laid out here.\n"
+const unreadMemory = "The team's memory could not be read for this run, so nothing is written here.\n"
 
-func layMemory(ctx context.Context, journal Journal, runID string, space *workspace.Workspace, log *slog.Logger) {
+func writeMemoryFiles(ctx context.Context, journal Journal, runID string, space *workspace.Workspace, log *slog.Logger) {
 	files, err := journal.MemoryFiles(ctx, runID)
 	if err != nil {
 		log.Warn("could not read what the team remembers", "error", err)
 		files = []protocol.MemoryFile{{Path: memoryFolder + "/README.md", Body: unreadMemory}}
 	}
 
-	laid := make([]string, 0, len(files))
+	written := make([]string, 0, len(files))
 	for _, file := range files {
 		if strings.HasPrefix(filepath.Clean(file.Path), memoryFolder+string(filepath.Separator)) {
-			laid = append(laid, filepath.Clean(file.Path))
+			written = append(written, filepath.Clean(file.Path))
 		} else {
 			log.Warn("left out a memory file outside the memory folder", "path", file.Path)
 		}
 	}
 
-	if err := space.Prune(memoryFolder, laid); err != nil {
+	if err := space.Prune(memoryFolder, written); err != nil {
 		if err := space.Remove(memoryFolder); err != nil {
 			log.Warn("could not clear the memory folder", "error", err)
 			return
@@ -571,11 +571,11 @@ func layMemory(ctx context.Context, journal Journal, runID string, space *worksp
 	}
 
 	for _, file := range files {
-		if !slices.Contains(laid, filepath.Clean(file.Path)) {
+		if !slices.Contains(written, filepath.Clean(file.Path)) {
 			continue
 		}
 		if err := space.Replace(file.Path, nil, writing(file.Body)); err != nil {
-			log.Warn("could not lay a memory file", "path", file.Path, "error", err)
+			log.Warn("could not write a memory file", "path", file.Path, "error", err)
 		}
 	}
 }
@@ -622,9 +622,9 @@ func homeOf(homes map[string][]string, path string) string {
 	return ""
 }
 
-func lay(space *workspace.Workspace, skill protocol.SkillFile) error {
+func writeSkill(space *workspace.Workspace, skill protocol.SkillFile) error {
 	if err := space.Replace(skill.Path, nil, writing(skill.Text)); err != nil {
-		return fmt.Errorf("lay skill %s: %w", skill.Path, err)
+		return fmt.Errorf("write skill %s: %w", skill.Path, err)
 	}
 
 	return nil
@@ -636,7 +636,7 @@ func setUp(space *workspace.Workspace, file protocol.SetupFile) error {
 	}
 
 	if err := space.Replace(filepath.Join(workspace.StatePath, file.Path), nil, writing(file.Text)); err != nil {
-		return fmt.Errorf("lay harness file %s: %w", file.Path, err)
+		return fmt.Errorf("write harness file %s: %w", file.Path, err)
 	}
 
 	return nil
@@ -667,7 +667,7 @@ func writing(text string) func(io.Writer) error {
 	}
 }
 
-func unprepared(
+func setupFailed(
 	ctx context.Context,
 	runID string,
 	journal *journalWriter,
@@ -715,10 +715,10 @@ func failed(
 	journal.flush(ctx)
 
 	if _, err := reporter.Complete(ctx, runID, protocol.Completion{
-		ExitCode:   -1,
-		Failed:     true,
-		Unprepared: beforeHandover,
-		Message:    message,
+		ExitCode:    -1,
+		Failed:      true,
+		SetupFailed: beforeHandover,
+		Message:     message,
 	}); err != nil {
 		log.Warn("could not report the failure", "error", err)
 	}
@@ -777,7 +777,7 @@ func (o Options) checkEgress(ctx context.Context, journal *journalWriter) {
 		return
 	}
 
-	checked, err := json.Marshal(protocol.EgressChecked{Enforced: o.Enforced(ctx)})
+	checked, err := json.Marshal(protocol.EgressCheckResult{Enforced: o.Enforced(ctx)})
 	if err != nil {
 		return
 	}
@@ -792,7 +792,7 @@ func (o Options) setUp(
 			continue
 		}
 
-		output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, o.WayOut)
+		output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, o.ProxyEnv)
 		if err != nil {
 			log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)
 			output = strings.TrimSpace(fmt.Sprintf("%s\n\nSetup failed for %s. Error: %v", output, checkout.Path, err))
@@ -952,7 +952,7 @@ func viaGitProxy(checkouts []protocol.Checkout, remote string) []protocol.Checko
 
 	for at, checkout := range checkouts {
 		resolved[at] = checkout
-		if checkout.Remote == protocol.ThroughSpotlight {
+		if checkout.Remote == protocol.RemoteViaGitProxy {
 			resolved[at].Remote = remote + "/" + checkout.Path
 		}
 	}

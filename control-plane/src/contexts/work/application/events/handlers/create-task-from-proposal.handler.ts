@@ -1,8 +1,8 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { CreateTask } from '@work/application/services/create-task';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
-import type { RaiseTask } from '@work/application/services/raise-task';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
@@ -16,7 +16,7 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
     private readonly chats: ChatRepository,
     private readonly lines: LineRepository,
     private readonly placements: TaskPlacementsPort,
-    private readonly raise: RaiseTask,
+    private readonly createTask: CreateTask,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
@@ -35,7 +35,7 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
       return;
     }
 
-    await this.raise.raise({
+    await this.createTask.create({
       task: Task.add({
         line,
         at: station.id,
@@ -46,7 +46,7 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
             (each) => each.rank,
           ),
         ),
-        raisedBy: event.acceptedBy,
+        createdBy: event.acceptedBy,
         proposedIn: ProposalOrigin.of({
           chatId: event.chatId,
           position: event.position,

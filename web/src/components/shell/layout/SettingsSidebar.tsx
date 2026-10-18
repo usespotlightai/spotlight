@@ -13,7 +13,7 @@ import { SettingsNavGroup } from '@/components/shell/layout/SettingsNavGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { useRunners } from '@/hooks/api/useRunners';
 import { membersPath } from '@/lib/members';
-import { administers, type Role } from '@/lib/role';
+import { isAdmin, type Role } from '@/lib/role';
 import { onlineCount, runnersPath } from '@/lib/runner';
 import {
   TEAM_SETTINGS_PAGES,
@@ -71,7 +71,7 @@ export function SettingsSidebar({
               General
             </SidebarLink>
           </li>
-          {administers(workspace.role) && (
+          {isAdmin(workspace.role) && (
             <li>
               <SidebarLink to={membersPath(slug)} icon={Users}>
                 Members
@@ -89,7 +89,7 @@ export function SettingsSidebar({
               Runners
             </SidebarLink>
           </li>
-          {administers(workspace.role) && (
+          {isAdmin(workspace.role) && (
             <li>
               <SidebarLink to={tokensPath(slug)} icon={KeyRound}>
                 Tokens

@@ -291,7 +291,7 @@ describe('IntegrationToolCalls', () => {
       });
 
       await expect(comment()).rejects.toMatchObject({
-        violation: 'not-allowed',
+        kind: 'not-allowed',
       });
       expect(fetch).not.toHaveBeenCalled();
     });

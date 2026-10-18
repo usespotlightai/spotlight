@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
-import { AsideLayout } from '@/components/features/inbox/AsideLayout';
+import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout';
 import { InboxGone } from '@/components/features/inbox/InboxGone';
 import { NoticeCard } from '@/components/features/inbox/notices/NoticeCard';
 import { NoticeSkeleton } from '@/components/features/inbox/notices/NoticeSkeleton';
@@ -67,9 +67,9 @@ export function InboxNotice() {
 
   return (
     <TrailContext value={forward}>
-      <AsideLayout trail={trail}>
+      <InboxDetailLayout trail={trail}>
         <NoticeCard slug={slug} notice={notice} />
-      </AsideLayout>
+      </InboxDetailLayout>
     </TrailContext>
   );
 }

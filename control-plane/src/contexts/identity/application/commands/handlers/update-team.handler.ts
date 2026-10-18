@@ -15,7 +15,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class UpdateTeamHandler
@@ -60,7 +60,7 @@ export class UpdateTeamHandler
         this.teams.save(
           existing.update(
             compiled,
-            Attribution.of(command.actor, existing.workspaceId),
+            ChangeActor.of(command.actor, existing.workspaceId),
           ),
         ),
       );

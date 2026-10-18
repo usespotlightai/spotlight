@@ -39,10 +39,10 @@ const holdsTheRun = and(
   sql`${startingPointHold.runIds} @> ARRAY[${run.id}]`,
 );
 
-const sameContinuity = and(
+const sameResume = and(
   eq(newer.workspaceId, workspaceArchive.workspaceId),
-  eq(newer.continuityKey, workspaceArchive.continuityKey),
-  gt(newer.sealedAt, workspaceArchive.sealedAt),
+  eq(newer.resumeKey, workspaceArchive.resumeKey),
+  gt(newer.completedAt, workspaceArchive.completedAt),
 );
 
 interface HolderRow {
@@ -81,7 +81,7 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
 
   async due(
     {
-      grantedUnsealedBy,
+      grantedIncompleteBy,
       supersededBy,
       releasedBy,
       startedFromBy,
@@ -99,9 +99,9 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
         chatSession: chat.sessionId,
         chatUpdatedAt: chat.updatedAt,
         supersededAt: sql<Date | null>`(${this.db
-          .select({ at: min(newer.sealedAt) })
+          .select({ at: min(newer.completedAt) })
           .from(newer)
-          .where(sameContinuity)})`.mapWith(workspaceArchive.sealedAt),
+          .where(sameResume)})`.mapWith(workspaceArchive.completedAt),
         lastStartedFromAt: sql<Date | null>`(${this.db
           .select({ at: max(run.startedFromAt) })
           .from(run)
@@ -114,18 +114,18 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
       .where(
         or(
           and(
-            isNull(workspaceArchive.sealedAt),
-            lte(workspaceArchive.grantedAt, grantedUnsealedBy),
+            isNull(workspaceArchive.completedAt),
+            lte(workspaceArchive.grantedAt, grantedIncompleteBy),
           ),
           and(
-            isNotNull(workspaceArchive.sealedAt),
+            isNotNull(workspaceArchive.completedAt),
             or(
               and(isNotNull(workspaceArchive.taskId), isNull(task.id)),
               and(isNotNull(workspaceArchive.chatId), isNull(chat.id)),
             ),
           ),
           and(
-            isNotNull(workspaceArchive.sealedAt),
+            isNotNull(workspaceArchive.completedAt),
             not(
               exists(
                 this.db
@@ -142,20 +142,18 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
                 this.db
                   .select({ one: sql`1` })
                   .from(newer)
-                  .where(
-                    and(sameContinuity, lte(newer.sealedAt, supersededBy)),
-                  ),
+                  .where(and(sameResume, lte(newer.completedAt, supersededBy))),
               ),
               and(
                 isNotNull(task.finishedAt),
                 lte(task.updatedAt, releasedBy),
-                lte(workspaceArchive.sealedAt, releasedBy),
+                lte(workspaceArchive.completedAt, releasedBy),
               ),
               and(
                 isNotNull(chat.id),
                 isNull(chat.sessionId),
                 lte(chat.updatedAt, releasedBy),
-                lte(workspaceArchive.sealedAt, releasedBy),
+                lte(workspaceArchive.completedAt, releasedBy),
               ),
             ),
           ),

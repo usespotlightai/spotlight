@@ -113,7 +113,7 @@ export class HostResponseDto {
   @ApiProperty({
     type: [HostImageResponseDto],
     description:
-      'The runner images it serves or cannot use, and what each contains',
+      'The runner images it supports or cannot use, and what each contains',
   })
   readonly images: readonly HostImageResponseDto[];
 

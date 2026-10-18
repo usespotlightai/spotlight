@@ -11,7 +11,7 @@ import { useRunners } from '@/hooks/api/useRunners';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useRemembered } from '@/hooks/useRemembered';
 import { failed, loading } from '@/lib/query';
-import { managesRunners } from '@/lib/role';
+import { isAdmin } from '@/lib/role';
 import { asRunnerFilter, FALLBACK_RUNNER_FILTER } from '@/lib/runner';
 import { TrailContext, useTrail } from '@/lib/trail';
 
@@ -32,7 +32,7 @@ export function Runners() {
     return null;
   }
 
-  const adds = workspace ? managesRunners(workspace.role) : false;
+  const adds = workspace ? isAdmin(workspace.role) : false;
   const hosts = fleet.data?.hosts;
   const pools = fleet.data?.pools ?? [];
 

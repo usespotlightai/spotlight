@@ -5,7 +5,7 @@ const SUBJECTS = {
 } as const;
 
 export class InvalidScoreError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(reason: string, subject: keyof typeof SUBJECTS = 'score') {
     super(`${SUBJECTS[subject]} ${reason}.`);

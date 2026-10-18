@@ -30,7 +30,7 @@ interface Bound {
 }
 
 const denied = (message: string) =>
-  Object.assign(new Error(message), { violation: 'not-allowed' as const });
+  Object.assign(new Error(message), { kind: 'not-allowed' as const });
 
 export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
   const granted = new Set<string>();
@@ -44,7 +44,7 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
         if (!secret) {
           throw Object.assign(
             new Error(`Secret ${name} not found. Please create it first.`),
-            { violation: 'conflict' as const },
+            { kind: 'conflict' as const },
           );
         }
 
@@ -89,7 +89,7 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
         new Error(
           `Secret ${request.secret} not found. Please create it first.`,
         ),
-        { violation: 'conflict' as const },
+        { kind: 'conflict' as const },
       );
     }
 

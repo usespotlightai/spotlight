@@ -6,7 +6,7 @@ import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray } from 'drizzle-orm';
 import {
@@ -209,7 +209,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
           [],
           [],
           Dependents.none(),
-          attributedIn(made.body.id),
+          changeActorIn(made.body.id),
         ) as Workspace,
       ),
     ).rejects.toThrow(WorkspaceInUseError);

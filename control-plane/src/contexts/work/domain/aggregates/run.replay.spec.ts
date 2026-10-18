@@ -67,13 +67,13 @@ const TASK_SPEC: RunSpecParts = {
   command: { executable: 'sh', args: [] },
   briefing: 'Fix the queue.',
   handover: { options: ['review'], noteLimit: 0 },
-  continuity: { key: 'task-task_1' },
+  resume: { key: 'task-task_1' },
 };
 
 const REPLAY_SPEC: RunSpecParts = {
   ...TASK_SPEC,
   checkouts: [{ remote: 'spotlight:repository', path: 'api', ref: COMMIT }],
-  continuity: { key: 'replay-run_1' },
+  resume: { key: 'replay-run_1' },
   replay: {
     archive: 'archive_1',
     checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],

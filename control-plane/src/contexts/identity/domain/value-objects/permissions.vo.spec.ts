@@ -28,7 +28,7 @@ describe('Permissions of a token’s scopes', () => {
       managesSecrets: permissions.managesSecrets,
       managesRunners: permissions.managesRunners,
       managesTokenTrusts: permissions.managesTokenTrusts,
-      administers: permissions.administers,
+      isAdmin: permissions.isAdmin,
     };
   };
 
@@ -47,7 +47,7 @@ describe('Permissions of a token’s scopes', () => {
         managesSecrets: false,
         managesRunners: false,
         managesTokenTrusts: false,
-        administers: false,
+        isAdmin: false,
       });
     },
   );
@@ -56,14 +56,14 @@ describe('Permissions of a token’s scopes', () => {
     [['read', 'secrets'], false],
     [['configure', 'secrets'], true],
   ])(
-    'manages secrets for %j, and still never administers',
+    'manages secrets for %j, and is still never an admin',
     (scopes, configures) => {
       expect(granted(scopes)).toMatchObject({
         reads: true,
         configures,
         managesSecrets: true,
         managesRunners: false,
-        administers: false,
+        isAdmin: false,
       });
     },
   );
@@ -72,14 +72,14 @@ describe('Permissions of a token’s scopes', () => {
     [['read', 'runners'], false],
     [['configure', 'runners'], true],
   ])(
-    'manages runners for %j, without secrets, and still never administers',
+    'manages runners for %j, without secrets, and is still never an admin',
     (scopes, configures) => {
       expect(granted(scopes)).toMatchObject({
         reads: true,
         configures,
         managesSecrets: false,
         managesRunners: true,
-        administers: false,
+        isAdmin: false,
       });
     },
   );
@@ -88,7 +88,7 @@ describe('Permissions of a token’s scopes', () => {
     [['read', 'trusts'], false],
     [['configure', 'trusts'], true],
   ])(
-    'manages token trusts for %j, without secrets or runners, and still never administers',
+    'manages token trusts for %j, without secrets or runners, and is still never an admin',
     (scopes, configures) => {
       expect(granted(scopes)).toEqual({
         reads: true,
@@ -97,7 +97,7 @@ describe('Permissions of a token’s scopes', () => {
         managesSecrets: false,
         managesRunners: false,
         managesTokenTrusts: true,
-        administers: false,
+        isAdmin: false,
       });
     },
   );
@@ -105,7 +105,7 @@ describe('Permissions of a token’s scopes', () => {
 
 describe('Permissions beyond any one workspace', () => {
   it('lets a person plan and create workspaces', () => {
-    const permissions = Permissions.beyondWorkspaces(
+    const permissions = Permissions.global(
       PersonPrincipal.of(UserId.of('user_1')),
     );
 
@@ -124,7 +124,7 @@ describe('Permissions beyond any one workspace', () => {
   ])(
     'lets a %j token plan only as its scopes allow, and never create a workspace',
     (scopes, plans) => {
-      const permissions = Permissions.beyondWorkspaces(token(scopes));
+      const permissions = Permissions.global(token(scopes));
 
       expect([
         permissions.plans,

@@ -21,8 +21,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 
@@ -81,13 +81,13 @@ export class CreateHarnessProfileHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const created = HarnessProfile.create({
               key: compiled.key,
               settings: compiled.settings,
               id: HarnessProfileId.of(this.ids.generate()),
               teamId: team.id,
-              by: Attribution.of(command.actor, team.workspaceId),
+              by: ChangeActor.of(command.actor, team.workspaceId),
               existingSecrets: await this.secrets.ofTeam(team.id),
             });
 
@@ -106,7 +106,7 @@ export class CreateHarnessProfileHandler
 
         if (error instanceof HarnessProfileAlreadyExistsError) {
           return {
-            outcome: 'taken',
+            outcome: 'already-exists',
             address: TeamAddress.of(team.key, compiled.key.value).toString(),
           };
         }

@@ -5,7 +5,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
@@ -123,8 +123,8 @@ const aTaskWithLeasedRun = async (
     workspaceId: team.workspaceId.value,
     stationId: at,
     title: 'Drain the queue',
-    raisedAtStationId: at,
-    raisedById: team.owner.value,
+    originStationId: at,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     currentRunId: runId,
   });
@@ -141,7 +141,7 @@ const aTaskWithLeasedRun = async (
       command: { executable: 'sh', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['review', 'ship', 'done'], noteLimit: 0 },
-      continuity: { key: `${taskId}:${at}` },
+      resume: { key: `${taskId}:${at}` },
     },
   });
 
@@ -394,7 +394,7 @@ describe('a run that asks a person', () => {
         .expect(201)
     ).body as { id: string };
     await runner(first)
-      .post(`/api/runs/${runId}/workspace-archive/${granted.id}/sealed`)
+      .post(`/api/runs/${runId}/workspace-archive/${granted.id}/complete`)
       .expect(204);
     await runner(first)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -416,10 +416,10 @@ describe('a run that asks a person', () => {
     const requeued = await runIn(runId, 'queued');
     expect(requeued?.attempt).toBe(2);
     expect(requeued?.spec).toMatchObject({
-      continuity: {
+      resume: {
         key: `${taskId}:${BUILD}`,
         sessionId: 'session_1',
-        resumes: true,
+        resumeSession: true,
       },
     });
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
@@ -643,7 +643,7 @@ describe('a message in a run chat', () => {
     expect(queued?.stationId).toBe(DEPLOY);
     expect(queued?.spec).toMatchObject({
       briefing: expect.stringContaining('Deploy the docs with it too.'),
-      continuity: { key: `task-${taskId}`, sessionId: 'session_1' },
+      resume: { key: `task-${taskId}`, sessionId: 'session_1' },
     });
 
     await claimed(next);
@@ -683,7 +683,7 @@ describe('a run queued while an earlier run of its task is still leased', () => 
           runner: RunnerId.of(`runner-${randomUUID()}`),
           workspaceId: team.workspaceId,
           harnesses: [HarnessId.of('dev')],
-          terms: RunnerTerms.of(['linux']),
+          offer: RunnerOffer.of(['linux']),
           claims: 'any',
         },
         new Date(),

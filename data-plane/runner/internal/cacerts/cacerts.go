@@ -26,11 +26,11 @@ func Add(pem []byte, authority, bundle string) error {
 func adding(pem []byte, authority, bundle string, system []string) error {
 	for _, dir := range []string{filepath.Dir(authority), filepath.Dir(bundle)} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("make a place for the way out's authority: %w", err)
+			return fmt.Errorf("make a place for the local proxy's authority: %w", err)
 		}
 	}
 	if err := replaced(authority, pem, 0o644); err != nil {
-		return fmt.Errorf("write the way out's authority: %w", err)
+		return fmt.Errorf("write the local proxy's authority: %w", err)
 	}
 
 	return installed(authority, bundle, system)

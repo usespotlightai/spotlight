@@ -1,12 +1,12 @@
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { type TeamRun, waitsOnPerson } from '@/lib/run';
-import type { RunConversation } from '@/lib/run-conversation';
+import type { RunNotes } from '@/lib/run-notes';
 
 type RunFooterProps = {
   slug: string;
   teamId: string;
   run: TeamRun;
-  conversation: RunConversation | undefined;
+  conversation: RunNotes | undefined;
   deciding: boolean;
 };
 

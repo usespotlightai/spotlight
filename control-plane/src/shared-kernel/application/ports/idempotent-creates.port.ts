@@ -8,13 +8,13 @@ export interface IdempotentCreate {
   readonly request: unknown;
 }
 
-export type IdempotentClaim =
-  | { readonly kind: 'fresh' }
-  | { readonly kind: 'replay'; readonly createdId: string }
-  | { readonly kind: 'reused' };
+export type IdempotentReservation =
+  | { readonly kind: 'new' }
+  | { readonly kind: 'already-created'; readonly createdId: string }
+  | { readonly kind: 'key-reused' };
 
 export interface IdempotentCreatesPort {
-  claim(create: IdempotentCreate): Promise<IdempotentClaim>;
+  reserve(create: IdempotentCreate): Promise<IdempotentReservation>;
 
-  created(create: IdempotentCreate, id: string): Promise<void>;
+  recordCreated(create: IdempotentCreate, id: string): Promise<void>;
 }

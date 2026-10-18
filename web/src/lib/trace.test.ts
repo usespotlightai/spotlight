@@ -11,7 +11,7 @@ const node = (
   kind: 'step',
   startedAt: iso(0),
   ms: 1_000,
-  tone: 'agent',
+  category: 'agent',
   cost: null,
   currency: null,
   step: null,
@@ -26,7 +26,7 @@ const trace = (): Trace => ({
   startedAt: iso(0),
   ms: 60_000,
   rows: 4,
-  faults: 0,
+  errors: 0,
   roots: [
     node({
       id: 'run:run_1',

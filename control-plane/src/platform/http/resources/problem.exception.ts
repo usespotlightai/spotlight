@@ -47,9 +47,9 @@ const changing: ForbiddenText = (kind) => [
 
 const FORBIDDEN_TEXTS: Readonly<Record<ForbiddenAct, ForbiddenText>> = {
   configure: changing,
-  'manage-secrets': changing,
-  'manage-runners': changing,
-  'manage-token-trusts': changing,
+  secrets: changing,
+  runners: changing,
+  trusts: changing,
   administer: (kind) => [
     `Not allowed to administer the ${kind}`,
     `Only workspace admins can do this. A token can never administer a ${kind}.`,
@@ -136,7 +136,7 @@ export class ProblemException extends HttpException {
     });
   }
 
-  static taken(kind: string, address: string): ProblemException {
+  static alreadyExists(kind: string, address: string): ProblemException {
     return new ProblemException({
       type: problemType('already-exists'),
       title: `The ${kind} already exists`,

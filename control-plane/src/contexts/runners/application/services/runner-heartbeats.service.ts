@@ -21,7 +21,7 @@ export class RunnerHeartbeats implements RunnerHeartbeatsPort {
       ? {
           workspaceId: runner.workspaceId,
           harnesses: runner.harnesses,
-          terms: runner.terms,
+          offer: runner.offer,
           claims: runner.claimsAt(at),
         }
       : null;

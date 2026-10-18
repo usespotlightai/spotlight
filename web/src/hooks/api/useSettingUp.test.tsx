@@ -11,7 +11,7 @@ import {
   clearCreatedHere,
   markCreatedHere,
   wasCreatedHere,
-} from '@/lib/provisioning';
+} from '@/lib/setup-status';
 
 const readOnboarding = vi.fn();
 
@@ -19,7 +19,7 @@ vi.mock('@/lib/api', () => ({
   readOnboarding: (options: unknown) => readOnboarding(options),
 }));
 
-type Provisioning = WorkspaceResponseDto['provisioning'];
+type SetupStatus = WorkspaceResponseDto['setupStatus'];
 
 const PLATFORM = { id: 'team_1', name: 'Platform' };
 
@@ -29,21 +29,21 @@ const ACME: WorkspaceResponseDto = {
   slug: 'acme',
   role: 'owner',
   teams: [PLATFORM],
-  provisioning: 'done',
+  setupStatus: 'done',
 };
 
 const CREATING: WorkspaceResponseDto = {
   ...ACME,
   teams: [],
-  provisioning: 'pending',
+  setupStatus: 'pending',
 };
 
-const onboarding = (provisioning: Provisioning) => ({
+const onboarding = (provisioning: SetupStatus) => ({
   data: { provisioning, steps: [], canSetUp: false, setupChat: null },
 });
 
 const answering = () => {
-  let answer: (provisioning: Provisioning) => void = () => undefined;
+  let answer: (provisioning: SetupStatus) => void = () => undefined;
 
   readOnboarding.mockReturnValue(
     new Promise((resolve) => {
@@ -51,7 +51,7 @@ const answering = () => {
     }),
   );
 
-  return (provisioning: Provisioning) => answer(provisioning);
+  return (provisioning: SetupStatus) => answer(provisioning);
 };
 
 type Props = {
@@ -176,7 +176,7 @@ describe('useSettingUp', () => {
     expect(result.current).toBe(false);
   });
 
-  it('stops setting up when the provisioning failed', async () => {
+  it('stops setting up when the setup failed', async () => {
     readOnboarding.mockResolvedValue(onboarding('failed'));
 
     const { result, loaded } = watching(ACME, true);

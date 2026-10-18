@@ -11,7 +11,7 @@ import { HookDefinitionId } from '@integrations/domain/value-objects/hook-defini
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { InMemoryInferredOutputSchemas } from '@integrations/integrations.inferred.fake-spec';
 import { InMemoryPersonToolPolicies } from '@integrations/integrations.policies.fake-spec';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -84,7 +84,7 @@ describe('DeleteTeamIntegrations', () => {
     await deleting.deleteHook(HOOK_ID, WORKSPACE);
 
     expect(hook.cascadeDelete).toHaveBeenCalledWith(
-      Attribution.spotlight(WORKSPACE),
+      ChangeActor.spotlight(WORKSPACE),
     );
     expect(hooks.save).toHaveBeenCalledWith('deleted hook');
   });
@@ -95,7 +95,7 @@ describe('DeleteTeamIntegrations', () => {
     await deleting.deleteIntegration(INTEGRATION_ID, WORKSPACE);
 
     expect(integration.cascadeDelete).toHaveBeenCalledWith(
-      Attribution.spotlight(WORKSPACE),
+      ChangeActor.spotlight(WORKSPACE),
     );
     expect(definitions.save).toHaveBeenCalledWith('deleted integration');
   });

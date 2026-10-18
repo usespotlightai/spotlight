@@ -35,6 +35,7 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -43,7 +44,6 @@ import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const aSpec = (executable = 'sh') =>
@@ -51,7 +51,7 @@ const aSpec = (executable = 'sh') =>
     command: { executable, args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    continuity: { key: 'task:station' },
+    resume: { key: 'task:station' },
   });
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -72,7 +72,7 @@ const at = (
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
-    wayOut: WayOut.of({ ends, stations: passesTo.map(StationId.of) }),
+    routes: StationRoutes.of({ ends, stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
@@ -99,7 +99,7 @@ const task = (runId = 'run_1') =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   }).assignRun(RunId.of(runId), line());
@@ -452,7 +452,7 @@ describe('HandOver', () => {
         expect(saved?.awaitingReview).toBe(false);
         expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
         expect(saved?.notes[2]?.body.value).toMatch(
-          /^Moved to Build when the run ended\. An event arrived while the run worked\./,
+          /^Moved to Build when the run ended\. An event arrived while the run was in progress\./,
         );
       },
     );
@@ -465,7 +465,7 @@ describe('HandOver', () => {
     });
   });
 
-  describe('a move deferred while the run worked', () => {
+  describe('a move deferred while the run was in progress', () => {
     const deferred = (to = 'station_4') =>
       task().deferMove(line(), StationId.of(to), {
         station: StationName.of('Triage'),
@@ -492,7 +492,7 @@ describe('HandOver', () => {
     ];
 
     const MOVED =
-      'Moved to Build when the run ended. An event arrived while the run worked.';
+      'Moved to Build when the run ended. An event arrived while the run was in progress.';
 
     it.each(endings)(
       'moves the task where it was deferred to when the run %s',

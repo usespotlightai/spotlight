@@ -36,9 +36,9 @@ import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -76,7 +76,7 @@ const RUNNER = RunnerId.of('runner_1');
 
 const OTHER = RunnerId.of('runner_2');
 
-const ANY = RunnerTerms.none();
+const ANY = RunnerOffer.none();
 
 const RESERVED_UNTIL = new Date(LATER.getTime() + 5 * 60_000);
 
@@ -453,14 +453,14 @@ describe('StackCheck', () => {
         entries: [],
         now: LATER,
       });
-      const laptop = RunnerTerms.of(['laptop']);
+      const laptop = RunnerOffer.of(['laptop']);
 
       expect(placed.claimableBy(RUNNER, laptop, LATER)).toBe(false);
       expect(() => placed.claimedFor(RUNNER, laptop, LATER)).toThrow(
         InvalidChangeStackError,
       );
       expect(
-        placed.claimedFor(RUNNER, RunnerTerms.of(['vpc-internal']), LATER).claim
+        placed.claimedFor(RUNNER, RunnerOffer.of(['vpc-internal']), LATER).claim
           .claimedBy,
       ).toEqual(RUNNER);
     });

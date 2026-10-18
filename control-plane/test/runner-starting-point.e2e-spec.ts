@@ -82,7 +82,7 @@ const spec = (key: string) => ({
   command: { executable: 'sh', args: [] },
   briefing: 'Drain the queue.',
   handover: { options: ['review'], noteLimit: 0 },
-  continuity: { key },
+  resume: { key },
   startingPoint: true,
 });
 
@@ -96,8 +96,8 @@ const aLeasedTaskRun = async (): Promise<LeasedRun> => {
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title: 'Drain the queue',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     currentRunId: runId,
   });
   await db.insert(schema.run).values({
@@ -142,20 +142,20 @@ const aLeasedChatRun = async (): Promise<LeasedRun> => {
 
 const anArchiveOf = async (
   taskId: string,
-  sealed: boolean,
+  completed: boolean,
 ): Promise<string> => {
   const id = randomUUID();
 
   await db.insert(schema.workspaceArchive).values({
     id,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: new Date(),
-    sealedAt: sealed ? new Date() : null,
+    completedAt: completed ? new Date() : null,
   });
 
   return id;
@@ -228,7 +228,7 @@ afterAll(async () => {
 });
 
 describe('a runner saying where its run started', () => {
-  it('records the sealed archive the run restored and the commit each checkout began at', async () => {
+  it('records the completed archive the run restored and the commit each checkout began at', async () => {
     const leased = await aLeasedTaskRun();
     const archiveId = await anArchiveOf(leased.taskId as string, true);
 
@@ -282,10 +282,10 @@ describe('a runner saying where its run started', () => {
   it('rejects an archive the run could not have restored', async () => {
     const leased = await aLeasedTaskRun();
     const other = await aLeasedTaskRun();
-    const unsealed = await anArchiveOf(leased.taskId as string, false);
+    const incomplete = await anArchiveOf(leased.taskId as string, false);
     const ofAnotherTask = await anArchiveOf(other.taskId as string, true);
 
-    for (const archiveId of [unsealed, ofAnotherTask, randomUUID()]) {
+    for (const archiveId of [incomplete, ofAnotherTask, randomUUID()]) {
       await report(leased, { ...atApi(), archiveId }).expect(422);
     }
     expect((await runRow(leased.runId))?.startedFromAt).toBeNull();

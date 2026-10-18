@@ -238,7 +238,7 @@ func (h *Host) pulled(ctx context.Context, image string) (sandbox.Image, error) 
 	return h.engine.Inspect(ctx, image)
 }
 
-func (h *Host) found(ctx context.Context, image string, candidates []protocol.Installable) (protocol.Registration, error) {
+func (h *Host) found(ctx context.Context, image string, candidates []protocol.HarnessProbe) (protocol.Registration, error) {
 	encoded, err := json.Marshal(candidates)
 	if err != nil {
 		return protocol.Registration{}, err
@@ -248,9 +248,9 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 	defer cancel()
 
 	env, harnessKeys := standInsFor(h.opts.SandboxEnv)
-	way, err := h.wayOut(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", harnessKeys,
+	sidecar, err := h.egressSidecar(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", harnessKeys,
 		probeEgressWait)
-	defer way.close()
+	defer sidecar.close()
 	if err != nil {
 		return protocol.Registration{}, fmt.Errorf("start the probe's egress: %w", err)
 	}
@@ -258,10 +258,10 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 	id, err := h.engine.Start(ctx, sandbox.Spec{
 		Image:   image,
 		Args:    []string{"harnesses", string(encoded)},
-		Env:     append(env, way.env()...),
+		Env:     append(env, sidecar.env()...),
 		Labels:  map[string]string{LabelHost: h.opts.HostID},
-		Files:   way.files(),
-		Network: way.network,
+		Files:   sidecar.files(),
+		Network: sidecar.network,
 	})
 	defer h.destroy(id)
 	if err != nil {

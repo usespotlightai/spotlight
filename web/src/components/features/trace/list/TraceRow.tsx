@@ -75,10 +75,10 @@ export function TraceRow({
       <span
         className={cn(
           'truncate text-right text-xs tabular-nums',
-          trace.faults > 0 ? 'text-destructive' : 'text-muted-foreground',
+          trace.errors > 0 ? 'text-destructive' : 'text-muted-foreground',
         )}
       >
-        {trace.faults > 0 ? trace.faults : '–'}
+        {trace.errors > 0 ? trace.errors : '–'}
       </span>
 
       <span className="truncate text-right text-muted-foreground text-xs tabular-nums">

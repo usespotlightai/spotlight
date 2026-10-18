@@ -21,7 +21,7 @@ interface MessagePayload {
   readonly reviewComment?: string | null;
 }
 
-interface ConcernsPayload {
+interface CorrelationKeysPayload {
   readonly branch: string | null;
   readonly marks: readonly TaskMark[];
 }
@@ -58,7 +58,7 @@ export interface Happened {
   readonly summary: string;
   readonly answers: boolean;
   readonly state: HappeningState;
-  readonly concerns: ConcernsPayload;
+  readonly correlationKeys: CorrelationKeysPayload;
   readonly message: MessagePayload | null;
   readonly ourOwn: boolean;
   readonly opens: OpensPayload | null;

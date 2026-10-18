@@ -21,8 +21,8 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 
@@ -101,7 +101,7 @@ export class ProposeCandidateHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(
+          createIdempotently(
             this.creates,
             {
               by: command.actor.principal.toString(),
@@ -142,7 +142,7 @@ export class ProposeCandidateHandler
                 scoring: validated.scoring,
                 changedFrom: validated.changedFrom,
                 at: this.clock.now(),
-                by: Attribution.of(command.actor, station.workspaceId),
+                by: ChangeActor.of(command.actor, station.workspaceId),
               });
 
               await this.candidates.add(proposed);
@@ -153,7 +153,7 @@ export class ProposeCandidateHandler
         );
       } catch (error) {
         if (error instanceof CandidateNameTakenError) {
-          return { outcome: 'taken', address: error.address };
+          return { outcome: 'already-exists', address: error.address };
         }
         if (error instanceof ProposalRejectedError) {
           return { outcome: 'invalid', problems: error.problems };

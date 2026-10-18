@@ -5,7 +5,7 @@ import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
 import { useInbox } from '@/hooks/api/useInbox';
 import { useRunners } from '@/hooks/api/useRunners';
 import { inboxPath } from '@/lib/inbox';
-import { administers, type Role } from '@/lib/role';
+import { isAdmin, type Role } from '@/lib/role';
 import { noneOnline } from '@/lib/runner';
 import type { Team } from '@/lib/team';
 
@@ -30,7 +30,7 @@ export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
         <WorkspaceMenu
           name={workspace.name}
           slug={slug}
-          admin={administers(workspace.role)}
+          admin={isAdmin(workspace.role)}
           noneOnline={Boolean(fleet && noneOnline(fleet))}
         />
       </div>

@@ -9,7 +9,7 @@ import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -82,7 +82,7 @@ const checkOf = (built = stack()) =>
     entries: built.entries(),
     now: NOW,
   })
-    .claimedFor(CHECKER, RunnerTerms.none(), NOW)
+    .claimedFor(CHECKER, RunnerOffer.none(), NOW)
     .recordResult(
       CHECKER,
       { steps: built.checkSteps(built.entries()), layers: built.layers() },

@@ -56,8 +56,8 @@ export class Work implements WorkPort {
     return (await this.work.contextOfRun(runId))?.teamId ?? null;
   }
 
-  wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
-    return this.work.wasWorkedBy(runId, runner);
+  wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
+    return this.work.wasClaimedBy(runId, runner);
   }
 
   reasoning(runId: RunId): Promise<RunReasoning | null> {

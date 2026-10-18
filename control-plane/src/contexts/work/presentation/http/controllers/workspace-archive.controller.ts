@@ -24,8 +24,8 @@ import {
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
 import {
+  CompleteWorkspaceArchiveCommand,
   GrantWorkspaceArchiveCommand,
-  SealWorkspaceArchiveCommand,
 } from '@work/application/commands/workspace-archive.commands';
 import type {
   ArchiveGrantDto,
@@ -124,10 +124,10 @@ export class WorkspaceArchiveController {
     );
   }
 
-  @Post(':archiveId/sealed')
+  @Post(':archiveId/complete')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'sealWorkspaceArchive',
+    operationId: 'completeWorkspaceArchive',
     summary:
       'Say the archive is uploaded, so the next run of this work restores it',
   })
@@ -138,17 +138,17 @@ export class WorkspaceArchiveController {
   @ApiConflictResponse({
     description: 'Not uploaded, or uploaded other than as granted',
   })
-  async seal(
+  async complete(
     @Param('runId') runId: string,
     @Param('archiveId') archiveId: string,
     @CurrentRunner() runnerId: string,
   ): Promise<void> {
-    const sealed = await this.commandBus.execute<
-      SealWorkspaceArchiveCommand,
+    const completed = await this.commandBus.execute<
+      CompleteWorkspaceArchiveCommand,
       boolean
-    >(new SealWorkspaceArchiveCommand(runId, runnerId, archiveId));
+    >(new CompleteWorkspaceArchiveCommand(runId, runnerId, archiveId));
 
-    if (!sealed) {
+    if (!completed) {
       throw new NotFoundException();
     }
   }

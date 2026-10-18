@@ -178,29 +178,29 @@ func TestASandboxOnItsOwnNetworkConnectsOnlyToWhatJoinedIt(t *testing.T) {
 	}
 	defer func() { _ = engine.Unnetwork(context.Background(), network) }()
 
-	way, err := engine.Start(ctx, sandbox.Spec{
+	sidecar, err := engine.Start(ctx, sandbox.Spec{
 		Image:      image,
 		Entrypoint: []string{"sh", "-c"},
 		Args:       []string{"mkdir -p /srv && echo reached > /srv/index.html && touch /tmp/ready && httpd -f -p 8080 -h /srv"},
 		Labels:     labels,
 		Joins:      []sandbox.Join{{Network: network, Aliases: []string{"egress"}}},
 	})
-	if way != "" {
-		defer func() { _ = engine.Destroy(context.Background(), way) }()
+	if sidecar != "" {
+		defer func() { _ = engine.Destroy(context.Background(), sidecar) }()
 	}
 	if err != nil {
-		t.Fatalf("start the way out: %v", err)
+		t.Fatalf("start the egress sidecar: %v", err)
 	}
 
 	for deadline := time.Now().Add(30 * time.Second); ; {
-		if _, err := engine.Read(ctx, way, "/tmp/ready"); err == nil {
+		if _, err := engine.Read(ctx, sidecar, "/tmp/ready"); err == nil {
 			break
 		} else if !errors.Is(err, os.ErrNotExist) || time.Now().After(deadline) {
-			t.Fatalf("the way out never readied: %v", err)
+			t.Fatalf("the egress sidecar did not become ready: %v", err)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if content, err := engine.Read(ctx, way, "/srv/index.html"); err != nil || string(content) != "reached\n" {
+	if content, err := engine.Read(ctx, sidecar, "/srv/index.html"); err != nil || string(content) != "reached\n" {
 		t.Errorf("read %q: %v", content, err)
 	}
 

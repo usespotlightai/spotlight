@@ -15,13 +15,13 @@ export class OpenRouterRequestError extends Error {
   }
 }
 
-export class OpenRouterUnansweredError extends Error {
+export class OpenRouterEmptyCompletionError extends Error {
   constructor(
     reason: string,
     readonly usage: OpenRouterUsage | null,
   ) {
     super(`OpenRouter returned no usable answer. Reason: ${reason}`);
-    this.name = 'OpenRouterUnansweredError';
+    this.name = 'OpenRouterEmptyCompletionError';
   }
 }
 
@@ -49,7 +49,7 @@ interface OpenRouterUsage {
   } | null;
 }
 
-export interface Answered<T> {
+export interface StructuredCompletion<T> {
   readonly answer: T;
   readonly usage: OpenRouterUsage | null;
 }
@@ -57,8 +57,8 @@ export interface Answered<T> {
 const counted = (raw: unknown): number | null =>
   typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : null;
 
-const usageOf = (answered: Completion): OpenRouterUsage | null => {
-  const usage = answered.usage;
+const usageOf = (completion: Completion): OpenRouterUsage | null => {
+  const usage = completion.usage;
 
   const cost = usage ? counted(usage.cost) : null;
 
@@ -74,25 +74,25 @@ const usageOf = (answered: Completion): OpenRouterUsage | null => {
     : null;
 };
 
-const portable = (schema: unknown): unknown =>
+const strictSchema = (schema: unknown): unknown =>
   Array.isArray(schema)
-    ? schema.map(portable)
+    ? schema.map(strictSchema)
     : schema && typeof schema === 'object'
       ? Object.fromEntries(
           Object.entries(schema)
             .filter(([key]) => !UNSUPPORTED.has(key))
-            .map(([key, value]) => [key, portable(value)]),
+            .map(([key, value]) => [key, strictSchema(value)]),
         )
       : schema;
 
-export class JsonShape<T> {
+export class JsonSchema<T> {
   readonly json: unknown;
 
   constructor(
     readonly name: string,
     readonly schema: z.ZodType<T>,
   ) {
-    this.json = portable(z.toJSONSchema(schema));
+    this.json = strictSchema(z.toJSONSchema(schema));
   }
 }
 
@@ -100,11 +100,11 @@ export const requestJson = async <T>(request: {
   apiKey: string;
   model: string;
   fetch: Fetch;
-  shape: JsonShape<T>;
+  responseSchema: JsonSchema<T>;
   system: string;
   prompt: string;
-  max: number;
-}): Promise<Answered<T>> => {
+  maxTokens: number;
+}): Promise<StructuredCompletion<T>> => {
   const response = await request
     .fetch(ENDPOINT, {
       method: 'POST',
@@ -116,7 +116,7 @@ export const requestJson = async <T>(request: {
       },
       body: JSON.stringify({
         model: request.model,
-        max_tokens: request.max,
+        max_tokens: request.maxTokens,
         messages: [
           { role: 'system', content: request.system },
           { role: 'user', content: request.prompt },
@@ -124,9 +124,9 @@ export const requestJson = async <T>(request: {
         response_format: {
           type: 'json_schema',
           json_schema: {
-            name: request.shape.name,
+            name: request.responseSchema.name,
             strict: true,
-            schema: request.shape.json,
+            schema: request.responseSchema.json,
           },
         },
         provider: { require_parameters: true },
@@ -139,20 +139,20 @@ export const requestJson = async <T>(request: {
       );
     });
 
-  const answered = (await response.json().catch(() => ({}))) as Completion;
+  const completion = (await response.json().catch(() => ({}))) as Completion;
 
   if (!response.ok) {
     throw new OpenRouterRequestError(
-      `${response.status} ${answered.error?.message ?? response.statusText}`,
+      `${response.status} ${completion.error?.message ?? response.statusText}`,
     );
   }
 
-  const [choice] = answered.choices ?? [];
+  const [choice] = completion.choices ?? [];
 
   if (choice?.finish_reason !== 'stop' || !choice.message?.content) {
-    throw new OpenRouterUnansweredError(
-      choice?.finish_reason ?? answered.error?.message ?? 'no answer',
-      usageOf(answered),
+    throw new OpenRouterEmptyCompletionError(
+      choice?.finish_reason ?? completion.error?.message ?? 'no answer',
+      usageOf(completion),
     );
   }
 
@@ -160,13 +160,13 @@ export const requestJson = async <T>(request: {
 
   try {
     return {
-      answer: request.shape.schema.parse(JSON.parse(content)),
-      usage: usageOf(answered),
+      answer: request.responseSchema.schema.parse(JSON.parse(content)),
+      usage: usageOf(completion),
     };
   } catch (error) {
-    throw new OpenRouterUnansweredError(
+    throw new OpenRouterEmptyCompletionError(
       `the answer doesn't match the expected shape (${error instanceof Error ? error.message : String(error)})`,
-      usageOf(answered),
+      usageOf(completion),
     );
   }
 };

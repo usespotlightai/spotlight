@@ -12,7 +12,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
@@ -56,7 +56,7 @@ const queue = async (workspaceId: string, placement: string[][] = []) => {
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
     },
   });
 
@@ -65,14 +65,14 @@ const queue = async (workspaceId: string, placement: string[][] = []) => {
 
 const claimant = (
   workspaceId: string,
-  terms = ['runner-1'],
+  labels = ['runner-1'],
   claims: 'any' | 'reserved' = 'any',
   runner = RunnerId.of(randomUUID()),
 ) => ({
   runner,
   workspaceId: WorkspaceId.of(workspaceId),
   harnesses: [HarnessId.of('dev')],
-  terms: RunnerTerms.of(terms),
+  offer: RunnerOffer.of(labels),
   claims,
 });
 
@@ -178,10 +178,10 @@ describe('claiming placed work', () => {
 
   it('offers a check placed on a label only to a runner that carries it', async () => {
     const placed = await awaitingCheck('ws_checked', [['vpc-internal']]);
-    const by = (terms: string[]) => ({
+    const by = (labels: string[]) => ({
       workspaceId: WorkspaceId.of('ws_checked'),
       runner: RunnerId.of(randomUUID()),
-      terms: RunnerTerms.of(terms),
+      offer: RunnerOffer.of(labels),
     });
 
     await expect(checks.dueForCheck(by(['laptop']), NOW)).resolves.toBeNull();
@@ -189,7 +189,7 @@ describe('claiming placed work', () => {
     const due = await checks.dueForCheck(by(['laptop', 'vpc-internal']), NOW);
 
     expect(due?.stackId.value).toBe(placed);
-    expect(due?.request.placement.clauses).toEqual([['vpc-internal']]);
+    expect(due?.request.placement.labelGroups).toEqual([['vpc-internal']]);
   });
 });
 describe('claiming a run reserved for a provisioned runner', () => {
@@ -255,7 +255,7 @@ describe('claiming a check reserved for a provisioned runner', () => {
   const by = (workspaceId: string, runner = RunnerId.of(randomUUID())) => ({
     workspaceId: WorkspaceId.of(workspaceId),
     runner,
-    terms: RunnerTerms.none(),
+    offer: RunnerOffer.none(),
   });
 
   it('hides it from every other runner while the reservation is active', async () => {
@@ -370,7 +370,7 @@ describe('a runner reaching git for a run whose check it leases', () => {
     const waiting = checkOf(runId);
     await checks.add(waiting);
     await checks.add(checkOf(RunId.of(randomUUID())));
-    const claimed = waiting.claimedFor(runner, RunnerTerms.none(), NOW);
+    const claimed = waiting.claimedFor(runner, RunnerOffer.none(), NOW);
     await checks.save(claimed);
     const access = new CheckAccess(checks);
     const expired = new Date(

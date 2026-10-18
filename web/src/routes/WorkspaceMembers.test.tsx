@@ -78,7 +78,7 @@ const member = (over: Record<string, unknown>) => ({
   role: 'owner',
   teams: [PLATFORM, GROWTH],
   joinedAt: '2026-05-01T09:00:00.000Z',
-  mayBeSetTo: [],
+  assignableRoles: [],
   ...over,
 });
 
@@ -142,7 +142,7 @@ beforeEach(() => {
       email: 'priya.nair@acme.dev',
       role: 'admin',
       teams: [GROWTH],
-      mayBeSetTo: ['owner', 'member'],
+      assignableRoles: ['owner', 'member'],
     }),
     member({
       id: 'user_3',
@@ -150,7 +150,7 @@ beforeEach(() => {
       email: 'maya.chen@acme.dev',
       role: 'member',
       teams: [PLATFORM],
-      mayBeSetTo: ['admin'],
+      assignableRoles: ['admin'],
     }),
     member({
       id: 'user_4',
@@ -158,7 +158,7 @@ beforeEach(() => {
       email: 'lena.park@acme.dev',
       role: 'member',
       teams: [],
-      mayBeSetTo: ['owner', 'admin'],
+      assignableRoles: ['owner', 'admin'],
     }),
   ]);
   invites.mockReturnValue([pendingInvite()]);
@@ -300,7 +300,7 @@ describe('WorkspaceMembers', () => {
     ).toBeInTheDocument();
   });
 
-  it('changes a member’s role to one it may be set to', async () => {
+  it('changes a member’s role to an assignable role', async () => {
     showing();
 
     await userEvent.click(
@@ -335,7 +335,7 @@ describe('WorkspaceMembers', () => {
   it('says when a role could not be changed', () => {
     changing.mockReturnValue('failed');
     members.mockReturnValue([
-      member({ id: 'user_3', name: 'Maya Chen', mayBeSetTo: ['admin'] }),
+      member({ id: 'user_3', name: 'Maya Chen', assignableRoles: ['admin'] }),
     ]);
     showing();
 

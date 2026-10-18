@@ -50,7 +50,7 @@ const WANTED = {
 };
 
 describe('RunTokens', () => {
-  it('answers the raw token once and stores only its hash, issued for the run', async () => {
+  it('returns the raw token once and stores only its hash, issued for the run', async () => {
     const { service, stored } = using();
 
     await expect(service.issueFor(WANTED)).resolves.toEqual({

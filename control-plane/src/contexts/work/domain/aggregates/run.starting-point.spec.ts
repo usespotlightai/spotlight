@@ -9,8 +9,8 @@ import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-t
 import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -50,7 +50,7 @@ const queued = (subject: RunSubject | null = ofTask) =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
     }),
   });
 
@@ -62,12 +62,12 @@ const on = (attempt = 1) => RunAttempt.of(RunId.of('run_1'), attempt);
 const archiveOf = (
   id: string,
   workspace = 'ws_1',
-  continuity = ContinuityKey.forTask('task_1'),
+  resume = ResumeKey.forTask('task_1'),
 ) =>
   RestoredArchive.of(
     WorkspaceArchiveId.of(id),
     WorkspaceId.of(workspace),
-    continuity,
+    resume,
   );
 
 const restored = (
@@ -103,7 +103,7 @@ describe('where a run started', () => {
   it('rejects an archive of another workspace or another piece of work', () => {
     for (const elsewhere of [
       archiveOf('archive_1', 'ws_2'),
-      archiveOf('archive_1', 'ws_1', ContinuityKey.forTask('task_2')),
+      archiveOf('archive_1', 'ws_1', ResumeKey.forTask('task_2')),
     ]) {
       expect(() =>
         claimed().startsFrom(on(), RUNNER, restored(elsewhere), NOW),

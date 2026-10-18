@@ -14,7 +14,7 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const answering = (exception: unknown) => {
+const responseTo = (exception: unknown) => {
   const headers = new Map<string, string>();
   const reply = vi.fn();
   const error = vi.fn();
@@ -43,8 +43,8 @@ const answering = (exception: unknown) => {
 };
 
 describe('ProblemFilter', () => {
-  it('answers a problem as application/problem+json, in this API version', () => {
-    const { headers, status } = answering(ProblemException.notFound('line'));
+  it('returns a problem as application/problem+json, in this API version', () => {
+    const { headers, status } = responseTo(ProblemException.notFound('line'));
 
     expect(status).toBe(404);
     expect(headers.get('Content-Type')).toBe('application/problem+json');
@@ -52,7 +52,7 @@ describe('ProblemFilter', () => {
   });
 
   it('points each invalid field at its path', () => {
-    const { body, status } = answering(
+    const { body, status } = responseTo(
       ProblemException.invalid('line', [
         ConfigurationProblem.of({
           path: 'lines/delivery',
@@ -70,7 +70,7 @@ describe('ProblemFilter', () => {
   });
 
   it('names the current version of a resource that changed, as its ETag too', () => {
-    const { body, headers } = answering(
+    const { body, headers } = responseTo(
       ProblemException.versionConflict('line', 4),
     );
 
@@ -79,22 +79,22 @@ describe('ProblemFilter', () => {
   });
 
   it('turns what Nest and the use cases throw into problems', () => {
-    expect(answering(new UnauthorizedException()).body).toMatchObject({
+    expect(responseTo(new UnauthorizedException()).body).toMatchObject({
       type: 'urn:spotlight:problem:unauthenticated',
       status: 401,
     });
-    expect(answering(new NotFoundException()).status).toBe(404);
+    expect(responseTo(new NotFoundException()).status).toBe(404);
     expect(
-      answering(new ApplicationError('conflict', 'it moved')).body,
+      responseTo(new ApplicationError('conflict', 'it moved')).body,
     ).toMatchObject({ status: 409, detail: 'it moved' });
   });
 
-  it('answers a guard or use case that denies as a forbidden problem', () => {
+  it('returns a forbidden problem for a guard or use case that denies', () => {
     for (const denial of [
       new ForbiddenException(),
       new ApplicationError('not-allowed', 'not yours'),
     ]) {
-      const { body, status, headers } = answering(denial);
+      const { body, status, headers } = responseTo(denial);
 
       expect(status).toBe(403);
       expect(headers.get('Content-Type')).toBe('application/problem+json');
@@ -107,7 +107,7 @@ describe('ProblemFilter', () => {
 
   it('logs and reports a fault of its own, and says nothing of it to the caller', () => {
     const surprise = new Error('the disk melted');
-    const { body, status, error, report } = answering(surprise);
+    const { body, status, error, report } = responseTo(surprise);
 
     expect(status).toBe(500);
     expect(JSON.stringify(body)).not.toContain('melted');
@@ -121,7 +121,7 @@ describe('ProblemFilter', () => {
   });
 
   it('reports no fault of a service upstream, which ApplicationErrorFilter does not report either', () => {
-    const { status, report } = answering(
+    const { status, report } = responseTo(
       new ApplicationError('upstream-error', 'GitHub failed'),
     );
 
@@ -130,7 +130,7 @@ describe('ProblemFilter', () => {
   });
 
   it('reports no problem a caller caused', () => {
-    const { report } = answering(ProblemException.notFound('line'));
+    const { report } = responseTo(ProblemException.notFound('line'));
 
     expect(report).not.toHaveBeenCalled();
   });

@@ -17,7 +17,7 @@ var (
 
 const discoveryTimeout = 15 * time.Second
 
-func Installed(ctx context.Context, candidates []protocol.Installable) []protocol.HarnessReport {
+func Installed(ctx context.Context, candidates []protocol.HarnessProbe) []protocol.HarnessReport {
 	found := make([]protocol.HarnessReport, 0, len(candidates))
 
 	for _, candidate := range candidates {

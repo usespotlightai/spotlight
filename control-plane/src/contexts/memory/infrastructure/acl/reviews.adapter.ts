@@ -1,22 +1,30 @@
 import type { ReviewsPort } from '@memory/application/ports/reviews.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TaskAsidesPort } from '@work/application/ports/task-asides.port';
+import type { InboxRequestsPort } from '@work/application/ports/inbox-requests.port';
 
 const FORM = 'memories';
 
 export class Reviews implements ReviewsPort {
-  constructor(private readonly asides: TaskAsidesPort) {}
+  constructor(private readonly inboxRequests: InboxRequestsPort) {}
 
-  raise(taskId: TaskId, runId: RunId): Promise<void> {
-    return this.asides.raise({ taskId, form: FORM, about: runId.value });
+  create(taskId: TaskId, runId: RunId): Promise<void> {
+    return this.inboxRequests.create({
+      taskId,
+      form: FORM,
+      about: runId.value,
+    });
   }
 
   resolve(taskId: TaskId, runId: RunId): Promise<void> {
-    return this.asides.resolve({ taskId, form: FORM, about: runId.value });
+    return this.inboxRequests.resolve({
+      taskId,
+      form: FORM,
+      about: runId.value,
+    });
   }
 
   reviewItemOf(taskId: TaskId, runId: RunId): Promise<string | null> {
-    return this.asides.idOf({ taskId, form: FORM, about: runId.value });
+    return this.inboxRequests.idOf({ taskId, form: FORM, about: runId.value });
   }
 }

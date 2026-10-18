@@ -1,8 +1,8 @@
 import type {
-  ChatImprovingResponseDto,
   ChatMessageResponseDto,
   ChatResponseDto,
   ChatSummaryResponseDto,
+  ChatTargetStationResponseDto,
   ChatTraceResponseDto,
 } from '@/lib/api';
 import {
@@ -34,35 +34,38 @@ export const tracesHandedOver = (state: unknown): SharedTrace[] => {
   return Array.isArray(traces) ? traces.filter(isSharedTrace) : [];
 };
 
-export type ImprovedStation = ChatImprovingResponseDto;
+export type TargetStation = ChatTargetStationResponseDto;
 
-const IMPROVED_STATION_FIELDS = [
+const TARGET_STATION_FIELDS = [
   'lineId',
   'lineKey',
   'lineName',
   'stationId',
   'stationKey',
   'stationName',
-] as const satisfies readonly (keyof ImprovedStation)[];
+] as const satisfies readonly (keyof TargetStation)[];
 
-const isImprovedStation = (value: unknown): value is ImprovedStation =>
+const isTargetStation = (value: unknown): value is TargetStation =>
   typeof value === 'object' &&
   value !== null &&
-  IMPROVED_STATION_FIELDS.every(
+  TARGET_STATION_FIELDS.every(
     (field) => typeof (value as Record<string, unknown>)[field] === 'string',
   );
 
-export const improvingHandedOver = (state: unknown): ImprovedStation | null => {
-  const improving = (state as { improving?: unknown } | null)?.improving;
+export const targetStationHandedOver = (
+  state: unknown,
+): TargetStation | null => {
+  const targetStation = (state as { targetStation?: unknown } | null)
+    ?.targetStation;
 
-  return isImprovedStation(improving)
+  return isTargetStation(targetStation)
     ? {
-        lineId: improving.lineId,
-        lineKey: improving.lineKey,
-        lineName: improving.lineName,
-        stationId: improving.stationId,
-        stationKey: improving.stationKey,
-        stationName: improving.stationName,
+        lineId: targetStation.lineId,
+        lineKey: targetStation.lineKey,
+        lineName: targetStation.lineName,
+        stationId: targetStation.stationId,
+        stationKey: targetStation.stationKey,
+        stationName: targetStation.stationName,
       }
     : null;
 };

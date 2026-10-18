@@ -1,6 +1,6 @@
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
@@ -15,8 +15,8 @@ import {
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
 import {
+  aCompletedArchive,
   anArchive,
-  aSealedArchive,
   GRANTED_AT,
   SHA256,
   storedAs,
@@ -24,7 +24,7 @@ import {
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -45,8 +45,8 @@ const setUp = async (
   } as unknown as RunRepository;
   const archives = new InMemoryArchives();
 
-  await archives.add(aSealedArchive());
-  await archives.add(anArchive({ id: 'archive_unsealed' }));
+  await archives.add(aCompletedArchive());
+  await archives.add(anArchive({ id: 'archive_incomplete' }));
 
   return {
     stored,
@@ -60,7 +60,7 @@ const setUp = async (
             ? {
                 workspaceId: WorkspaceId.of('ws_1'),
                 harnesses: [],
-                terms: RunnerTerms.none(),
+                offer: RunnerOffer.none(),
                 claims: 'nothing' as const,
               }
             : null,
@@ -119,7 +119,7 @@ describe('RecordStartingPointHandler', () => {
     }
   });
 
-  it('records the sealed archive the run restored and where each checkout began', async () => {
+  it('records the completed archive the run restored and where each checkout began', async () => {
     const { stored, record } = await setUp();
 
     await record.execute(reported('archive_1'));
@@ -144,17 +144,17 @@ describe('RecordStartingPointHandler', () => {
       WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of('archive_of_another_task'),
         workspaceId: WorkspaceId.of('ws_1'),
-        continuity: ContinuityKey.forTask('task_2'),
+        resumeKey: ResumeKey.forTask('task_2'),
         holder: { kind: 'task', taskId: TaskId.of('task_2') },
         run: RunId.of('run_2'),
         size: ArchiveSize.of(1_024),
         digest: ArchiveDigest.of(SHA256),
         at: GRANTED_AT,
-      }).seal(storedAs(1_024), GRANTED_AT),
+      }).complete(storedAs(1_024), GRANTED_AT),
     );
 
     for (const archive of [
-      'archive_unsealed',
+      'archive_incomplete',
       'archive_missing',
       'archive_of_another_task',
     ]) {
@@ -190,7 +190,7 @@ describe('RecordStartingPointHandler', () => {
 
   it('rejects a run that works no task', async () => {
     const { record } = await setUp(
-      aLeasedRun({ carriesOn: false, checkouts: ['api'] }),
+      aLeasedRun({ restoresWorkspace: false, checkouts: ['api'] }),
     );
 
     await expect(record.execute(reported(null))).rejects.toMatchObject({

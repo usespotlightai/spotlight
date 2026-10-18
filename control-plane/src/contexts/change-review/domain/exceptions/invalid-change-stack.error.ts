@@ -21,7 +21,7 @@ export const shapeProblem = (message: string): StackProblem => ({
 });
 
 export class InvalidChangeStackError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(readonly problems: readonly StackProblem[]) {
     super(`A change stack ${problems.map((each) => each.message).join('; ')}.`);

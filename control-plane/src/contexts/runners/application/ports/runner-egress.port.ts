@@ -2,13 +2,13 @@ import type { LeasedWork } from '@runners/application/ports/runners.port';
 
 export const RUNNER_EGRESS = Symbol('RUNNER_EGRESS');
 
-export interface EgressFor {
+export interface EgressAuthentication {
   readonly runnerId: string;
   readonly workspaceId: string;
   readonly work: LeasedWork;
 }
 
-export interface SharedEgressFor {
+export interface SharedEgressAuthentication {
   readonly egressId: string;
   readonly runnerId: string;
   readonly workspaceId: string;
@@ -20,7 +20,10 @@ export interface SharedEgress {
 }
 
 export interface RunnerEgressPort {
-  authenticate(token: string | undefined, at: Date): Promise<EgressFor | null>;
+  authenticate(
+    token: string | undefined,
+    at: Date,
+  ): Promise<EgressAuthentication | null>;
 
   sharedWith(token: string | undefined): Promise<SharedEgress | null>;
 
@@ -28,11 +31,11 @@ export interface RunnerEgressPort {
     egress: SharedEgress,
     proxyCredential: string,
     at: Date,
-  ): Promise<SharedEgressFor | null>;
+  ): Promise<SharedEgressAuthentication | null>;
 
-  recordsThrough(
+  runnerForConnectionRecords(
     egress: SharedEgress,
     proxyCredential: string,
     at: Date,
-  ): Promise<SharedEgressFor | null>;
+  ): Promise<SharedEgressAuthentication | null>;
 }

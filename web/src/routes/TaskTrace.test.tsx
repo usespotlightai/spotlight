@@ -50,7 +50,7 @@ const run = {
   name: 'Implementation',
   startedAt: AT,
   ms: 60_000,
-  tone: 'agent',
+  category: 'agent',
   cost: null,
   currency: null,
   step: null,
@@ -62,7 +62,7 @@ const trace = (roots: unknown[]) => ({
   startedAt: roots.length > 0 ? AT : null,
   ms: roots.length > 0 ? 60_000 : 0,
   rows: roots.length,
-  faults: 0,
+  errors: 0,
   roots,
 });
 

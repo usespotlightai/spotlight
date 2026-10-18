@@ -351,7 +351,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     useFactory: (env: Env) =>
       new SignedProvisionCalls({
         spotlightUrl: publicUrlOf(env),
-        hosts: OutboundHosts.listed(env.OUTBOUND_ALLOWED_HOSTS),
+        hosts: OutboundHosts.listed(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS),
       }),
   },
   { provide: PROVISION_SECRETS, useClass: EncryptedProvisionSecrets },

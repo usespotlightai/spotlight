@@ -7,8 +7,8 @@ import { PillLink } from '@/components/shared/PillLink';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
 import {
   type InsightsPeriod,
-  improvingOf,
   type StationNames,
+  targetStationOf,
 } from '@/lib/insights';
 import { type ChangeAt, judgeRow, markerOf } from '@/lib/insights-changes';
 import { failed, loading } from '@/lib/query';
@@ -109,7 +109,7 @@ export function BeforeAfter({
           <ImproveStationLink
             slug={slug}
             teamId={teamId}
-            improving={improvingOf(named)}
+            targetStation={targetStationOf(named)}
           />
         )}
       </div>

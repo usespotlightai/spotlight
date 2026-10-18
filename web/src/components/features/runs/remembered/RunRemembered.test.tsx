@@ -98,7 +98,7 @@ const REMEMBERED: RunMemories = {
       status: 'active',
     }),
   ],
-  reviewItemId: 'aside_1',
+  reviewItemId: 'request_1',
 };
 
 const showing = () =>
@@ -179,7 +179,7 @@ describe('RunRemembered', () => {
       within(
         screen.getByRole('region', { name: 'Proposed by this run' }),
       ).getByRole('link', { name: 'Waiting for you' }),
-    ).toHaveAttribute('href', '/w/acme/inbox/aside_1');
+    ).toHaveAttribute('href', '/w/acme/inbox/request_1');
     expect(screen.getByRole('link', { name: 'M-2' })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/memory?memory=memory_b',

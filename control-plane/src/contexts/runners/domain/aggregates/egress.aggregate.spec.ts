@@ -10,10 +10,10 @@ import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it } from 'vitest';
 
-const BY = attributedIn();
+const BY = changeActorIn();
 
 const definition = (url = 'https://egress.example.com') => ({
   key: EgressKey.of('shared'),
@@ -61,7 +61,7 @@ describe('Egress', () => {
     expect(rotated.tokenHash.equals(hashOf('8'))).toBe(true);
     expect(rotated.tokenVersion).toBe(2);
     expect((event as EgressUpdated).change.detail?.recorded()).toEqual({
-      rekeyed: true,
+      tokenRotated: true,
     });
   });
 

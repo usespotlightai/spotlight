@@ -1,5 +1,5 @@
 export class UnknownHappeningError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(happening: string) {
     super(

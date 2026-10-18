@@ -180,8 +180,8 @@ const aClaimedRun = async (): Promise<{
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title: 'Tidy the tracker',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     currentRunId: runId,
   });
@@ -198,7 +198,7 @@ const aClaimedRun = async (): Promise<{
       command: { executable: 'sh', args: [] },
       briefing: 'Tidy the tracker.',
       handover: { options: ['review', 'done'], noteLimit: 0 },
-      continuity: { key: `${taskId}:${BUILD}` },
+      resume: { key: `${taskId}:${BUILD}` },
       manifest: TOOLS.map((name) => ({
         name,
         description: name,
@@ -262,7 +262,7 @@ beforeAll(async () => {
     other: authorizing(authorized),
   });
   vi.stubEnv(
-    'OUTBOUND_ALLOWED_HOSTS',
+    'SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS',
     [new URL(tracker.url).host, new URL(guarded.url).host].join(','),
   );
   app = await openApp();

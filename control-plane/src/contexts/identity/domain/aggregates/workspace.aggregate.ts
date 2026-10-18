@@ -11,11 +11,11 @@ import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-us
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import {
   assignableRoles,
-  type RolePositions,
+  type RoleAssignmentContext,
   roleAssignmentDenial,
 } from '@identity/domain/services/role-assignment';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
@@ -27,7 +27,7 @@ import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slu
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import {
   PersonPrincipal,
@@ -65,7 +65,7 @@ export class Workspace extends EventRecorder {
     slug: WorkspaceSlug;
     owner: UserId;
     firstTeam?: { id: TeamId; name: TeamName };
-    by: Attribution;
+    by: ChangeActor;
   }): Workspace {
     const created = new Workspace(input.id, input.name, input.slug, [
       { userId: input.owner, role: WorkspaceRole.owner },
@@ -114,7 +114,7 @@ export class Workspace extends EventRecorder {
 
   update(
     definition: { name: WorkspaceName; slug: WorkspaceSlug },
-    by: Attribution,
+    by: ChangeActor,
   ): Workspace {
     this.assertNotDeleted();
 
@@ -150,7 +150,7 @@ export class Workspace extends EventRecorder {
     trusts: readonly TokenTrustKey[],
     issuing: readonly TokenTrustKey[],
     dependents: Dependents,
-    by: Attribution,
+    by: ChangeActor,
   ): Workspace {
     this.assertNotDeleted();
 
@@ -198,7 +198,7 @@ export class Workspace extends EventRecorder {
   }
 
   administeredBy(userId: UserId): boolean {
-    return this.permissionsFor(PersonPrincipal.of(userId)).administers;
+    return this.permissionsFor(PersonPrincipal.of(userId)).isAdmin;
   }
 
   permissionsFor(principal: Principal): Permissions {
@@ -231,22 +231,22 @@ export class Workspace extends EventRecorder {
     return owners.length === 1 && owners[0]?.userId.equals(userId) === true;
   }
 
-  private positionsBetween(target: UserId, by: UserId): RolePositions {
+  private assignmentContext(target: UserId, by: UserId): RoleAssignmentContext {
     return {
-      mine: this.roleOf(by),
-      theirs: this.roleOf(target),
-      lastOwner: this.isLastOwner(target),
+      callerRole: this.roleOf(by),
+      memberRole: this.roleOf(target),
+      isLastOwner: this.isLastOwner(target),
       isSelf: target.equals(by),
     };
   }
 
   assignableRolesFor(target: UserId, by: UserId): readonly WorkspaceRole[] {
-    return assignableRoles(this.positionsBetween(target, by));
+    return assignableRoles(this.assignmentContext(target, by));
   }
 
   changeRole(target: UserId, role: WorkspaceRole, by: UserId): Workspace {
-    const positions = this.positionsBetween(target, by);
-    const denial = roleAssignmentDenial(positions, role);
+    const context = this.assignmentContext(target, by);
+    const denial = roleAssignmentDenial(context, role);
 
     if (denial === 'last-owner') {
       throw new LastOwnerError();
@@ -255,7 +255,7 @@ export class Workspace extends EventRecorder {
       throw new RoleAssignmentDeniedError(denial);
     }
 
-    const was = positions.theirs;
+    const was = context.memberRole;
 
     if (!was || was.equals(role)) {
       return this;
@@ -288,11 +288,11 @@ export class Workspace extends EventRecorder {
     return joined;
   }
 
-  inviteTerms(input: {
+  inviteSpec(input: {
     role: WorkspaceRole;
     teams: readonly TeamId[];
     among: readonly TeamOfWorkspace[];
-  }): InviteTerms {
+  }): InviteSpec {
     if (input.role.isOwner) {
       throw new NotYoursToInviteError();
     }
@@ -308,7 +308,7 @@ export class Workspace extends EventRecorder {
       throw new TeamOutsideWorkspaceError(outside.value);
     }
 
-    return InviteTerms.of(input.role, input.teams);
+    return InviteSpec.of(input.role, input.teams);
   }
 
   private with(over: {

@@ -1,13 +1,13 @@
 import { MousePointer2 } from 'lucide-react';
 import { PillLink } from '@/components/shared/PillLink';
-import type { ImprovedStation } from '@/lib/chat';
+import type { TargetStation } from '@/lib/chat';
 import type { PillVariant } from '@/lib/pill';
 import { teamSectionPath } from '@/lib/team';
 
 type ImproveStationLinkProps = {
   slug: string;
   teamId: string;
-  improving: ImprovedStation;
+  targetStation: TargetStation;
   label?: string;
   prompt?: string;
   variant?: PillVariant;
@@ -17,7 +17,7 @@ type ImproveStationLinkProps = {
 export function ImproveStationLink({
   slug,
   teamId,
-  improving,
+  targetStation,
   label = 'Improve',
   prompt,
   variant,
@@ -26,7 +26,7 @@ export function ImproveStationLink({
   return (
     <PillLink
       to={teamSectionPath(slug, teamId, 'agent')}
-      state={{ improving, ...(prompt ? { prompt } : {}) }}
+      state={{ targetStation, ...(prompt ? { prompt } : {}) }}
       variant={variant}
       className={className}
     >

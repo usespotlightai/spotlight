@@ -21,7 +21,7 @@ import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -65,7 +65,7 @@ export const aPullPool = (
       tokenHash: hashOf('a'),
       tokenVersion: input.tokenVersion ?? null,
     },
-    by: attributedIn(),
+    by: changeActorIn(),
   });
 
 export const encryptedOf = (character: string): EncryptedProvisionSecret =>
@@ -94,7 +94,7 @@ export const aPushPool = (
       egress: input.egress ?? null,
       egressTraffic: input.egressTraffic,
     },
-    by: attributedIn(),
+    by: changeActorIn(),
   });
 
 export const aTrust = (input: { labels?: string[] } = {}): RunnerTrust =>
@@ -108,7 +108,7 @@ export const aTrust = (input: { labels?: string[] } = {}): RunnerTrust =>
       audience: 'spotlight',
     }),
     labels: RunnerLabels.of(input.labels ?? ['vpc-internal']),
-    by: attributedIn(),
+    by: changeActorIn(),
   });
 
 export const aRunner = (
@@ -221,7 +221,7 @@ export const storedHosts = (...known: RunnerHost[]) => {
     }),
     removeThrough: vi.fn(async (source: CredentialSource) => {
       for (const [id, host] of stored) {
-        if (host.servesThrough(source)) {
+        if (host.hasSource(source)) {
           stored.delete(id);
         }
       }

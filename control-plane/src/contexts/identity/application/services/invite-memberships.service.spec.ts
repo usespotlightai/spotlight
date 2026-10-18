@@ -6,7 +6,7 @@ import { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invit
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -25,7 +25,7 @@ const accepted = (role = WorkspaceRole.admin) =>
   new WorkspaceInviteAccepted(
     InviteId.of('invite_1'),
     ACME,
-    InviteTerms.of(role, [
+    InviteSpec.of(role, [
       TeamId.of('team_1'),
       TeamId.of('team_gone'),
       TeamId.of('team_elsewhere'),

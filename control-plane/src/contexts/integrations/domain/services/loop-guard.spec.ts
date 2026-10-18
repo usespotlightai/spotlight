@@ -27,7 +27,7 @@ describe('loopStopFor', () => {
   it('lets a hook fire once for a change', () => {
     expect(
       loopStopFor({
-        chain: CausalChain.none().followedBy(moved('build', 'review')),
+        chain: CausalChain.none().append(moved('build', 'review')),
         firing: notify('build', 'review'),
         recentRepeats: 0,
       }),
@@ -36,13 +36,13 @@ describe('loopStopFor', () => {
 
   it('stops a hook firing again for a change its own firing caused, naming the chain', () => {
     const chain = CausalChain.none()
-      .followedBy(moved('build', 'review'))
-      .followedBy(notify('build', 'review'))
-      .followedBy(slack)
-      .followedBy(moved('review', 'build'))
-      .followedBy(notify('review', 'build'))
-      .followedBy(slack)
-      .followedBy(moved('build', 'review'));
+      .append(moved('build', 'review'))
+      .append(notify('build', 'review'))
+      .append(slack)
+      .append(moved('review', 'build'))
+      .append(notify('review', 'build'))
+      .append(slack)
+      .append(moved('build', 'review'));
 
     expect(
       loopStopFor({
@@ -59,10 +59,10 @@ describe('loopStopFor', () => {
 
   it('lets a hook fire for a different change in the same chain', () => {
     const chain = CausalChain.none()
-      .followedBy(moved('build', 'review'))
-      .followedBy(notify('build', 'review'))
-      .followedBy(slack)
-      .followedBy(moved('review', 'build'));
+      .append(moved('build', 'review'))
+      .append(notify('build', 'review'))
+      .append(slack)
+      .append(moved('review', 'build'));
 
     expect(
       loopStopFor({
@@ -76,7 +76,7 @@ describe('loopStopFor', () => {
   it(`stops a chain already ${MAX_DEPTH} causes deep`, () => {
     let chain = CausalChain.none();
     for (let each = 0; each < MAX_DEPTH; each += 1) {
-      chain = chain.followedBy({ ...slack, key: `delivery:${each}` });
+      chain = chain.append({ ...slack, key: `delivery:${each}` });
     }
 
     expect(
@@ -86,7 +86,7 @@ describe('loopStopFor', () => {
 
   it('stops a hook that keeps firing for the same change though no chain came back', () => {
     const stop = loopStopFor({
-      chain: CausalChain.none().followedBy(moved('build', 'review')),
+      chain: CausalChain.none().append(moved('build', 'review')),
       firing: notify('build', 'review'),
       recentRepeats: 3,
     });

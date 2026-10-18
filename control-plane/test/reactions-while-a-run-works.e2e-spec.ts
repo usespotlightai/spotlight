@@ -3,7 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -55,7 +55,7 @@ import { createTeam } from './support/team';
 const RUNNER = RunnerId.of('runner_reactions');
 const CHANGES_REQUESTED = 'github.pull_request.changes-requested';
 const DEFERRED_MOVE_TO_CODE_REVIEW =
-  'This arrived while a run worked on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nChanges were requested on the pull request.';
+  'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nChanges were requested on the pull request.';
 
 let app: INestApplication;
 let db: DrizzleDatabase;
@@ -138,7 +138,7 @@ const happens = async (task: Task, happening: string, summary: string) => {
     summary,
     answers: happening === CHANGES_REQUESTED,
     state: 'raised',
-    concerns: { branch: task.branch.value, marks: [] },
+    correlationKeys: { branch: task.branch.value, marks: [] },
     message: null,
     ourOwn: false,
     opens: null,
@@ -260,7 +260,7 @@ beforeAll(async () => {
   }
 
   line = Line.create({
-    by: attributedIn(),
+    by: changeActorIn(),
     workspaceId: team.workspaceId,
     teamId: team.teamId,
     line: opening,

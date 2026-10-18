@@ -15,8 +15,8 @@ import { COHORT_KINDS } from '@change-review/domain/value-objects/stack-cohort.v
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import {
   type Fetch,
-  JsonShape,
-  OpenRouterUnansweredError,
+  JsonSchema,
+  OpenRouterEmptyCompletionError,
   requestJson,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
@@ -25,7 +25,7 @@ export const DEFAULT_MODEL = 'google/gemini-3.8-flash';
 
 const MAX_OUTPUT = 32_000;
 
-const STACK = new JsonShape(
+const STACK = new JsonSchema(
   'change_stack',
   z.object({
     cohorts: z.array(
@@ -232,12 +232,12 @@ export class OpenRouterChangeStackGenerator
       apiKey: this.apiKey,
       model: this.model,
       fetch: this.fetch,
-      shape: STACK,
+      responseSchema: STACK,
       system: SYSTEM,
       prompt,
-      max: MAX_OUTPUT,
+      maxTokens: MAX_OUTPUT,
     }).catch((error: unknown) => {
-      throw error instanceof OpenRouterUnansweredError
+      throw error instanceof OpenRouterEmptyCompletionError
         ? new GenerationError(error.message, error.usage)
         : error;
     });

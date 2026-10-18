@@ -9,7 +9,7 @@ import {
   type ResourceCreated,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { CreateLineCommand } from '@work/application/commands/create-line.command';
@@ -140,7 +140,7 @@ describe('a line reconciled with its definition (e2e)', () => {
     expect(
       read.stations
         .find((each) => each.key.value === 'design')
-        ?.wayOut.stations.map((to) => read.stationAt(to)?.key.value),
+        ?.routes.stations.map((to) => read.stationAt(to)?.key.value),
     ).toEqual(['implementation']);
   });
 

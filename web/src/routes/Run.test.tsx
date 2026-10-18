@@ -25,9 +25,9 @@ vi.mock('@/hooks/api/useTeamRuns', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useRunConversation', () => ({
-  runConversationKeys: { forRun: () => ['run-conversation'] },
-  useRunConversation: () => ({
+vi.mock('@/hooks/api/useRunNotes', () => ({
+  runNotesKeys: { forRun: () => ['run-notes'] },
+  useRunNotes: () => ({
     data: conversation(),
     isPending: conversation() === undefined,
     errorUpdateCount: conversationFailing() ? 1 : 0,

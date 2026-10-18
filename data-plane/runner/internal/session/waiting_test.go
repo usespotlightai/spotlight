@@ -178,14 +178,14 @@ func TestTheWorkspaceIsArchivedBeforeEachTurnIsReportedAndOnlyWhenItChanged(t *t
   require("node:fs").writeFileSync("notes.md", "asked");
 output = "turn " + globalThis.turns;`, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.archives = archives
-		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.resume = protocol.Resume{Key: resumeKey}
 		o.answers = [][]protocol.Message{{{Position: 1, Body: "carry on"}}}
 		o.answerWait = time.Minute
 		o.heartbeat = 10 * time.Millisecond
 	})
 
-	if !slices.Equal(written.sealedBy, []int{1, 1}) {
-		t.Errorf("archives sealed by each completion %v, wanted [1 1]", written.sealedBy)
+	if !slices.Equal(written.completedBy, []int{1, 1}) {
+		t.Errorf("archives completed by each completion %v, wanted [1 1]", written.completedBy)
 	}
 	if got := step(t, written, "archive"); !strings.HasPrefix(got, "Captured the workspace") {
 		t.Errorf("the asking turn said %q about archiving its workspace", got)
@@ -195,7 +195,7 @@ output = "turn " + globalThis.turns;`, "end_turn"), escalatesToAPerson, func(o *
 func TestAResumedRunGetsFirstTheMessagesSentSinceItWasSuspended(t *testing.T) {
 	written := run(t, harness(t, `output = msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
 		o.briefing = "review the queue"
-		o.continuity = protocol.Continuity{SessionID: "session_known", Resumes: true}
+		o.resume = protocol.Resume{SessionID: "session_known", ResumeSession: true}
 		o.messages = [][]protocol.Message{{{Position: 7, Body: "yes, ship it"}}}
 	})
 
@@ -210,7 +210,7 @@ func TestAResumedRunGetsFirstTheMessagesSentSinceItWasSuspended(t *testing.T) {
 func TestAResumedRunWhoseSessionIsGoneIsBriefedThenGetsTheMessages(t *testing.T) {
 	written := run(t, harness(t, `output = msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
 		o.briefing = "review the queue"
-		o.continuity = protocol.Continuity{SessionID: "session_long_gone", Resumes: true}
+		o.resume = protocol.Resume{SessionID: "session_long_gone", ResumeSession: true}
 		o.messages = [][]protocol.Message{{{Position: 7, Body: "yes, ship it"}}}
 	})
 
@@ -222,7 +222,7 @@ func TestAResumedRunWhoseSessionIsGoneIsBriefedThenGetsTheMessages(t *testing.T)
 func TestAResumedRunWithNoMessageCarriesOnRatherThanBeingBriefedAgain(t *testing.T) {
 	written := run(t, harness(t, `output = msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
 		o.briefing = "review the queue"
-		o.continuity = protocol.Continuity{SessionID: "session_known", Resumes: true}
+		o.resume = protocol.Resume{SessionID: "session_known", ResumeSession: true}
 	})
 
 	if output := agentOutput(t, written); strings.Contains(output, "review the queue") || !strings.Contains(output, "Carry on") {
@@ -257,7 +257,7 @@ func TestAPermissionAnsweredBeforeTheTurnEndsIsSentAtOnceWithoutWaiting(t *testi
 func TestAResumedRunInAFreshSessionWithNoMessageIsBriefed(t *testing.T) {
 	written := run(t, harness(t, `output = msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
 		o.briefing = "review the queue"
-		o.continuity = protocol.Continuity{SessionID: "session_long_gone", Resumes: true}
+		o.resume = protocol.Resume{SessionID: "session_long_gone", ResumeSession: true}
 	})
 
 	if output := agentOutput(t, written); output != "review the queue" {
@@ -268,10 +268,10 @@ func TestAResumedRunInAFreshSessionWithNoMessageIsBriefed(t *testing.T) {
 func TestATurnSaysWhetherItsWorkspaceIsArchived(t *testing.T) {
 	archived := run(t, harness(t, eachTurn, "end_turn"), func(o *runOptions) {
 		o.archives = newArchives(t)
-		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.resume = protocol.Resume{Key: resumeKey}
 	})
 	unarchived := run(t, harness(t, eachTurn, "end_turn"), func(o *runOptions) {
-		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.resume = protocol.Resume{Key: resumeKey}
 	})
 
 	if !archived.done.Archived || unarchived.done.Archived {
@@ -282,7 +282,7 @@ func TestATurnSaysWhetherItsWorkspaceIsArchived(t *testing.T) {
 func TestATurnReadsWhetherItWaitsBeforeItArchivesTheWorkspace(t *testing.T) {
 	written := run(t, harness(t, eachTurn, "end_turn"), func(o *runOptions) {
 		o.archives = newArchives(t)
-		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.resume = protocol.Resume{Key: resumeKey}
 	})
 
 	if !slices.Equal(written.calls, []string{"awaits-person", "archive", "complete"}) {
@@ -322,7 +322,7 @@ func TestAPausedRunsWorkspaceIsRestoredForTheRunnerThatClaimsIt(t *testing.T) {
 
 	paused := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "asked"); output = "asked";`, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.archives = archives
-		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.resume = protocol.Resume{Key: resumeKey}
 		o.answerWait = 0
 		o.heartbeat = time.Hour
 	})
@@ -332,7 +332,7 @@ func TestAPausedRunsWorkspaceIsRestoredForTheRunnerThatClaimsIt(t *testing.T) {
 
 	resumed := run(t, harness(t, `output = require("node:fs").readFileSync("notes.md", "utf8") + " | " + msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
 		o.archives = archives
-		o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known", Resumes: true}
+		o.resume = protocol.Resume{Key: resumeKey, SessionID: "session_known", ResumeSession: true}
 		o.messages = [][]protocol.Message{{{Position: 3, Body: "go ahead"}}}
 	})
 

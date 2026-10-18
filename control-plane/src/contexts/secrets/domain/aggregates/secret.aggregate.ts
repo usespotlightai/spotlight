@@ -20,7 +20,7 @@ import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo'
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -80,7 +80,7 @@ export class Secret extends EventRecorder {
     input: {
       id: SecretId;
       workspaceId: WorkspaceId;
-      by: Attribution;
+      by: ChangeActor;
       at: Date;
     },
   ): Secret {
@@ -147,7 +147,7 @@ export class Secret extends EventRecorder {
     }
   }
 
-  update(definition: SecretDefinition, by: Attribution, at: Date): Secret {
+  update(definition: SecretDefinition, by: ChangeActor, at: Date): Secret {
     this.assertNotDeleted();
 
     if (!definition.name.equals(this.name)) {
@@ -195,7 +195,7 @@ export class Secret extends EventRecorder {
       valueMoved: valueToStore !== null || rotating,
       valueVersion: definition.valueVersion,
       rebound,
-      boundTo: definition.bindings.hosts,
+      targets: definition.bindings.hosts,
     });
 
     updated.record(
@@ -210,7 +210,7 @@ export class Secret extends EventRecorder {
     return updated;
   }
 
-  delete(uses: SecretUses, by: Attribution): Secret {
+  delete(uses: SecretUses, by: ChangeActor): Secret {
     this.assertNotDeleted();
 
     if (!uses.isEmpty) {
@@ -220,7 +220,7 @@ export class Secret extends EventRecorder {
     return this.cascadeDelete(by);
   }
 
-  cascadeDelete(by: Attribution): Secret {
+  cascadeDelete(by: ChangeActor): Secret {
     this.assertNotDeleted();
 
     const deleted = this.removed();

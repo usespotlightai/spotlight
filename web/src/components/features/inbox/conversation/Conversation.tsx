@@ -15,7 +15,7 @@ import {
   STICKY_AT_TOP,
   workedOn,
 } from '@/lib/inbox';
-import { lastNoteOf } from '@/lib/run-conversation';
+import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
 
 interface Turn {

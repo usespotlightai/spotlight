@@ -128,8 +128,8 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
   beforeAll(async () => {
     vi.stubEnv(
-      'OUTBOUND_ALLOWED_HOSTS',
-      [process.env.OUTBOUND_ALLOWED_HOSTS, 'api.linear.app']
+      'SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS',
+      [process.env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS, 'api.linear.app']
         .filter(Boolean)
         .join(','),
     );

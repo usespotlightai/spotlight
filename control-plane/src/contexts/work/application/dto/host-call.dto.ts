@@ -13,7 +13,7 @@ export type HostCallClaimDto =
   | { readonly outcome: 'host-unreported' }
   | { readonly outcome: 'claimed'; readonly call: HostCallDto };
 
-export type HostCallAnswerDto =
+export type RecordHostCallResponseDto =
   | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'unknown' }
   | { readonly outcome: 'completed'; readonly reason: string }

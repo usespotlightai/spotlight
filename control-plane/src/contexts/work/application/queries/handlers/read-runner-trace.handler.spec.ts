@@ -3,9 +3,9 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { connectionsInMemory } from '@work/application/ports/run-connections.fake-spec';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
 import {
-  aSight,
-  sightsInMemory,
-} from '@work/application/ports/search-sight.fake-spec';
+  aSearchVisibility,
+  searchVisibilitiesInMemory,
+} from '@work/application/ports/search-visibility.fake-spec';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { describe, expect, it, vi } from 'vitest';
@@ -51,10 +51,13 @@ const reading = (
         }
       : null,
   );
-  const sights = sightsInMemory();
+  const visibilities = searchVisibilitiesInMemory();
 
   if (Array.isArray(over.hidden)) {
-    sights.sees('run_1', aSight({ heldOutTasks: over.hidden }));
+    visibilities.sees(
+      'run_1',
+      aSearchVisibility({ heldOutTasks: over.hidden }),
+    );
   }
 
   return {
@@ -67,7 +70,7 @@ const reading = (
         runsForTask,
         journalsForTask,
       } as unknown as RunnerTraceReaderPort,
-      sights,
+      visibilities,
       connectionsInMemory(),
     ),
   };

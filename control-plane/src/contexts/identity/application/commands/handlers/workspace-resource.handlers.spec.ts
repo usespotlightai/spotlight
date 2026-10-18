@@ -19,7 +19,7 @@ import {
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -78,7 +78,10 @@ describe('CreateWorkspaceHandler', () => {
     const [added] = stored.add.mock.calls[0] as [Workspace];
 
     expect(added.roleOf(OWNER)?.isOwner).toBe(true);
-    expect(keys.created).toHaveBeenCalledWith(expect.anything(), 'ws_new');
+    expect(keys.recordCreated).toHaveBeenCalledWith(
+      expect.anything(),
+      'ws_new',
+    );
   });
 
   it('forbids a token to create a workspace, since it acts only inside its own', async () => {
@@ -90,7 +93,7 @@ describe('CreateWorkspaceHandler', () => {
 
   it('says a slug that another workspace uses is taken', async () => {
     expect(await creating({ taken: true }).create(ACME)).toEqual({
-      outcome: 'taken',
+      outcome: 'already-exists',
       address: 'acme',
     });
   });

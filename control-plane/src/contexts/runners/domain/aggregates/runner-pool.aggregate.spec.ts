@@ -16,10 +16,10 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it } from 'vitest';
 
-const BY = attributedIn();
+const BY = changeActorIn();
 
 const definition = (key: string, labels: string[] = ['linux']) => ({
   key: PoolKey.of(key),
@@ -87,7 +87,7 @@ describe('RunnerPool', () => {
     expect(rotated.tokenHash?.equals(hashOf('c'))).toBe(true);
     expect(changeOf(rotated)?.detail?.recorded()).toEqual({
       mode: 'pull',
-      rekeyed: true,
+      tokenRotated: true,
     });
   });
 
@@ -238,12 +238,12 @@ describe('RunnerPool egress', () => {
     const shared = aPushPool({ egress: EgressReference.to(EGRESS_ID) });
 
     expect(platform.egress?.isPlatform).toBe(true);
-    expect(platform.goesOutThrough(EgressReference.platform())).toBe(true);
-    expect(platform.goesOutThrough(EgressReference.to(EGRESS_ID))).toBe(false);
-    expect(shared.goesOutThrough(EgressReference.to(EGRESS_ID))).toBe(true);
+    expect(platform.usesEgress(EgressReference.platform())).toBe(true);
+    expect(platform.usesEgress(EgressReference.to(EGRESS_ID))).toBe(false);
+    expect(shared.usesEgress(EgressReference.to(EGRESS_ID))).toBe(true);
     expect(aPushPool().egress).toBeNull();
     expect(aPullPool().egress).toBeNull();
-    expect(aPullPool().goesOutThrough(EgressReference.platform())).toBe(false);
+    expect(aPullPool().usesEgress(EgressReference.platform())).toBe(false);
   });
 
   it('names another egress, or none, when it is updated', () => {
@@ -275,7 +275,7 @@ describe('RunnerPool egress', () => {
     expect(
       aPushPool({ egress: EgressReference.platform() })
         .delete(BY)
-        .goesOutThrough(EgressReference.platform()),
+        .usesEgress(EgressReference.platform()),
     ).toBe(false);
   });
 });

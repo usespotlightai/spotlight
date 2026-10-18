@@ -121,8 +121,8 @@ const fieldsOf = (edit: StationSourceEdit): readonly HclField[] => {
     ...SEARCHABLE_FIELDS.map(
       (name): HclField => ({
         name,
-        was: literalIn(seed, name, UNSET[name]),
-        now: literalIn(candidate, name, UNSET[name]),
+        expected: literalIn(seed, name, UNSET[name]),
+        desired: literalIn(candidate, name, UNSET[name]),
         unset: UNSET[name],
         ...(REFERENCES[name] ? { references: REFERENCES[name] } : {}),
         ...(FILE_FIELDS.has(name)
@@ -135,7 +135,7 @@ const fieldsOf = (edit: StationSourceEdit): readonly HclField[] => {
     ...GUARDED.map(({ name, from, unset }): HclField => {
       const was = literalIn(seed, from, unset);
 
-      return { name, was, now: was, unset };
+      return { name, expected: was, desired: was, unset };
     }),
   ];
 };
@@ -144,14 +144,14 @@ const judgeOf = (seed: Block): HclGuardedBlock => {
   const judge = seed.judge;
 
   if (typeof judge !== 'object' || judge === null) {
-    return { type: 'judge', was: null };
+    return { type: 'judge', expected: null };
   }
 
   const passThreshold = literalIn(judge as Block, 'passThreshold', ALL_CLAIMS);
 
   return {
     type: 'judge',
-    was: Object.fromEntries([
+    expected: Object.fromEntries([
       ...JUDGE_FIELDS.map(({ name, from }) => [
         name,
         literalIn(judge as Block, from, null),

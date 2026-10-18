@@ -27,6 +27,7 @@ import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -35,7 +36,6 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
@@ -84,7 +84,7 @@ const task = () => {
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.between(null, null),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   }).assignRun(RUN, delivery());
@@ -95,7 +95,7 @@ const task = () => {
 
 const lineWorking = (repositories: readonly string[]): Line => {
   const repositoriesOfLine = LineRepositories.of(
-    repositories.map((each) => WorkedRepository.of(Repository.of(each))),
+    repositories.map((each) => LineRepositoryConfig.of(Repository.of(each))),
   );
 
   return {
@@ -296,7 +296,7 @@ describe('OpenPullRequest', () => {
     expect(saved.map((each) => each.id.value)).toEqual(['task_0', 'task_1']);
     expect(saved[0]?.marks).toEqual([]);
     expect(saved[0]?.pullEvents().map((each) => each.kind)).toEqual([
-      'task.mark-taken',
+      'task.mark-reassigned',
     ]);
   });
 

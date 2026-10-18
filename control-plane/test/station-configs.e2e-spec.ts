@@ -8,7 +8,6 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -17,6 +16,7 @@ import type { StationConfigParts } from '@work/domain/value-objects/station-conf
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzle/readers/station-run.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
@@ -75,7 +75,7 @@ const SPEC = {
   command: { executable: 'sh', args: [] },
   briefing: 'do the thing',
   handover: { options: [], noteLimit: 0 },
-  continuity: { key: 'task:station' },
+  resume: { key: 'task:station' },
 };
 
 const lineOf = async (teamId: string, key = 'delivery') => {
@@ -306,7 +306,7 @@ describe('the station config a run ran with', () => {
   });
 });
 
-describe('a chat improving a station', () => {
+describe('a chat that improves a station', () => {
   it('stores the station it improves', async () => {
     const chat = Chat.start({
       workspaceId: WorkspaceId.of('ws_1'),
@@ -314,7 +314,7 @@ describe('a chat improving a station', () => {
       startedBy: UserId.of('user_1'),
       harness: HarnessId.of('dev'),
       body: ChatMessageBody.fromInput('Improve this station.'),
-      improving: ImprovedStation.rehydrate({
+      targetStation: TargetStation.rehydrate({
         teamId: TeamId.of('team_1'),
         lineId: LineId.of('line_1'),
         lineKey: LineKey.of('delivery'),
@@ -330,7 +330,7 @@ describe('a chat improving a station', () => {
     await chats.add(chat);
     const found = await chats.find(chat.id);
 
-    expect(found?.improving?.stationKey.value).toBe('implementation');
-    expect(found?.improving?.lineName.value).toBe('Delivery');
+    expect(found?.targetStation?.stationKey.value).toBe('implementation');
+    expect(found?.targetStation?.lineName.value).toBe('Delivery');
   });
 });

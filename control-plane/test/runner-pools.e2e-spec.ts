@@ -127,7 +127,7 @@ describe('runner pools (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: `task:${id}` },
+        resume: { key: `task:${id}` },
       },
     });
 
@@ -285,7 +285,7 @@ describe('runner pools (e2e)', () => {
         .expect(401);
     });
 
-    it('hands work naming an image only to a claim offering that image, and work naming none only to a claim in the host’s default image', async () => {
+    it('hands work naming an image only to a claim in that image, and work naming none only to a claim in the host’s default image', async () => {
       const token = tokenOf('w');
       await create({ key: 'ephemeral', token }).expect(201);
       await heartbeat(token).expect(200);
@@ -299,9 +299,9 @@ describe('runner pools (e2e)', () => {
       ).expect(409);
       expect(unreported.body.reason).toBe('image-unreported');
 
-      const offered = await claimWith(token, HOST, WIDGETS).expect(200);
+      const supported = await claimWith(token, HOST, WIDGETS).expect(200);
 
-      expect(offered.body.work).toMatchObject({
+      expect(supported.body.work).toMatchObject({
         kind: 'run',
         run: { id: inWidgets },
       });
@@ -1003,7 +1003,7 @@ describe('runner pools (e2e)', () => {
             command: { executable: 'sh', args: [] },
             briefing: 'do the thing',
             handover: { options: [], noteLimit: 0 },
-            continuity: { key: `task:${withSecrets}` },
+            resume: { key: `task:${withSecrets}` },
             injectedSecrets: ['LINEAR_API_KEY'],
           },
         });

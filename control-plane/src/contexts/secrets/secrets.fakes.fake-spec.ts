@@ -21,9 +21,9 @@ import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type {
-  IdempotentClaim,
   IdempotentCreate,
   IdempotentCreatesPort,
+  IdempotentReservation,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type {
   LogFields,
@@ -31,8 +31,8 @@ import type {
 } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -41,7 +41,7 @@ export const ADMIN = actorFor('user_admin');
 
 export const WORKSPACE = WorkspaceId.of('ws_1');
 
-export const BY = Attribution.of(ADMIN, WORKSPACE);
+export const BY = ChangeActor.of(ADMIN, WORKSPACE);
 
 export const accessFor = (managesSecrets: () => boolean): WorkspaceAccessPort =>
   ({
@@ -54,7 +54,7 @@ export const accessFor = (managesSecrets: () => boolean): WorkspaceAccessPort =>
             managesSecrets: managesSecrets(),
             managesRunners: false,
             managesTokenTrusts: false,
-            administers: false,
+            isAdmin: false,
           }
         : null,
   }) as unknown as WorkspaceAccessPort;
@@ -64,22 +64,22 @@ export const transaction: TransactionPort = { inTransaction: (work) => work() };
 export class InMemoryCreates implements IdempotentCreatesPort {
   readonly #made = new Map<string, { request: string; id: string | null }>();
 
-  async claim(create: IdempotentCreate): Promise<IdempotentClaim> {
+  async reserve(create: IdempotentCreate): Promise<IdempotentReservation> {
     const key = `${create.by}:${create.key.value}`;
     const request = JSON.stringify(create.request);
     const stored = this.#made.get(key);
 
     if (!stored) {
       this.#made.set(key, { request, id: null });
-      return { kind: 'fresh' };
+      return { kind: 'new' };
     }
 
     return stored.request === request && stored.id
-      ? { kind: 'replay', createdId: stored.id }
-      : { kind: 'reused' };
+      ? { kind: 'already-created', createdId: stored.id }
+      : { kind: 'key-reused' };
   }
 
-  async created(create: IdempotentCreate, id: string): Promise<void> {
+  async recordCreated(create: IdempotentCreate, id: string): Promise<void> {
     const key = `${create.by}:${create.key.value}`;
     const stored = this.#made.get(key);
 

@@ -84,7 +84,7 @@ const waiting = () =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   }).askedAbout(
@@ -108,7 +108,7 @@ const asking = () =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   })
@@ -247,7 +247,7 @@ describe('AnswerInboxItem', () => {
       at: StationId.of('station_1'),
       title: TaskTitle.of('Fix the queue'),
       rank: TaskRank.of('i'),
-      raisedBy: UserId.of('user_1'),
+      createdBy: UserId.of('user_1'),
       now: NOW,
       newId: () => 'task_1',
     });

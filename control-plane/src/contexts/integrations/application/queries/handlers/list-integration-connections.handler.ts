@@ -67,7 +67,7 @@ export class ListIntegrationConnectionsHandler
           };
         });
 
-      if (!membership.administers) {
+      if (!membership.isAdmin) {
         return { mine, people: null };
       }
 

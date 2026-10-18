@@ -9,7 +9,7 @@ export interface WorkspaceMembership {
   readonly workspaceId: WorkspaceId;
   readonly slug: string;
   readonly viewer: UserId;
-  readonly administers: boolean;
+  readonly isAdmin: boolean;
 }
 
 export interface TeamMembership extends WorkspaceMembership {
@@ -23,7 +23,7 @@ export interface WorkspacePermissions {
   readonly managesSecrets: boolean;
   readonly managesRunners: boolean;
   readonly managesTokenTrusts: boolean;
-  readonly administers: boolean;
+  readonly isAdmin: boolean;
 }
 
 export interface TeamPermissions extends WorkspacePermissions {

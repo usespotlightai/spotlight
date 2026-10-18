@@ -110,7 +110,7 @@ describe('ChatInput', () => {
         body: 'the log, attached',
         attachments: ['att_1'],
         traces: [],
-        improving: null,
+        targetStation: null,
       },
       expect.any(Function),
     );
@@ -135,7 +135,7 @@ describe('ChatInput', () => {
     await userEvent.click(send());
 
     expect(onSend).toHaveBeenCalledWith(
-      { body: 'see', attachments: ['att_1'], traces: [], improving: null },
+      { body: 'see', attachments: ['att_1'], traces: [], targetStation: null },
       expect.any(Function),
     );
   });

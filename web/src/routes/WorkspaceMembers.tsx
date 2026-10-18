@@ -13,7 +13,7 @@ import { useWorkspaceInvites } from '@/hooks/api/useWorkspaceInvites';
 import { useWorkspaceMembers } from '@/hooks/api/useWorkspaceMembers';
 import { showOf, showsInvites } from '@/lib/members';
 import { failed } from '@/lib/query';
-import { administers } from '@/lib/role';
+import { isAdmin } from '@/lib/role';
 import { workspacePath } from '@/lib/workspace';
 
 const TITLE = 'Members';
@@ -25,7 +25,7 @@ export function WorkspaceMembers() {
   const [params] = useSearchParams();
   const found = useWorkspace(slug);
   const workspace = found.data;
-  const admin = workspace ? administers(workspace.role) : false;
+  const admin = workspace ? isAdmin(workspace.role) : false;
   const members = useWorkspaceMembers(admin ? slug : undefined);
   const invites = useWorkspaceInvites(admin ? slug : undefined);
   const [inviting, setInviting] = useState(false);

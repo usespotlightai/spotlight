@@ -558,7 +558,7 @@ describe('LineBoard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says when each task was raised', () => {
+  it('says when each task was created', () => {
     renderAt('line_1');
 
     expect(screen.getByText('Aug 4')).toBeInTheDocument();

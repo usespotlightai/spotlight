@@ -9,7 +9,7 @@ import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.v
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { ASIDE_SEQ } from '@work/application/contracts/run-journal.contract';
+import { CONTROL_PLANE_SEQ } from '@work/application/contracts/run-journal.contract';
 import type {
   RunEventReaderPort,
   WatchableRun,
@@ -21,7 +21,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { and, asc, desc, eq, gt, lte } from 'drizzle-orm';
 
-const MAX_ASIDE = 200;
+const MAX_CONTROL_PLANE_ENTRIES = 200;
 
 const inPlace = (
   events: readonly RunEventView[],
@@ -129,14 +129,14 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
       .orderBy(desc(runJournalEntry.seq))
       .limit(max);
 
-    const aside = await this.db
+    const controlPlaneEntries = await this.db
       .select(columns)
       .from(runJournalEntry)
-      .where(and(ofAttempt, lte(runJournalEntry.seq, ASIDE_SEQ)))
+      .where(and(ofAttempt, lte(runJournalEntry.seq, CONTROL_PLANE_SEQ)))
       .orderBy(desc(runJournalEntry.at), asc(runJournalEntry.seq))
-      .limit(MAX_ASIDE);
+      .limit(MAX_CONTROL_PLANE_ENTRIES);
 
-    return aside
+    return controlPlaneEntries
       .reverse()
       .map(viewOf)
       .reduce(inPlace, entries.reverse().map(viewOf));

@@ -65,7 +65,7 @@ const working = () =>
       at: IMPLEMENTATION,
       title: TaskTitle.of('Comment on ENG-12'),
       rank: TaskRank.of('i'),
-      raisedBy: BOB,
+      createdBy: BOB,
       now: NOW,
       newId: () => 'task_1',
     }),

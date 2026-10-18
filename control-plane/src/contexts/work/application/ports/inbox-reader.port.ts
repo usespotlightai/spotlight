@@ -6,7 +6,7 @@ import type {
 } from '@work/domain/entities/task-note.entity';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
-import type { AsideForm } from '@work/domain/value-objects/aside-form';
+import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { AuthorKind } from '@work/domain/value-objects/voice.vo';
 
@@ -70,8 +70,8 @@ export interface InboxNote {
   readonly connection: InboxConnection | null;
 }
 
-interface InboxAside {
-  readonly form: AsideForm;
+interface InboxRequestView {
+  readonly form: InboxRequestForm;
   readonly about: string;
 }
 
@@ -93,7 +93,7 @@ export interface InboxItemSummary {
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly stationCount: number;
-  readonly raisedAt: InboxStation;
+  readonly originStation: InboxStation;
   readonly currentStation: InboxStation;
   readonly createdAt: Date;
   readonly askedAt: Date;
@@ -103,7 +103,7 @@ export interface InboxItemSummary {
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailure | null;
-  readonly aside: InboxAside | null;
+  readonly inboxRequest: InboxRequestView | null;
   readonly notes: readonly InboxNote[];
 }
 

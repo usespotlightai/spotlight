@@ -23,7 +23,7 @@ export class RepositoryController {
   @Get()
   @ApiOperation({
     operationId: 'listRepositories',
-    summary: 'List the repositories a task can be raised against',
+    summary: 'List the repositories a task can be created against',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
   @ApiOkResponse({ type: RepositoryResponseDto, isArray: true })

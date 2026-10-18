@@ -6,7 +6,7 @@ export const causationInMemory = (): CausationPort => {
 
   return {
     current: () => current,
-    within: async (chain, work) => {
+    runWith: async (chain, work) => {
       const before = current;
       current = chain;
 

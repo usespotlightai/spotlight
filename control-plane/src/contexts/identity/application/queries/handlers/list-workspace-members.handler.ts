@@ -39,7 +39,7 @@ export class ListWorkspaceMembersHandler
         role: member.role,
         teams: member.teams,
         joinedAt: member.joinedAt.toISOString(),
-        mayBeSetTo: workspace
+        assignableRoles: workspace
           .assignableRolesFor(UserId.of(member.id), viewer)
           .map((role) => role.value),
       }));

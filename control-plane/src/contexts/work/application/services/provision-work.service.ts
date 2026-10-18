@@ -365,7 +365,7 @@ export class ProvisionWork {
         work: reserved.work,
         runId: reserved.runId,
         taskId: reserved.taskId,
-        labels: reserved.placement.selectors,
+        labels: reserved.placement.requiredLabels,
         image: reserved.placement.image?.value ?? null,
         needsEgress: reserved.needsEgress,
         claimBy: reserved.claimBy,

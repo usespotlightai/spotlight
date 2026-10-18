@@ -43,7 +43,7 @@ export const TeamTraceMapper = {
       output: summary.output,
       ms: summary.endedAt.getTime() - summary.startedAt.getTime(),
       steps: spent.steps,
-      faults: spent.errors,
+      errors: spent.errors,
       cost: spent.cost?.amount ?? null,
       currency: spent.cost?.currency ?? null,
     };
@@ -61,7 +61,7 @@ export const TeamTraceMapper = {
         from: bucket.from.toISOString(),
         to: bucket.to.toISOString(),
         count: bucket.count,
-        faults: bucket.faults,
+        errors: bucket.errors,
       })),
       traces,
     };

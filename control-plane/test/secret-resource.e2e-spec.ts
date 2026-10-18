@@ -323,13 +323,13 @@ describe('a secret, created through the resource API (e2e)', () => {
         'secret',
         'created',
         { kind: 'person', userId: fixture.admin, tokenId: null, trust: null },
-        { valueVersion: 1, boundTo: ['api.linear.app'] },
+        { valueVersion: 1, targets: ['api.linear.app'] },
       ],
       [
         'secret',
         'updated',
         { kind: 'person', userId: fixture.admin, tokenId: null, trust: null },
-        { boundTo: ['uploads.linear.app'] },
+        { targets: ['uploads.linear.app'] },
       ],
       [
         'secret',

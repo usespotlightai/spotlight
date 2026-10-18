@@ -8,7 +8,7 @@ type Trace struct {
 	StartedAt *string     `json:"startedAt"`
 	Ms        int         `json:"ms"`
 	Rows      int         `json:"rows"`
-	Faults    int         `json:"faults"`
+	Errors    int         `json:"errors"`
 	Roots     []TraceNode `json:"roots"`
 }
 
@@ -18,7 +18,7 @@ type TraceNode struct {
 	Name      string      `json:"name"`
 	StartedAt string      `json:"startedAt"`
 	Ms        int         `json:"ms"`
-	Tone      string      `json:"tone"`
+	Category  string      `json:"category"`
 	Cost      *float64    `json:"cost"`
 	Currency  *string     `json:"currency"`
 	Step      *TraceStep  `json:"step"`

@@ -57,6 +57,7 @@ import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -65,11 +66,10 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -164,7 +164,7 @@ const at = (
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
-    wayOut: WayOut.of({ stations: passesTo.map(StationId.of) }),
+    routes: StationRoutes.of({ stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
     tools: (enables.tools ?? []).map((each) => Tool.of(each)),
@@ -187,7 +187,7 @@ const task = (stationId: string, title = 'Fix the queue') =>
     at: StationId.of(stationId),
     title: TaskTitle.of(title),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   });
@@ -204,19 +204,24 @@ const runs = {
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
-type Worked = string | WorkedRepository;
+type RepositoryInput = string | LineRepositoryConfig;
 
-const worked = (each: Worked): WorkedRepository =>
-  typeof each === 'string' ? WorkedRepository.of(Repository.of(each)) : each;
+const repositoryConfig = (each: RepositoryInput): LineRepositoryConfig =>
+  typeof each === 'string'
+    ? LineRepositoryConfig.of(Repository.of(each))
+    : each;
 
-const lineWith = (changed?: Station, repositories: readonly Worked[] = []) =>
+const lineWith = (
+  changed?: Station,
+  repositories: readonly RepositoryInput[] = [],
+) =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('default'),
     name: LineName.of('Default'),
-    repositories: repositories.map(worked),
+    repositories: repositories.map(repositoryConfig),
     stations: changed
       ? stations.map((each) => (each.equals(changed) ? changed : each))
       : stations,
@@ -330,7 +335,7 @@ let memoryFails = false;
 const dispatch = async (
   station: Station,
   existing?: Task,
-  repositories?: readonly Worked[],
+  repositories?: readonly RepositoryInput[],
 ) => {
   const service = new DispatchTask(
     runs,
@@ -575,7 +580,7 @@ describe('DispatchTask', () => {
 
     it('makes each checkout ready as its repository says', async () => {
       await dispatch(stations[1] as Station, undefined, [
-        WorkedRepository.of(Repository.of('acme/api'), {
+        LineRepositoryConfig.of(Repository.of('acme/api'), {
           setup: RepositorySetup.of('npm ci'),
         }),
         'acme/web',
@@ -605,7 +610,7 @@ describe('DispatchTask', () => {
           position: 1,
           color: StationColor.of('#a3a8b0'),
           harness: DEV.id,
-          wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
+          routes: StationRoutes.of({ stations: [StationId.of('station_3')] }),
           kind: 'work',
           diffs,
           check: StationCheck.of('npm test'),
@@ -620,13 +625,13 @@ describe('DispatchTask', () => {
 
     it('places the run in the image the line’s repositories name', async () => {
       await dispatch(stations[1] as Station, undefined, [
-        WorkedRepository.of(Repository.of('acme/api'), {
+        LineRepositoryConfig.of(Repository.of('acme/api'), {
           image: RunnerImage.of('ghcr.io/acme/api:1'),
         }),
       ]);
 
       expect(queued[0]?.placement.image?.value).toBe('ghcr.io/acme/api:1');
-      expect(queued[0]?.placement.clauses).toEqual([]);
+      expect(queued[0]?.placement.labelGroups).toEqual([]);
     });
 
     it('requests no checkout where the line works no repository', async () => {
@@ -653,7 +658,7 @@ describe('DispatchTask', () => {
         color: StationColor.of('#a3a8b0'),
         harness: DEV.id,
         profile: ProfileKey.of(profile),
-        wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
+        routes: StationRoutes.of({ stations: [StationId.of('station_3')] }),
       });
 
     beforeEach(() => {
@@ -815,13 +820,13 @@ describe('DispatchTask', () => {
 
   it('records on the run the task exactly as it was briefed', async () => {
     const station = stations[1] as Station;
-    const worked = task(station.id.value, 'Drain the queue');
+    const dispatched = task(station.id.value, 'Drain the queue');
 
-    await dispatch(station, worked);
+    await dispatch(station, dispatched);
 
     const run = queued[0] as Run;
 
-    expect(extras[0]?.briefed?.equals(worked.briefed)).toBe(true);
+    expect(extras[0]?.briefed?.equals(dispatched.briefed)).toBe(true);
     expect(extras[0]?.briefed?.title).toBe('Drain the queue');
     expect(written(run).briefing).toContain('## Drain the queue');
   });
@@ -833,15 +838,15 @@ describe('DispatchTask', () => {
   });
 
   describe('carrying on where the last run stopped', () => {
-    const continuityOf = (at: number) => {
+    const resumeOf = (at: number) => {
       const run = queued[at];
       if (!run) {
         throw new Error(`nothing was queued at ${at}`);
       }
-      return written(run).continuity;
+      return written(run).resume;
     };
 
-    const worked = (station: Station) =>
+    const taskAt = (station: Station) =>
       task(station.id.value).recordSession(
         HarnessSession.of('session_1'),
         RunnerId.of('runner_1'),
@@ -851,18 +856,18 @@ describe('DispatchTask', () => {
       const station = stations[1] as Station;
 
       await dispatch(station);
-      await dispatch(station, worked(station));
+      await dispatch(station, taskAt(station));
 
-      expect(continuityOf(0).key).toBe('task-task_1');
-      expect(continuityOf(1).key).toBe(continuityOf(0).key);
+      expect(resumeOf(0).key).toBe('task-task_1');
+      expect(resumeOf(1).key).toBe(resumeOf(0).key);
     });
 
     it('gives it the same one at the next station', async () => {
       await dispatch(stations[1] as Station);
       await dispatch(stations[2] as Station);
 
-      expect(continuityOf(0).key).toBe('task-task_1');
-      expect(continuityOf(1).key).toBe(continuityOf(0).key);
+      expect(resumeOf(0).key).toBe('task-task_1');
+      expect(resumeOf(1).key).toBe(resumeOf(0).key);
     });
 
     it('names every skill home and harness setting, so what an earlier station left is cleared', async () => {
@@ -881,9 +886,9 @@ describe('DispatchTask', () => {
     it('requests the conversation the task was last worked in', async () => {
       const station = stations[1] as Station;
 
-      await dispatch(station, worked(station));
+      await dispatch(station, taskAt(station));
 
-      expect(continuityOf(0).sessionId).toBe('session_1');
+      expect(resumeOf(0).sessionId).toBe('session_1');
     });
 
     it('requests no conversation when there is nothing to resume', async () => {
@@ -891,7 +896,7 @@ describe('DispatchTask', () => {
 
       await dispatch(station);
 
-      expect(continuityOf(0).sessionId).toBeUndefined();
+      expect(resumeOf(0).sessionId).toBeUndefined();
     });
   });
 });
@@ -1141,7 +1146,7 @@ describe('DispatchTask, the tools a run is told about', () => {
 
       await dispatch(station, undefined, [
         { repository: Repository.of('acme/api') },
-      ] as unknown as readonly Worked[]);
+      ] as unknown as readonly RepositoryInput[]);
 
       const place = briefedAt.slice(-1)[0];
       expect(place?.stationId).toBe(station.id.value);
@@ -1185,7 +1190,7 @@ describe('DispatchTask, the tools a run is told about', () => {
     const configOf = async (
       station: Station,
       title?: string,
-      repositories?: readonly Worked[],
+      repositories?: readonly RepositoryInput[],
     ) => {
       queued = [];
       extras = [];
@@ -1206,7 +1211,7 @@ describe('DispatchTask, the tools a run is told about', () => {
           .atEffort(Effort.of('high')),
         undefined,
         [
-          WorkedRepository.of(Repository.of('acme/api'), {
+          LineRepositoryConfig.of(Repository.of('acme/api'), {
             setup: RepositorySetup.of('npm ci'),
           }),
         ],
@@ -1236,7 +1241,7 @@ describe('DispatchTask, the tools a run is told about', () => {
         await configOf(triageAt.atEffort(Effort.of('xhigh'))),
         await configOf(triage({ tools: ['pull-request'] })),
         await configOf(triageAt, undefined, [
-          WorkedRepository.of(Repository.of('acme/api'), {
+          LineRepositoryConfig.of(Repository.of('acme/api'), {
             setup: RepositorySetup.of('make deps'),
           }),
         ]),
@@ -1274,7 +1279,7 @@ describe('DispatchTask, the tools a run is told about', () => {
           color: StationColor.of('#a3a8b0'),
           harness: DEV.id,
           profile: ProfileKey.of('tokened'),
-          wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
+          routes: StationRoutes.of({ stations: [StationId.of('station_3')] }),
         }),
       );
 

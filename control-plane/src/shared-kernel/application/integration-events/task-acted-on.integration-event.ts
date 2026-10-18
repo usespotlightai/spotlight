@@ -7,7 +7,7 @@ export type TaskActedOnIntegrationEvent = {
   readonly stationId: string;
   readonly action: string;
   readonly by: string;
-  readonly after: string | null;
+  readonly afterRunId: string | null;
   readonly at: string;
   readonly tool: string | null;
   readonly server: string | null;

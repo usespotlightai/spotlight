@@ -4,7 +4,7 @@ import { stationConfigPullRequestsInMemory } from '@insights/application/ports/s
 import type { EndedRun } from '@insights/application/ports/work.port';
 import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
-import { GradeAsides } from '@insights/application/services/grade-asides.service';
+import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
@@ -217,7 +217,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         return `score_${next}`;
       },
     }),
-    grading: new GradeAsides({
+    grading: new GradeInboxRequests({
       ask: async (taskId, runId) => {
         asked.push(`ask ${taskId.value} ${runId.value}`);
       },
@@ -398,7 +398,7 @@ describe('insightsSubscribers', () => {
       stationId: 'station_1',
       action: 'sent-back',
       by: 'user_ada',
-      after: 'run_1',
+      afterRunId: 'run_1',
       at: '2026-09-30T11:00:00.000Z',
       tool: null,
       server: null,
@@ -661,7 +661,7 @@ describe('insightsSubscribers', () => {
       stationId: 'station_1',
       action: 'answered',
       by: 'user_bob',
-      after: 'run_1',
+      afterRunId: 'run_1',
       at: '2026-09-30T10:20:00.000Z',
       tool: null,
       server: null,
@@ -974,7 +974,7 @@ describe('insightsSubscribers', () => {
       stationId: 'station_1',
       action: 'answered',
       by: 'user_bob',
-      after: 'run_5',
+      afterRunId: 'run_5',
       at: '2026-09-30T10:20:00.000Z',
       tool: null,
       server: null,
@@ -1240,7 +1240,7 @@ describe('insightsSubscribers', () => {
     expect(subscriber.scores.stored.size).toBe(0);
   });
 
-  it('resolves a run’s grade aside once a person grades it', async () => {
+  it('resolves the grade inbox request of a run once a person grades it', async () => {
     const subscriber = subscribed();
 
     await subscriber.deliver('insights.ask-or-resolve-grade', {
@@ -1802,7 +1802,7 @@ describe('insightsSubscribers', () => {
       );
     };
 
-    it('raises one inbox aside on the run that fired a station’s alert, and resolves it once the alert resolves', async () => {
+    it('creates one inbox request on the run that fired a station’s alert, and resolves it once the alert resolves', async () => {
       const subscriber = subscribed([FAILING_ABOVE_HALF]);
       await subscriber.records.add(endedRecord('run_1', { ending: 'failed' }));
 
@@ -1810,7 +1810,7 @@ describe('insightsSubscribers', () => {
       await watched(subscriber, 'run_1');
       const [fired] = subscriber.alertStates.raised;
       await subscriber.deliver(
-        'insights.follow-station-alert-aside',
+        'insights.follow-station-alert-inbox-request',
         fired as never,
       );
 
@@ -1825,7 +1825,7 @@ describe('insightsSubscribers', () => {
       await watched(subscriber, 'run_2');
       const resolved = subscriber.alertStates.raised[1];
       await subscriber.deliver(
-        'insights.follow-station-alert-aside',
+        'insights.follow-station-alert-inbox-request',
         resolved as never,
       );
 
@@ -1835,7 +1835,7 @@ describe('insightsSubscribers', () => {
       ]);
     });
 
-    it('resolves the aside even when the firing is received after the resolution', async () => {
+    it('resolves the inbox request even when the firing is received after the resolution', async () => {
       const subscriber = subscribed([FAILING_ABOVE_HALF]);
       await subscriber.records.add(endedRecord('run_1', { ending: 'failed' }));
       await watched(subscriber, 'run_1');
@@ -1849,11 +1849,11 @@ describe('insightsSubscribers', () => {
       const [fired, resolved] = subscriber.alertStates.raised;
 
       await subscriber.deliver(
-        'insights.follow-station-alert-aside',
+        'insights.follow-station-alert-inbox-request',
         resolved as never,
       );
       await subscriber.deliver(
-        'insights.follow-station-alert-aside',
+        'insights.follow-station-alert-inbox-request',
         fired as never,
       );
 

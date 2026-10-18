@@ -15,9 +15,9 @@ import { faulted } from '@work/domain/value-objects/step-status';
 
 export type NodeKind = 'run' | 'phase' | 'step' | 'span' | 'connection';
 
-export type Tone = 'agent' | 'overhead' | 'failed';
+export type Category = 'agent' | 'overhead' | 'failed';
 
-export interface WorkedRun {
+export interface TracedRun {
   readonly id: RunId;
   readonly station: StationName | null;
   readonly harness: HarnessName;
@@ -49,7 +49,7 @@ export interface TraceNode {
   readonly name: string;
   readonly from: Date;
   readonly to: Date;
-  readonly tone: Tone;
+  readonly category: Category;
   readonly step: JournalStep | null;
   readonly span: RunSpan | null;
   readonly cost: Money | null;
@@ -62,7 +62,7 @@ export interface Trace {
   readonly from: Date | null;
   readonly to: Date | null;
   readonly rows: number;
-  readonly faults: number;
+  readonly errors: number;
   readonly roots: readonly TraceNode[];
 }
 
@@ -71,7 +71,7 @@ const at = (when: Date): number => when.getTime();
 const ending = (from: Date, ms: number): Date =>
   new Date(at(from) + Math.max(ms, 0));
 
-const toneOf = (step: JournalStep): Tone => {
+const categoryOf = (step: JournalStep): Category => {
   if (faulted(step.status)) {
     return 'failed';
   }
@@ -95,7 +95,7 @@ const nodeOfStep = (step: JournalStep, id: string): TraceNode => ({
   name: named(step),
   from: step.startedAt,
   to: ending(step.startedAt, step.ms),
-  tone: toneOf(step),
+  category: categoryOf(step),
   step,
   span: null,
   cost: null,
@@ -116,7 +116,7 @@ const nodeOfSpan = (
   name: step ? step.text : plainly(span.name),
   from: span.startedAt,
   to: ending(span.startedAt, span.ms),
-  tone: span.failed || (step && faulted(step.status)) ? 'failed' : 'agent',
+  category: span.failed || (step && faulted(step.status)) ? 'failed' : 'agent',
   step,
   span,
   cost: null,
@@ -205,10 +205,10 @@ interface Phase {
   readonly name: string;
   readonly from: Date;
   readonly to: Date;
-  readonly worked: boolean;
+  readonly isAgent: boolean;
 }
 
-const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
+const phasesOf = (run: TracedRun, journal: RunJournal): Phase[] => {
   const marks = journal.marks;
   const closed = marks.endedAt ?? run.endedAt;
   const phases: Phase[] = [];
@@ -219,7 +219,7 @@ const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
       name: 'Prepare',
       from: marks.startedAt,
       to: marks.readyAt,
-      worked: false,
+      isAgent: false,
     });
   }
 
@@ -229,7 +229,7 @@ const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
       name: `Turn · ${run.harness.value}`,
       from: marks.firstAgentUpdateAt,
       to: marks.lastAgentUpdateAt,
-      worked: true,
+      isAgent: true,
     });
   }
 
@@ -239,7 +239,7 @@ const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
       name: 'Publish',
       from: marks.lastAgentUpdateAt,
       to: closed,
-      worked: false,
+      isAgent: false,
     });
   }
 
@@ -275,7 +275,7 @@ const nodeOfGroup = ({ first, all }: Group, until: Date): TraceNode => ({
       ),
     ),
   ),
-  tone: 'failed',
+  category: 'failed',
   step: null,
   span: null,
   cost: null,
@@ -347,10 +347,10 @@ const withConnections = (
   };
 };
 
-const runName = (run: WorkedRun): string =>
+const runName = (run: TracedRun): string =>
   `${run.station?.value ?? 'Run'}${run.attempt > 1 ? ` · attempt ${run.attempt}` : ''}`;
 
-const runNode = (run: WorkedRun): TraceNode => {
+const runNode = (run: TracedRun): TraceNode => {
   const journal = run.journal;
   const steps = journal?.steps ?? [];
   const spans = journal?.spans ?? [];
@@ -375,7 +375,7 @@ const runNode = (run: WorkedRun): TraceNode => {
     name: phase.name,
     from: phase.from,
     to: phase.to,
-    tone: phase.worked ? 'agent' : 'overhead',
+    category: phase.isAgent ? 'agent' : 'overhead',
     step: null,
     span: null,
     cost: null,
@@ -401,7 +401,7 @@ const runNode = (run: WorkedRun): TraceNode => {
       name: runName(run),
       from: run.startedAt,
       to: run.endedAt > run.startedAt ? run.endedAt : run.startedAt,
-      tone: run.state === 'failed' ? 'failed' : 'agent',
+      category: run.state === 'failed' ? 'failed' : 'agent',
       step: null,
       span: null,
       cost: journal?.spent?.cost ?? null,
@@ -417,28 +417,28 @@ const runNode = (run: WorkedRun): TraceNode => {
 
 const counted = (
   nodes: readonly TraceNode[],
-): { rows: number; faults: number } =>
+): { rows: number; errors: number } =>
   nodes.reduce(
     (all, node) => {
       const below = counted(node.children);
 
       return {
         rows: all.rows + 1 + below.rows,
-        faults:
-          all.faults +
-          (node.tone === 'failed' && node.kind !== 'connection' ? 1 : 0) +
-          below.faults,
+        errors:
+          all.errors +
+          (node.category === 'failed' && node.kind !== 'connection' ? 1 : 0) +
+          below.errors,
       };
     },
-    { rows: 0, faults: 0 },
+    { rows: 0, errors: 0 },
   );
 
-export const traceOf = (runs: readonly WorkedRun[]): Trace => {
+export const traceOf = (runs: readonly TracedRun[]): Trace => {
   const roots = [...runs]
     .map(runNode)
     .sort((one, other) => at(one.from) - at(other.from));
 
-  const { rows, faults } = counted(roots);
+  const { rows, errors } = counted(roots);
 
   return {
     from: roots[0]?.from ?? null,
@@ -447,7 +447,7 @@ export const traceOf = (runs: readonly WorkedRun[]): Trace => {
       null,
     ),
     rows,
-    faults,
+    errors,
     roots,
   };
 };

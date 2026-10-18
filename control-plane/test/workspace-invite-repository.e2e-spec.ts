@@ -3,7 +3,7 @@ import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited
 import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { DrizzleWorkspaceInviteRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-invite.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -38,7 +38,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
       id: InviteId.of(`invite_${sequence}`),
       workspaceId: ACME,
       email: EmailAddress.of(email),
-      terms: InviteTerms.of(
+      spec: InviteSpec.of(
         WorkspaceRole.admin,
         teams.map((each) => TeamId.of(each)),
       ),
@@ -100,8 +100,8 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     const read = await readBack(invite);
 
     expect(read.version).toBe(1);
-    expect(read.terms.invitedAs).toBe('admin');
-    expect(read.terms.teams.map((each) => each.value).sort()).toEqual([
+    expect(read.spec.invitedAs).toBe('admin');
+    expect(read.spec.teams.map((each) => each.value).sort()).toEqual([
       'team_1',
       'team_2',
     ]);
@@ -169,7 +169,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     expect(read.statusAt(NOW)).toBe('pending');
   });
 
-  it('leaves the team links alone on a save that keeps the terms', async () => {
+  it('leaves the team links alone on a save that keeps the spec', async () => {
     const invite = newInvite();
     await invites.add(invite);
     await database.db
@@ -181,7 +181,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     );
 
     expect(
-      (await readBack(invite)).terms.teams.map((each) => each.value),
+      (await readBack(invite)).spec.teams.map((each) => each.value),
     ).toEqual(['team_1']);
   });
 
@@ -211,7 +211,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     await database.db.delete(schema.team).where(eq(schema.team.id, 'team_3'));
 
     expect(
-      (await readBack(invite)).terms.teams.map((each) => each.value),
+      (await readBack(invite)).spec.teams.map((each) => each.value),
     ).toEqual(['team_1']);
   });
 
@@ -240,13 +240,13 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     ]);
   });
 
-  it('stores the new link and terms of an invite resent', async () => {
+  it('stores the new link and spec of an invite resent', async () => {
     const invite = newInvite();
     await invites.add(invite);
 
     await invites.save(
       (await readBack(invite)).resend({
-        terms: InviteTerms.of(WorkspaceRole.member, [TeamId.of('team_2')]),
+        spec: InviteSpec.of(WorkspaceRole.member, [TeamId.of('team_2')]),
         tokenHash: TokenHash.of('f'.repeat(64)),
         by: UserId.of('user_ada'),
         now: NOW,
@@ -255,8 +255,8 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
 
     const read = await readBack(invite);
     expect(read.tokenHash.value).toBe('f'.repeat(64));
-    expect(read.terms.invitedAs).toBe('member');
-    expect(read.terms.teams.map((each) => each.value)).toEqual(['team_2']);
+    expect(read.spec.invitedAs).toBe('member');
+    expect(read.spec.teams.map((each) => each.value)).toEqual(['team_2']);
     expect(read.invitedBy?.value).toBe('user_ada');
   });
 });

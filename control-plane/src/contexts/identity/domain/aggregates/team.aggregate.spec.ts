@@ -15,7 +15,7 @@ import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo'
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -24,7 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const OWNER = UserId.of('user_1');
-const BY = attributedIn(WORKSPACE);
+const BY = changeActorIn(WORKSPACE);
 const SECOND = UserId.of('user_2');
 
 const acme = (id = WORKSPACE) =>

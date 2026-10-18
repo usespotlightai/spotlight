@@ -1,7 +1,7 @@
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
@@ -12,7 +12,7 @@ export interface Claimant {
   readonly runner: RunnerId;
   readonly workspaceId: WorkspaceId;
   readonly harnesses: readonly HarnessId[];
-  readonly terms: RunnerTerms;
+  readonly offer: RunnerOffer;
   readonly claims: Claims;
 }
 

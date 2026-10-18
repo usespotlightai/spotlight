@@ -20,7 +20,7 @@ const THROUGH_TRUST = CredentialSource.of('trust', 'trust_1');
 
 const CLAUDE_CODE = { id: 'claude-code', models: [] };
 
-const SERVING = [
+const READY = [
   {
     image: 'ghcr.io/usespotlightai/spotlight-runner:1.0.0',
     isDefault: true,
@@ -102,11 +102,8 @@ const reportedIn = (host: RunnerHost, bootId: BootId, at: Date) =>
     at,
   });
 
-const reportedServing = (
-  host: RunnerHost,
-  source: CredentialSource,
-  at: Date,
-) => reportedThrough(host, source, at, [], WorkspaceId.of('ws_1'), SERVING);
+const reportedReady = (host: RunnerHost, source: CredentialSource, at: Date) =>
+  reportedThrough(host, source, at, [], WorkspaceId.of('ws_1'), READY);
 
 describe('RunnerHost', () => {
   it('has its first and last heartbeat when it first reports, at its first version', () => {
@@ -131,7 +128,7 @@ describe('RunnerHost', () => {
     ]);
     expect(reported.firstHeartbeatAt).toEqual(FIRST_HEARTBEAT);
     expect(reported.lastHeartbeatAt).toEqual(later(30_000));
-    expect(reported.servesThrough(THROUGH_POOL)).toBe(true);
+    expect(reported.hasSource(THROUGH_POOL)).toBe(true);
   });
 
   it('is online since it first reports', () => {
@@ -238,8 +235,8 @@ describe('RunnerHost', () => {
       ['runner_1'],
     );
 
-    expect(rehomed.servesThrough(THROUGH_TRUST)).toBe(true);
-    expect(rehomed.servesThrough(THROUGH_POOL)).toBe(false);
+    expect(rehomed.hasSource(THROUGH_TRUST)).toBe(true);
+    expect(rehomed.hasSource(THROUGH_POOL)).toBe(false);
     expect(rehomed.workspaceId.value).toBe('ws_1');
     expect(rehomed.firstHeartbeatAt).toEqual(later(90_000));
     expect(rehomed.onlineSince).toEqual(later(90_000));
@@ -282,65 +279,59 @@ describe('RunnerHost', () => {
     expect(RunnerHost.isOnline(FIRST_HEARTBEAT, later(90_000))).toBe(false);
   });
 
-  it('serves only through the pool or trust it first came in through', () => {
+  it('has as its source only the pool or trust of its first report', () => {
     const host = firstHeartbeat();
 
-    expect(host.servesThrough(CredentialSource.of('pool', 'pool_1'))).toBe(
-      true,
-    );
-    expect(host.servesThrough(CredentialSource.of('pool', 'pool_2'))).toBe(
-      false,
-    );
-    expect(host.servesThrough(CredentialSource.of('trust', 'pool_1'))).toBe(
-      false,
-    );
+    expect(host.hasSource(CredentialSource.of('pool', 'pool_1'))).toBe(true);
+    expect(host.hasSource(CredentialSource.of('pool', 'pool_2'))).toBe(false);
+    expect(host.hasSource(CredentialSource.of('trust', 'pool_1'))).toBe(false);
   });
 
-  it('starts serving when it first reports an image with a harness', () => {
-    const host = firstHeartbeat(SERVING);
+  it('becomes ready when it first reports an image with a harness', () => {
+    const host = firstHeartbeat(READY);
 
-    expect(host.servesAHarness).toBe(true);
-    expect(kindsOf(host)).toEqual(['runner-host.started-serving']);
+    expect(host.supportsAHarness).toBe(true);
+    expect(kindsOf(host)).toEqual(['runner-host.ready']);
   });
 
   it('does not serve on a report with no image, an unavailable image or an image without a harness', () => {
     for (const images of [
       [],
-      [{ ...SERVING[0], unavailableReason: 'pull access denied' }],
-      [{ ...SERVING[0], harnesses: [] }],
+      [{ ...READY[0], unavailableReason: 'pull access denied' }],
+      [{ ...READY[0], harnesses: [] }],
     ] as Images[]) {
       const host = firstHeartbeat(images);
 
-      expect(host.servesAHarness).toBe(false);
+      expect(host.supportsAHarness).toBe(false);
       expect(kindsOf(host)).toEqual([]);
     }
   });
 
-  it('starts serving on the first later report that offers a harness', () => {
+  it('becomes ready on the first later report that supports a harness', () => {
     const host = firstHeartbeat();
     kindsOf(host);
 
-    expect(kindsOf(reportedServing(host, THROUGH_POOL, later(30_000)))).toEqual(
-      ['runner-host.started-serving'],
-    );
+    expect(kindsOf(reportedReady(host, THROUGH_POOL, later(30_000)))).toEqual([
+      'runner-host.ready',
+    ]);
   });
 
-  it('does not start serving again while it keeps serving', () => {
-    const host = firstHeartbeat(SERVING);
+  it('does not become ready again while it stays ready', () => {
+    const host = firstHeartbeat(READY);
     kindsOf(host);
 
-    expect(kindsOf(reportedServing(host, THROUGH_POOL, later(30_000)))).toEqual(
+    expect(kindsOf(reportedReady(host, THROUGH_POOL, later(30_000)))).toEqual(
       [],
     );
   });
 
-  it('starts serving again once re-homed through another pool or trust', () => {
-    const host = firstHeartbeat(SERVING);
+  it('becomes ready again once re-homed through another pool or trust', () => {
+    const host = firstHeartbeat(READY);
     kindsOf(host);
 
-    expect(
-      kindsOf(reportedServing(host, THROUGH_TRUST, later(90_000))),
-    ).toEqual(['runner-host.started-serving']);
+    expect(kindsOf(reportedReady(host, THROUGH_TRUST, later(90_000)))).toEqual([
+      'runner-host.ready',
+    ]);
   });
 
   it('is not read back with its last heartbeat before its first heartbeat', () => {

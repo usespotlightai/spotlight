@@ -3,7 +3,10 @@ import type {
   JournalStepDto,
   RunSpanDto,
 } from '@work/application/dto/run-journal.dto';
-import type { NodeKind, Tone } from '@work/application/read-models/trace-of';
+import type {
+  Category,
+  NodeKind,
+} from '@work/application/read-models/trace-of';
 import type {
   ConnectionError,
   ConnectionOutcome,
@@ -26,7 +29,7 @@ export interface TraceNodeDto {
   readonly name: string;
   readonly startedAt: string;
   readonly ms: number;
-  readonly tone: Tone;
+  readonly category: Category;
   readonly cost: number | null;
   readonly currency: string | null;
   readonly step: JournalStepDto | null;
@@ -40,6 +43,6 @@ export interface TaskTraceDto {
   readonly startedAt: string | null;
   readonly ms: number;
   readonly rows: number;
-  readonly faults: number;
+  readonly errors: number;
   readonly roots: readonly TraceNodeDto[];
 }

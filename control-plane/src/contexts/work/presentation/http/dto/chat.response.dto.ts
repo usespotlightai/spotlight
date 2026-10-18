@@ -32,7 +32,7 @@ export class ChatSetupResponseDto {
   }
 }
 
-export class ChatImprovingResponseDto {
+export class ChatTargetStationResponseDto {
   @ApiProperty()
   readonly lineId: string;
 
@@ -88,11 +88,11 @@ export class ChatSummaryResponseDto {
   readonly repositories: readonly string[];
 
   @ApiProperty({
-    type: () => ChatImprovingResponseDto,
+    type: () => ChatTargetStationResponseDto,
     nullable: true,
-    description: 'The station the chat is about improving, if any',
+    description: 'The station that the chat must improve, if any',
   })
-  readonly improving: ChatImprovingResponseDto | null;
+  readonly targetStation: ChatTargetStationResponseDto | null;
 
   @ApiProperty({
     type: () => ChatSetupResponseDto,
@@ -118,7 +118,7 @@ export class ChatSummaryResponseDto {
     model: string | null,
     effort: string | null,
     repositories: readonly string[],
-    improving: ChatImprovingResponseDto | null,
+    targetStation: ChatTargetStationResponseDto | null,
     setup: ChatSetupResponseDto | null,
     createdAt: string,
     updatedAt: string,
@@ -130,7 +130,7 @@ export class ChatSummaryResponseDto {
     this.model = model;
     this.effort = effort;
     this.repositories = repositories;
-    this.improving = improving;
+    this.targetStation = targetStation;
     this.setup = setup;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
@@ -308,7 +308,7 @@ export class ChatResponseDto extends ChatSummaryResponseDto {
       summary.model,
       summary.effort,
       summary.repositories,
-      summary.improving,
+      summary.targetStation,
       summary.setup,
       summary.createdAt,
       summary.updatedAt,

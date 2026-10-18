@@ -3,7 +3,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewCheckLeaseCommand } from '@work/application/commands/runner.commands';
@@ -24,7 +24,7 @@ const renewing = (
       : {
           workspaceId: WorkspaceId.of('ws_1'),
           harnesses: [HarnessId.of('claude-code')],
-          terms: RunnerTerms.none(),
+          offer: RunnerOffer.none(),
           claims: 'nothing' as const,
         },
   );
@@ -80,7 +80,7 @@ describe('RenewCheckLeaseHandler', () => {
 
   it('answers a renewal that fails as a fault', async () => {
     const notLeased = Object.assign(new Error('not leased'), {
-      violation: 'conflict' as const,
+      kind: 'conflict' as const,
     });
     const { handler } = renewing({ answer: notLeased });
 

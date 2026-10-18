@@ -1,5 +1,5 @@
 export class ChatVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(chatId: string) {
     super(

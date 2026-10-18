@@ -26,11 +26,11 @@ import {
 } from '@platform/http/resources/conventional-api';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { ProblemException } from '@platform/http/resources/problem.exception';
-import { answerCreated } from '@platform/http/resources/resource-answers';
 import {
   IDEMPOTENCY_KEY_HEADER,
   IDEMPOTENT_REPLAY_HEADER,
 } from '@platform/http/resources/resource-headers';
+import { respondCreated } from '@platform/http/resources/resource-responses';
 import { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
 import type {
   ReplayCheckDto,
@@ -108,11 +108,11 @@ export class ReplayChecksController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description:
-      'The check started, as a read would answer it; or, on a retry with the same Idempotency-Key, the check the first attempt answered',
+      'The check started, as a read returns it; or, on a retry with the same Idempotency-Key, the check that the first attempt returned',
     type: ReplayCheckResponseDto,
     headers: {
       [IDEMPOTENT_REPLAY_HEADER]: {
-        description: 'true when this answers an earlier attempt',
+        description: 'true when this returns the result of an earlier attempt',
         schema: { type: 'string', enum: ['true'] },
       },
     },
@@ -175,11 +175,11 @@ export class ReplayChecksController {
     if (started.outcome === 'reused') {
       response.status(HttpStatus.OK);
 
-      return this.answer(teamId, started.id, actor.principal, true);
+      return this.toResponse(teamId, started.id, actor.principal, true);
     }
 
-    return answerCreated(KIND, started, (id) =>
-      this.answer(teamId, id, actor.principal),
+    return respondCreated(KIND, started, (id) =>
+      this.toResponse(teamId, id, actor.principal),
     );
   }
 
@@ -239,10 +239,10 @@ export class ReplayChecksController {
     @Param('checkId') checkId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ReplayCheckResponseDto> {
-    return this.answer(teamId, checkId, principal);
+    return this.toResponse(teamId, checkId, principal);
   }
 
-  private async answer(
+  private async toResponse(
     teamId: string,
     checkId: string,
     principal: Principal,

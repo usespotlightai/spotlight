@@ -51,7 +51,7 @@ export class ProblemResponseDto {
 
   @ApiPropertyOptional({
     enum: FORBIDDEN_ACTS,
-    example: 'manage-secrets',
+    example: 'secrets',
     description:
       'The permission the caller lacks, when the request is forbidden: one its role in the workspace, or its token’s scopes, do not grant',
   })

@@ -37,7 +37,7 @@ func TestClaimOffersTheImagesHarnessesAndGetsTheAssignment(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(protocol.Assignment{
 			RunnerID: "runner_1",
 			Token:    "one-run",
-			Work:     protocol.Claimed{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "run_1"}},
+			Work:     protocol.ClaimResponse{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "run_1"}},
 		})
 	})
 
@@ -70,7 +70,7 @@ func TestClaimTreatsAnEmptyQueueAsOrdinary(t *testing.T) {
 
 func TestClaimRejectsWorkWithNoCredential(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(protocol.Assignment{Work: protocol.Claimed{Kind: protocol.ClaimedRun}})
+		_ = json.NewEncoder(w).Encode(protocol.Assignment{Work: protocol.ClaimResponse{Kind: protocol.ClaimedRun}})
 	})
 
 	if _, err := client.Claim(context.Background(), protocol.HostClaim{}); err == nil {
@@ -131,10 +131,10 @@ func TestDeregisterIsSentUnderTheHost(t *testing.T) {
 	}
 }
 
-func TestClaimCallNamesThisHostAndAnswerCallAnswersIt(t *testing.T) {
+func TestClaimCallNamesThisHostAndRecordCallResponseRecordsIt(t *testing.T) {
 	var paths []string
 	var received protocol.HostCallClaim
-	var answered protocol.HostCallAnswer
+	var recorded protocol.HostCallResponse
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.URL.Path)
 		if r.URL.Path == "/api/hosts/calls/claim" {
@@ -142,7 +142,7 @@ func TestClaimCallNamesThisHostAndAnswerCallAnswersIt(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(protocol.HostCall{ID: "call_1", URL: "https://audit.acme.internal/"})
 			return
 		}
-		_ = json.NewDecoder(r.Body).Decode(&answered)
+		_ = json.NewDecoder(r.Body).Decode(&recorded)
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -150,13 +150,13 @@ func TestClaimCallNamesThisHostAndAnswerCallAnswersIt(t *testing.T) {
 	if err != nil || call.ID != "call_1" || received.Host != "host_1" {
 		t.Fatalf("claimed %+v as %+v: %v", call, received, err)
 	}
-	if err := client.AnswerCall(context.Background(), call.ID, protocol.HostCallAnswer{Status: 204}); err != nil {
+	if err := client.RecordCallResponse(context.Background(), call.ID, protocol.HostCallResponse{Status: 204}); err != nil {
 		t.Fatal(err)
 	}
-	if len(paths) != 2 || paths[1] != "/api/hosts/calls/call_1/answer" {
+	if len(paths) != 2 || paths[1] != "/api/hosts/calls/call_1/response" {
 		t.Errorf("received %v", paths)
 	}
-	if answered.Host != "host_1" || answered.Status != 204 {
-		t.Errorf("answered as %+v, not as the host that claimed it", answered)
+	if recorded.Host != "host_1" || recorded.Status != 204 {
+		t.Errorf("recorded as %+v, not as the host that claimed it", recorded)
 	}
 }

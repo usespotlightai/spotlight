@@ -58,11 +58,11 @@ export class CarryGitCall implements GitGatewayPort {
   ): Promise<CheckedRepository | null> {
     const leased = await this.works
       .leasedBy(runId, runnerId)
-      .then((worked) => ({ worked }))
+      .then((found) => ({ found }))
       .catch((error: unknown) => ({ error }));
 
-    if ('worked' in leased) {
-      const { work } = leased.worked;
+    if ('found' in leased) {
+      const { work } = leased.found;
 
       const repository = work
         ? await work.repositoryNamed(repo, service)

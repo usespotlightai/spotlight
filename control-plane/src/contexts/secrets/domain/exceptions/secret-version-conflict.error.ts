@@ -1,5 +1,5 @@
 export class SecretVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(name: string) {
     super(

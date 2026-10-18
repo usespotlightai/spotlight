@@ -17,17 +17,17 @@ import {
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const CORE = { key: 'core', name: 'Core' };
 
 describe('CreateTeamHandler', () => {
-  const creating = (over: { administers?: boolean; throwing?: Error } = {}) => {
+  const creating = (over: { isAdmin?: boolean; throwing?: Error } = {}) => {
     const stored = teams({ throwing: over.throwing });
     const handler = new CreateTeamHandler(
-      access(over.administers),
+      access(over.isAdmin),
       new IdentityDefinitions(),
       stored,
       creates(),
@@ -70,21 +70,21 @@ describe('CreateTeamHandler', () => {
       await creating({ throwing: new TeamAlreadyExistsError('core') }).create(
         CORE,
       ),
-    ).toEqual({ outcome: 'taken', address: 'core' });
+    ).toEqual({ outcome: 'already-exists', address: 'core' });
   });
 
   it('forbids a member who does not administer the workspace', async () => {
-    expect(await creating({ administers: false }).create(CORE)).toEqual(
+    expect(await creating({ isAdmin: false }).create(CORE)).toEqual(
       forbiddenTo('configure'),
     );
   });
 });
 
 describe('UpdateTeamHandler', () => {
-  const updating = (administers = true) => {
+  const updating = (isAdmin = true) => {
     const stored = teams({ existing: teamAt(3) });
     const handler = new UpdateTeamHandler(
-      access(administers),
+      access(isAdmin),
       new IdentityDefinitions(),
       stored,
       transaction,

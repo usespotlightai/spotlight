@@ -1,5 +1,5 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { raisedOn, type Task } from '@/lib/task';
+import { createdOn, type Task } from '@/lib/task';
 
 type TaskPreviewProps = {
   task: Task;
@@ -33,7 +33,7 @@ export function TaskPreview({
         dateTime={task.createdAt}
         className="shrink-0 text-muted-foreground text-xs tabular-nums"
       >
-        {raisedOn(task.createdAt)}
+        {createdOn(task.createdAt)}
       </time>
     </div>
   );

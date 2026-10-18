@@ -1,5 +1,5 @@
 import type { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import type { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import type { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -10,7 +10,7 @@ export class WorkspaceInviteAccepted implements DomainEvent {
   constructor(
     readonly inviteId: InviteId,
     readonly workspaceId: WorkspaceId,
-    readonly terms: InviteTerms,
+    readonly spec: InviteSpec,
     readonly userId: UserId,
   ) {}
 }

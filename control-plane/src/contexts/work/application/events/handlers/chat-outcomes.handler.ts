@@ -22,7 +22,7 @@ export class ChatOutcomes implements RunOutcomes {
 
     const ended = chat.runEnded(event.runId, {
       session: event.session,
-      workedBy: event.workedBy,
+      claimedBy: event.claimedBy,
       stopped: event.outcome.stopped,
     });
 

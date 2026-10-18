@@ -58,11 +58,11 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       return true;
     }
 
-    return this.hasAWayOut(workspaceId);
+    return this.hasEgressCapableRunner(workspaceId);
   }
 
-  async hasAWayOut(workspaceId: WorkspaceId): Promise<boolean> {
-    const [goingOut] = await this.db
+  async hasEgressCapableRunner(workspaceId: WorkspaceId): Promise<boolean> {
+    const [egressPool] = await this.db
       .select({ id: runnerPool.id })
       .from(runnerPool)
       .where(
@@ -75,7 +75,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       )
       .limit(1);
 
-    if (goingOut) {
+    if (egressPool) {
       return true;
     }
 
@@ -99,10 +99,10 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         ),
       );
 
-    return hosts.some((row) => HostReport.of(row).servesAHarness);
+    return hosts.some((row) => HostReport.of(row).supportsAHarness);
   }
 
-  async advertisedModels(
+  async supportedModels(
     workspaceId: WorkspaceId,
   ): Promise<ReadonlyMap<string, readonly string[]>> {
     const now = this.clock.now();
@@ -119,7 +119,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
           ),
         ),
       this.db
-        .select({ advertised: runner.advertisedModels })
+        .select({ supported: runner.supportedModels })
         .from(runner)
         .where(
           and(
@@ -151,7 +151,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       }
     }
     for (const row of runners) {
-      for (const [harness, models] of Object.entries(row.advertised)) {
+      for (const [harness, models] of Object.entries(row.supported)) {
         collect(harness, models);
       }
     }

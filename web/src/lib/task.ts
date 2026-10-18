@@ -27,11 +27,11 @@ export const tasksAt = (
   stationId: string,
 ): Task[] => (tasks ?? []).filter((each) => each.stationId === stationId);
 
-export const raisedOn = (createdAt: string): string => {
-  const raised = new Date(createdAt);
-  const thisYear = raised.getFullYear() === new Date().getFullYear();
+export const createdOn = (createdAt: string): string => {
+  const created = new Date(createdAt);
+  const thisYear = created.getFullYear() === new Date().getFullYear();
 
-  return raised.toLocaleDateString(undefined, {
+  return created.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     ...(thisYear ? {} : { year: 'numeric' }),

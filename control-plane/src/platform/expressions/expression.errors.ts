@@ -1,5 +1,5 @@
 export class ExpressionError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(source: string, reason: string) {
     super(`${source}: ${reason}`);
@@ -8,14 +8,14 @@ export class ExpressionError extends Error {
 }
 
 export class ExpressionFailedError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
-    readonly at: string | null,
+    readonly location: string | null,
     readonly source: string,
     readonly reason: string,
   ) {
-    super(`${at ?? source}: ${reason}`);
+    super(`${location ?? source}: ${reason}`);
     this.name = 'ExpressionFailedError';
   }
 }

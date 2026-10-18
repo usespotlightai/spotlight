@@ -29,7 +29,11 @@ const item = (over: Record<string, unknown> = {}) => ({
   stationColor: '#5c66d9',
   stationPosition: 2,
   stationCount: 4,
-  raisedAt: { station: 'Triage', stationColor: '#edc12b', stationPosition: 0 },
+  originStation: {
+    station: 'Triage',
+    stationColor: '#edc12b',
+    stationPosition: 0,
+  },
   createdAt: '2026-08-29T09:02:00.000Z',
   askedAt: '2026-08-29T12:00:00.000Z',
   resolved: false,

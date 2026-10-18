@@ -40,16 +40,17 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { Harness } from '@work/domain/value-objects/harness.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -64,7 +65,6 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -176,7 +176,7 @@ const LINE = Line.rehydrate({
   key: LineKey.of('delivery'),
   name: LineName.of('Delivery'),
   repositories: [
-    WorkedRepository.of(Repository.of('acme/api'), {
+    LineRepositoryConfig.of(Repository.of('acme/api'), {
       setup: RepositorySetup.of('npm ci'),
     }),
   ],
@@ -232,7 +232,7 @@ const original = (startedFrom: StartingPoint | null = null) =>
       command: { executable: 'dev-agent', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
       startingPoint: true,
     }),
     state: 'completed',
@@ -259,17 +259,17 @@ const STARTED = StartingPoint.of({
 const SIZE = ArchiveSize.of(1_024);
 const DIGEST = ArchiveDigest.of('a'.repeat(64));
 
-const sealed = (workspace = 'ws_1') =>
+const completed = (workspace = 'ws_1') =>
   WorkspaceArchive.grant({
     id: ARCHIVE,
     workspaceId: WorkspaceId.of(workspace),
-    continuity: ContinuityKey.forTask('task_1'),
+    resumeKey: ResumeKey.forTask('task_1'),
     holder: { kind: 'task', taskId: TaskId.of('task_1') },
     run: ORIGINAL,
     size: SIZE,
     digest: DIGEST,
     at: NOW,
-  }).seal({ size: SIZE, digest: DIGEST }, NOW);
+  }).complete({ size: SIZE, digest: DIGEST }, NOW);
 
 let gone: string[] = [];
 let taskGone = false;
@@ -407,7 +407,7 @@ const unreplayableReasonOf = async (enqueued: Promise<unknown>) =>
 describe('DispatchReplay', () => {
   beforeEach(() => {
     stored = original(STARTED);
-    archive = sealed();
+    archive = completed();
     queued = [];
     requestedSkills = [];
     requestedAgain = [];
@@ -444,7 +444,7 @@ describe('DispatchReplay', () => {
         setup: 'npm ci',
       },
     ]);
-    expect(spec.continuity).toEqual({ key: 'replay-run_2' });
+    expect(spec.resume).toEqual({ key: 'replay-run_2' });
     expect(spec.command.env).toMatchObject({ DEV_MODEL: 'dev-large' });
     expect(spec.diffs).toBe(true);
     expect(spec.check).toBe('npm test');
@@ -600,7 +600,7 @@ describe('DispatchReplay', () => {
   });
 
   it('rejects a run whose archive is no longer stored, naming it', async () => {
-    for (const gone of [null, sealed('ws_2')]) {
+    for (const gone of [null, completed('ws_2')]) {
       archive = gone;
 
       await expect(

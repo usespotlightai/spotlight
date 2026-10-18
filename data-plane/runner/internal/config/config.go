@@ -44,7 +44,7 @@ const usage = "usage: spotlight runner [harnesses <json>]"
 
 const (
 	envURL             = "SPOTLIGHT_URL"
-	envToken           = "SPOTLIGHT_TOKEN"
+	envRunToken        = "SPOTLIGHT_RUN_TOKEN"
 	envAssignmentFile  = "SPOTLIGHT_ASSIGNMENT_FILE"
 	envWorkspace       = "SPOTLIGHT_WORKSPACE"
 	envAgentUser       = "SPOTLIGHT_AGENT_USER"
@@ -74,7 +74,7 @@ func Load(args []string) (Config, error) {
 
 	cfg := Config{
 		URL:            get(envURL),
-		Token:          get(envToken),
+		Token:          get(envRunToken),
 		AssignmentFile: get(envAssignmentFile),
 		Workspace:      get(envWorkspace),
 		AgentUser:      get(envAgentUser),
@@ -90,11 +90,11 @@ func Load(args []string) (Config, error) {
 
 	switch {
 	case cfg.Token != "" && cfg.AssignmentFile != "":
-		note(fmt.Errorf("%s and %s are different ways to get work; set one", envToken, envAssignmentFile))
+		note(fmt.Errorf("%s and %s are different ways to get work; set one", envRunToken, envAssignmentFile))
 	case cfg.Token == "" && cfg.AssignmentFile == "":
 		note(fmt.Errorf(
 			"%s names the file with the work a host assigned to this runner, or %s is the one-run credential a push pool provisioned it with",
-			envAssignmentFile, envToken,
+			envAssignmentFile, envRunToken,
 		))
 	}
 

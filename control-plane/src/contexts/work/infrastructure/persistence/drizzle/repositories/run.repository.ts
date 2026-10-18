@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { placementMet } from '@platform/persistence/drizzle/placement-met';
+import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -115,7 +115,7 @@ export class DrizzleRunRepository implements RunRepository {
       message: added.outcome?.message ?? null,
       failure: added.outcome?.failure?.code ?? null,
       stopped: added.outcome?.stopped ?? false,
-      placement: added.placement.clauses,
+      placement: added.placement.labelGroups,
       placementImage: added.placement.image?.value ?? null,
       briefedMemories: added.briefedWith.value,
       endedAt: endedAtFor(added.state, sql`now()`),
@@ -148,7 +148,7 @@ export class DrizzleRunRepository implements RunRepository {
               : sql`(reserved_for IS NULL OR reserved_for = ${by.runner.value} OR reserved_until <= ${now.toISOString()}::timestamp)`
           }
           AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamp)
-          AND ${placementMet(run.placement, run.placementImage, by.terms)}
+          AND ${placementMatches(run.placement, run.placementImage, by.offer)}
           AND ${noEarlierRunStillLeased}
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
@@ -389,7 +389,7 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
           : SearchIteration.of(row.searchIteration),
     }),
     spec: RunSpecContract.from(row.spec),
-    placement: RunnerPlacement.ofClauses(
+    placement: RunnerPlacement.ofLabelGroups(
       row.placement,
       row.placementImage ? RunnerImage.of(row.placementImage) : null,
     ),

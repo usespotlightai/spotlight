@@ -36,7 +36,7 @@ async function request(
     through === 'auth' ? httpLogger : pinoHttp(params.pinoHttp as Options);
 
   const server: Server = createServer();
-  const answered = new Promise<void>((resolve) => {
+  const responded = new Promise<void>((resolve) => {
     server.on('request', (req, res) => {
       middleware(req, res, () => undefined);
       res.on('close', resolve);
@@ -56,7 +56,7 @@ async function request(
     const { port } = server.address() as AddressInfo;
     await Promise.all([
       fetch(`http://127.0.0.1:${port}${path}`, { headers }),
-      answered,
+      responded,
     ]);
   } finally {
     await new Promise((resolve) => server.close(resolve));

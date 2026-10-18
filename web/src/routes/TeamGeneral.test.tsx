@@ -91,7 +91,7 @@ const workspaceMember = (
   role: 'member',
   teams,
   joinedAt: '2026-09-01T09:00:00.000Z',
-  mayBeSetTo: [],
+  assignableRoles: [],
 });
 
 const openAdd = async () => {
@@ -123,14 +123,14 @@ beforeEach(() => {
       name: 'Leon Liang',
       image: null,
       role: 'owner',
-      mayBeSetTo: [],
+      assignableRoles: [],
     },
     {
       id: 'user_2',
       name: 'Ada Lovelace',
       image: null,
       role: 'member',
-      mayBeSetTo: ['owner', 'admin', 'member'],
+      assignableRoles: ['owner', 'admin', 'member'],
     },
   ]);
   everyone.mockReturnValue([
@@ -218,7 +218,7 @@ describe('TeamGeneral', () => {
         name: 'Ada Lovelace',
         image: null,
         role: 'member',
-        mayBeSetTo: [],
+        assignableRoles: [],
       },
     ]);
     showing();
@@ -236,7 +236,7 @@ describe('TeamGeneral', () => {
         name: 'Ada Lovelace',
         image: null,
         role: 'member',
-        mayBeSetTo: ['admin', 'member'],
+        assignableRoles: ['admin', 'member'],
       },
     ]);
     showing();

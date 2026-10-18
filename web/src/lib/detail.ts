@@ -107,21 +107,21 @@ const LABELS: Record<string, string> = {
 
 export interface Contents {
   readonly rows: number;
-  readonly faults: number;
+  readonly errors: number;
   readonly kinds: ReadonlyMap<string, number>;
 }
 
 export const contentsOf = (node: TraceNode): Contents => {
   const kinds = new Map<string, number>();
   let rows = 0;
-  let faults = 0;
+  let errors = 0;
 
   const walk = (each: TraceNode) => {
     for (const child of each.children) {
       rows += 1;
 
-      if (child.tone === 'failed' && child.kind !== 'connection') {
-        faults += 1;
+      if (child.category === 'failed' && child.kind !== 'connection') {
+        errors += 1;
       }
 
       const label = child.step
@@ -140,7 +140,7 @@ export const contentsOf = (node: TraceNode): Contents => {
 
   walk(node);
 
-  return { rows, faults, kinds };
+  return { rows, errors, kinds };
 };
 
 const PROMOTED = new Set([

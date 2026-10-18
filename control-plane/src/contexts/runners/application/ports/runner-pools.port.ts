@@ -1,4 +1,4 @@
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const RUNNER_POOLS = Symbol('RUNNER_POOLS');
@@ -7,7 +7,7 @@ export interface PoolAtWork {
   readonly poolId: string;
   readonly workspaceId: WorkspaceId;
   readonly key: string;
-  readonly labels: RunnerTerms;
+  readonly labels: RunnerOffer;
   readonly egress: boolean;
 }
 

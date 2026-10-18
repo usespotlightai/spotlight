@@ -17,7 +17,7 @@ export class FetchRunSecretsRequestDto extends SidecarSecretsRequestDto {
   @ApiProperty({
     required: false,
     description:
-      'The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; the egress beside a sandbox leaves it out',
+      'The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out',
   })
   readonly proxyCredential?: string;
 }

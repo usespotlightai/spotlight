@@ -16,10 +16,11 @@ import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import type { Concerns } from '@work/domain/value-objects/concerns.vo';
+import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -29,7 +30,6 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
@@ -42,8 +42,8 @@ const DELIVERY = Line.rehydrate({
   key: LineKey.of('delivery'),
   name: LineName.of('Delivery'),
   repositories: [
-    WorkedRepository.of(Repository.of('acme/api')),
-    WorkedRepository.of(Repository.of('acme/web')),
+    LineRepositoryConfig.of(Repository.of('acme/api')),
+    LineRepositoryConfig.of(Repository.of('acme/web')),
   ],
   stations: [
     Station.of({
@@ -81,7 +81,7 @@ const working = () =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   })
@@ -102,13 +102,15 @@ const viewing = (
 ) => {
   let current = over.task === undefined ? working() : over.task;
   let clashes = over.clashes ?? 0;
-  const searched: Concerns[] = [];
+  const searched: CorrelationKeys[] = [];
   const tasks = {
     find: vi.fn(async () => current),
-    findByMarks: vi.fn(async (_workspace: WorkspaceId, concerns: Concerns) => {
-      searched.push(concerns);
-      return current;
-    }),
+    findByMarks: vi.fn(
+      async (_workspace: WorkspaceId, correlationKeys: CorrelationKeys) => {
+        searched.push(correlationKeys);
+        return current;
+      },
+    ),
     save: vi.fn(async (task: Task) => {
       if (clashes > 0) {
         clashes -= 1;
@@ -164,7 +166,7 @@ describe('TaskViews', () => {
       at: StationId.of('station_1'),
       title: TaskTitle.of('Review the queue fix'),
       rank: TaskRank.of('i'),
-      raisedBy: UserId.of('user_1'),
+      createdBy: UserId.of('user_1'),
       now: NOW,
       newId: () => 'task_1',
     }).reviews(PullRequestUrl.of('https://github.com/acme/web/pull/9'), {
@@ -320,7 +322,7 @@ describe('TaskViews', () => {
       expect(moved.awaitingReview).toBe(false);
       expect(moved.notes[1]?.kind).toBe('passed');
       expect(moved.notes[1]?.body.value).toBe(
-        'Moved to Backlog when the run ended. An event arrived while the run worked.\n\nFrom the hook core/notify:\n\nThe hook core/notify was stopped: task.moved → the hook core/notify',
+        'Moved to Backlog when the run ended. An event arrived while the run was in progress.\n\nFrom the hook core/notify:\n\nThe hook core/notify was stopped: task.moved → the hook core/notify',
       );
       expect(moved.notes[1]?.failure).toMatchObject({
         source: 'hook:core/notify',

@@ -8,8 +8,8 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   CheckLeaseRenewal,
@@ -39,31 +39,31 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
   claimNext(
     workspaceId: WorkspaceId,
     runner: RunnerId,
-    terms: RunnerTerms,
+    offer: RunnerOffer,
     now: Date,
   ): Promise<ClaimedCheck | null> {
     return this.transaction.inTransaction(async () => {
       const due = await this.checks.dueForCheck(
-        { workspaceId, runner, terms },
+        { workspaceId, runner, offer },
         now,
       );
 
-      return due?.claimableBy(runner, terms, now)
-        ? this.claimed(due, runner, terms, now)
+      return due?.claimableBy(runner, offer, now)
+        ? this.claimed(due, runner, offer, now)
         : null;
     });
   }
 
   claimReserved(
     runner: RunnerId,
-    terms: RunnerTerms,
+    offer: RunnerOffer,
     now: Date,
   ): Promise<ClaimedCheck | null> {
     return this.transaction.inTransaction(async () => {
       const due = await this.checks.reservedTo(runner, now);
 
-      return due?.claimableBy(runner, terms, now)
-        ? this.claimed(due, runner, terms, now)
+      return due?.claimableBy(runner, offer, now)
+        ? this.claimed(due, runner, offer, now)
         : null;
     });
   }
@@ -134,7 +134,7 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
   private async claimed(
     due: StackCheck,
     runner: RunnerId,
-    terms: RunnerTerms,
+    offer: RunnerOffer,
     now: Date,
   ): Promise<ClaimedCheck | null> {
     const stack = await this.stacks.find(due.stackId);
@@ -144,7 +144,7 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
       return null;
     }
 
-    const claimed = due.claimedFor(runner, terms, now);
+    const claimed = due.claimedFor(runner, offer, now);
     await this.checks.save(claimed);
 
     return {

@@ -83,7 +83,7 @@ export class ReplayCandidates implements ReplayCandidatesPort {
       JSON.stringify({
         fingerprint: config.fingerprint,
         options: line.optionsFrom(station.id).map((each) => each.word),
-        ends: station.wayOut.ends,
+        ends: station.routes.ends,
       }),
     );
 

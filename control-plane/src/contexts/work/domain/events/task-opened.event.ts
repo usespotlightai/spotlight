@@ -16,7 +16,7 @@ export class TaskOpened implements DomainEvent {
     readonly teamId: TeamId,
     readonly lineId: LineId,
     readonly stationId: StationId,
-    readonly raisedBy: UserId | null,
+    readonly createdBy: UserId | null,
     readonly at: Date,
     readonly fromIntegration: boolean,
     readonly proposedIn: ProposalOrigin | null = null,

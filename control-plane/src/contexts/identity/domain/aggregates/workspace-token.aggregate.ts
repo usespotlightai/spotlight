@@ -13,7 +13,7 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -26,14 +26,14 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
-export interface TokenTerms {
+export interface TokenSpec {
   readonly name: TokenName;
   readonly description: TokenDescription;
   readonly scopes: TokenScopes;
   readonly expiresAt: Date | null;
 }
 
-interface Props extends TokenTerms {
+interface Props extends TokenSpec {
   readonly id: WorkspaceTokenId;
   readonly workspaceId: WorkspaceId;
   readonly hash: TokenHash;
@@ -73,7 +73,7 @@ export class WorkspaceToken extends EventRecorder {
       | 'runAttempt'
     > & {
       now: Date;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): WorkspaceToken {
     if (input.expiresAt && input.expiresAt.getTime() <= input.now.getTime()) {
@@ -156,7 +156,7 @@ export class WorkspaceToken extends EventRecorder {
         issued.name,
         ConfigurationChange.created(
           issued.whatChanged,
-          Attribution.of(
+          ChangeActor.of(
             Actor.of(issued.principal, input.client),
             issued.workspaceId,
           ),
@@ -238,7 +238,7 @@ export class WorkspaceToken extends EventRecorder {
         issued.name,
         ConfigurationChange.created(
           issued.whatChanged,
-          Attribution.spotlight(issued.workspaceId),
+          ChangeActor.spotlight(issued.workspaceId),
           RunTokenDetail.of({
             runId: input.runId,
             attempt: input.attempt,
@@ -269,7 +269,7 @@ export class WorkspaceToken extends EventRecorder {
     }
   }
 
-  update(terms: TokenTerms, by: Attribution): WorkspaceToken {
+  update(spec: TokenSpec, by: ChangeActor): WorkspaceToken {
     this.assertNotDeleted();
 
     if (this.isIssuedBySpotlight) {
@@ -280,7 +280,7 @@ export class WorkspaceToken extends EventRecorder {
       );
     }
 
-    if (!terms.name.equals(this.name)) {
+    if (!spec.name.equals(this.name)) {
       throw new ImmutableFieldError(
         'name',
         IMMUTABLE,
@@ -288,7 +288,7 @@ export class WorkspaceToken extends EventRecorder {
       );
     }
 
-    if (!terms.scopes.equals(this.scopes)) {
+    if (!spec.scopes.equals(this.scopes)) {
       throw new ImmutableFieldError(
         'scopes',
         IMMUTABLE,
@@ -296,7 +296,7 @@ export class WorkspaceToken extends EventRecorder {
       );
     }
 
-    if (!sameInstant(terms.expiresAt, this.expiresAt)) {
+    if (!sameInstant(spec.expiresAt, this.expiresAt)) {
       throw new ImmutableFieldError(
         'expiresAt',
         IMMUTABLE,
@@ -304,7 +304,7 @@ export class WorkspaceToken extends EventRecorder {
       );
     }
 
-    const updated = this.with({ description: terms.description });
+    const updated = this.with({ description: spec.description });
 
     updated.record(
       new WorkspaceTokenUpdated(
@@ -318,7 +318,7 @@ export class WorkspaceToken extends EventRecorder {
     return updated;
   }
 
-  revoke(by: Attribution): WorkspaceToken {
+  revoke(by: ChangeActor): WorkspaceToken {
     this.assertNotDeleted();
 
     const revoked = this.with({ revoked: true });

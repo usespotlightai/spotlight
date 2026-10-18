@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
+import { HarnessProbeResponseDto } from '@work/presentation/http/dto/harness-probe.response.dto';
 
 export class RunnerReleaseResponseDto {
   @ApiProperty({
@@ -19,10 +19,10 @@ export class HostRequirementsResponseDto {
   readonly runner: RunnerReleaseResponseDto;
 
   @ApiProperty({
-    type: [InstallableHarnessResponseDto],
+    type: [HarnessProbeResponseDto],
     description: 'What a host looks for in each runner image',
   })
-  readonly harnesses: readonly InstallableHarnessResponseDto[];
+  readonly harnesses: readonly HarnessProbeResponseDto[];
 
   @ApiProperty({
     type: String,
@@ -35,7 +35,7 @@ export class HostRequirementsResponseDto {
 
   constructor(
     runner: RunnerReleaseResponseDto,
-    harnesses: readonly InstallableHarnessResponseDto[],
+    harnesses: readonly HarnessProbeResponseDto[],
     images: readonly string[],
   ) {
     this.runner = runner;

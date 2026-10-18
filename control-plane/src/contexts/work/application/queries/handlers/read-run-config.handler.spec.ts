@@ -54,7 +54,7 @@ const reading = (
   new ReadRunConfigHandler(access, {
     listForTask: vi.fn(),
     listForTeam: vi.fn(),
-    conversationFor: vi.fn(),
+    notesFor: vi.fn(),
     configFor: vi.fn().mockResolvedValue(found),
     replayFor: vi.fn(),
     searchRunFor: vi.fn(),

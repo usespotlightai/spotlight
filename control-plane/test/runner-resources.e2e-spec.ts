@@ -336,11 +336,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
         ...Array(3).fill('Not allowed to change the runner-trust'),
         ...Array(3).fill('Not allowed to change the runner-pool'),
         ...Array(2).fill('Not allowed to change the workspace-runners'),
-      ].map((title) => [
-        'urn:spotlight:problem:forbidden',
-        title,
-        'manage-runners',
-      ]),
+      ].map((title) => ['urn:spotlight:problem:forbidden', title, 'runners']),
     );
     expect(
       (await configure.get(`/api/resources/runner-trusts/${trust.body.id}`))

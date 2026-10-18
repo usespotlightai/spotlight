@@ -120,14 +120,14 @@ func TestAllowsTheControlPlaneAndItsStorageButNoHostASecretIsBoundTo(t *testing.
 	}
 }
 
-type sender protocol.HostCallAnswer
+type sender protocol.HostCallResponse
 
-func (s sender) Send(context.Context, protocol.HostCall) protocol.HostCallAnswer {
-	return protocol.HostCallAnswer(s)
+func (s sender) Send(context.Context, protocol.HostCall) protocol.HostCallResponse {
+	return protocol.HostCallResponse(s)
 }
 
-func TestWritesTheCallsAnswerForTheHostAndWaitsToBeStopped(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "egress", "answer.json")
+func TestWritesTheCallsResponseForTheHostAndWaitsToBeStopped(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "egress", "response.json")
 	ctx, stop := context.WithCancel(context.Background())
 
 	done := make(chan error, 1)
@@ -135,23 +135,23 @@ func TestWritesTheCallsAnswerForTheHostAndWaitsToBeStopped(t *testing.T) {
 		done <- sent(ctx, protocol.HostCall{ID: "call_1"}, sender{Status: 0, Error: "connection refused", Ms: 3}, path, quiet)
 	}()
 
-	var answer protocol.HostCallAnswer
+	var response protocol.HostCallResponse
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		raw, err := os.ReadFile(path)
-		if err == nil && json.Unmarshal(raw, &answer) == nil {
+		if err == nil && json.Unmarshal(raw, &response) == nil {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("never wrote the answer")
+			t.Fatal("never wrote the response")
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	if answer.Error != "connection refused" || answer.Ms != 3 {
-		t.Errorf("wrote %+v", answer)
+	if response.Error != "connection refused" || response.Ms != 3 {
+		t.Errorf("wrote %+v", response)
 	}
 	if info, _ := os.Stat(path); info.Mode().Perm() != 0o644 {
-		t.Errorf("wrote the answer as %v", info.Mode())
+		t.Errorf("wrote the response as %v", info.Mode())
 	}
 
 	select {

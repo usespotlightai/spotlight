@@ -4,8 +4,8 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -22,18 +22,18 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { SETUP_PULL_REQUEST } from '@work/domain/services/built-in-tools';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');
@@ -56,12 +56,15 @@ const line = (key: string, repositories: Repository[], runners: string[]) =>
     teamId: TeamId.of('team_1'),
     key: LineKey.of(key),
     name: LineName.of(key),
-    repositories: repositories.map((each) => WorkedRepository.of(each)),
+    repositories: repositories.map((each) => LineRepositoryConfig.of(each)),
     placement: RunnerPlacement.of(runners),
     stations: [ends(key, 'backlog', 0), ends(key, 'completed', 1)],
   });
 
-const chatIn = (repositories: Repository[], setup: ConfigHome | null = null) =>
+const chatIn = (
+  repositories: Repository[],
+  setup: ConfigFolder | null = null,
+) =>
   Chat.start({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -155,7 +158,7 @@ describe('DispatchChat', () => {
     const run = await enqueued(
       chatIn(
         [API],
-        ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
+        ConfigFolder.of({ repository: 'acme/infra', folder: 'spotlight' }),
       ),
     );
 
@@ -173,8 +176,8 @@ describe('DispatchChat', () => {
   it('places a chat run where the lines working in its repositories run', async () => {
     const run = await enqueued(chatIn([API]));
 
-    expect(run.placement.matches(RunnerTerms.of(['vpc-internal']))).toBe(true);
-    expect(run.placement.matches(RunnerTerms.of(['gpu']))).toBe(false);
+    expect(run.placement.matches(RunnerOffer.of(['vpc-internal']))).toBe(true);
+    expect(run.placement.matches(RunnerOffer.of(['gpu']))).toBe(false);
   });
 
   it('places a chat run working in no repository anywhere', async () => {

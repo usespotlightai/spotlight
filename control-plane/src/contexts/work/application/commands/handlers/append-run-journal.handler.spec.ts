@@ -21,7 +21,7 @@ const leased = Run.enqueue({
     command: { executable: 'sh', args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    continuity: { key: 'task:station' },
+    resume: { key: 'task:station' },
   }),
 })
   .claim(RunnerId.of('runner_1'), NOW)
@@ -38,7 +38,7 @@ const journalling = () => {
     {
       append: async (attempt, entries) =>
         void appended.push({ attempt, entries }),
-      appendAside: async () => -1_000_000,
+      appendControlPlaneEntry: async () => -1_000_000,
     },
     { publish: (runId: string) => void published.push(runId) } as never,
   );

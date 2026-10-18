@@ -23,8 +23,8 @@ import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggreg
 import type { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import {
   type CredentialSourceKeys,
-  driftBetween,
-} from '@runners/domain/services/runner-drift';
+  danglingKeysBetween,
+} from '@runners/domain/services/dangling-keys';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 
@@ -58,7 +58,7 @@ export const RunnerResourceMapper = {
       provision: pool.provision,
       warnings:
         pool.provision && !ProvisionUrl.of(pool.provision.url).isSecure
-          ? [RunnerProblems.provisionedInTheClear()]
+          ? [RunnerProblems.provisionNotHttps()]
           : [],
     };
   },
@@ -97,7 +97,7 @@ export const RunnerResourceMapper = {
       tokenVersion: egress.tokenVersion,
       warnings: EgressUrl.of(egress.url).isSecure
         ? []
-        : [RunnerProblems.egressInTheClear()],
+        : [RunnerProblems.egressNotHttps()],
     };
   },
 
@@ -143,7 +143,7 @@ export const RunnerResourceMapper = {
     slug: string,
     existing: CredentialSourceKeys,
   ): WorkspaceRunnersResourceDto {
-    const drift = driftBetween(declared, existing);
+    const dangling = danglingKeysBetween(declared, existing);
 
     return {
       id: declared.id,
@@ -154,12 +154,12 @@ export const RunnerResourceMapper = {
       pools: declared.pools,
       warnings: [
         ...declared.trusts.flatMap((key, at) =>
-          drift.unknownTrusts.includes(key)
+          dangling.unknownTrusts.includes(key)
             ? [RunnerProblems.noSuchTrust(key, at)]
             : [],
         ),
         ...declared.pools.flatMap((key, at) =>
-          drift.unknownPools.includes(key)
+          dangling.unknownPools.includes(key)
             ? [RunnerProblems.noSuchPool(key, at)]
             : [],
         ),

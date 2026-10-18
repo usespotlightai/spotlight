@@ -4,7 +4,7 @@ import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { poolsNaming } from '@runners/domain/services/egress-uses';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class DeleteRunnersOfDeletedWorkspace {
@@ -17,7 +17,7 @@ export class DeleteRunnersOfDeletedWorkspace {
   ) {}
 
   async trustsOf(workspaceId: WorkspaceId): Promise<void> {
-    const by = Attribution.spotlight(workspaceId);
+    const by = ChangeActor.spotlight(workspaceId);
 
     for (const trust of await this.trusts.inWorkspace(workspaceId)) {
       await this.transaction.inTransaction(() =>
@@ -27,7 +27,7 @@ export class DeleteRunnersOfDeletedWorkspace {
   }
 
   async poolsOf(workspaceId: WorkspaceId): Promise<void> {
-    const by = Attribution.spotlight(workspaceId);
+    const by = ChangeActor.spotlight(workspaceId);
 
     for (const pool of await this.pools.inWorkspace(workspaceId)) {
       await this.transaction.inTransaction(() =>
@@ -37,7 +37,7 @@ export class DeleteRunnersOfDeletedWorkspace {
   }
 
   async egressesOf(workspaceId: WorkspaceId): Promise<void> {
-    const by = Attribution.spotlight(workspaceId);
+    const by = ChangeActor.spotlight(workspaceId);
     const pools = await this.pools.inWorkspace(workspaceId);
 
     for (const egress of await this.egresses.inWorkspace(workspaceId)) {
@@ -53,7 +53,7 @@ export class DeleteRunnersOfDeletedWorkspace {
     if (declared) {
       await this.transaction.inTransaction(() =>
         this.declarations.save(
-          declared.delete(Attribution.spotlight(workspaceId)),
+          declared.delete(ChangeActor.spotlight(workspaceId)),
         ),
       );
     }

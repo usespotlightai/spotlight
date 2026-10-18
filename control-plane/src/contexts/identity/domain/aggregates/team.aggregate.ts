@@ -14,7 +14,7 @@ import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -26,7 +26,7 @@ interface Creation {
   readonly name: TeamName;
   readonly key?: TeamKey;
   readonly createdBy: UserId;
-  readonly by: Attribution;
+  readonly by: ChangeActor;
 }
 
 export class Team extends EventRecorder {
@@ -146,7 +146,7 @@ export class Team extends EventRecorder {
     }
   }
 
-  update(definition: { key: TeamKey; name: TeamName }, by: Attribution): Team {
+  update(definition: { key: TeamKey; name: TeamName }, by: ChangeActor): Team {
     this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
@@ -173,7 +173,7 @@ export class Team extends EventRecorder {
     return updated;
   }
 
-  delete(dependents: Dependents, by: Attribution): Team {
+  delete(dependents: Dependents, by: ChangeActor): Team {
     this.assertNotDeleted();
 
     if (!dependents.isEmpty) {

@@ -75,7 +75,7 @@ const withBriefing = () =>
     title: TaskTitle.of('Fix the queue'),
     description: TaskDescription.of('It stalls on restart.'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-10-01T09:00:00.000Z'),
     newId: () => 'task_1',
     attachments: [SCREENSHOT],
@@ -120,7 +120,7 @@ describe('a run briefed with a task', () => {
     command: { executable: 'sh', args: [] },
     briefing: 'Fix the queue.',
     handover: { options: [], noteLimit: 0 },
-    continuity: { key: 'chat-chat_1' },
+    resume: { key: 'chat-chat_1' },
   });
 
   it('records it only when it works a task', () => {

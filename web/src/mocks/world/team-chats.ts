@@ -147,7 +147,7 @@ const chatOf = (
   model: null,
   effort: null,
   repositories: [],
-  improving: null,
+  targetStation: null,
   setup: null,
   updatedAt: over.createdAt,
   working: false,
@@ -273,7 +273,7 @@ const implementationChat = (): ChatRecord => {
       id: 'chat_small_prs',
       title: 'Make Implementation keep pull requests small',
       repositories: ['acme/api'],
-      improving: {
+      targetStation: {
         lineId: DELIVERY_ID,
         lineKey: 'delivery',
         lineName: 'Delivery',

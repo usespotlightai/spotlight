@@ -2,7 +2,7 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -46,6 +46,7 @@ import { LineId } from '@work/domain/value-objects/line-id.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 import type { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import type { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
@@ -60,8 +61,7 @@ import type { StationDescription } from '@work/domain/value-objects/station-desc
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
-import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 
 export interface LineLayout {
   readonly key: LineKey;
@@ -69,7 +69,7 @@ export interface LineLayout {
   readonly stations: readonly Station[];
   readonly reactions?: readonly Reaction[];
   readonly role?: LineRole | null;
-  readonly repositories?: readonly WorkedRepository[];
+  readonly repositories?: readonly LineRepositoryConfig[];
   readonly reviews?: ReviewPolicy | null;
   readonly placement?: RunnerPlacement;
   readonly replayCheck?: ReplayCheckPolicy | null;
@@ -108,7 +108,7 @@ export class Line extends EventRecorder {
     teamId: TeamId;
     line: LineOpening;
     newId: () => string;
-    by: Attribution;
+    by: ChangeActor;
   }): Line {
     const named = input.line.stations;
     const ids = named.map(() => StationId.of(input.newId()));
@@ -144,7 +144,7 @@ export class Line extends EventRecorder {
           position,
           kind: each.kind,
           agentPrompt: each.agentPrompt,
-          wayOut: WayOut.of({
+          routes: StationRoutes.of({
             stations: each.passesTo.map((to) => at(to)),
             ends: each.ends,
           }),
@@ -162,7 +162,7 @@ export class Line extends EventRecorder {
   }
 
   static createFromLayout(
-    input: LineIdentity & LineLayout & { by: Attribution },
+    input: LineIdentity & LineLayout & { by: ChangeActor },
   ): Line {
     const created = Line.build(input, input, 0);
 
@@ -205,7 +205,7 @@ export class Line extends EventRecorder {
         key: each.key.value,
         name: each.name.value,
         kind: each.kind,
-        passesTo: each.wayOut.stations.map((to) => keyOf.get(to.value) ?? ''),
+        passesTo: each.routes.stations.map((to) => keyOf.get(to.value) ?? ''),
       })),
     );
 
@@ -263,7 +263,7 @@ export class Line extends EventRecorder {
     }
   }
 
-  update(layout: LineLayout, by: Attribution): Line {
+  update(layout: LineLayout, by: ChangeActor): Line {
     if (!layout.key.equals(this.key)) {
       const because = `cannot change to ${layout.key.value}. Please create a new line instead`;
 
@@ -297,7 +297,7 @@ export class Line extends EventRecorder {
     return updated;
   }
 
-  delete(taskCounts: TaskCounts, by: Attribution): Line {
+  delete(taskCounts: TaskCounts, by: ChangeActor): Line {
     const stranded = this.stations
       .map((each) => ({
         key: each.key.value,
@@ -450,7 +450,7 @@ export class Line extends EventRecorder {
     return this.repositories.all.some((each) => each.equals(repository));
   }
 
-  worksIn(repositories: readonly WorkedRepository[]): Line {
+  worksIn(repositories: readonly LineRepositoryConfig[]): Line {
     return this.changed({ repositories });
   }
 
@@ -461,7 +461,7 @@ export class Line extends EventRecorder {
   runsOn(harness: HarnessId | null, model: HarnessModel | null): Line {
     return this.changed({
       stations: this.stations.map((each) =>
-        each.isWorked ? each.runsOn(harness, model) : each,
+        each.isAgentStation ? each.runsOn(harness, model) : each,
       ),
     });
   }
@@ -469,7 +469,7 @@ export class Line extends EventRecorder {
   thinksAt(effort: Effort | null): Line {
     return this.changed({
       stations: this.stations.map((each) =>
-        each.isWorked ? each.atEffort(effort) : each,
+        each.isAgentStation ? each.atEffort(effort) : each,
       ),
     });
   }
@@ -609,8 +609,8 @@ export class Line extends EventRecorder {
     return station;
   }
 
-  get worked(): readonly Station[] {
-    return this.stations.filter((each) => each.isWorked);
+  get agentStations(): readonly Station[] {
+    return this.stations.filter((each) => each.isAgentStation);
   }
 
   get entry(): Station | null {
@@ -637,7 +637,7 @@ export class Line extends EventRecorder {
         .filter((station) => from && this.passDenial(from.id, station) === null)
         .map((station) => HandoverOption.station(station.key, station.name)),
       HandoverOption.review(),
-      ...(from?.wayOut.ends ? [HandoverOption.done()] : []),
+      ...(from?.routes.ends ? [HandoverOption.done()] : []),
     ];
   }
 
@@ -648,8 +648,8 @@ export class Line extends EventRecorder {
     if (!to.harness) {
       return 'nothing-runs';
     }
-    if (!this.stationAt(from)?.wayOut.leadsTo(to.id)) {
-      return 'no-way';
+    if (!this.stationAt(from)?.routes.routesTo(to.id)) {
+      return 'no-route';
     }
     return null;
   }
@@ -662,14 +662,14 @@ export class Line extends EventRecorder {
       return 'out-of-completed';
     }
 
-    const starts = from.isBacklog && to.isWorked;
-    const parks = from.isWorked && to.isBacklog;
+    const starts = from.isBacklog && to.isAgentStation;
+    const parks = from.isAgentStation && to.isBacklog;
 
     return starts || parks || to.isCompleted ? null : 'between-work-stations';
   }
 
   endsAt(stationId: StationId): boolean {
-    return this.stationAt(stationId)?.wayOut.ends ?? false;
+    return this.stationAt(stationId)?.routes.ends ?? false;
   }
 
   depthOf(stationId: StationId): number {
@@ -685,7 +685,7 @@ export class Line extends EventRecorder {
       const station = queue.shift() as Station;
       const here = depth.get(station.id.value) as number;
 
-      for (const to of station.wayOut.stations) {
+      for (const to of station.routes.stations) {
         const next = byId.get(to.value);
 
         if (next && !depth.has(to.value)) {

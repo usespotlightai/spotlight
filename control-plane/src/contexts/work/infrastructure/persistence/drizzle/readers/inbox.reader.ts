@@ -24,9 +24,9 @@ import type {
   InboxReaderPort,
 } from '@work/application/ports/inbox-reader.port';
 import {
-  type AsideAccess,
-  TaskAside,
-} from '@work/domain/aggregates/task-aside.aggregate';
+  InboxRequest,
+  type InboxRequestAccess,
+} from '@work/domain/aggregates/inbox-request.aggregate';
 import {
   awaitsAPerson,
   conversationsOf,
@@ -34,8 +34,8 @@ import {
   stillOpen,
 } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
-import { ASIDE_FORMS } from '@work/domain/value-objects/aside-form';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
+import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -45,20 +45,20 @@ import {
   trailsFor,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
+  inboxRequest,
+  inboxRequestRead,
+} from '@work/infrastructure/persistence/drizzle/schemas/inbox-request.schema';
+import {
   line,
   station,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import {
-  taskAside,
-  taskAsideRead,
-} from '@work/infrastructure/persistence/drizzle/schemas/task-aside.schema';
 import { and, eq, gte, inArray, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-const FORMS_FOR_TEAM_READERS = ASIDE_FORMS.filter(
-  (form) => TaskAside.requiredAccess(form) === 'readsTeamInsights',
+const FORMS_FOR_TEAM_READERS = INBOX_REQUEST_FORMS.filter(
+  (form) => InboxRequest.requiredAccess(form) === 'readsTeamInsights',
 );
 
 @Injectable()
@@ -75,7 +75,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
     userId: UserId,
     noticesResolvedSince: Date,
   ): Promise<InboxEntrySummary[] | null> {
-    const visible = await this.workspaces.identify(slug);
+    const visible = await this.workspaces.idForSlug(slug);
 
     if (
       !visible ||
@@ -88,7 +88,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       await this.assignedTo(visible, userId),
     );
 
-    items.push(...(await this.asidesFor(visible, userId)));
+    items.push(...(await this.inboxRequestsFor(visible, userId)));
     items.push(
       ...(await this.noticesFor(visible, userId, noticesResolvedSince)),
     );
@@ -97,7 +97,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private assignedTo(workspaceId: string, userId: UserId) {
-    const raised = alias(station, 'raised');
+    const origin = alias(station, 'origin');
 
     return this.db
       .select({
@@ -106,9 +106,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
         title: task.title,
         description: task.description,
         lineId: line.id,
-        raisedStation: raised.name,
-        raisedColor: raised.color,
-        raisedPosition: raised.position,
+        originStationName: origin.name,
+        originColor: origin.color,
+        originPosition: origin.position,
         currentStationName: station.name,
         currentStationColor: station.color,
         currentStationPosition: station.position,
@@ -118,7 +118,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       .from(task)
       .innerJoin(station, eq(station.id, task.stationId))
       .innerJoin(line, eq(line.id, station.lineId))
-      .leftJoin(raised, eq(raised.id, task.raisedAtStationId))
+      .leftJoin(origin, eq(origin.id, task.originStationId))
       .where(
         and(
           eq(task.workspaceId, workspaceId),
@@ -187,10 +187,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
           stationColor: note.stationColor,
           stationPosition: note.stationPosition,
           stationCount: stationCounts.get(row.lineId) ?? 1,
-          raisedAt: {
-            name: row.raisedStation ?? note.station,
-            color: row.raisedColor ?? note.stationColor,
-            position: row.raisedPosition ?? note.stationPosition,
+          originStation: {
+            name: row.originStationName ?? note.station,
+            color: row.originColor ?? note.stationColor,
+            position: row.originPosition ?? note.stationPosition,
           },
           currentStation: {
             name: row.currentStationName,
@@ -208,7 +208,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           unread: anyUnread(notes),
           briefing: (note.runId && briefings.get(note.runId)) || null,
           failure: failureIn(notes),
-          aside: null,
+          inboxRequest: null,
           notes,
         });
       }
@@ -217,18 +217,18 @@ export class DrizzleInboxReader implements InboxReaderPort {
     return items;
   }
 
-  private async asidesFor(
+  private async inboxRequestsFor(
     workspaceId: string,
     userId: UserId,
   ): Promise<InboxItemSummary[]> {
     const rows = await this.db
       .select({
-        id: taskAside.id,
-        form: taskAside.form,
-        about: taskAside.about,
-        raisedAt: taskAside.raisedAt,
-        readAt: taskAsideRead.readAt,
-        resolvedAt: taskAside.resolvedAt,
+        id: inboxRequest.id,
+        form: inboxRequest.form,
+        about: inboxRequest.about,
+        requestCreatedAt: inboxRequest.createdAt,
+        readAt: inboxRequestRead.readAt,
+        resolvedAt: inboxRequest.resolvedAt,
         taskId: task.id,
         assigneeId: task.assigneeId,
         teamId: line.teamId,
@@ -240,30 +240,30 @@ export class DrizzleInboxReader implements InboxReaderPort {
         currentStationColor: station.color,
         currentStationPosition: station.position,
       })
-      .from(taskAside)
+      .from(inboxRequest)
       .leftJoin(
-        taskAsideRead,
+        inboxRequestRead,
         and(
-          eq(taskAsideRead.asideId, taskAside.id),
-          eq(taskAsideRead.userId, userId.value),
+          eq(inboxRequestRead.inboxRequestId, inboxRequest.id),
+          eq(inboxRequestRead.userId, userId.value),
         ),
       )
-      .innerJoin(task, eq(task.id, taskAside.taskId))
+      .innerJoin(task, eq(task.id, inboxRequest.taskId))
       .innerJoin(station, eq(station.id, task.stationId))
       .innerJoin(line, eq(line.id, station.lineId))
       .where(
         and(
-          eq(taskAside.workspaceId, workspaceId),
+          eq(inboxRequest.workspaceId, workspaceId),
           or(
             eq(task.assigneeId, userId.value),
             isNull(task.assigneeId),
-            inArray(taskAside.form, FORMS_FOR_TEAM_READERS),
+            inArray(inboxRequest.form, FORMS_FOR_TEAM_READERS),
           ),
         ),
       );
 
-    const needing = (access: AsideAccess) =>
-      rows.filter((row) => TaskAside.requiredAccess(row.form) === access);
+    const needing = (access: InboxRequestAccess) =>
+      rows.filter((row) => InboxRequest.requiredAccess(row.form) === access);
 
     const onTeam = new Map(
       await Promise.all(
@@ -299,7 +299,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
     );
 
     const attending = rows.filter((row) =>
-      TaskAside.attendedBy({
+      InboxRequest.visibleTo({
         form: row.form,
         viewer: userId,
         assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
@@ -340,17 +340,17 @@ export class DrizzleInboxReader implements InboxReaderPort {
         stationColor: currentStation.color,
         stationPosition: currentStation.position,
         stationCount: stationCounts.get(row.lineId) ?? 1,
-        raisedAt: currentStation,
+        originStation: currentStation,
         currentStation,
         createdAt: row.createdAt,
-        askedAt: row.raisedAt,
+        askedAt: row.requestCreatedAt,
         resolved: row.resolvedAt !== null,
         working: false,
         runId: null,
         unread: row.readAt === null && row.resolvedAt === null,
         briefing: null,
         failure: null,
-        aside: { form: row.form, about: row.about },
+        inboxRequest: { form: row.form, about: row.about },
         notes: [],
       };
     });
@@ -394,7 +394,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         points: row.points,
         link: row.link,
         linkLabel: row.linkLabel,
-        askedAt: row.raisedAt,
+        askedAt: row.createdAt,
         unread: row.resolvedAt === null,
         resolved: row.resolvedAt !== null,
       }));

@@ -370,7 +370,7 @@ class Compiler {
 
     try {
       const compiled = this.expressions.compile(source, {
-        at: place.field.rendered,
+        location: place.field.rendered,
       });
       const result = place.checked(this.expressions, source);
 

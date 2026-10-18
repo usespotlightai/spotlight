@@ -23,7 +23,7 @@ const consistent = `! grep -q lib app.txt || test -f lib.txt`
 
 type reporter struct {
 	mu       sync.Mutex
-	recorded []protocol.StackChecked
+	recorded []protocol.StackCheckResult
 	stacks   []string
 	renewals int
 	stop     bool
@@ -38,7 +38,7 @@ func (r *reporter) RenewCheckLease(_ context.Context, _, _ string, _ bool) (bool
 }
 
 func (r *reporter) RecordChangeStackCheck(
-	_ context.Context, _ string, stackID string, _ bool, checked protocol.StackChecked,
+	_ context.Context, _ string, stackID string, _ bool, checked protocol.StackCheckResult,
 ) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -53,7 +53,7 @@ func (r *reporter) renewed() int {
 	return r.renewals
 }
 
-func (r *reporter) only() protocol.StackChecked {
+func (r *reporter) only() protocol.StackCheckResult {
 	if len(r.recorded) != 1 {
 		panic("nothing recorded")
 	}
@@ -579,17 +579,17 @@ func TestPerformBorrowsTheHostsMirrorWhereThereIsOne(t *testing.T) {
 		t.Fatalf("steps %+v", reported.only())
 	}
 
-	borrowed, err := os.ReadFile(filepath.Join(
+	alternates, err := os.ReadFile(filepath.Join(
 		r.dir, "workspace", "widgets", ".git", "objects", "info", "alternates"))
 	if err != nil {
-		t.Fatalf("the checkout did not borrow: %v", err)
+		t.Fatalf("the checkout does not use the mirror alternates: %v", err)
 	}
-	if want := filepath.Join(mirrors, "widgets.git", "objects"); strings.TrimSpace(string(borrowed)) != want {
-		t.Errorf("borrowed from %q, want %q", borrowed, want)
+	if want := filepath.Join(mirrors, "widgets.git", "objects"); strings.TrimSpace(string(alternates)) != want {
+		t.Errorf("alternates are %q, want %q", alternates, want)
 	}
 }
 
-func TestPerformRunsTheCheckThroughTheWayOut(t *testing.T) {
+func TestPerformRunsTheCheckThroughTheLocalProxy(t *testing.T) {
 	r := setUp(t)
 	reported := &reporter{}
 	check := r.check(whole(r.whole))

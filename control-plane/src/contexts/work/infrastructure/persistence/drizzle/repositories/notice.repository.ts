@@ -25,7 +25,7 @@ const toNotice = (row: Row): Notice =>
     subject: row.subject,
     link: NoticeLink.of({ path: row.link, label: row.linkLabel }),
     wording: NoticeWording.of({ headline: row.headline, points: row.points }),
-    raisedAt: row.raisedAt,
+    createdAt: row.createdAt,
     resolvedAt: row.resolvedAt,
     version: row.version,
   });
@@ -46,7 +46,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       linkLabel: added.link.label,
       headline: added.wording.headline,
       points: [...added.wording.points],
-      raisedAt: added.raisedAt,
+      createdAt: added.createdAt,
       resolvedAt: added.resolvedAt,
       version: added.version,
     });

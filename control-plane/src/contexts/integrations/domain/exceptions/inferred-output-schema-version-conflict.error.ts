@@ -1,5 +1,5 @@
 export class InferredOutputSchemaVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(tool: string) {
     super(

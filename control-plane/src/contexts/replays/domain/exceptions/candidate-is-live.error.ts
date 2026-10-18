@@ -1,5 +1,5 @@
 export class CandidateIsLiveError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(candidateId: string) {
     super(

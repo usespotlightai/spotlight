@@ -267,7 +267,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
-import { IDEMPOTENT_RECALLS } from '@shared-kernel/application/ports/idempotent-recalls.port';
+import { IDEMPOTENT_LOOKUPS } from '@shared-kernel/application/ports/idempotent-lookups.port';
 import {
   LOGGER,
   LoggerPort,
@@ -387,7 +387,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [ENV],
     useFactory: (env: Env) =>
       new McpSessions(
-        new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
       ),
   },
 
@@ -396,7 +396,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [ENV, CLOCK],
     useFactory: (env: Env, clock: ClockPort) =>
       new OAuth2Discovery(
-        new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
         clock,
       ),
   },
@@ -408,7 +408,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       new SpecReaders(
         new ThreadedSpecReader(
           new SpecFetch(
-            new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+            new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
           ),
         ),
         new McpSpecReader(sessions),
@@ -463,7 +463,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         refreshingSpec,
         clock,
         logger,
-        env.MCP_RELIST_SECONDS * 1000,
+        env.SPOTLIGHT_MCP_RELIST_SECONDS * 1000,
       ),
   },
 
@@ -595,7 +595,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     provide: HttpOutbound,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new HttpOutbound(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+      new HttpOutbound(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
   },
 
   { provide: INTEGRATION_CURSORS, useClass: DrizzleIntegrationCursors },
@@ -721,7 +721,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [ENV],
     useFactory: (env: Env) =>
       new OAuth2Registrar(
-        new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
       ),
   },
 
@@ -758,7 +758,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [ENV, CLOCK],
     useFactory: (env: Env, clock: ClockPort) =>
       new OAuth2Exchange(
-        new OutboundPolicy(env.OUTBOUND_ALLOWED_HOSTS.split(',')),
+        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
         clock,
       ),
   },
@@ -1055,7 +1055,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     IntegrationSpecs,
     INTEGRATION_DEFINITIONS,
     IDEMPOTENT_CREATES,
-    IDEMPOTENT_RECALLS,
+    IDEMPOTENT_LOOKUPS,
     ID_GENERATOR,
     TRANSACTION,
   ]),

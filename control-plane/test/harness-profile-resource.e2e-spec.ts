@@ -131,8 +131,8 @@ describe('a harness profile, created through the resource API (e2e)', () => {
 
   const delivery = () => {
     const line = definitionOf(BUILT_IN_LINES[0] as LineOpening);
-    const worked = line.stations.filter((each) => each.kind === 'work');
-    const [first, second] = worked.map((each) => each.key);
+    const agentStations = line.stations.filter((each) => each.kind === 'work');
+    const [first, second] = agentStations.map((each) => each.key);
 
     return {
       ...line,

@@ -503,7 +503,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     );
 
     expect(forbidden.status).toBe(403);
-    expect(forbidden.body).toMatchObject({ permission: 'manage-token-trusts' });
+    expect(forbidden.body).toMatchObject({ permission: 'trusts' });
     expect(
       (
         await http()
@@ -561,7 +561,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     ]) {
       expect(forbidden.status).toBe(403);
       expect(forbidden.body).toMatchObject({
-        permission: 'manage-token-trusts',
+        permission: 'trusts',
       });
     }
     expect(

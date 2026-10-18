@@ -53,7 +53,7 @@ const replayRun = (id = 'run_1') =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: ['review'], noteLimit: 0 },
-      continuity: { key: 'replay-run_1' },
+      resume: { key: 'replay-run_1' },
       replay: {
         archive: 'archive_1',
         checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
@@ -148,7 +148,7 @@ describe('how a replay run’s ending becomes its score, from Work’s events to
       .claim(RUNNER, NOW)
       .complete(
         RUNNER,
-        RunOutcome.of({ exitCode: -1, failed: true, unprepared: true }),
+        RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
       );
 
     const ended = await receivedBy(run.pullEvents());
@@ -247,7 +247,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       await storedAfter((run) =>
         run.complete(
           RUNNER,
-          RunOutcome.of({ exitCode: -1, failed: true, unprepared: true }),
+          RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
         ),
       ),
     ).toEqual({ succeeded: null, reasons: [['run-failed', 'unprepared']] });

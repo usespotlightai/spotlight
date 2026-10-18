@@ -44,7 +44,7 @@ const guarding = (
         all: async () => declared,
       }),
       {
-        identify: async () => 'ws_1',
+        idForSlug: async () => 'ws_1',
         slugOf: async () => 'acme',
         profileOf: async () => null,
         isOpen: async () => true,

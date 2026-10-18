@@ -1,7 +1,7 @@
 import type { PersonSummary } from '@identity/application/ports/person-reader.port';
-import type { TeamNamed } from '@identity/application/read-models/team-named';
+import type { TeamRef } from '@identity/application/read-models/team-ref';
 import type { InviteStatus } from '@identity/domain/aggregates/workspace-invite.aggregate';
-import type { InvitableRoleName } from '@identity/domain/value-objects/invite-terms.vo';
+import type { InvitableRoleName } from '@identity/domain/value-objects/invite-spec.vo';
 
 export type InviteOutcome =
   | 'invited'
@@ -22,7 +22,7 @@ export interface WorkspaceInviteDto {
   readonly id: string;
   readonly email: string;
   readonly role: InvitableRoleName;
-  readonly teams: readonly TeamNamed[];
+  readonly teams: readonly TeamRef[];
   readonly invitedBy: PersonSummary | null;
   readonly invitedAt: string;
   readonly expiresAt: string;

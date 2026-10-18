@@ -109,7 +109,7 @@ describe('ListTeamTracesHandler', () => {
 
     expect(first?.taskId).toBe('task_1');
     expect(first?.cost).toBe(0.5);
-    expect(first?.faults).toBe(1);
+    expect(first?.errors).toBe(1);
   });
 
   it('reads the range back from now, and says where it starts and ends', async () => {
@@ -123,7 +123,7 @@ describe('ListTeamTracesHandler', () => {
     expect(listed.to).toBe('2026-08-29T12:30:00.000Z');
   });
 
-  it('counts every trace and its faults into the bar it started in', async () => {
+  it('counts every trace and its errors into the bar it started in', async () => {
     const { volume } = await handler([trace('task_1', ['run_1'])]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
@@ -133,13 +133,13 @@ describe('ListTeamTracesHandler', () => {
       from: '2026-08-29T12:28:00.000Z',
       to: '2026-08-29T12:30:00.000Z',
       count: 0,
-      faults: 0,
+      errors: 0,
     });
     expect(volume.find((bucket) => bucket.count > 0)).toEqual({
       from: '2026-08-29T12:00:00.000Z',
       to: '2026-08-29T12:02:00.000Z',
       count: 1,
-      faults: 1,
+      errors: 1,
     });
   });
 

@@ -114,7 +114,7 @@ describe('previewOf', () => {
       ({
         ...item([]),
         resolved,
-        aside: { form: 'alert', about: 'alert_1' },
+        inboxRequest: { form: 'alert', about: 'alert_1' },
       }) as InboxItem;
 
     expect(previewOf(alert(false))).toBe('Station crossed an alert threshold.');

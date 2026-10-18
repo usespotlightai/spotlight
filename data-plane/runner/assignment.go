@@ -14,7 +14,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/config"
 	"usespotlight.ai/data-plane/runner/internal/harness"
-	"usespotlight.ai/data-plane/runner/internal/wayout"
+	"usespotlight.ai/data-plane/runner/internal/localproxy"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 )
 
 func assignment(
-	ctx context.Context, cfg config.Config, release string, egress *wayout.Egress, log *slog.Logger,
+	ctx context.Context, cfg config.Config, release string, egress *localproxy.Egress, log *slog.Logger,
 ) (*protocol.Assignment, error) {
 	if cfg.HasAssignmentFile() {
 		return readAssignment(cfg.AssignmentFile)
@@ -55,7 +55,7 @@ func readAssignment(path string) (*protocol.Assignment, error) {
 }
 
 func reserved(
-	ctx context.Context, cfg config.Config, release string, egress *wayout.Egress, log *slog.Logger,
+	ctx context.Context, cfg config.Config, release string, egress *localproxy.Egress, log *slog.Logger,
 ) (*protocol.Assignment, error) {
 	client, err := control.New(cfg.URL, cfg.Token)
 	if err != nil {
@@ -66,7 +66,7 @@ func reserved(
 	}
 
 	if err := retried(ctx, log, "could not register, still trying", func() error {
-		candidates, err := client.Installable(ctx)
+		candidates, err := client.HarnessProbes(ctx)
 		if err != nil {
 			return err
 		}
@@ -78,7 +78,7 @@ func reserved(
 	ctx, cancel := context.WithTimeout(ctx, reservationWait)
 	defer cancel()
 
-	var work *protocol.Claimed
+	var work *protocol.ClaimResponse
 	err = retried(ctx, log, "claim failed", func() error {
 		for work == nil {
 			claimed, err := client.Claim(ctx)

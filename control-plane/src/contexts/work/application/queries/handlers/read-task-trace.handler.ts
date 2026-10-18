@@ -11,8 +11,8 @@ import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import {
   connectionsOf,
+  type TracedRun,
   traceOf,
-  type WorkedRun,
 } from '@work/application/read-models/trace-of';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -47,7 +47,7 @@ export class ReadTaskTraceHandler
         found.map((run) => run.id),
       );
 
-      const worked: WorkedRun[] = found.map((run) => ({
+      const traced: TracedRun[] = found.map((run) => ({
         id: RunId.of(run.id),
         station: StationName.maybe(run.station?.name),
         harness: HarnessName.of(run.harness),
@@ -59,7 +59,7 @@ export class ReadTaskTraceHandler
         connections: connectionsOf(errors, run.id, run.attempt),
       }));
 
-      return TaskTraceMapper.toDto(traceOf(worked));
+      return TaskTraceMapper.toDto(traceOf(traced));
     } catch (error) {
       rethrowAsApplicationError(error);
     }

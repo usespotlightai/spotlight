@@ -8,7 +8,7 @@ import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo'
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

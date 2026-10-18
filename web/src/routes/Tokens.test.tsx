@@ -233,7 +233,7 @@ describe('Tokens', () => {
   });
 
   it('shows a new token once, to copy, until the person says it is copied', async () => {
-    create.mockImplementation((_terms, { onSuccess }) =>
+    create.mockImplementation((_spec, { onSuccess }) =>
       onSuccess({ name: 'terraform', token: 'token_secret' }),
     );
     const { person, dialog } = await openCreate();

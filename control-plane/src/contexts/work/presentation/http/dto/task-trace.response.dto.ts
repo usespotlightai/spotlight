@@ -87,9 +87,9 @@ export class TraceNodeResponseDto {
   @ApiProperty({
     enum: TONES,
     example: 'agent',
-    description: 'The agent working, the overhead around it, or a fault',
+    description: 'The agent working, the overhead around it, or an error',
   })
-  readonly tone: string;
+  readonly category: string;
 
   @ApiProperty({ nullable: true, type: Number, example: 4.97 })
   readonly cost: number | null;
@@ -128,7 +128,7 @@ export class TraceNodeResponseDto {
     name: string,
     startedAt: string,
     ms: number,
-    tone: string,
+    category: string,
     cost: number | null,
     currency: string | null,
     step: JournalStepResponseDto | null,
@@ -142,7 +142,7 @@ export class TraceNodeResponseDto {
     this.name = name;
     this.startedAt = startedAt;
     this.ms = ms;
-    this.tone = tone;
+    this.category = category;
     this.cost = cost;
     this.currency = currency;
     this.step = step;
@@ -164,7 +164,7 @@ export class TaskTraceResponseDto {
   readonly rows: number;
 
   @ApiProperty({ example: 21 })
-  readonly faults: number;
+  readonly errors: number;
 
   @ApiProperty({ type: () => [TraceNodeResponseDto] })
   readonly roots: TraceNodeResponseDto[];
@@ -173,13 +173,13 @@ export class TaskTraceResponseDto {
     startedAt: string | null,
     ms: number,
     rows: number,
-    faults: number,
+    errors: number,
     roots: TraceNodeResponseDto[],
   ) {
     this.startedAt = startedAt;
     this.ms = ms;
     this.rows = rows;
-    this.faults = faults;
+    this.errors = errors;
     this.roots = roots;
   }
 }

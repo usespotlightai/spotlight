@@ -10,14 +10,14 @@ import type {
   LeasedRunFacts,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
-import type { SearchSightPort } from '@work/application/ports/search-sight.port';
+import type { SearchVisibilityPort } from '@work/application/ports/search-visibility.port';
 import type { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
-import { SightedHistory } from '@work/application/read-models/sighted-history';
 import {
   connectionsOf,
+  type TracedRun,
   traceOf,
-  type WorkedRun,
 } from '@work/application/read-models/trace-of';
+import { VisibleHistory } from '@work/application/read-models/visible-history';
 import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
@@ -28,7 +28,7 @@ export class ReadRunnerTraceHandler
 {
   constructor(
     private readonly traces: RunnerTraceReaderPort,
-    private readonly sights: SearchSightPort,
+    private readonly visibilities: SearchVisibilityPort,
     private readonly connections: RunConnectionsPort,
   ) {}
 
@@ -52,9 +52,9 @@ export class ReadRunnerTraceHandler
         return null;
       }
 
-      const sighted = await this.sightedBy(query.runId, leased);
+      const visible = await this.visibilityFor(query.runId, leased);
 
-      if (sighted.hides(query)) {
+      if (visible.hides(query)) {
         return null;
       }
 
@@ -63,10 +63,10 @@ export class ReadRunnerTraceHandler
         this.traces.journalsForTask(target),
       ]);
       const found = ran.filter((run) =>
-        sighted.seesRunAt(run.station?.id ?? null),
+        visible.seesRunAt(run.station?.id ?? null),
       );
 
-      if (sighted.isSearch && found.length === 0) {
+      if (visible.isSearch && found.length === 0) {
         return null;
       }
 
@@ -77,7 +77,7 @@ export class ReadRunnerTraceHandler
         found.map((run) => run.id),
       );
 
-      const worked: WorkedRun[] = found.map((run) => ({
+      const traced: TracedRun[] = found.map((run) => ({
         id: RunId.of(run.id),
         station: StationName.maybe(run.station?.name),
         harness: HarnessName.of(run.harness),
@@ -89,18 +89,18 @@ export class ReadRunnerTraceHandler
         connections: connectionsOf(errors, run.id, run.attempt),
       }));
 
-      return TaskTraceMapper.toDto(traceOf(worked));
+      return TaskTraceMapper.toDto(traceOf(traced));
     } catch (error) {
       rethrowAsApplicationError(error);
     }
   }
 
-  private async sightedBy(
+  private async visibilityFor(
     runId: string,
     leased: LeasedRunFacts | null,
-  ): Promise<SightedHistory> {
+  ): Promise<VisibleHistory> {
     return leased?.isSearch
-      ? SightedHistory.through(await this.sights.of(runId))
-      : SightedHistory.unsighted();
+      ? VisibleHistory.limitedTo(await this.visibilities.of(runId))
+      : VisibleHistory.unrestricted();
   }
 }

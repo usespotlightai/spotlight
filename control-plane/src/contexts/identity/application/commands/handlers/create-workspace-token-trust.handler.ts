@@ -3,10 +3,10 @@ import type { IdentityDefinitionsPort } from '@identity/application/ports/identi
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
+import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import { TokenTrustAlreadyExistsError } from '@identity/domain/exceptions/token-trust-already-exists.error';
-import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
-import { Grantor } from '@identity/domain/value-objects/grantor.vo';
+import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import {
   forbiddenTo,
   type ResourceCreated,
@@ -19,8 +19,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
@@ -53,7 +53,7 @@ export class CreateWorkspaceTokenTrustHandler
       }
 
       if (!permissions.managesTokenTrusts) {
-        return forbiddenTo('manage-token-trusts');
+        return forbiddenTo('trusts');
       }
 
       const compiled = this.definitions.workspaceTokenTrust(command.definition);
@@ -74,14 +74,14 @@ export class CreateWorkspaceTokenTrustHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const created = WorkspaceTokenTrust.create({
-              ...compiled.terms,
+              ...compiled.spec,
               id: WorkspaceTokenTrustId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               createdBy: principal.userId,
-              grantor: Grantor.of(principal),
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              scopeCeiling: ScopeCeiling.of(principal),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
             });
 
             await this.trusts.add(created);
@@ -90,12 +90,15 @@ export class CreateWorkspaceTokenTrustHandler
           }),
         );
       } catch (error) {
-        if (error instanceof TokenTrustBeyondGrantorError) {
-          return forbiddenTo('manage-token-trusts');
+        if (error instanceof ScopesExceedCallerError) {
+          return forbiddenTo('trusts');
         }
 
         if (error instanceof TokenTrustAlreadyExistsError) {
-          return { outcome: 'taken', address: compiled.terms.key.value };
+          return {
+            outcome: 'already-exists',
+            address: compiled.spec.key.value,
+          };
         }
 
         if (error instanceof NoSuchWorkspaceError) {

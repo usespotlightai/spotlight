@@ -60,7 +60,7 @@ export class AuthenticatedGuard implements CanActivate {
     );
 
     if (bearer && marked(ALLOW_WORKSPACE_TOKENS)) {
-      const principal = await this.tokens.identify(bearer);
+      const principal = await this.tokens.authenticate(bearer);
 
       if (!principal) {
         throw new UnauthorizedException(

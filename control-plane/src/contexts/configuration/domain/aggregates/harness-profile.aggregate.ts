@@ -12,7 +12,7 @@ import type { StationUses } from '@configuration/domain/value-objects/station-us
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -54,7 +54,7 @@ export class HarnessProfile extends EventRecorder {
     input: ParsedProfile & {
       id: HarnessProfileId;
       teamId: TeamId;
-      by: Attribution;
+      by: ChangeActor;
       existingSecrets: readonly SecretName[];
     },
   ): HarnessProfile {
@@ -100,7 +100,7 @@ export class HarnessProfile extends EventRecorder {
 
   update(
     parsed: ParsedProfile,
-    by: Attribution,
+    by: ChangeActor,
     existingSecrets: readonly SecretName[],
   ): HarnessProfile {
     this.guardLive();
@@ -131,7 +131,7 @@ export class HarnessProfile extends EventRecorder {
     return updated;
   }
 
-  delete(named: StationUses, by: Attribution): HarnessProfile {
+  delete(named: StationUses, by: ChangeActor): HarnessProfile {
     this.guardLive();
 
     const using = named.of(this.key);
@@ -143,7 +143,7 @@ export class HarnessProfile extends EventRecorder {
     return this.cascadeDelete(by);
   }
 
-  cascadeDelete(by: Attribution): HarnessProfile {
+  cascadeDelete(by: ChangeActor): HarnessProfile {
     this.guardLive();
 
     const deleted = this.with({ deleted: true });

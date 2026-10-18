@@ -155,7 +155,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: `task:${id}` },
+        resume: { key: `task:${id}` },
         injectedSecrets,
       },
     });
@@ -303,7 +303,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     ).toBe(VALUE);
   });
 
-  it('never fetches secrets with the proxy credential alone, nor through the egress beside a sandbox', async () => {
+  it('never fetches secrets with the proxy credential alone, nor through an egress sidecar', async () => {
     const runId = await queue(['LINEAR_API_KEY']);
     const runner = await provisioned(runId);
     const credential = runner.egress?.credential ?? '';

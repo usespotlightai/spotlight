@@ -15,7 +15,7 @@ const dto: TaskDto = {
   running: true,
   awaitingReview: null,
   pullRequest: null,
-  raisedBy: { id: 'user_1', name: 'Ada', image: null },
+  createdBy: { id: 'user_1', name: 'Ada', image: null },
   assignee: null,
   note: {
     position: 0,

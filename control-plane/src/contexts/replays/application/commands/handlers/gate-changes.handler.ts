@@ -7,7 +7,7 @@ import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dt
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class GateChangesHandler
   implements CommandHandlerPort<GateChangesCommand, SetChanged>
@@ -37,7 +37,7 @@ export class GateChangesHandler
           throw new UnknownReplaySetError(command.setId);
         }
 
-        const by = Attribution.of(command.actor, set.workspaceId);
+        const by = ChangeActor.of(command.actor, set.workspaceId);
 
         const changed = command.gates
           ? set.gatingChanges(

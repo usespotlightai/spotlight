@@ -11,7 +11,7 @@ import { ProfileSettings } from '@configuration/domain/value-objects/profile-set
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -42,7 +42,7 @@ const stored = (version = 3) =>
     version,
   });
 
-const BY = attributedIn();
+const BY = changeActorIn();
 
 const CAREFUL = {
   resource: 'harness-profile' as const,

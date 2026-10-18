@@ -3,7 +3,7 @@ import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles'
 import { ReferenceToken } from '@/components/shared/chat-input/ReferenceToken';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { downloadPath, drawn } from '@/lib/attachment';
-import type { ChatMessage, ImprovedStation } from '@/lib/chat';
+import type { ChatMessage, TargetStation } from '@/lib/chat';
 import { stationReference } from '@/lib/chat-input';
 import { stationPath } from '@/lib/station';
 import { taskTracePath } from '@/lib/task';
@@ -12,7 +12,7 @@ type ChatPersonMessageProps = {
   slug: string;
   teamId: string;
   message: ChatMessage;
-  improving?: ImprovedStation | null;
+  targetStation?: TargetStation | null;
 };
 
 const REFERENCE_LINK =
@@ -22,12 +22,12 @@ export function ChatPersonMessage({
   slug,
   teamId,
   message,
-  improving,
+  targetStation,
 }: ChatPersonMessageProps) {
   const images = message.attachments.filter((each) => drawn(each.contentType));
   const files = message.attachments.filter((each) => !drawn(each.contentType));
   const referenced =
-    Boolean(improving) || files.length > 0 || message.traces.length > 0;
+    Boolean(targetStation) || files.length > 0 || message.traces.length > 0;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -35,17 +35,17 @@ export function ChatPersonMessage({
         <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-6">
           {message.body}
           {message.body && referenced && ' '}
-          {improving && (
+          {targetStation && (
             <TrailLink
               to={stationPath(
                 slug,
                 teamId,
-                improving.lineId,
-                improving.stationId,
+                targetStation.lineId,
+                targetStation.stationId,
               )}
               className={REFERENCE_LINK}
             >
-              <ReferenceToken reference={stationReference(improving)} />
+              <ReferenceToken reference={stationReference(targetStation)} />
             </TrailLink>
           )}
           {files.map((file) => (

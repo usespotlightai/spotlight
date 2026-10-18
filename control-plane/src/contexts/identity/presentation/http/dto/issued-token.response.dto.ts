@@ -6,7 +6,7 @@ export class IssuedTokenResponseDto {
   @ApiProperty({
     example: 'q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw',
     description:
-      'The token to send as Authorization: Bearer until it expires; answered this once, and stored only as a hash',
+      'The token to send as Authorization: Bearer until it expires; returned once, and stored only as a hash',
   })
   readonly token: string;
 

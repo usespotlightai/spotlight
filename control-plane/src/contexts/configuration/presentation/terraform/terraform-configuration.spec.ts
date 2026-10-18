@@ -340,7 +340,7 @@ describe('workspaceTerraform', () => {
     expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
       [
         'variable "secret_linear_api_key" {',
-        '  description = "The value of the secret LINEAR_API_KEY, which Spotlight stores and never answers"',
+        '  description = "The value of the secret LINEAR_API_KEY, which Spotlight stores and never returns"',
         '  type        = string',
         '  sensitive   = true',
         '}',

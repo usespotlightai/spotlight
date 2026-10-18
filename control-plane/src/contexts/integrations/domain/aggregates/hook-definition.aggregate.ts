@@ -16,7 +16,7 @@ import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -162,7 +162,7 @@ export class HookDefinition extends EventRecorder {
       teamId: TeamId;
       secret: SigningSecretChange;
       allowances: HookAllowances;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): HookDefinition {
     guardAllowed(input.hook, input.allowances);
@@ -213,7 +213,7 @@ export class HookDefinition extends EventRecorder {
     compiled: Compiled,
     secret: SigningSecretChange,
     allowances: HookAllowances,
-    by: Attribution,
+    by: ChangeActor,
   ): HookDefinition {
     this.guardLive();
 
@@ -248,7 +248,7 @@ export class HookDefinition extends EventRecorder {
     return updated;
   }
 
-  delete(by: Attribution): HookDefinition {
+  delete(by: ChangeActor): HookDefinition {
     this.guardLive();
 
     const deleted = this.with({ deleted: true });
@@ -258,7 +258,7 @@ export class HookDefinition extends EventRecorder {
     return deleted;
   }
 
-  cascadeDelete(by: Attribution): HookDefinition {
+  cascadeDelete(by: ChangeActor): HookDefinition {
     return this.delete(by);
   }
 
@@ -316,7 +316,7 @@ export class HookDefinition extends EventRecorder {
     return this.state.deleted;
   }
 
-  private deletedBy(by: Attribution): HookDeleted {
+  private deletedBy(by: ChangeActor): HookDeleted {
     return new HookDeleted(
       this.id,
       this.teamId,

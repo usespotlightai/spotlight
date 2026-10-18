@@ -4,7 +4,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RecordRunImageCommand } from '@work/application/commands/runner.commands';
@@ -26,7 +26,7 @@ const claimed = () =>
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'work out what the request wants',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
@@ -38,7 +38,7 @@ const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
       : {
           workspaceId: WorkspaceId.of('ws_1'),
           harnesses: [HarnessId.of('claude-code')],
-          terms: RunnerTerms.none(),
+          offer: RunnerOffer.none(),
           claims: 'reserved' as const,
         },
   );

@@ -13,7 +13,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class DeleteSecretHandler
   implements CommandHandlerPort<DeleteSecretCommand, ResourceDeleted | null>
@@ -42,7 +42,7 @@ export class DeleteSecretHandler
       }
 
       if (!permissions.managesSecrets) {
-        return forbiddenTo('manage-secrets');
+        return forbiddenTo('secrets');
       }
 
       existing.assertVersion(command.expectedVersion);
@@ -58,7 +58,7 @@ export class DeleteSecretHandler
         this.secrets.save(
           existing.delete(
             uses,
-            Attribution.of(command.actor, existing.workspaceId),
+            ChangeActor.of(command.actor, existing.workspaceId),
           ),
         ),
       );

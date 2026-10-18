@@ -12,7 +12,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -31,7 +31,7 @@ import {
 } from '@work/application/ports/pull-request-reviewing.port';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
@@ -83,7 +83,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       each.role?.equals(LineRole.REVIEW),
     );
     const line = Line.create({
-      by: attributedIn(),
+      by: changeActorIn(),
       workspaceId: WorkspaceId.of(workspaceId),
       teamId: TeamId.of(workspaceId),
       // biome-ignore lint/style/noNonNullAssertion: Spotlight has a built-in review line
@@ -102,7 +102,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       summary: 'Somebody mentioned Spotlight on the pull request.',
       answers: true,
       state: 'raised',
-      concerns: { branch: null, marks },
+      correlationKeys: { branch: null, marks },
       message: { body: '@spotlight please review' },
       ourOwn: false,
       opens: {
@@ -134,8 +134,8 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
 
     const task = await tasks.findByMarks(
       WorkspaceId.of(workspaceId),
-      // biome-ignore lint/style/noNonNullAssertion: concerns with a mark are not null
-      Concerns.of({ marks: [Mark.review(PullRequestUrl.of(pull))] })!,
+      // biome-ignore lint/style/noNonNullAssertion: correlation keys with a mark are not null
+      CorrelationKeys.of({ marks: [Mark.review(PullRequestUrl.of(pull))] })!,
     );
 
     expect(task?.reviewing).toBe(true);

@@ -1,16 +1,16 @@
-import type { Bindings } from '@platform/expressions/bindings';
+import type { CelVariables } from '@platform/expressions/cel-variables';
 import type { Scope } from '@platform/expressions/scope';
 
 export const EXPRESSION_ENGINE = Symbol('EXPRESSION_ENGINE');
 
 export interface Expression {
   readonly source: string;
-  readonly at: string | null;
-  evaluate(against: Bindings): unknown;
+  readonly location: string | null;
+  evaluate(against: CelVariables): unknown;
 }
 
-export interface Within {
-  readonly at?: string;
+export interface CompileOptions {
+  readonly location?: string;
 }
 
 export interface ExpressionSpan {
@@ -30,5 +30,5 @@ export type ExpressionCheck =
 export interface ExpressionEnginePort {
   check(source: string, scope: Scope): ExpressionCheck;
 
-  compile(source: string, within?: Within): Expression;
+  compile(source: string, options?: CompileOptions): Expression;
 }

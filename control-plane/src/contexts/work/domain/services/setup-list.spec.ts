@@ -78,7 +78,7 @@ describe('setupDoneNote', () => {
     expect(newNote?.at).toBe(NOW);
   });
 
-  it('says so at the station the list was raised at', () => {
+  it('says so at the station the list was created at', () => {
     const newNote = setupDoneNote(
       [note('asked', 'setup', 'Backlog')],
       done,

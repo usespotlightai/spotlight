@@ -48,7 +48,7 @@ describe('Login', () => {
     });
   });
 
-  it('offers no other way in', () => {
+  it('offers no other sign-in method', () => {
     renderPage();
 
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();

@@ -19,6 +19,7 @@ import type { Happening } from '@work/domain/value-objects/happening.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 import type { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import type { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
@@ -33,7 +34,6 @@ import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
-import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 
 export interface StationPlan {
   readonly key: StationKey;
@@ -121,7 +121,7 @@ export class LinePlan {
     stations: readonly StationPlan[];
     reactions?: readonly ReactionPlan[];
     role?: LineRole | null;
-    repositories?: readonly WorkedRepository[];
+    repositories?: readonly LineRepositoryConfig[];
     reviews?: ReviewPolicy | null;
     placement?: RunnerPlacement;
     replayCheck?: ReplayCheckPolicy | null;

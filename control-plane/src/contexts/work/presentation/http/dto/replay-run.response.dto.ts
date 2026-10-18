@@ -24,7 +24,7 @@ export class ReplayedRunResponseDto {
     type: String,
     example: 'Drain the retry queue on restart',
     description:
-      'The title of the task it worked, as it reads now; null once the task is deleted',
+      'The title of the task of the run, as it reads now; null once the task is deleted',
   })
   readonly title: string | null;
 

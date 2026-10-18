@@ -487,14 +487,14 @@ describe('TeamIntegrations', () => {
         name: 'Sam Rivera',
         image: null,
         role: 'owner',
-        mayBeSetTo: [],
+        assignableRoles: [],
       },
       {
         id: 'user_2',
         name: 'Maya Chen',
         image: null,
         role: 'member',
-        mayBeSetTo: [],
+        assignableRoles: [],
       },
     ]);
     showing();

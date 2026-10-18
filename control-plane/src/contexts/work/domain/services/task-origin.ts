@@ -4,9 +4,11 @@ const PASSED_FROM_STATION = 'station';
 
 export interface RunOfTask {
   readonly openedFrom: TaskOrigin;
-  readonly raisedAt: string | null;
+  readonly originStationId: string | null;
   readonly ranAt: string;
 }
 
 export const originOfRun = (run: RunOfTask): string =>
-  run.raisedAt === run.ranAt ? run.openedFrom.value : PASSED_FROM_STATION;
+  run.originStationId === run.ranAt
+    ? run.openedFrom.value
+    : PASSED_FROM_STATION;

@@ -12,7 +12,7 @@ export interface ProvisionEgress {
 export interface ProvisionCall {
   readonly url: ProvisionUrl;
   readonly secret: ProvisionSecret;
-  readonly attempt: string;
+  readonly messageId: string;
   readonly at: Date;
   readonly pool: string;
   readonly workspaceId: string;

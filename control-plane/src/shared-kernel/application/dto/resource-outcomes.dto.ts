@@ -30,8 +30,8 @@ export type ResourceCreated =
       readonly replayed: boolean;
     }
   | Invalid
-  | { readonly outcome: 'taken'; readonly address: string }
-  | { readonly outcome: 'key-reused' }
+  | { readonly outcome: 'already-exists'; readonly address: string }
+  | { readonly outcome: 'idempotency-key-reused' }
   | Forbidden;
 
 export type ResourceUpdated =

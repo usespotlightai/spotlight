@@ -37,27 +37,27 @@ type conversation struct {
 
 const maxUnreadAnswers = 3
 
-const carryOn = "The runner working on this was lost before your turn ended. Carry on where you left off."
+const resumeAfterLostRunner = "The runner working on this was lost before your turn ended. Carry on where you left off."
 
 type lostRun interface {
 	RunNoLongerLeased() bool
 }
 
-type wake int
+type awaitResult int
 
 const (
-	answered wake = iota
+	answered awaitResult = iota
 	stopRequested
 	released
 )
 
 func (c *conversation) opening(ctx context.Context) string {
 	briefing := c.run.Spec.Briefing
-	if !c.run.Spec.Continuity.Resumes {
+	if !c.run.Spec.Resume.ResumeSession {
 		return briefing
 	}
 
-	resumed := c.sessionID == c.run.Spec.Continuity.SessionID
+	resumed := c.sessionID == c.run.Spec.Resume.SessionID
 	message, received := c.pollMessages(ctx)
 	switch {
 	case received && resumed:
@@ -65,7 +65,7 @@ func (c *conversation) opening(ctx context.Context) string {
 	case received:
 		return briefing + "\n\n" + message
 	case resumed:
-		return carryOn
+		return resumeAfterLostRunner
 	default:
 		return briefing
 	}
@@ -220,7 +220,7 @@ func (c *conversation) lose() {
 	c.losing.Do(func() { close(c.lost) })
 }
 
-func (c *conversation) await(ctx context.Context) (string, wake) {
+func (c *conversation) await(ctx context.Context) (string, awaitResult) {
 	wait := c.answerWait
 	if c.closed {
 		wait = 0

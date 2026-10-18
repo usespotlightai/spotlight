@@ -1,6 +1,6 @@
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { PoolRoom, poolChoiceFor } from '@work/domain/services/pool-choice';
 import { describe, expect, it } from 'vitest';
 
@@ -10,7 +10,7 @@ const SPARE = PoolId.of('spare');
 
 const aPool = (pool: PoolId, labels: string[] = [], egress = false) => ({
   pool,
-  labels: RunnerTerms.of(labels),
+  labels: RunnerOffer.of(labels),
   egress,
 });
 

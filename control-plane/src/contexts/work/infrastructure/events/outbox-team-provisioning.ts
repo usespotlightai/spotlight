@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DeliveryBacklog } from '@platform/events/delivery-backlog';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { PROVISION_TEAM } from '@work/application/events/handlers/provision-team.handler';
+import { SEED_TEAM } from '@work/application/events/handlers/seed-team.handler';
 import type {
   Provisioning,
   TeamProvisioningPort,
@@ -13,7 +13,7 @@ export class OutboxTeamProvisioning implements TeamProvisioningPort {
 
   async of(teamId: TeamId): Promise<Provisioning> {
     const { pending, deadLettered } = await this.backlog.pendingDeliveriesFor(
-      PROVISION_TEAM,
+      SEED_TEAM,
       {
         teamId: teamId.value,
         origin: 'sign-up',

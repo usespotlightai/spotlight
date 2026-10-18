@@ -122,11 +122,11 @@ func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *
 		return git("switch", "--quiet", "-c", checkout.Branch, start)
 	}
 
-	catchUp(checkout, func(args ...string) bool { return git(args...) == nil }, out)
+	fastForward(checkout, func(args ...string) bool { return git(args...) == nil }, out)
 	return nil
 }
 
-func catchUp(checkout protocol.Checkout, git func(args ...string) bool, out *output) {
+func fastForward(checkout protocol.Checkout, git func(args ...string) bool, out *output) {
 	pushed := "refs/remotes/origin/" + checkout.Branch
 
 	if !git("rev-parse", "--verify", "--quiet", pushed) || git("merge-base", "--is-ancestor", pushed, "HEAD") {

@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
-import { runConversationKeys } from '@/hooks/api/useRunConversation';
 import { runMemoryKeys } from '@/hooks/api/useRunMemories';
+import { runNotesKeys } from '@/hooks/api/useRunNotes';
 import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
@@ -29,7 +29,7 @@ export function useRunRefresh({
       queryKey: journalKeys.forTask(taskId),
     });
     void queryClient.invalidateQueries({
-      queryKey: runConversationKeys.forRun(runId),
+      queryKey: runNotesKeys.forRun(runId),
     });
     void queryClient.invalidateQueries({
       queryKey: teamRunKeys.forTeam(teamId),

@@ -137,7 +137,7 @@ export const runner = pgTable(
     egressTokenHash: text('egress_token_hash'),
     proxyCredentialHash: text('proxy_credential_hash'),
     harnesses: jsonb('harnesses').$type<string[]>().notNull().default([]),
-    advertisedModels: jsonb('advertised_models')
+    supportedModels: jsonb('supported_models')
       .$type<Record<string, string[]>>()
       .notNull()
       .default({}),

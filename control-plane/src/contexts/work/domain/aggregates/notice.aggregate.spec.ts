@@ -16,8 +16,8 @@ const later = (ms: number) => new Date(NOW.getTime() + ms);
 
 const PERSON = UserId.of('user_1');
 
-const raised = (subject = 'replay-search search_1 iteration 3') =>
-  Notice.raise({
+const created = (subject = 'replay-search search_1 iteration 3') =>
+  Notice.create({
     id: NoticeId.of('notice_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -36,8 +36,8 @@ const raised = (subject = 'replay-search search_1 iteration 3') =>
   });
 
 describe('Notice', () => {
-  it('is raised open, for one person only', () => {
-    const notice = raised();
+  it('is created open, for one person only', () => {
+    const notice = created();
 
     expect(notice.resolvedAt).toBeNull();
     expect(notice.version).toBe(0);
@@ -46,14 +46,14 @@ describe('Notice', () => {
   });
 
   it('resolves once', () => {
-    const resolved = raised().resolve(later(3));
+    const resolved = created().resolve(later(3));
 
     expect(resolved.resolvedAt).toEqual(later(3));
     expect(resolved.resolve(later(4))).toBe(resolved);
   });
 
   it('rejects a subject it cannot name, a form it does not know, a link out of its team or unnamed, and wording out of bounds', () => {
-    expect(() => raised(' ')).toThrow(InvalidNoticeError);
+    expect(() => created(' ')).toThrow(InvalidNoticeError);
     expect(() => noticeForm('gossip')).toThrow(InvalidNoticeError);
     for (const path of ['', '/lines/1', 'lines/../x', 'https://x.test/y']) {
       expect(() => NoticeLink.of({ path, label: 'Open it' })).toThrow(
@@ -85,8 +85,8 @@ describe('Notice', () => {
     );
   });
 
-  it('rejects a stored notice resolved before it was raised', () => {
-    const notice = raised();
+  it('rejects a stored notice resolved before it was created', () => {
+    const notice = created();
     const state = {
       id: notice.id,
       workspaceId: notice.workspaceId,
@@ -96,7 +96,7 @@ describe('Notice', () => {
       subject: notice.subject,
       link: notice.link,
       wording: notice.wording,
-      raisedAt: NOW,
+      createdAt: NOW,
       resolvedAt: null,
       version: 1,
     };

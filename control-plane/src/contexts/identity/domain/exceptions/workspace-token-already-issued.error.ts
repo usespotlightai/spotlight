@@ -1,5 +1,5 @@
 export class WorkspaceTokenAlreadyIssuedError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(readonly tokenName: string) {
     super(

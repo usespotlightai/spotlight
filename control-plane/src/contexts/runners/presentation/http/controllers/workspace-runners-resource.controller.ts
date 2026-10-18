@@ -6,14 +6,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import {
   CreateWorkspaceRunnersCommand,
   DeleteWorkspaceRunnersCommand,
@@ -99,13 +99,13 @@ export class WorkspaceRunnersResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<WorkspaceRunnersResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<
         CreateWorkspaceRunnersCommand,
         ResourceCreated | null
       >(new CreateWorkspaceRunnersCommand(workspaceId, actor, key, body)),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -118,7 +118,7 @@ export class WorkspaceRunnersResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceRunnersResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @WorkspaceRunnersResource.Update(
@@ -133,13 +133,13 @@ export class WorkspaceRunnersResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<WorkspaceRunnersResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateWorkspaceRunnersCommand,
         ResourceUpdated | null
       >(new UpdateWorkspaceRunnersCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
@@ -153,7 +153,7 @@ export class WorkspaceRunnersResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteWorkspaceRunnersCommand,
@@ -172,7 +172,7 @@ export class WorkspaceRunnersResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceRunnersResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ImportWorkspaceRunnersQuery,
@@ -191,7 +191,7 @@ export class WorkspaceRunnersResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<WorkspaceRunnersResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListWorkspaceRunnersResourcesQuery,
         readonly WorkspaceRunnersResourceDto[] | null
@@ -200,11 +200,11 @@ export class WorkspaceRunnersResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<WorkspaceRunnersResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ReadWorkspaceRunnersQuery,

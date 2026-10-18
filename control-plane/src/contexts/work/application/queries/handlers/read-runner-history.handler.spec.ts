@@ -8,13 +8,13 @@ import type {
 import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
 import {
-  aSight,
+  aSearchVisibility,
   BUILD_BLOCK,
-} from '@work/application/ports/search-sight.fake-spec';
+} from '@work/application/ports/search-visibility.fake-spec';
 import type {
-  SearchSight,
-  SearchSightPort,
-} from '@work/application/ports/search-sight.port';
+  SearchVisibility,
+  SearchVisibilityPort,
+} from '@work/application/ports/search-visibility.port';
 import type {
   KeyedStation,
   StationRunReaderPort,
@@ -119,7 +119,7 @@ const reading = ({
   runs = [ran('run_3'), ran('run_2'), ran('run_1')],
   outcomes = [] as RunOutcomeShape[],
   replaysFrom = null,
-  sight = null,
+  visibility = null,
   among = [],
 }: {
   team?: TeamId | null;
@@ -127,11 +127,11 @@ const reading = ({
   keyed?: KeyedStation[];
   runs?: StationRunRow[];
   outcomes?: RunOutcomeShape[];
-  sight?: SearchSight | 'unseeable' | null;
+  visibility?: SearchVisibility | 'unseeable' | null;
   among?: StationRunRow[];
 } = {}) => {
   const requested: StationRunsWanted[] = [];
-  const sighted: string[] = [];
+  const visible: string[] = [];
   const stationsKeyed = vi.fn().mockResolvedValue(keyed);
   const stations: StationRunReaderPort = {
     endedRun: vi.fn(),
@@ -151,19 +151,21 @@ const reading = ({
     leasedRunFacts: vi
       .fn()
       .mockResolvedValue(
-        team ? { teamId: team, replaysFrom, isSearch: sight !== null } : null,
+        team
+          ? { teamId: team, replaysFrom, isSearch: visibility !== null }
+          : null,
       ),
   } as unknown as RunnerTraceReaderPort;
-  const sights: SearchSightPort = {
+  const visibilities: SearchVisibilityPort = {
     of: async (runId) => {
-      sighted.push(runId);
-      if (sight === 'unseeable') {
+      visible.push(runId);
+      if (visibility === 'unseeable') {
         throw new Error('no search ran this');
       }
-      if (!sight) {
-        throw new Error('requested the sight of a run that is no search');
+      if (!visibility) {
+        throw new Error('requested the visibility of a run that is no search');
       }
-      return sight;
+      return visibility;
     },
   };
   const outcomesPort: RunOutcomesPort = {
@@ -192,14 +194,14 @@ const reading = ({
   return {
     requested,
     stationsKeyed,
-    sighted,
+    visible,
     read: (wanted: Partial<HistoryWanted> = {}) =>
       new ReadRunnerHistoryHandler(
         traces,
         stations,
         outcomesPort,
         usages,
-        sights,
+        visibilities,
         connectionsInMemory(),
       ).execute(
         new ReadRunnerHistoryQuery('run_0', 'runner_1', {
@@ -319,7 +321,7 @@ describe('ReadRunnerHistoryHandler', () => {
   });
 
   describe('for a search run', () => {
-    const SIGHT = aSight({
+    const VISIBILITY = aSearchVisibility({
       stationId: 'station_1',
       heldOutTasks: ['task_of_run_2'],
       shownOriginals: ['run_1', 'run_9'],
@@ -354,14 +356,14 @@ describe('ReadRunnerHistoryHandler', () => {
     it('reads only the searched station, never another by the same key', async () => {
       expect(
         await reading({
-          sight: SIGHT,
+          visibility: VISIBILITY,
           keyed: [{ ...IMPLEMENTATION, stationId: 'station_other' }],
         }).read(),
       ).toEqual({ kind: 'unknown' });
       expect(
         (
           await reading({
-            sight: SIGHT,
+            visibility: VISIBILITY,
             keyed: [
               IMPLEMENTATION,
               { ...IMPLEMENTATION, stationId: 'station_other', lineKey: 'x' },
@@ -372,11 +374,11 @@ describe('ReadRunnerHistoryHandler', () => {
     });
 
     it('leaves out every run of a held-out task, telling the store to skip them too', async () => {
-      const history = reading({ sight: SIGHT });
+      const history = reading({ visibility: VISIBILITY });
       const answer = await history.read();
 
       expect(history.requested[0]?.excluding).toEqual(['task_of_run_2']);
-      expect(history.sighted).toEqual(['run_0']);
+      expect(history.visible).toEqual(['run_0']);
       expect(
         answer.kind === 'found' &&
           answer.history.runs.map((each) => each.taskId),
@@ -385,7 +387,7 @@ describe('ReadRunnerHistoryHandler', () => {
 
     it('always shows the originals it searches, even beyond the runs requested', async () => {
       const answer = await reading({
-        sight: SIGHT,
+        visibility: VISIBILITY,
         among: [ran('run_9')],
       }).read({ last: 1 });
 
@@ -397,7 +399,7 @@ describe('ReadRunnerHistoryHandler', () => {
 
     it('lists each candidate’s replay runs with their changes, cost and result, but none of a held-out task', async () => {
       const answer = await reading({
-        sight: SIGHT,
+        visibility: VISIBILITY,
         among: [
           { ...ran('run_c'), taskId: 'task_of_run_9' },
           { ...ran('run_hidden_c'), taskId: 'task_of_run_2' },
@@ -439,19 +441,19 @@ describe('ReadRunnerHistoryHandler', () => {
     });
 
     it('fails rather than show an unfiltered history when the search cannot be seen', async () => {
-      await expect(reading({ sight: 'unseeable' }).read()).rejects.toThrow(
+      await expect(reading({ visibility: 'unseeable' }).read()).rejects.toThrow(
         'no search ran this',
       );
     });
   });
 
-  it('lists no candidates and requests no sight for a run that is no search', async () => {
+  it('lists no candidates and requests no visibility for a run that is no search', async () => {
     const history = reading();
     const answer = await history.read();
 
     expect(answer.kind === 'found' && answer.history.candidates).toEqual([]);
     expect(answer.kind === 'found' && answer.history.seedBlock).toBeNull();
-    expect(history.sighted).toEqual([]);
+    expect(history.visible).toEqual([]);
     expect(history.requested[0]?.excluding).toEqual([]);
   });
 });

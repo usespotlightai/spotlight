@@ -433,13 +433,13 @@ describe('FireHooks.happened', () => {
     const { hooked, firings, causation } = setUp([hookNamed('a', ['x'])], () =>
       done('x'),
     );
-    const delivered = CausalChain.none().followedBy({
+    const delivered = CausalChain.none().append({
       kind: 'delivery',
       key: 'delivery:slack',
       description: 'a delivery from slack',
     });
 
-    await causation.within(delivered, () =>
+    await causation.runWith(delivered, () =>
       hooked.happened({
         on: 'task.moved',
         occurrence: 'moved_1',
@@ -486,7 +486,7 @@ const stored = (
         firedAt: NOW,
         event: EVENT,
         matched: true,
-        cause: CausalChain.none().followedBy(MOVED),
+        cause: CausalChain.none().append(MOVED),
         link: AUDIT,
       }),
     ),
@@ -677,14 +677,14 @@ describe('FireHooks.workOne', () => {
 
 describe('FireHooks.workOne, guarding against loops', () => {
   const looped = CausalChain.none()
-    .followedBy(MOVED)
-    .followedBy(AUDIT)
-    .followedBy({
+    .append(MOVED)
+    .append(AUDIT)
+    .append({
       kind: 'delivery',
       key: 'delivery:slack',
       description: 'a delivery from slack',
     })
-    .followedBy(MOVED);
+    .append(MOVED);
 
   it('stops a hook that its own firing caused again, and reports it on the task, naming the chain', async () => {
     const { hooked, saved, last, runtime, notes } = setUp(
@@ -714,7 +714,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
   it('stops a chain that has grown too deep', async () => {
     let deep = CausalChain.none();
     for (let each = 0; each < 8; each += 1) {
-      deep = deep.followedBy({ ...MOVED, key: `step-${each}` });
+      deep = deep.append({ ...MOVED, key: `step-${each}` });
     }
     const { hooked, notes, runtime } = setUp(
       [hookNamed('audit', ['a'])],

@@ -72,7 +72,7 @@ const network = (): NetworkCallsPort => ({
   stateOf: vi.fn(async () => ({ kind: 'waiting' as const })),
   answered: vi.fn(async () => ({
     kind: 'answered' as const,
-    answer: {
+    response: {
       status: 200,
       headers: {},
       body: new TextEncoder().encode('{"ok":true}'),
@@ -367,7 +367,7 @@ describe('HookRequests', () => {
 
     vi.mocked(calls.stateOf).mockResolvedValueOnce({
       kind: 'answered',
-      answer: {
+      response: {
         status: 204,
         headers: {},
         body: new Uint8Array(),

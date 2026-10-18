@@ -60,14 +60,14 @@ export class AssignTaskHandler
 
       await this.tasks.save(assigned);
 
-      const raisedBy = assigned.raisedBy
-        ? await this.people.find(assigned.raisedBy)
+      const createdBy = assigned.createdBy
+        ? await this.people.find(assigned.createdBy)
         : null;
       const person = assigned.assignee
         ? await this.people.find(assigned.assignee)
         : null;
 
-      return TaskMapper.taskToDto(assigned, raisedBy, person);
+      return TaskMapper.taskToDto(assigned, createdBy, person);
     });
   }
 }

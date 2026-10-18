@@ -93,7 +93,7 @@ describe('HostReport', () => {
     expect(invalidAt({ images: [image(true), image(false)] })).toBe('images');
   });
 
-  it('offers only an image it serves', () => {
+  it('finds only an image it supports', () => {
     const report = HostReport.of({
       name: 'build-box',
       release: '0.9.0',
@@ -112,10 +112,15 @@ describe('HostReport', () => {
     });
 
     expect(
-      report.offering(RunnerImage.of('ghcr.io/acme/runner:main'))?.isDefault,
+      report.supportedImage(RunnerImage.of('ghcr.io/acme/runner:main'))
+        ?.isDefault,
     ).toBe(true);
-    expect(report.offering(RunnerImage.of('ghcr.io/acme/old:1'))).toBeNull();
-    expect(report.offering(RunnerImage.of('ghcr.io/acme/none:1'))).toBeNull();
+    expect(
+      report.supportedImage(RunnerImage.of('ghcr.io/acme/old:1')),
+    ).toBeNull();
+    expect(
+      report.supportedImage(RunnerImage.of('ghcr.io/acme/none:1')),
+    ).toBeNull();
   });
 
   it('rejects a name, release or container runtime that is blank or too long', () => {

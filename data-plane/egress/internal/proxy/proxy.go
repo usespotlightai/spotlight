@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"usespotlight.ai/data-plane/egressing/guard"
-	"usespotlight.ai/data-plane/egressing/tunnel"
+	"usespotlight.ai/data-plane/egresskit/guard"
+	"usespotlight.ai/data-plane/egresskit/tunnel"
 )
 
 type Allowed interface {
@@ -126,7 +126,7 @@ func (p *Proxy) block(w http.ResponseWriter, r *http.Request, host string) {
 }
 
 func (p *Proxy) tunnel(w http.ResponseWriter, r *http.Request, host, target string) {
-	upstream, err := p.dial(guard.Naming(r.Context(), p.allowed.ExplicitlyListed(host)), "tcp", target)
+	upstream, err := p.dial(guard.WithListed(r.Context(), p.allowed.ExplicitlyListed(host)), "tcp", target)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Egress couldn't reach %s. Error: %v", target, err), http.StatusBadGateway)
 		return
@@ -144,7 +144,7 @@ func (p *Proxy) tunnel(w http.ResponseWriter, r *http.Request, host, target stri
 		return
 	}
 
-	tunnel.Splice(client, buffered, upstream)
+	tunnel.Relay(client, buffered, upstream)
 }
 
 func (p *Proxy) intercept(w http.ResponseWriter, r *http.Request, host, target string) {
@@ -187,7 +187,7 @@ func (p *Proxy) injectingTo(host, target string) http.Handler {
 
 	return &httputil.ReverseProxy{
 		Rewrite: func(out *httputil.ProxyRequest) {
-			out.Out = out.Out.WithContext(guard.Naming(out.Out.Context(), p.allowed.ExplicitlyListed(host)))
+			out.Out = out.Out.WithContext(guard.WithListed(out.Out.Context(), p.allowed.ExplicitlyListed(host)))
 			out.Out.URL.Scheme = "https"
 			out.Out.URL.Host = target
 			out.Out.Host = authority
@@ -214,7 +214,7 @@ func (p *Proxy) forward(w http.ResponseWriter, r *http.Request) {
 
 	(&httputil.ReverseProxy{
 		Rewrite: func(out *httputil.ProxyRequest) {
-			out.Out = out.Out.WithContext(guard.Naming(out.Out.Context(), p.allowed.ExplicitlyListed(host)))
+			out.Out = out.Out.WithContext(guard.WithListed(out.Out.Context(), p.allowed.ExplicitlyListed(host)))
 			out.Out.URL = out.In.URL
 			out.Out.Host = out.In.URL.Host
 			out.Out.Header.Del("Proxy-Authorization")

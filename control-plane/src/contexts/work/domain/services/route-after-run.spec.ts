@@ -12,9 +12,9 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { describe, expect, it } from 'vitest';
 
 const station = (
@@ -42,7 +42,10 @@ const LINE = Line.rehydrate({
     station('station_0', 'Backlog', 0, { kind: 'backlog' }),
     station('station_1', 'Triage', 1, {
       harness: HarnessId.of('dev'),
-      wayOut: WayOut.of({ stations: [StationId.of('station_2')], ends: true }),
+      routes: StationRoutes.of({
+        stations: [StationId.of('station_2')],
+        ends: true,
+      }),
     }),
     station('station_2', 'Spec', 2, { harness: HarnessId.of('dev') }),
     station('station_3', 'Build', 3, { harness: HarnessId.of('dev') }),

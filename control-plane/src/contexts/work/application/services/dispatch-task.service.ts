@@ -30,7 +30,7 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { describedTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
-import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
+import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -131,7 +131,7 @@ export class DispatchTask implements TaskDispatching {
           teamId: line.teamId,
           lineId: line.id.value,
           stationId: task.stationId.value,
-          repositories: repositoriesWorkedOn(task, line),
+          repositories: repositoriesForTask(task, line),
           about: taskWords(task),
           touched: () => this.touched.onTask(task, line),
         }),

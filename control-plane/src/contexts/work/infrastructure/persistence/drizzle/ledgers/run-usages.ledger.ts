@@ -35,7 +35,7 @@ import { and, asc, eq, inArray, isNull, or, type SQL } from 'drizzle-orm';
 
 const AT_A_TIME = 25;
 
-interface Worked {
+interface RunActivity {
   readonly ms: number | null;
   readonly statuses: readonly (string | null)[];
   readonly changes: readonly {
@@ -120,15 +120,15 @@ export const spendAcross = (readings: readonly JournalBuilder[]): RunSpend => {
   };
 };
 
-export const usageOf = (worked: Worked): RunUsage => ({
-  ms: worked.ms,
-  steps: worked.statuses.length,
-  errors: worked.statuses.filter(faulted).length,
-  changedLines: changedLinesOf(worked.changes),
-  contextTokens: worked.contextTokens,
-  contextWindow: worked.contextWindow,
-  cost: worked.cost,
-  tokens: worked.tokens,
+export const usageOf = (activity: RunActivity): RunUsage => ({
+  ms: activity.ms,
+  steps: activity.statuses.length,
+  errors: activity.statuses.filter(faulted).length,
+  changedLines: changedLinesOf(activity.changes),
+  contextTokens: activity.contextTokens,
+  contextWindow: activity.contextWindow,
+  cost: activity.cost,
+  tokens: activity.tokens,
 });
 
 const chunked = <T>(all: readonly T[], size: number): T[][] => {

@@ -2,8 +2,8 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Claimant } from '@work/domain/repositories/run.repository';
@@ -18,7 +18,7 @@ const BY: Claimant = {
   runner: RunnerId.of('runner_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   harnesses: [DEV],
-  terms: RunnerTerms.of(['runner-1', 'laptop']),
+  offer: RunnerOffer.of(['runner-1', 'laptop']),
   claims: 'any',
 };
 const POOLED: Claimant = {
@@ -46,7 +46,7 @@ const waiting = (
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
     }),
     placement: RunnerPlacement.of(over.placement ?? []),
   }),

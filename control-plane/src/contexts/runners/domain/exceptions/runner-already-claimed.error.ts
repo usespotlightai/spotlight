@@ -1,5 +1,5 @@
 export class RunnerAlreadyClaimedError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(runnerId: string) {
     super(

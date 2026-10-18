@@ -7,7 +7,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { OpenedPullRequest } from '@work/application/dto/pull-request.dto';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
-import { takeTaskMarks } from '@work/application/services/task-marks';
+import { reassignTaskMarks } from '@work/application/services/task-marks';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { PullRequestHookDeniedError } from '@work/domain/exceptions/pull-request-hook-denied.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -104,7 +104,7 @@ export class OpenPullRequest {
         line,
       );
 
-      await takeTaskMarks(this.tasks, marked);
+      await reassignTaskMarks(this.tasks, marked);
       await this.tasks.save(marked);
 
       return opened;

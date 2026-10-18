@@ -110,7 +110,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: 'task:station' },
+        resume: { key: 'task:station' },
       },
     });
 

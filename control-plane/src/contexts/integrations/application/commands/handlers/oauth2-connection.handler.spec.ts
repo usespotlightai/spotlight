@@ -35,7 +35,7 @@ const authorizing = (allowed: boolean, member = true) =>
             slug: 'acme',
             viewer: UserId.of('user_1'),
             teamId: TeamId.of('team_1'),
-            administers: allowed,
+            isAdmin: allowed,
           }
         : null,
     ),

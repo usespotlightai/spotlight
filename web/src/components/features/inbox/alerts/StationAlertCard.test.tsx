@@ -91,7 +91,7 @@ const ALERT = {
 
 const showing = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/inbox/aside_1']}>
+    <MemoryRouter initialEntries={['/w/acme/inbox/request_1']}>
       <Routes>
         <Route
           path="/w/:slug/inbox/:itemId"
@@ -170,7 +170,7 @@ describe('StationAlertCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('links to the station, to it on Insights over the period the alert says, and to improving it', () => {
+  it('links to the station, to it on Insights over the period the alert says, and to a chat that improves it', () => {
     showing();
 
     expect(

@@ -16,7 +16,7 @@ export const TeamAccess = {
 
     return (
       principal.kind === 'token' ||
-      permissions.administers ||
+      permissions.isAdmin ||
       team.hasMember(principal.userId)
     );
   },

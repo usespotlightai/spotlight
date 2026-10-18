@@ -14,7 +14,7 @@ const takeable = (run: Run, by: Claimant, now: Date): boolean =>
   (by.claims === 'reserved'
     ? run.isReservedAt(now) && (run.reservation?.isFor(by.runner) ?? false)
     : !run.isReservedAt(now) || (run.reservation?.isFor(by.runner) ?? false)) &&
-  run.placement.matches(by.terms);
+  run.placement.matches(by.offer);
 
 const sooner = (a: WaitingRun, b: WaitingRun): number =>
   b.run.priority.value - a.run.priority.value ||

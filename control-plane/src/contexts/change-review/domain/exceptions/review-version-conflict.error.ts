@@ -1,5 +1,5 @@
 export class ReviewVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(id: string) {
     super(

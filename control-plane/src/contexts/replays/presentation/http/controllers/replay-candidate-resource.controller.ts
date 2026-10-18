@@ -6,13 +6,13 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+} from '@platform/http/resources/resource-responses';
 import { DeleteCandidateCommand } from '@replays/application/commands/delete-candidate.command';
 import { ProposeCandidateCommand } from '@replays/application/commands/propose-candidate.command';
 import type { CandidateResourceDto } from '@replays/application/dto/replays.dto';
@@ -101,13 +101,13 @@ export class ReplayCandidateResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<ReplayCandidateResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<
         ProposeCandidateCommand,
         ResourceCreated | null
       >(new ProposeCandidateCommand(lineId, stationKey, actor, key, body)),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -120,7 +120,7 @@ export class ReplayCandidateResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ReplayCandidateResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @CandidateResource.Delete(
@@ -133,7 +133,7 @@ export class ReplayCandidateResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteCandidateCommand,
@@ -152,7 +152,7 @@ export class ReplayCandidateResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ReplayCandidateResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ImportCandidateQuery,
@@ -179,7 +179,7 @@ export class ReplayCandidateResourceController {
     @Query('station') station: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<ReplayCandidateResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListCandidatesQuery,
         readonly CandidateResourceDto[] | null
@@ -188,11 +188,11 @@ export class ReplayCandidateResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<ReplayCandidateResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ReadCandidateQuery,

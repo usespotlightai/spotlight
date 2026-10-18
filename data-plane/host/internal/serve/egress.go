@@ -18,7 +18,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-type wayOut struct {
+type egressSidecar struct {
 	host       *Host
 	network    string
 	container  string
@@ -28,59 +28,59 @@ type wayOut struct {
 
 func (h *Host) egress(
 	ctx context.Context, assignment protocol.Assignment, harnessKeys []protocol.HarnessKey, log *slog.Logger,
-) (*wayOut, error) {
+) (*egressSidecar, error) {
 	if assignment.EgressToken == "" {
-		return &wayOut{host: h}, errors.New("the assignment has no credential for the sandbox's egress")
+		return &egressSidecar{host: h}, errors.New("the assignment has no credential for the sandbox's egress")
 	}
 
-	way, err := h.wayOut(ctx, assignment.RunnerID, map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID},
+	sidecar, err := h.egressSidecar(ctx, assignment.RunnerID, map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID},
 		assignment.EgressToken, harnessKeys, h.opts.EgressWait)
 	if err == nil {
-		log.Info("started the sandbox's egress", "egress", way.container)
+		log.Info("started the sandbox's egress", "egress", sidecar.container)
 	}
 
-	return way, err
+	return sidecar, err
 }
 
-func (h *Host) wayOut(
+func (h *Host) egressSidecar(
 	ctx context.Context, name string, labels map[string]string, token string, harnessKeys []protocol.HarnessKey,
 	wait time.Duration,
-) (*wayOut, error) {
-	way := &wayOut{host: h, credential: rand.Text()}
+) (*egressSidecar, error) {
+	sidecar := &egressSidecar{host: h, credential: rand.Text()}
 
 	image, err := h.egressImage(ctx)
 	if err != nil {
-		return way, err
+		return sidecar, err
 	}
 
-	way.network, err = h.engine.Network(ctx, "spotlight-"+name, labels)
+	sidecar.network, err = h.engine.Network(ctx, "spotlight-"+name, labels)
 	if err != nil {
-		return way, err
+		return sidecar, err
 	}
 
-	way.container, err = h.startEgress(ctx, image, name, labels, protocol.EgressConfig{
+	sidecar.container, err = h.startEgress(ctx, image, name, labels, protocol.EgressConfig{
 		URL:         h.opts.SandboxURL,
 		Token:       token,
-		Credential:  way.credential,
+		Credential:  sidecar.credential,
 		Allow:       h.opts.Egress.Allow,
 		SecretAllow: h.opts.Egress.SecretAllow,
 		HarnessKeys: harnessKeys,
-	}, []sandbox.Join{{Network: way.network, Aliases: []string{EgressAlias}}})
+	}, []sandbox.Join{{Network: sidecar.network, Aliases: []string{EgressAlias}}})
 	if err != nil {
-		return way, err
+		return sidecar, err
 	}
 
 	if wait <= 0 {
 		wait = egressWait
 	}
-	way.authority, err = h.awaited(ctx, way.container, protocol.EgressAuthority, wait, func(found []byte) bool {
+	sidecar.authority, err = h.awaited(ctx, sidecar.container, protocol.EgressAuthority, wait, func(found []byte) bool {
 		return x509.NewCertPool().AppendCertsFromPEM(found)
 	})
 	if errors.Is(err, errLate) {
-		return way, fmt.Errorf("egress was not ready within %s", wait)
+		return sidecar, fmt.Errorf("egress was not ready within %s", wait)
 	}
 
-	return way, err
+	return sidecar, err
 }
 
 func (h *Host) startEgress(
@@ -163,10 +163,10 @@ func (h *Host) awaited(
 	}
 }
 
-func (w *wayOut) env() []string {
+func (s *egressSidecar) env() []string {
 	proxy := (&url.URL{
 		Scheme: "http",
-		User:   url.UserPassword("sandbox", w.credential),
+		User:   url.UserPassword("sandbox", s.credential),
 		Host:   EgressAlias + ":" + strconv.Itoa(protocol.EgressPort),
 	}).String()
 	local := "localhost,127.0.0.1,::1"
@@ -186,22 +186,22 @@ func (w *wayOut) env() []string {
 	}
 }
 
-func (w *wayOut) files() []sandbox.File {
-	return []sandbox.File{{Path: AuthorityPath, Mode: 0o644, DirMode: 0o755, Body: w.authority}}
+func (s *egressSidecar) files() []sandbox.File {
+	return []sandbox.File{{Path: AuthorityPath, Mode: 0o644, DirMode: 0o755, Body: s.authority}}
 }
 
-func (w *wayOut) close() {
+func (s *egressSidecar) close() {
 	ctx, cancel := context.WithTimeout(context.Background(), cleanupBudget)
 	defer cancel()
 
-	if w.container != "" {
-		if err := w.host.engine.Destroy(ctx, w.container); err != nil {
-			w.host.log.Error("could not destroy a sandbox's egress; the next start destroys it", "egress", w.container, "error", err)
+	if s.container != "" {
+		if err := s.host.engine.Destroy(ctx, s.container); err != nil {
+			s.host.log.Error("could not destroy a sandbox's egress; the next start destroys it", "egress", s.container, "error", err)
 		}
 	}
-	if w.network != "" {
-		if err := w.host.engine.Unnetwork(ctx, w.network); err != nil {
-			w.host.log.Error("could not remove a sandbox's network; the next start removes it", "network", w.network, "error", err)
+	if s.network != "" {
+		if err := s.host.engine.Unnetwork(ctx, s.network); err != nil {
+			s.host.log.Error("could not remove a sandbox's network; the next start removes it", "network", s.network, "error", err)
 		}
 	}
 }

@@ -18,7 +18,7 @@ export class MemoryReactions {
 
   async onProposed(event: MemoriesProposed): Promise<void> {
     if (event.proposed > 0) {
-      await this.reviews.raise(event.taskId, event.runId);
+      await this.reviews.create(event.taskId, event.runId);
     }
   }
 

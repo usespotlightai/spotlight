@@ -110,14 +110,14 @@ export class MoveTaskHandler
 
       await this.tasks.save(placed);
 
-      const raisedBy = placed.raisedBy
-        ? await this.people.find(placed.raisedBy)
+      const createdBy = placed.createdBy
+        ? await this.people.find(placed.createdBy)
         : null;
       const assignee = placed.assignee
         ? await this.people.find(placed.assignee)
         : null;
 
-      return TaskMapper.taskToDto(placed, raisedBy, assignee);
+      return TaskMapper.taskToDto(placed, createdBy, assignee);
     });
   }
 }

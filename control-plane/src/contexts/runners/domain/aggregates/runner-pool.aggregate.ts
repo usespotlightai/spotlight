@@ -22,7 +22,7 @@ import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -75,7 +75,7 @@ export class RunnerPool extends EventRecorder {
       id: RunnerPoolId;
       workspaceId: WorkspaceId;
       access: AccessInput;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): RunnerPool {
     const access = RunnerPool.firstAccess(input.access);
@@ -185,8 +185,8 @@ export class RunnerPool extends EventRecorder {
     return this.provision?.egressTraffic ?? EgressTraffic.all();
   }
 
-  goesOutThrough(egress: EgressReference): boolean {
-    return !this.isDeleted && (this.provision?.goesOutThrough(egress) ?? false);
+  usesEgress(egress: EgressReference): boolean {
+    return !this.isDeleted && (this.provision?.usesEgress(egress) ?? false);
   }
 
   hasRoomFor(running: number): boolean {
@@ -218,7 +218,7 @@ export class RunnerPool extends EventRecorder {
   update(
     definition: PoolDefinition,
     accessInput: AccessInput,
-    by: Attribution,
+    by: ChangeActor,
   ): RunnerPool {
     this.assertNotDeleted();
 
@@ -243,7 +243,7 @@ export class RunnerPool extends EventRecorder {
     }
 
     const access = this.nextAccess(accessInput);
-    const rekeyed =
+    const tokenRotated =
       access.mode === 'pull' &&
       this.access.mode === 'pull' &&
       !access.tokenHash.equals(this.access.tokenHash);
@@ -262,10 +262,10 @@ export class RunnerPool extends EventRecorder {
           this.whatChanged,
           by,
           RunnerPoolChangeDetail.updated(this.mode, {
-            rekeyed,
+            tokenRotated,
             secretRotated:
               accessInput.mode === 'push' && accessInput.secret !== null,
-            egressMoved:
+            egressChanged:
               !sameEgress(this.egress, updated.egress) ||
               !this.egressTraffic.equals(updated.egressTraffic),
           }),
@@ -276,7 +276,7 @@ export class RunnerPool extends EventRecorder {
     return updated;
   }
 
-  delete(by: Attribution): RunnerPool {
+  delete(by: ChangeActor): RunnerPool {
     this.assertNotDeleted();
 
     const deleted = this.with({ deleted: true });

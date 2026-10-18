@@ -54,7 +54,7 @@ export class PushAccess {
     return secretVersion !== this.secretVersion;
   }
 
-  goesOutThrough(egress: EgressReference): boolean {
+  usesEgress(egress: EgressReference): boolean {
     return this.egress?.equals(egress) ?? false;
   }
 }

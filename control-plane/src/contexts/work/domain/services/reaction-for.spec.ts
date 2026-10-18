@@ -157,12 +157,12 @@ describe('ReactionFor.happened', () => {
     });
   });
 
-  it('notes what arrived while a run worked on the task, and where it moves once the run ends', () => {
+  it('notes what arrived while a run was in progress on the task, and where it moves once the run ends', () => {
     const anchor = Anchor.of({ body: 'This retries forever.' });
     const outcome = reaction(handed('station_1'), commented, anchor);
 
     expect(outcome.kind === 'deferredMove' && outcome.body.value).toBe(
-      'This arrived while a run worked on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nThis retries forever.',
+      'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nThis retries forever.',
     );
     expect(outcome.kind === 'deferredMove' && outcome.anchor).toBe(anchor);
   });

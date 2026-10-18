@@ -1,7 +1,7 @@
 import { EgressCreated } from '@runners/domain/events/egress-created.event';
 import { EgressDeleted } from '@runners/domain/events/egress-deleted.event';
 import { EgressUpdated } from '@runners/domain/events/egress-updated.event';
-import { RunnerHostStartedServing } from '@runners/domain/events/runner-host-started-serving.event';
+import { HostReady } from '@runners/domain/events/host-ready.event';
 import { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
 import { RunnerPoolDeleted } from '@runners/domain/events/runner-pool-deleted.event';
 import { RunnerPoolUpdated } from '@runners/domain/events/runner-pool-updated.event';
@@ -82,7 +82,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   EgressCreated,
   EgressUpdated,
   EgressDeleted,
-  RunnerHostStartedServing,
+  HostReady,
   RunnerPoolCreated,
   RunnerPoolUpdated,
   RunnerPoolDeleted,

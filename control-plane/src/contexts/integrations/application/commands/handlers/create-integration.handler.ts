@@ -18,13 +18,13 @@ import type {
   IdempotentCreate,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
-import type { IdempotentRecallsPort } from '@shared-kernel/application/ports/idempotent-recalls.port';
+import type { IdempotentLookupsPort } from '@shared-kernel/application/ports/idempotent-lookups.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import {
-  createdEarlier,
-  createdOnce,
-} from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+  createIdempotently,
+  lookupIdempotentCreate,
+} from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 
 export class CreateIntegrationHandler
@@ -37,7 +37,7 @@ export class CreateIntegrationHandler
     private readonly specs: IntegrationSpecs,
     private readonly definitions: IntegrationDefinitionRepository,
     private readonly creates: IdempotentCreatesPort,
-    private readonly recalls: IdempotentRecallsPort,
+    private readonly lookups: IdempotentLookupsPort,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
   ) {}
@@ -73,7 +73,7 @@ export class CreateIntegrationHandler
           definition: command.definition,
         },
       };
-      const earlier = await createdEarlier(this.recalls, create);
+      const earlier = await lookupIdempotentCreate(this.lookups, create);
 
       if (earlier) {
         return earlier;
@@ -93,13 +93,13 @@ export class CreateIntegrationHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const created = IntegrationDefinition.create({
               ...compiled,
               reading,
               id: IntegrationDefinitionId.of(this.ids.generate()),
               teamId: permissions.teamId,
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
             });
 
             await this.definitions.save(created);
@@ -109,7 +109,7 @@ export class CreateIntegrationHandler
         );
       } catch (error) {
         if (error instanceof IntegrationAlreadyExistsError) {
-          return { outcome: 'taken', address: address.toString() };
+          return { outcome: 'already-exists', address: address.toString() };
         }
 
         throw error;

@@ -122,7 +122,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
             managesSecrets: false,
             managesRunners: false,
             managesTokenTrusts: false,
-            administers: false,
+            isAdmin: false,
           },
     ),
   } as unknown as WorkspaceAccessPort;

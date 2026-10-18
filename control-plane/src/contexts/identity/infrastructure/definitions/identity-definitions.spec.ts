@@ -51,7 +51,7 @@ describe('IdentityDefinitions', () => {
     ).toEqual(['key']);
   });
 
-  it('reads a workspace token as its terms, never expiring and undescribed unless told', () => {
+  it('reads a workspace token as its settings, never expiring and undescribed unless told', () => {
     const compiled = definitions.workspaceToken({
       name: 'ci',
       scopes: ['plan'],
@@ -59,10 +59,10 @@ describe('IdentityDefinitions', () => {
 
     expect(
       compiled.ok && [
-        compiled.terms.name.value,
-        compiled.terms.scopes.toString(),
-        compiled.terms.description.value,
-        compiled.terms.expiresAt,
+        compiled.spec.name.value,
+        compiled.spec.scopes.toString(),
+        compiled.spec.description.value,
+        compiled.spec.expiresAt,
       ],
     ).toEqual(['ci', 'plan', '', null]);
   });
@@ -74,7 +74,7 @@ describe('IdentityDefinitions', () => {
       expiresAt: '2026-12-31T23:59:59Z',
     });
 
-    expect(compiled.ok && compiled.terms.expiresAt?.toISOString()).toBe(
+    expect(compiled.ok && compiled.spec.expiresAt?.toISOString()).toBe(
       '2026-12-31T23:59:59.000Z',
     );
   });

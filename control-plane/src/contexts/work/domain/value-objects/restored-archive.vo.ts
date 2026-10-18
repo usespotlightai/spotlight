@@ -1,30 +1,27 @@
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 export class RestoredArchive {
   private constructor(
     readonly id: WorkspaceArchiveId,
     readonly workspaceId: WorkspaceId,
-    readonly continuity: ContinuityKey,
+    readonly resumeKey: ResumeKey,
   ) {}
 
   static of(
     id: WorkspaceArchiveId,
     workspaceId: WorkspaceId,
-    continuity: ContinuityKey,
+    resumeKey: ResumeKey,
   ): RestoredArchive {
-    return new RestoredArchive(id, workspaceId, continuity);
+    return new RestoredArchive(id, workspaceId, resumeKey);
   }
 
-  restores(
-    workspaceId: WorkspaceId,
-    continuity: ContinuityKey | null,
-  ): boolean {
+  restores(workspaceId: WorkspaceId, resumeKey: ResumeKey | null): boolean {
     return (
-      continuity !== null &&
+      resumeKey !== null &&
       this.workspaceId.equals(workspaceId) &&
-      this.continuity.equals(continuity)
+      this.resumeKey.equals(resumeKey)
     );
   }
 
@@ -32,7 +29,7 @@ export class RestoredArchive {
     return (
       this.id.equals(other.id) &&
       this.workspaceId.equals(other.workspaceId) &&
-      this.continuity.equals(other.continuity)
+      this.resumeKey.equals(other.resumeKey)
     );
   }
 }

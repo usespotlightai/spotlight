@@ -17,7 +17,7 @@ const AT = new Date('2026-10-05T10:00:00.000Z');
 
 const policies = new InMemoryPersonToolPolicies();
 
-const listing = (membership: { administers: boolean } | null) =>
+const listing = (membership: { isAdmin: boolean } | null) =>
   new ListIntegrationConnectionsHandler(
     { onTeam: vi.fn(async () => membership) } as unknown as WorkspaceAccessPort,
     {
@@ -67,7 +67,7 @@ describe('ListIntegrationConnectionsHandler', () => {
       }).set(ToolName.of('linear.comment'), PersonToolRule.of('blocked')),
     );
 
-    expect(await listing({ administers: false }).execute(query())).toEqual({
+    expect(await listing({ isAdmin: false }).execute(query())).toEqual({
       mine: [
         {
           integration: 'linear',
@@ -84,7 +84,7 @@ describe('ListIntegrationConnectionsHandler', () => {
   });
 
   it('shows an admin who has connected what, by name', async () => {
-    const listed = await listing({ administers: true }).execute(query());
+    const listed = await listing({ isAdmin: true }).execute(query());
 
     expect(
       listed?.people?.map((each) => [each.name, each.linkedAccount]),

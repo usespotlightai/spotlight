@@ -7,37 +7,37 @@ import {
   creates,
   definitions,
   LINEAR,
-  recalls,
+  lookups,
   specs,
   TEAM,
   teams,
 } from '@integrations/integrations.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import type { IdempotentClaim } from '@shared-kernel/application/ports/idempotent-creates.port';
-import type { IdempotentRecall } from '@shared-kernel/application/ports/idempotent-recalls.port';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import type { IdempotentReservation } from '@shared-kernel/application/ports/idempotent-creates.port';
+import type { IdempotentLookup } from '@shared-kernel/application/ports/idempotent-lookups.port';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const creating = (
   over: {
-    administers?: boolean;
-    claim?: IdempotentClaim;
-    recall?: IdempotentRecall;
+    isAdmin?: boolean;
+    reservation?: IdempotentReservation;
+    lookup?: IdempotentLookup;
     failing?: Error;
   } = {},
 ) => {
   const repository = definitions({ failing: over.failing });
-  const keys = creates(over.claim);
+  const keys = creates(over.reservation);
   const within: string[] = [];
   let open = false;
   const handler = new CreateIntegrationHandler(
-    access(over.administers),
+    access(over.isAdmin),
     teams(),
     specs,
     repository,
     keys,
-    recalls(over.recall),
+    lookups(over.lookup),
     { generate: () => 'integration_new' },
     {
       inTransaction: async (work) => {
@@ -53,9 +53,9 @@ const creating = (
 
   const noted = (name: string) => within.push(open ? name : `${name} outside`);
 
-  keys.claim.mockImplementation(async () => {
-    noted('claim');
-    return over.claim ?? { kind: 'fresh' };
+  keys.reserve.mockImplementation(async () => {
+    noted('reserve');
+    return over.reservation ?? { kind: 'new' };
   });
   repository.save.mockImplementation(async () => {
     noted('save');
@@ -64,8 +64,8 @@ const creating = (
       throw over.failing;
     }
   });
-  keys.created.mockImplementation(async () => {
-    noted('created');
+  keys.recordCreated.mockImplementation(async () => {
+    noted('recordCreated');
   });
 
   return {
@@ -89,12 +89,12 @@ describe('CreateIntegrationHandler', () => {
     vi.restoreAllMocks();
   });
 
-  it('claims the key, creates, and records what the key created in one transaction', async () => {
+  it('reserves the key, creates, and records what the key created in one transaction', async () => {
     const { create, within } = creating();
 
     await create(LINEAR);
 
-    expect(within).toEqual(['claim', 'save', 'created']);
+    expect(within).toEqual(['reserve', 'save', 'recordCreated']);
   });
 
   it('creates the integration under an id it issues, and records what the key created', async () => {
@@ -110,7 +110,7 @@ describe('CreateIntegrationHandler', () => {
 
     expect(saved.isNew).toBe(true);
     expect(saved.teamId).toEqual(TEAM);
-    expect(keys.created).toHaveBeenCalledWith(
+    expect(keys.recordCreated).toHaveBeenCalledWith(
       expect.objectContaining({ by: 'person:user_1' }),
       'integration_new',
     );
@@ -118,7 +118,7 @@ describe('CreateIntegrationHandler', () => {
 
   it('answers a retry with what the key created, creating nothing more', async () => {
     const { create, repository } = creating({
-      claim: { kind: 'replay', createdId: 'integration_first' },
+      reservation: { kind: 'already-created', createdId: 'integration_first' },
     });
 
     expect(await create(LINEAR)).toEqual({
@@ -132,7 +132,7 @@ describe('CreateIntegrationHandler', () => {
   it('answers a retry the key already created from what it created, reading nothing again', async () => {
     const reading = vi.spyOn(specs, 'compiled');
     const { create, repository, keys } = creating({
-      recall: { kind: 'replay', createdId: 'integration_first' },
+      lookup: { kind: 'already-created', createdId: 'integration_first' },
     });
 
     expect(await create(LINEAR)).toEqual({
@@ -141,26 +141,28 @@ describe('CreateIntegrationHandler', () => {
       replayed: true,
     });
     expect(reading).not.toHaveBeenCalled();
-    expect(keys.claim).not.toHaveBeenCalled();
+    expect(keys.reserve).not.toHaveBeenCalled();
     expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('rejects a key already used for a different request before reading anything', async () => {
     const reading = vi.spyOn(specs, 'compiled');
     const { create, repository, keys } = creating({
-      recall: { kind: 'reused' },
+      lookup: { kind: 'key-reused' },
     });
 
-    expect(await create(LINEAR)).toEqual({ outcome: 'key-reused' });
+    expect(await create(LINEAR)).toEqual({ outcome: 'idempotency-key-reused' });
     expect(reading).not.toHaveBeenCalled();
-    expect(keys.claim).not.toHaveBeenCalled();
+    expect(keys.reserve).not.toHaveBeenCalled();
     expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('rejects a key used for a different request', async () => {
-    const { create, repository } = creating({ claim: { kind: 'reused' } });
+    const { create, repository } = creating({
+      reservation: { kind: 'key-reused' },
+    });
 
-    expect(await create(LINEAR)).toEqual({ outcome: 'key-reused' });
+    expect(await create(LINEAR)).toEqual({ outcome: 'idempotency-key-reused' });
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -170,10 +172,10 @@ describe('CreateIntegrationHandler', () => {
     });
 
     expect(await create(LINEAR)).toEqual({
-      outcome: 'taken',
+      outcome: 'already-exists',
       address: 'core/linear',
     });
-    expect(keys.created).not.toHaveBeenCalled();
+    expect(keys.recordCreated).not.toHaveBeenCalled();
   });
 
   it('says what is wrong with one that will not compile, and stores nothing', async () => {
@@ -184,11 +186,11 @@ describe('CreateIntegrationHandler', () => {
       problems: [{ field: FieldPath.dotted('actions.comment.request.url') }],
     });
     expect(repository.save).not.toHaveBeenCalled();
-    expect(keys.claim).not.toHaveBeenCalled();
+    expect(keys.reserve).not.toHaveBeenCalled();
   });
 
   it('forbids someone on the team who does not administer it', async () => {
-    const { create, repository } = creating({ administers: false });
+    const { create, repository } = creating({ isAdmin: false });
 
     expect(await create(LINEAR)).toEqual(forbiddenTo('configure'));
     expect(repository.save).not.toHaveBeenCalled();

@@ -18,14 +18,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -114,13 +114,13 @@ export class WorkspaceTokenTrustResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<
         CreateWorkspaceTokenTrustCommand,
         ResourceCreated | null
       >(new CreateWorkspaceTokenTrustCommand(workspaceId, actor, key, body)),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -133,7 +133,7 @@ export class WorkspaceTokenTrustResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @WorkspaceTokenTrustResource.Update(
@@ -148,13 +148,13 @@ export class WorkspaceTokenTrustResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateWorkspaceTokenTrustCommand,
         ResourceUpdated | null
       >(new UpdateWorkspaceTokenTrustCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
@@ -168,7 +168,7 @@ export class WorkspaceTokenTrustResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteWorkspaceTokenTrustCommand,
@@ -187,7 +187,7 @@ export class WorkspaceTokenTrustResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ImportWorkspaceTokenTrustQuery,
@@ -212,7 +212,7 @@ export class WorkspaceTokenTrustResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<WorkspaceTokenTrustResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListWorkspaceTokenTrustResourcesQuery,
         readonly WorkspaceTokenTrustResourceDto[] | null
@@ -221,11 +221,11 @@ export class WorkspaceTokenTrustResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ReadWorkspaceTokenTrustQuery,

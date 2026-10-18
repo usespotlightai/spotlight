@@ -1,7 +1,7 @@
 import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { RunOutcomeShape } from '@work/application/ports/run-outcomes.port';
-import type { SightedBlock } from '@work/application/ports/search-sight.port';
+import type { VisibleBlock } from '@work/application/ports/search-visibility.port';
 import type { FileChange } from '@work/application/read-models/file-changes-of';
 
 export interface HistoryUsage {
@@ -56,7 +56,7 @@ export interface HistoryCandidateDto {
   readonly candidateName: string;
   readonly fingerprint: string;
   readonly hypothesis: string;
-  readonly block: SightedBlock;
+  readonly block: VisibleBlock;
   readonly runs: readonly HistoryCandidateRunDto[];
 }
 
@@ -69,7 +69,7 @@ export interface RunnerHistoryDto {
   }[];
   readonly runs: readonly HistoryRunDto[];
   readonly candidates: readonly HistoryCandidateDto[];
-  readonly seedBlock: SightedBlock | null;
+  readonly seedBlock: VisibleBlock | null;
 }
 
 export type RunnerHistoryAnswer =

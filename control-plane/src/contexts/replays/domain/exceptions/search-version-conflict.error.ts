@@ -1,5 +1,5 @@
 export class SearchVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(searchId: string) {
     super(

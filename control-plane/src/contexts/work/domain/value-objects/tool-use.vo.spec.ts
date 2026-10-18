@@ -27,7 +27,7 @@ describe('ToolUse', () => {
   it('rejects more failed calls than calls, or more timed calls than calls', () => {
     expect(() =>
       ToolUse.of({ servers: [{ ...linear, failed: 3 }], skills: [] }),
-    ).toThrowError(expect.objectContaining({ violation: 'invalid' }));
+    ).toThrowError(expect.objectContaining({ kind: 'invalid' }));
     expect(() =>
       ToolUse.of({
         servers: [
@@ -35,7 +35,7 @@ describe('ToolUse', () => {
         ],
         skills: [],
       }),
-    ).toThrowError(expect.objectContaining({ violation: 'invalid' }));
+    ).toThrowError(expect.objectContaining({ kind: 'invalid' }));
   });
 
   it('rejects an untimed call that is not counted as failed', () => {
@@ -51,13 +51,13 @@ describe('ToolUse', () => {
         ],
         skills: [],
       }),
-    ).toThrowError(expect.objectContaining({ violation: 'invalid' }));
+    ).toThrowError(expect.objectContaining({ kind: 'invalid' }));
   });
 
   it('rejects a server broken by a call that never failed', () => {
     expect(() =>
       ToolUse.of({ servers: [{ ...linear, failed: 0 }], skills: [] }),
-    ).toThrowError(expect.objectContaining({ violation: 'invalid' }));
+    ).toThrowError(expect.objectContaining({ kind: 'invalid' }));
   });
 
   it('rejects counting one server twice', () => {

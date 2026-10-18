@@ -1,4 +1,4 @@
-import type { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 
 const BRANCH = 'spotlight-configuration';
 
@@ -10,13 +10,13 @@ export const SettingUp = {
     ].join(' ');
   },
 
-  section(home: ConfigHome, workspaceId: string): string {
-    const folder = `${home.repository.name}/${home.folder}`;
+  section(configFolder: ConfigFolder, workspaceId: string): string {
+    const folder = `${configFolder.repository.name}/${configFolder.folder}`;
     const exported = `"$SPOTLIGHT_URL/api/resources/workspaces/${workspaceId}/export"`;
 
     return [
       '## Setting up configuration as code',
-      `The configuration lives in \`${home.repository.value}\`, under \`${home.folder}/\`. It is checked out at \`${folder}/\`.`,
+      `The configuration lives in \`${configFolder.repository.value}\`, under \`${configFolder.folder}/\`. It is checked out at \`${folder}/\`.`,
       [
         '### 1. Survey the repositories',
         'Read each checked-out repository and note, with the files you found them in:',

@@ -12,7 +12,7 @@ import type { StationUses } from '@configuration/domain/value-objects/station-us
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -51,7 +51,7 @@ export class SkillDefinition extends EventRecorder {
     input: ParsedSkill & {
       id: SkillDefinitionId;
       teamId: TeamId;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): SkillDefinition {
     guardDefinedHere(input);
@@ -94,7 +94,7 @@ export class SkillDefinition extends EventRecorder {
     }
   }
 
-  update(parsed: ParsedSkill, by: Attribution): SkillDefinition {
+  update(parsed: ParsedSkill, by: ChangeActor): SkillDefinition {
     this.guardLive();
     guardDefinedHere(parsed);
 
@@ -122,7 +122,7 @@ export class SkillDefinition extends EventRecorder {
     return updated;
   }
 
-  delete(uses: StationUses, by: Attribution): SkillDefinition {
+  delete(uses: StationUses, by: ChangeActor): SkillDefinition {
     this.guardLive();
 
     const using = uses.of(this.key);
@@ -138,7 +138,7 @@ export class SkillDefinition extends EventRecorder {
     return deleted;
   }
 
-  cascadeDelete(by: Attribution): SkillDefinition {
+  cascadeDelete(by: ChangeActor): SkillDefinition {
     this.guardLive();
 
     const deleted = this.with({ deleted: true });
@@ -176,7 +176,7 @@ export class SkillDefinition extends EventRecorder {
     return this.state.deleted;
   }
 
-  private deletedBy(by: Attribution): SkillDeleted {
+  private deletedBy(by: ChangeActor): SkillDeleted {
     return new SkillDeleted(
       this.id,
       this.teamId,

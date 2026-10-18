@@ -1,7 +1,7 @@
 import type { Dependents } from '@identity/domain/value-objects/dependents.vo';
 
 export class WorkspaceInUseError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(slug: string, dependents: Dependents) {
     super(

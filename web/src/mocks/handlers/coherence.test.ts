@@ -11,8 +11,8 @@ import {
   listTeamRuns,
   readInsightsStations,
   readReplay,
-  readRunConversation,
   readRunMemories,
+  readRunNotes,
   readRunReview,
   readRunScores,
   readSearch,
@@ -113,9 +113,7 @@ describe('one run history across the mock', () => {
   it('answers the conversation of every run in the team runs list', async () => {
     const runs = await teamRuns();
     const answers = await Promise.all(
-      runs.map((run) =>
-        readRunConversation({ path: { teamId, runId: run.id } }),
-      ),
+      runs.map((run) => readRunNotes({ path: { teamId, runId: run.id } })),
     );
 
     expect(runs.length).toBeGreaterThan(500);
@@ -277,7 +275,7 @@ describe('the task journal and the run conversations tell one story', () => {
     const item = inbox.find(
       (each) => each.kind === 'task' && each.id === 'task_retries:0',
     );
-    const { data: run } = await readRunConversation({
+    const { data: run } = await readRunNotes({
       path: { teamId, runId: 'run_retries_2' },
       throwOnError: true,
     });
@@ -322,7 +320,7 @@ describe('the task journal and the run conversations tell one story', () => {
   });
 
   it('prices a run the same in its conversation, its journal and Insights', async () => {
-    const { data: run } = await readRunConversation({
+    const { data: run } = await readRunNotes({
       path: { teamId, runId: 'run_postgres_2' },
       throwOnError: true,
     });

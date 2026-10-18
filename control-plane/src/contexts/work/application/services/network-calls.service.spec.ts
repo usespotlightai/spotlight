@@ -4,7 +4,7 @@ import type { NetworkCall } from '@work/domain/aggregates/network-call.aggregate
 import { UnknownNetworkCallError } from '@work/domain/exceptions/unknown-network-call.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
-import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
+import { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
@@ -21,7 +21,7 @@ const REQUEST = {
 
 const calling = (
   answerAfter: number | null = null,
-  answer = NetworkAnswer.of({
+  response = NetworkResponse.of({
     status: 200,
     body: new TextEncoder().encode('{"deny":"not today"}'),
     ms: 84,
@@ -49,7 +49,9 @@ const calling = (
         now.getTime() - NOW.getTime() >= answerAfter &&
         stored.stateAt(now) === 'waiting'
       ) {
-        stored = stored.claimedBy(HOST, now).answerWith(HOST, answer, now);
+        stored = stored
+          .claimedBy(HOST, now)
+          .recordResponse(HOST, response, now);
       }
       return stored;
     },
@@ -84,7 +86,7 @@ describe('NetworkCalls', () => {
     expect(await calls.stateOf('call_1')).toEqual({ kind: 'waiting' });
   });
 
-  it('waits for the answer, reading the call every quarter second', async () => {
+  it('waits for the response, reading the call every quarter second', async () => {
     const { calls, reads } = calling(1_000);
     await calls.queue('ws_1', REQUEST, later(15_000));
 
@@ -92,7 +94,7 @@ describe('NetworkCalls', () => {
 
     expect(state).toEqual({
       kind: 'answered',
-      answer: {
+      response: {
         status: 200,
         headers: {},
         body: new TextEncoder().encode('{"deny":"not today"}'),

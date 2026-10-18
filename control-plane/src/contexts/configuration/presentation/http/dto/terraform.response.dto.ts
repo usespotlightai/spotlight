@@ -25,7 +25,7 @@ export class WorkspaceTerraformResponseDto {
     type: TerraformFileResponseDto,
     isArray: true,
     description:
-      'main.tf, with an import block beside each resource and references between them; variables.tf, declaring a sensitive variable for each value Spotlight never answers (secret values, runner tokens); and every prompt and skill file main.tf reads with file(), byte for byte; ordered by path',
+      'main.tf, with an import block beside each resource and references between them; variables.tf, declaring a sensitive variable for each value Spotlight never returns (secret values, runner tokens); and every prompt and skill file main.tf reads with file(), byte for byte; ordered by path',
   })
   readonly files: readonly TerraformFileResponseDto[];
 

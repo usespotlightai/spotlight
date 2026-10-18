@@ -41,7 +41,7 @@ export class GrantWorkspaceArchiveHandler
       const archive = WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of(this.ids.generate()),
         workspaceId: run.workspaceId,
-        continuity: run.continuity,
+        resumeKey: run.resumeKey,
         holder: run.archiveHolder,
         run: run.id,
         size: ArchiveSize.of(command.size),

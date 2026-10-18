@@ -76,7 +76,7 @@ export class PoolProvisionResponseDto {
     nullable: true,
     example: 1,
     description:
-      'Changed to rotate provision.secret, which is write-only and never answered',
+      'Changed to rotate provision.secret, which is write-only and never returned',
   })
   readonly secretVersion: number | null;
 
@@ -144,7 +144,7 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
     nullable: true,
     example: 1,
     description:
-      'Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never answered',
+      'Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never returned',
   })
   readonly tokenVersion: number | null;
 
@@ -224,7 +224,7 @@ export class EgressResourceResponseDto extends ResourceResponseDto {
     nullable: true,
     example: 1,
     description:
-      'Changed, with a new token, to rotate the egress token, which is write-only and never answered',
+      'Changed, with a new token, to rotate the egress token, which is write-only and never returned',
   })
   readonly tokenVersion: number | null;
 

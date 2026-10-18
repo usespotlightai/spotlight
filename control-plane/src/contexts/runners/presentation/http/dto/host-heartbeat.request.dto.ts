@@ -86,7 +86,7 @@ export class HostHeartbeatRequestDto {
     type: [HostImageRequestDto],
     isArray: true,
     description:
-      'The runner images it serves or cannot use, each with what it found inside',
+      'The runner images it supports or cannot use, each with what it found inside',
   })
   readonly images?: HostImageRequestDto[];
 }

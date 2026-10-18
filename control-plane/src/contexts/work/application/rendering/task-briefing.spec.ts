@@ -26,11 +26,13 @@ import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -38,8 +40,6 @@ import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
@@ -58,8 +58,8 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
       TaskNote.of({ ...each, position: NotePosition.of(at) }),
     ),
     createdAt: task.createdAt,
-    raisedAt: task.raisedAt,
-    raisedBy: task.raisedBy,
+    originStationId: task.originStationId,
+    createdBy: task.createdBy,
     openedFrom: task.openedFrom,
     pullRequestLink: task.pullRequestLink,
     finishedAt: task.finishedAt,
@@ -82,7 +82,10 @@ const at = (
     color: StationColor.of('#93a1b5'),
     harness: HarnessId.of('dev'),
     agentPrompt: prompt,
-    wayOut: WayOut.of({ stations: passesTo.map(StationId.of), ends: finishes }),
+    routes: StationRoutes.of({
+      stations: passesTo.map(StationId.of),
+      ends: finishes,
+    }),
   });
 
 const triage = () => at('station_1', 'Triage', 0, undefined, ['station_2']);
@@ -109,7 +112,7 @@ const atPlace = (station: Station, position: number) =>
     agentPrompt: station.agentPrompt,
     kind: station.kind,
     decisions: station.decisions,
-    wayOut: station.wayOut,
+    routes: station.routes,
     tools: station.tools,
     skills: station.skills,
   });
@@ -135,7 +138,7 @@ const task = (stationId: string, description?: TaskDescription) =>
     title: TaskTitle.of('Fix the queue'),
     description,
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-08-28T09:15:00.000Z'),
     newId: () => 'task_1',
   });
@@ -158,14 +161,14 @@ const builtIn = [
 
 const brief = (
   station: Station,
-  worked?: Task,
+  noted?: Task,
   decisions: readonly BriefedDecision[] = [],
   memories: readonly BriefedMemory[] = [],
   memoryFolder: MemoryFolder | null = null,
   tools: readonly DeclaredTool[] = [],
 ) =>
   TaskBriefing.brief({
-    task: (worked ?? task(station.id.value)).briefed.withDecisions(decisions),
+    task: (noted ?? task(station.id.value)).briefed.withDecisions(decisions),
     line: lineOf(station, at('station_2', 'Spec', 1)),
     skills: builtIn,
     listedIn: null,
@@ -215,7 +218,10 @@ describe('TaskBriefing', () => {
       color: StationColor.of('#93a1b5'),
       harness: HarnessId.of('dev'),
       decisions: true,
-      wayOut: WayOut.of({ stations: [StationId.of('station_2')], ends: false }),
+      routes: StationRoutes.of({
+        stations: [StationId.of('station_2')],
+        ends: false,
+      }),
     });
 
     const briefing = brief(deciding);
@@ -237,7 +243,7 @@ describe('TaskBriefing', () => {
   });
 
   it('carries forward what earlier stations left behind', () => {
-    const worked = withNotes(
+    const noted = withNotes(
       task('station_1'),
 
       TaskNote.of({
@@ -250,7 +256,7 @@ describe('TaskBriefing', () => {
       }),
     );
 
-    expect(brief(triage(), worked)).toContain(
+    expect(brief(triage(), noted)).toContain(
       '## Already done\n\n### Triage\n\nReproduced on restart.',
     );
   });
@@ -269,14 +275,14 @@ describe('TaskBriefing', () => {
       size: 3 * 1024 * 1024,
     });
 
-    const worked = withNotes(
+    const noted = withNotes(
       Task.add({
         line: lineOf(triage(), at('station_2', 'Spec', 1)),
         at: StationId.of('station_1'),
         title: TaskTitle.of('Fix the queue'),
         attachments: [queue],
         rank: TaskRank.of('i'),
-        raisedBy: UserId.of('user_1'),
+        createdBy: UserId.of('user_1'),
         now: new Date('2026-08-28T09:15:00.000Z'),
         newId: () => 'task_1',
       }),
@@ -291,7 +297,7 @@ describe('TaskBriefing', () => {
       }),
     );
 
-    const briefing = brief(triage(), worked);
+    const briefing = brief(triage(), noted);
 
     expect(briefing).toContain(
       '## Fix the queue\n\nAttached, in the workspace:\n- `.spotlight/attachments/file_1/queue.png` (image/png, 2 KB)',
@@ -563,13 +569,13 @@ describe('TaskBriefing', () => {
     const inBoth = () =>
       lineOf(triage(), at('station_2', 'Spec', 1)).worksIn(
         ['acme/api', 'acme/web'].map((name) =>
-          WorkedRepository.of(Repository.of(name)),
+          LineRepositoryConfig.of(Repository.of(name)),
         ),
       );
 
-    const briefed = (worked: Task) =>
+    const briefed = (noted: Task) =>
       TaskBriefing.brief({
-        task: worked.briefed,
+        task: noted.briefed,
         line: inBoth(),
         skills: builtIn,
         listedIn: null,

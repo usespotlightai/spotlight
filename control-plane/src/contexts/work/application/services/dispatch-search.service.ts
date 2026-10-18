@@ -104,7 +104,11 @@ export class DispatchSearch implements SearchDispatchPort {
       const stationId = StationId.of(order.stationId);
       const line = await this.lines.find(LineId.of(order.lineId));
 
-      if (!line || line.isDeleted || !line.stationAt(stationId)?.isWorked) {
+      if (
+        !line ||
+        line.isDeleted ||
+        !line.stationAt(stationId)?.isAgentStation
+      ) {
         return unstartable('the line no longer has the station it searches');
       }
 
@@ -139,7 +143,7 @@ export class DispatchSearch implements SearchDispatchPort {
             }),
             briefing: order.briefing,
             handover: { options: [], noteLimit: 0 },
-            continuity: { key: `search-${id.value}` },
+            resume: { key: `search-${id.value}` },
             search: {},
           }),
         }),

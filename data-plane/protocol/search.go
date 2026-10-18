@@ -45,7 +45,7 @@ type CauseRecord struct {
 	Suggestion string `json:"suggestion,omitempty"`
 }
 
-type RecordedCause struct {
+type RecordCauseResponse struct {
 	TaskID      string `json:"taskId"`
 	Cause       string `json:"cause"`
 	ReplayRunID string `json:"replayRunId"`

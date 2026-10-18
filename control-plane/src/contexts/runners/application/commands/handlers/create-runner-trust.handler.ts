@@ -17,8 +17,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -49,7 +49,7 @@ export class CreateRunnerTrustHandler
       }
 
       if (!permissions.managesRunners) {
-        return forbiddenTo('manage-runners');
+        return forbiddenTo('runners');
       }
 
       const compiled = this.definitions.trust(command.definition);
@@ -70,11 +70,11 @@ export class CreateRunnerTrustHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const trust = RunnerTrust.create({
               id: RunnerTrustId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
               key: compiled.key,
               workload: compiled.workload,
               labels: compiled.labels,
@@ -87,7 +87,7 @@ export class CreateRunnerTrustHandler
         );
       } catch (error) {
         if (error instanceof RunnerTrustAlreadyExistsError) {
-          return { outcome: 'taken', address: compiled.key.value };
+          return { outcome: 'already-exists', address: compiled.key.value };
         }
 
         throw error;

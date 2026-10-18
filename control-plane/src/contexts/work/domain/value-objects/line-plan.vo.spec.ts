@@ -9,6 +9,7 @@ import {
   LinePlan,
   type StationPlan,
 } from '@work/domain/value-objects/line-plan.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -16,7 +17,6 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const MERGED = Happening.of('github.pull_request.merged');
@@ -67,8 +67,8 @@ const plan = (over: Partial<Parameters<typeof LinePlan.of>[0]> = {}) =>
     ...over,
   });
 
-const worked = (name: string, setup?: string) =>
-  WorkedRepository.of(Repository.of(name), {
+const repositoryConfig = (name: string, setup?: string) =>
+  LineRepositoryConfig.of(Repository.of(name), {
     setup: setup ? RepositorySetup.of(setup) : null,
   });
 
@@ -109,7 +109,7 @@ describe('LinePlan', () => {
         },
       ],
       repositories: [
-        WorkedRepository.of(Repository.of('acme/api'), {
+        LineRepositoryConfig.of(Repository.of('acme/api'), {
           image: RunnerImage.of('ghcr.io/acme/api:1'),
         }),
       ],
@@ -359,7 +359,7 @@ describe('LinePlan', () => {
   });
 
   it('rejects repositories it could not work in', () => {
-    const repository = WorkedRepository.of(Repository.of('acme/api'));
+    const repository = LineRepositoryConfig.of(Repository.of('acme/api'));
     const error = errorOf(() =>
       plan({ repositories: [repository, repository] }),
     );
@@ -371,10 +371,10 @@ describe('LinePlan', () => {
     const error = errorOf(() =>
       plan({
         repositories: [
-          WorkedRepository.of(Repository.of('acme/api'), {
+          LineRepositoryConfig.of(Repository.of('acme/api'), {
             image: RunnerImage.of('ghcr.io/acme/api:1'),
           }),
-          WorkedRepository.of(Repository.of('acme/web'), {
+          LineRepositoryConfig.of(Repository.of('acme/web'), {
             image: RunnerImage.of('ghcr.io/acme/web:1'),
           }),
         ],
@@ -388,7 +388,10 @@ describe('LinePlan', () => {
     const error = errorOf(() =>
       plan({
         stations: withStations(checking()),
-        repositories: [worked('acme/api', 'npm ci'), worked('acme/web')],
+        repositories: [
+          repositoryConfig('acme/api', 'npm ci'),
+          repositoryConfig('acme/web'),
+        ],
       }),
     );
 
@@ -404,7 +407,10 @@ describe('LinePlan', () => {
   it('accepts a station checking its layers once every repository says how its checkout is made ready', () => {
     const parsed = plan({
       stations: withStations(checking()),
-      repositories: [worked('acme/api', 'npm ci'), worked('acme/web', 'make')],
+      repositories: [
+        repositoryConfig('acme/api', 'npm ci'),
+        repositoryConfig('acme/web', 'make'),
+      ],
     });
 
     expect(parsed.repositories.setupOf(Repository.of('acme/web'))?.value).toBe(
@@ -416,13 +422,13 @@ describe('LinePlan', () => {
     expect(() =>
       plan({
         stations: withStations(checking({ diffs: false })),
-        repositories: [worked('acme/api')],
+        repositories: [repositoryConfig('acme/api')],
       }),
     ).not.toThrow();
     expect(() =>
       plan({
         stations: withStations(checking({ check: null })),
-        repositories: [worked('acme/api')],
+        repositories: [repositoryConfig('acme/api')],
       }),
     ).not.toThrow();
   });

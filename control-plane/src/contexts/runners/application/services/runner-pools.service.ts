@@ -10,11 +10,11 @@ import type {
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 
 const PLATFORM = 'spotlight';
 
-const goesOut = (egress: string | null, platform: boolean): boolean =>
+const usesEgress = (egress: string | null, platform: boolean): boolean =>
   egress !== null && (egress !== PLATFORM || platform);
 
 export class RunnerPools implements RunnerPoolsPort {
@@ -49,8 +49,8 @@ export class RunnerPools implements RunnerPoolsPort {
           poolId: pool.id.value,
           workspaceId: pool.workspaceId,
           key: pool.key.value,
-          labels: RunnerTerms.of(pool.labels.values),
-          egress: goesOut(pool.egress?.value ?? null, this.platform),
+          labels: RunnerOffer.of(pool.labels.values),
+          egress: usesEgress(pool.egress?.value ?? null, this.platform),
         }
       : null;
   }
@@ -79,8 +79,8 @@ export class RunnerPools implements RunnerPoolsPort {
       poolId: pool.id,
       workspaceId: pool.workspaceId,
       key: pool.key,
-      labels: RunnerTerms.of(pool.labels),
-      egress: goesOut(pool.provision?.egress ?? null, this.platform),
+      labels: RunnerOffer.of(pool.labels),
+      egress: usesEgress(pool.provision?.egress ?? null, this.platform),
     };
   }
 }

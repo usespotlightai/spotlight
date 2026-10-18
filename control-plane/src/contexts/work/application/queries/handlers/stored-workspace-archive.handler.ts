@@ -62,7 +62,7 @@ export class StoredWorkspaceArchiveHandler
     const restoresFrom = run.restoresFrom;
 
     return restoresFrom
-      ? this.archives.newestSealed(run.workspaceId, restoresFrom)
+      ? this.archives.newestCompleted(run.workspaceId, restoresFrom)
       : null;
   }
 }

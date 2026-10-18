@@ -801,7 +801,7 @@ const secret = (
         ? [
             variable(
               value,
-              `The value of the secret ${resource.name}, which Spotlight stores and never answers`,
+              `The value of the secret ${resource.name}, which Spotlight stores and never returns`,
               false,
             ),
           ]

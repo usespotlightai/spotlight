@@ -57,7 +57,7 @@ type Pool interface {
 	Requirements(ctx context.Context) (protocol.HostRequirements, error)
 	Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Assignment, error)
 	ClaimCall(ctx context.Context) (*protocol.HostCall, error)
-	AnswerCall(ctx context.Context, id string, answer protocol.HostCallAnswer) error
+	RecordCallResponse(ctx context.Context, id string, response protocol.HostCallResponse) error
 	Heartbeat(ctx context.Context, heartbeat protocol.HostHeartbeat) (protocol.HeartbeatResponse, error)
 	Deregister(ctx context.Context) error
 	ForRun(assignment protocol.Assignment) (RunClient, error)
@@ -67,8 +67,8 @@ type RunClient interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error)
 	RecordImage(ctx context.Context, runID, image string) error
-	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error)
-	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackChecked) error
+	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error)
+	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult) error
 }
 
 type Registry interface {
@@ -113,7 +113,7 @@ type Host struct {
 	slots            chan struct{}
 	loops            sync.WaitGroup
 	sandboxes        sync.WaitGroup
-	answering        sync.WaitGroup
+	responding       sync.WaitGroup
 	refreshes        sync.WaitGroup
 	workspace        string
 	containerRuntime string
@@ -210,7 +210,7 @@ func (h *Host) Serve(ctx context.Context) error {
 	reporting.Wait()
 	h.loops.Wait()
 	h.sandboxes.Wait()
-	h.answering.Wait()
+	h.responding.Wait()
 	h.refreshes.Wait()
 
 	deregistering, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
@@ -465,7 +465,7 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		return
 	}
 
-	mounts := h.borrow(ctx, assignment, log)
+	mounts := h.mountMirrors(ctx, assignment, log)
 	if ctx.Err() != nil {
 		log.Info("the host is stopping, so the work is left to be claimed again")
 		return
@@ -476,10 +476,10 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 
 	sandboxEnv, keys := standInsFor(h.opts.SandboxEnv)
 
-	way, err := h.egress(starting, assignment, keys, log)
-	defer way.close()
+	sidecar, err := h.egress(starting, assignment, keys, log)
+	defer sidecar.close()
 	if err != nil {
-		log.Warn("failed the work: its way out did not start", "error", err)
+		log.Warn("failed the work: its egress sidecar did not start", "error", err)
 		h.reported(err, assignment)
 		h.failWork(ctx, assignment, client, fmt.Sprintf("The sandbox's egress didn't start. Error: %v", err), log)
 		return
@@ -490,7 +490,7 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		return
 	}
 
-	env := append(sandboxEnv, way.env()...)
+	env := append(sandboxEnv, sidecar.env()...)
 	env = append(env,
 		"SPOTLIGHT_URL="+h.opts.SandboxURL,
 		"SPOTLIGHT_ASSIGNMENT_FILE="+AssignmentPath,
@@ -506,8 +506,8 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		Env:     env,
 		Labels:  map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID},
 		Mounts:  mounts,
-		Files:   append([]sandbox.File{{Path: AssignmentPath, Mode: 0o400, Body: body}}, way.files()...),
-		Network: way.network,
+		Files:   append([]sandbox.File{{Path: AssignmentPath, Mode: 0o400, Body: body}}, sidecar.files()...),
+		Network: sidecar.network,
 	})
 	defer h.destroy(id)
 	h.started(image, err == nil)
@@ -689,7 +689,7 @@ func (h *Host) renewingLease(
 	return release, stopped.Load
 }
 
-func renewal(work protocol.Claimed, client RunClient) func(context.Context) (bool, error) {
+func renewal(work protocol.ClaimResponse, client RunClient) func(context.Context) (bool, error) {
 	switch {
 	case work.Run != nil:
 		return func(ctx context.Context) (bool, error) {
@@ -728,9 +728,9 @@ func (h *Host) failWork(ctx context.Context, assignment protocol.Assignment, cli
 	var err error
 	switch work := assignment.Work; {
 	case work.Run != nil:
-		_, err = client.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, Unprepared: true, Message: reason})
+		_, err = client.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, SetupFailed: true, Message: reason})
 	case work.Check != nil:
-		err = client.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, work.Check.Recheck, protocol.StackChecked{
+		err = client.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, work.Check.Recheck, protocol.StackCheckResult{
 			Skipped: &protocol.SkippedCheck{Code: protocol.SkipNoImage, Detail: reason},
 		})
 	}
@@ -750,29 +750,29 @@ func (h *Host) waited(ctx context.Context, id string, log *slog.Logger) int {
 			return code
 		}
 
-		log.Warn("lost sight of the sandbox, waiting on it again", "error", err)
+		log.Warn("lost track of the sandbox, waiting on it again", "error", err)
 		if !sleep(ctx, retryFloor) {
 			return code
 		}
 	}
 }
 
-func (h *Host) borrow(ctx context.Context, assignment protocol.Assignment, log *slog.Logger) []sandbox.Mount {
+func (h *Host) mountMirrors(ctx context.Context, assignment protocol.Assignment, log *slog.Logger) []sandbox.Mount {
 	if h.mirrors == nil || h.workspace == "" {
 		return nil
 	}
 
-	runID, repositories := worked(assignment.Work)
+	runID, repositories := proxiedRepositories(assignment.Work)
 
 	budget, cancel := context.WithTimeout(ctx, mirrorWait)
 	defer cancel()
 
-	type borrowed struct{ repository, dir string }
-	found := make(chan borrowed, len(repositories))
+	type mirrorDir struct{ repository, dir string }
+	found := make(chan mirrorDir, len(repositories))
 	for _, repository := range repositories {
 		go func() {
 			dir, _ := h.mirrored(ctx, budget, runID, repository, assignment.Token, log)
-			found <- borrowed{repository, dir}
+			found <- mirrorDir{repository, dir}
 		}()
 	}
 
@@ -827,12 +827,12 @@ func (h *Host) mirrored(ctx, budget context.Context, runID, repository, token st
 	return "", false
 }
 
-func worked(work protocol.Claimed) (string, []string) {
+func proxiedRepositories(work protocol.ClaimResponse) (string, []string) {
 	switch {
 	case work.Run != nil:
 		var repositories []string
 		for _, checkout := range work.Run.Spec.Checkouts {
-			if checkout.Remote == protocol.ThroughSpotlight {
+			if checkout.Remote == protocol.RemoteViaGitProxy {
 				repositories = append(repositories, checkout.Path)
 			}
 		}

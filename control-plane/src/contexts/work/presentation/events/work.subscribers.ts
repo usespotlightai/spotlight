@@ -4,17 +4,17 @@ import type {
   RunLeaseDto,
 } from '@secrets/application/ports/run-grants.port';
 import {
+  HOST_READY,
+  type HostReadyIntegrationEvent,
+} from '@shared-kernel/application/integration-events/host-ready.integration-event';
+import {
   INTEGRATION_CONNECTED,
   type IntegrationConnectedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/integration-connected.integration-event';
 import {
-  RUNNER_HOST_STARTED_SERVING,
-  type RunnerHostStartedServingIntegrationEvent,
-} from '@shared-kernel/application/integration-events/runner-host-started-serving.integration-event';
-import {
-  RUNNER_WAY_IN_OPENED,
-  type RunnerWayInOpenedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/runner-way-in-opened.integration-event';
+  RUNNER_ACCESS_DEFINED,
+  type RunnerAccessDefinedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/runner-access-defined.integration-event';
 import {
   TEAM_CREATED,
   type TeamCreatedIntegrationEvent,
@@ -41,12 +41,12 @@ import type { DeleteTeamLines } from '@work/application/events/handlers/delete-t
 import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
+import type { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import {
   type NewTeam,
-  PROVISION_TEAM,
-  type ProvisionTeam,
-} from '@work/application/events/handlers/provision-team.handler';
-import type { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
+  SEED_TEAM,
+  type SeedTeam,
+} from '@work/application/events/handlers/seed-team.handler';
 import type { ConnectionsMade } from '@work/application/services/connections-made.service';
 import type { Notices } from '@work/application/services/notices.service';
 import type { PauseMarks } from '@work/application/services/pause-marks.service';
@@ -111,7 +111,7 @@ export const workSubscribers = (reactions: {
   pauseMarks: PauseMarks;
   chatOutcomes: RunOutcomes;
   usages: RecordRunUsage;
-  provisioning: ProvisionTeam;
+  seeding: SeedTeam;
   acceptances: ProposalAcceptances;
   outsideTools: NotifyOutsideTools;
   taskRuns: EnqueueTaskRun;
@@ -220,10 +220,9 @@ export const workSubscribers = (reactions: {
     (event) => reactions.usages.onRunExhausted(event),
   ),
   subscribing<TeamCreatedIntegrationEvent>(
-    PROVISION_TEAM,
+    SEED_TEAM,
     [TEAM_CREATED],
-    async (event) =>
-      signedUp(event) && reactions.provisioning.provision(newTeam(event)),
+    async (event) => signedUp(event) && reactions.seeding.seed(newTeam(event)),
   ),
   subscribing<WorkspaceConnectedIntegrationEvent>(
     'work.reconcile-setup-on-connection',
@@ -265,14 +264,14 @@ export const workSubscribers = (reactions: {
     ['chat.dispatched'],
     (event) => reactions.chatRuns.on(event),
   ),
-  subscribing<RunnerWayInOpenedIntegrationEvent>(
-    'work.reconcile-setup-on-way-in',
-    [RUNNER_WAY_IN_OPENED],
+  subscribing<RunnerAccessDefinedIntegrationEvent>(
+    'work.reconcile-setup-on-runner-access',
+    [RUNNER_ACCESS_DEFINED],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
-  subscribing<RunnerHostStartedServingIntegrationEvent>(
-    'work.reconcile-setup-on-host-serving',
-    [RUNNER_HOST_STARTED_SERVING],
+  subscribing<HostReadyIntegrationEvent>(
+    'work.reconcile-setup-on-host-ready',
+    [HOST_READY],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
 ];

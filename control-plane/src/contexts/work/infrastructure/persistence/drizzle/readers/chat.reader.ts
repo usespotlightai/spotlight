@@ -35,7 +35,7 @@ const summaryOf = (row: Row): ChatSummary => ({
   model: row.model,
   effort: row.effort,
   repositories: row.repositories,
-  improving: row.improving ?? null,
+  targetStation: row.targetStation ?? null,
   setup: row.setup ?? null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),

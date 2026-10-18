@@ -3,7 +3,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -128,7 +128,7 @@ const taskAt = (stationId = 'station_2') =>
     at: StationId.of(stationId),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   });
@@ -179,7 +179,7 @@ const news = (
   summary: `The pull request was ${happening.value.split('.').pop()}.`,
   answers: happening.equals(COMMENTED) || happening.equals(CHANGES_REQUESTED),
   state: 'raised',
-  concerns: { branch: 'spotlight/task_1', marks: [] },
+  correlationKeys: { branch: 'spotlight/task_1', marks: [] },
   message: message
     ? {
         body: message,
@@ -394,7 +394,7 @@ describe('ReactToHappenings', () => {
       summary: 'Somebody mentioned Spotlight in Slack.',
       answers: true,
       state: 'raised',
-      concerns: {
+      correlationKeys: {
         branch: null,
         marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
       },
@@ -461,7 +461,7 @@ describe('ReactToHappenings', () => {
           summary: 'Somebody mentioned Spotlight in Slack.',
           answers: true,
           state: 'raised',
-          concerns: {
+          correlationKeys: {
             branch: null,
             marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
           },
@@ -504,7 +504,7 @@ describe('ReactToHappenings', () => {
       summary: 'Replied in a Slack thread.',
       answers: true,
       state: 'raised',
-      concerns: {
+      correlationKeys: {
         branch: null,
         marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
       },
@@ -605,7 +605,7 @@ describe('ReactToHappenings', () => {
       [
         {
           ...news(MERGED, null),
-          concerns: {
+          correlationKeys: {
             branch: null,
             marks: [{ kind: 'Not A Kind', value: 'x' }],
           },
@@ -712,7 +712,7 @@ describe('ReactToHappenings', () => {
       await receive(COMMENTED, handed('station_1'), 'This retries forever.');
 
       expect(saved?.notes.map((each) => each.body.value)).toEqual([
-        'This arrived while a run worked on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\ncompose.yml:22\nThis retries forever.',
+        'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\ncompose.yml:22\nThis retries forever.',
       ]);
       expect(saved?.notes[0]?.station).toEqual(
         StationName.of('Implementation'),
@@ -789,7 +789,7 @@ describe('ReactToHappenings', () => {
         expect(dispatched).toHaveLength(0);
       });
 
-      it('asks whoever raised the task whether to close it or carry on', async () => {
+      it('asks whoever created the task whether to close it or carry on', async () => {
         await receive(MERGED, handed('station_2'));
 
         expect(saved?.awaitingReview).toBe(true);
@@ -872,7 +872,7 @@ describe('ReactToHappenings', () => {
 
     let next = 0;
     const opening = Line.create({
-      by: attributedIn(),
+      by: changeActorIn(),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
@@ -911,7 +911,7 @@ describe('ReactToHappenings', () => {
       summary: 'An issue was filed.',
       answers: false,
       state: 'raised',
-      concerns: { branch: null, marks: [issueMark] },
+      correlationKeys: { branch: null, marks: [issueMark] },
       message: null,
       ourOwn: false,
       opens: {
@@ -954,7 +954,7 @@ describe('ReactToHappenings', () => {
 
     let next = 0;
     const opening = Line.create({
-      by: attributedIn(),
+      by: changeActorIn(),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
@@ -994,7 +994,7 @@ describe('ReactToHappenings', () => {
       summary: 'An issue was filed.',
       answers: false,
       state: 'raised',
-      concerns: { branch: null, marks: [issueMark] },
+      correlationKeys: { branch: null, marks: [issueMark] },
       message: null,
       ourOwn: false,
       opens: {
@@ -1034,7 +1034,7 @@ describe('ReactToHappenings', () => {
 
     let next = 0;
     const opening = Line.create({
-      by: attributedIn(),
+      by: changeActorIn(),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       line: BUILT_IN_LINES[0] as LineOpening,
@@ -1072,7 +1072,7 @@ describe('ReactToHappenings', () => {
       summary: 'An issue was filed.',
       answers: false,
       state: 'raised',
-      concerns: { branch: null, marks: [issueMark] },
+      correlationKeys: { branch: null, marks: [issueMark] },
       message: null,
       ourOwn: false,
       opens: {
@@ -1109,7 +1109,7 @@ describe('ReactToHappenings', () => {
     const delivery = (key: string) => {
       let next = 0;
       return Line.create({
-        by: attributedIn(),
+        by: changeActorIn(),
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
         line: {
@@ -1155,7 +1155,7 @@ describe('ReactToHappenings', () => {
       summary: 'An issue was filed.',
       answers: false,
       state: 'raised',
-      concerns: { branch: null, marks: [issueMark] },
+      correlationKeys: { branch: null, marks: [issueMark] },
       message: null,
       ourOwn: false,
       opens: {

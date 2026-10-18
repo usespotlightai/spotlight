@@ -4,17 +4,17 @@ import { DuplicateRepositoryError } from '@work/domain/exceptions/duplicate-repo
 import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const of = (...named: string[]) =>
   LineRepositories.of(
-    named.map((each) => WorkedRepository.of(Repository.of(each))),
+    named.map((each) => LineRepositoryConfig.of(Repository.of(each))),
   );
 
-const worked = (name: string, image?: string, setup?: string) =>
-  WorkedRepository.of(Repository.of(name), {
+const repositoryConfig = (name: string, image?: string, setup?: string) =>
+  LineRepositoryConfig.of(Repository.of(name), {
     image: image ? RunnerImage.of(image) : null,
     setup: setup ? RepositorySetup.of(setup) : null,
   });
@@ -37,9 +37,9 @@ describe('LineRepositories', () => {
 
   it('runs in the one image its repositories name', () => {
     const repositories = LineRepositories.of([
-      worked('acme/api', 'ghcr.io/acme/app:1'),
-      worked('acme/web'),
-      worked('acme/docs', 'ghcr.io/acme/app:1'),
+      repositoryConfig('acme/api', 'ghcr.io/acme/app:1'),
+      repositoryConfig('acme/web'),
+      repositoryConfig('acme/docs', 'ghcr.io/acme/app:1'),
     ]);
 
     expect(repositories.image?.value).toBe('ghcr.io/acme/app:1');
@@ -48,16 +48,16 @@ describe('LineRepositories', () => {
   it('rejects repositories naming different images', () => {
     expect(() =>
       LineRepositories.of([
-        worked('acme/api', 'ghcr.io/acme/api:1'),
-        worked('acme/web', 'ghcr.io/acme/web:1'),
+        repositoryConfig('acme/api', 'ghcr.io/acme/api:1'),
+        repositoryConfig('acme/web', 'ghcr.io/acme/web:1'),
       ]),
     ).toThrow(MixedRunnerImagesError);
   });
 
   it('knows the setup of each repository, or none', () => {
     const repositories = LineRepositories.of([
-      worked('acme/api', undefined, 'npm ci'),
-      worked('acme/web'),
+      repositoryConfig('acme/api', undefined, 'npm ci'),
+      repositoryConfig('acme/web'),
     ]);
 
     expect(repositories.setupOf(Repository.of('acme/api'))?.value).toBe(
@@ -69,23 +69,23 @@ describe('LineRepositories', () => {
 
   it('equals repositories worked alike, whatever their order', () => {
     const repositories = LineRepositories.of([
-      worked('acme/api', 'ghcr.io/acme/app:1', 'npm ci'),
-      worked('acme/web'),
+      repositoryConfig('acme/api', 'ghcr.io/acme/app:1', 'npm ci'),
+      repositoryConfig('acme/web'),
     ]);
 
     expect(
       repositories.equals(
         LineRepositories.of([
-          worked('acme/web'),
-          worked('acme/api', 'ghcr.io/acme/app:1', 'npm ci'),
+          repositoryConfig('acme/web'),
+          repositoryConfig('acme/api', 'ghcr.io/acme/app:1', 'npm ci'),
         ]),
       ),
     ).toBe(true);
     expect(
       repositories.equals(
         LineRepositories.of([
-          worked('acme/api', 'ghcr.io/acme/app:1', 'pnpm install'),
-          worked('acme/web'),
+          repositoryConfig('acme/api', 'ghcr.io/acme/app:1', 'pnpm install'),
+          repositoryConfig('acme/web'),
         ]),
       ),
     ).toBe(false);
