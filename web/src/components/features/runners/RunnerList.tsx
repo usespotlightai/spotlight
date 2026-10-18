@@ -1,5 +1,5 @@
-import { HostHead } from '@/components/features/runners/HostHead';
 import { HostRow } from '@/components/features/runners/HostRow';
+import { HostTable } from '@/components/features/runners/HostTable';
 import { PoolRow } from '@/components/features/runners/PoolRow';
 import {
   type Host,
@@ -17,12 +17,7 @@ type RunnerListProps = {
 
 export function RunnerList({ slug, hosts, pools, harnesses }: RunnerListProps) {
   return (
-    <section
-      aria-label="Hosts and push pools"
-      className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5"
-    >
-      <HostHead />
-
+    <HostTable label="Hosts and push pools">
       <ul className="flex flex-col">
         {hosts.map((host) => (
           <HostRow
@@ -41,6 +36,6 @@ export function RunnerList({ slug, hosts, pools, harnesses }: RunnerListProps) {
           />
         ))}
       </ul>
-    </section>
+    </HostTable>
   );
 }
