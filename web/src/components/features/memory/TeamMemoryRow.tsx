@@ -32,7 +32,7 @@ export function TeamMemoryRow({
   open,
   onOpenChange,
 }: TeamMemoryRowProps) {
-  const { row, expanded, clamped, toggle } = useRowExpansion({
+  const { row, expanded, clamped, closing, toggle } = useRowExpansion({
     open,
     onOpenChange,
   });
@@ -65,6 +65,7 @@ export function TeamMemoryRow({
       ref={row}
       data-slot="team-memory"
       data-clamped={clamped || undefined}
+      data-closing={closing || undefined}
       className={cn(
         'group/row rounded-md bg-accent transition-colors data-clamped:bg-transparent data-clamped:hover:bg-accent',
         !changing && 'cursor-pointer',

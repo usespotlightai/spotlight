@@ -1,5 +1,6 @@
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { UNUSED_SKILLS_NOTE } from '@/lib/insights-tools';
 import { skillPath } from '@/lib/skills';
 
 type UnusedSkillsProps = {
@@ -10,10 +11,7 @@ type UnusedSkillsProps = {
 
 export function UnusedSkills({ slug, teamId, unused }: UnusedSkillsProps) {
   return (
-    <InsightsCard
-      title="Unused skills"
-      description="Team skills that no run read in this period."
-    >
+    <InsightsCard title="Unused skills" description={UNUSED_SKILLS_NOTE}>
       <ul aria-label="Unused skills" className="flex flex-wrap gap-1.5">
         {unused.map((key) => (
           <li key={key}>

@@ -10,10 +10,9 @@ import { stationInsightsPath } from '@/lib/station';
 import {
   liveRuns,
   SUMMARY_COLUMNS,
+  SUMMARY_TITLE,
   type SummaryColumn,
 } from '@/lib/station-insights';
-
-const TITLE = 'Latest runs on this config';
 
 const trendable = (values: readonly (number | null)[]): boolean =>
   new Set(values.filter((value) => value !== null)).size > 1;
@@ -69,13 +68,13 @@ export function StationSummary({
   return (
     <section className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-medium text-foreground text-xs">{TITLE}</h2>
+        <h2 className="font-medium text-foreground text-xs">{SUMMARY_TITLE}</h2>
         <SectionLink to={stationInsightsPath(slug, teamId, stationId)}>
           See in Insights
         </SectionLink>
       </div>
       <dl
-        aria-label={TITLE}
+        aria-label={SUMMARY_TITLE}
         data-slot="station-summary"
         className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
       >

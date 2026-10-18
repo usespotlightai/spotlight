@@ -93,6 +93,12 @@ vi.mock('@/hooks/api/useInsightsPullRequestList', () => ({
 vi.mock('@/hooks/api/useConfigOrigins', () => ({
   useConfigOrigins: () => ({ origins: [], failed: false, retry: vi.fn() }),
 }));
+vi.mock('@/hooks/api/useStationInsights', () => ({
+  useStationInsights: () => queried(undefined),
+}));
+vi.mock('@/hooks/api/useStationJudge', () => ({
+  useStationJudge: () => queried(undefined),
+}));
 vi.mock('@/hooks/api/useStation', () => ({
   useStation: () => ({ station: undefined }),
 }));
@@ -248,9 +254,9 @@ const tabs = () => screen.getByRole('navigation', { name: 'Insights' });
 const tabsRequested = () => requested.map((each) => each.tab);
 
 const sections = () =>
-  screen
-    .queryAllByRole('heading', { level: 2 })
-    .map((heading) => heading.textContent);
+  [...document.querySelectorAll('[data-slot="insights-section"] > h2')].map(
+    (heading) => heading.textContent,
+  );
 
 beforeEach(() => {
   requested.length = 0;
@@ -344,6 +350,7 @@ describe('TeamInsights', () => {
     expect(sections()).toEqual([
       'Where work waits',
       'What the agents ship',
+      'Review and approval',
       'Pull requests',
     ]);
     expect(requested).toEqual(

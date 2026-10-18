@@ -6,20 +6,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { SPOTLIGHT_SHARE_SERIES } from '@/components/features/insights/chart-series';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { formatShare } from '@/lib/insights';
 import type { WeekShare } from '@/lib/insights-pull-requests';
 import { formatDay } from '@/lib/judge';
 
-const HEIGHT = 180;
-
-const SERIES = [
-  { key: 'authored', label: 'Made by Spotlight', fill: 'var(--chart-primary)' },
-  { key: 'reviewed', label: 'Reviewed by Spotlight', fill: 'var(--chart-4)' },
-  { key: 'people', label: 'People alone', fill: 'var(--chart-1)' },
-  { key: 'bots', label: 'Bots alone', fill: 'var(--chart-2)' },
-] as const;
+export const SPOTLIGHT_SHARE_CHART_HEIGHT = 180;
 
 const TipContent = ({
   placement,
@@ -39,7 +33,7 @@ const TipContent = ({
   return (
     <ChartTip placement={placement}>
       <p className="text-muted-foreground">Week of {formatDay(bar.week)}</p>
-      {SERIES.map((series) => (
+      {SPOTLIGHT_SHARE_SERIES.map((series) => (
         <p key={series.key} className="text-foreground">
           {bar[series.key]} {series.label.toLowerCase()}
         </p>
@@ -60,7 +54,7 @@ export function SpotlightShareChart({
   return (
     <figure data-slot="spotlightShare-chart" className="flex flex-col gap-1">
       <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-[0.7rem]">
-        {SERIES.map((series) => (
+        {SPOTLIGHT_SHARE_SERIES.map((series) => (
           <span key={series.key} className="flex items-center gap-1">
             <span
               aria-hidden
@@ -74,7 +68,10 @@ export function SpotlightShareChart({
 
       <div className="[&_*:focus:not(:focus-visible)]:outline-none">
         <div {...cursor.area}>
-          <ResponsiveContainer width="100%" height={HEIGHT}>
+          <ResponsiveContainer
+            width="100%"
+            height={SPOTLIGHT_SHARE_CHART_HEIGHT}
+          >
             <BarChart
               data={[...weeks]}
               margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
@@ -93,7 +90,7 @@ export function SpotlightShareChart({
                 content={<TipContent placement={cursor.placement} />}
                 cursor={{ fill: 'var(--accent)' }}
               />
-              {SERIES.map((series) => (
+              {SPOTLIGHT_SHARE_SERIES.map((series) => (
                 <Bar
                   key={series.key}
                   dataKey={series.key}

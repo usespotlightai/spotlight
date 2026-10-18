@@ -4,9 +4,13 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
-import { flowLinkRows, type SankeyShown } from '@/lib/insights';
+import {
+  COST_SANKEY_NOTE,
+  flowLinkRows,
+  type SankeyShown,
+} from '@/lib/insights';
 
-const HEIGHT = 280;
+export const COST_SANKEY_HEIGHT = 280;
 
 const LABEL_ROOM = 140;
 
@@ -109,7 +113,7 @@ export function CostSankey({ shown, currency }: CostSankeyProps) {
   return (
     <InsightsCard
       title="Where the spend goes"
-      description="Spend from model to station to repository. A run on several repositories splits its cost evenly."
+      description={COST_SANKEY_NOTE}
       table={<CostFlowTable rows={flowLinkRows(shown)} currency={currency} />}
     >
       <figure
@@ -117,7 +121,7 @@ export function CostSankey({ shown, currency }: CostSankeyProps) {
         className="[&_*:focus:not(:focus-visible)]:outline-none"
         {...cursor.area}
       >
-        <ResponsiveContainer width="100%" height={HEIGHT}>
+        <ResponsiveContainer width="100%" height={COST_SANKEY_HEIGHT}>
           <Sankey
             data={{ nodes: shown.nodes, links: shown.links }}
             nodeWidth={8}

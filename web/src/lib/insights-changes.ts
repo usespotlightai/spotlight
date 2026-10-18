@@ -25,6 +25,17 @@ export type StationJudgeCalibration = StationJudgeCalibrationResponseDto;
 export type SizeBound = SizeBoundResponseDto;
 type JudgeRate = JudgeRateResponseDto;
 export type RunSize = SizeBound['size'];
+
+export type AgentConfigsNarrowed = {
+  readonly stationId: string | null;
+  readonly size: RunSize | null;
+};
+
+export const EVERY_AGENT_CONFIG: AgentConfigsNarrowed = {
+  stationId: null,
+  size: null,
+};
+
 export type OutcomeMeasure = AgentConfigOutcome['frontier'][number];
 
 export type ChangeAt = {
@@ -239,3 +250,6 @@ export const CHANGE_HEADINGS: readonly NestedHeading[] = [
   { label: 'Runs before', numeric: true, size: SPREAD },
   { label: 'Runs after', numeric: true, size: SPREAD },
 ];
+
+export const CHANGES_NOTE =
+  'Every station config change, latest first. Open one to compare runs before and after.';

@@ -7,12 +7,12 @@ import { ReplayedAgentConfigTable } from '@/components/features/insights/changes
 import { ReplayedOverlayNote } from '@/components/features/insights/changes/ReplayedOverlayNote';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
-import type { AgentConfigsNarrowed } from '@/hooks/api/useInsightsAgentConfigs';
 import type { StationNames } from '@/lib/insights';
 import {
   type InsightsCandidates,
   stationReplayedPoints,
 } from '@/lib/insights-candidates';
+import type { AgentConfigsNarrowed } from '@/lib/insights-changes';
 import {
   agentConfigPoints,
   formatSizeRule,

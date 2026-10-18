@@ -6,12 +6,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { TYPE_SERIES } from '@/components/features/insights/chart-series';
+import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { formatSpend } from '@/lib/insights';
 import { formatType, type TypeShare } from '@/lib/insights-pull-requests';
 
-const HEIGHT = 180;
+export const TYPES_CHART_HEIGHT = 180;
 
 type TypeBar = TypeShare & { readonly label: string };
 
@@ -50,20 +52,11 @@ export function PullRequestTypesChart({
   const cursor = useCursorTooltip();
   return (
     <figure data-slot="types-chart" className="flex flex-col gap-1">
-      <figcaption className="flex items-center gap-3 text-muted-foreground text-[0.7rem]">
-        <span className="flex items-center gap-1">
-          <span aria-hidden className="size-2 rounded-sm bg-chart-primary" />
-          Spotlight
-        </span>
-        <span className="flex items-center gap-1">
-          <span aria-hidden className="size-2 rounded-sm bg-chart-1" />
-          People alone
-        </span>
-      </figcaption>
+      <ChartLegend entries={TYPE_SERIES} />
 
       <div className="[&_*:focus:not(:focus-visible)]:outline-none">
         <div {...cursor.area}>
-          <ResponsiveContainer width="100%" height={HEIGHT}>
+          <ResponsiveContainer width="100%" height={TYPES_CHART_HEIGHT}>
             <BarChart
               data={types.map((each) => ({
                 ...each,

@@ -21,6 +21,8 @@ type DaySeries = {
   readonly as: 'line' | 'bar';
 };
 
+export const DAY_CHART_HEIGHT = 180;
+
 type DayChartProps = {
   label: string;
   points: readonly Record<string, string | number | null>[];
@@ -75,7 +77,7 @@ export function DayChart({
   series,
   format,
   durations = false,
-  height = 180,
+  height = DAY_CHART_HEIGHT,
   legend = true,
 }: DayChartProps) {
   const cursor = useCursorTooltip();

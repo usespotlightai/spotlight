@@ -14,26 +14,15 @@ import {
   formatPerson,
   formatSpend,
   formatStation,
+  INSIGHTS_RUN_HEADINGS,
   type InsightsRun,
   type PersonName,
   type StationNames,
 } from '@/lib/insights';
-import { SPREAD } from '@/lib/nested-table';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
 import { endedBadly, formatEnding } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
-
-const HEADINGS = [
-  { label: 'Outcome', indent: 'edge' as const, size: SPREAD },
-  { label: 'Failure', size: 'minmax(10rem,2fr)' },
-  { label: 'Station', size: SPREAD },
-  { label: 'Person', size: SPREAD },
-  { label: 'Agent config', size: SPREAD },
-  { label: 'Duration', numeric: true, size: SPREAD },
-  { label: 'Cost', numeric: true, size: SPREAD },
-  { label: 'Ended', numeric: true, size: SPREAD },
-];
 
 type RunsTableProps = {
   slug: string;
@@ -53,7 +42,7 @@ export function RunsTable({
   harnesses,
 }: RunsTableProps) {
   return (
-    <NestedTable label="Runs" headings={HEADINGS}>
+    <NestedTable label="Runs" headings={INSIGHTS_RUN_HEADINGS}>
       {runs.map((run) => (
         <li
           key={run.runId}

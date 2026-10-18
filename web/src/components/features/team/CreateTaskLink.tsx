@@ -20,12 +20,21 @@ export function CreateTaskLink({
   return teamId && line ? (
     <TrailLink
       to={linePath(slug, teamId, line.id)}
-      className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
+      className={cn(
+        buttonVariants({ variant: 'outline', size: 'sm' }),
+        'rounded-full bg-card shadow-none',
+      )}
     >
       {CREATE}
     </TrailLink>
   ) : (
-    <Button type="button" size="sm" className="rounded-full" disabled>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="rounded-full bg-card shadow-none"
+      disabled
+    >
       {CREATE}
     </Button>
   );

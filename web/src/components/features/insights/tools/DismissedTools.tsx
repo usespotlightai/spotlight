@@ -9,6 +9,7 @@ import {
 import { formatCount } from '@/lib/insights';
 import {
   DISMISSAL_HEADINGS,
+  DISMISSALS_NOTE,
   dismissedToolFilter,
   type ToolDismissals,
 } from '@/lib/insights-tools';
@@ -22,8 +23,9 @@ export function DismissedTools({
   return (
     <InsightsCard
       tableOnly
+      scrolls
       title="Dismissed approvals"
-      description="Runs where a person dismissed a tool approval, per server and tool."
+      description={DISMISSALS_NOTE}
     >
       <NestedTable
         label="Dismissed approvals per tool"

@@ -4,6 +4,7 @@ import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { useCollapsibles } from '@/hooks/useCollapsibles';
 import type { StationNames } from '@/lib/insights';
 import {
+  SKILLS_NOTE,
   type SkillReport,
   skillHeadings,
   type TrendRule,
@@ -21,10 +22,7 @@ export function SkillUse({ slug, teamId, skills, rule, names }: SkillUseProps) {
   const collapsibles = useCollapsibles();
 
   return (
-    <InsightsCard
-      title="Skills"
-      description="Runs that got each skill and runs that read it, per station. A read is a tool call that touches the skill’s folder or names it. The line shows the share of runs that read it, week by week."
-    >
+    <InsightsCard scrolls title="Skills" description={SKILLS_NOTE}>
       <NestedTable label="Skill use" headings={skillHeadings(rule)}>
         {skills.map((skill) => (
           <SkillRows

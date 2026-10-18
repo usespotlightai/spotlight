@@ -21,11 +21,7 @@ export function ShippingTab({ slug, teamId, period, names }: ShippingTabProps) {
   const insights = useInsightsShipping(teamId, period);
 
   if (loading(insights)) {
-    return (
-      <InsightsSection title={FIRST_SECTION}>
-        <ShippingSkeleton />
-      </InsightsSection>
-    );
+    return <ShippingSkeleton />;
   }
 
   if (failed(insights) || !insights.data) {

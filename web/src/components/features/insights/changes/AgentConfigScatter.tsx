@@ -30,7 +30,7 @@ import {
   runsScaleOf,
 } from '@/lib/insights-changes';
 
-const HEIGHT = 300;
+export const AGENT_CONFIG_SCATTER_HEIGHT = 300;
 
 const TICKS = [0, 0.25, 0.5, 0.75, 1];
 
@@ -108,7 +108,10 @@ export function AgentConfigScatter({
         className="min-w-0 flex-1 [&_*:focus:not(:focus-visible)]:outline-none"
       >
         <div {...cursor.area}>
-          <ResponsiveContainer width="100%" height={HEIGHT}>
+          <ResponsiveContainer
+            width="100%"
+            height={AGENT_CONFIG_SCATTER_HEIGHT}
+          >
             <ScatterChart margin={{ top: 20, right: 4, bottom: 4, left: 0 }}>
               <XAxis
                 type="number"

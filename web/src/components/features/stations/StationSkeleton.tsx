@@ -1,25 +1,13 @@
-import { StationImproveSkeleton } from '@/components/features/stations/improve/StationImproveSkeleton';
-import { StationOverviewSkeleton } from '@/components/features/stations/overview/StationOverviewSkeleton';
 import { StationPane } from '@/components/features/stations/StationPane';
+import { StationTabSkeleton } from '@/components/features/stations/StationTabSkeleton';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { STATION_TABS, type StationTab } from '@/lib/station';
-
-const TAB_WIDTHS = {
-  overview: 'w-14',
-  improve: 'w-12',
-} as const;
-
-const BODIES = {
-  overview: StationOverviewSkeleton,
-  improve: StationImproveSkeleton,
-} as const;
+import { cn } from '@/lib/utils';
 
 export function StationSkeleton({ tab }: { tab: StationTab }) {
-  const Body = BODIES[tab];
-
   return (
     <div
       role="status"
@@ -52,17 +40,24 @@ export function StationSkeleton({ tab }: { tab: StationTab }) {
 
         <div className="flex items-center gap-1 border-border border-b px-3">
           {STATION_TABS.map((each) => (
-            <div key={each.id} className="flex h-9 items-center px-2">
-              <SkeletonLine
-                className={`${TAB_WIDTHS[each.id]} text-[0.8rem]`}
-              />
-            </div>
+            <span
+              key={each.id}
+              className={cn(
+                'relative flex h-9 items-center px-2 text-[0.8rem]',
+                each.id === tab ? 'text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              {each.label}
+              {each.id === tab && (
+                <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-primary" />
+              )}
+            </span>
           ))}
         </div>
       </div>
 
       <StationPane>
-        <Body />
+        <StationTabSkeleton tab={tab} />
       </StationPane>
     </div>
   );

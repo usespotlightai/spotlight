@@ -46,6 +46,9 @@ export const CHECKS_PAGE = 50;
 
 export const SEARCHES_ANCHOR = 'searches';
 
+export const SEARCHES_NOTE =
+  'An agent proposes configs and replays each on a replay set. It looks for one that does better for less.';
+
 export const SEED_NAME = 'seed';
 
 const MIN_TASKS = 5;

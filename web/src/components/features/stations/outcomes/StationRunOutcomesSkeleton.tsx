@@ -1,9 +1,13 @@
-import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
+import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
+import { OUTCOME_HEADINGS } from '@/lib/station-insights';
 
 export function StationRunOutcomesSkeleton() {
   return (
-    <div role="status" aria-label="Loading how its runs turned out">
-      <InsightsCardSkeleton rows={6} />
-    </div>
+    <NestedTableSkeleton
+      label="Loading how its runs turned out"
+      headings={OUTCOME_HEADINGS}
+      rows={4}
+      trailing
+    />
   );
 }

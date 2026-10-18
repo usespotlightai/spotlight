@@ -357,3 +357,21 @@ export const shippingOf = (
     },
   },
 });
+
+export const PIPELINE_NOTE =
+  'Time that merged pull requests spend in each stage, from task opened to merge, at the chosen percentile. Stages: each station the task ran at, awaiting review, in review, awaiting merge. Awaiting review ends at the first review by someone other than the author, or at any approval. Bots’ reviews count. Pick a type to see its own times.';
+
+export const DEPTH_OVER_TIME_NOTE =
+  'Merged pull requests per week by review rounds. The line shows the total merged. If the lighter colours grow while the line rises, review is thinning.';
+
+export const FIRST_REVIEW_NOTE =
+  'Time from when a pull request opens to its first human review, at the chosen percentile.';
+
+export const REVIEW_BOTS_NOTE =
+  'Bots that reviewed the team’s pull requests. Spotlight’s review tasks count. Resolved: share of their comments resolved before merge';
+
+export const AWAITING_REVIEW_NOTE =
+  'Open pull requests with no human review yet, at each day’s end.';
+
+export const HUMAN_REVIEWS_NOTE =
+  'Human reviews on the team’s pull requests per day.';

@@ -13,8 +13,7 @@ import {
   type StationReport,
   stationAnchor,
 } from '@/lib/insights';
-import { type NestedHeading, SPREAD } from '@/lib/nested-table';
-import { countedColumnsOf } from '@/lib/station-insights';
+import { countedColumnsOf, stationTableHeadings } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 type StationsTableProps = {
@@ -29,18 +28,12 @@ export function StationsTable({
   names,
 }: StationsTableProps) {
   const columns = countedColumnsOf(counted);
-  const headings: NestedHeading[] = [
-    { label: 'Station', indent: 'edge', size: 'minmax(10rem,2fr)' },
-    { label: 'Runs per day', size: 'max-content' },
-    ...columns.map((column) => ({
-      label: column.label,
-      numeric: true,
-      size: SPREAD,
-    })),
-  ];
 
   return (
-    <NestedTable label="How each station’s runs went" headings={headings}>
+    <NestedTable
+      label="How each station’s runs went"
+      headings={stationTableHeadings(counted)}
+    >
       {stations.map((report) => (
         <li
           key={report.stationId}

@@ -1,12 +1,10 @@
 import { useState } from 'react';
+import { AUTHOR_SERIES } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { formatDurationOrNone } from '@/lib/insights';
-import {
-  formatType,
-  PULL_REQUEST_TYPE_SOURCE,
-} from '@/lib/insights-pull-requests';
+import { formatType, MERGE_BY_TYPE_NOTE } from '@/lib/insights-pull-requests';
 import {
   DEFAULT_PERCENTILE,
   type InsightsShipping,
@@ -35,7 +33,7 @@ export function TimeToMergeByType({
   return (
     <InsightsCard
       title="Time to merge by PR type"
-      description={`Time to merge for each pull request type. ${PULL_REQUEST_TYPE_SOURCE}`}
+      description={MERGE_BY_TYPE_NOTE}
       actions={<PercentilePicker value={percentile} onChange={setPercentile} />}
     >
       <ul aria-label="Time to merge by type" className="flex flex-col gap-2">
@@ -78,12 +76,7 @@ export function TimeToMergeByType({
         ))}
       </ul>
 
-      <ChartLegend
-        entries={[
-          { label: 'Spotlight’s', color: 'var(--chart-primary)' },
-          { label: 'People’s alone', color: 'var(--chart-2)' },
-        ]}
-      />
+      <ChartLegend entries={AUTHOR_SERIES} />
     </InsightsCard>
   );
 }

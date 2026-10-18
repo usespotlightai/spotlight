@@ -19,7 +19,10 @@ export function NoPullRequests({ slug, teamId }: NoPullRequestsProps) {
         action={
           <TrailLink
             to={teamSettingsPath(slug, teamId, 'integrations')}
-            className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
+            className={cn(
+              buttonVariants({ variant: 'outline', size: 'sm' }),
+              'rounded-full bg-card shadow-none',
+            )}
           >
             Connect a repository
           </TrailLink>

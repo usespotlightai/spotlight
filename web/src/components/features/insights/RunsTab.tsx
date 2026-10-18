@@ -10,6 +10,7 @@ import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useInsightsRuns } from '@/hooks/api/useInsightsRuns';
 import type { LineResponseDto } from '@/lib/api';
 import {
+  INSIGHTS_RUNS_NOTE,
   type InsightsView,
   lastPageOf,
   narrowedBy,
@@ -36,7 +37,7 @@ export function RunsTab({
   onView,
 }: RunsTabProps) {
   const runs = useInsightsRuns(teamId, view.period, view.filter, view.page);
-  const harnesses = useHarnesses().data;
+  const harnesses = useHarnesses();
   const narrowed = narrowedBy(view.filter).length > 0;
 
   const filters = (
@@ -49,8 +50,8 @@ export function RunsTab({
     />
   );
 
-  if (loading(runs)) {
-    return <RunsSkeleton />;
+  if (loading(runs) || loading(harnesses)) {
+    return <RunsSkeleton filters={filters} />;
   }
 
   if (failed(runs) || !runs.data) {
@@ -69,7 +70,7 @@ export function RunsTab({
     <InsightsCard
       tableOnly
       title="Runs"
-      description="Every run that ended in this period, newest first."
+      description={INSIGHTS_RUNS_NOTE}
       actions={filters}
     >
       {runs.data.total === 0 ? (
@@ -93,7 +94,7 @@ export function RunsTab({
             runs={runs.data.runs}
             people={runs.data.people}
             names={names}
-            harnesses={harnesses}
+            harnesses={harnesses.data}
           />
           <InsightsPager
             label="Pages of runs"

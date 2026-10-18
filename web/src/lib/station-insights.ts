@@ -133,7 +133,7 @@ const columnNamed = (label: string): TallyColumn => {
 export const countedColumnsOf = (counted: TallyCounted): TallyColumn[] =>
   TALLY_COLUMNS.filter((column) => !column.counted || counted[column.counted]);
 
-type SummaryVisual = 'share' | 'strip' | 'cost' | 'duration';
+export type SummaryVisual = 'share' | 'strip' | 'cost' | 'duration';
 
 export type SummaryColumn = TallyColumn & { readonly visual: SummaryVisual };
 
@@ -141,6 +141,8 @@ const summarized = (label: string, visual: SummaryVisual): SummaryColumn => ({
   ...columnNamed(label),
   visual,
 });
+
+export const SUMMARY_TITLE = 'Latest runs on this config';
 
 export const SUMMARY_COLUMNS: readonly SummaryColumn[] = [
   summarized('Runs', 'strip'),
@@ -257,3 +259,27 @@ export const configFingerprint = (
       }
     : null;
 };
+
+export const TYPICAL_COUNTED: TallyCounted = {
+  failed: true,
+  stopped: true,
+  checksPassed: true,
+  checksFailed: true,
+  accepted: true,
+  sentBack: true,
+  passed: true,
+  merged: true,
+  cancelled: false,
+};
+
+export const stationTableHeadings = (
+  counted: TallyCounted,
+): NestedHeading[] => [
+  { label: 'Station', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  { label: 'Runs per day', size: 'max-content' },
+  ...countedColumnsOf(counted).map((column) => ({
+    label: column.label,
+    numeric: true,
+    size: SPREAD,
+  })),
+];

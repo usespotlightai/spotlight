@@ -12,12 +12,15 @@ import { canAnimate } from '@/lib/motion';
 
 const CLAMPED = 'data-clamped';
 
+const TRANSITIONING = 'data-transitioning';
+
 const PART = '[data-transition-part]';
 
 type RowExpansion = {
   readonly row: RefObject<HTMLLIElement | null>;
   readonly expanded: boolean;
   readonly clamped: boolean;
+  readonly closing: boolean;
   readonly toggle: () => void;
 };
 
@@ -46,6 +49,20 @@ const measuredAs = <T>(
 };
 
 type LayoutTransition = ReturnType<typeof useLayoutTransition>;
+
+const marked = (
+  element: HTMLElement,
+  animations: readonly Animation[],
+): readonly Animation[] => {
+  if (animations.length > 0) {
+    element.setAttribute(TRANSITIONING, '');
+    void Promise.allSettled(
+      animations.map((animation) => animation.finished),
+    ).then(() => element.removeAttribute(TRANSITIONING));
+  }
+
+  return animations;
+};
 
 type RowControl = {
   readonly open: boolean;
@@ -131,15 +148,23 @@ export function useRowExpansion(control?: RowControl): RowExpansion {
       const now = placedWithCells(element);
       const spots = partSpots(element);
 
-      transition.play([
-        ...layoutTransitionBetween(now, moved.from, now),
-        ...shiftBetween(spots, moved.spots, spots),
-      ]);
+      transition.play(
+        marked(element, [
+          ...layoutTransitionBetween(now, moved.from, now),
+          ...shiftBetween(spots, moved.spots, spots),
+        ]),
+      );
     }
   }, [clamped, transition]);
 
   const toggle = () =>
     control ? control.onOpenChange(!expanded) : setOwn(!expanded);
 
-  return { row, expanded, clamped, toggle };
+  return {
+    row,
+    expanded,
+    clamped,
+    closing: !expanded && !clamped,
+    toggle,
+  };
 }

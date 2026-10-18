@@ -21,6 +21,7 @@ export function StartReplayButton({
     <DialogButton
       label={START_REPLAY}
       icon={Play}
+      variant="outline"
       disabledBecause={disabledBecause}
       dialog={(open, onOpenChange) => (
         <StartReplayDialog

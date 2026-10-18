@@ -1,12 +1,10 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { readInsightsAgentConfigs } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
-import type { InsightsAgentConfigs, RunSize } from '@/lib/insights-changes';
-
-export type AgentConfigsNarrowed = {
-  readonly stationId: string | null;
-  readonly size: RunSize | null;
-};
+import type {
+  AgentConfigsNarrowed,
+  InsightsAgentConfigs,
+} from '@/lib/insights-changes';
 
 const insightsAgentConfigsKeys = {
   forTeam: (

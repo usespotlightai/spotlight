@@ -19,7 +19,10 @@ export function NoToolsUsed({ slug, teamId }: NoToolsUsedProps) {
         action={
           <TrailLink
             to={teamSettingsPath(slug, teamId, 'skills')}
-            className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
+            className={cn(
+              buttonVariants({ variant: 'outline', size: 'sm' }),
+              'rounded-full bg-card shadow-none',
+            )}
           >
             See the team’s skills
           </TrailLink>

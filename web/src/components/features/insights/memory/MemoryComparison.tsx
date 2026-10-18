@@ -5,16 +5,9 @@ import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
-import { SPREAD } from '@/lib/nested-table';
+import { MEMORY_COMPARISON_HEADINGS } from '@/lib/insights-memory';
 import { comparedRows, type MeasureVerdict } from '@/lib/tally-comparison';
 import { cn } from '@/lib/utils';
-
-const HEADINGS = [
-  { label: 'Measure', indent: 'edge' as const, size: SPREAD },
-  { label: 'Without', numeric: true, size: SPREAD },
-  { label: 'With', numeric: true, size: SPREAD },
-  { label: 'Change', numeric: true, size: SPREAD },
-];
 
 type MemoryComparisonProps = {
   runs: { readonly without: number; readonly with: number };
@@ -25,7 +18,7 @@ export function MemoryComparison({ runs, verdicts }: MemoryComparisonProps) {
   return (
     <NestedTable
       label="Runs without memories compared with runs with them"
-      headings={HEADINGS}
+      headings={MEMORY_COMPARISON_HEADINGS}
     >
       {comparedRows({ one: runs.without, other: runs.with }, verdicts).map(
         (row) => (

@@ -8,31 +8,23 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import {
+  ROUND_FILLS,
+  THROUGHPUT,
+} from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { formatShare } from '@/lib/insights';
 import {
+  DEPTH_OVER_TIME_NOTE,
   type DepthWeek,
   formatRounds,
   ROUNDS,
-  type Rounds,
   type RoundsCount,
 } from '@/lib/insights-shipping';
 import { formatDay } from '@/lib/judge';
-
-const shade = (share: number): string =>
-  `color-mix(in oklab, var(--chart-primary) ${share}%, var(--card))`;
-
-const FILLS: Record<Rounds, string> = {
-  '0': shade(28),
-  '1': shade(52),
-  '2': shade(76),
-  '3+': shade(100),
-};
-
-const THROUGHPUT = 'var(--chart-5)';
 
 const TipContent = ({
   placement,
@@ -74,7 +66,7 @@ export function ReviewDepthOverTime({
   return (
     <InsightsCard
       title="Review depth as throughput climbs"
-      description="Merged pull requests per week by review rounds. The line shows the total merged. If the lighter colours grow while the line rises, review is thinning."
+      description={DEPTH_OVER_TIME_NOTE}
     >
       <div className="grid gap-3 md:grid-cols-[1fr_14rem]">
         <figure
@@ -125,7 +117,7 @@ export function ReviewDepthOverTime({
                       yAxisId="share"
                       dataKey={rounds}
                       stackId="depth"
-                      fill={FILLS[rounds]}
+                      fill={ROUND_FILLS[rounds]}
                       isAnimationActive={false}
                     />
                   ))}
@@ -145,7 +137,7 @@ export function ReviewDepthOverTime({
             entries={[
               ...ROUNDS.map((rounds) => ({
                 label: formatRounds(rounds),
-                color: FILLS[rounds],
+                color: ROUND_FILLS[rounds],
               })),
               { label: 'Merged that week', color: THROUGHPUT },
             ]}
@@ -161,7 +153,7 @@ export function ReviewDepthOverTime({
               <span
                 aria-hidden
                 className="size-2 shrink-0 rounded-sm"
-                style={{ background: FILLS[total.rounds] }}
+                style={{ background: ROUND_FILLS[total.rounds] }}
               />
               <dt className="flex-1 text-foreground">
                 {formatRounds(total.rounds)}

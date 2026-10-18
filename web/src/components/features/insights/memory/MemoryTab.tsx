@@ -8,7 +8,11 @@ import { MemorySkeleton } from '@/components/features/insights/memory/MemorySkel
 import { NoMemories } from '@/components/features/insights/memory/NoMemories';
 import { useInsightsMemory } from '@/hooks/api/useInsightsMemory';
 import type { InsightsPeriod } from '@/lib/insights';
-import { memoryTiles, usedNoMemory } from '@/lib/insights-memory';
+import {
+  MEMORY_COMPARISON_NOTE,
+  memoryTiles,
+  usedNoMemory,
+} from '@/lib/insights-memory';
 import { failed, loading } from '@/lib/query';
 
 type MemoryTabProps = {
@@ -49,8 +53,9 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
 
       <InsightsCard
         tableOnly
+        scrolls
         title="Runs with memories and without"
-        description="Outcomes of runs that got a memory in their brief or read one, compared with the other runs in this period."
+        description={MEMORY_COMPARISON_NOTE}
       >
         <MemoryComparison
           runs={{

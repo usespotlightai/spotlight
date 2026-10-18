@@ -4,7 +4,11 @@ import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { StationWaits } from '@/components/features/insights/StationWaits';
 import { useInsightsFlow } from '@/hooks/api/useInsightsFlow';
-import type { InsightsPeriod, StationNames } from '@/lib/insights';
+import {
+  type InsightsPeriod,
+  type StationNames,
+  workStationCount,
+} from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 
 type FlowTabProps = {
@@ -18,7 +22,7 @@ export function FlowTab({ slug, teamId, period, names }: FlowTabProps) {
   const flow = useInsightsFlow(teamId, period);
 
   if (loading(flow)) {
-    return <FlowSkeleton />;
+    return <FlowSkeleton stations={workStationCount(names)} />;
   }
 
   if (failed(flow) || !flow.data) {

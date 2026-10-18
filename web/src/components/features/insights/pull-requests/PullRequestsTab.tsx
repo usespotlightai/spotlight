@@ -28,7 +28,7 @@ export function PullRequestsTab({
   const insights = useInsightsPullRequests(teamId, view.period);
 
   if (loading(insights)) {
-    return <PullRequestsSkeleton />;
+    return <PullRequestsSkeleton view={view} onView={onView} />;
   }
 
   if (failed(insights) || !insights.data) {

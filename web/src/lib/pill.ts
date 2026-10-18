@@ -3,10 +3,17 @@ import { cn } from '@/lib/utils';
 
 export type PillVariant = 'default' | 'outline' | 'ghost';
 
-export const pillClass = (variant: PillVariant, className?: string): string =>
+export type PillSize = 'small' | 'regular';
+
+export const pillClass = (
+  variant: PillVariant,
+  className?: string,
+  size: PillSize = 'small',
+): string =>
   cn(
     buttonVariants({ size: 'sm', variant }),
-    'h-6 rounded-full px-2.5 text-xs shadow-none',
+    'rounded-full shadow-none',
+    size === 'small' && 'h-6 px-2.5 text-xs',
     variant === 'outline' && 'bg-card text-foreground',
     className,
   );

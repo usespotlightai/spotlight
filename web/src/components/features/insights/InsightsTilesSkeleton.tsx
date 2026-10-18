@@ -1,22 +1,22 @@
-import { Skeleton } from '@/components/shared/skeleton/Skeleton';
-import { tilesInARow } from '@/lib/insights-tiles';
-import { cn } from '@/lib/utils';
+import { InsightsTileSkeleton } from '@/components/features/insights/InsightsTileSkeleton';
+import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
+import type { TileBones } from '@/lib/insights-tiles';
 
-export function InsightsTilesSkeleton({ count }: { count: number }) {
+type InsightsTilesSkeletonProps = {
+  label: string;
+  tiles: readonly TileBones[];
+};
+
+export function InsightsTilesSkeleton({
+  label,
+  tiles,
+}: InsightsTilesSkeletonProps) {
   return (
-    <div
-      className={cn(
-        'grid grid-cols-2 gap-2 sm:grid-cols-3',
-        tilesInARow(count),
-      )}
-    >
-      {Array.from({ length: count }, (_, at) => (
-        <Skeleton
-          // biome-ignore lint/suspicious/noArrayIndexKey: placeholder tiles have no identity
-          key={at}
-          className="h-24 rounded-lg"
-        />
+    <InsightsTiles label={label}>
+      {tiles.map((tile, at) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: placeholder tiles keep their place
+        <InsightsTileSkeleton key={at} {...tile} />
       ))}
-    </div>
+    </InsightsTiles>
   );
 }

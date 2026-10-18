@@ -18,7 +18,10 @@ export function SearchNotFound({ at }: SearchNotFoundProps) {
       {at && (
         <TrailLink
           to={searchesAnchorPath(at)}
-          className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
+          className={cn(
+            buttonVariants({ variant: 'outline', size: 'sm' }),
+            'rounded-full bg-card shadow-none',
+          )}
         >
           See the station’s searches
         </TrailLink>

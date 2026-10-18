@@ -2,13 +2,14 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { StationFailures } from '@/components/features/insights/StationFailures';
+import { StationInsightsHeading } from '@/components/features/insights/station/StationInsightsHeading';
 import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreement';
 import { StationRunOutcomes } from '@/components/features/stations/outcomes/StationRunOutcomes';
 import { StationSection } from '@/components/features/stations/StationSection';
 import { useStation } from '@/hooks/api/useStation';
 import {
   failedAny,
-  formatStation,
+  RUNS_BY_CONFIG_NOTE,
   type StationNames,
   type StationReport,
   tallyTiles,
@@ -37,16 +38,7 @@ export function StationInsights({
 
   return (
     <div data-slot="station-insights" className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <h2 className="font-semibold text-foreground text-lg tracking-tight">
-          {formatStation(names, stationId)}
-        </h2>
-        {named && (
-          <span className="text-muted-foreground text-sm">
-            {named.lineName}
-          </span>
-        )}
-      </div>
+      <StationInsightsHeading stationId={stationId} names={names} />
 
       {report ? (
         <>
@@ -71,7 +63,7 @@ export function StationInsights({
           </InsightsTiles>
 
           {failedAny(report) && (
-            <InsightsCard title="Why runs failed">
+            <InsightsCard scrolls title="Why runs failed">
               <StationFailures slug={slug} teamId={teamId} report={report} />
             </InsightsCard>
           )}
@@ -84,8 +76,9 @@ export function StationInsights({
 
       {lineId && (
         <InsightsCard
+          scrolls
           title="Runs by config"
-          description="Each config change starts a new group. Compare runs before and after it."
+          description={RUNS_BY_CONFIG_NOTE}
         >
           <StationRunOutcomes
             slug={slug}

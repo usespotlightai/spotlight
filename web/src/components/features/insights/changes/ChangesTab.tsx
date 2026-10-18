@@ -4,14 +4,16 @@ import { ChangeMarkerList } from '@/components/features/insights/changes/ChangeM
 import { ChangesSkeleton } from '@/components/features/insights/changes/ChangesSkeleton';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
-import {
-  type AgentConfigsNarrowed,
-  useInsightsAgentConfigs,
-} from '@/hooks/api/useInsightsAgentConfigs';
+import { useInsightsAgentConfigs } from '@/hooks/api/useInsightsAgentConfigs';
 import { useInsightsCandidates } from '@/hooks/api/useInsightsCandidates';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
-import { DEFAULT_OUTCOME, type OutcomeMeasure } from '@/lib/insights-changes';
+import {
+  type AgentConfigsNarrowed,
+  DEFAULT_OUTCOME,
+  EVERY_AGENT_CONFIG,
+  type OutcomeMeasure,
+} from '@/lib/insights-changes';
 import { failed, loading } from '@/lib/query';
 
 type ChangesTabProps = {
@@ -19,11 +21,6 @@ type ChangesTabProps = {
   teamId: string;
   period: InsightsPeriod;
   names: StationNames;
-};
-
-const EVERY_AGENT_CONFIG: AgentConfigsNarrowed = {
-  stationId: null,
-  size: null,
 };
 
 export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
@@ -35,7 +32,7 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
   const candidates = useInsightsCandidates(teamId, period);
 
   if (loading(changes) || loading(agentConfigs)) {
-    return <ChangesSkeleton />;
+    return <ChangesSkeleton names={names} />;
   }
 
   if (failed(changes) || !changes.data) {

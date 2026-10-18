@@ -5,26 +5,21 @@ import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
-import { dayOf, formatCount, type InsightsPeople } from '@/lib/insights';
+import {
+  dayOf,
+  formatCount,
+  type InsightsPeople,
+  PEOPLE_HEADINGS,
+} from '@/lib/insights';
 import { formatDay } from '@/lib/judge';
-import { SPREAD } from '@/lib/nested-table';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
 
 type PersonUse = InsightsPeople['adoption']['people'][number];
 
-const HEADINGS = [
-  { label: 'Person', indent: 'edge' as const, size: 'minmax(10rem,2fr)' },
-  { label: 'Tasks opened', numeric: true, size: SPREAD },
-  { label: 'Actions', numeric: true, size: SPREAD },
-  { label: 'Chats', numeric: true, size: SPREAD },
-  { label: 'First seen', numeric: true, size: SPREAD },
-  { label: 'Last active', numeric: true, size: SPREAD },
-];
-
 export function PeopleTable({ people }: { people: readonly PersonUse[] }) {
   return (
-    <NestedTable label="What each person did" headings={HEADINGS}>
+    <NestedTable label="What each person did" headings={PEOPLE_HEADINGS}>
       {people.map((person) => (
         <li
           key={person.personId}

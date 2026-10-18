@@ -9,6 +9,10 @@ import { TimeToMerge } from '@/components/features/insights/shipping/TimeToMerge
 import { TimeToMergeByType } from '@/components/features/insights/shipping/TimeToMergeByType';
 import { formatCount } from '@/lib/insights';
 import type { InsightsShipping } from '@/lib/insights-shipping';
+import {
+  AWAITING_REVIEW_NOTE,
+  HUMAN_REVIEWS_NOTE,
+} from '@/lib/insights-shipping';
 
 type ShippingPanelsProps = {
   shipping: InsightsShipping;
@@ -38,7 +42,7 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
           <TimeToFirstReview days={shipping.reviewDays} />
           <InsightsCard
             title="PRs awaiting first review"
-            description="Open pull requests with no human review yet, at each day’s end."
+            description={AWAITING_REVIEW_NOTE}
           >
             <DayChart
               label="Pull requests awaiting a first review, day by day"
@@ -61,10 +65,7 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
         </div>
         <div className="grid gap-3 lg:grid-cols-2">
           <ReviewBots bots={shipping.bots} />
-          <InsightsCard
-            title="Human reviews"
-            description="Human reviews on the team’s pull requests per day."
-          >
+          <InsightsCard title="Human reviews" description={HUMAN_REVIEWS_NOTE}>
             <DayChart
               label="Reviews by people, day by day"
               points={shipping.reviewDays.map((each) => ({

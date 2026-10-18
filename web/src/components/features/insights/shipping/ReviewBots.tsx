@@ -5,6 +5,7 @@ import {
 } from '@/components/features/insights/InsightsTable';
 import { formatCount, formatShare } from '@/lib/insights';
 import type { ReviewBot } from '@/lib/insights-shipping';
+import { REVIEW_BOTS_NOTE } from '@/lib/insights-shipping';
 
 const COLUMNS: readonly InsightsColumn<ReviewBot>[] = [
   {
@@ -36,8 +37,9 @@ export function ReviewBots({ bots }: { bots: readonly ReviewBot[] }) {
   return (
     <InsightsCard
       tableOnly
+      scrolls
       title="AI review agents"
-      description="Bots that reviewed the team’s pull requests. Spotlight’s review tasks count. Resolved: share of their comments resolved before merge"
+      description={REVIEW_BOTS_NOTE}
     >
       <InsightsTable
         label="AI review agents"

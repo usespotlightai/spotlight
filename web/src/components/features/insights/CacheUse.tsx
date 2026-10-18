@@ -7,25 +7,18 @@ import {
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
+  CACHE_HEADINGS,
+  CACHE_NOTE,
   formatCache,
   formatStation,
   type InsightsCost,
   type StationNames,
 } from '@/lib/insights';
-import { SPREAD } from '@/lib/nested-table';
 import { formatTokens } from '@/lib/run';
 import { stationPath } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
 type StationCache = InsightsCost['cost']['cacheByStation'][number];
-
-const HEADINGS = [
-  { label: 'Station', indent: 'edge' as const, size: 'minmax(10rem,2fr)' },
-  { label: 'Cache share', numeric: true, size: SPREAD },
-  { label: 'Cache read', numeric: true, size: SPREAD },
-  { label: 'Cache write', numeric: true, size: SPREAD },
-  { label: 'Input', numeric: true, size: SPREAD },
-];
 
 type CacheUseProps = {
   slug: string;
@@ -38,15 +31,16 @@ export function CacheUse({ slug, teamId, stations, names }: CacheUseProps) {
   return (
     <InsightsCard
       tableOnly={stations.length > 0}
+      scrolls
       title="Read from cache"
-      description="Cache reads as a share of all tokens read, which are input, cache reads and cache writes. If a harness doesn’t report input or cache reads, its runs don’t count."
+      description={CACHE_NOTE}
     >
       {stations.length === 0 ? (
         <p className="py-2 text-muted-foreground text-sm">
           No station reported tokens in this period.
         </p>
       ) : (
-        <NestedTable label="Cache share by station" headings={HEADINGS}>
+        <NestedTable label="Cache share by station" headings={CACHE_HEADINGS}>
           {stations.map((station) => {
             const named = names.get(station.stationId);
 

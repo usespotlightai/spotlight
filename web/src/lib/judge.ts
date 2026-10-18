@@ -196,7 +196,7 @@ export const formatHunk = (hunk: CitedHunk): string =>
 export const formatStep = (citation: Citation): string =>
   `Step ${citation.step?.index ?? ''}`.trim();
 
-const COVERAGE_PARTS = [
+export const COVERAGE_PARTS = [
   { key: 'both', label: 'Both scores' },
   { key: 'judgeOnly', label: 'Judge only' },
   { key: 'peopleOnly', label: 'People only' },
@@ -347,3 +347,6 @@ export const CLAIM_HEADINGS: readonly NestedHeading[] = [
 
 export const kappaNote = (reading: ClaimAgreement['reading']): string =>
   kappaRead(reading, KAPPA_NOTE);
+
+export const DISTRIBUTION_NOTE =
+  'How often each score was given. Only runs with both scores count.';

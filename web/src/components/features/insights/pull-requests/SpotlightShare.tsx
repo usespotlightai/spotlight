@@ -7,6 +7,7 @@ import { formatCount, formatShare } from '@/lib/insights';
 import {
   type InsightsPullRequests,
   mergedPullRequestsFilter,
+  WEEK_BY_WEEK_NOTE,
 } from '@/lib/insights-pull-requests';
 
 type SpotlightShareProps = {
@@ -48,7 +49,7 @@ export function SpotlightShare({ spotlightShare }: SpotlightShareProps) {
 
       <InsightsCard
         title="Week by week"
-        description="Merged pull requests each week, by who made them: Spotlight, others with a Spotlight review task, people alone, bots alone."
+        description={WEEK_BY_WEEK_NOTE}
         table={
           <SpotlightShareTable weeks={spotlightShare.weeks} repository={null} />
         }

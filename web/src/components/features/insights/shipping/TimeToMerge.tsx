@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AUTHOR_SERIES } from '@/components/features/insights/chart-series';
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
@@ -9,7 +10,7 @@ import {
   formatDurationOrNone,
   shownDeltaOf,
 } from '@/lib/insights';
-import { SPOTLIGHT_COMPARED_WITH_PEOPLE } from '@/lib/insights-pull-requests';
+import { TIME_TO_MERGE_NOTE } from '@/lib/insights-pull-requests';
 import {
   type ByAuthor,
   type ByAuthorChanges,
@@ -20,11 +21,6 @@ import {
   SMOOTHINGS,
   type Smoothing,
 } from '@/lib/insights-shipping';
-
-const AUTHORS = [
-  { key: 'spotlight', label: 'Spotlight’s', color: 'var(--chart-primary)' },
-  { key: 'people', label: 'People’s alone', color: 'var(--chart-2)' },
-] as const;
 
 type TimeToMergeProps = {
   now: ByAuthor;
@@ -39,7 +35,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
   return (
     <InsightsCard
       title="Time to merge"
-      description={`Time from when a pull request opens to its merge, at the chosen percentile. ${SPOTLIGHT_COMPARED_WITH_PEOPLE}`}
+      description={TIME_TO_MERGE_NOTE}
       actions={
         <div className="flex items-center gap-1.5">
           <PercentilePicker value={percentile} onChange={setPercentile} />
@@ -53,7 +49,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
       }
     >
       <dl className="flex flex-wrap gap-x-8 gap-y-3">
-        {AUTHORS.map((author) => {
+        {AUTHOR_SERIES.map((author) => {
           const delta = shownDeltaOf(changes[author.key][percentile]);
 
           return (
@@ -87,7 +83,10 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
       <DayChart
         label={`Time to merge at ${percentile}, ${smoothing === 'rolling' ? 'over the 7 days before each day' : 'day by day'}`}
         points={mergePoints(days, smoothing, percentile)}
-        series={AUTHORS.map((author) => ({ ...author, as: 'line' as const }))}
+        series={AUTHOR_SERIES.map((author) => ({
+          ...author,
+          as: 'line' as const,
+        }))}
         format={formatDuration}
         durations
       />

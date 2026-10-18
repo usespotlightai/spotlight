@@ -8,6 +8,7 @@ import { PeopleSkeleton } from '@/components/features/insights/PeopleSkeleton';
 import { PeopleTable } from '@/components/features/insights/PeopleTable';
 import { useInsightsPeople } from '@/hooks/api/useInsightsPeople';
 import {
+  ADOPTION_NOTE,
   formatCount,
   formatDuration,
   formatDurationOrNone,
@@ -91,10 +92,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
         </InsightsTiles>
       </InsightsSection>
 
-      <InsightsSection
-        title="Who is using Spotlight"
-        tooltip="Weekly and monthly always count the last 7 and 30 days."
-      >
+      <InsightsSection title="Who is using Spotlight" tooltip={ADOPTION_NOTE}>
         <InsightsTiles label="Adoption">
           <InsightsTile
             label="Active people"
@@ -118,7 +116,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
       </InsightsSection>
 
       {adoption.people.length > 0 && (
-        <InsightsCard title="What each person did" tableOnly>
+        <InsightsCard scrolls title="What each person did" tableOnly>
           <PeopleTable people={adoption.people} />
         </InsightsCard>
       )}

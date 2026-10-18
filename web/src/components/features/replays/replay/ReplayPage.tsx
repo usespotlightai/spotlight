@@ -103,8 +103,8 @@ export function ReplayPage({
                   <TrailLink
                     to={replaySetPath(at, replay.setId)}
                     className={cn(
-                      buttonVariants({ size: 'sm' }),
-                      'rounded-full',
+                      buttonVariants({ variant: 'outline', size: 'sm' }),
+                      'rounded-full bg-card shadow-none',
                     )}
                   >
                     Open the set

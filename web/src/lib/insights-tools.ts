@@ -67,13 +67,19 @@ export const usedNothing = (tools: InsightsTools): boolean =>
   tools.dismissals.length === 0 &&
   tools.unused.length === 0;
 
-export const skillHeadings = (rule: TrendRule): readonly NestedHeading[] => [
+export const skillHeadings = (
+  rule: TrendRule | null,
+): readonly NestedHeading[] => [
   { label: 'Skill', indent: 'outer', size: 'minmax(12rem,2fr)' },
   { label: 'Read per week', size: 'max-content' },
   { label: 'Runs', numeric: true, size: SPREAD },
   { label: 'Enabled', numeric: true, size: SPREAD },
   { label: 'Read', numeric: true, size: SPREAD },
-  { label: 'Trend', tooltip: formatTrendRule(rule), size: SPREAD },
+  {
+    label: 'Trend',
+    tooltip: rule ? formatTrendRule(rule) : undefined,
+    size: SPREAD,
+  },
 ];
 
 export const SERVER_HEADINGS: readonly NestedHeading[] = [
@@ -92,3 +98,15 @@ export const DISMISSAL_HEADINGS: readonly NestedHeading[] = [
   { label: 'Server', size: SPREAD },
   { label: 'Dismissed', numeric: true, size: SPREAD },
 ];
+
+export const SKILLS_NOTE =
+  'Runs that got each skill and runs that read it, per station. A read is a tool call that touches the skill’s folder or names it. The line shows the share of runs that read it, week by week.';
+
+export const UNUSED_SKILLS_NOTE =
+  'Team skills that no run read in this period.';
+
+export const SERVERS_NOTE =
+  'MCP servers that runs called. Unfinished calls count as failed. Dismissed calls don’t count. Dismissed: runs with a dismissed call. Failing runs: failed runs whose last call to the server failed';
+
+export const DISMISSALS_NOTE =
+  'Runs where a person dismissed a tool approval, per server and tool.';
