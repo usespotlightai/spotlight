@@ -197,7 +197,7 @@ export class HookResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'migrations-need-a-dba',
     description:
-      'Names the hook within its team; fixed for its life, so changing it means replacing the hook',
+      'Names the hook within its team. Immutable: changing it means replacing the hook',
   })
   readonly key: string;
 

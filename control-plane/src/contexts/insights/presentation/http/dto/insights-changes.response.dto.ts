@@ -232,7 +232,7 @@ export class AgentConfigOutcomesResponseDto {
     nullable: true,
     type: Number,
     example: 0.2,
-    description: 'Share of runs that a person sent back or dismissed first',
+    description: 'Share of runs that a person sent back first',
   })
   readonly sent_back: number | null;
 

@@ -12,7 +12,7 @@ export class TeamResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'core',
     description:
-      'Names the team in the addresses of everything it has; fixed for its life, so changing it means replacing the team',
+      'Names the team in the addresses of everything it has. Immutable: changing it means replacing the team',
   })
   readonly key: string;
 

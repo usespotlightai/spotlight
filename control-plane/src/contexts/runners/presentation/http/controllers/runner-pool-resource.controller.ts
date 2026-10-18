@@ -95,7 +95,7 @@ const DEFINITION = ApiBody({
         nullable: true,
         required: ['url'],
         description:
-          'Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Fixed for the pool’s life',
+          'Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Immutable',
         properties: {
           url: {
             type: 'string',

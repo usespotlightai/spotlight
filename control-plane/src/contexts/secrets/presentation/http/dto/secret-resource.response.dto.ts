@@ -84,7 +84,7 @@ export class SecretResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'LINEAR_API_KEY',
     description:
-      'What integrations call it; fixed for its life, so changing it means replacing the secret',
+      'What integrations call it. Immutable: changing it means replacing the secret',
   })
   readonly name: string;
 

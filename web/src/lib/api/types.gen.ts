@@ -229,7 +229,7 @@ export type LineResourceResponseDto = {
    */
   teamId: string;
   /**
-   * Names the line within its team; fixed for its life, so changing it means replacing the line
+   * Names the line within its team. Immutable: changing it means replacing the line
    */
   key: string;
   /**
@@ -2352,7 +2352,7 @@ export type WorkspaceResourceResponseDto = {
    */
   name: string;
   /**
-   * Where the workspace lives in the web app; fixed for its life, so changing it means replacing the workspace
+   * Where the workspace lives in the web app. Immutable: changing it means replacing the workspace
    */
   slug: string;
 };
@@ -2386,7 +2386,7 @@ export type TeamResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the team in the addresses of everything it has; fixed for its life, so changing it means replacing the team
+   * Names the team in the addresses of everything it has. Immutable: changing it means replacing the team
    */
   key: string;
   /**
@@ -2424,7 +2424,7 @@ export type WorkspaceTokenResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the token within its workspace; fixed for its life, so changing it means replacing the token
+   * Names the token within its workspace. Immutable: changing it means replacing the token
    */
   name: string;
   /**
@@ -2432,7 +2432,7 @@ export type WorkspaceTokenResourceResponseDto = {
    */
   description: string;
   /**
-   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and token trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages workspace token trusts. Fixed for its life
+   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and token trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages workspace token trusts. Immutable
    */
   scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
   /**
@@ -2441,7 +2441,7 @@ export type WorkspaceTokenResourceResponseDto = {
   issuedBy: string;
   issuedAt: string;
   /**
-   * After this Spotlight does not accept it; null never expires. Fixed for its life
+   * After this Spotlight does not accept it; null never expires. Immutable
    */
   expiresAt: string | null;
 };
@@ -2475,7 +2475,7 @@ export type WorkspaceTokenTrustResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the trust within its workspace, and every token it issues; fixed for its life
+   * Names the trust within its workspace, and every token it issues. Immutable
    */
   key: string;
   /**
@@ -2828,7 +2828,7 @@ export type SecretResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * What integrations call it; fixed for its life, so changing it means replacing the secret
+   * What integrations call it. Immutable: changing it means replacing the secret
    */
   name: string;
   source: SecretSourceResponseDto;
@@ -3086,7 +3086,7 @@ export type RunnerTrustResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the trust; fixed for its life
+   * Names the trust. Immutable
    */
   key: string;
   /**
@@ -3155,7 +3155,7 @@ export type RunnerPoolResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the pool, and is its address; fixed for its life
+   * Names the pool, and is its address. Immutable
    */
   key: string;
   /**
@@ -3167,7 +3167,7 @@ export type RunnerPoolResourceResponseDto = {
    */
   maxRuns: number | null;
   /**
-   * pull when hosts claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable
+   * pull when hosts claim with the pool token, push when Spotlight calls provision. Immutable, and not settable
    */
   mode: 'pull' | 'push';
   /**
@@ -3209,7 +3209,7 @@ export type EgressResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the egress, and is its address; fixed for its life
+   * Names the egress, and is its address. Immutable
    */
   key: string;
   /**
@@ -3354,7 +3354,7 @@ export type SkillResourceResponseDto = {
    */
   teamId: string;
   /**
-   * What stations enable it by; fixed for its life, so changing it means replacing the skill
+   * What stations enable it by. Immutable: changing it means replacing the skill
    */
   key: string;
   /**
@@ -3433,7 +3433,7 @@ export type HarnessProfileResourceResponseDto = {
    */
   teamId: string;
   /**
-   * What stations name it by; fixed for its life, so changing it means replacing the profile
+   * What stations name it by. Immutable: changing it means replacing the profile
    */
   key: string;
   /**
@@ -4241,7 +4241,7 @@ export type HookResourceResponseDto = {
    */
   teamId: string;
   /**
-   * Names the hook within its team; fixed for its life, so changing it means replacing the hook
+   * Names the hook within its team. Immutable: changing it means replacing the hook
    */
   key: string;
   /**
@@ -4715,7 +4715,7 @@ export type RunTallyResponseDto = {
    */
   accepted: number;
   /**
-   * Runs that a person sent back or dismissed first
+   * Runs that a person sent back first
    */
   sentBack: number;
   /**
@@ -5323,7 +5323,7 @@ export type DayOutputResponseDto = {
 
 export type SignalReadingResponseDto = {
   /**
-   * sent-back: share of runs sent back or dismissed; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run
+   * sent-back: share of runs that a person sent back first; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run
    */
   signal: 'sent-back' | 'checks-failed' | 'run-failures' | 'task-failures' | 'cost';
   /**
@@ -5683,7 +5683,7 @@ export type HumanLoadResponseDto = {
   toAnswer: SpreadResponseDto;
   unanswered: number;
   /**
-   * Runs that a person sent back or dismissed first
+   * Runs that a person sent back first
    */
   sentBack: number;
   sentBackRate: number | null;
@@ -6201,7 +6201,7 @@ export type AgentConfigOutcomesResponseDto = {
    */
   accepted: number | null;
   /**
-   * Share of runs that a person sent back or dismissed first
+   * Share of runs that a person sent back first
    */
   sent_back: number | null;
   /**
@@ -14557,7 +14557,7 @@ export type CreateRunnerPoolData = {
      */
     tokenVersion?: number | null;
     /**
-     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Fixed for the pool’s life
+     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Immutable
      */
     provision?: {
       url: string;
@@ -14763,7 +14763,7 @@ export type UpdateRunnerPoolData = {
      */
     tokenVersion?: number | null;
     /**
-     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Fixed for the pool’s life
+     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Immutable
      */
     provision?: {
       url: string;
