@@ -9,11 +9,8 @@ ENV CGO_ENABLED=0
 ARG SPOTLIGHT_VERSION=dev
 RUN go build -ldflags "-X main.version=${SPOTLIGHT_VERSION}" -o /out/spotlight ./cmd/spotlight
 
-# Do not use Alpine. The cursor-agent package has only a glibc binary.
+# Do not use Alpine. The cursor-agent package that teams install has only a glibc binary.
 FROM debian:bookworm-slim AS runner
-ARG CLAUDE_CODE_VERSION=latest
-ARG CLAUDE_AGENT_ACP_VERSION=latest
-ARG CODEX_ACP_VERSION=latest
 ARG TERRAFORM_VERSION=1.16.4
 ARG TARGETARCH
 RUN apt-get update \
@@ -33,15 +30,6 @@ RUN arch="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && unzip -q "${zip}" terraform -d /usr/local/bin \
     && rm "${zip}" \
     && terraform version
-RUN npm install -g \
-        "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
-        "@agentclientprotocol/claude-agent-acp@${CLAUDE_AGENT_ACP_VERSION}" \
-        "@agentclientprotocol/codex-acp@${CODEX_ACP_VERSION}" \
-    && npm cache clean --force
-RUN mkdir -p /opt/cursor \
-    && HOME=/opt/cursor bash -c 'curl https://cursor.com/install -fsS | bash' \
-    && ln -sf /opt/cursor/.local/bin/cursor-agent /usr/local/bin/cursor-agent \
-    && chmod -R a+rX /opt/cursor
 COPY --from=build /out/spotlight /usr/local/bin/
 ENV SPOTLIGHT_AGENT_USER=agent \
     SPOTLIGHT_WORKSPACE=/workspace \

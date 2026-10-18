@@ -44,9 +44,12 @@ docker compose up -d
 
 Compose also runs `db`, `migrate` (applies migrations before the control plane
 starts), `storage-bucket`, `tunnel`, and `host`: a `spotlight host` serving the
-dev pool, which starts sandboxes from the `spotlight-runner:dev` image on the
-compose network. It reloads on edits to `data-plane/`; the image does not, so
-rebuild it with `docker compose build runner` after changing the runner or agent commands.
+dev pool, which starts sandboxes from the `spotlight-runner:dev-harnesses` image
+on the compose network. That image is `spotlight-runner:dev` with the example
+harness images of `.docker/runner/examples/` built on top of it, one after the
+other. It reloads on edits to `data-plane/`; the images do not, so rebuild them
+with `docker compose build runner runner-claude-code runner-codex runner-harnesses`
+after changing the runner or agent commands.
 
 ## Schema changes
 
@@ -99,9 +102,11 @@ see.
 
 ## Releases
 
-Harnesses live only in the runner image (`.docker/runner/Dockerfile`, built
-from this repository, with `CLAUDE_CODE_VERSION`, `CLAUDE_AGENT_ACP_VERSION`
-and `CODEX_ACP_VERSION` as build arguments).
+The runner image (`.docker/runner/Dockerfile`) holds no harness. Each team
+builds its own image `FROM` it with the harness its subscription covers.
+`.docker/runner/examples/` has one example Dockerfile for each harness, with
+`BASE`, `CLAUDE_CODE_VERSION`, `CLAUDE_AGENT_ACP_VERSION` and
+`CODEX_ACP_VERSION` as build arguments. No image with a harness is published.
 
 Tagging triggers `release.yml`, which starts the `infrastructure` repo's build:
 service images and the runner image, plus the `spotlight` binaries

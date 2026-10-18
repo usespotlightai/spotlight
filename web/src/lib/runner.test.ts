@@ -5,6 +5,7 @@ import {
   type Host,
   heartbeatAt,
   hiddenFromViewer,
+  holdsNoHarness,
   hostStatus,
   leasedRunPath,
   onlineCount,
@@ -224,5 +225,38 @@ describe('sourceLabel', () => {
       'Pool build-farm',
     );
     expect(sourceLabel({ kind: 'trust', key: null })).toBe('Trust deleted');
+  });
+});
+
+describe('holdsNoHarness', () => {
+  const image = (
+    harnesses: string[],
+    unavailableReason: string | null = null,
+  ) => ({
+    image: 'ghcr.io/acme/runner:1',
+    digest: null,
+    isDefault: true,
+    release: '20261018-01',
+    harnesses: harnesses.map((id) => ({ id, version: null })),
+    unavailableReason,
+  });
+
+  it('says so when every usable image holds no harness', () => {
+    expect(holdsNoHarness(hosted({ images: [image([])] }))).toBe(true);
+    expect(
+      holdsNoHarness(
+        hosted({ images: [image([]), image(['claude-code'], 'Too old')] }),
+      ),
+    ).toBe(true);
+  });
+
+  it('says not when an image holds a harness, or when no image is usable yet', () => {
+    expect(
+      holdsNoHarness(hosted({ images: [image([]), image(['codex'])] })),
+    ).toBe(false);
+    expect(holdsNoHarness(hosted({ images: [] }))).toBe(false);
+    expect(
+      holdsNoHarness(hosted({ images: [image(['codex'], 'Too old')] })),
+    ).toBe(false);
   });
 });
