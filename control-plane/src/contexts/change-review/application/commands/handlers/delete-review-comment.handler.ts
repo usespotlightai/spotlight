@@ -29,7 +29,7 @@ export class DeleteReviewCommentHandler
         throw new UnknownReviewCommentError();
       }
 
-      await this.comments.save(comment.removed(by));
+      await this.comments.save(comment.deleted(by));
     } catch (error) {
       rethrowAsApplicationError(error);
     }

@@ -28,7 +28,7 @@ export class CatalogToolResponseDto {
   @ApiProperty({
     example: 'team',
     enum: PLANS,
-    description: 'The plan it needs',
+    description: 'The lowest plan that includes the item',
   })
   readonly plan: string;
 
@@ -51,7 +51,7 @@ export class CatalogSkillResponseDto extends CatalogToolResponseDto {
     isArray: true,
     example: ['catalog.web-search@1.1.0', 'catalog.fetch-page@1.0.0'],
     description:
-      'The catalog tools it brings, enabled wherever the skill is; its files never leave Spotlight except into a run',
+      'The catalog tools that the skill uses, enabled wherever the skill is; its files never leave Spotlight except into a run',
   })
   readonly tools: readonly string[];
 

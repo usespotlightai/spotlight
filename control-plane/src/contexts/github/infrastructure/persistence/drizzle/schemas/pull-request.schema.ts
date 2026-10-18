@@ -20,7 +20,7 @@ export interface StoredReview extends Omit<WebhookReview, 'at'> {
   readonly at: string | null;
 }
 
-export interface StoredDraftSpell {
+export interface StoredDraftPeriod {
   readonly from: string;
   readonly to: string | null;
 }
@@ -48,8 +48,8 @@ export const githubPullRequest = pgTable(
     openedAt: timestamp('opened_at').notNull(),
     draft: boolean('draft').notNull().default(false),
     readyForReviewAt: timestamp('ready_for_review_at'),
-    draftSpells: jsonb('draft_spells')
-      .$type<StoredDraftSpell[]>()
+    draftPeriods: jsonb('draft_periods')
+      .$type<StoredDraftPeriod[]>()
       .notNull()
       .default([]),
     state: githubPullRequestState('state').notNull(),

@@ -3,7 +3,7 @@ import type {
   InstallationAdministrationPort,
 } from '@github/application/ports/installation-administration.port';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
-import { assertionFor } from '@github/infrastructure/github/app-assertion';
+import { appJwt } from '@github/infrastructure/github/app-jwt';
 import { call } from '@github/infrastructure/github/github.rest';
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
 import type { Env } from '@platform/config/env.schema';
@@ -32,16 +32,16 @@ export class GitHubInstallationAdministration
     const token = await this.accounts.tokenFor(userId, 'github');
 
     if (!token) {
-      return 'cannot-tell';
+      return 'unknown';
     }
 
     const account = await this.accountOf(installation);
 
     if (account === 'missing') {
-      return 'does-not';
+      return 'not-admin';
     }
     if (account === 'failed') {
-      return 'cannot-tell';
+      return 'unknown';
     }
 
     return account.type === 'Organization'
@@ -54,7 +54,7 @@ export class GitHubInstallationAdministration
   ): Promise<Looked<Account>> {
     const read = await this.read<{ account?: Partial<Account> | null }>(
       `/app/installations/${installation.value}`,
-      assertionFor(this.env),
+      appJwt(this.env),
     );
 
     if (read === 'missing' || read === 'failed') {
@@ -80,15 +80,15 @@ export class GitHubInstallationAdministration
     );
 
     if (read === 'missing') {
-      return 'does-not';
+      return 'not-admin';
     }
     if (read === 'failed') {
-      return 'cannot-tell';
+      return 'unknown';
     }
 
     return read.state === 'active' && read.role === 'admin'
-      ? 'administers'
-      : 'does-not';
+      ? 'admin'
+      : 'not-admin';
   }
 
   private async ownerOf(
@@ -102,10 +102,10 @@ export class GitHubInstallationAdministration
       read === 'failed' ||
       typeof read.id !== 'number'
     ) {
-      return 'cannot-tell';
+      return 'unknown';
     }
 
-    return read.id === accountId ? 'administers' : 'does-not';
+    return read.id === accountId ? 'admin' : 'not-admin';
   }
 
   private async read<T>(path: string, token: string): Promise<Looked<T>> {

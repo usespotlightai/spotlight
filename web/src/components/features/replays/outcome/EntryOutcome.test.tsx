@@ -87,13 +87,13 @@ const STACK = {
   ],
   check: {
     command: 'npm test',
-    state: 'checked',
+    status: 'checked',
     reason: null,
     whole: {
       step: 'whole',
       passed: false,
       output: 'FAIL retry > gives up on a 410',
-      tookMs: 41_000,
+      durationMs: 41_000,
     },
     layers: [],
   },

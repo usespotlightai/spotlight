@@ -84,7 +84,7 @@ const REASONS: Record<ReasonCode, string> = {
   'asked-a-person': 'Asked a person (replays can’t)',
   'check-failed': 'Checks failed',
   'check-skipped': 'Checks couldn’t run',
-  'change-undrafted': 'Change couldn’t be drafted',
+  'change-not-generated': 'Change couldn’t be generated',
   'no-change': 'No change for the checks to run on',
   'no-change-stack': 'Files changed, but the change never reached Spotlight',
   judged: 'Judge passed it',
@@ -95,7 +95,7 @@ const REASONS: Record<ReasonCode, string> = {
 
 const CHECKS: Record<ChecksState, string> = {
   absent: 'No change to check',
-  drafting: 'Drafting the change',
+  generating: 'Generating the change',
   checking: 'Checking',
   passed: 'Checks passed',
   failed: 'Checks failed',
@@ -126,13 +126,13 @@ const CHECK_SKIPS: Record<CheckSkip, string> = {
   'no-checkout': 'checkout missing',
   'checkout-failed': 'checkout failed',
   'setup-failed': 'repository setup failed',
-  'no-room': 'no runner to check on',
+  'workspace-failed': 'runner couldn’t open a workspace',
   'out-of-time': 'checks ran out of time',
   'no-image': 'check image missing',
-  unprovisioned: 'no runner could be provisioned for the check',
-  'nobody-checked': 'no runner claimed the check in time',
+  'provision-failed': 'no runner could be provisioned for the check',
+  'queue-timeout': 'no runner claimed the check in time',
   skipped: 'checks skipped',
-  undrafted: 'change never drafted',
+  'not-generated': 'change not generated',
   'no-check-asked': 'candidate has no check command',
 };
 
@@ -249,7 +249,7 @@ const formatDetail = (reason: EntryReasonResponseDto): string | null => {
     case 'run-failed':
       return formatFailure(detail);
     case 'check-skipped':
-    case 'change-undrafted':
+    case 'change-not-generated':
       return formatSkip(detail);
     case 'unjudged':
       return isKey(UNJUDGED, detail) ? UNJUDGED[detail] : detail;

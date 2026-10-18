@@ -21,9 +21,9 @@ import type {
   StepId,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
+  parseStoredSkip,
+  provisionFailed,
   skipOf,
-  storedSkipOf,
-  unprovisioned,
   WAITING_LIMIT_MS,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
@@ -96,7 +96,7 @@ const cohort = (
     title: `${title} ${at + 1}`,
     summary: `${title} ${at + 1}`,
     dependsOn: [],
-    ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+    hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: hunks.map((hunk) => ({
       path: DIFF.fileOf(hunk)?.path ?? hunk,
       note: 'Why it changes',
@@ -105,7 +105,7 @@ const cohort = (
 });
 
 const stack = () =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
@@ -160,7 +160,7 @@ const step = (id: string, passes: boolean, output = ''): CheckedStep => ({
   step: stepOf(id),
   passed: passes,
   output,
-  tookMs: 1200,
+  durationMs: 1200,
 });
 
 const kinds = (check: StackCheck) =>
@@ -175,9 +175,9 @@ const rehydrated = (over: Record<string, unknown>) =>
     recheck: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     request: CheckRequest.of('npx tsc --noEmit', null),
-    phase: 'waiting',
+    status: 'waiting',
     entries: [],
-    rounds: 0,
+    redraftCount: 0,
     outcome: null,
     claim: CheckClaim.none(),
     waitingSince: LATER,
@@ -199,9 +199,9 @@ describe('StackCheck', () => {
   it('waits for a runner once the stack completes, and gives up after a while', () => {
     const check = waiting();
 
-    expect(check.stateAt(LATER)).toBe('waiting');
+    expect(check.statusAt(LATER)).toBe('waiting');
     expect(
-      check.stateAt(new Date(LATER.getTime() + WAITING_LIMIT_MS + 1)),
+      check.statusAt(new Date(LATER.getTime() + WAITING_LIMIT_MS + 1)),
     ).toBe('skipped');
   });
 
@@ -224,7 +224,7 @@ describe('StackCheck', () => {
       LATER,
     );
 
-    expect(checked.outcome?.state).toBe('checked');
+    expect(checked.outcome?.status).toBe('checked');
     expect(checked.failedLayers()).toEqual(['c1.l2']);
   });
 
@@ -236,7 +236,7 @@ describe('StackCheck', () => {
       LATER,
     );
 
-    expect(checked.outcome).toMatchObject({ state: 'checked', layers: [] });
+    expect(checked.outcome).toMatchObject({ status: 'checked', layers: [] });
     expect(
       checkReasonOf({
         skipped: checked.skippedAt(LATER),
@@ -276,7 +276,7 @@ describe('StackCheck', () => {
       LATER,
     );
 
-    expect(skipped.stateAt(LATER)).toBe('skipped');
+    expect(skipped.statusAt(LATER)).toBe('skipped');
     expect(
       checkReasonOf({
         skipped: skipped.skippedAt(LATER),
@@ -303,7 +303,7 @@ describe('StackCheck', () => {
     expect(() => skipOf('made-up', null)).toThrow(InvalidChangeStackError);
   });
 
-  it('requests reordering where the whole change builds but a layer does not', () => {
+  it('requests redrafting where the whole change builds but a layer does not', () => {
     const checked = checking().recordResult(
       RUNNER,
       planned(),
@@ -311,48 +311,48 @@ describe('StackCheck', () => {
       LATER,
     );
 
-    expect(checked.reordering).toBe(true);
+    expect(checked.redrafting).toBe(true);
     expect(kinds(checked)).toEqual(['change-stack.layers-failed-check']);
   });
 
-  it('takes the reordered layers and waits to be checked afresh', () => {
-    const reordering = checking().recordResult(
+  it('takes the redrafted layers and waits to be checked afresh', () => {
+    const redrafting = checking().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
       LATER,
     );
-    const again = reordering.reordered(stack().entries(), LATER);
+    const again = redrafting.redrafted(stack().entries(), LATER);
 
-    expect(again.phase).toBe('waiting');
-    expect(again.rounds).toBe(1);
+    expect(again.status).toBe('waiting');
+    expect(again.redraftCount).toBe(1);
     expect(again.outcome).toBeNull();
   });
 
-  it('retains the checked layers where reordering stops', () => {
-    const reordering = checking().recordResult(
+  it('retains the checked layers where redrafting stops', () => {
+    const redrafting = checking().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
       LATER,
     );
-    reordering.pullEvents();
+    redrafting.pullEvents();
 
-    const checked = reordering.retainCheckedLayers();
+    const checked = redrafting.retainCheckedLayers();
 
-    expect(checked.stateAt(LATER)).toBe('checked');
+    expect(checked.statusAt(LATER)).toBe('checked');
     expect(kinds(checked)).toEqual(['change-stack.checked']);
   });
 
-  it('drops a reservation when it takes reordered layers', () => {
+  it('drops a reservation when it takes redrafted layers', () => {
     const failing = checking().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', false, 'error')],
       LATER,
     );
-    const reordering = rehydrated({
-      phase: 'reordering',
+    const redrafting = rehydrated({
+      status: 'redrafting',
       outcome: failing.outcome,
       reservation: RunnerReservation.from(
         RUNNER,
@@ -361,13 +361,13 @@ describe('StackCheck', () => {
       ),
     });
 
-    const again = reordering.reordered(stack().entries(), LATER);
+    const again = redrafting.redrafted(stack().entries(), LATER);
 
     expect(again.reservation).toBeNull();
     expect(kinds(again)).toEqual(['change-stack.check-reservation-dropped']);
   });
 
-  it('reorders at most once', () => {
+  it('redrafts at most once', () => {
     const failing = (check: StackCheck) =>
       check
         .claimedFor(RUNNER, ANY, LATER)
@@ -378,17 +378,19 @@ describe('StackCheck', () => {
           LATER,
         );
 
-    const again = failing(waiting()).reordered(stack().entries(), LATER);
+    const again = failing(waiting()).redrafted(stack().entries(), LATER);
 
-    expect(failing(again).reordering).toBe(false);
+    expect(failing(again).redrafting).toBe(false);
   });
 
   it('does not come back in a state it could not have entered', () => {
-    expect(() => rehydrated({ phase: 'checked' })).toThrow(
+    expect(() => rehydrated({ status: 'checked' })).toThrow(
       InconsistentStateError,
     );
-    expect(() => rehydrated({ rounds: -1 })).toThrow(InconsistentStateError);
-    expect(rehydrated({}).stateAt(LATER)).toBe('waiting');
+    expect(() => rehydrated({ redraftCount: -1 })).toThrow(
+      InconsistentStateError,
+    );
+    expect(rehydrated({}).statusAt(LATER)).toBe('waiting');
   });
 
   describe('claiming it for a runner', () => {
@@ -480,9 +482,9 @@ describe('StackCheck', () => {
       expect(() =>
         check.recordResult(OTHER, planned(), [step(WHOLE_STEP, true)], LATER),
       ).toThrow(StackCheckNotLeasedError);
-      expect(() => check.skip(OTHER, skipOf('no-room', null), LATER)).toThrow(
-        StackCheckNotLeasedError,
-      );
+      expect(() =>
+        check.skip(OTHER, skipOf('workspace-failed', null), LATER),
+      ).toThrow(StackCheckNotLeasedError);
       expect(() =>
         waiting().recordResult(
           RUNNER,
@@ -492,7 +494,7 @@ describe('StackCheck', () => {
         ),
       ).toThrow(StackCheckNotLeasedError);
       expect(() =>
-        waiting().skip(RUNNER, skipOf('no-room', null), LATER),
+        waiting().skip(RUNNER, skipOf('workspace-failed', null), LATER),
       ).toThrow(StackCheckNotLeasedError);
     });
 
@@ -504,7 +506,8 @@ describe('StackCheck', () => {
           .claim.claimedBy,
       ).toBeNull();
       expect(
-        leased.skip(RUNNER, skipOf('no-room', null), LATER).claim.claimedBy,
+        leased.skip(RUNNER, skipOf('workspace-failed', null), LATER).claim
+          .claimedBy,
       ).toBeNull();
     });
   });
@@ -549,7 +552,11 @@ describe('StackCheck', () => {
         [step(WHOLE_STEP, true)],
         LATER,
       );
-      const skipped = check.skip(RUNNER, skipOf('no-room', null), LATER);
+      const skipped = check.skip(
+        RUNNER,
+        skipOf('workspace-failed', null),
+        LATER,
+      );
 
       expect(recorded.checkableAt(LATER)).toBe(false);
       expect(skipped.checkableAt(LATER)).toBe(false);
@@ -571,7 +578,7 @@ describe('StackCheck', () => {
       const renewed = check.renewedFor(RUNNER, WAIT_EXPIRED);
       const pastFirstLease = new Date(leaseOf(check) + 1000);
 
-      expect(check.stateAt(WAIT_EXPIRED)).toBe('waiting');
+      expect(check.statusAt(WAIT_EXPIRED)).toBe('waiting');
       expect(check.checkableAt(WAIT_EXPIRED)).toBe(true);
       expect(renewed.beingCheckedBy(RUNNER, pastFirstLease)).toBe(true);
       expect(renewed.waitExpiredAt(pastFirstLease)).toBe(false);
@@ -592,11 +599,11 @@ describe('StackCheck', () => {
         WAIT_EXPIRED,
       );
 
-      expect(recorded.phase).toBe('checked');
-      expect(recorded.stateAt(WAIT_EXPIRED)).toBe('checked');
+      expect(recorded.status).toBe('checked');
+      expect(recorded.statusAt(WAIT_EXPIRED)).toBe('checked');
     });
 
-    it('is skipped as nobody checked once its runner’s lease expires past the hour', () => {
+    it('is skipped as a queue timeout once its runner’s lease expires past the hour', () => {
       const check = waiting().claimedFor(
         RUNNER,
         ANY,
@@ -604,7 +611,7 @@ describe('StackCheck', () => {
       );
       const expired = new Date(leaseOf(check));
 
-      expect(check.stateAt(expired)).toBe('skipped');
+      expect(check.statusAt(expired)).toBe('skipped');
       expect(check.checkableAt(expired)).toBe(false);
       expect(check.waitExpiredAt(expired)).toBe(true);
       expect(() => check.renewedFor(RUNNER, expired)).toThrow(
@@ -619,7 +626,7 @@ describe('StackCheck', () => {
         ),
       ).toThrow(InvalidChangeStackError);
       expect(check.expireWait(expired).skippedAt(expired)).toEqual({
-        code: 'nobody-checked',
+        code: 'queue-timeout',
         detail: null,
       });
     });
@@ -645,17 +652,17 @@ describe('StackCheck', () => {
 
       expect(renewed.claim.claimedAt).toEqual(LATER);
       expect(renewed.beingCheckedBy(RUNNER, justBefore)).toBe(true);
-      expect(renewed.stateAt(justBefore)).toBe('waiting');
+      expect(renewed.statusAt(justBefore)).toBe('waiting');
     });
 
-    it('releases a runner that keeps renewing past the ceiling and expires it as nobody checked', () => {
+    it('releases a runner that keeps renewing past the ceiling and expires it as a queue timeout', () => {
       const renewed = renewedUntil(checking(), justBefore);
 
       expect(renewed.claim.leaseExpiresAt?.getTime()).toBeGreaterThan(
         ceiling.getTime(),
       );
       expect(renewed.beingCheckedBy(RUNNER, ceiling)).toBe(false);
-      expect(renewed.stateAt(ceiling)).toBe('skipped');
+      expect(renewed.statusAt(ceiling)).toBe('skipped');
       expect(renewed.checkableAt(ceiling)).toBe(false);
       expect(() => renewed.renewedFor(RUNNER, ceiling)).toThrow(
         InvalidChangeStackError,
@@ -670,7 +677,7 @@ describe('StackCheck', () => {
       ).toThrow(InvalidChangeStackError);
       expect(renewed.waitExpiredAt(ceiling)).toBe(true);
       expect(renewed.expireWait(ceiling).skippedAt(ceiling)).toEqual({
-        code: 'nobody-checked',
+        code: 'queue-timeout',
         detail: null,
       });
     });
@@ -720,38 +727,38 @@ describe('StackCheck', () => {
 
   describe('storing why it was skipped', () => {
     it('takes back a skip no runner could have reported', () => {
-      expect(storedSkipOf('unprovisioned', '5 attempts')).toEqual({
-        code: 'unprovisioned',
+      expect(parseStoredSkip('provision-failed', '5 attempts')).toEqual({
+        code: 'provision-failed',
         detail: '5 attempts',
       });
     });
 
     it('takes back a skip for a check nobody claimed in time', () => {
-      expect(storedSkipOf('nobody-checked', null)).toEqual({
-        code: 'nobody-checked',
+      expect(parseStoredSkip('queue-timeout', null)).toEqual({
+        code: 'queue-timeout',
         detail: null,
       });
     });
 
     it('takes back a reported skip as a runner reported it', () => {
-      expect(storedSkipOf('no-room', '  disk full  ')).toEqual({
-        code: 'no-room',
+      expect(parseStoredSkip('workspace-failed', '  disk full  ')).toEqual({
+        code: 'workspace-failed',
         detail: 'disk full',
       });
-      expect(() => storedSkipOf('made-up', null)).toThrow(
+      expect(() => parseStoredSkip('made-up', null)).toThrow(
         InvalidChangeStackError,
       );
     });
 
     it('never lets a runner say no runner could be provisioned', () => {
-      expect(() => skipOf('unprovisioned', null)).toThrow(
+      expect(() => skipOf('provision-failed', null)).toThrow(
         InvalidChangeStackError,
       );
     });
 
     it('says how many attempts failed and what the last one was', () => {
-      expect(unprovisioned(HTTP_ERROR, 5)).toEqual({
-        code: 'unprovisioned',
+      expect(provisionFailed(HTTP_ERROR, 5)).toEqual({
+        code: 'provision-failed',
         detail: 'Attempts: 5\nLast failure: http-error: answered 503',
       });
     });
@@ -778,7 +785,11 @@ describe('StackCheck', () => {
         LATER,
       );
       const claimed = waiting().claimedFor(RUNNER, ANY, LATER);
-      const skipped = checking().skip(RUNNER, skipOf('no-room', null), LATER);
+      const skipped = checking().skip(
+        RUNNER,
+        skipOf('workspace-failed', null),
+        LATER,
+      );
 
       expect(reserved.provisionableAt(LATER)).toBe(false);
       expect(claimed.provisionableAt(LATER)).toBe(false);
@@ -876,7 +887,7 @@ describe('StackCheck', () => {
 
       expect(failed.reservation).toBeNull();
       expect(failed.provisioning.attempts).toBe(1);
-      expect(failed.stateAt(LATER)).toBe('waiting');
+      expect(failed.statusAt(LATER)).toBe('waiting');
       expect(failed.provisionableAt(LATER)).toBe(false);
       expect(failed.provisionableAt(new Date(LATER.getTime() + 5_000))).toBe(
         true,
@@ -884,7 +895,7 @@ describe('StackCheck', () => {
       expect(kinds(failed)).toEqual(['change-stack.check-reservation-dropped']);
     });
 
-    it('is skipped as unprovisioned after the fifth failed provision', () => {
+    it('is skipped as provision-failed after the fifth failed provision', () => {
       let check = waiting();
 
       for (let attempt = 1; attempt <= 4; attempt += 1) {
@@ -894,16 +905,16 @@ describe('StackCheck', () => {
         );
       }
 
-      expect(check.stateAt(LATER)).toBe('waiting');
+      expect(check.statusAt(LATER)).toBe('waiting');
       expect(kinds(check)).toEqual(
         Array(4).fill('change-stack.check-reservation-dropped'),
       );
 
       const skipped = failedAgain(check);
 
-      expect(skipped.phase).toBe('skipped');
+      expect(skipped.status).toBe('skipped');
       expect(skipped.skippedAt(LATER)).toEqual({
-        code: 'unprovisioned',
+        code: 'provision-failed',
         detail: 'Attempts: 5\nLast failure: http-error: answered 503',
       });
       expect(kinds(skipped)).toEqual([
@@ -956,19 +967,19 @@ describe('StackCheck', () => {
 
       expect(failed.reservation).toBeNull();
       expect(failed.provisioning.attempts).toBe(0);
-      expect(failed.phase).toBe('waiting');
+      expect(failed.status).toBe('waiting');
       expect(kinds(failed)).toEqual(['change-stack.check-reservation-dropped']);
     });
 
-    it('comes back skipped as unprovisioned', () => {
-      const skip = storedSkipOf(
-        'unprovisioned',
+    it('comes back skipped as provision-failed', () => {
+      const skip = parseStoredSkip(
+        'provision-failed',
         'Attempts: 5\nLast failure: http-error: answered 503',
       );
       const check = rehydrated({
-        phase: 'skipped',
+        status: 'skipped',
         outcome: {
-          state: 'skipped',
+          status: 'skipped',
           skip,
           whole: null,
           layers: [],
@@ -980,8 +991,8 @@ describe('StackCheck', () => {
       expect(check.skippedAt(LATER)).toEqual(skip);
     });
 
-    it('starts provisioning afresh once its layers are reordered', () => {
-      const reordering = failedAgain(waiting())
+    it('starts provisioning afresh once its layers are redrafted', () => {
+      const redrafting = failedAgain(waiting())
         .reservedFor(RUNNER, PoolId.of('pool_burst'), RESERVED_UNTIL)
         .claimedFor(RUNNER, ANY, RESERVED_UNTIL)
         .recordResult(
@@ -991,7 +1002,7 @@ describe('StackCheck', () => {
           RESERVED_UNTIL,
         );
 
-      const again = reordering.reordered(stack().entries(), RESERVED_UNTIL);
+      const again = redrafting.redrafted(stack().entries(), RESERVED_UNTIL);
 
       expect(again.reservation).toBeNull();
       expect(again.provisioning.attempts).toBe(0);
@@ -1012,20 +1023,20 @@ describe('StackCheck', () => {
       expect(leased.waitExpiredAt(WAIT_EXPIRED)).toBe(false);
       expect(
         checking()
-          .skip(RUNNER, skipOf('no-room', null), LATER)
+          .skip(RUNNER, skipOf('workspace-failed', null), LATER)
           .waitExpiredAt(WAIT_EXPIRED),
       ).toBe(false);
     });
 
-    it('is skipped as nobody checked, and drops any reservation', () => {
+    it('is skipped as a queue timeout, and drops any reservation', () => {
       const expired = waiting()
         .reservedFor(RUNNER, PoolId.of('pool_burst'), LATER)
         .expireWait(WAIT_EXPIRED);
 
-      expect(expired.phase).toBe('skipped');
+      expect(expired.status).toBe('skipped');
       expect(expired.reservation).toBeNull();
       expect(expired.skippedAt(WAIT_EXPIRED)).toEqual({
-        code: 'nobody-checked',
+        code: 'queue-timeout',
         detail: null,
       });
       expect(kinds(expired)).toEqual([
@@ -1119,16 +1130,16 @@ describe('StackCheck, rechecked', () => {
 
     expect(again.recheck).toBe(true);
     expect(again.stackId.equals(first.stackId)).toBe(true);
-    expect(again.phase).toBe('waiting');
+    expect(again.status).toBe('waiting');
     expect(again.outcome).toBeNull();
     expect(again.waitingSince).toEqual(WAIT_EXPIRED);
     expect(again.request.command).toBe(first.request.command);
     expect(again.entries).toEqual(first.entries);
     expect(again.claimableAt(WAIT_EXPIRED)).toBe(true);
-    expect(first.phase).toBe('checked');
+    expect(first.status).toBe('checked');
   });
 
-  it('says what the recheck found as a recheck, and never requests to reorder the stack', () => {
+  it('says what the recheck found as a recheck, and never requests to redraft the stack', () => {
     const again = passedOnce().rechecking(LATER).claimedFor(OTHER, ANY, LATER);
     const found = again.recordResult(
       OTHER,
@@ -1137,7 +1148,7 @@ describe('StackCheck, rechecked', () => {
       LATER,
     );
 
-    expect(found.phase).toBe('checked');
+    expect(found.status).toBe('checked');
     expect(
       found.pullEvents().map((event) => ({
         kind: event.kind,
@@ -1158,10 +1169,10 @@ describe('StackCheck, rechecked', () => {
     );
   });
 
-  it('does not come back as a recheck of a task’s change, or as one that reordered', () => {
+  it('does not come back as a recheck of a task’s change, or as one that redrafted', () => {
     expect(() => rehydrated({ recheck: true })).toThrow(InconsistentStateError);
     expect(() =>
-      rehydrated({ recheck: true, replay: true, rounds: 1 }),
+      rehydrated({ recheck: true, replay: true, redraftCount: 1 }),
     ).toThrow(InconsistentStateError);
     expect(rehydrated({ recheck: true, replay: true }).recheck).toBe(true);
   });

@@ -29,7 +29,7 @@ describe('GitHubAppIdentity', () => {
     );
   });
 
-  it('speaks as the App itself', async () => {
+  it('acts as the App itself', async () => {
     const fetching = answering({ slug: 'spotlight-dev' });
     vi.stubGlobal('fetch', fetching);
 

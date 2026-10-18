@@ -1,7 +1,7 @@
-import { DraftRunChangeStackCommand } from '@change-review/application/commands/draft-run-change-stack.command';
+import { GenerateRunChangeStackCommand } from '@change-review/application/commands/generate-run-change-stack.command';
 import { RecordChangeStackCheckCommand } from '@change-review/application/commands/record-change-stack-check.command';
 import { RecordChangeStackCheckRequestDto } from '@change-review/presentation/http/dto/change-stack-check.dto';
-import { DraftChangeStackRequestDto } from '@change-review/presentation/http/dto/draft-change-stack.dto';
+import { GenerateChangeStackRequestDto } from '@change-review/presentation/http/dto/generate-change-stack.dto';
 import {
   Body,
   Controller,
@@ -37,24 +37,25 @@ export class RunnerChangeStackController {
   @Post('runs/:runId/change-stacks')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'draftChangeStack',
-    summary: 'Hand over what a run changed, to be drafted into a change stack',
+    operationId: 'generateChangeStack',
+    summary:
+      'Hand over what a run changed, so that Spotlight generates a change stack from it',
     description:
-      'A station that says it wants changes has its runs drafted into a ' +
-      'change stack: the runner hands over the diff of each checkout.',
+      'Spotlight generates a change stack for each run of a station that asks for diffs: ' +
+      'the runner hands over the diff of each checkout.',
   })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ description: 'Not a run this runner worked' })
   @ApiConflictResponse({
     description: 'The run is a search, which changes no repository',
   })
-  async draftChangeStack(
+  async generateChangeStack(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
-    @Body() body: DraftChangeStackRequestDto,
+    @Body() body: GenerateChangeStackRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new DraftRunChangeStackCommand(
+      new GenerateRunChangeStackCommand(
         runId,
         runnerId,
         typeof body.diff === 'string' ? body.diff : '',
@@ -114,7 +115,7 @@ export class RunnerChangeStackController {
           step: String(step.step),
           passed: step.passed === true,
           output: typeof step.output === 'string' ? step.output : '',
-          tookMs: Number(step.tookMs) || 0,
+          durationMs: Number(step.durationMs) || 0,
         })),
       ),
     );

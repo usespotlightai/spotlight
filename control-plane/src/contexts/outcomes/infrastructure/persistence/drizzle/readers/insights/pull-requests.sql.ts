@@ -105,7 +105,7 @@ export const coveredPullRequests = (
     ${pullRequestRecord.readyForReviewAt} as ready_for_review_at,
     ${pullRequestRecord.firstUnblockingReviewAt} as first_unblocking_review_at,
     ${pullRequestRecord.firstApprovedAt} as first_approved_at,
-    ${pullRequestRecord.draftSpells} as draft_spells,
+    ${pullRequestRecord.draftPeriods} as draft_periods,
     ${pullRequestRecord.humanReviewedAt} as human_reviewed_at,
     ${pullRequestRecord.botActivity} as bot_activity,
     ${pullRequestRecord.ownerTaskId} as owner_task_id,

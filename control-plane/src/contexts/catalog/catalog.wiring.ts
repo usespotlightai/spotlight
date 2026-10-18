@@ -19,11 +19,11 @@ import { ResolveCatalogItemHandler } from '@catalog/application/queries/handlers
 import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
 import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
-import { SeededCatalog } from '@catalog/infrastructure/catalog/seeded-catalog';
+import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/ledgers/metered-calls.ledger';
 import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
 import { DrizzleWorkspacePlanDeletion } from '@catalog/infrastructure/persistence/drizzle/workspace-plan-deletion';
-import { AlwaysAllowedCatalogService } from '@catalog/infrastructure/service/always-allowed-catalog-service';
+import { HttpCatalogClient } from '@catalog/infrastructure/service/http-catalog.client';
 import { catalogSubscribers } from '@catalog/presentation/events/catalog.subscribers';
 import { CatalogController } from '@catalog/presentation/http/controllers/catalog.controller';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
@@ -42,7 +42,7 @@ const CATALOG_EVENTS = Symbol('CATALOG_EVENTS');
 export const CATALOG_CONTROLLERS: readonly Type[] = [CatalogController];
 
 export const CATALOG_PROVIDERS: readonly Provider[] = [
-  { provide: SeededCatalog, useValue: new SeededCatalog(CATALOG_ITEMS) },
+  { provide: StaticCatalog, useValue: new StaticCatalog(CATALOG_ITEMS) },
 
   { provide: WORKSPACE_PLANS, useClass: DrizzleWorkspacePlans },
 
@@ -57,7 +57,7 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
     provide: CATALOG_SERVICE,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new AlwaysAllowedCatalogService(
+      new HttpCatalogClient(
         env.SPOTLIGHT_CATALOG_URL,
         env.SPOTLIGHT_CATALOG_TOKEN,
       ),
@@ -66,14 +66,14 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   {
     provide: CATALOG,
     inject: [
-      SeededCatalog,
+      StaticCatalog,
       WORKSPACE_PLANS,
       CALL_METER,
       CATALOG_SERVICE,
       CLOCK,
     ],
     useFactory: (
-      catalog: SeededCatalog,
+      catalog: StaticCatalog,
       plans: WorkspacePlansPort,
       meter: CallMeterPort,
       service: CatalogServicePort,
@@ -96,7 +96,7 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ResolveCatalogItemQuery, ResolveCatalogItemHandler, [
     WORKSPACE_ACCESS,
-    SeededCatalog,
+    StaticCatalog,
     WORKSPACE_PLANS,
     CLOCK,
   ]),

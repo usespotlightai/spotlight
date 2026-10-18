@@ -81,17 +81,17 @@ const ms = (column: string): SQL => msOf(sql.raw(column));
 const lasted = (from: string, to: SQL): SQL =>
   sql`greatest(0, ${msOf(to)} - ${ms(from)})`;
 
-const spellMs = (end: 'from' | 'to'): SQL =>
-  msOf(sql.raw(`(spell.value->>'${end}')::timestamp`));
+const periodMs = (end: 'from' | 'to'): SQL =>
+  msOf(sql.raw(`(period.value->>'${end}')::timestamp`));
 
 const toFirstReviewMs = sql`case
   when ready_for_review_at is not null and first_unblocking_review_at is not null then
     greatest(0, ${lasted('ready_for_review_at', sql.raw('first_unblocking_review_at'))} - coalesce((
       select sum(greatest(0,
-        least(${ms('first_unblocking_review_at')}, coalesce(${spellMs('to')}, ${ms('first_unblocking_review_at')}))
-        - greatest(${ms('ready_for_review_at')}, ${spellMs('from')})
+        least(${ms('first_unblocking_review_at')}, coalesce(${periodMs('to')}, ${ms('first_unblocking_review_at')}))
+        - greatest(${ms('ready_for_review_at')}, ${periodMs('from')})
       ))
-      from jsonb_array_elements(draft_spells) as spell(value)
+      from jsonb_array_elements(draft_periods) as period(value)
     ), 0))
 end`;
 
@@ -101,9 +101,9 @@ const awaitingAt = (at: SQL): SQL => sql`(
   ready_for_review_at is not null
   and ready_for_review_at <= ${at}
   and not exists (
-    select 1 from jsonb_array_elements(draft_spells) as spell(value)
-    where (spell.value->>'from')::timestamp <= ${at}
-      and (spell.value->>'to' is null or (spell.value->>'to')::timestamp > ${at})
+    select 1 from jsonb_array_elements(draft_periods) as period(value)
+    where (period.value->>'from')::timestamp <= ${at}
+      and (period.value->>'to' is null or (period.value->>'to')::timestamp > ${at})
   )
   and (first_unblocking_review_at is null or first_unblocking_review_at > ${at})
   and (closed_at is null or closed_at > ${at})

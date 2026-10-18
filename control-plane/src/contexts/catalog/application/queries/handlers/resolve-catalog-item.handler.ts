@@ -24,12 +24,12 @@ const itemDto = (
 ): CatalogItemDto => ({
   kind: item.kind,
   id: item.id.value,
-  name: item.listing.name.value,
-  version: item.listing.version.value,
+  name: item.metadata.name.value,
+  version: item.metadata.version.value,
   constraint: constraint.value,
-  plan: item.listing.needs.value,
-  description: item.listing.description,
-  tools: item.kind === 'skill' ? item.brings.map((each) => each.value) : [],
+  plan: item.metadata.requiredPlan.value,
+  description: item.metadata.description,
+  tools: item.kind === 'skill' ? item.tools.map((each) => each.value) : [],
 });
 
 const attempted = <T>(

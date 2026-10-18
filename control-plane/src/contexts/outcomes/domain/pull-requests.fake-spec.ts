@@ -32,7 +32,7 @@ export const seenOf = (
   closedAt: null,
   updatedAt: new Date('2026-09-28T09:00:00.000Z'),
   readyForReviewAt: new Date('2026-09-28T08:00:00.000Z'),
-  draftSpells: [],
+  draftPeriods: [],
   firstReviewAt: null,
   firstUnblockingReviewAt: null,
   firstApprovedAt: null,

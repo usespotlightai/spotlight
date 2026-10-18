@@ -176,7 +176,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
           title: 'Drop pg-native and bump pg to 8.13.1',
           summary:
             'The dependency itself, from 8.7.3, and a pool that no longer picks the native binding.',
-          ranges: [{ hunk: 'api_package' }, { hunk: 'api_pool' }],
+          hunks: [{ hunk: 'api_package' }, { hunk: 'api_pool' }],
           notes: [
             {
               path: 'src/db/pool.ts',
@@ -189,7 +189,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
           title: 'Keep microseconds on paid_at',
           summary:
             '8.13 returns `timestamptz` with microseconds, so the column keeps them and the API still answers in milliseconds.',
-          ranges: [{ hunk: 'api_timestamps' }, { hunk: 'api_migration' }],
+          hunks: [{ hunk: 'api_timestamps' }, { hunk: 'api_migration' }],
           notes: [
             {
               path: PAID_AT_MIGRATION,
@@ -202,7 +202,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
           title: 'Type query results',
           summary:
             'The new type definitions no longer accept an untyped result, so `query` takes the row type and the open-invoices query names it.',
-          ranges: [{ hunk: 'api_query' }, { hunk: 'api_invoices' }],
+          hunks: [{ hunk: 'api_query' }, { hunk: 'api_invoices' }],
           notes: [
             {
               path: 'src/db/query.ts',
@@ -222,7 +222,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
           id: 'c2.l1',
           title: 'Update the lockfile',
           summary: 'pg and its two internal packages, resolved again.',
-          ranges: [{ hunk: 'api_lockfile' }],
+          hunks: [{ hunk: 'api_lockfile' }],
           notes: [],
         },
       ],
@@ -261,7 +261,7 @@ const SEARCH: ChangeStackResponseDto = {
           title: 'Add the trigram index',
           summary:
             'Built concurrently, so the migration never locks the task table.',
-          ranges: [{ hunk: 'search_h1' }],
+          hunks: [{ hunk: 'search_h1' }],
           notes: [],
         },
         {
@@ -269,7 +269,7 @@ const SEARCH: ChangeStackResponseDto = {
           title: 'Search by similarity',
           summary:
             'Matches with the trigram operator and orders by similarity.',
-          ranges: [{ hunk: 'search_h2' }],
+          hunks: [{ hunk: 'search_h2' }],
           notes: [],
         },
       ],
@@ -307,14 +307,14 @@ const REFERRAL: ChangeStackResponseDto = {
           id: 'c1.l1',
           title: 'Build referral links',
           summary: 'A link from the inviter’s referral code.',
-          ranges: [{ hunk: 'referral_h1' }],
+          hunks: [{ hunk: 'referral_h1' }],
           notes: [],
         },
         {
           id: 'c1.l2',
           title: 'Show the link in the email',
           summary: 'Below the join button, only with `invite-referral` on.',
-          ranges: [{ hunk: 'referral_h2' }],
+          hunks: [{ hunk: 'referral_h2' }],
           notes: [],
         },
       ],

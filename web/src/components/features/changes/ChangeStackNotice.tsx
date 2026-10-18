@@ -24,16 +24,16 @@ export function ChangeStackNotice({ stack, runTo }: ChangeStackNoticeProps) {
     </TrailLink>
   );
 
-  if (stack?.state === 'drafting') {
-    const changes = stack.files.reduce(
+  if (stack?.state === 'generating') {
+    const hunks = stack.files.reduce(
       (total, file) => total + file.hunks.length,
       0,
     );
 
     return (
       <Notice>
-        <EmptyState icon={CircleDashed} title="Drafting the change stack">
-          Grouping {changes} {changes === 1 ? 'change' : 'changes'} across{' '}
+        <EmptyState icon={CircleDashed} title="Generating the change stack">
+          Grouping {hunks} {hunks === 1 ? 'hunk' : 'hunks'} across{' '}
           {stack.files.length} {stack.files.length === 1 ? 'file' : 'files'}{' '}
           into review order.
         </EmptyState>
@@ -46,10 +46,10 @@ export function ChangeStackNotice({ stack, runTo }: ChangeStackNoticeProps) {
       <Notice>
         <EmptyState
           icon={TriangleAlert}
-          title="Sorry, the change stack couldn’t be drafted"
+          title="Sorry, the change stack couldn’t be generated"
           action={back}
         >
-          {stack.failure ?? 'Drafting stopped before it finished.'}
+          {stack.failure ?? 'Generation stopped before it finished.'}
         </EmptyState>
       </Notice>
     );
@@ -58,8 +58,8 @@ export function ChangeStackNotice({ stack, runTo }: ChangeStackNoticeProps) {
   return (
     <Notice>
       <EmptyState icon={Layers} title="No change stack yet" action={back}>
-        A stack appears here when a run finishes at a station that drafts change
-        stacks.
+        A stack appears here when a run finishes at a station that generates
+        change stacks.
       </EmptyState>
     </Notice>
   );

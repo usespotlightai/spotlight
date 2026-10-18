@@ -1,4 +1,4 @@
-import type { DecisionDrafterPort } from '@change-review/application/ports/decision-drafter.port';
+import type { DecisionGeneratorPort } from '@change-review/application/ports/decision-generator.port';
 import type {
   RunReasoning,
   WorkPort,
@@ -55,10 +55,10 @@ const working = (
     id: DecisionSetId.of('set_1'),
     taskId: TaskId.of('task_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-  }).requestDraft(RUN, NOW);
+  }).requestGeneration(RUN, NOW);
   let now = NOW;
   let ids = 0;
-  const draft = vi.fn(answer);
+  const generate = vi.fn(answer);
 
   const sets = {
     forTask: async () => stored,
@@ -66,13 +66,13 @@ const working = (
       stored = set;
     },
     nextDueJob: async (at: Date) =>
-      stored.draft?.job.isDue(at) ? stored : null,
+      stored.generation?.job.isDue(at) ? stored : null,
   } as unknown as DecisionSetRepository;
 
   const service = new WorkDecisionSets(
     sets,
     { reasoning: async () => reasoning } as unknown as WorkPort,
-    { available: true, draft } as DecisionDrafterPort,
+    { available: true, generate } as DecisionGeneratorPort,
     {
       generate: () => {
         ids += 1;
@@ -91,11 +91,11 @@ const working = (
     await service.idle();
   };
 
-  return { tick, draft, stored: () => stored };
+  return { tick, generate, stored: () => stored };
 };
 
-describe('drafting the decisions a run made', () => {
-  it('records the decisions its reasoning grounds', async () => {
+describe('generating the decisions a run made', () => {
+  it('records the decisions that its reasoning gives evidence for', async () => {
     const worked = working(REASONED, async () => [
       DECIDED,
       { ...DECIDED, title: 'Cites a step the run does not have', steps: [4] },
@@ -103,7 +103,7 @@ describe('drafting the decisions a run made', () => {
 
     await worked.tick();
 
-    expect(worked.draft).toHaveBeenCalledWith(REASONED);
+    expect(worked.generate).toHaveBeenCalledWith(REASONED);
     expect(worked.stored().decisions.map((each) => each.title)).toEqual([
       'Retries uploads in the request',
     ]);
@@ -115,9 +115,9 @@ describe('drafting the decisions a run made', () => {
 
     await worked.tick();
 
-    expect(worked.draft).not.toHaveBeenCalled();
+    expect(worked.generate).not.toHaveBeenCalled();
     expect(worked.stored().decisions).toEqual([]);
-    expect(worked.stored().decidedIn?.equals(RUN)).toBe(true);
+    expect(worked.stored().sourceRunId?.equals(RUN)).toBe(true);
   });
 
   it('dead-letters the job for a run whose journal cannot be read', async () => {
@@ -126,19 +126,19 @@ describe('drafting the decisions a run made', () => {
     await worked.tick();
 
     expect(worked.stored().hasPendingJob).toBe(false);
-    expect(worked.stored().decidedIn).toBeNull();
+    expect(worked.stored().sourceRunId).toBeNull();
   });
 
-  it('retries later when drafting fails, then dead-letters the job', async () => {
+  it('retries later when generation fails, then dead-letters the job', async () => {
     const worked = working(REASONED, async () => {
-      throw new Error('OpenRouter failed to draft: 503');
+      throw new Error('OpenRouter failed to generate: 503');
     });
 
     for (let day = 0; day <= MAX_JOB_ATTEMPTS; day += 1) {
       await worked.tick(new Date(NOW.getTime() + day * DAY));
     }
 
-    expect(worked.draft).toHaveBeenCalledTimes(MAX_JOB_ATTEMPTS);
+    expect(worked.generate).toHaveBeenCalledTimes(MAX_JOB_ATTEMPTS);
     expect(worked.stored().hasPendingJob).toBe(false);
   });
 
@@ -148,7 +148,7 @@ describe('drafting the decisions a run made', () => {
       id: DecisionSetId.of('set_1'),
       taskId: TaskId.of('task_1'),
       workspaceId: WorkspaceId.of('ws_1'),
-    }).requestDraft(RUN, NOW);
+    }).requestGeneration(RUN, NOW);
     let due: DecisionSet | null = leased;
 
     const service = new WorkDecisionSets(
@@ -164,7 +164,7 @@ describe('drafting the decisions a run made', () => {
         },
       } as unknown as DecisionSetRepository,
       {} as WorkPort,
-      { available: true, draft: vi.fn() } as DecisionDrafterPort,
+      { available: true, generate: vi.fn() } as DecisionGeneratorPort,
       { generate: () => 'decision_1' },
       { inTransaction: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },
@@ -177,7 +177,7 @@ describe('drafting the decisions a run made', () => {
 
     expect(error).toHaveBeenCalledWith(
       expect.objectContaining({ err: expect.any(Error) }),
-      'Drafting decisions: reading a leased job',
+      'Generating decisions: reading a leased job',
     );
   });
 });

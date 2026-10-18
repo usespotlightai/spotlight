@@ -30,7 +30,7 @@ const connecting = (
   over: {
     membership?: WorkspaceMembership | null;
     administration?: InstallationAdministration;
-    claimedBy?: WorkspaceId | null;
+    connectedWorkspace?: WorkspaceId | null;
   } = {},
 ) => {
   const events = { dispatch: vi.fn().mockResolvedValue(undefined) };
@@ -49,7 +49,7 @@ const connecting = (
     await events.dispatch(connection.pullEvents());
   });
   const administration = {
-    of: vi.fn(async () => over.administration ?? 'administers'),
+    of: vi.fn(async () => over.administration ?? 'admin'),
   } satisfies InstallationAdministrationPort;
 
   const handler = new ConnectGitHubHandler(
@@ -67,8 +67,10 @@ const connecting = (
     } satisfies WorkspaceAccessPort,
     {
       of: vi.fn(async (id: WorkspaceId) => GitHubConnection.none(id)),
-      claimantOf: vi.fn(async () => over.claimedBy ?? null),
-      lockedClaimantOf: vi.fn(async () => over.claimedBy ?? null),
+      connectedWorkspaceOf: vi.fn(async () => over.connectedWorkspace ?? null),
+      lockedConnectedWorkspaceOf: vi.fn(
+        async () => over.connectedWorkspace ?? null,
+      ),
       save,
     } satisfies GitHubConnectionRepository,
     administration,
@@ -135,8 +137,8 @@ describe('ConnectGitHubHandler', () => {
     expect(administration.of).not.toHaveBeenCalled();
   });
 
-  it('denies an installation the caller does not administer', async () => {
-    const { handler, save } = connecting({ administration: 'does-not' });
+  it('denies an installation when the caller is not its admin', async () => {
+    const { handler, save } = connecting({ administration: 'not-admin' });
 
     await expect(handler.execute(command())).rejects.toBeInstanceOf(
       ApplicationError,
@@ -146,7 +148,7 @@ describe('ConnectGitHubHandler', () => {
 
   it('denies an installation another workspace has', async () => {
     const { handler, save } = connecting({
-      claimedBy: WorkspaceId.of('ws_2'),
+      connectedWorkspace: WorkspaceId.of('ws_2'),
     });
 
     await expect(handler.execute(command())).rejects.toMatchObject({
@@ -156,7 +158,7 @@ describe('ConnectGitHubHandler', () => {
   });
 
   it('fails, saying so, where GitHub would not answer at all', async () => {
-    const { handler, save } = connecting({ administration: 'cannot-tell' });
+    const { handler, save } = connecting({ administration: 'unknown' });
 
     await expect(handler.execute(command())).rejects.toThrow(
       /could not confirm this installation is yours/,

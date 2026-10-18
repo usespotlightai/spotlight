@@ -1,7 +1,7 @@
 import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type {
-  ReviewedRun,
   ReviewedTask,
+  RunForReview,
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { TeamAccess } from '@change-review/domain/services/team-access';
@@ -18,7 +18,7 @@ export class ChangeStackAccess {
     teamId: string,
     runId: string,
     viewerId: string,
-  ): Promise<ReviewedRun | null> {
+  ): Promise<RunForReview | null> {
     const run = await this.work.run(RunId.of(runId));
 
     if (!run) {

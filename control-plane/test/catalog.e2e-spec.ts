@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
-import { SeededCatalog } from '@catalog/infrastructure/catalog/seeded-catalog';
+import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/ledgers/metered-calls.ledger';
 import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
 import type { INestApplication } from '@nestjs/common';
@@ -44,11 +44,11 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
   let workspace: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
-  const onPlan = (plan: string, lapsesAt: Date | null = null) =>
+  const onPlan = (plan: string, expiresAt: Date | null = null) =>
     db.insert(schema.workspacePlan).values({
       workspaceId: workspace,
       plan,
-      lapsesAt,
+      expiresAt,
     });
 
   const read = (
@@ -102,7 +102,7 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
     });
   });
 
-  it('answers a skill with the tools it brings, and never its files', async () => {
+  it('answers a skill with the tools it uses, and never its files', async () => {
     await onPlan('team');
 
     const answer = await read('skills', { name: 'research', version: '1.0.0' });
@@ -116,7 +116,7 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
     expect(answer.body).not.toHaveProperty('files');
   });
 
-  it('fails the plan for an item the workspace’s plan does not include, saying which plan it needs', async () => {
+  it('fails the plan for an item the workspace’s plan does not include, saying which plan it requires', async () => {
     const answer = await read('tools', {
       name: 'web-search',
       version: '~> 1.0',
@@ -128,11 +128,11 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
       type: 'urn:spotlight:problem:not-entitled',
       status: 403,
       detail:
-        'Catalog item catalog.web-search@1.1.0 needs the Team plan. Workspace plan: Free',
+        'Catalog item catalog.web-search@1.1.0 requires the Team plan. Workspace plan: Free',
     });
   });
 
-  it('fails it just the same once the plan has lapsed', async () => {
+  it('fails it just the same once the plan has expired', async () => {
     await onPlan('team', new Date('2020-01-01T00:00:00.000Z'));
 
     const answer = await read('tools', {
@@ -141,7 +141,7 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
     });
 
     expect(answer.status).toBe(403);
-    expect(answer.body.detail).toContain('needs the Team plan');
+    expect(answer.body.detail).toContain('requires the Team plan');
   });
 
   it('resolves what the free plan includes without any plan on record', async () => {
@@ -299,7 +299,7 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
       expect.objectContaining({
         path: `stations[1].tools[${at}]`,
         message:
-          'Catalog item catalog.web-search@1.1.0 needs the Team plan. Workspace plan: Free',
+          'Catalog item catalog.web-search@1.1.0 requires the Team plan. Workspace plan: Free',
       }),
     ]);
   });
@@ -388,7 +388,7 @@ describe('a catalog call (e2e)', () => {
 
   it('is metered, by workspace, run and the version called', async () => {
     const entitlements = new CatalogEntitlements(
-      new SeededCatalog(CATALOG_ITEMS),
+      new StaticCatalog(CATALOG_ITEMS),
       new DrizzleWorkspacePlans(db),
       new DrizzleMeteredCalls(new DrizzleContext(db), {
         generate: () => randomUUID(),
@@ -444,9 +444,9 @@ describe('a catalog call (e2e)', () => {
         RunOutcome.refused([
           DeniedCatalogItem.of({
             id: 'catalog.web-search@1.1.0',
-            reason: 'lapsed',
+            reason: 'expired',
             because:
-              'Catalog item catalog.web-search@1.1.0 needs the Team plan. The workspace’s Team plan has lapsed. Lapsed at: 2026-09-01T00:00:00.000Z',
+              'Catalog item catalog.web-search@1.1.0 requires the Team plan. The workspace’s Team plan has expired. Expired at: 2026-09-01T00:00:00.000Z',
           }),
         ]),
       ),
@@ -455,7 +455,7 @@ describe('a catalog call (e2e)', () => {
     const stored = await runs.findById(id);
 
     expect(stored?.state).toBe('failed');
-    expect(stored?.outcome?.message).toMatch(/^entitlement_lapsed: /);
+    expect(stored?.outcome?.message).toMatch(/^entitlement_expired: /);
     expect(stored?.spec.value.catalog).toEqual(['catalog.web-search@1.1.0']);
 
     await db.delete(schema.run).where(eq(schema.run.id, id.value));

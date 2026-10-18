@@ -2868,7 +2868,7 @@ export type CatalogToolResponseDto = {
    */
   constraint: string;
   /**
-   * The plan it needs
+   * The lowest plan that includes the item
    */
   plan: 'free' | 'team' | 'enterprise';
   description: string;
@@ -2889,12 +2889,12 @@ export type CatalogSkillResponseDto = {
    */
   constraint: string;
   /**
-   * The plan it needs
+   * The lowest plan that includes the item
    */
   plan: 'free' | 'team' | 'enterprise';
   description: string;
   /**
-   * The catalog tools it brings, enabled wherever the skill is; its files never leave Spotlight except into a run
+   * The catalog tools that the skill uses, enabled wherever the skill is; its files never leave Spotlight except into a run
    */
   tools: Array<string>;
 };
@@ -3505,9 +3505,9 @@ export type DiffFileResponseDto = {
   hunks: Array<DiffHunkResponseDto>;
 };
 
-export type StackRangeResponseDto = {
+export type StackHunkResponseDto = {
   /**
-   * The hunk it places
+   * A hunk of the layer
    */
   hunk: string;
 };
@@ -3524,7 +3524,7 @@ export type StackLayerResponseDto = {
   id: string;
   title: string;
   summary: string;
-  ranges: Array<StackRangeResponseDto>;
+  hunks: Array<StackHunkResponseDto>;
   /**
    * One note per file the layer touches; empty for incidental changes
    */
@@ -3549,12 +3549,12 @@ export type CheckedStepResponseDto = {
    * The end of what the check printed
    */
   output: string;
-  tookMs: number;
+  durationMs: number;
 };
 
 export type StackCheckResponseDto = {
   command: string;
-  state: 'waiting' | 'checked' | 'skipped';
+  status: 'waiting' | 'checked' | 'skipped';
   /**
    * Why it was skipped, where it was
    */
@@ -3566,7 +3566,7 @@ export type StackCheckResponseDto = {
 export type ChangeStackResponseDto = {
   id: string;
   repository: string | null;
-  state: 'drafting' | 'ready' | 'failed';
+  state: 'generating' | 'ready' | 'failed';
   failure: string | null;
   files: Array<DiffFileResponseDto>;
   cohorts: Array<StackCohortResponseDto>;
@@ -3589,8 +3589,8 @@ export type LatestChangeStackResponseDto = {
    */
   runId: string;
   repository: string | null;
-  state: 'drafting' | 'ready' | 'failed';
-  checkState: 'waiting' | 'checked' | 'skipped' | null;
+  state: 'generating' | 'ready' | 'failed';
+  checkStatus: 'waiting' | 'checked' | 'skipped' | null;
   /**
    * Lines added across the stack
    */
@@ -3603,7 +3603,7 @@ export type LatestChangeStackResponseDto = {
 
 export type NewestChangeStackResponseDto = {
   /**
-   * The newest change stack drafted, if any
+   * The newest change stack generated, if any
    */
   latest: LatestChangeStackResponseDto | null;
 };
@@ -3648,13 +3648,13 @@ export type DecisionResponseDto = {
    */
   alternatives: Array<string>;
   /**
-   * The changed files it bears on, from the workspace root
+   * The changed files it covers, from the workspace root
    */
   paths: Array<string>;
   /**
    * Where the agent reasoned it, as steps of the run’s journal
    */
-  steps: Array<number>;
+  journalSteps: Array<number>;
   /**
    * Who says it is wrong or out of date, and why
    */
@@ -3663,13 +3663,13 @@ export type DecisionResponseDto = {
 
 export type TaskDecisionsResponseDto = {
   /**
-   * The run the decisions were drafted from, if any was
+   * The run the decisions were generated from, if there is one
    */
   runId: string | null;
   /**
-   * Whether a later run’s decisions are being drafted
+   * Whether decisions for a later run are being generated
    */
-  drafting: boolean;
+  generating: boolean;
   status: 'proposed' | 'merged';
   /**
    * The merge that contains the decisions, after the pull request merges
@@ -3702,7 +3702,7 @@ export type MergedDecisionsResponseDto = {
   commit: string;
   mergedAt: string;
   /**
-   * Those bearing on the paths in the query; deviations and limitations first
+   * Those that cover the paths in the query; deviations and limitations first
    */
   decisions: Array<DecisionResponseDto>;
 };
@@ -3714,7 +3714,7 @@ export type MergedDecisionListResponseDto = {
   merges: Array<MergedDecisionsResponseDto>;
 };
 
-export type DraftChangeStackRequestDto = {
+export type GenerateChangeStackRequestDto = {
   /**
    * The changes, as the output of git diff
    */
@@ -3737,7 +3737,7 @@ export type SkippedCheckRequestDto = {
   /**
    * Why the runner could not check the stack at all
    */
-  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time' | 'no-image';
+  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'workspace-failed' | 'out-of-time' | 'no-image';
   /**
    * What it printed while trying, where that helps
    */
@@ -3754,7 +3754,7 @@ export type CheckedStepRequestDto = {
    * The end of what the check printed
    */
   output: string;
-  tookMs: number;
+  durationMs: number;
 };
 
 export type RecordChangeStackCheckRequestDto = {
@@ -3793,11 +3793,11 @@ export type ReviewCommentResponseDto = {
   /**
    * Whether the caller wrote it
    */
-  yours: boolean;
+  viewerIsAuthor: boolean;
   /**
    * Whether an agent wrote it, reviewing
    */
-  byAgent: boolean;
+  isAgentAuthored: boolean;
   /**
    * The first comment of the thread this answers
    */
@@ -3815,11 +3815,11 @@ export type ReviewCommentResponseDto = {
 export type ReviewResponseDto = {
   id: string;
   authorName: string;
-  yours: boolean;
+  viewerIsAuthor: boolean;
   /**
    * Whether an agent submitted it
    */
-  byAgent: boolean;
+  isAgentAuthored: boolean;
   verdict: 'comment' | 'approve' | 'request-changes';
   body: string;
   state: 'draft' | 'sending' | 'posted' | 'failed';
@@ -7543,7 +7543,7 @@ export type ReplayTotalsResponseDto = {
    */
   unpriced: number;
   /**
-   * Model calls, for drafting change stacks or judging, that came back with no price
+   * Model calls, for generating change stacks or judging, that came back with no price
    */
   unpricedCalls: number;
   steps: number;
@@ -7584,17 +7584,17 @@ export type PairTallyResponseDto = {
 
 export type EntryChecksResponseDto = {
   /**
-   * drafting or checking until its change stacks complete and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing
+   * generating or checking until its change stacks complete and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing
    */
-  state: 'absent' | 'drafting' | 'checking' | 'passed' | 'failed' | 'none' | 'unchecked';
+  state: 'absent' | 'generating' | 'checking' | 'passed' | 'failed' | 'none' | 'unchecked';
   /**
    * The steps or layers that failed
    */
   failedAt: Array<string>;
   /**
-   * Why it went unchecked: what stopped the runner checking it, undrafted when its change was never drafted, or skipped for anything else
+   * Why it went unchecked: what stopped the runner checking it, not-generated when Spotlight never generated a change stack for its change, or skipped for anything else
    */
-  why: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time' | 'no-image' | 'unprovisioned' | 'nobody-checked' | 'skipped' | 'undrafted' | 'no-check-asked' | null;
+  why: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'workspace-failed' | 'out-of-time' | 'no-image' | 'provision-failed' | 'queue-timeout' | 'skipped' | 'not-generated' | 'no-check-asked' | null;
 };
 
 export type EntryCitedStepResponseDto = {
@@ -7722,9 +7722,9 @@ export type EntryPairResponseDto = {
 
 export type EntryReasonResponseDto = {
   /**
-   * run-failed (detail: how; exited, refused or timed-out, the run failed through the candidate), asked-a-person, check-failed and judge-failed count against the replay; run-failed with unprepared, unprovisioned, hooks-unanswered, runner-lost or superseded (what ran it failed), unreplayable (detail: why it could not be replayed or started), run-stopped (the replay was stopped or ran over its ceiling), not-run, check-skipped (detail: why, as in no-check-asked), change-undrafted, no-change (it changed nothing for its check to run on), no-change-stack (it changed files, but no stack of them reached Spotlight), unjudged and nothing-judges leave it unscored; judged says why the judge passed it
+   * run-failed (detail: how; exited, refused or timed-out, the run failed through the candidate), asked-a-person, check-failed and judge-failed count against the replay; run-failed with unprepared, unprovisioned, hooks-unanswered, runner-lost or superseded (what ran it failed), unreplayable (detail: why it could not be replayed or started), run-stopped (the replay was stopped or ran over its ceiling), not-run, check-skipped (detail: why, as in no-check-asked), change-not-generated, no-change (it changed nothing for its check to run on), no-change-stack (it changed files, but no stack of them reached Spotlight), unjudged and nothing-judges leave it unscored; judged says why the judge passed it
    */
-  code: 'unreplayable' | 'not-run' | 'run-failed' | 'run-stopped' | 'asked-a-person' | 'check-failed' | 'check-skipped' | 'change-undrafted' | 'no-change' | 'no-change-stack' | 'judged' | 'judge-failed' | 'unjudged' | 'nothing-judges';
+  code: 'unreplayable' | 'not-run' | 'run-failed' | 'run-stopped' | 'asked-a-person' | 'check-failed' | 'check-skipped' | 'change-not-generated' | 'no-change' | 'no-change-stack' | 'judged' | 'judge-failed' | 'unjudged' | 'nothing-judges';
   /**
    * The unreplayable reason, the failure or skip code, the failed check step or layer, or what the judge said
    */
@@ -7779,7 +7779,7 @@ export type ReplayEntryResponseDto = {
   checks: EntryChecksResponseDto | null;
   judge: EntryJudgeResponseDto | null;
   /**
-   * What drafting and reordering its change stacks cost, failed calls included; what is in the ceiling’s currency is spent against it
+   * What generating and redrafting its change stacks cost, failed calls included; what is in the ceiling’s currency is spent against it
    */
   draftingSpent: ModelSpentResponseDto | null;
   /**
@@ -13872,7 +13872,7 @@ export type ReadCatalogToolErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * The workspace’s plan does not include the catalog-tool; the detail names the plan it needs
+   * The workspace’s plan does not include the catalog-tool; the detail names the plan that it requires
    */
   403: ProblemResponseDto;
   /**
@@ -13934,7 +13934,7 @@ export type ReadCatalogSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * The workspace’s plan does not include the catalog-skill; the detail names the plan it needs
+   * The workspace’s plan does not include the catalog-skill; the detail names the plan that it requires
    */
   403: ProblemResponseDto;
   /**
@@ -14025,7 +14025,7 @@ export type ConnectGitHubErrors = {
    */
   401: unknown;
   /**
-   * Not an owner or admin, or not your installation
+   * Not an owner or admin, or not an admin of the installation
    */
   403: unknown;
   /**
@@ -16586,8 +16586,8 @@ export type ListMergedDecisionsResponses = {
 
 export type ListMergedDecisionsResponse = ListMergedDecisionsResponses[keyof ListMergedDecisionsResponses];
 
-export type DraftChangeStackData = {
-  body: DraftChangeStackRequestDto;
+export type GenerateChangeStackData = {
+  body: GenerateChangeStackRequestDto;
   path: {
     runId: string;
   };
@@ -16595,7 +16595,7 @@ export type DraftChangeStackData = {
   url: '/runs/{runId}/change-stacks';
 };
 
-export type DraftChangeStackErrors = {
+export type GenerateChangeStackErrors = {
   /**
    * Missing, no longer valid or wrong runner token
    */
@@ -16610,11 +16610,11 @@ export type DraftChangeStackErrors = {
   409: unknown;
 };
 
-export type DraftChangeStackResponses = {
+export type GenerateChangeStackResponses = {
   204: void;
 };
 
-export type DraftChangeStackResponse = DraftChangeStackResponses[keyof DraftChangeStackResponses];
+export type GenerateChangeStackResponse = GenerateChangeStackResponses[keyof GenerateChangeStackResponses];
 
 export type RecordChangeStackCheckData = {
   body: RecordChangeStackCheckRequestDto;

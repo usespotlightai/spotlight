@@ -9,12 +9,12 @@ const decision = (id: string, kind: DecisionDto['kind']): DecisionDto => ({
   why: 'Because.',
   alternatives: [],
   paths: ['api/src/uploads.ts'],
-  steps: [3],
+  journalSteps: [3],
   disputes: [],
 });
 
 describe('ranking decisions for a reviewer', () => {
-  it('puts deviations and limitations first, keeping the drafted order within a kind', () => {
+  it('puts deviations and limitations first, keeping the generated order within a kind', () => {
     expect(
       ranked([
         decision('simple', 'trade-off'),

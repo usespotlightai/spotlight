@@ -10,7 +10,7 @@ export type CohortKind = (typeof COHORT_KINDS)[number];
 
 export const needsFileNotes = (kind: CohortKind): boolean => kind === 'change';
 
-interface StackRange {
+interface StackHunk {
   readonly hunk: HunkId;
 }
 
@@ -29,7 +29,7 @@ interface StackLayer {
   readonly title: string;
   readonly summary: string;
   readonly dependsOn: readonly LayerDependency[];
-  readonly ranges: readonly StackRange[];
+  readonly hunks: readonly StackHunk[];
   readonly notes: readonly FileNote[];
 }
 
@@ -48,7 +48,7 @@ export interface ProposedLayer {
     readonly layer: number;
     readonly because: readonly string[];
   }[];
-  readonly ranges: readonly StackRange[];
+  readonly hunks: readonly StackHunk[];
   readonly notes: readonly FileNote[];
 }
 

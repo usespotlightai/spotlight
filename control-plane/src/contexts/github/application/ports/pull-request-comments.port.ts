@@ -17,5 +17,5 @@ export type StickyCommentPlace = Omit<StickyComment, 'body'>;
 export interface PullRequestCommentsPort {
   upsert(comment: StickyComment): Promise<void>;
 
-  withdraw(place: StickyCommentPlace): Promise<void>;
+  delete(place: StickyCommentPlace): Promise<void>;
 }

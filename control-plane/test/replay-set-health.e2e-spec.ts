@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
-  CHANGE_STACK_DRAFTER,
-  type ChangeStackDrafterPort,
-} from '@change-review/application/ports/change-stack-drafter.port';
+  CHANGE_STACK_GENERATOR,
+  type ChangeStackGeneratorPort,
+} from '@change-review/application/ports/change-stack-generator.port';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import type { INestApplication } from '@nestjs/common';
 import {
@@ -68,9 +68,9 @@ const archiveStore: WorkspaceArchiveStorePort = {
   remove: async () => {},
 };
 
-const drafter: ChangeStackDrafterPort = {
+const generator: ChangeStackGeneratorPort = {
   available: true,
-  draft: async ({ diff }) => ({
+  generate: async ({ diff }) => ({
     usage: {
       inputTokens: 1_000,
       outputTokens: 100,
@@ -86,7 +86,7 @@ const drafter: ChangeStackDrafterPort = {
             title: 'Drain in order',
             summary: 'Drains the queue oldest first',
             dependsOn: [],
-            ranges: diff.hunks.map((each) => ({ hunk: each.id })),
+            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
             notes: [
               ...new Set(
                 diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
@@ -457,7 +457,7 @@ const check = async (assignment: Claimed) => {
           step: 'whole',
           passed: passes,
           output: passes ? 'ok' : '1 failing',
-          tookMs: 900,
+          durationMs: 900,
         },
       ],
     })
@@ -489,7 +489,7 @@ const workWaiting = async (replayIds: readonly string[]) => {
     .where(
       and(
         inArray(schema.stackCheck.runId, runs),
-        eq(schema.stackCheck.phase, 'waiting'),
+        eq(schema.stackCheck.status, 'waiting'),
       ),
     );
 
@@ -596,8 +596,8 @@ beforeAll(async () => {
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
-      .overrideProvider(CHANGE_STACK_DRAFTER)
-      .useValue(drafter)
+      .overrideProvider(CHANGE_STACK_GENERATOR)
+      .useValue(generator)
       .overrideProvider(JUDGE)
       .useValue(judge),
   );

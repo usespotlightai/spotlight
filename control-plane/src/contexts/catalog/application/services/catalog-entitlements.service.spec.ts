@@ -4,7 +4,7 @@ import type { MeteredCall } from '@catalog/domain/value-objects/metered-call.vo'
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
-import { SeededCatalog } from '@catalog/infrastructure/catalog/seeded-catalog';
+import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -24,7 +24,7 @@ const entitlements = (
   let tick = 0;
 
   const service = new CatalogEntitlements(
-    new SeededCatalog(CATALOG_ITEMS),
+    new StaticCatalog(CATALOG_ITEMS),
     { of: async () => plan },
     {
       record: async (call) => {
@@ -71,7 +71,7 @@ describe('CatalogEntitlements', () => {
     expect(entitled.denied).toEqual([]);
   });
 
-  it('denies what the plan does not include, naming the plan it needs', async () => {
+  it('denies what the plan does not include, naming the plan it requires', async () => {
     const { service } = entitlements(WorkspacePlan.free);
 
     const entitled = await service.entitledTo(
@@ -87,12 +87,12 @@ describe('CatalogEntitlements', () => {
         id: 'catalog.web-search@1.1.0',
         reason: 'not-entitled',
         because:
-          'Catalog item catalog.web-search@1.1.0 needs the Team plan. Workspace plan: Free',
+          'Catalog item catalog.web-search@1.1.0 requires the Team plan. Workspace plan: Free',
       },
     ]);
   });
 
-  it('entitles a skill with the tools it brings, once each', async () => {
+  it('entitles a skill with the tools it uses, once each', async () => {
     const { service } = entitlements(WorkspacePlan.of(Plan.team));
 
     const entitled = await service.entitledTo(WORKSPACE, {
@@ -154,7 +154,7 @@ describe('CatalogEntitlements', () => {
       service.call(calling('catalog.web-search@1.1.0')),
     ).resolves.toMatchObject({
       kind: 'denied',
-      denial: { reason: 'lapsed' },
+      denial: { reason: 'expired' },
     });
     expect(called).toEqual([]);
     expect(metered).toEqual([]);

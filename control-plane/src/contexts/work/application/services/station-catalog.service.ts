@@ -1,6 +1,6 @@
 import type {
   CatalogDenial,
-  CatalogNamed,
+  CatalogRequest,
 } from '@catalog/application/contracts/catalog.contract';
 import type { CatalogPort } from '@catalog/application/ports/catalog.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -25,7 +25,7 @@ import type { Tool } from '@work/domain/value-objects/tool.vo';
 
 interface Named {
   readonly id: string;
-  readonly field: keyof CatalogNamed;
+  readonly field: keyof CatalogRequest;
   readonly at: FieldPath;
 }
 
@@ -34,7 +34,7 @@ interface StationItems {
   readonly skills: readonly SkillKey[];
 }
 
-const fromCatalog = ({ tools, skills }: StationItems): CatalogNamed => ({
+const fromCatalog = ({ tools, skills }: StationItems): CatalogRequest => ({
   tools: tools
     .filter((each) => each.origin === 'catalog')
     .map((each) => each.value),
@@ -43,11 +43,11 @@ const fromCatalog = ({ tools, skills }: StationItems): CatalogNamed => ({
 
 const namedIn = (plan: LinePlan): Named[] =>
   plan.stations.flatMap((station, at) => {
-    const named = fromCatalog(station);
+    const request = fromCatalog(station);
 
     return (['tools', 'skills'] as const).flatMap((field) =>
       [...station[field]].flatMap((each, index) =>
-        named[field].includes(each.value)
+        request[field].includes(each.value)
           ? [
               {
                 id: each.value,
@@ -60,8 +60,8 @@ const namedIn = (plan: LinePlan): Named[] =>
     );
   });
 
-const namesAny = (named: CatalogNamed): boolean =>
-  named.tools.length > 0 || named.skills.length > 0;
+const namesAny = (request: CatalogRequest): boolean =>
+  request.tools.length > 0 || request.skills.length > 0;
 
 export interface CatalogAtStation {
   readonly skills: readonly ReadySkillFolder[];
@@ -75,13 +75,13 @@ export class StationCatalog {
   constructor(private readonly catalog: CatalogPort) {}
 
   async enabledAt(line: Line, station: Station): Promise<CatalogAtStation> {
-    const named = fromCatalog(station);
+    const request = fromCatalog(station);
 
-    if (!namesAny(named)) {
+    if (!namesAny(request)) {
       return NOTHING;
     }
 
-    const entitled = await this.catalog.entitledTo(line.workspaceId, named);
+    const entitled = await this.catalog.entitledTo(line.workspaceId, request);
 
     return {
       skills: entitled.skills.map(CatalogEntitledMapper.toFolder),

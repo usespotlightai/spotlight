@@ -29,7 +29,7 @@ export interface ReviewView {
   readonly authorName: string | null;
   readonly verdict: 'comment' | 'approve' | 'request-changes';
   readonly body: string;
-  readonly state: 'submitted' | 'posted' | 'failed' | 'withdrawn';
+  readonly state: 'submitted' | 'posted' | 'failed' | 'discarded';
   readonly submittedAt: Date;
 }
 

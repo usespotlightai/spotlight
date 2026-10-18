@@ -9,15 +9,15 @@ import { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
-const listing = (
+const metadata = (
   name: string,
   version: string,
-  needs: Plan,
+  requiredPlan: Plan,
   description: string,
 ) => ({
   name: CatalogName.of(name),
   version: CatalogVersion.of(version),
-  needs,
+  requiredPlan,
   description,
 });
 
@@ -42,10 +42,10 @@ Cite each page an answer rests on by its address. Say so when the web does not a
 `;
 
 export const CATALOG_ITEMS: readonly CatalogItem[] = [
-  CatalogTool.of(listing('web-search', '1.0.0', Plan.team, WEB_SEARCH), [
+  CatalogTool.of(metadata('web-search', '1.0.0', Plan.team, WEB_SEARCH), [
     QUERY,
   ]),
-  CatalogTool.of(listing('web-search', '1.1.0', Plan.team, WEB_SEARCH), [
+  CatalogTool.of(metadata('web-search', '1.1.0', Plan.team, WEB_SEARCH), [
     QUERY,
     {
       name: 'limit',
@@ -57,7 +57,7 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
     },
   ]),
   CatalogTool.of(
-    listing(
+    metadata(
       'fetch-page',
       '1.0.0',
       Plan.free,
@@ -75,7 +75,7 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
     ],
   ),
   CatalogSkill.of(
-    listing(
+    metadata(
       'research',
       '1.0.0',
       Plan.team,

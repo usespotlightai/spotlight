@@ -290,17 +290,17 @@ func TestClaimReadsAChangeStackCheck(t *testing.T) {
 	}
 }
 
-func TestDraftChangeStackHandsOverTheDiffOfOneCheckout(t *testing.T) {
+func TestGenerateChangeStackHandsOverTheDiffOfOneCheckout(t *testing.T) {
 	var seenPath string
-	var seen protocol.ChangeStackDraft
+	var seen protocol.ChangeStackGenerationRequest
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
 		_ = json.NewDecoder(r.Body).Decode(&seen)
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := client.DraftChangeStack(context.Background(), "run_1", "widgets", "diff --git a b", "0123456789abcdef0123456789abcdef01234567"); err != nil {
-		t.Fatalf("draft: %v", err)
+	if err := client.GenerateChangeStack(context.Background(), "run_1", "widgets", "diff --git a b", "0123456789abcdef0123456789abcdef01234567"); err != nil {
+		t.Fatalf("generate: %v", err)
 	}
 
 	if seenPath != "/api/runs/run_1/change-stacks" {
@@ -322,7 +322,7 @@ func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 	})
 
 	err := client.RecordChangeStackCheck(context.Background(), "run_1", "s1", false, protocol.StackChecked{
-		Steps: []protocol.CheckedStep{{Step: "whole", Passed: true, Output: "ok", TookMs: 12}},
+		Steps: []protocol.CheckedStep{{Step: "whole", Passed: true, Output: "ok", DurationMs: 12}},
 	})
 	if err != nil {
 		t.Fatalf("record: %v", err)

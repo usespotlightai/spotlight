@@ -1,7 +1,7 @@
-import type { DecisionDrafterPort } from '@change-review/application/ports/decision-drafter.port';
+import type { DecisionGeneratorPort } from '@change-review/application/ports/decision-generator.port';
 import type {
-  ReviewedRun,
   ReviewedTask,
+  RunForReview,
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { RequestDecisions } from '@change-review/application/services/request-decisions.service';
@@ -20,7 +20,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 
 const requesting = (
   over: {
-    run?: Partial<ReviewedRun>;
+    run?: Partial<RunForReview>;
     task?: Partial<ReviewedTask>;
     existing?: DecisionSet | null;
     available?: boolean;
@@ -29,7 +29,7 @@ const requesting = (
   let stored: DecisionSet | null = over.existing ?? null;
 
   const work = {
-    run: async (): Promise<ReviewedRun> => ({
+    run: async (): Promise<RunForReview> => ({
       id: RUN,
       workspaceId: WORKSPACE,
       taskId: TASK,
@@ -65,7 +65,7 @@ const requesting = (
   const service = new RequestDecisions(
     work,
     sets,
-    { available: over.available ?? true } as DecisionDrafterPort,
+    { available: over.available ?? true } as DecisionGeneratorPort,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'set_1' },
     { now: () => NOW, sleep: async () => undefined },
@@ -75,16 +75,16 @@ const requesting = (
 };
 
 describe('requesting the decisions a run made', () => {
-  it('opens a set for the task and drafts the run', async () => {
+  it('opens a set for the task and generates decisions for the run', async () => {
     const { service, stored } = requesting();
 
     await service.runEnded(TASK, RUN);
 
     expect(stored()?.taskId.equals(TASK)).toBe(true);
-    expect(stored()?.draft?.isFor(RUN)).toBe(true);
+    expect(stored()?.generation?.isFor(RUN)).toBe(true);
   });
 
-  it('drafts a later run into the set the task already has', async () => {
+  it('generates decisions for a later run into the set the task already has', async () => {
     const existing = DecisionSet.open({
       id: DecisionSetId.of('set_0'),
       taskId: TASK,
@@ -95,7 +95,7 @@ describe('requesting the decisions a run made', () => {
     await service.runEnded(TASK, RUN);
 
     expect(stored()?.id.value).toBe('set_0');
-    expect(stored()?.draft?.isFor(RUN)).toBe(true);
+    expect(stored()?.generation?.isFor(RUN)).toBe(true);
   });
 
   it.each([
@@ -105,7 +105,7 @@ describe('requesting the decisions a run made', () => {
       'the task reviews a pull request opened elsewhere',
       { task: { reviewing: true } },
     ],
-    ['no model is there to draft them', { available: false }],
+    ['no model is there to generate them', { available: false }],
   ])('requests none where %s', async (_, over) => {
     const { service, stored } = requesting(over);
 

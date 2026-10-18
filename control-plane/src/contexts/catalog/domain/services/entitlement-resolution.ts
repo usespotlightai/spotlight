@@ -9,7 +9,7 @@ import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import type { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 
-type DenialReason = 'unknown' | 'wrong-kind' | 'not-entitled' | 'lapsed';
+type DenialReason = 'unknown' | 'wrong-kind' | 'not-entitled' | 'expired';
 
 export interface Denial {
   readonly id: string;
@@ -29,7 +29,7 @@ interface Denied {
 
 export type EntitlementResult<T extends CatalogItem> = Entitled<T> | Denied;
 
-export interface Named {
+export interface EntitlementRequest {
   readonly tools: readonly string[];
   readonly skills: readonly string[];
 }
@@ -98,7 +98,7 @@ export const resolveEntitled = <K extends CatalogKind>(
 };
 
 export const resolveEntitledFor = (
-  named: Named,
+  request: EntitlementRequest,
   catalog: CatalogRepository,
   plan: WorkspacePlan,
   now: Date,
@@ -145,16 +145,16 @@ export const resolveEntitledFor = (
 
     skills.push(result.item);
 
-    for (const each of result.item.brings) {
+    for (const each of result.item.tools) {
       resolveTool(each.value);
     }
   };
 
-  for (const each of named.tools) {
+  for (const each of request.tools) {
     resolveTool(each);
   }
 
-  for (const each of named.skills) {
+  for (const each of request.skills) {
     resolveSkill(each);
   }
 

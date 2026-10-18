@@ -74,7 +74,7 @@ export class GitHubConnectionController {
   @ApiNoContentResponse({ description: 'Connected' })
   @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
   @ApiForbiddenResponse({
-    description: 'Not an owner or admin, or not your installation',
+    description: 'Not an owner or admin, or not an admin of the installation',
   })
   @ApiConflictResponse({
     description: 'The installation is already connected to another workspace',

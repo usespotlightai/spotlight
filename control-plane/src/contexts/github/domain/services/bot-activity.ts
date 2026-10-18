@@ -13,10 +13,12 @@ interface BotWebhookEvent {
   readonly threads: readonly PullRequestThread[];
 }
 
-const openerKey = (id: number): string => `comment:${id}`;
+const firstCommentKey = (id: number): string => `comment:${id}`;
 
 const threadKey = (thread: PullRequestThread): string =>
-  thread.opener !== null ? openerKey(thread.opener) : `thread:${thread.id}`;
+  thread.firstCommentId !== null
+    ? firstCommentKey(thread.firstCommentId)
+    : `thread:${thread.id}`;
 
 const loginsOf = (activity: BotWebhookEvent): readonly string[] =>
   [
@@ -50,7 +52,9 @@ export const botActivityOf = (
       comments: comments.length,
       threads: new Set([
         ...comments.flatMap((each) =>
-          each.on === 'line' && each.opensThread ? [openerKey(each.id)] : [],
+          each.on === 'line' && each.opensThread
+            ? [firstCommentKey(each.id)]
+            : [],
         ),
         ...threads.map(threadKey),
       ]).size,

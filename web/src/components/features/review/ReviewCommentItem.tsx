@@ -54,7 +54,7 @@ export function ReviewCommentItem({
       >
         <div className="flex gap-2.5">
           <div className="flex h-5 shrink-0 items-center">
-            {comment.byAgent ? (
+            {comment.isAgentAuthored ? (
               <Logo className="size-5 rounded" aria-label="Spotlight" />
             ) : (
               <PersonAvatar
@@ -103,7 +103,7 @@ export function ReviewCommentItem({
               </p>
             )}
 
-            {comment.yours && !editing && (
+            {comment.viewerIsAuthor && !editing && (
               <div className="flex gap-3">
                 <button
                   type="button"

@@ -246,9 +246,9 @@ describe('the Postgres upgrade reads the same everywhere', () => {
 
     for (const decision of decisions.decisions) {
       expect(decision.paths.every((each) => changed.has(each))).toBe(true);
-      expect(decision.steps.every((index) => steps[index] !== undefined)).toBe(
-        true,
-      );
+      expect(
+        decision.journalSteps.every((index) => steps[index] !== undefined),
+      ).toBe(true);
     }
   });
 

@@ -57,7 +57,7 @@ const cohort = (hunks: string[][]): ProposedCohort => ({
     title: `Layer ${at + 1}`,
     summary: `Layer ${at + 1}`,
     dependsOn: [],
-    ranges: each.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+    hunks: each.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: each.map((hunk) => ({
       path: DIFF.fileOf(hunk)?.path ?? hunk,
       note: 'Why',
@@ -66,7 +66,7 @@ const cohort = (hunks: string[][]): ProposedCohort => ({
 });
 
 const stackWith = (request: CheckRequest | null) =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: STACK,
     runId: RunId.of('run-1'),
     taskId: TASK,
@@ -138,7 +138,7 @@ describe('StackCheckReactions', () => {
     expect(added).toHaveLength(1);
     expect(added[0]?.request.setup).toBe('npm ci');
     expect(added[0]?.taskId).toEqual(TASK);
-    expect(added[0]?.stateAt(LATER)).toBe('waiting');
+    expect(added[0]?.statusAt(LATER)).toBe('waiting');
   });
 
   it('begins no check for a stack that requested none', async () => {
@@ -152,53 +152,63 @@ describe('StackCheckReactions', () => {
     expect(added).toEqual([]);
   });
 
-  it('requests the stack to reorder once its layers fail', async () => {
+  it('requests the stack to redraft once its layers fail', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
     const { reactions, savedStacks } = reacting(stack, null);
 
     await reactions.onLayersFailed(STACK);
 
-    expect(savedStacks[0]?.reordering).toBe(true);
+    expect(savedStacks[0]?.redrafting).toBe(true);
   });
 
-  it('hands the reordered layers to the check', async () => {
+  it('hands the redrafted layers to the check', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
-    const reordering = checkFor(stack)
+    const redrafting = checkFor(stack)
       .claimedFor(CHECKER, RunnerTerms.none(), LATER)
       .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
         [
-          { step: 'whole', passed: true, output: '', tookMs: 1 },
-          { step: stack.layers()[0], passed: false, output: 'no', tookMs: 1 },
+          { step: 'whole', passed: true, output: '', durationMs: 1 },
+          {
+            step: stack.layers()[0],
+            passed: false,
+            output: 'no',
+            durationMs: 1,
+          },
         ],
         LATER,
       );
-    const { reactions, saved } = reacting(stack, reordering);
+    const { reactions, saved } = reacting(stack, redrafting);
 
-    await reactions.onReordered(STACK);
+    await reactions.onRedrafted(STACK);
 
-    expect(saved[0]?.phase).toBe('waiting');
-    expect(saved[0]?.rounds).toBe(1);
+    expect(saved[0]?.status).toBe('waiting');
+    expect(saved[0]?.redraftCount).toBe(1);
   });
 
-  it('retains the checked layers once reordering ends', async () => {
+  it('retains the checked layers once redrafting ends', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
-    const reordering = checkFor(stack)
+    const redrafting = checkFor(stack)
       .claimedFor(CHECKER, RunnerTerms.none(), LATER)
       .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
         [
-          { step: 'whole', passed: true, output: '', tookMs: 1 },
-          { step: stack.layers()[0], passed: false, output: 'no', tookMs: 1 },
+          { step: 'whole', passed: true, output: '', durationMs: 1 },
+          {
+            step: stack.layers()[0],
+            passed: false,
+            output: 'no',
+            durationMs: 1,
+          },
         ],
         LATER,
       );
-    const { reactions, saved } = reacting(stack, reordering);
+    const { reactions, saved } = reacting(stack, redrafting);
 
-    await reactions.onReorderingEnded(STACK);
+    await reactions.onRedraftingEnded(STACK);
 
-    expect(saved[0]?.stateAt(LATER)).toBe('checked');
+    expect(saved[0]?.statusAt(LATER)).toBe('checked');
   });
 });

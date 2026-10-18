@@ -1,9 +1,9 @@
 import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
-import { ChangeStackDraftingBegan } from '@change-review/domain/events/change-stack-drafting-began.event';
 import { ChangeStackFailed } from '@change-review/domain/events/change-stack-failed.event';
+import { ChangeStackGenerationStarted } from '@change-review/domain/events/change-stack-generation-started.event';
 import { ChangeStackReady } from '@change-review/domain/events/change-stack-ready.event';
-import { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
-import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
+import { ChangeStackRedrafted } from '@change-review/domain/events/change-stack-redrafted.event';
+import { ChangeStackRedraftingEnded } from '@change-review/domain/events/change-stack-redrafting-ended.event';
 import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
@@ -44,7 +44,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const NOT_DRAFTED = 'Spotlight couldn’t draft the change stack.';
+const NOT_GENERATED = 'Spotlight couldn’t generate the change stack.';
 
 const changeLayers = (
   stack: readonly { kind: string; layers: readonly unknown[] }[],
@@ -53,12 +53,12 @@ const changeLayers = (
     .filter((cohort) => cohort.kind === 'change')
     .reduce((total, cohort) => total + cohort.layers.length, 0);
 
-const placedHunks = (cohorts: readonly StackCohort[]): string[] =>
+const assignedHunks = (cohorts: readonly StackCohort[]): string[] =>
   cohorts.flatMap((cohort) =>
-    cohort.layers.flatMap((layer) => layer.ranges.map((range) => range.hunk)),
+    cohort.layers.flatMap((layer) => layer.hunks.map((entry) => entry.hunk)),
   );
 
-const assertWhole = (
+const assertComplete = (
   progress: StackProgress,
   diff: Diff,
   cohorts: readonly StackCohort[],
@@ -67,8 +67,8 @@ const assertWhole = (
     throw new InconsistentStateError('change stack', problem);
   };
 
-  if (progress.state === 'drafting' && cohorts.length > 0) {
-    wrong('is still drafting, yet already has cohorts');
+  if (progress.state === 'generating' && cohorts.length > 0) {
+    wrong('is still generating, yet already has cohorts');
   }
 
   if (progress.state === 'failed' && !progress.failure) {
@@ -80,19 +80,19 @@ const assertWhole = (
   }
 
   if (cohorts.length === 0) {
-    wrong('is ready, yet places nothing');
+    wrong('is ready, yet assigns nothing');
   }
 
-  const placed = placedHunks(cohorts);
+  const assigned = assignedHunks(cohorts);
   const counted = new Map<string, number>();
 
-  for (const hunk of placed) {
+  for (const hunk of assigned) {
     counted.set(hunk, (counted.get(hunk) ?? 0) + 1);
   }
 
   for (const [hunk, times] of counted) {
     if (times > 1) {
-      wrong(`places ${hunk} ${times} times`);
+      wrong(`assigns ${hunk} ${times} times`);
     }
   }
 
@@ -104,7 +104,7 @@ const assertWhole = (
 
   for (const hunk of counted.keys()) {
     if (!diff.hunks.some((each) => each.id === hunk)) {
-      wrong(`places ${hunk}, which the diff does not contain`);
+      wrong(`assigns ${hunk}, which the diff does not contain`);
     }
   }
 };
@@ -139,14 +139,14 @@ export class ChangeStack
     readonly progress: StackProgress,
     readonly job: PendingJob,
     readonly request: CheckRequest | null,
-    readonly reordering: boolean,
-    readonly spent: ModelUsage,
+    readonly redrafting: boolean,
+    readonly usage: ModelUsage,
     readonly version: number,
   ) {
     super();
   }
 
-  static draft(input: {
+  static startGeneration(input: {
     id: ChangeStackId;
     runId: RunId;
     taskId: TaskId | null;
@@ -177,7 +177,7 @@ export class ChangeStack
       input.diff,
       input.facts,
       [],
-      StackProgress.drafting(input.now),
+      StackProgress.generating(input.now),
       PendingJob.fresh(),
       input.request,
       false,
@@ -185,7 +185,7 @@ export class ChangeStack
       0,
     );
 
-    stack.record(new ChangeStackDraftingBegan(stack.id, stack.runId));
+    stack.record(new ChangeStackGenerationStarted(stack.id, stack.runId));
 
     return stack;
   }
@@ -204,11 +204,11 @@ export class ChangeStack
     progress: StackProgress;
     job: PendingJob;
     request: CheckRequest | null;
-    reordering: boolean;
-    spent: ModelUsage;
+    redrafting: boolean;
+    usage: ModelUsage;
     version: number;
   }): ChangeStack {
-    assertWhole(input.progress, input.diff, input.cohorts);
+    assertComplete(input.progress, input.diff, input.cohorts);
     assertOneOwner(input);
 
     return new ChangeStack(
@@ -225,8 +225,8 @@ export class ChangeStack
       input.progress,
       input.job,
       input.request,
-      input.reordering,
-      input.spent,
+      input.redrafting,
+      input.usage,
       input.version,
     );
   }
@@ -239,8 +239,8 @@ export class ChangeStack
     return this.progress.failure;
   }
 
-  get draftedAt(): Date {
-    return this.progress.draftedAt;
+  get startedAt(): Date {
+    return this.progress.startedAt;
   }
 
   get completedAt(): Date | null {
@@ -252,7 +252,7 @@ export class ChangeStack
   }
 
   get hasPendingJob(): boolean {
-    return this.state === 'drafting' || this.reordering;
+    return this.state === 'generating' || this.redrafting;
   }
 
   get jobExhausted(): boolean {
@@ -280,22 +280,24 @@ export class ChangeStack
   }
 
   recordModel(call: ModelCall | null): ChangeStack {
-    return call ? this.with({ spent: this.spent.with(call) }) : this;
+    return call ? this.with({ usage: this.usage.with(call) }) : this;
   }
 
-  requestReorder(): ChangeStack {
-    return this.state === 'ready' && !this.reordering
-      ? this.with({ reordering: true, job: PendingJob.fresh() })
+  requestRedraft(): ChangeStack {
+    return this.state === 'ready' && !this.redrafting
+      ? this.with({ redrafting: true, job: PendingJob.fresh() })
       : this;
   }
 
   leaseJob(now: Date): ChangeStack {
     if (!this.hasPendingJob) {
-      throw InvalidChangeStackError.because('has nothing to draft or reorder');
+      throw InvalidChangeStackError.because(
+        'has nothing to generate or redraft',
+      );
     }
     if (!this.job.isDue(now) || this.job.exhausted) {
       throw InvalidChangeStackError.because(
-        'cannot be drafted or reordered again yet',
+        'cannot be generated or redrafted again yet',
       );
     }
 
@@ -313,26 +315,26 @@ export class ChangeStack
   }
 
   deadLetter(now: Date): ChangeStack {
-    if (this.state === 'drafting') {
-      return this.fail(NOT_DRAFTED, now);
+    if (this.state === 'generating') {
+      return this.fail(NOT_GENERATED, now);
     }
 
-    return this.stopReordering();
+    return this.stopRedrafting();
   }
 
-  reordered(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
-    if (!this.reordering) {
-      throw InvalidChangeStackError.because('is not being reordered');
+  redrafted(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
+    if (!this.redrafting) {
+      throw InvalidChangeStackError.because('is not being redrafted');
     }
 
-    const setAside = arranged(this.diff, this.facts, cohorts);
+    const arrangedCohorts = arranged(this.diff, this.facts, cohorts);
     const before = changeLayers(this.cohorts);
-    const after = changeLayers(setAside);
+    const after = changeLayers(arrangedCohorts);
 
     const ready = StackProposal.validate({
       diff: this.diff,
       facts: this.facts,
-      cohorts: setAside,
+      cohorts: arrangedCohorts,
       also:
         after < before
           ? [
@@ -344,30 +346,30 @@ export class ChangeStack
           : [],
     });
 
-    const reordered = this.with({
+    const redrafted = this.with({
       cohorts: ready,
       progress: this.progress.complete('ready', now),
       job: PendingJob.fresh(),
-      reordering: false,
+      redrafting: false,
     });
 
-    reordered.record(new ChangeStackReordered(this.id, this.runId));
-    reordered.recordReady(now);
-    return reordered;
+    redrafted.record(new ChangeStackRedrafted(this.id, this.runId));
+    redrafted.recordReady(now);
+    return redrafted;
   }
 
-  stopReordering(): ChangeStack {
-    if (!this.reordering) {
+  stopRedrafting(): ChangeStack {
+    if (!this.redrafting) {
       return this;
     }
 
-    const ended = this.with({ reordering: false, job: PendingJob.fresh() });
-    ended.record(new ChangeStackReorderingEnded(this.id, this.runId));
+    const ended = this.with({ redrafting: false, job: PendingJob.fresh() });
+    ended.record(new ChangeStackRedraftingEnded(this.id, this.runId));
     return ended;
   }
 
   propose(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
-    this.assertDrafting();
+    this.assertGenerating();
 
     const ready = StackProposal.validate({
       diff: this.diff,
@@ -419,7 +421,7 @@ export class ChangeStack
   }
 
   fail(reason: string, now: Date): ChangeStack {
-    this.assertDrafting();
+    this.assertGenerating();
 
     const failure = reason.trim() || INTERRUPTED;
 
@@ -434,8 +436,8 @@ export class ChangeStack
     return failed;
   }
 
-  private assertDrafting(): void {
-    if (this.state !== 'drafting') {
+  private assertGenerating(): void {
+    if (this.state !== 'generating') {
       throw InvalidChangeStackError.because(`is already ${this.state}`);
     }
   }
@@ -444,8 +446,8 @@ export class ChangeStack
     cohorts?: readonly StackCohort[];
     progress?: StackProgress;
     job?: PendingJob;
-    reordering?: boolean;
-    spent?: ModelUsage;
+    redrafting?: boolean;
+    usage?: ModelUsage;
   }): ChangeStack {
     const next = new ChangeStack(
       this.id,
@@ -461,8 +463,8 @@ export class ChangeStack
       change.progress ?? this.progress,
       change.job ?? this.job,
       this.request,
-      change.reordering ?? this.reordering,
-      change.spent ?? this.spent,
+      change.redrafting ?? this.redrafting,
+      change.usage ?? this.usage,
       this.version,
     );
 

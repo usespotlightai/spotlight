@@ -62,7 +62,7 @@ export class DecisionResponseDto {
   @ApiProperty({
     type: [String],
     example: ['api/src/uploads.ts'],
-    description: 'The changed files it bears on, from the workspace root',
+    description: 'The changed files it covers, from the workspace root',
   })
   readonly paths: string[];
 
@@ -70,7 +70,7 @@ export class DecisionResponseDto {
     type: [Number],
     description: 'Where the agent reasoned it, as steps of the run’s journal',
   })
-  readonly steps: number[];
+  readonly journalSteps: number[];
 
   @ApiProperty({
     type: [DisputeResponseDto],
@@ -85,7 +85,7 @@ export class DecisionResponseDto {
     this.why = decision.why;
     this.alternatives = [...decision.alternatives];
     this.paths = [...decision.paths];
-    this.steps = [...decision.steps];
+    this.journalSteps = [...decision.journalSteps];
     this.disputes = decision.disputes.map(
       (each) => new DisputeResponseDto(each),
     );
@@ -113,14 +113,14 @@ export class TaskDecisionsResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'The run the decisions were drafted from, if any was',
+    description: 'The run the decisions were generated from, if there is one',
   })
   readonly runId: string | null;
 
   @ApiProperty({
-    description: 'Whether a later run’s decisions are being drafted',
+    description: 'Whether decisions for a later run are being generated',
   })
-  readonly drafting: boolean;
+  readonly generating: boolean;
 
   @ApiProperty({ enum: DECISION_STATUS_NAMES })
   readonly status: TaskDecisionsDto['status'];
@@ -141,7 +141,7 @@ export class TaskDecisionsResponseDto {
 
   constructor(found: TaskDecisionsDto) {
     this.runId = found.runId;
-    this.drafting = found.drafting;
+    this.generating = found.generating;
     this.status = found.status;
     this.merge = found.merge && new DecisionMergeResponseDto(found.merge);
     this.decisions = found.decisions.map(
@@ -183,7 +183,7 @@ export class MergedDecisionsResponseDto {
   @ApiProperty({
     type: [DecisionResponseDto],
     description:
-      'Those bearing on the paths in the query; deviations and limitations first',
+      'Those that cover the paths in the query; deviations and limitations first',
   })
   readonly decisions: DecisionResponseDto[];
 

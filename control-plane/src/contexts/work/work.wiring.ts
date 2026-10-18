@@ -3,13 +3,13 @@ import {
   type CatalogPort,
 } from '@catalog/application/ports/catalog.port';
 import {
+  INSTALLATION_REPOSITORIES,
+  type InstallationRepositoriesPort,
+} from '@github/application/ports/installation-repositories.port';
+import {
   PULL_REQUESTS,
   type PullRequestPort,
 } from '@github/application/ports/pull-request.port';
-import {
-  REPOSITORY_CATALOG,
-  type RepositoryCatalogPort,
-} from '@github/application/ports/repository-catalog.port';
 import {
   REPOSITORY_GIT,
   type RepositoryGitPort,
@@ -1036,9 +1036,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: ACCESSIBLE_REPOSITORIES,
-    inject: [REPOSITORY_CATALOG],
-    useFactory: (catalog: RepositoryCatalogPort) =>
-      new GitHubAccessibleRepositories(catalog),
+    inject: [INSTALLATION_REPOSITORIES],
+    useFactory: (repositories: InstallationRepositoriesPort) =>
+      new GitHubAccessibleRepositories(repositories),
   },
 
   {

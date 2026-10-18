@@ -1,6 +1,6 @@
 import type {
-  ReviewedRun,
   ReviewedTask,
+  RunForReview,
   RunReasoning,
   WorkPort,
 } from '@change-review/application/ports/work.port';
@@ -27,7 +27,7 @@ const reviewed = (task: TaskLookup): ReviewedTask => ({
 export class Work implements WorkPort {
   constructor(private readonly work: WorkLookupPort) {}
 
-  async run(runId: RunId): Promise<ReviewedRun | null> {
+  async run(runId: RunId): Promise<RunForReview | null> {
     const run = await this.work.run(runId);
 
     return (

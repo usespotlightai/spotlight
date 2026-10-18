@@ -16,7 +16,7 @@ const QUEUE: Decision = {
   why: 'A queue needs a worker the service does not run.',
   alternatives: [],
   paths: ['api/src/uploads.ts', 'web/src/Upload.tsx'],
-  steps: [3],
+  journalSteps: [3],
   disputes: [
     {
       id: 'dispute_1',

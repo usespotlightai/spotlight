@@ -34,7 +34,7 @@ export const checkedStepOf = (stored: StoredStep): CheckedStep => ({
   step: stepOf(stored.step),
   passed: stored.passed,
   output: stored.output,
-  tookMs: stored.tookMs,
+  durationMs: stored.durationMs,
 });
 
 export const entryOf = (stored: {
@@ -86,7 +86,7 @@ export const cohortsOf = (
         layer: LayerId.of(each.layer),
         because: [...each.because],
       })),
-      ranges: layer.ranges.map((range) => ({ hunk: HunkId.of(range.hunk) })),
+      hunks: layer.hunks.map((entry) => ({ hunk: HunkId.of(entry.hunk) })),
       notes: layer.notes.map((note) => ({ ...note })),
     })),
   }));
@@ -94,13 +94,13 @@ export const cohortsOf = (
 export const progressOf = (row: {
   state: ChangeStackState;
   failure: string | null;
-  draftedAt: Date;
+  startedAt: Date;
   completedAt: Date | null;
 }): StackProgress =>
   StackProgress.rehydrate({
     state: row.state,
     failure: row.failure,
-    draftedAt: row.draftedAt,
+    startedAt: row.startedAt,
     completedAt: row.completedAt,
   });
 
@@ -125,7 +125,7 @@ export const cohortRows = (cohorts: readonly StackCohort[]): StoredCohort[] =>
     layers: cohort.layers.map((layer) => ({
       ...layer,
       dependsOn: layer.dependsOn.map((each) => ({ ...each })),
-      ranges: layer.ranges.map((range) => ({ ...range })),
+      hunks: layer.hunks.map((entry) => ({ ...entry })),
       notes: layer.notes.map((note) => ({ ...note })),
     })),
   }));

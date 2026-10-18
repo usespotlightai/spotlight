@@ -1,4 +1,4 @@
-import type { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
+import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -13,7 +13,7 @@ export class PurgePullRequestsWorker implements OnModuleDestroy {
   #stopped = false;
 
   constructor(
-    private readonly recording: RecordPullRequests,
+    private readonly sync: PullRequestSync,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -35,7 +35,7 @@ export class PurgePullRequestsWorker implements OnModuleDestroy {
 
   private async purge(): Promise<void> {
     try {
-      await this.recording.pastRetention();
+      await this.sync.pastRetention();
     } catch (error) {
       this.logger.error({ err: error }, PURGING);
     }

@@ -1,9 +1,9 @@
-import type { DecisionDrafterPort } from '@change-review/application/ports/decision-drafter.port';
+import type { DecisionGeneratorPort } from '@change-review/application/ports/decision-generator.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
-import { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
+import { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -16,14 +16,14 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 const MAX_SETS_AT_ONCE = 4;
 
 export class WorkDecisionSets implements PendingJobsPort {
-  readonly name = 'Drafting decisions';
+  readonly name = 'Generating decisions';
 
   readonly #loop: JobLoop<DecisionSet, TaskId>;
 
   constructor(
     private readonly sets: DecisionSetRepository,
     private readonly work: WorkPort,
-    private readonly drafter: DecisionDrafterPort,
+    private readonly generator: DecisionGeneratorPort,
     private readonly ids: IdGeneratorPort,
     transaction: TransactionPort,
     clock: ClockPort,
@@ -41,12 +41,12 @@ export class WorkDecisionSets implements PendingJobsPort {
         ids: (set) => ({
           workspaceId: set.workspaceId.value,
           taskId: set.taskId.value,
-          runId: set.draft?.runId.value,
+          runId: set.generation?.runId.value,
         }),
         about: (set) => ({
-          attempts: set.draft?.job.attempts,
+          attempts: set.generation?.job.attempts,
         }),
-        process: (set) => this.drafted(set),
+        process: (set) => this.generated(set),
         stale: (error) => error instanceof DecisionSetVersionConflictError,
       },
       transaction,
@@ -64,12 +64,12 @@ export class WorkDecisionSets implements PendingJobsPort {
     return this.#loop.idle();
   }
 
-  private async drafted(set: DecisionSet): Promise<DecisionSet> {
-    if (!set.draft) {
+  private async generated(set: DecisionSet): Promise<DecisionSet> {
+    if (!set.generation) {
       return set;
     }
 
-    const { runId } = set.draft;
+    const { runId } = set.generation;
     const reasoning = await this.work.reasoning(runId);
 
     if (!reasoning) {
@@ -78,13 +78,13 @@ export class WorkDecisionSets implements PendingJobsPort {
 
     const proposed =
       reasoning.steps.length > 0 && reasoning.changed.length > 0
-        ? await this.drafter.draft(reasoning)
+        ? await this.generator.generate(reasoning)
         : [];
 
-    return set.recordDraft({
+    return set.recordGeneration({
       runId,
       proposed,
-      grounds: DecisionGrounds.of({
+      evidence: DecisionEvidence.of({
         steps: reasoning.steps.map((each) => each.index),
         changed: reasoning.changed,
       }),

@@ -63,7 +63,7 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
     }
   }
 
-  async withdraw(place: StickyCommentPlace): Promise<void> {
+  async delete(place: StickyCommentPlace): Promise<void> {
     const { password: token } = await this.access.credential(place.workspaceId);
     const repo = `${place.repository.owner}/${place.repository.name}`;
     const existing = await this.stickyCommentId(
@@ -84,7 +84,7 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
 
     if (!response.ok && response.status !== 404) {
       throw new UpstreamError(
-        'withdrawing a comment from a pull request',
+        'deleting a comment from a pull request',
         `GitHub answered ${response.status}`,
       );
     }

@@ -62,7 +62,7 @@ const COHORTS: ProposedCohort[] = [
       title: `Layer ${at + 1}`,
       summary: `Layer ${at + 1}`,
       dependsOn: [],
-      ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+      hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
       notes: hunks.map((hunk) => ({
         path: DIFF.fileOf(hunk)?.path ?? hunk,
         note: 'Why it changes',
@@ -95,7 +95,7 @@ const factsWith = (imports: typeof IMPORTS) =>
 const facts = factsWith(IMPORTS);
 
 const ready = () =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
@@ -126,21 +126,21 @@ describe('generatedEntries', () => {
       {
         id: 'whole',
         hunks: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-        isWholeChange: true,
-        installsAnew: true,
+        stopsOnFailure: true,
+        runsSetup: true,
       },
-      { id: 'c1.l1', hunks: ['h1'], isWholeChange: false, installsAnew: false },
+      { id: 'c1.l1', hunks: ['h1'], stopsOnFailure: false, runsSetup: false },
       {
         id: 'c1.l2',
         hunks: ['h1', 'h2', 'h3', 'h4'],
-        isWholeChange: false,
-        installsAnew: false,
+        stopsOnFailure: false,
+        runsSetup: false,
       },
       {
         id: 'c1.l3',
         hunks: ['h1', 'h2', 'h3', 'h4', 'h5'],
-        isWholeChange: false,
-        installsAnew: false,
+        stopsOnFailure: false,
+        runsSetup: false,
       },
     ]);
   });

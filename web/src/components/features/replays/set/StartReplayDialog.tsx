@@ -148,9 +148,9 @@ export function StartReplayDialog({
             problem={shownProblem}
             note={
               <>
-                The most that this replay can spend. Its runs count, and so do
-                the drafting and judging of their changes. Nothing more starts
-                after the replay spends it.{' '}
+                The most that this replay can spend. Its runs count, and so does
+                the generation and judging of their change stacks. Nothing more
+                starts after the replay spends it.{' '}
                 {formatBaselineNote(
                   candidate !== LIVE,
                   baseline?.repeats ?? null,

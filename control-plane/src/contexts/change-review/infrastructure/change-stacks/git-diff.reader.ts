@@ -6,11 +6,11 @@ import type {
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
 import type { SourceSide } from '@change-review/domain/services/symbol-index';
 import {
-  cutInto,
   Diff,
   type DiffFileStatus,
   HUNK_HEADER,
   patchRowsOf,
+  splitHunk,
   type UnnamedFile,
 } from '@change-review/domain/value-objects/diff.vo';
 
@@ -190,7 +190,7 @@ export class GitDiffReader implements DiffReaderPort {
             : 'modified';
 
       const cuts = file.hunks.flatMap((hunk) =>
-        cutInto(hunk.header, hunk.lines),
+        splitHunk(hunk.header, hunk.lines),
       );
       const hunks =
         cuts.length > 0

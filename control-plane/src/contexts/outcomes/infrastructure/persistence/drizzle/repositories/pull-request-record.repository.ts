@@ -49,7 +49,7 @@ const columnsOf = (record: PullRequestRecord) => {
     closedAt: seen?.closedAt ?? null,
     updatedAt: seen?.updatedAt ?? null,
     readyForReviewAt: seen?.readyForReviewAt ?? null,
-    draftSpells: (seen?.draftSpells ?? []).map((each) => ({
+    draftPeriods: (seen?.draftPeriods ?? []).map((each) => ({
       from: each.from.toISOString(),
       to: each.to?.toISOString() ?? null,
     })),

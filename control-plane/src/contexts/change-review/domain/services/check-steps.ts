@@ -19,7 +19,7 @@ const sameSet = (left: ReadonlySet<string>, right: ReadonlySet<string>) =>
   left.size === right.size && [...left].every((each) => right.has(each));
 
 const readying = (
-  steps: readonly Omit<CheckStep, 'installsAnew'>[],
+  steps: readonly Omit<CheckStep, 'runsSetup'>[],
   facts: StepFacts,
 ): CheckStep[] => {
   let installed: ReadonlySet<string> = new Set();
@@ -31,7 +31,7 @@ const readying = (
     const again = at === 0 || !sameSet(locks, installed);
     installed = locks;
 
-    return { ...step, installsAnew: again };
+    return { ...step, runsSetup: again };
   });
 };
 
@@ -44,7 +44,7 @@ export const checkStepsOf = (input: {
   const incidental = input.cohorts
     .filter((cohort) => cohort.kind === 'incidental')
     .flatMap((cohort) => cohort.layers)
-    .flatMap((layer) => layer.ranges.map((range) => range.hunk))
+    .flatMap((layer) => layer.hunks.map((entry) => entry.hunk))
     .filter((hunk) => !input.facts.isGenerated(hunk));
   const entering = new Map<LayerId, HunkId[]>();
 
@@ -52,8 +52,8 @@ export const checkStepsOf = (input: {
     entering.set(layer, [...(entering.get(layer) ?? []), hunk]);
   }
   const whole = [...input.hunks];
-  const steps: Omit<CheckStep, 'installsAnew'>[] = [
-    { id: WHOLE_STEP, hunks: whole, isWholeChange: true },
+  const steps: Omit<CheckStep, 'runsSetup'>[] = [
+    { id: WHOLE_STEP, hunks: whole, stopsOnFailure: true },
   ];
 
   for (const cohort of input.cohorts) {
@@ -61,16 +61,20 @@ export const checkStepsOf = (input: {
       continue;
     }
 
-    const placed: HunkId[] = [...incidental];
+    const assigned: HunkId[] = [...incidental];
 
     for (const layer of cohort.layers) {
-      placed.push(
+      assigned.push(
         ...(entering.get(layer.id) ?? []),
-        ...layer.ranges.map((range) => range.hunk),
+        ...layer.hunks.map((entry) => entry.hunk),
       );
 
-      if (placed.length < whole.length) {
-        steps.push({ id: layer.id, hunks: [...placed], isWholeChange: false });
+      if (assigned.length < whole.length) {
+        steps.push({
+          id: layer.id,
+          hunks: [...assigned],
+          stopsOnFailure: false,
+        });
       }
     }
   }

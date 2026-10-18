@@ -1153,7 +1153,7 @@ describe('runner pools (e2e)', () => {
           .where(
             and(
               eq(schema.stackCheck.stackId, stackId),
-              eq(schema.stackCheck.phase, 'waiting'),
+              eq(schema.stackCheck.status, 'waiting'),
             ),
           );
 
@@ -1162,14 +1162,14 @@ describe('runner pools (e2e)', () => {
           .from(schema.stackCheck)
           .where(eq(schema.stackCheck.stackId, stackId));
 
-        return row?.phase === 'skipped' ? row : null;
+        return row?.status === 'skipped' ? row : null;
       }, 25_000);
 
       expect(skipped.provisionAttempts).toBe(5);
-      expect(skipped.outcome?.skip).toMatchObject({ code: 'unprovisioned' });
+      expect(skipped.outcome?.skip).toMatchObject({ code: 'provision-failed' });
       expect(skipped.outcome?.skip?.detail).toContain('unreachable');
       expect(await checkReadFor(skipped.runId)).toMatchObject({
-        state: 'skipped',
+        status: 'skipped',
         reason: expect.stringContaining(
           'Spotlight couldn’t provision a runner to check the layers.',
         ),
@@ -1203,13 +1203,13 @@ describe('runner pools (e2e)', () => {
           .from(schema.stackCheck)
           .where(eq(schema.stackCheck.stackId, stackId));
 
-        return row?.phase === 'skipped' ? row : null;
+        return row?.status === 'skipped' ? row : null;
       });
 
       expect(expired.reservedFor).toBeNull();
-      expect(expired.outcome?.skip).toMatchObject({ code: 'nobody-checked' });
+      expect(expired.outcome?.skip).toMatchObject({ code: 'queue-timeout' });
       expect(await checkReadFor(expired.runId)).toMatchObject({
-        state: 'skipped',
+        status: 'skipped',
         reason: 'No runner checked the layers in time.',
       });
       await eventually(

@@ -7,7 +7,7 @@ import { DecisionDispute } from '@change-review/domain/entities/decision-dispute
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
-import { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
+import { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
@@ -32,7 +32,7 @@ const MERGE = DecisionMerge.of({
   at: NOW,
 });
 
-const GROUNDS = DecisionGrounds.of({
+const EVIDENCE = DecisionEvidence.of({
   steps: [2, 5, 9],
   changed: ['src/uploads.ts', 'src/retry.ts'],
 });
@@ -64,15 +64,15 @@ const opened = () =>
     workspaceId: WorkspaceId.of('workspace-1'),
   });
 
-const drafting = (
+const generating = (
   set: DecisionSet,
   runId: RunId,
   decisions: readonly ProposedDecision[],
 ): DecisionSet =>
-  set.recordDraft({
+  set.recordGeneration({
     runId,
     proposed: decisions,
-    grounds: GROUNDS,
+    evidence: EVIDENCE,
     newId: counting(runId.value),
   });
 
@@ -81,7 +81,7 @@ const kinds = (set: DecisionSet) => set.pullEvents().map((each) => each.kind);
 describe('a decision', () => {
   const ID = DecisionId.of('decision_1');
 
-  it('keeps its steps once each, in order, and its paths trimmed', () => {
+  it('keeps its journal steps once each, in order, and its paths trimmed', () => {
     const decision = Decision.of(
       ID,
       proposed({
@@ -90,7 +90,7 @@ describe('a decision', () => {
       }),
     );
 
-    expect(decision.steps).toEqual([2, 9]);
+    expect(decision.journalSteps).toEqual([2, 9]);
     expect(decision.paths.map((each) => each.value)).toEqual([
       'src/uploads.ts',
     ]);
@@ -102,7 +102,7 @@ describe('a decision', () => {
     );
   });
 
-  it('bears on at least one path and cites at least one step', () => {
+  it('covers at least one path and cites at least one step', () => {
     expect(() => Decision.of(ID, proposed({ paths: [' '] }))).toThrow(
       InvalidDecisionError,
     );
@@ -114,7 +114,7 @@ describe('a decision', () => {
     );
   });
 
-  it('comes back as it was stored, even past limits it was drafted under', () => {
+  it('comes back as it was stored, even past limits it was generated under', () => {
     const decision = Decision.rehydrate({
       id: ID,
       kind: 'limitation',
@@ -122,14 +122,14 @@ describe('a decision', () => {
       why: 'Stored before the title limit was tightened.',
       alternatives: [],
       paths: [FilePath.of('src/uploads.ts')],
-      steps: [1],
+      journalSteps: [1],
       disputes: [],
     });
 
     expect(decision.title).toHaveLength(500);
   });
 
-  it('never comes back with a dispute about a file it does not bear on', () => {
+  it('never comes back with a dispute about a file it does not cover', () => {
     expect(() =>
       Decision.rehydrate({
         id: ID,
@@ -138,7 +138,7 @@ describe('a decision', () => {
         why: 'Backoff is not in the client yet.',
         alternatives: [],
         paths: [FilePath.of('src/uploads.ts')],
-        steps: [1],
+        journalSteps: [1],
         disputes: [
           DecisionDispute.rehydrate({
             id: DecisionDisputeId.of('dispute_1'),
@@ -153,76 +153,82 @@ describe('a decision', () => {
   });
 });
 
-describe('a decision set, requested to draft', () => {
-  it('drafts the run that requested it', () => {
-    const requested = opened().requestDraft(FIRST, NOW);
+describe('a decision set, requested to generate', () => {
+  it('generates decisions for the run that requested it', () => {
+    const requested = opened().requestGeneration(FIRST, NOW);
 
     expect(requested.hasPendingJob).toBe(true);
-    expect(requested.draft?.isFor(FIRST)).toBe(true);
+    expect(requested.generation?.isFor(FIRST)).toBe(true);
     expect(kinds(requested)).toEqual(['decisions.requested']);
   });
 
   it('takes the same run once', () => {
-    const requested = opened().requestDraft(FIRST, NOW);
+    const requested = opened().requestGeneration(FIRST, NOW);
     requested.pullEvents();
 
-    expect(kinds(requested.requestDraft(FIRST, NOW))).toEqual([]);
+    expect(kinds(requested.requestGeneration(FIRST, NOW))).toEqual([]);
   });
 
-  it('does not draft again a run it already drafted', () => {
-    const drafted = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
-      proposed(),
-    ]);
-    drafted.pullEvents();
+  it('does not generate decisions again for a run that already has them', () => {
+    const generated = generating(
+      opened().requestGeneration(FIRST, NOW),
+      FIRST,
+      [proposed()],
+    );
+    generated.pullEvents();
 
-    const again = drafted.requestDraft(FIRST, NOW);
+    const again = generated.requestGeneration(FIRST, NOW);
 
     expect(again.hasPendingJob).toBe(false);
     expect(kinds(again)).toEqual([]);
   });
 
-  it('drafts a newer run in place of one still waiting', () => {
+  it('generates decisions for a newer run in place of one still waiting', () => {
     const requested = opened()
-      .requestDraft(FIRST, NOW)
-      .requestDraft(SECOND, NOW);
+      .requestGeneration(FIRST, NOW)
+      .requestGeneration(SECOND, NOW);
 
-    expect(requested.draft?.isFor(SECOND)).toBe(true);
+    expect(requested.generation?.isFor(SECOND)).toBe(true);
   });
 
   it('takes no later run after its decisions merge', () => {
-    const merged = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+    const merged = generating(opened().requestGeneration(FIRST, NOW), FIRST, [
       proposed(),
     ]).merge(MERGE);
     merged.pullEvents();
 
-    const requested = merged.requestDraft(SECOND, NOW);
+    const requested = merged.requestGeneration(SECOND, NOW);
 
     expect(requested.hasPendingJob).toBe(false);
-    expect(requested.decidedIn?.equals(FIRST)).toBe(true);
+    expect(requested.sourceRunId?.equals(FIRST)).toBe(true);
     expect(kinds(requested)).toEqual([]);
   });
 });
 
-describe('a decision set, drafted', () => {
-  it('keeps only the decisions its run grounds, each with its own id', () => {
-    const drafted = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
-      proposed(),
-      proposed({ title: 'Cites a step the run does not have', steps: [3] }),
-      proposed({
-        title: 'Bears on a file it never changed',
-        paths: ['README.md'],
-      }),
-      proposed({ kind: 'hunch' }),
-    ]);
+describe('a decision set, generated', () => {
+  it('keeps only the decisions its run gives evidence for, each with its own id', () => {
+    const generated = generating(
+      opened().requestGeneration(FIRST, NOW),
+      FIRST,
+      [
+        proposed(),
+        proposed({ title: 'Cites a step the run does not have', steps: [3] }),
+        proposed({
+          title: 'Covers a file it never changed',
+          paths: ['README.md'],
+        }),
+        proposed({ kind: 'hunch' }),
+      ],
+    );
 
-    expect(drafted.decisions.map((each) => each.title)).toEqual([
+    expect(generated.decisions.map((each) => each.title)).toEqual([
       'Retries uploads in the request',
     ]);
-    expect(drafted.decisions[0]?.id.value).toBe('run-1_1');
-    expect(drafted.decidedIn?.equals(FIRST)).toBe(true);
-    expect(drafted.hasPendingJob).toBe(false);
+    expect(generated.decisions[0]?.id.value).toBe('run-1_1');
+    expect(generated.sourceRunId?.equals(FIRST)).toBe(true);
+    expect(generated.hasPendingJob).toBe(false);
 
-    const [, recorded] = drafted.pullEvents();
+    const [, recorded] = generated.pullEvents();
     expect(recorded).toMatchObject({
       kind: 'decisions.recorded',
       recorded: 1,
@@ -231,41 +237,41 @@ describe('a decision set, drafted', () => {
   });
 
   it('replaces what an earlier run decided', () => {
-    const drafted = drafting(
-      drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+    const generated = generating(
+      generating(opened().requestGeneration(FIRST, NOW), FIRST, [
         proposed(),
-      ]).requestDraft(SECOND, NOW),
+      ]).requestGeneration(SECOND, NOW),
       SECOND,
       [proposed({ kind: 'limitation', title: 'Retries only once' })],
     );
 
-    expect(drafted.decisions.map((each) => each.title)).toEqual([
+    expect(generated.decisions.map((each) => each.title)).toEqual([
       'Retries only once',
     ]);
-    expect(drafted.decidedIn?.equals(SECOND)).toBe(true);
+    expect(generated.sourceRunId?.equals(SECOND)).toBe(true);
   });
 
   it('records that a run decided nothing', () => {
-    const drafted = drafting(
-      drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+    const generated = generating(
+      generating(opened().requestGeneration(FIRST, NOW), FIRST, [
         proposed(),
-      ]).requestDraft(SECOND, NOW),
+      ]).requestGeneration(SECOND, NOW),
       SECOND,
       [],
     );
 
-    expect(drafted.decisions).toEqual([]);
+    expect(generated.decisions).toEqual([]);
   });
 
-  it('ignores a draft of a run it is no longer drafting', () => {
+  it('ignores decisions for a run it is no longer generating', () => {
     const requested = opened()
-      .requestDraft(FIRST, NOW)
-      .requestDraft(SECOND, NOW);
+      .requestGeneration(FIRST, NOW)
+      .requestGeneration(SECOND, NOW);
 
-    const drafted = drafting(requested, FIRST, [proposed()]);
+    const generated = generating(requested, FIRST, [proposed()]);
 
-    expect(drafted).toBe(requested);
-    expect(drafted.decisions).toEqual([]);
+    expect(generated).toBe(requested);
+    expect(generated.decisions).toEqual([]);
   });
 
   it('never comes back with the same decision twice', () => {
@@ -276,9 +282,9 @@ describe('a decision set, drafted', () => {
         id: DecisionSetId.of('set-1'),
         taskId: TaskId.of('task-1'),
         workspaceId: WorkspaceId.of('workspace-1'),
-        decidedIn: FIRST,
+        sourceRunId: FIRST,
         decisions: [decision, decision],
-        draft: null,
+        generation: null,
         status: DecisionStatus.proposed(),
         version: 1,
       }),
@@ -286,48 +292,48 @@ describe('a decision set, drafted', () => {
   });
 });
 
-describe('a decision set, failing to draft', () => {
-  it('keeps what an earlier run decided when a later one cannot be drafted', () => {
-    const failed = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+describe('a decision set, failing to generate', () => {
+  it('keeps what an earlier run decided when decisions for a later one cannot be generated', () => {
+    const failed = generating(opened().requestGeneration(FIRST, NOW), FIRST, [
       proposed(),
     ])
-      .requestDraft(SECOND, NOW)
+      .requestGeneration(SECOND, NOW)
       .deadLetter();
 
     expect(failed.decisions).toHaveLength(1);
-    expect(failed.decidedIn?.equals(FIRST)).toBe(true);
+    expect(failed.sourceRunId?.equals(FIRST)).toBe(true);
     expect(failed.hasPendingJob).toBe(false);
-    expect(kinds(failed)).toContain('decisions.drafting-failed');
+    expect(kinds(failed)).toContain('decisions.generation-failed');
   });
 
   it('is retried later, then dead-lettered', () => {
-    let set = opened().requestDraft(FIRST, NOW);
+    let set = opened().requestGeneration(FIRST, NOW);
 
     for (let attempt = 0; attempt < MAX_JOB_ATTEMPTS; attempt += 1) {
-      const due = set.draft?.job.nextAttemptAt ?? NOW;
+      const due = set.generation?.job.nextAttemptAt ?? NOW;
       set = set.leaseJob(due).scheduleRetry(due);
     }
 
     expect(set.hasPendingJob).toBe(false);
-    expect(kinds(set)).toContain('decisions.drafting-failed');
+    expect(kinds(set)).toContain('decisions.generation-failed');
   });
 
   it('says its job is exhausted once every attempt is spent', () => {
-    let set = opened().requestDraft(FIRST, NOW);
+    let set = opened().requestGeneration(FIRST, NOW);
 
     for (let attempt = 0; attempt < MAX_JOB_ATTEMPTS; attempt += 1) {
-      set = set.leaseJob(set.draft?.job.nextAttemptAt ?? NOW);
+      set = set.leaseJob(set.generation?.job.nextAttemptAt ?? NOW);
     }
 
     expect(set.jobExhausted).toBe(true);
   });
 
-  it('cannot be leased with nothing to draft', () => {
+  it('cannot be leased with nothing to generate', () => {
     expect(() => opened().leaseJob(NOW)).toThrow(InvalidDecisionError);
   });
 
   it('cannot be leased again while the lease is active', () => {
-    const leased = opened().requestDraft(FIRST, NOW).leaseJob(NOW);
+    const leased = opened().requestGeneration(FIRST, NOW).leaseJob(NOW);
 
     expect(() => leased.leaseJob(NOW)).toThrow(InvalidDecisionError);
   });
@@ -335,7 +341,7 @@ describe('a decision set, failing to draft', () => {
 
 describe('a decision set, merged', () => {
   it('merges, and keeps the commit of the merge', () => {
-    const merged = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+    const merged = generating(opened().requestGeneration(FIRST, NOW), FIRST, [
       proposed(),
     ]).merge(MERGE);
 
@@ -380,9 +386,11 @@ describe('a decision set, merged', () => {
 
 describe('a decision set, closed without a merge', () => {
   it('is discarded', () => {
-    const discarded = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
-      proposed(),
-    ]).closeUnmerged();
+    const discarded = generating(
+      opened().requestGeneration(FIRST, NOW),
+      FIRST,
+      [proposed()],
+    ).closeUnmerged();
 
     expect(discarded.discarded).toBe(true);
     expect(kinds(discarded)).toContain('decisions.discarded');
@@ -401,7 +409,7 @@ describe('a decision set, closed without a merge', () => {
 
 describe('a decision set, disputed', () => {
   const decided = () =>
-    drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+    generating(opened().requestGeneration(FIRST, NOW), FIRST, [
       proposed(),
       proposed({ title: 'Second' }),
     ]);
@@ -455,7 +463,7 @@ describe('a decision set, disputed', () => {
     ]);
   });
 
-  it('rejects a dispute of a file the decision does not bear on, or without a reason', () => {
+  it('rejects a dispute of a file the decision does not cover, or without a reason', () => {
     expect(() => dispute(decided(), { path: 'src/elsewhere.ts' })).toThrow(
       InvalidDecisionError,
     );
@@ -467,10 +475,11 @@ describe('a decision set, disputed', () => {
   it('knows no decision a later run replaced', () => {
     const earlier = decided();
     const stale = earlier.decisions[1]?.id as DecisionId;
-    const replaced = drafting(earlier.requestDraft(SECOND, NOW), SECOND, [
-      proposed(),
-      proposed({ title: 'Second' }),
-    ]);
+    const replaced = generating(
+      earlier.requestGeneration(SECOND, NOW),
+      SECOND,
+      [proposed(), proposed({ title: 'Second' })],
+    );
 
     expect(() => dispute(replaced, { decisionId: stale })).toThrow(
       UnknownDecisionError,
@@ -478,8 +487,8 @@ describe('a decision set, disputed', () => {
   });
 
   it('drops disputes with the decisions a later run replaces', () => {
-    const replaced = drafting(
-      dispute(decided()).requestDraft(SECOND, NOW),
+    const replaced = generating(
+      dispute(decided()).requestGeneration(SECOND, NOW),
       SECOND,
       [proposed()],
     );

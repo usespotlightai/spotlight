@@ -24,7 +24,7 @@ export class GitHubPullRequestReactions implements PullRequestReactionsPort {
   }
 
   // When Spotlight adds a reaction again, GitHub returns the existing reaction. Spotlight finds its own reaction this way.
-  async withdraw(on: ReactedTo, reaction: PullRequestReaction): Promise<void> {
+  async remove(on: ReactedTo, reaction: PullRequestReaction): Promise<void> {
     const { reactions, token, id } = await this.reacted(on, reaction);
     const response = await this.fetch(`${reactions}/${id}`, {
       method: 'DELETE',

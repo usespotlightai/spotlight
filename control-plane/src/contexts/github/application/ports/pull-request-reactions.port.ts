@@ -13,5 +13,5 @@ export interface ReactedTo {
 export interface PullRequestReactionsPort {
   react(on: ReactedTo, reaction: PullRequestReaction): Promise<void>;
 
-  withdraw(on: ReactedTo, reaction: PullRequestReaction): Promise<void>;
+  remove(on: ReactedTo, reaction: PullRequestReaction): Promise<void>;
 }

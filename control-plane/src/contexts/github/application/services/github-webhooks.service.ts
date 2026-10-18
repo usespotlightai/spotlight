@@ -1,12 +1,12 @@
 import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto';
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
-import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
 import type {
   WebhookEvent,
-  WebhookTranslationPort,
-} from '@github/application/ports/webhook-translation.port';
-import type { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
+  WebhookParserPort,
+} from '@github/application/ports/webhook-parser.port';
+import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
+import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
@@ -18,34 +18,36 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export class GitHubWebhooks implements GitHubWebhooksPort {
   constructor(
-    private readonly translation: WebhookTranslationPort,
+    private readonly parser: WebhookParserPort,
     private readonly signature: WebhookSignaturePort,
     private readonly connections: GitHubConnectionRepository,
     private readonly events: DomainEventDispatcher,
-    private readonly recording: RecordPullRequests,
+    private readonly sync: PullRequestSync,
     private readonly logger: LoggerPort,
   ) {}
 
   verifies(delivery: GitHubDelivery): boolean {
     return (
       delivery.raw !== null &&
-      this.signature.signs(delivery.raw, this.translation.signatureOf(delivery))
+      this.signature.signs(delivery.raw, this.parser.signatureOf(delivery))
     );
   }
 
   idOf(delivery: GitHubDelivery): string {
-    return this.translation.idOf(delivery);
+    return this.parser.idOf(delivery);
   }
 
   async workspaceOf(delivery: GitHubDelivery): Promise<WorkspaceId | null> {
     const installation = this.installationIn(delivery);
 
-    return installation ? this.connections.claimantOf(installation) : null;
+    return installation
+      ? this.connections.connectedWorkspaceOf(installation)
+      : null;
   }
 
   activityIn(delivery: GitHubDelivery): readonly PullRequestActivity[] {
-    return this.translation
-      .translated(delivery)
+    return this.parser
+      .parse(delivery)
       .events.flatMap((each) =>
         each.kind === 'pull-request-activity' ? [each.activity] : [],
       );
@@ -53,8 +55,8 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
 
   async receive(delivery: GitHubDelivery): Promise<void> {
     const installation = this.installationIn(delivery);
-    const events = this.translation
-      .translated(delivery)
+    const events = this.parser
+      .parse(delivery)
       .events.filter((each) => each.kind !== 'pull-request-activity');
 
     if (!installation || events.length === 0) {
@@ -84,7 +86,8 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     installation: GitHubInstallation,
     event: WebhookEvent,
   ): Promise<void> {
-    const workspaceId = await this.connections.claimantOf(installation);
+    const workspaceId =
+      await this.connections.connectedWorkspaceOf(installation);
 
     if (!workspaceId) {
       return;
@@ -99,7 +102,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     }
 
     if (event.kind === 'pull-request') {
-      await this.recording.described(from, event.facts);
+      await this.sync.updateDetails(from, event.snapshot);
     }
 
     if (event.kind === 'review-comment') {
@@ -111,32 +114,32 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
           event.comment,
         ),
       ]);
-      await this.recording.commented(from, event.pullRequest, event.facts, {
+      await this.sync.commented(from, event.pullRequest, event.snapshot, {
         id: event.comment.id,
         on: 'line',
         action: event.action,
         login: event.comment.login,
-        answers: event.comment.answers,
+        inReplyToId: event.comment.inReplyToId,
         byBot: event.comment.byBot,
       });
     }
 
     if (event.kind === 'conversation-comment') {
-      await this.recording.commented(from, event.pullRequest, null, {
+      await this.sync.commented(from, event.pullRequest, null, {
         id: event.comment.id,
         on: 'conversation',
         action: event.action,
         login: event.comment.login,
-        answers: null,
+        inReplyToId: null,
         byBot: event.comment.byBot,
       });
     }
 
     if (event.kind === 'review-thread') {
-      await this.recording.threadResolved(
+      await this.sync.threadResolved(
         from,
         event.pullRequest,
-        event.facts,
+        event.snapshot,
         event.thread,
       );
     }
@@ -154,7 +157,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
       ]);
 
       if (event.id !== null) {
-        await this.recording.reviewed(from, event.pullRequest, event.facts, {
+        await this.sync.reviewed(from, event.pullRequest, event.snapshot, {
           id: event.id,
           state: event.state,
           login: event.login,
@@ -165,10 +168,10 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     }
 
     if (event.kind === 'pull-request-review-dismissed') {
-      await this.recording.reviewDismissed(
+      await this.sync.reviewDismissed(
         from,
         event.pullRequest,
-        event.facts,
+        event.snapshot,
         event.id,
       );
     }
@@ -187,7 +190,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
   }
 
   private installationIn(delivery: GitHubDelivery): GitHubInstallation | null {
-    const installation = this.translation.translated(delivery).installation;
+    const installation = this.parser.parse(delivery).installation;
 
     return installation ? GitHubInstallation.parsed(installation) : null;
   }

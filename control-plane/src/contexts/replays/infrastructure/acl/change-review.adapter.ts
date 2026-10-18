@@ -11,12 +11,12 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const statusOf = (each: CheckedChange): StackStatus => ({
   repository: each.repository,
-  state: each.state,
+  state: each.status,
   skip: each.skip,
   failedAt: [...each.failedAt],
   spent: ModelSpent.of(
-    each.spent.costs.map((cost) => Spend.of(cost.amount, cost.currency)),
-    each.spent.unpriced,
+    each.usage.costs.map((cost) => Spend.of(cost.amount, cost.currency)),
+    each.usage.unpriced,
   ),
 });
 

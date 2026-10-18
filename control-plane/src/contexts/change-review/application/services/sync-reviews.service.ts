@@ -1,10 +1,10 @@
 import type { GitHubConnectionsPort } from '@change-review/application/ports/github-connections.port';
 import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type {
+  ReviewOutboxEntry,
   ReviewOutboxPort,
-  ReviewSync,
 } from '@change-review/application/ports/review-outbox.port';
-import type { ReviewSyncWorkPort } from '@change-review/application/ports/review-sync-work.port';
+import type { ReviewOutboxWorkPort } from '@change-review/application/ports/review-outbox-work.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
@@ -16,7 +16,7 @@ import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import {
   type OnPullRequest,
   type PullRequestReviewsPort,
-  SPOTLIGHT_WRITES,
+  SPOTLIGHT_ACTOR,
 } from '@github/application/ports/pull-request-reviews.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
@@ -45,9 +45,9 @@ class NotYet extends Error {
   }
 }
 
-class GaveUp extends Error {}
+class PermanentSyncFailure extends Error {}
 
-export class SyncReviews implements ReviewSyncWorkPort {
+export class SyncReviews implements ReviewOutboxWorkPort {
   constructor(
     private readonly outbox: ReviewOutboxPort,
     private readonly reviews: ReviewRepository,
@@ -93,7 +93,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
   }
 
   private async recordFailure(
-    sync: ReviewSync,
+    sync: ReviewOutboxEntry,
     error: unknown,
     now: Date,
   ): Promise<void> {
@@ -120,7 +120,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     );
 
     if (
-      error instanceof GaveUp ||
+      error instanceof PermanentSyncFailure ||
       error instanceof NotYet ||
       sync.attempts + 1 >= MAX_ATTEMPTS
     ) {
@@ -142,7 +142,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     );
   }
 
-  private async markNotSent(sync: ReviewSync): Promise<void> {
+  private async markNotSent(sync: ReviewOutboxEntry): Promise<void> {
     if (sync.kind === 'review') {
       const review = await this.reviews.find(ReviewId.of(sync.subjectId));
 
@@ -161,18 +161,20 @@ export class SyncReviews implements ReviewSyncWorkPort {
     }
   }
 
-  private async perform(sync: ReviewSync): Promise<void> {
+  private async perform(sync: ReviewOutboxEntry): Promise<void> {
     const task = await this.work.task(sync.taskId);
 
     if (!task) {
-      throw new GaveUp('The task no longer exists.');
+      throw new PermanentSyncFailure('The task no longer exists.');
     }
     if (!task.pullRequest) {
       throw new NotYet('The task has no pull request yet.');
     }
 
     if (!(await this.connections.isConnected(task.workspaceId))) {
-      throw new GaveUp('The workspace isn’t connected to GitHub.');
+      throw new PermanentSyncFailure(
+        'The workspace isn’t connected to GitHub.',
+      );
     }
 
     const on = async (author: ReviewAuthor): Promise<OnPullRequest> => ({
@@ -186,7 +188,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
               (await this.people.find(author.userId))?.name ??
               author.name.value,
           }
-        : SPOTLIGHT_WRITES,
+        : SPOTLIGHT_ACTOR,
     });
 
     if (sync.kind === 'review') {
@@ -199,7 +201,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     );
 
     if (!comment?.author.userId) {
-      throw new GaveUp('The comment no longer exists.');
+      throw new PermanentSyncFailure('The comment no longer exists.');
     }
 
     const target = await on(comment.author);
@@ -215,7 +217,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     }
 
     if (!comment.github) {
-      throw new GaveUp('The comment was never posted to GitHub.');
+      throw new PermanentSyncFailure('The comment was never posted to GitHub.');
     }
 
     if (sync.kind === 'edit') {
@@ -234,13 +236,13 @@ export class SyncReviews implements ReviewSyncWorkPort {
   }
 
   private async postReview(
-    sync: ReviewSync,
+    sync: ReviewOutboxEntry,
     on: (author: ReviewAuthor) => Promise<OnPullRequest>,
   ): Promise<void> {
     const review = await this.reviews.find(ReviewId.of(sync.subjectId));
 
     if (!review) {
-      throw new GaveUp('The review no longer exists.');
+      throw new PermanentSyncFailure('The review no longer exists.');
     }
     if (review.state !== 'submitted') {
       return;
@@ -252,12 +254,12 @@ export class SyncReviews implements ReviewSyncWorkPort {
       comment?.sending && comment.belongsTo(review.id) ? [comment] : [],
     );
     const sent = ownComments.filter((comment) => comment.state === 'submitted');
-    const withdrawn = ownComments.filter(
+    const deleted = ownComments.filter(
       (comment) => comment.state === 'deleted',
     );
 
-    if (review.silentWith(sent)) {
-      await this.reviews.save(review.withdraw(sent));
+    if (review.isEmpty(sent)) {
+      await this.reviews.save(review.discard(sent));
       return;
     }
 
@@ -268,7 +270,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
 
     const submitted = await this.github.submit({
       ...(await on(review.author)),
-      verdict: review.verdict,
+      event: review.verdict,
       body: review.body,
       comments: onLines.map(({ comment, lines }) => ({
         path: comment.anchor.path.value,
@@ -286,11 +288,11 @@ export class SyncReviews implements ReviewSyncWorkPort {
         submitted.githubId,
         now,
         [
-          ...onLines.map(({ comment }, place) => ({
+          ...onLines.map(({ comment }, position) => ({
             commentId: comment.id,
-            github: submitted.comments[place] ?? null,
+            github: submitted.comments[position] ?? null,
           })),
-          ...withdrawn.map((comment) => ({
+          ...deleted.map((comment) => ({
             commentId: comment.id,
             github: null,
           })),
@@ -317,7 +319,9 @@ export class SyncReviews implements ReviewSyncWorkPort {
       : null;
 
     if (!parent || parent.state === 'deleted') {
-      throw new GaveUp('The comment that this reply answers no longer exists.');
+      throw new PermanentSyncFailure(
+        'The comment that this reply answers no longer exists.',
+      );
     }
     if (parent.sending) {
       throw new NotYet(
@@ -329,7 +333,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     const thread = parent.threadOnGitHub;
 
     if (!thread) {
-      throw new GaveUp(
+      throw new PermanentSyncFailure(
         'The comment that this reply answers was never posted to GitHub.',
       );
     }
@@ -383,7 +387,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
           !(error instanceof ReviewCommentVersionConflictError) ||
           attempt >= MAX_SYNC_ATTEMPTS
         ) {
-          throw new GaveUp(
+          throw new PermanentSyncFailure(
             error instanceof Error
               ? error.message
               : 'Spotlight couldn’t save the comment that it posted to GitHub.',

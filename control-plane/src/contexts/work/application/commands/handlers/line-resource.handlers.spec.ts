@@ -84,7 +84,7 @@ const teams = {
 const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 const NEEDS_TEAM = (id: string) =>
-  `${id} needs the Team plan, and this workspace is on the Free plan`;
+  `${id} requires the Team plan, and this workspace is on the Free plan`;
 
 const catalog = new StationCatalog({
   entitledTo: async (_workspace, named) => ({
@@ -219,7 +219,7 @@ describe('CreateLineHandler', () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
-  it('denies a catalog skill at the skill, where a tool it brings is not included', async () => {
+  it('denies a catalog skill at the skill, where a tool it uses is not included', async () => {
     const rejected = await creating().create(
       enabling([], ['catalog.research@1.0.0']),
     );

@@ -52,7 +52,7 @@ const WORKSPACE = ApiParam({
 const ApiNotEntitledResponse = (kind: string) =>
   ApiProblemResponse(
     HttpStatus.FORBIDDEN,
-    `The workspace’s plan does not include the ${kind}; the detail names the plan it needs`,
+    `The workspace’s plan does not include the ${kind}; the detail names the plan that it requires`,
   );
 
 const notEntitled = (kind: string, detail: string): ProblemException =>

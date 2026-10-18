@@ -1,7 +1,7 @@
 import type {
-  CatalogCallAnswer,
+  CatalogCallResult,
   CatalogInputValues,
-  CatalogNamed,
+  CatalogRequest,
   EntitledItems,
 } from '@catalog/application/contracts/catalog.contract';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -19,8 +19,8 @@ export interface CatalogCallRequest {
 export interface CatalogPort {
   entitledTo(
     workspaceId: WorkspaceId,
-    named: CatalogNamed,
+    request: CatalogRequest,
   ): Promise<EntitledItems>;
 
-  call(request: CatalogCallRequest): Promise<CatalogCallAnswer>;
+  call(request: CatalogCallRequest): Promise<CatalogCallResult>;
 }

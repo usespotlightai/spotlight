@@ -4,13 +4,18 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 
 type ChangesRowProps = {
   to: string;
-  drafting: boolean;
+  generating: boolean;
   added: number;
   removed: number;
 };
 
-export function ChangesRow({ to, drafting, added, removed }: ChangesRowProps) {
-  const Icon = drafting ? CircleDashed : FileDiff;
+export function ChangesRow({
+  to,
+  generating,
+  added,
+  removed,
+}: ChangesRowProps) {
+  const Icon = generating ? CircleDashed : FileDiff;
 
   return (
     <TrailLink

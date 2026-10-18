@@ -797,7 +797,8 @@ beforeAll(async () => {
         closedAt: state === 'open' ? null : later(1 + prRandom() * 90),
         updatedAt: later(100),
         readyForReviewAt: prRandom() < 0.9 ? later(0.5) : null,
-        draftSpells: prRandom() < 0.2 ? [{ from: later(1), to: later(2) }] : [],
+        draftPeriods:
+          prRandom() < 0.2 ? [{ from: later(1), to: later(2) }] : [],
         firstReviewAt: prRandom() < 0.6 ? later(3) : null,
         firstUnblockingReviewAt: prRandom() < 0.5 ? later(4) : null,
         firstApprovedAt: prRandom() < 0.4 ? later(5) : null,
@@ -1326,7 +1327,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
           | 'state'
           | 'closedAt'
           | 'readyForReviewAt'
-          | 'draftSpells'
+          | 'draftPeriods'
           | 'firstUnblockingReviewAt'
           | 'humanReviewedAt'
           | 'botActivity'
@@ -1351,7 +1352,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
         closedAt: null,
         updatedAt: dayAt(-5),
         readyForReviewAt: null,
-        draftSpells: [],
+        draftPeriods: [],
         firstReviewAt: null,
         firstUnblockingReviewAt: null,
         firstApprovedAt: null,
@@ -1389,7 +1390,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
           state: 'merged',
           closedAt: dayAt(3, 12),
           readyForReviewAt: dayAt(3),
-          draftSpells: [{ from: dayAt(3, -3), to: dayAt(3, -2) }],
+          draftPeriods: [{ from: dayAt(3, -3), to: dayAt(3, -2) }],
           firstUnblockingReviewAt: dayAt(3, 2),
         }),
       );
@@ -1525,7 +1526,7 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
         closedAt: null,
         updatedAt: dayAt(-1),
         readyForReviewAt: dayAt(1),
-        draftSpells: [],
+        draftPeriods: [],
         firstReviewAt: null,
         firstUnblockingReviewAt: null,
         firstApprovedAt: null,
@@ -1542,22 +1543,22 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
 
     await context.inTransaction(async () => {
       for (const [number, over] of [
-        [1, { draftSpells: [{ from: dayAt(1, 2), to: dayAt(3) }] }],
-        [2, { draftSpells: [{ from: dayAt(3), to: dayAt(4) }] }],
-        [3, { draftSpells: [{ from: dayAt(2, 5), to: null }] }],
+        [1, { draftPeriods: [{ from: dayAt(1, 2), to: dayAt(3) }] }],
+        [2, { draftPeriods: [{ from: dayAt(3), to: dayAt(4) }] }],
+        [3, { draftPeriods: [{ from: dayAt(2, 5), to: null }] }],
         [4, { state: 'merged', closedAt: dayAt(3) }],
         [5, { firstUnblockingReviewAt: dayAt(3) }],
         [
           6,
           {
-            draftSpells: [{ from: dayAt(1, 1), to: null }],
+            draftPeriods: [{ from: dayAt(1, 1), to: null }],
             firstUnblockingReviewAt: dayAt(1, 3),
           },
         ],
         [
           7,
           {
-            draftSpells: [{ from: dayAt(1, 1), to: dayAt(1, 5) }],
+            draftPeriods: [{ from: dayAt(1, 1), to: dayAt(1, 5) }],
             firstUnblockingReviewAt: dayAt(1, 3),
           },
         ],
@@ -1565,7 +1566,7 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
           8,
           {
             readyForReviewAt: dayAt(2),
-            draftSpells: [
+            draftPeriods: [
               { from: dayAt(2), to: dayAt(2, 2) },
               { from: dayAt(2), to: dayAt(2, 2) },
             ],
@@ -3034,7 +3035,7 @@ describe('how pull requests fall into the window and what their task spent', () 
         closedAt,
         updatedAt: openedAt,
         readyForReviewAt: openedAt,
-        draftSpells: [],
+        draftPeriods: [],
         firstReviewAt: null,
         firstUnblockingReviewAt: null,
         firstApprovedAt: null,
@@ -3258,7 +3259,7 @@ describe('how the pull request numbers round, sum and sort', () => {
         closedAt,
         updatedAt: closedAt ?? openedAt,
         readyForReviewAt: openedAt,
-        draftSpells: [],
+        draftPeriods: [],
         firstReviewAt: over.firstReviewAt ?? null,
         firstUnblockingReviewAt: null,
         firstApprovedAt: null,
@@ -3846,7 +3847,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
               closedAt: at(10),
               updatedAt: at(10),
               readyForReviewAt: at(7),
-              draftSpells: [{ from: at(7), to: at(8) }],
+              draftPeriods: [{ from: at(7), to: at(8) }],
               firstReviewAt: at(8.5),
               firstUnblockingReviewAt: at(8.5),
               firstApprovedAt: at(9),

@@ -120,7 +120,7 @@ const reviewRequestFor = (
   event: PullRequestActivity,
   trigger: ReviewTrigger,
 ): Happened | null => {
-  if (!event.pullRequest || !event.about) {
+  if (!event.pullRequest || !event.details) {
     return null;
   }
 
@@ -139,17 +139,18 @@ const reviewRequestFor = (
     opens: {
       lineRole: REVIEW_ROLE,
       station: null,
-      title: event.about.title,
-      description: describedFor(pullRequest, event.about.body),
+      title: event.details.title,
+      description: describedFor(pullRequest, event.details.body),
       assignEmail: null,
       marks,
       review: {
         trigger,
         label: event.label,
         pullRequest,
-        author: event.about.author,
-        outside: AuthorAssociation.of(event.about.authorAssociation).isOutside,
-        draft: event.about.draft,
+        author: event.details.author,
+        outside: AuthorAssociation.of(event.details.authorAssociation)
+          .isOutside,
+        draft: event.details.draft,
         branch: event.branch,
       },
     },

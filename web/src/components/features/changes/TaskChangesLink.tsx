@@ -29,7 +29,7 @@ export function TaskChangesLink({
           ? `${at}?repository=${encodeURIComponent(latest.repository)}`
           : at
       }
-      drafting={latest.state === 'drafting'}
+      generating={latest.state === 'generating'}
       added={latest.added}
       removed={latest.removed}
     />

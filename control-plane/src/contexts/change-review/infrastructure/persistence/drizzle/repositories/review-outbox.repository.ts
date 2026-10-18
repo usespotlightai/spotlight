@@ -1,8 +1,8 @@
 import type {
+  ReviewOutboxEntry,
   ReviewOutboxPort,
-  ReviewSync,
 } from '@change-review/application/ports/review-outbox.port';
-import { reviewSync } from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
+import { reviewOutbox } from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -16,10 +16,10 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async enqueue(
-    sync: Omit<ReviewSync, 'attempts'>,
+    sync: Omit<ReviewOutboxEntry, 'attempts'>,
     dueAt: Date,
   ): Promise<void> {
-    await this.context.db.insert(reviewSync).values({
+    await this.context.db.insert(reviewOutbox).values({
       id: sync.id,
       workspaceId: sync.workspaceId.value,
       taskId: sync.taskId.value,
@@ -29,21 +29,26 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
     });
   }
 
-  async claimDue(now: Date, leaseUntil: Date): Promise<ReviewSync | null> {
+  async claimDue(
+    now: Date,
+    leaseUntil: Date,
+  ): Promise<ReviewOutboxEntry | null> {
     const found = await this.context.inTransaction(async () => {
       const [due] = await this.context.db
         .select()
-        .from(reviewSync)
-        .where(and(eq(reviewSync.state, 'pending'), lte(reviewSync.dueAt, now)))
-        .orderBy(asc(reviewSync.dueAt))
+        .from(reviewOutbox)
+        .where(
+          and(eq(reviewOutbox.state, 'pending'), lte(reviewOutbox.dueAt, now)),
+        )
+        .orderBy(asc(reviewOutbox.dueAt))
         .limit(1)
         .for('update', { skipLocked: true });
 
       if (due) {
         await this.context.db
-          .update(reviewSync)
+          .update(reviewOutbox)
           .set({ dueAt: leaseUntil })
-          .where(eq(reviewSync.id, due.id));
+          .where(eq(reviewOutbox.id, due.id));
       }
 
       return due ?? null;
@@ -63,9 +68,9 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
 
   async done(id: string): Promise<void> {
     await this.context.db
-      .update(reviewSync)
+      .update(reviewOutbox)
       .set({ state: 'done', failure: null })
-      .where(eq(reviewSync.id, id));
+      .where(eq(reviewOutbox.id, id));
   }
 
   async later(
@@ -75,36 +80,39 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
     attempted: boolean,
   ): Promise<void> {
     await this.context.db
-      .update(reviewSync)
+      .update(reviewOutbox)
       .set({
         dueAt,
         failure: failure?.slice(0, FAILURE_LIMIT) ?? null,
         attempts: attempted
-          ? sql`${reviewSync.attempts} + 1`
-          : reviewSync.attempts,
+          ? sql`${reviewOutbox.attempts} + 1`
+          : reviewOutbox.attempts,
       })
-      .where(eq(reviewSync.id, id));
+      .where(eq(reviewOutbox.id, id));
   }
 
   async failed(id: string, failure: string): Promise<void> {
     await this.context.db
-      .update(reviewSync)
+      .update(reviewOutbox)
       .set({
         state: 'failed',
         failure: failure.slice(0, FAILURE_LIMIT),
-        attempts: sql`${reviewSync.attempts} + 1`,
+        attempts: sql`${reviewOutbox.attempts} + 1`,
       })
-      .where(eq(reviewSync.id, id));
+      .where(eq(reviewOutbox.id, id));
   }
 
   async failuresFor(taskId: TaskId): Promise<ReadonlyMap<string, string>> {
     const rows = await this.context.db
-      .select({ subjectId: reviewSync.subjectId, failure: reviewSync.failure })
-      .from(reviewSync)
+      .select({
+        subjectId: reviewOutbox.subjectId,
+        failure: reviewOutbox.failure,
+      })
+      .from(reviewOutbox)
       .where(
         and(
-          eq(reviewSync.taskId, taskId.value),
-          eq(reviewSync.state, 'failed'),
+          eq(reviewOutbox.taskId, taskId.value),
+          eq(reviewOutbox.state, 'failed'),
         ),
       );
 
@@ -118,7 +126,7 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
 
   async deleteTask(taskId: TaskId): Promise<void> {
     await this.context.db
-      .delete(reviewSync)
-      .where(eq(reviewSync.taskId, taskId.value));
+      .delete(reviewOutbox)
+      .where(eq(reviewOutbox.taskId, taskId.value));
   }
 }

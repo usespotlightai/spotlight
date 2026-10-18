@@ -52,12 +52,12 @@ const DIFF = Diff.of([
 
 const NOW = new Date('2026-09-16T10:00:00Z');
 
-const drafting = (
+const generating = (
   facts = StackFacts.none(),
   replay = false,
   isSearch = false,
 ) =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
@@ -80,7 +80,7 @@ const layer = (
   title,
   summary: `${title}, in more words`,
   dependsOn,
-  ranges: hunks.map((each) => ({ hunk: HunkId.of(each) })),
+  hunks: hunks.map((each) => ({ hunk: HunkId.of(each) })),
   notes: [
     ...new Set(hunks.flatMap((each) => DIFF.fileOf(each)?.path ?? [])),
   ].map((path) => ({ path, note: 'Why it changes' })),
@@ -97,7 +97,7 @@ const LATER = new Date(NOW.getTime() + 60_000);
 
 const problemsOf = (cohorts: ProposedCohort[]): readonly string[] => {
   try {
-    drafting().propose(cohorts, LATER);
+    generating().propose(cohorts, LATER);
   } catch (error) {
     if (error instanceof InvalidChangeStackError) {
       return error.problems.map((each) => each.message);
@@ -113,7 +113,7 @@ describe('ChangeStack', () => {
       stack.pullEvents().map((each) => each.kind);
 
     it('stays in Spotlight: it says it completed for its replay, and shapes no task’s outcome', () => {
-      const stack = drafting(StackFacts.none(), true);
+      const stack = generating(StackFacts.none(), true);
       stack.pullEvents();
 
       const ready = stack.propose(
@@ -128,8 +128,8 @@ describe('ChangeStack', () => {
       ]);
     });
 
-    it('says it completed for its replay when it could not be drafted', () => {
-      const stack = drafting(StackFacts.none(), true);
+    it('says it completed for its replay when it could not be generated', () => {
+      const stack = generating(StackFacts.none(), true);
       stack.pullEvents();
 
       expect(kindsOf(stack.fail('No.', LATER))).toEqual([
@@ -138,15 +138,15 @@ describe('ChangeStack', () => {
       ]);
     });
 
-    it('is never drafted for a search run, which changes no repository', () => {
-      expect(() => drafting(StackFacts.none(), false, true)).toThrow(
+    it('is never generated for a search run, which changes no repository', () => {
+      expect(() => generating(StackFacts.none(), false, true)).toThrow(
         NoStackForSearchesError,
       );
     });
 
     it('belongs to no task', () => {
       expect(() =>
-        ChangeStack.draft({
+        ChangeStack.startGeneration({
           id: ChangeStackId.of('stack-1'),
           runId: RunId.of('run-1'),
           taskId: TaskId.of('task-1'),
@@ -164,7 +164,7 @@ describe('ChangeStack', () => {
     });
 
     it('is told apart from a task run’s stack, which posts to GitHub and shapes its task’s outcome', () => {
-      const stack = drafting();
+      const stack = generating();
       stack.pullEvents();
 
       const ready = stack.propose(
@@ -180,20 +180,20 @@ describe('ChangeStack', () => {
     });
   });
 
-  it('starts drafting, with nothing completed', () => {
-    const stack = drafting();
+  it('starts generating, with nothing completed', () => {
+    const stack = generating();
 
-    expect(stack.state).toBe('drafting');
+    expect(stack.state).toBe('generating');
     expect(stack.pullEvents().map((each) => each.kind)).toEqual([
-      'change-stack.drafting-began',
+      'change-stack.generation-started',
     ]);
     expect(stack.repository?.value).toBe('web');
     expect(stack.cohorts).toEqual([]);
     expect(stack.completedAt).toBeNull();
   });
 
-  it('becomes ready with a stack that places every change once, in order', () => {
-    const ready = drafting().propose(
+  it('becomes ready with a stack that assigns every hunk once, in order', () => {
+    const ready = generating().propose(
       [
         invitations([
           layer('Data model', ['h1']),
@@ -217,12 +217,12 @@ describe('ChangeStack', () => {
     ]);
   });
 
-  it('rejects a stack that leaves a change out or places one twice', () => {
+  it('rejects a stack that leaves a hunk out or assigns one twice', () => {
     expect(
       problemsOf([
         invitations([layer('Data model', ['h1', 'h1']), layer('API', ['h2'])]),
       ]),
-    ).toEqual(['places h1 2 times', 'leaves h3 out']);
+    ).toEqual(['assigns h1 2 times', 'leaves h3 out']);
   });
 
   it('rejects a change the diff does not contain', () => {
@@ -266,10 +266,10 @@ describe('ChangeStack', () => {
   });
 
   it('fails with the reason it receives, and says so', () => {
-    const drafted = drafting();
-    drafted.pullEvents();
+    const generated = generating();
+    generated.pullEvents();
 
-    const failed = drafted.fail('The model returned no answer', LATER);
+    const failed = generated.fail('The model returned no answer', LATER);
 
     expect(failed.state).toBe('failed');
     expect(failed.failure).toBe('The model returned no answer');
@@ -279,13 +279,13 @@ describe('ChangeStack', () => {
   });
 
   it('completes only once', () => {
-    const failed = drafting().fail('No', LATER);
+    const failed = generating().fail('No', LATER);
 
     expect(() => failed.fail('Again', LATER)).toThrow(InvalidChangeStackError);
   });
 
-  it('is leased to one worker at a time while it is drafted', () => {
-    const leased = drafting().leaseJob(NOW);
+  it('is leased to one worker at a time while it is generated', () => {
+    const leased = generating().leaseJob(NOW);
 
     expect(leased.hasPendingJob).toBe(true);
     expect(leased.job.attempts).toBe(1);
@@ -300,10 +300,10 @@ describe('ChangeStack', () => {
     const DAY = 24 * 60 * 60 * 1000;
     const at = (day: number) => new Date(NOW.getTime() + day * DAY);
 
-    const once = drafting().leaseJob(at(0)).scheduleRetry(at(0));
+    const once = generating().leaseJob(at(0)).scheduleRetry(at(0));
     const twice = once.leaseJob(at(1)).scheduleRetry(at(1));
 
-    expect(once.state).toBe('drafting');
+    expect(once.state).toBe('generating');
     expect(once.job.nextAttemptAt).toEqual(
       new Date(at(0).getTime() + JOB_BACKOFF_MS),
     );
@@ -311,20 +311,20 @@ describe('ChangeStack', () => {
       new Date(at(1).getTime() + JOB_BACKOFF_MS * 2),
     );
 
-    let exhausted = drafting();
+    let exhausted = generating();
     for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
       exhausted = exhausted.leaseJob(at(day)).scheduleRetry(at(day));
     }
 
     expect(exhausted.state).toBe('failed');
     expect(exhausted.failure).toBe(
-      'Spotlight couldn’t draft the change stack.',
+      'Spotlight couldn’t generate the change stack.',
     );
     expect(exhausted.hasPendingJob).toBe(false);
   });
 
   it('has no pending job once it completes', () => {
-    const ready = drafting()
+    const ready = generating()
       .leaseJob(NOW)
       .propose([invitations([layer('Everything', ['h1', 'h2', 'h3'])])], LATER);
 
@@ -350,7 +350,7 @@ describe('ChangeStack with facts from the code', () => {
   it('rejects a stack that separates a hunk from what it uses, or puts it first', () => {
     const apart = (): string[] => {
       try {
-        drafting(factsWith(USES)).propose(
+        generating(factsWith(USES)).propose(
           [
             invitations([layer('API', ['h2', 'h3'])]),
             invitations([layer('Model', ['h1'])]),
@@ -367,7 +367,7 @@ describe('ChangeStack with facts from the code', () => {
 
     const early = (): string[] => {
       try {
-        drafting(factsWith(USES)).propose(
+        generating(factsWith(USES)).propose(
           [invitations([layer('API', ['h2', 'h3']), layer('Model', ['h1'])])],
           LATER,
         );
@@ -388,7 +388,7 @@ describe('ChangeStack with facts from the code', () => {
   });
 
   it('works out what a layer depends on from the facts, alongside what was proposed', () => {
-    const ready = drafting(
+    const ready = generating(
       factsWith([
         ...USES,
         {
@@ -429,7 +429,7 @@ describe('ChangeStack with facts from the code', () => {
 
 describe('ChangeStack read back from what was stored', () => {
   const ready = () =>
-    drafting().propose(
+    generating().propose(
       [
         invitations([
           layer('Model', ['h1']),
@@ -454,9 +454,9 @@ describe('ChangeStack read back from what was stored', () => {
       cohorts: ready().cohorts,
       progress: ready().progress,
       job: ready().job,
-      spent: ModelUsage.none(),
+      usage: ModelUsage.none(),
       request: ready().request,
-      reordering: false,
+      redrafting: false,
       version: 1,
       ...over,
     });
@@ -465,7 +465,7 @@ describe('ChangeStack read back from what was stored', () => {
     expect(stored({}).state).toBe('ready');
   });
 
-  it('rejects a ready stack that leaves a change out, or places one twice', () => {
+  it('rejects a ready stack that leaves a hunk out, or assigns one twice', () => {
     const [cohort] = ready().cohorts;
     const withoutUI = [{ ...cohort, layers: cohort?.layers.slice(0, 2) }];
 
@@ -481,12 +481,12 @@ describe('ChangeStack read back from what was stored', () => {
       },
     ];
 
-    expect(() => stored({ cohorts: twice })).toThrow('places h1 2 times');
+    expect(() => stored({ cohorts: twice })).toThrow('assigns h1 2 times');
   });
 
-  it('rejects a stack that is ready with nothing placed, or failed without saying why', () => {
+  it('rejects a stack that is ready with nothing assigned, or failed without saying why', () => {
     expect(() => stored({ cohorts: [] })).toThrow(
-      'is ready, yet places nothing',
+      'is ready, yet assigns nothing',
     );
 
     expect(() =>
@@ -495,18 +495,18 @@ describe('ChangeStack read back from what was stored', () => {
         progress: StackProgress.rehydrate({
           state: 'failed',
           failure: null,
-          draftedAt: NOW,
+          startedAt: NOW,
           completedAt: LATER,
         }),
       }),
     ).toThrow('failed without saying why');
   });
 
-  it('rejects a stack that is still drafting, yet has cohorts', () => {
+  it('rejects a stack that is still generating, yet has cohorts', () => {
     expect(() =>
       stored({
-        progress: StackProgress.drafting(NOW),
+        progress: StackProgress.generating(NOW),
       }),
-    ).toThrow('is still drafting, yet already has cohorts');
+    ).toThrow('is still generating, yet already has cohorts');
   });
 });

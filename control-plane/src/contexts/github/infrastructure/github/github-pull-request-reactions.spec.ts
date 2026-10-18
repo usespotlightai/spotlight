@@ -65,7 +65,7 @@ describe('GitHubPullRequestReactions', () => {
       method === 'POST' ? { status: 200, body: { id: 5 } } : { status: 204 },
     );
 
-    await reactions.withdraw(ON, 'eyes');
+    await reactions.remove(ON, 'eyes');
 
     expect(requests.map((each) => `${each.method} ${each.url}`)).toEqual([
       `POST ${REACTIONS}`,
@@ -78,7 +78,7 @@ describe('GitHubPullRequestReactions', () => {
       method === 'POST' ? { status: 201, body: { id: 5 } } : { status: 404 },
     );
 
-    await expect(reactions.withdraw(ON, 'eyes')).resolves.toBeUndefined();
+    await expect(reactions.remove(ON, 'eyes')).resolves.toBeUndefined();
   });
 
   it('says so where GitHub answers the reaction with an error', async () => {

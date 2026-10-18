@@ -685,10 +685,10 @@ describe('Replay', () => {
         spent: ModelSpent.of([], 0),
       },
     ]);
-    const drafting = ChangeChecks.of([
+    const generating = ChangeChecks.of([
       {
         repository: 'api',
-        state: 'drafting',
+        state: 'generating',
         skip: null,
         failedAt: [],
         spent: ModelSpent.of([], 0),
@@ -703,7 +703,7 @@ describe('Replay', () => {
     it('does not finish while its checks are still to come', () => {
       const replay = done(reserved(aReplay({ count: 1 }), 1)).recordReview(
         run(0),
-        drafting,
+        generating,
         null,
         later(62_000),
       );
@@ -715,17 +715,17 @@ describe('Replay', () => {
     });
 
     it('requests judging once its change stack is complete, once, then finishes on the verdict', () => {
-      const drafted = done(judging()).recordReview(
+      const generated = done(judging()).recordReview(
         run(0),
-        drafting,
+        generating,
         null,
         later(62_000),
       );
-      drafted.pullEvents();
+      generated.pullEvents();
 
-      expect(drafted.entries[0]?.judging).toBeNull();
+      expect(generated.entries[0]?.judging).toBeNull();
 
-      const reviewed = drafted.recordReview(
+      const reviewed = generated.recordReview(
         run(0),
         passed,
         null,
@@ -809,7 +809,7 @@ describe('Replay', () => {
 
     it('requests no more judging once stopped, leaving such entries unscored', () => {
       const stopped = done(judging())
-        .recordReview(run(0), drafting, null, later(62_000))
+        .recordReview(run(0), generating, null, later(62_000))
         .stop(later(62_500), BY);
       stopped.pullEvents();
 

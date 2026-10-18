@@ -212,13 +212,13 @@ describe('Task', () => {
     });
   });
 
-  it('links the changes of the newest stack drafted for the task', () => {
+  it('links the changes of the newest stack generated for the task', () => {
     stacked.mockReturnValue({
       latest: {
         runId: 'run_9',
         repository: 'spotlight',
         state: 'ready',
-        checkState: 'checked',
+        checkStatus: 'checked',
         added: 61,
         removed: 4,
       },
@@ -235,7 +235,7 @@ describe('Task', () => {
     expect(changes).toHaveTextContent('−4');
   });
 
-  it('offers no change stack where none was drafted', () => {
+  it('offers no change stack where none was generated', () => {
     renderAt('task_1');
 
     expect(

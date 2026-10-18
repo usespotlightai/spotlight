@@ -19,11 +19,11 @@ const stack = (
 });
 
 describe('ChangeChecks', () => {
-  it('waits on a stack still drafting before one still checking', () => {
+  it('waits on a stack still generating before one still checking', () => {
     expect(
-      ChangeChecks.of([stack('api', 'checking'), stack('web', 'drafting')])
+      ChangeChecks.of([stack('api', 'checking'), stack('web', 'generating')])
         .state,
-    ).toBe('drafting');
+    ).toBe('generating');
     expect(
       ChangeChecks.of([stack('api', 'passed'), stack('web', 'checking')]).state,
     ).toBe('checking');
@@ -40,16 +40,16 @@ describe('ChangeChecks', () => {
     expect(checks.failedAt).toEqual(['web: the whole change']);
   });
 
-  it('is unchecked when a stack went unchecked or undrafted, saying why', () => {
+  it('is unchecked when a stack went unchecked or was not generated, saying why', () => {
     expect(
       ChangeChecks.of([
         stack('api', 'passed'),
-        stack('web', 'skipped', { skip: 'nobody-checked' }),
+        stack('web', 'skipped', { skip: 'queue-timeout' }),
       ]),
-    ).toMatchObject({ state: 'unchecked', why: 'nobody-checked' });
-    expect(ChangeChecks.of([stack('api', 'undrafted')])).toMatchObject({
+    ).toMatchObject({ state: 'unchecked', why: 'queue-timeout' });
+    expect(ChangeChecks.of([stack('api', 'not-generated')])).toMatchObject({
       state: 'unchecked',
-      why: 'undrafted',
+      why: 'not-generated',
     });
   });
 

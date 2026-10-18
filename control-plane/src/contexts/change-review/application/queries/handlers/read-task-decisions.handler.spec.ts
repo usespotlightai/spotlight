@@ -12,7 +12,7 @@ const NOW = new Date('2026-09-21T10:00:00Z');
 
 const STORED: TaskDecisionsDto = {
   runId: 'run_1',
-  drafting: false,
+  generating: false,
   status: 'proposed',
   merge: null,
   decisions: [
@@ -23,7 +23,7 @@ const STORED: TaskDecisionsDto = {
       why: 'Because.',
       alternatives: [],
       paths: ['api/src/uploads.ts'],
-      steps: [3],
+      journalSteps: [3],
       disputes: [
         {
           id: 'dispute_1',
@@ -76,7 +76,7 @@ describe('reading a task’s decisions', () => {
     expect(found?.decisions.map((each) => each.id)).toEqual(['decision_1']);
   });
 
-  it('reads none where no run was drafted', async () => {
+  it('reads none where no decisions were generated for a run', async () => {
     expect(await reading({ stored: null })).toMatchObject({
       runId: null,
       decisions: [],

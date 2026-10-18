@@ -16,5 +16,5 @@ export const checkedStepsFrom = (
     step: stepFrom(step.step),
     passed: step.passed,
     output: step.output,
-    tookMs: step.tookMs,
+    durationMs: step.durationMs,
   }));

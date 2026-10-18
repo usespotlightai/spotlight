@@ -351,7 +351,7 @@ export class ReplayEntry {
       this.state.judging === null &&
       this.state.unreplayableReason === null &&
       this.state.end?.ending === 'completed' &&
-      (this.state.checks?.drafted ?? false)
+      (this.state.checks?.generated ?? false)
     );
   }
 

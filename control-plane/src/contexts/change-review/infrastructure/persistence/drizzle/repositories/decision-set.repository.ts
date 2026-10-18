@@ -4,7 +4,7 @@ import { DecisionDispute } from '@change-review/domain/entities/decision-dispute
 import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
-import { DecisionDraft } from '@change-review/domain/value-objects/decision-draft.vo';
+import { DecisionGeneration } from '@change-review/domain/value-objects/decision-generation.vo';
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
@@ -12,7 +12,7 @@ import { DecisionStatus } from '@change-review/domain/value-objects/decision-sta
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import {
   type DecisionSetRow,
-  draftedRunOf,
+  generationRunOf,
   mergeRowOf,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.rows';
 import {
@@ -38,22 +38,22 @@ import { and, asc, eq, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
 type DecisionRow = typeof decision.$inferSelect;
 type DisputeRow = typeof decisionDispute.$inferSelect;
 
-const draftOf = (row: DecisionSetRow): DecisionDraft | null => {
-  const runId = draftedRunOf(row);
+const generationOf = (row: DecisionSetRow): DecisionGeneration | null => {
+  const runId = generationRunOf(row);
 
   if (!runId) {
     return null;
   }
-  if (!row.draftRequestedAt) {
+  if (!row.generationRequestedAt) {
     throw new InconsistentStateError(
       'decision set',
-      'drafts a run without saying when it was requested',
+      'generates decisions for a run without saying when it was requested',
     );
   }
 
-  return DecisionDraft.rehydrate({
+  return DecisionGeneration.rehydrate({
     runId: RunId.of(runId),
-    requestedAt: row.draftRequestedAt,
+    requestedAt: row.generationRequestedAt,
     job: PendingJob.rehydrate({
       attempts: row.jobAttempts,
       nextAttemptAt: row.jobDueAt,
@@ -87,7 +87,7 @@ const toDecision = (
     why: row.why,
     alternatives: row.alternatives,
     paths: row.paths.map(FilePath.of),
-    steps: row.steps,
+    journalSteps: row.journalSteps,
     disputes: disputes
       .filter((each) => each.decisionId === row.id)
       .map((each) =>
@@ -110,21 +110,21 @@ const toDecisionSet = (
     id: DecisionSetId.of(row.id),
     taskId: TaskId.of(row.taskId),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    decidedIn: row.decidedIn ? RunId.of(row.decidedIn) : null,
+    sourceRunId: row.sourceRunId ? RunId.of(row.sourceRunId) : null,
     decisions: [...decisions]
       .sort((a, b) => a.position - b.position)
       .map((each) => toDecision(each, disputes)),
-    draft: draftOf(row),
+    generation: generationOf(row),
     status: statusOf(row),
     version: row.version,
   });
 
 const columnsOf = (set: DecisionSet) => ({
-  decidedIn: set.decidedIn?.value ?? null,
-  draftRunId: set.draft?.runId.value ?? null,
-  draftRequestedAt: set.draft?.requestedAt ?? null,
-  jobAttempts: set.draft?.job.attempts ?? 0,
-  jobDueAt: set.draft?.job.nextAttemptAt ?? null,
+  sourceRunId: set.sourceRunId?.value ?? null,
+  generationRunId: set.generation?.runId.value ?? null,
+  generationRequestedAt: set.generation?.requestedAt ?? null,
+  jobAttempts: set.generation?.job.attempts ?? 0,
+  jobDueAt: set.generation?.job.nextAttemptAt ?? null,
   status: set.status.state,
   mergedRepository: set.status.merge?.repository.value ?? null,
   mergedCommit: set.status.merge?.commit ?? null,
@@ -141,7 +141,7 @@ const decisionRows = (set: DecisionSet) =>
     why: each.why,
     alternatives: [...each.alternatives],
     paths: each.paths.map((path) => path.value),
-    steps: [...each.steps],
+    journalSteps: [...each.journalSteps],
   }));
 
 @Injectable()
@@ -258,11 +258,11 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
       .from(decisionSet)
       .where(
         and(
-          isNotNull(decisionSet.draftRunId),
+          isNotNull(decisionSet.generationRunId),
           or(isNull(decisionSet.jobDueAt), lte(decisionSet.jobDueAt, now)),
         ),
       )
-      .orderBy(asc(decisionSet.draftRequestedAt))
+      .orderBy(asc(decisionSet.generationRequestedAt))
       .limit(1)
       .for('update', { skipLocked: true });
 

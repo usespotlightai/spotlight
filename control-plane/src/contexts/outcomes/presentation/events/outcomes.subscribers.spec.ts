@@ -67,9 +67,9 @@ import { MEMORIES_USED } from '@shared-kernel/application/integration-events/mem
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
 import { PULL_REQUEST_PURGED } from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
-import { PULL_REQUEST_RECORDED } from '@shared-kernel/application/integration-events/pull-request-recorded.integration-event';
 import { PULL_REQUEST_REVIEW_TAKEN } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
 import { PULL_REQUEST_REVIEWED } from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
+import { PULL_REQUEST_UPDATED } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
 import { RUN_DIGESTED } from '@shared-kernel/application/integration-events/run-digested.integration-event';
 import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { RUN_SUPERSEDED } from '@shared-kernel/application/integration-events/run-superseded.integration-event';
@@ -1269,7 +1269,7 @@ describe('outcomesSubscribers', () => {
 
   describe('every pull request in the team’s repositories', () => {
     const recordedEvent = (change: Record<string, unknown> = {}) => ({
-      kind: PULL_REQUEST_RECORDED,
+      kind: PULL_REQUEST_UPDATED,
       workspaceId: 'ws_1',
       pullRequest: PULL,
       repository: 'acme/api',
@@ -1286,7 +1286,7 @@ describe('outcomesSubscribers', () => {
       closedAt: null,
       updatedAt: '2026-09-30T08:30:00.000Z',
       readyForReviewAt: '2026-09-30T08:00:00.000Z',
-      draftSpells: [],
+      draftPeriods: [],
       firstReviewAt: null,
       firstUnblockingReviewAt: null,
       firstApprovedAt: null,
@@ -1336,7 +1336,7 @@ describe('outcomesSubscribers', () => {
         'outcomes.record-seen-pull-request',
         recordedEvent({
           readyForReviewAt: '2026-09-30T09:00:00.000Z',
-          draftSpells: [
+          draftPeriods: [
             {
               from: '2026-09-30T09:20:00.000Z',
               to: '2026-09-30T09:25:00.000Z',
@@ -1355,7 +1355,7 @@ describe('outcomesSubscribers', () => {
 
       expect((await recordOf(subscriber))?.seen).toMatchObject({
         readyForReviewAt: new Date('2026-09-30T09:00:00.000Z'),
-        draftSpells: [
+        draftPeriods: [
           {
             from: new Date('2026-09-30T09:20:00.000Z'),
             to: new Date('2026-09-30T09:25:00.000Z'),

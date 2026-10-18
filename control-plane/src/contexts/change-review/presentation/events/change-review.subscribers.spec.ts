@@ -1,7 +1,7 @@
 import type { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
-import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
+import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
 import type { DeleteTaskAcrossAggregates } from '@change-review/application/services/delete-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
@@ -38,7 +38,7 @@ const RECEIVED: ReviewCommentReceivedIntegrationEvent = {
   line: 4,
   startLine: null,
   body: 'Why not a constant?',
-  answers: null,
+  inReplyToId: null,
   login: 'octocat',
   writtenAt: '2026-09-16T09:00:00.000Z',
 };
@@ -47,7 +47,7 @@ const receiving = () => {
   const receive = vi.fn(async () => {});
   const subscriber = changeReviewSubscribers(
     {} as unknown as ChangeStackReactions,
-    {} as unknown as ChangeStackAnnouncerPort,
+    {} as unknown as StickyCommentPosterPort,
     {} as unknown as DeleteTaskAcrossAggregates,
     {} as unknown as ReviewReactions,
     { receive } as unknown as ReceiveReviewComment,
@@ -85,7 +85,7 @@ describe('change review receiving a review comment on GitHub', () => {
         line: 4,
         startLine: null,
         body: 'Why not a constant?',
-        answers: null,
+        inReplyToId: null,
         login: 'octocat',
         writtenAt: new Date('2026-09-16T09:00:00.000Z'),
       },
@@ -116,7 +116,7 @@ describe('change review receiving a run begin and end', () => {
     const ended = vi.fn(async () => {});
     const subscribers = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
-      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as StickyCommentPosterPort,
       {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
@@ -189,7 +189,7 @@ describe('change review receiving a run end', () => {
     const runEnded = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
-      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as StickyCommentPosterPort,
       {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
@@ -236,7 +236,7 @@ describe('change review receiving a pull request close', () => {
     const closed = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
-      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as StickyCommentPosterPort,
       {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
@@ -275,7 +275,7 @@ describe('change review receiving a stack’s check end', () => {
     const released = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
-      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as StickyCommentPosterPort,
       {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
@@ -330,7 +330,7 @@ describe('change review receiving that a check was deleted while a runner leased
     const released = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
-      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as StickyCommentPosterPort,
       {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
@@ -361,7 +361,7 @@ describe('change review receiving a check drop the runner reserved for it', () =
     const reservationDropped = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
-      {} as unknown as ChangeStackAnnouncerPort,
+      {} as unknown as StickyCommentPosterPort,
       {} as unknown as DeleteTaskAcrossAggregates,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,

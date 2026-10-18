@@ -143,7 +143,7 @@ const sameFile = (a: DiffFile, b: DiffFile): boolean =>
     return other !== undefined && sameHunk(hunk, other);
   });
 
-export const cutInto = (
+export const splitHunk = (
   header: string,
   lines: readonly string[],
 ): UnnamedHunk[] => {
@@ -232,7 +232,7 @@ export class Diff {
         throw new InvalidDiffError('has a file without a path');
       }
       if (file.hunks.length === 0) {
-        throw new InvalidDiffError(`has no changes for ${file.path}`);
+        throw new InvalidDiffError(`has no hunks for ${file.path}`);
       }
       for (const hunk of file.hunks) {
         if (ids.has(hunk.id)) {
@@ -243,7 +243,7 @@ export class Diff {
     }
 
     if (ids.size > MAX_HUNKS) {
-      throw new InvalidDiffError(`must have at most ${MAX_HUNKS} changes`);
+      throw new InvalidDiffError(`must have at most ${MAX_HUNKS} hunks`);
     }
 
     return new Diff(files);

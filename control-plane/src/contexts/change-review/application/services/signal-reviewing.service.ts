@@ -8,7 +8,7 @@ import type {
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-const LOOKING: PullRequestReaction = 'eyes';
+const REVIEWING_REACTION: PullRequestReaction = 'eyes';
 
 // Deliveries retry out of order. Each one reads the current run of the task again. It does not trust the order in which it received them.
 export class SignalReviewing {
@@ -22,7 +22,7 @@ export class SignalReviewing {
     const reviewed = await this.reviewing(taskId);
 
     if (reviewed?.currentRun?.equals(runId) && (await this.stillGoing(runId))) {
-      await this.reactions.react(reviewed.on, LOOKING);
+      await this.reactions.react(reviewed.on, REVIEWING_REACTION);
     }
   }
 
@@ -39,7 +39,7 @@ export class SignalReviewing {
       return;
     }
 
-    await this.reactions.withdraw(reviewed.on, LOOKING);
+    await this.reactions.remove(reviewed.on, REVIEWING_REACTION);
   }
 
   private async stillGoing(runId: RunId): Promise<boolean> {

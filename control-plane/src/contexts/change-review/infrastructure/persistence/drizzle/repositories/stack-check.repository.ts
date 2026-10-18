@@ -12,7 +12,7 @@ import {
 } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
-  storedSkipOf,
+  parseStoredSkip,
   WAITING_LIMIT_MS,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
@@ -56,13 +56,13 @@ const toStackCheck = (row: Row): StackCheck =>
         row.placementImage ? RunnerImage.of(row.placementImage) : null,
       ),
     ),
-    phase: row.phase,
+    status: row.status,
     entries: row.entries.map(entryOf),
-    rounds: row.rounds,
+    redraftCount: row.redraftCount,
     outcome: row.outcome && {
-      state: row.outcome.state,
+      status: row.outcome.status,
       skip: row.outcome.skip
-        ? storedSkipOf(row.outcome.skip.code, row.outcome.skip.detail)
+        ? parseStoredSkip(row.outcome.skip.code, row.outcome.skip.detail)
         : null,
       whole: row.outcome.whole && checkedStepOf(row.outcome.whole),
       layers: row.outcome.layers.map(checkedStepOf),
@@ -91,14 +91,14 @@ const toStackCheck = (row: Row): StackCheck =>
   });
 
 const valuesOf = (check: StackCheck) => ({
-  phase: check.phase,
+  status: check.status,
   entries: check.entries.map((entry) => ({
     hunk: entry.hunk,
     layer: entry.layer,
   })),
-  rounds: check.rounds,
+  redraftCount: check.redraftCount,
   outcome: check.outcome && {
-    state: check.outcome.state,
+    status: check.outcome.status,
     skip: check.outcome.skip ? { ...check.outcome.skip } : null,
     whole: check.outcome.whole && { ...check.outcome.whole },
     layers: check.outcome.layers.map((each) => ({ ...each })),
@@ -245,7 +245,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .where(
         and(
           eq(stackCheck.workspaceId, by.workspaceId.value),
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           gte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),
@@ -280,7 +280,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .from(stackCheck)
       .where(
         and(
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           eq(stackCheck.reservedFor, runner.value),
           gt(stackCheck.reservedUntil, now),
         ),
@@ -302,7 +302,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .where(
         and(
           eq(stackCheck.workspaceId, workspaceId.value),
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           gte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),
@@ -339,7 +339,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .from(stackCheck)
       .where(
         and(
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           lte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),
@@ -363,7 +363,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .from(stackCheck)
       .where(
         and(
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           lte(stackCheck.reservedUntil, now),
         ),
       );
@@ -381,7 +381,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .where(
         and(
           eq(stackCheck.workspaceId, workspaceId.value),
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           gte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),

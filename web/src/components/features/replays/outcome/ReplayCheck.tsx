@@ -11,11 +11,11 @@ export function ReplayCheck({ check }: { check: StackCheck }) {
     <div data-slot="replay-check" className="flex flex-col gap-2">
       <p className="font-mono text-foreground text-xs">{check.command}</p>
 
-      {check.state === 'waiting' && (
+      {check.status === 'waiting' && (
         <p className="text-muted-foreground text-xs">Still checking.</p>
       )}
 
-      {check.state === 'skipped' && (
+      {check.status === 'skipped' && (
         <p className="text-muted-foreground text-xs">
           Skipped{check.reason ? `: ${check.reason}` : '.'}
         </p>
@@ -43,7 +43,8 @@ export function ReplayCheck({ check }: { check: StackCheck }) {
                   {stepName(step)}
                 </span>
                 <span className="text-muted-foreground">
-                  · {step.passed ? 'passed' : 'failed'} in {took(step.tookMs)}
+                  · {step.passed ? 'passed' : 'failed'} in{' '}
+                  {took(step.durationMs)}
                 </span>
               </p>
 

@@ -8,42 +8,42 @@ import type {
   LayerId,
 } from '@change-review/domain/value-objects/stack-ids';
 
-const STACK_CHECK_STATES = ['waiting', 'checked', 'skipped'] as const;
+const CHECK_STATUS_VIEWS = ['waiting', 'checked', 'skipped'] as const;
 
-export type StackCheckState = (typeof STACK_CHECK_STATES)[number];
+export type CheckStatusView = (typeof CHECK_STATUS_VIEWS)[number];
 
-export const CHECK_PHASES = [
+export const STACK_CHECK_STATUSES = [
   'waiting',
-  'reordering',
+  'redrafting',
   'checked',
   'skipped',
 ] as const;
 
-export type CheckPhase = (typeof CHECK_PHASES)[number];
+export type StackCheckStatus = (typeof STACK_CHECK_STATUSES)[number];
 
 export const WAITING_LIMIT_MS = 60 * 60 * 1000;
 
-export interface CheckStatus {
-  readonly phase: CheckPhase;
+export interface CheckStatusInput {
+  readonly status: StackCheckStatus;
   readonly waitingSince: Date;
   readonly lease: CheckLease;
 }
 
-const waitExpiredAt = (check: CheckStatus, now: Date): boolean =>
+const waitExpiredAt = (check: CheckStatusInput, now: Date): boolean =>
   now.getTime() - check.waitingSince.getTime() > WAITING_LIMIT_MS &&
   !isLeaseActiveAt(check.lease, now);
 
-export const checkStateAt = (
-  check: CheckStatus,
+export const checkStatusAt = (
+  check: CheckStatusInput,
   now: Date,
-): StackCheckState => {
-  switch (check.phase) {
+): CheckStatusView => {
+  switch (check.status) {
     case 'waiting':
       return waitExpiredAt(check, now) ? 'skipped' : 'waiting';
-    case 'reordering':
+    case 'redrafting':
       return 'waiting';
     default:
-      return check.phase;
+      return check.status;
   }
 };
 
@@ -56,15 +56,15 @@ export const MAX_CHECK_COMMAND = 500;
 export interface CheckStep {
   readonly id: StepId;
   readonly hunks: readonly HunkId[];
-  readonly isWholeChange: boolean;
-  readonly installsAnew: boolean;
+  readonly stopsOnFailure: boolean;
+  readonly runsSetup: boolean;
 }
 
 export interface CheckedStep {
   readonly step: StepId;
   readonly passed: boolean;
   readonly output: string;
-  readonly tookMs: number;
+  readonly durationMs: number;
 }
 
 export const REPORTED_SKIPS = [
@@ -72,21 +72,21 @@ export const REPORTED_SKIPS = [
   'no-checkout',
   'checkout-failed',
   'setup-failed',
-  'no-room',
+  'workspace-failed',
   'out-of-time',
   'no-image',
 ] as const;
 
 type ReportedSkip = (typeof REPORTED_SKIPS)[number];
 
-const NOBODY_CHECKED = 'nobody-checked';
+const QUEUE_TIMEOUT = 'queue-timeout';
 
-const UNPROVISIONED = 'unprovisioned';
+const PROVISION_FAILED = 'provision-failed';
 
 export type SkipCode =
   | ReportedSkip
-  | typeof NOBODY_CHECKED
-  | typeof UNPROVISIONED;
+  | typeof QUEUE_TIMEOUT
+  | typeof PROVISION_FAILED;
 
 const MAX_SKIP_DETAIL = 2_000;
 
@@ -107,35 +107,35 @@ export const skipOf = (code: string, detail: string | null): StackSkip => {
   return { code: code as ReportedSkip, detail: trimmed ? trimmed : null };
 };
 
-export const storedSkipOf = (
+export const parseStoredSkip = (
   code: string,
   detail: string | null,
 ): StackSkip => {
   switch (code) {
-    case UNPROVISIONED:
-      return { code: UNPROVISIONED, detail };
-    case NOBODY_CHECKED:
-      return { code: NOBODY_CHECKED, detail };
+    case PROVISION_FAILED:
+      return { code: PROVISION_FAILED, detail };
+    case QUEUE_TIMEOUT:
+      return { code: QUEUE_TIMEOUT, detail };
     default:
       return skipOf(code, detail);
   }
 };
 
-export const unprovisioned = (
+export const provisionFailed = (
   failure: { readonly description: string },
   attempts: number,
 ): StackSkip => ({
-  code: UNPROVISIONED,
+  code: PROVISION_FAILED,
   detail: `Attempts: ${attempts}\nLast failure: ${failure.description}`,
 });
 
-export const nobodyChecked = (): StackSkip => ({
-  code: NOBODY_CHECKED,
+export const queueTimeout = (): StackSkip => ({
+  code: QUEUE_TIMEOUT,
   detail: null,
 });
 
 export interface CheckOutcome {
-  readonly state: Exclude<StackCheckState, 'waiting'>;
+  readonly status: Exclude<CheckStatusView, 'waiting'>;
   readonly skip: StackSkip | null;
   readonly whole: CheckedStep | null;
   readonly layers: readonly CheckedStep[];

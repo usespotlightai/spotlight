@@ -55,13 +55,13 @@ const cohort = (hunks: string[]): ProposedCohort => ({
     title: hunk,
     summary: hunk,
     dependsOn: [],
-    ranges: [{ hunk: HunkId.of(hunk) }],
+    hunks: [{ hunk: HunkId.of(hunk) }],
     notes: [{ path: DIFF.fileOf(hunk)?.path ?? hunk, note: 'Why' }],
   })),
 });
 
 const ready = () =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: ChangeStackId.of(STACK),
     runId: RunId.of(RUN),
     taskId: null,
@@ -129,7 +129,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
 
 const reported = (runner: string) =>
   new RecordChangeStackCheckCommand(RUN, runner, STACK, false, null, [
-    { step: 'whole', passed: true, output: '', tookMs: 10 },
+    { step: 'whole', passed: true, output: '', durationMs: 10 },
   ]);
 
 describe('RecordChangeStackCheckHandler', () => {
@@ -145,7 +145,7 @@ describe('RecordChangeStackCheckHandler', () => {
     await handler.execute(reported('runner_1'));
 
     expect(saved).toHaveLength(1);
-    expect(saved[0]?.stateAt(LATER)).toBe('checked');
+    expect(saved[0]?.statusAt(LATER)).toBe('checked');
   });
 
   it('turns away a runner that does not have the lease on the check as a conflict', async () => {

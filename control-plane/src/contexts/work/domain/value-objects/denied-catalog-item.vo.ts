@@ -4,13 +4,13 @@ export type CatalogDenialReason =
   | 'unknown'
   | 'wrong-kind'
   | 'not-entitled'
-  | 'lapsed';
+  | 'expired';
 
 const CODES: Readonly<Record<CatalogDenialReason, string>> = {
   unknown: 'catalog_item_unknown',
   'wrong-kind': 'catalog_item_wrong_kind',
   'not-entitled': 'not_entitled',
-  lapsed: 'entitlement_lapsed',
+  expired: 'entitlement_expired',
 };
 
 export class DeniedCatalogItem implements RefusalReason {

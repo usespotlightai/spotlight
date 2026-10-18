@@ -8,7 +8,7 @@ import {
 } from '@change-review/application/services/apply-pull-request-close.service';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
-import { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
+import { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -37,8 +37,8 @@ const decided = () =>
     taskId: TASK,
     workspaceId: WORKSPACE,
   })
-    .requestDraft(RUN, NOW)
-    .recordDraft({
+    .requestGeneration(RUN, NOW)
+    .recordGeneration({
       runId: RUN,
       newId: () => 'decision_1',
       proposed: [
@@ -51,7 +51,7 @@ const decided = () =>
           steps: [3],
         },
       ],
-      grounds: DecisionGrounds.of({
+      evidence: DecisionEvidence.of({
         steps: [3],
         changed: ['api/src/uploads.ts'],
       }),

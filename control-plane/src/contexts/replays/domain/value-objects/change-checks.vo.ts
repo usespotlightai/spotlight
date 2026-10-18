@@ -1,13 +1,13 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import {
   checkSkipOf,
-  UNDRAFTED,
+  NOT_GENERATED,
 } from '@replays/domain/value-objects/check-skip';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 
 const STACK_STATES = [
-  'drafting',
-  'undrafted',
+  'generating',
+  'not-generated',
   'unchecked',
   'checking',
   'passed',
@@ -35,7 +35,7 @@ const draftingSpentOn = (stacks: readonly StackStatus[]): ModelSpent | null => {
 
 export const CHECKS_STATES = [
   'absent',
-  'drafting',
+  'generating',
   'checking',
   'passed',
   'failed',
@@ -67,8 +67,8 @@ export class ChangeChecks {
     const any = (state: StackState) =>
       stacks.filter((each) => each.state === state);
 
-    if (any('drafting').length > 0) {
-      return new ChangeChecks('drafting', [], null);
+    if (any('generating').length > 0) {
+      return new ChangeChecks('generating', [], null);
     }
     if (any('checking').length > 0) {
       return new ChangeChecks('checking', [], null);
@@ -87,14 +87,14 @@ export class ChangeChecks {
     }
 
     const lost = stacks.find(
-      (each) => each.state === 'undrafted' || each.state === 'skipped',
+      (each) => each.state === 'not-generated' || each.state === 'skipped',
     );
 
     if (lost) {
       return new ChangeChecks(
         'unchecked',
         [],
-        lost.state === 'skipped' ? checkSkipOf(lost.skip) : UNDRAFTED,
+        lost.state === 'skipped' ? checkSkipOf(lost.skip) : NOT_GENERATED,
       );
     }
 
@@ -122,11 +122,11 @@ export class ChangeChecks {
   }
 
   get pending(): boolean {
-    return this.state === 'drafting' || this.state === 'checking';
+    return this.state === 'generating' || this.state === 'checking';
   }
 
-  get drafted(): boolean {
-    return this.state !== 'drafting';
+  get generated(): boolean {
+    return this.state !== 'generating';
   }
 
   equals(other: ChangeChecks): boolean {

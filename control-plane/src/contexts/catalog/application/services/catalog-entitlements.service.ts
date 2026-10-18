@@ -1,7 +1,7 @@
 import type {
-  CatalogCallAnswer,
+  CatalogCallResult,
   CatalogDenial,
-  CatalogNamed,
+  CatalogRequest,
   CatalogSkillEntitled,
   CatalogToolEntitled,
   EntitledItems,
@@ -29,7 +29,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const toolEntitled = (tool: CatalogTool): CatalogToolEntitled => ({
   id: tool.id.value,
-  description: tool.listing.description,
+  description: tool.metadata.description,
   inputs: tool.inputs.map((each) => ({
     ...each,
     schema: each.schema.written,
@@ -38,9 +38,9 @@ const toolEntitled = (tool: CatalogTool): CatalogToolEntitled => ({
 
 const skillEntitled = (skill: CatalogSkill): CatalogSkillEntitled => ({
   id: skill.id.value,
-  description: skill.listing.description,
+  description: skill.metadata.description,
   files: skill.files,
-  tools: skill.brings.map((each) => each.value),
+  tools: skill.tools.map((each) => each.value),
 });
 
 const denialOf = (denial: Denial): CatalogDenial => ({
@@ -60,10 +60,10 @@ export class CatalogEntitlements implements CatalogPort {
 
   async entitledTo(
     workspaceId: WorkspaceId,
-    named: CatalogNamed,
+    request: CatalogRequest,
   ): Promise<EntitledItems> {
     const entitled = resolveEntitledFor(
-      named,
+      request,
       this.catalog,
       await this.plans.of(workspaceId),
       this.clock.now(),
@@ -76,7 +76,7 @@ export class CatalogEntitlements implements CatalogPort {
     };
   }
 
-  async call(request: CatalogCallRequest): Promise<CatalogCallAnswer> {
+  async call(request: CatalogCallRequest): Promise<CatalogCallResult> {
     const result = resolveEntitled(
       request.id,
       'tool',

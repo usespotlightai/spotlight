@@ -289,13 +289,13 @@ const earliest = (one: Date | null, other: Date | null): Date | null =>
     : (one ?? other);
 
 const draftedMs = (each: TeamPullRequest, from: Date, to: Date): number =>
-  each.seen.draftSpells.reduce(
-    (sum, spell) =>
+  each.seen.draftPeriods.reduce(
+    (sum, period) =>
       sum +
       Math.max(
         0,
-        Math.min(to.getTime(), spell.to?.getTime() ?? to.getTime()) -
-          Math.max(from.getTime(), spell.from.getTime()),
+        Math.min(to.getTime(), period.to?.getTime() ?? to.getTime()) -
+          Math.max(from.getTime(), period.from.getTime()),
       ),
     0,
   );
@@ -311,10 +311,10 @@ const toFirstReviewMs = (each: TeamPullRequest): number | null => {
 };
 
 const draftAt = (each: TeamPullRequest, at: Date): boolean =>
-  each.seen.draftSpells.some(
-    (spell) =>
-      spell.from.getTime() <= at.getTime() &&
-      (spell.to === null || spell.to.getTime() > at.getTime()),
+  each.seen.draftPeriods.some(
+    (period) =>
+      period.from.getTime() <= at.getTime() &&
+      (period.to === null || period.to.getTime() > at.getTime()),
   );
 
 const awaitingAt = (each: TeamPullRequest, at: Date): boolean => {

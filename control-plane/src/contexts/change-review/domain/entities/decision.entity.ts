@@ -50,7 +50,7 @@ export class Decision {
     readonly why: string,
     readonly alternatives: readonly string[],
     readonly paths: readonly FilePath[],
-    readonly steps: readonly number[],
+    readonly journalSteps: readonly number[],
     readonly disputes: readonly DecisionDispute[],
   ) {}
 
@@ -114,7 +114,7 @@ export class Decision {
     why: string;
     alternatives: readonly string[];
     paths: readonly FilePath[];
-    steps: readonly number[];
+    journalSteps: readonly number[];
     disputes: readonly DecisionDispute[];
   }): Decision {
     const decision = new Decision(
@@ -124,14 +124,14 @@ export class Decision {
       input.why,
       input.alternatives,
       input.paths,
-      input.steps,
+      input.journalSteps,
       input.disputes,
     );
 
-    if (input.disputes.some((each) => !decision.bearsOn(each.path))) {
+    if (input.disputes.some((each) => !decision.covers(each.path))) {
       throw new InconsistentStateError(
         'decision',
-        'has a dispute about a file it does not bear on',
+        'has a dispute about a file it does not cover',
       );
     }
 
@@ -142,12 +142,12 @@ export class Decision {
     return this.id.equals(other.id);
   }
 
-  bearsOn(path: FilePath): boolean {
+  covers(path: FilePath): boolean {
     return this.paths.some((each) => each.equals(path));
   }
 
   dispute(dispute: DecisionDispute): Decision {
-    if (!this.bearsOn(dispute.path)) {
+    if (!this.covers(dispute.path)) {
       throw new InvalidDecisionError(
         `can only be disputed on a file it covers, not ${dispute.path.value}`,
       );
@@ -160,7 +160,7 @@ export class Decision {
       this.why,
       this.alternatives,
       this.paths,
-      this.steps,
+      this.journalSteps,
       [...this.disputes, dispute],
     );
   }

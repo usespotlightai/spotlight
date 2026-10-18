@@ -6,7 +6,7 @@ export const ENTRY_REASON_CODES = [
   'asked-a-person',
   'check-failed',
   'check-skipped',
-  'change-undrafted',
+  'change-not-generated',
   'no-change',
   'no-change-stack',
   'judged',

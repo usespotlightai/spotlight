@@ -21,7 +21,7 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/workspace"
 )
 
-type drafted struct {
+type generated struct {
 	repository string
 	diff       string
 	base       string
@@ -49,7 +49,7 @@ type journal struct {
 	messages         [][]protocol.Message
 	acked            []int
 	files            map[string]string
-	drafted          []drafted
+	generated        []generated
 	decision         string
 	asked            []protocol.PermissionAsked
 	archives         *archives
@@ -152,13 +152,13 @@ func (j *journal) UseTool(
 	return json.RawMessage(`{"output":"https://github.com/acme/widgets/pull/1"}`), nil
 }
 
-func (j *journal) DraftChangeStack(
+func (j *journal) GenerateChangeStack(
 	_ context.Context, _ string, repository, diff, base string,
 ) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.calls = append(j.calls, "draft")
-	j.drafted = append(j.drafted, drafted{repository: repository, diff: diff, base: base})
+	j.calls = append(j.calls, "generate")
+	j.generated = append(j.generated, generated{repository: repository, diff: diff, base: base})
 	return nil
 }
 

@@ -113,7 +113,7 @@ describe('ReviewComment', () => {
     );
   });
 
-  it('says what must go to GitHub when it is replied to, rewritten or removed', () => {
+  it('says what must go to GitHub when it is replied to, edited or deleted', () => {
     const posted = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 42, url: 'https://github.com/c/42' });
@@ -125,25 +125,25 @@ describe('ReviewComment', () => {
       author: ReviewAuthor.person(BOB, AuthorName.of('Bob')),
       now: NOW,
     });
-    const rewritten = posted.rewritten('Better', ADA, NOW);
-    const removed = rewritten.removed(ADA);
+    const edited = posted.edited('Better', ADA, NOW);
+    const deleted = edited.deleted(ADA);
 
     expect(reply.pullEvents()).toEqual([
       expect.objectContaining({ kind: 'review-comment.replied' }),
     ]);
-    expect(removed.pullEvents()).toEqual([
+    expect(deleted.pullEvents()).toEqual([
       expect.objectContaining({
-        kind: 'review-comment.rewritten',
+        kind: 'review-comment.edited',
         onGitHub: true,
       }),
       expect.objectContaining({
-        kind: 'review-comment.removed',
+        kind: 'review-comment.deleted',
         onGitHub: true,
       }),
     ]);
-    expect(drafted().removed(ADA).pullEvents()).toEqual([
+    expect(drafted().deleted(ADA).pullEvents()).toEqual([
       expect.objectContaining({
-        kind: 'review-comment.removed',
+        kind: 'review-comment.deleted',
         onGitHub: false,
       }),
     ]);
@@ -152,11 +152,11 @@ describe('ReviewComment', () => {
   it('carries an edit made on its way to GitHub once it is posted', () => {
     const sending = drafted()
       .submittedIn(ReviewId.of('review_1'))
-      .rewritten('Should this expire after a week?', ADA, NOW);
+      .edited('Should this expire after a week?', ADA, NOW);
 
     expect(sending.pullEvents()).toEqual([
       expect.objectContaining({
-        kind: 'review-comment.rewritten',
+        kind: 'review-comment.edited',
         onGitHub: false,
       }),
     ]);
@@ -171,18 +171,18 @@ describe('ReviewComment', () => {
     expect(posted.body).toBe('Should this expire after a week?');
     expect(posted.pullEvents()).toEqual([
       expect.objectContaining({
-        kind: 'review-comment.rewritten',
+        kind: 'review-comment.edited',
         onGitHub: true,
       }),
     ]);
   });
 
   it('stores where GitHub put a comment deleted on its way, and removes it there', () => {
-    const deleted = drafted().submittedIn(ReviewId.of('review_1')).removed(ADA);
+    const deleted = drafted().submittedIn(ReviewId.of('review_1')).deleted(ADA);
 
     expect(deleted.pullEvents()).toEqual([
       expect.objectContaining({
-        kind: 'review-comment.removed',
+        kind: 'review-comment.deleted',
         onGitHub: false,
       }),
     ]);
@@ -193,21 +193,21 @@ describe('ReviewComment', () => {
     expect(posted.github?.id).toBe(42);
     expect(posted.pullEvents()).toEqual([
       expect.objectContaining({
-        kind: 'review-comment.removed',
+        kind: 'review-comment.deleted',
         onGitHub: true,
       }),
     ]);
   });
 
   it('has nothing to send to GitHub where a comment on its way never got there', () => {
-    const withdrawn = drafted()
+    const deleted = drafted()
       .submittedIn(ReviewId.of('review_1'))
-      .removed(ADA)
+      .deleted(ADA)
       .postedAs(null);
-    withdrawn.pullEvents();
+    deleted.pullEvents();
 
-    expect(withdrawn.sending).toBe(false);
-    expect(withdrawn.pullEvents()).toEqual([]);
+    expect(deleted.sending).toBe(false);
+    expect(deleted.pullEvents()).toEqual([]);
   });
 
   it('is posted only once', () => {
@@ -220,24 +220,30 @@ describe('ReviewComment', () => {
     );
   });
 
-  it('recognises its echo even where it was edited on its way', () => {
+  it('recognises its own posted copy even where it was edited on its way', () => {
     const edited = drafted()
       .submittedIn(ReviewId.of('review_1'))
-      .rewritten('Something else entirely', ADA, NOW);
+      .edited('Something else entirely', ADA, NOW);
 
     expect(
-      edited.echoes(ANCHOR, '**Ada** via Spotlight:\n\nShould this expire?'),
+      edited.isOwnPostedCopy(
+        ANCHOR,
+        '**Ada** via Spotlight:\n\nShould this expire?',
+      ),
     ).toBe(true);
   });
 
-  it('recognises its own echo coming back from GitHub', () => {
+  it('recognises its own posted copy when it comes back from GitHub', () => {
     const submitted = drafted().submittedIn(ReviewId.of('review_1'));
 
     expect(
-      submitted.echoes(ANCHOR, `**Ada** via Spotlight:\n\n${submitted.body}`),
+      submitted.isOwnPostedCopy(
+        ANCHOR,
+        `**Ada** via Spotlight:\n\n${submitted.body}`,
+      ),
     ).toBe(true);
-    expect(submitted.echoes(ANCHOR, 'Something else')).toBe(false);
-    expect(drafted().echoes(ANCHOR, drafted().body)).toBe(false);
+    expect(submitted.isOwnPostedCopy(ANCHOR, 'Something else')).toBe(false);
+    expect(drafted().isOwnPostedCopy(ANCHOR, drafted().body)).toBe(false);
   });
 
   it('rejects a reply to a draft', () => {
@@ -251,15 +257,15 @@ describe('ReviewComment', () => {
     ).toThrow(InvalidReviewError);
   });
 
-  it('lets only its author rewrite or remove it', () => {
+  it('lets only its author edit or delete it', () => {
     const comment = drafted();
 
-    expect(comment.rewritten('Better', ADA, NOW).body).toBe('Better');
-    expect(() => comment.rewritten('Mine now', BOB, NOW)).toThrow(
+    expect(comment.edited('Better', ADA, NOW).body).toBe('Better');
+    expect(() => comment.edited('Mine now', BOB, NOW)).toThrow(
       NotYourReviewCommentError,
     );
-    expect(comment.removed(ADA).state).toBe('deleted');
-    expect(() => comment.removed(BOB)).toThrow(NotYourReviewCommentError);
+    expect(comment.deleted(ADA).state).toBe('deleted');
+    expect(() => comment.deleted(BOB)).toThrow(NotYourReviewCommentError);
   });
 
   it('follows edits and deletions made on GitHub', () => {
@@ -287,29 +293,29 @@ describe('ReviewComment', () => {
 
     expect(posted.editPending).toBe(false);
 
-    const first = posted.rewritten('First', ADA, NOW);
-    const second = first.rewritten('Second', ADA, NOW);
+    const first = posted.edited('First', ADA, NOW);
+    const second = first.edited('Second', ADA, NOW);
 
     expect(first.editPending).toBe(true);
     expect(second.editSent('First').editPending).toBe(true);
     expect(second.editSent('First').editSent('Second').editPending).toBe(false);
-    expect(drafted().rewritten('Better', ADA, NOW).editPending).toBe(false);
+    expect(drafted().edited('Better', ADA, NOW).editPending).toBe(false);
   });
 
-  it('never lets the echo of its own edit undo a newer one', () => {
+  it('never lets its own earlier edit undo a newer one', () => {
     const posted = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 42, url: 'https://github.com/c/42' });
     const later = new Date('2026-09-16T11:00:00Z');
 
     const sentFirst = posted
-      .rewritten('First', ADA, NOW)
+      .edited('First', ADA, NOW)
       .editSent('First')
-      .rewritten('Second', ADA, NOW);
-    const echoed = sentFirst.editedOnGitHub('First', later);
+      .edited('Second', ADA, NOW);
+    const ownEdit = sentFirst.editedOnGitHub('First', later);
 
-    expect(echoed.body).toBe('Second');
-    expect(echoed.editPending).toBe(true);
+    expect(ownEdit.body).toBe('Second');
+    expect(ownEdit.editPending).toBe(true);
 
     const outOfOrder = sentFirst
       .editSent('Second')
@@ -318,11 +324,13 @@ describe('ReviewComment', () => {
 
     expect(outOfOrder.body).toBe('Second');
 
-    const lateEcho = echoed.editSent('Second').editedOnGitHub('Second', later);
+    const lateOwnEdit = ownEdit
+      .editSent('Second')
+      .editedOnGitHub('Second', later);
 
-    expect(lateEcho.body).toBe('Second');
-    expect(lateEcho.editsAwaitingEcho).toEqual([]);
-    expect(lateEcho.editedOnGitHub('Someone else’s', later).body).toBe(
+    expect(lateOwnEdit.body).toBe('Second');
+    expect(lateOwnEdit.pendingOwnEdits).toEqual([]);
+    expect(lateOwnEdit.editedOnGitHub('Someone else’s', later).body).toBe(
       'Someone else’s',
     );
   });
@@ -331,7 +339,7 @@ describe('ReviewComment', () => {
     const pending = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 42, url: 'https://github.com/c/42' })
-      .rewritten('Mine', ADA, NOW);
+      .edited('Mine', ADA, NOW);
 
     expect(pending.editedOnGitHub('Theirs', NOW).body).toBe('Mine');
     expect(pending.editNotSent().editedOnGitHub('Theirs', NOW).body).toBe(
@@ -342,7 +350,7 @@ describe('ReviewComment', () => {
   it('goes back to draft where the review that contains it was never posted to GitHub', () => {
     const returned = drafted()
       .submittedIn(ReviewId.of('review_1'))
-      .rewritten('Clearer', ADA, NOW)
+      .edited('Clearer', ADA, NOW)
       .notPosted();
 
     expect(returned.state).toBe('draft');
@@ -353,13 +361,13 @@ describe('ReviewComment', () => {
       'submitted',
     );
 
-    const withdrawn = drafted()
+    const deleted = drafted()
       .submittedIn(ReviewId.of('review_1'))
-      .removed(ADA)
+      .deleted(ADA)
       .notPosted();
 
-    expect(withdrawn.state).toBe('deleted');
-    expect(withdrawn.sending).toBe(false);
+    expect(deleted.state).toBe('deleted');
+    expect(deleted.sending).toBe(false);
   });
 
   it('rejects a reply to a comment that was never posted to GitHub', () => {
@@ -395,7 +403,7 @@ describe('ReviewComment', () => {
     expect(drafted().threadOnGitHub).toBeNull();
     expect(submitted.threadOnGitHub).toBeNull();
     expect(posted.threadOnGitHub?.id).toBe(42);
-    expect(posted.removed(ADA).threadOnGitHub).toBeNull();
+    expect(posted.deleted(ADA).threadOnGitHub).toBeNull();
   });
 
   it('fails a reply that was never posted to GitHub', () => {
