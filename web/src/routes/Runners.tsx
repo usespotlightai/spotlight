@@ -59,6 +59,7 @@ export function Runners() {
           hosts={hosts ?? []}
           pools={pools}
           harnesses={harnesses}
+          selectable={adds}
         />
       )}
     </TrailContext>

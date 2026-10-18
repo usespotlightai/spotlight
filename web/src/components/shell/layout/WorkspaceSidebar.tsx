@@ -3,10 +3,8 @@ import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { TeamNav } from '@/components/shell/layout/TeamNav';
 import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
 import { useInbox } from '@/hooks/api/useInbox';
-import { useRunners } from '@/hooks/api/useRunners';
 import { inboxPath } from '@/lib/inbox';
 import { isAdmin, type Role } from '@/lib/role';
-import { noneOnline } from '@/lib/runner';
 import type { Team } from '@/lib/team';
 
 type WorkspaceSidebarProps = {
@@ -20,7 +18,6 @@ type WorkspaceSidebarProps = {
 };
 
 export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
-  const { data: fleet } = useRunners(slug);
   const { data: waiting } = useInbox(slug);
   const unseen = waiting?.filter((each) => each.unread) ?? [];
 
@@ -31,7 +28,6 @@ export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
           name={workspace.name}
           slug={slug}
           admin={isAdmin(workspace.role)}
-          noneOnline={Boolean(fleet && noneOnline(fleet))}
         />
       </div>
 

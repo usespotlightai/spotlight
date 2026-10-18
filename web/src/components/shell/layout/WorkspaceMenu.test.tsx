@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent, {
   PointerEventsCheckLevel,
 } from '@testing-library/user-event';
@@ -30,16 +30,11 @@ vi.mock('@/hooks/api/useWorkspaces', () => ({
   }),
 }));
 
-const renderMenu = (noneOnline = false, admin = true) =>
+const renderMenu = (admin = true) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <WorkspaceMenu
-          name="Acme Inc."
-          slug="acme-inc"
-          admin={admin}
-          noneOnline={noneOnline}
-        />
+        <WorkspaceMenu name="Acme Inc." slug="acme-inc" admin={admin} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -48,7 +43,7 @@ const open = async (admin = true) => {
   const user = userEvent.setup({
     pointerEventsCheck: PointerEventsCheckLevel.Never,
   });
-  renderMenu(false, admin);
+  renderMenu(admin);
   await user.click(screen.getByRole('button', { name: /Acme Inc\./ }));
   await screen.findByRole('menu');
   return user;
@@ -133,23 +128,6 @@ describe('WorkspaceMenu', () => {
     expect(
       screen.queryByRole('menuitem', { name: 'Invite and manage members' }),
     ).not.toBeInTheDocument();
-  });
-
-  it('flags the menu and its settings when no host is online', async () => {
-    const user = userEvent.setup();
-    renderMenu(true);
-
-    expect(
-      screen.getByRole('img', { name: 'No host is online' }),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /Acme Inc\./ }));
-
-    expect(
-      within(
-        await screen.findByRole('menuitem', { name: /Settings/ }),
-      ).getByRole('img', { name: 'No host is online' }),
-    ).toBeInTheDocument();
   });
 
   it('opens workspace creation in a new tab', async () => {

@@ -7,6 +7,7 @@ import { HostHarnessCell } from '@/components/features/runners/HostHarnessCell';
 import { HostImageCell } from '@/components/features/runners/HostImageCell';
 import { HostReleaseCell } from '@/components/features/runners/HostReleaseCell';
 import { HostStatus } from '@/components/features/runners/HostStatus';
+import { RowCheckbox } from '@/components/features/runners/RowCheckbox';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import {
   type Host,
@@ -20,12 +21,37 @@ type HostRowProps = {
   slug: string;
   host: Host;
   harnesses: readonly NamedHarness[] | undefined;
+  selectable: boolean;
+  selected: boolean;
+  onSelectedChange: (selected: boolean) => void;
 };
 
-export function HostRow({ slug, host, harnesses }: HostRowProps) {
+export function HostRow({
+  slug,
+  host,
+  harnesses,
+  selectable,
+  selected,
+  onSelectedChange,
+}: HostRowProps) {
   return (
     <li data-slot="host-row">
-      <div className={cn(HOST_ROW, HOST_ROW_HOVER, HOST_COLUMNS)}>
+      <div
+        className={cn(
+          'group/host',
+          HOST_ROW,
+          HOST_COLUMNS,
+          selected ? 'bg-selected' : HOST_ROW_HOVER,
+        )}
+      >
+        {selectable && (
+          <RowCheckbox
+            label={`Select ${host.name}`}
+            selected={selected}
+            onSelectedChange={onSelectedChange}
+          />
+        )}
+
         <span className="min-w-0 truncate text-foreground">{host.name}</span>
 
         <span className="min-w-0 truncate text-muted-foreground text-xs">

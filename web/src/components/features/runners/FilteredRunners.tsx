@@ -21,6 +21,7 @@ type FilteredRunnersProps = {
   hosts: readonly Host[];
   pools: readonly PushPool[];
   harnesses: readonly NamedHarness[] | undefined;
+  selectable: boolean;
 };
 
 export function FilteredRunners({
@@ -31,6 +32,7 @@ export function FilteredRunners({
   hosts,
   pools,
   harnesses,
+  selectable,
 }: FilteredRunnersProps) {
   const shownHosts = hosts.filter((host) => hostInFilter(filter, host));
   const shownPools = pools.filter((pool) => poolInFilter(filter, pool));
@@ -55,6 +57,7 @@ export function FilteredRunners({
           hosts={shownHosts}
           pools={shownPools}
           harnesses={harnesses}
+          selectable={selectable}
         />
       )}
     </>

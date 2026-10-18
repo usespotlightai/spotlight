@@ -24,6 +24,7 @@ import { CreateRunnerPoolHandler } from '@runners/application/commands/handlers/
 import { CreateRunnerTrustHandler } from '@runners/application/commands/handlers/create-runner-trust.handler';
 import { CreateWorkspaceRunnersHandler } from '@runners/application/commands/handlers/create-workspace-runners.handler';
 import { DeleteEgressHandler } from '@runners/application/commands/handlers/delete-egress.handler';
+import { DeleteHostHandler } from '@runners/application/commands/handlers/delete-host.handler';
 import { DeleteRunnerPoolHandler } from '@runners/application/commands/handlers/delete-runner-pool.handler';
 import { DeleteRunnerTrustHandler } from '@runners/application/commands/handlers/delete-runner-trust.handler';
 import { DeleteWorkspaceRunnersHandler } from '@runners/application/commands/handlers/delete-workspace-runners.handler';
@@ -35,6 +36,7 @@ import { UpdateRunnerPoolHandler } from '@runners/application/commands/handlers/
 import { UpdateRunnerTrustHandler } from '@runners/application/commands/handlers/update-runner-trust.handler';
 import { UpdateWorkspaceRunnersHandler } from '@runners/application/commands/handlers/update-workspace-runners.handler';
 import {
+  DeleteHostCommand,
   DeregisterHostCommand,
   HostHeartbeatCommand,
 } from '@runners/application/commands/host.commands';
@@ -469,6 +471,10 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindCommandHandler(DeregisterHostCommand, DeregisterHostHandler, [
     RUNNER_AUTHENTICATOR,
+    DrizzleRunnerHostRepository,
+  ]),
+  ...bindCommandHandler(DeleteHostCommand, DeleteHostHandler, [
+    WORKSPACE_ACCESS,
     DrizzleRunnerHostRepository,
   ]),
 

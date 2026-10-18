@@ -77,9 +77,6 @@ export const installCommand = (token: string) =>
 export const onlineCount = (fleet: Fleet) =>
   fleet.hosts.filter((host) => host.online).length;
 
-export const noneOnline = (fleet: Fleet): boolean =>
-  fleet.hosts.length > 0 && onlineCount(fleet) === 0;
-
 export const hostStatus = (host: Host): string => {
   if (!host.online) {
     return 'Offline';
