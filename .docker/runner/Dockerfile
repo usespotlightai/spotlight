@@ -1,13 +1,16 @@
 ARG GO_VERSION=1.26
 
-FROM golang:${GO_VERSION}-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-bookworm AS build
 WORKDIR /src
 COPY data-plane/go.mod data-plane/go.sum ./
 RUN go mod download
 COPY data-plane/ ./
 ENV CGO_ENABLED=0
+ARG TARGETOS TARGETARCH
 ARG SPOTLIGHT_VERSION=dev
-RUN go build -ldflags "-X main.version=${SPOTLIGHT_VERSION}" -o /out/spotlight ./cmd/spotlight
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -ldflags "-X main.version=${SPOTLIGHT_VERSION}" -o /out/spotlight ./cmd/spotlight
 
 # Do not use Alpine. The cursor-agent package that teams install has only a glibc binary.
 FROM debian:bookworm-slim AS runner
