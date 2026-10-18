@@ -3,9 +3,9 @@ import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
 import {
   type Approval,
+  cardStatusOf,
   copyText,
   editable,
-  cardStatusOf,
   titleOf,
 } from '@/lib/approval';
 
