@@ -1,4 +1,5 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -270,6 +271,44 @@ describe('ChatBriefing', () => {
         '"$SPOTLIGHT_URL/api/resources/workspaces/ws_1/export"',
       );
       expect(briefing).toContain('terraform plan');
+    });
+
+    it('leads the team to own what it ships in production', () => {
+      const briefing = brief(setup);
+
+      expect(briefing).toContain('### 5. Connect operations');
+      expect(briefing).toContain('Always talk about operations.');
+      expect(briefing).toContain('`events[].raise.opens`');
+      expect(briefing).toContain(
+        'Do not connect a tool that the team does not use.',
+      );
+    });
+
+    it('warns when the configuration’s repository is all it can read', () => {
+      expect(brief(setup)).toContain(
+        'Only `acme/infra` is checked out. If the team’s code is in other repositories, you cannot read it in this chat.',
+      );
+    });
+
+    it('does not warn when the team’s repositories are checked out too', () => {
+      const reading = Chat.start({
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
+        startedBy: LEON,
+        harness: HarnessId.of('claude-code'),
+        body: ChatMessageBody.fromInput('Set up our configuration.'),
+        repositories: [Repository.of('acme/api')],
+        setup: ConfigFolder.of({
+          repository: 'acme/infra',
+          folder: 'spotlight',
+        }),
+        now: NOW,
+        newId: () => 'chat_1',
+      });
+
+      expect(brief(reading)).not.toContain(
+        'is checked out. If the team’s code',
+      );
     });
 
     it('checks out the configuration’s repository', () => {

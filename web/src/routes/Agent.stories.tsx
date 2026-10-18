@@ -23,6 +23,12 @@ const ARRIVALS = {
       stationName: 'Implementation',
     },
   },
+  setup: {
+    prompt:
+      'Set up our configuration as code in acme/platform, under spotlight/.',
+    setup: { repository: 'acme/platform', folder: 'spotlight' },
+    repositories: ['acme/api', 'acme/web'],
+  },
 };
 
 type ChatsArgs = {
@@ -40,6 +46,7 @@ const meta = {
         none: 'Nothing',
         traces: 'Sharing traces',
         targetStation: 'Improving a station',
+        setup: 'Setting up configuration',
       }),
     },
   }),

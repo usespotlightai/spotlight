@@ -92,7 +92,7 @@ const onboarding = (teamId: string): OnboardingResponseDto => ({
       key: 'configuration',
       title: 'Set up configuration as code',
       description:
-        'Pick a repository and folder for the team’s Terraform. The agent learns how the team works from its code and tools, then opens a pull request there.',
+        'Pick a repository and folder for the team’s Terraform, and the repositories the team works in. The agent learns how the team works from its code and tools, then opens a pull request.',
       done: Boolean(setupChatOf(teamId)?.pullRequest),
     },
   ],

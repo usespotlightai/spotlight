@@ -1,6 +1,7 @@
 import type {
   ChatMessageResponseDto,
   ChatResponseDto,
+  ChatSetupRequestDto,
   ChatSummaryResponseDto,
   ChatTargetStationResponseDto,
   ChatTraceResponseDto,
@@ -74,6 +75,31 @@ export const promptHandedOver = (state: unknown): string | null => {
   const prompt = (state as { prompt?: unknown } | null)?.prompt;
 
   return typeof prompt === 'string' && prompt.trim() ? prompt : null;
+};
+
+export type ChatSetup = ChatSetupRequestDto;
+
+const isChatSetup = (given: unknown): given is ChatSetup =>
+  typeof given === 'object' &&
+  given !== null &&
+  typeof (given as ChatSetup).repository === 'string' &&
+  typeof (given as ChatSetup).folder === 'string';
+
+export const setupHandedOver = (state: unknown): ChatSetup | null => {
+  const setup = (state as { setup?: unknown } | null)?.setup;
+
+  return isChatSetup(setup)
+    ? { repository: setup.repository, folder: setup.folder }
+    : null;
+};
+
+export const repositoriesHandedOver = (state: unknown): string[] => {
+  const repositories = (state as { repositories?: unknown } | null)
+    ?.repositories;
+
+  return Array.isArray(repositories)
+    ? repositories.filter((each): each is string => typeof each === 'string')
+    : [];
 };
 
 export type ChatMoment =

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatKeys } from '@/hooks/api/useChats';
 import { startChat } from '@/lib/api';
+import type { ChatSetup } from '@/lib/chat';
 
 type StartChatInput = {
   teamId: string;
@@ -12,7 +13,7 @@ type StartChatInput = {
   attachments: string[];
   traces: string[];
   targetStation?: string;
-  setup?: { repository: string; folder: string };
+  setup?: ChatSetup;
 };
 
 export function useStartChat() {

@@ -6,6 +6,7 @@ import type { SharedTrace, TargetStation } from '@/lib/chat';
 import { erase, pressEnter, textOf, write } from '@/test/lexical';
 
 const started = vi.fn();
+const starting = { isError: false, error: null as unknown };
 const harnesses = vi.fn();
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
@@ -18,7 +19,7 @@ vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: () => Promise.resolve({ id: 'attachment_1' }),
 }));
 vi.mock('@/hooks/api/useStartChat', () => ({
-  useStartChat: () => ({ mutate: started, isPending: false }),
+  useStartChat: () => ({ mutate: started, isPending: false, ...starting }),
 }));
 
 const CLAUDE = {
@@ -67,6 +68,8 @@ const box = () => screen.getByRole('textbox', { name: 'Plan with the agent' });
 beforeEach(() => {
   localStorage.clear();
   started.mockReset();
+  starting.isError = false;
+  starting.error = null;
   harnesses.mockReturnValue([CLAUDE]);
 });
 
@@ -165,6 +168,45 @@ describe('NewChatComposer', () => {
         targetStation: 'station_spec',
       }),
       expect.anything(),
+    );
+  });
+
+  it('starts the setup chat it was handed, reading the repositories handed', async () => {
+    const user = userEvent.setup();
+    render(
+      <NewChatComposer
+        slug="acme"
+        teamId="team_1"
+        traces={[]}
+        defaultTargetStation={null}
+        defaultPrompt="Set up our configuration as code in acme/infra, under spotlight/."
+        defaultRepositories={['acme/api']}
+        setup={{ repository: 'acme/infra', folder: 'spotlight' }}
+        onStarted={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(started).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: 'Set up our configuration as code in acme/infra, under spotlight/.',
+        repositories: ['acme/api'],
+        setup: { repository: 'acme/infra', folder: 'spotlight' },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('says why the chat could not start', () => {
+    starting.isError = true;
+    starting.error = {
+      detail: 'Config home folder must not contain . or .. parts.',
+    };
+    showing();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Config home folder must not contain . or .. parts.',
     );
   });
 

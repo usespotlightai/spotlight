@@ -114,7 +114,13 @@ export const ChatBriefing = {
       setup ? SettingUp.opening(input.team) : opening(input.team),
       linesOf(input.lines),
       workspaceOf(input.chat),
-      setup ? SettingUp.section(setup, input.chat.workspaceId.value) : null,
+      setup
+        ? SettingUp.section(
+            setup,
+            input.chat.workspaceId.value,
+            input.chat.repositories,
+          )
+        : null,
       input.chat.targetStation
         ? ImproveStation.section(input.chat.targetStation, input.lines)
         : null,

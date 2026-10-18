@@ -10,6 +10,8 @@ import { useChats } from '@/hooks/api/useChats';
 import {
   chatPath,
   promptHandedOver,
+  repositoriesHandedOver,
+  setupHandedOver,
   targetStationHandedOver,
   tracesHandedOver,
 } from '@/lib/chat';
@@ -85,6 +87,8 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
           traces={tracesHandedOver(location.state)}
           defaultTargetStation={targetStationHandedOver(location.state)}
           defaultPrompt={promptHandedOver(location.state)}
+          defaultRepositories={repositoriesHandedOver(location.state)}
+          setup={setupHandedOver(location.state)}
           onStarted={started}
         />
       </ComposerFooter>

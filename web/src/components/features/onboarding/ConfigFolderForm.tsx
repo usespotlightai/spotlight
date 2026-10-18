@@ -1,19 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { SETUP_CONTROL } from '@/components/features/onboarding/setup-control';
-import { AgentPicker } from '@/components/features/stations/AgentPicker';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
-import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRepositories } from '@/hooks/api/useRepositories';
-import { useStartChat } from '@/hooks/api/useStartChat';
-import { useStoredState } from '@/hooks/useStoredState';
-import { CHAT_HARNESS_KEY, chatPath } from '@/lib/chat';
-import { messageOf } from '@/lib/error';
+import { teamSectionPath } from '@/lib/team';
+import { useForwardTrail } from '@/lib/trail';
+import { cn } from '@/lib/utils';
 
 const FOLDER = 'spotlight';
+
+const LABEL = 'text-muted-foreground text-xs';
 
 type ConfigFolderFormProps = {
   slug: string;
@@ -22,103 +21,78 @@ type ConfigFolderFormProps = {
 
 export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
   const navigate = useNavigate();
+  const trail = useForwardTrail();
   const { data: repositories } = useRepositories(slug);
-  const { data: harnesses } = useHarnesses();
-  const [stored, store] = useStoredState(CHAT_HARNESS_KEY, '');
   const [repository, setRepository] = useState<string | null>(null);
   const [folder, setFolder] = useState(FOLDER);
   const [reading, setReading] = useState<string[]>([]);
-  const [model, setModel] = useState('');
-  const [effort, setEffort] = useState('');
-  const start = useStartChat();
 
-  const harness = harnesses?.some((each) => each.id === stored)
-    ? stored
-    : (harnesses?.[0]?.id ?? '');
-  const ready = Boolean(repository && folder.trim() && harness);
+  const open = () => {
+    const chosen = folder.trim();
 
-  const begin = () => {
-    if (!repository || !ready) {
+    if (!repository || !chosen || reading.length === 0) {
       return;
     }
 
-    start.mutate(
-      {
-        teamId,
-        harness,
-        model: model || null,
-        effort: effort || null,
+    navigate(teamSectionPath(slug, teamId, 'agent'), {
+      state: {
+        prompt: `Set up our configuration as code in ${repository}, under ${chosen}/.`,
+        setup: { repository, folder: chosen },
         repositories: reading,
-        body: `Set up our configuration as code in ${repository}, under ${folder.trim()}/.`,
-        attachments: [],
-        traces: [],
-        setup: { repository, folder: folder.trim() },
+        trail,
       },
-      { onSuccess: (chat) => navigate(chatPath(slug, teamId, chat.id)) },
-    );
+    });
   };
 
   return (
     <form
-      className="flex flex-wrap items-center gap-2"
+      className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2"
       onSubmit={(event) => {
         event.preventDefault();
-        begin();
+        open();
       }}
     >
-      <ChoiceSelect
-        label="Repository"
-        choices={(repositories ?? []).map((each) => ({
-          value: each.fullName,
-          label: each.fullName,
-        }))}
-        value={repository}
-        placeholder="Repository"
-        onChange={setRepository}
-        clearable={false}
-      />
+      <span className={LABEL}>Configuration</span>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <ChoiceSelect
+          label="Repository"
+          choices={(repositories ?? []).map((each) => ({
+            value: each.fullName,
+            label: each.fullName,
+          }))}
+          value={repository}
+          placeholder="Repository"
+          onChange={setRepository}
+          clearable={false}
+        />
+        <span aria-hidden className="text-muted-foreground text-xs">
+          /
+        </span>
+        <FieldInput
+          aria-label="Folder"
+          value={folder}
+          onChange={(event) => setFolder(event.target.value)}
+          className="h-8 w-28 rounded-full border-border bg-card px-3 text-xs"
+        />
+      </div>
 
-      <FieldInput
-        aria-label="Folder"
-        value={folder}
-        onChange={(event) => setFolder(event.target.value)}
-        className="h-8 w-32 rounded-full border-border bg-card px-3 text-xs"
-      />
-
+      <span className={LABEL}>Team code</span>
       <RepositoriesSelect
         slug={slug}
         value={reading}
         onChange={setReading}
-        className="h-8 w-auto"
-      />
-
-      <AgentPicker
-        harness={harness}
-        model={model}
-        effort={effort}
-        onHarness={(next) => {
-          store(next);
-          setModel('');
-          setEffort('');
-        }}
-        onModel={setModel}
-        onEffort={setEffort}
+        none="Repositories your team works in"
+        className="h-8 w-fit rounded-full border border-border bg-card px-3 text-xs"
       />
 
       <Button
         type="submit"
         size="sm"
-        disabled={!ready || start.isPending}
-        className={SETUP_CONTROL}
+        disabled={!repository || !folder.trim() || reading.length === 0}
+        className={cn(SETUP_CONTROL, 'col-span-2 mt-1 w-fit')}
       >
-        Start setup chat
+        Continue in chat
       </Button>
-
-      {start.isError && (
-        <p role="alert" className="w-full text-destructive text-sm leading-6">
-          {messageOf(start.error, 'Sorry, the setup chat could not start.')}
-        </p>
-      )}
     </form>
   );
 }

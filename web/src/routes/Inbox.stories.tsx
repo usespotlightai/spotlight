@@ -13,6 +13,9 @@ import {
   MEMORIES_REQUEST_ID,
   SETUP_ITEM_ID,
 } from '@/mocks/world/inbox';
+import { settingsWorld } from '@/mocks/world/settings';
+import { NO_FLEET } from '@/mocks/world/settings-runners';
+import { teamChats } from '@/mocks/world/team-chats';
 import {
   choice,
   type PageArgs,
@@ -30,8 +33,15 @@ const GITHUB_INSTALLED_PATH = `/github/installed?installation_id=58213907&state=
   }),
 )}`;
 
+const SETTING_UP = { arg: 'opened', eq: SETUP_ITEM_ID };
+
+type Configuration = 'not-started' | 'working' | 'done';
+
 type InboxArgs = {
   readonly opened: string;
+  readonly gitHubInstalled: boolean;
+  readonly hostConnected: boolean;
+  readonly configuration: Configuration;
   readonly editingMemory: boolean;
   readonly approvingMemory: boolean;
   readonly answeringYes: boolean;
@@ -48,6 +58,9 @@ const meta = {
     },
     args: {
       opened: 'none',
+      gitHubInstalled: true,
+      hostConnected: true,
+      configuration: 'done',
       editingMemory: false,
       approvingMemory: false,
       answeringYes: false,
@@ -75,9 +88,36 @@ const meta = {
         [SETUP_ITEM_ID]: 'Set up your team',
         [GITHUB_INSTALLED]: 'Setup with GitHub installed',
       }),
+      gitHubInstalled: { ...toggle('GitHub App installed'), if: SETTING_UP },
+      hostConnected: { ...toggle('Host connected'), if: SETTING_UP },
+      configuration: {
+        ...choice<Configuration>('Configuration as code', {
+          'not-started': 'Not started',
+          working: 'Setup chat working',
+          done: 'Pull request opened',
+        }),
+        if: SETTING_UP,
+      },
       editingMemory: toggle('Edit the first memory'),
       approvingMemory: toggle('Approve the first memory'),
       answeringYes: toggle('Answer Yes'),
+    },
+    world: ({ opened, gitHubInstalled, hostConnected, configuration }) => {
+      if (opened !== SETUP_ITEM_ID) return;
+
+      const settings = settingsWorld();
+      settings.gitHubConnected = gitHubInstalled;
+      if (!hostConnected) settings.fleet = structuredClone(NO_FLEET);
+
+      const chats = teamChats()[PLATFORM_ID] ?? [];
+      if (configuration === 'not-started') {
+        teamChats()[PLATFORM_ID] = chats.filter(({ chat }) => !chat.setup);
+      }
+      if (configuration === 'working') {
+        for (const { chat } of chats) {
+          if (chat.setup) chat.setup.pullRequest = null;
+        }
+      }
     },
     script: ({ opened, editingMemory, approvingMemory, answeringYes }) => {
       if (opened === MEMORIES_REQUEST_ID && editingMemory) {
