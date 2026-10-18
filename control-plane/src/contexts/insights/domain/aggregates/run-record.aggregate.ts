@@ -2,8 +2,8 @@ import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { RunRecordEnriched } from '@insights/domain/events/run-record-enriched.event';
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
+import type { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import type { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import type { Refusal } from '@insights/domain/value-objects/refusal.vo';
 import type { RunDisposition } from '@insights/domain/value-objects/run-disposition';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
@@ -33,7 +33,7 @@ export class RunRecord extends EventRecorder {
     readonly usage: RunUsage | null,
     readonly passed: StationPass | null,
     readonly tools: RunTools | null,
-    readonly refusals: readonly Refusal[],
+    readonly dismissals: readonly Dismissal[],
     readonly memories: RunMemories,
     readonly version: number,
   ) {
@@ -77,7 +77,7 @@ export class RunRecord extends EventRecorder {
     usage: RunUsage | null;
     passed: StationPass | null;
     tools: RunTools | null;
-    refusals: readonly Refusal[];
+    dismissals: readonly Dismissal[];
     memories: RunMemories;
     version: number;
   }): RunRecord {
@@ -114,7 +114,7 @@ export class RunRecord extends EventRecorder {
       input.usage,
       input.passed,
       input.tools,
-      input.refusals,
+      input.dismissals,
       input.memories,
       input.version,
     );
@@ -142,7 +142,7 @@ export class RunRecord extends EventRecorder {
       this.usage,
       known(this.passed?.at) ? this.passed : null,
       this.tools,
-      this.refusals,
+      this.dismissals,
       this.memories,
       this.version,
     );
@@ -233,10 +233,10 @@ export class RunRecord extends EventRecorder {
     return this.usage ? this : this.enrichWith({ usage, tools });
   }
 
-  refused(refusal: Refusal): RunRecord {
-    return this.refusals.some((each) => each.sameAs(refusal))
+  dismissed(dismissal: Dismissal): RunRecord {
+    return this.dismissals.some((each) => each.sameAs(dismissal))
       ? this
-      : this.with({ refusals: [...this.refusals, refusal] });
+      : this.with({ dismissals: [...this.dismissals, dismissal] });
   }
 
   recordMemories(via: MemoryVia, memories: readonly string[]): RunRecord {
@@ -292,7 +292,7 @@ export class RunRecord extends EventRecorder {
     usage?: RunUsage;
     passed?: StationPass;
     tools?: RunTools;
-    refusals?: readonly Refusal[];
+    dismissals?: readonly Dismissal[];
     memories?: RunMemories;
   }): RunRecord {
     const next = new RunRecord(
@@ -308,7 +308,7 @@ export class RunRecord extends EventRecorder {
       change.usage ?? this.usage,
       change.passed ?? this.passed,
       change.tools ?? this.tools,
-      change.refusals ?? this.refusals,
+      change.dismissals ?? this.dismissals,
       change.memories ?? this.memories,
       this.version,
     );

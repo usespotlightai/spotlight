@@ -38,7 +38,7 @@ const readStoredWidth = (pane: Pane): number => {
 const clampTo = (pane: Pane, width: number) =>
   Math.min(pane.max, Math.max(pane.min, Math.round(width)));
 
-const remember = (pane: Pane, width: number) => {
+const store = (pane: Pane, width: number) => {
   try {
     localStorage.setItem(pane.storageKey, String(width));
   } catch {}
@@ -69,7 +69,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     setWidth(clamped);
 
     if (persist) {
-      remember(pane, clamped);
+      store(pane, clamped);
     }
   };
 
@@ -103,7 +103,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     origin.current = null;
     setResizing(false);
     setWidth(last.current);
-    remember(pane, last.current);
+    store(pane, last.current);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 

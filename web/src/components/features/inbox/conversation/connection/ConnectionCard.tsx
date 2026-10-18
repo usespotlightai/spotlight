@@ -26,7 +26,7 @@ export function ConnectionCard({
     <DecisionCard aria-label={`Connect ${connection.integrationName}`}>
       <DecisionHeader
         title={
-          <DecisionTitle status={connection.met ? 'approved' : 'waiting'}>
+          <DecisionTitle status={connection.met ? 'approved' : 'pending'}>
             {connection.met
               ? `Connected ${connection.integrationName}`
               : `Connect ${connection.integrationName}`}

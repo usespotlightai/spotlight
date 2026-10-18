@@ -151,7 +151,7 @@ const projected = (db: DrizzleDatabase, where: SQL) =>
       cacheReadTokens: runRecord.cacheReadTokens,
       cacheWriteTokens: runRecord.cacheWriteTokens,
       tools: runRecord.tools,
-      refusals: runRecord.refusals,
+      dismissals: runRecord.dismissals,
       memories: runRecord.memories,
       openedBy: taskHumanAction.openedBy,
       taskOpenedAt: sql<Date | null>`${taskHumanAction.openedAt}`.as(

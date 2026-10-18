@@ -10,7 +10,7 @@ import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useCollapsed } from '@/hooks/useCollapsed';
-import { useRemembered } from '@/hooks/useRemembered';
+import { useStoredState } from '@/hooks/useStoredState';
 import { inboxItemPath } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import {
@@ -29,8 +29,8 @@ const FILTER_KEY = 'spotlight.run-filter';
 export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
   const runs = useTeamRuns(teamId);
   const ages = useCollapsed(STORAGE_KEY);
-  const [remembered, remember] = useRemembered(FILTER_KEY, FALLBACK_RUN_FILTER);
-  const filter = asRunFilter(remembered);
+  const [stored, store] = useStoredState(FILTER_KEY, FALLBACK_RUN_FILTER);
+  const filter = asRunFilter(stored);
 
   if (failed(runs)) {
     return (
@@ -63,7 +63,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
 
   return (
     <>
-      <ViewPills views={RUN_FILTERS} current={filter} onChange={remember} />
+      <ViewPills views={RUN_FILTERS} current={filter} onChange={store} />
 
       {loading(runs) ? (
         <TeamRunsSkeleton />

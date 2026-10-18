@@ -1,6 +1,6 @@
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
+import { Collapsible } from '@/components/shared/Collapsible';
 import { Composer } from '@/components/shared/form/Composer';
-import { Unfold } from '@/components/shared/Unfold';
 import { useDraftReviewComment } from '@/hooks/api/useDraftReviewComment';
 import { linesOf, type ReviewSpot } from '@/lib/review';
 import { useReviewing } from '@/lib/review-context';
@@ -19,7 +19,7 @@ export function NewReviewComment({ spot, open }: NewReviewCommentProps) {
   }
 
   return (
-    <Unfold
+    <Collapsible
       open={open}
       appear={reviewing.composerAppears}
       className="px-3 py-2 font-sans"
@@ -43,6 +43,6 @@ export function NewReviewComment({ spot, open }: NewReviewCommentProps) {
           )
         }
       />
-    </Unfold>
+    </Collapsible>
   );
 }

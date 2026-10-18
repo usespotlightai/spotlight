@@ -1,4 +1,4 @@
-import { NotedWarning } from '@/components/shared/NotedWarning';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import type { ApiSpecViewResponseDto } from '@/lib/api';
 import { formatReadProblem } from '@/lib/api-spec';
 
@@ -14,9 +14,9 @@ export function IntegrationReadProblem({ spec }: IntegrationReadProblemProps) {
   }
 
   return (
-    <NotedWarning
+    <WarningTooltip
       data-slot="integration-read-problem"
-      note={problem}
+      tooltip={problem}
       label="Could not be read"
       tone="destructive"
     />

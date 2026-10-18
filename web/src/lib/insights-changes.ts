@@ -48,7 +48,7 @@ export const OUTCOME_MEASURES: readonly {
 }[] = [
   { id: 'accepted', label: 'Accepted', lowerIsBetter: false },
   { id: 'sent_back', label: 'Sent back', lowerIsBetter: true },
-  { id: 'passed', label: 'Passed', lowerIsBetter: false },
+  { id: 'passed', label: 'Passed on', lowerIsBetter: false },
   { id: 'checks_passed', label: 'Checks passed', lowerIsBetter: false },
   { id: 'merged', label: 'Merged', lowerIsBetter: false },
   { id: 'judge', label: 'Judge score', lowerIsBetter: false },
@@ -227,7 +227,7 @@ export const judgeRow = (marker: ChangeMarker, to: string): ComparedRow => ({
   one: formatShare(marker.judgeBefore?.mean ?? null),
   other: formatShare(marker.judgeAfter?.mean ?? null),
   delta: shownDeltaOf(marker.judgeChange),
-  note: `Over ${judgeCount(marker.judgeBefore)} judged runs before and ${judgeCount(marker.judgeAfter)} after. Opens how often the judge agrees with people.`,
+  tooltip: `Over ${judgeCount(marker.judgeBefore)} judged runs before and ${judgeCount(marker.judgeAfter)} after. Opens how often the judge agrees with people.`,
   to,
 });
 

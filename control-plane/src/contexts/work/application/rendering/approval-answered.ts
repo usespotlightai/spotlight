@@ -3,9 +3,9 @@ import type { ApprovalDecision } from '@work/domain/value-objects/approval.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 
 const decided = (decision: ApprovalDecision | null): string =>
-  decision === 'granted'
+  decision === 'approved'
     ? 'Approved.'
-    : decision === 'refused'
+    : decision === 'dismissed'
       ? 'Dismissed.'
       : '';
 

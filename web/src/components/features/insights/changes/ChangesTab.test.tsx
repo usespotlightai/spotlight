@@ -366,7 +366,7 @@ describe('the Changes tab', () => {
       name: 'Harness, model, effort and profile',
     });
     expect(
-      within(table).getByRole('button', { name: 'Fold Claude Code' }),
+      within(table).getByRole('button', { name: 'Collapse Claude Code' }),
     ).toBeInTheDocument();
     const opus = within(table)
       .getByText('opus · high effort')

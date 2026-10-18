@@ -172,7 +172,7 @@ describe('an approval a run asked for', () => {
     ).toBeNull();
   });
 
-  it('is read back granted, claimed by the call, and returned when the call fails', async () => {
+  it('is read back approved, claimed by the call, and returned when the call fails', async () => {
     const { task, owner, runId } = await asking();
     const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
 
@@ -185,21 +185,21 @@ describe('an approval a run asked for', () => {
           at: NOW,
           voice: Voice.person(owner),
         },
-        'granted',
+        'approved',
       ),
     );
 
-    const granted = await readBack(task);
-    expect(granted.approvalFor(CALL)?.approval.grants).toBe(true);
-    expect(granted.approvalFor(CALL)?.approval.decided?.by.value).toBe(
+    const approved = await readBack(task);
+    expect(approved.approvalFor(CALL)?.approval.grants).toBe(true);
+    expect(approved.approvalFor(CALL)?.approval.decided?.by.value).toBe(
       owner.value,
     );
-    expect(granted.approvalFor(CALL)?.approval.decided?.reason).toBe(
+    expect(approved.approvalFor(CALL)?.approval.decided?.reason).toBe(
       'Approved.',
     );
 
     const { task: claimed, check } = Task.rehydrate({
-      ...granted,
+      ...approved,
       currentRunId: runId,
     }).clearFor(
       CALL,
@@ -213,16 +213,16 @@ describe('an approval a run asked for', () => {
       runId,
       null,
     );
-    expect(check.kind).toBe('granted');
+    expect(check.kind).toBe('approved');
     await tasks.save(claimed);
 
-    const spent = await readBack(granted);
+    const spent = await readBack(approved);
     expect(spent.approvalFor(CALL)?.approval.grants).toBe(false);
     expect(spent.approvalFor(CALL)?.approval.spent).toBe(true);
 
     await tasks.save(spent.returnApproval(at));
 
-    expect((await readBack(granted)).approvalFor(CALL)?.approval.grants).toBe(
+    expect((await readBack(approved)).approvalFor(CALL)?.approval.grants).toBe(
       true,
     );
   });
@@ -240,7 +240,7 @@ describe('an approval a run asked for', () => {
           at: NOW,
           voice: Voice.person(owner),
         },
-        'granted',
+        'approved',
       ),
     );
 
@@ -263,8 +263,8 @@ describe('an approval a run asked for', () => {
 
     const [one, other] = await Promise.all([claiming(), claiming()]);
 
-    expect(one.check.kind).toBe('granted');
-    expect(other.check.kind).toBe('granted');
+    expect(one.check.kind).toBe('approved');
+    expect(other.check.kind).toBe('approved');
 
     await tasks.save(one.task);
     await expect(tasks.save(other.task)).rejects.toBeInstanceOf(
@@ -273,7 +273,7 @@ describe('an approval a run asked for', () => {
     expect((await readBack(task)).approvalFor(CALL)?.approval.spent).toBe(true);
   });
 
-  it('is read back granted with the person’s changes, typed as requested', async () => {
+  it('is read back approved with the person’s changes, typed as requested', async () => {
     const { task, owner } = await asking(
       ApprovalSubject.toolCall(
         ToolCall.of(
@@ -294,7 +294,7 @@ describe('an approval a run asked for', () => {
           at: NOW,
           voice: Voice.person(owner),
         },
-        'granted',
+        'approved',
         { queue: 'retries', limit: '100' },
       ),
     );
@@ -328,7 +328,7 @@ describe('an approval a run asked for', () => {
           at: NOW,
           voice: Voice.person(owner),
         },
-        'granted',
+        'approved',
         { input: '{"title": "Broken queue", "labelIds": ["bug"]}' },
       ),
     );
@@ -373,7 +373,7 @@ describe('an approval a run asked for', () => {
     ).toBe('post the fix on ENG-12');
   });
 
-  it('is read back refused, and stays refused', async () => {
+  it('is read back dismissed, and stays dismissed', async () => {
     const { task, owner } = await asking();
     const at = task.approvalFor(CALL)?.at ?? NotePosition.of(0);
 
@@ -386,12 +386,12 @@ describe('an approval a run asked for', () => {
           at: NOW,
           voice: Voice.person(owner),
         },
-        'refused',
+        'dismissed',
       ),
     );
 
-    const refused = await readBack(task);
-    expect(refused.approvalFor(CALL)?.approval.refuses).toBe(true);
-    expect(refused.approvalFor(CALL)?.approval.grants).toBe(false);
+    const dismissed = await readBack(task);
+    expect(dismissed.approvalFor(CALL)?.approval.dismisses).toBe(true);
+    expect(dismissed.approvalFor(CALL)?.approval.grants).toBe(false);
   });
 });

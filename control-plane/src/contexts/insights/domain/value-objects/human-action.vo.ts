@@ -6,7 +6,7 @@ export const TASK_ACTIONS = [
   'sent-back',
 ] as const;
 
-const APPROVAL_ANSWERS = ['approved', 'refused'] as const;
+const APPROVAL_ANSWERS = ['approved', 'dismissed'] as const;
 
 const HUMAN_ACTION_KINDS = [...TASK_ACTIONS, ...APPROVAL_ANSWERS] as const;
 

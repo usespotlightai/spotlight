@@ -70,7 +70,7 @@ export function SearchPage({
       />
 
       <StationPane
-        aside={
+        sidePanel={
           <CandidateDetailOf
             at={at}
             searchId={search.id}

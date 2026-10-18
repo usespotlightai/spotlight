@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Instrument } from '@/components/features/stations/config/Instrument';
+import { ConfigCard } from '@/components/features/stations/config/ConfigCard';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useOverflows } from '@/hooks/useOverflows';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,7 @@ export function StationPrompt({ stationId, prompt }: StationPromptProps) {
   const scrolls = useOverflows(scroller, Boolean(prompt));
 
   return (
-    <Instrument title="Prompt">
+    <ConfigCard title="Prompt">
       {prompt ? (
         <div className="relative">
           <div
@@ -44,6 +44,6 @@ export function StationPrompt({ stationId, prompt }: StationPromptProps) {
       ) : (
         <p className="text-muted-foreground text-xs leading-5">No prompt.</p>
       )}
-    </Instrument>
+    </ConfigCard>
   );
 }

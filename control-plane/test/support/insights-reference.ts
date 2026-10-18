@@ -137,7 +137,7 @@ const containing = (column: SQLWrapper, value: unknown): SQL =>
 
 const ranWhere = sql`${runRecord.ending}::text <> 'cancelled'`;
 
-const refusedServerOf = (server: Narrowing): { server?: string | null } => {
+const dismissedServerOf = (server: Narrowing): { server?: string | null } => {
   if (server.kind === 'any') {
     return {};
   }
@@ -145,13 +145,15 @@ const refusedServerOf = (server: Narrowing): { server?: string | null } => {
   return { server: server.kind === 'none' ? null : server.value };
 };
 
-const refusalWhere = (filter: RunFilter): SQL | undefined =>
-  filter.refusedTool === null && filter.refusedServer.kind === 'any'
+const dismissalWhere = (filter: RunFilter): SQL | undefined =>
+  filter.dismissedTool === null && filter.dismissedServer.kind === 'any'
     ? undefined
-    : containing(runRecord.refusals, [
+    : containing(runRecord.dismissals, [
         {
-          ...(filter.refusedTool === null ? {} : { tool: filter.refusedTool }),
-          ...refusedServerOf(filter.refusedServer),
+          ...(filter.dismissedTool === null
+            ? {}
+            : { tool: filter.dismissedTool }),
+          ...dismissedServerOf(filter.dismissedServer),
         },
       ]);
 
@@ -180,7 +182,7 @@ const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
             { server: filter.failedAfter, lastCallFailed: true },
           ]),
         ),
-    refusalWhere(filter),
+    dismissalWhere(filter),
   ].filter((each) => each !== undefined);
 
   return [

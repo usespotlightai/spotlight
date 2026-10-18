@@ -1,15 +1,19 @@
 import type { RunNotesResponseDto } from '@/lib/api';
-import { type Conversing, type RunJournal, threadText } from '@/lib/inbox';
+import {
+  type ConversationItem,
+  type RunJournal,
+  threadText,
+} from '@/lib/inbox';
 import { type TeamRun, waitsOnPerson, working } from '@/lib/run';
 
 export type RunNotes = RunNotesResponseDto;
 
 const UNCOLOURED = '#a3a8b0';
 
-export const conversingOf = (
+export const conversationItemOf = (
   conversation: RunNotes,
   teamId: string,
-): Conversing => ({
+): ConversationItem => ({
   id: conversation.runId,
   teamId,
   createdAt: conversation.createdAt,

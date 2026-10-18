@@ -20,10 +20,10 @@ import {
   formatRepeats,
   formatRepeatsSucceeded,
   formatReplayable,
+  formatRunOutcome,
   formatRunState,
   formatSpendNote,
   formatState,
-  formatTurnedOut,
   formatUncompared,
   formatUnpricedCalls,
   formatUnpricedRuns,
@@ -321,8 +321,8 @@ describe('replay words', () => {
   });
 
   it('names how a run turned out and where its task came from', () => {
-    expect(formatTurnedOut('sent-back')).toBe('Sent back');
-    expect(formatTurnedOut('asked')).toBe('Asked a person');
+    expect(formatRunOutcome('sent-back')).toBe('Sent back');
+    expect(formatRunOutcome('asked')).toBe('Asked a person');
     expect(formatOrigin('person')).toBe('A person');
     expect(formatOrigin('station')).toBe('Another station');
     expect(formatOrigin('github')).toBe('GitHub');

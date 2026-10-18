@@ -141,7 +141,7 @@ describe('SetupSteps', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('folds a done step away, keeping the next one open', () => {
+  it('collapses a done step, keeping the next one open', () => {
     githubState.data = { connected: true, installUrl: INSTALL };
     onboardingState.data = onboarding({}, ['github']);
     showing();
@@ -179,7 +179,7 @@ describe('SetupSteps', () => {
     ).toBeInTheDocument();
   });
 
-  it('folds the harness step away once a runner reports one', () => {
+  it('collapses the harness step once a runner reports one', () => {
     onboardingState.data = onboarding({}, ['harness']);
     showing();
 

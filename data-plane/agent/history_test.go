@@ -81,7 +81,7 @@ func sampleHistory() protocol.History {
 				Outcome: &protocol.RunOutcome{
 					Ending: "failed", Failure: &failure, Visit: 2,
 					Usage:  &protocol.RunUsage{Ms: &ms, Steps: 14, Errors: 1, Cost: &cost, Currency: &currency},
-					Checks: &checks, FirstHumanAction: &protocol.HumanAction{Kind: "asked", At: "2026-09-29T10:01:31Z"}, PullRequestState: &pullRequestState,
+					Checks: &checks, FirstHumanAction: &protocol.HumanAction{Kind: "accepted", At: "2026-09-29T10:01:31Z"}, PullRequestState: &pullRequestState,
 				},
 				Changes: []protocol.HistoryChange{
 					{Path: "api/upload.go", Before: "package api\n\nfunc upload() {}\n", After: "package api\n\nfunc upload() { retry() }\n"},
@@ -168,7 +168,7 @@ func TestHistoryWritesAGreppableTreeOfTheStationsRuns(t *testing.T) {
 	index := readFile(t, filepath.Join(dir, "index.md"))
 	for _, want := range []string{
 		"# Delivery / Implementation",
-		"[run_2](runs/run_2/journal.md) | Retry \\| uploads | bbbbbbbbbbbb | failed (tests-failed) | failed | asked | open | 2 | 0.42 USD | 14 | 90.0s |",
+		"[run_2](runs/run_2/journal.md) | Retry \\| uploads | bbbbbbbbbbbb | failed (tests-failed) | failed | accepted | open | 2 | 0.42 USD | 14 | 90.0s |",
 		"effort high → xhigh",
 		"prompt changed",
 		"+Run the tests first.",

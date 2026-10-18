@@ -148,9 +148,9 @@ import { FetchRunSecretsHandler } from '@work/application/commands/handlers/fetc
 import { FetchSharedRunSecretsHandler } from '@work/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
+import { MarkInboxItemReadHandler } from '@work/application/commands/handlers/mark-inbox-item-read.handler';
+import { MarkInboxRequestReadHandler } from '@work/application/commands/handlers/mark-inbox-request-read.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
-import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
-import { ReadInboxRequestHandler } from '@work/application/commands/handlers/read-inbox-request.handler';
 import { RecordEgressConnectionsHandler } from '@work/application/commands/handlers/record-egress-connections.handler';
 import { RecordHostCallResponseHandler } from '@work/application/commands/handlers/record-host-call-response.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
@@ -171,9 +171,9 @@ import {
   ClaimHostCallCommand,
   RecordHostCallResponseCommand,
 } from '@work/application/commands/host-call.commands';
+import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
+import { MarkInboxRequestReadCommand } from '@work/application/commands/mark-inbox-request-read.command';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
-import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
-import { ReadInboxRequestCommand } from '@work/application/commands/read-inbox-request.command';
 import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import {
@@ -2072,17 +2072,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TEAM_PROVISIONING,
   ]),
 
-  ...bindCommandHandler(ReadInboxRequestCommand, ReadInboxRequestHandler, [
-    InboxRequestLoader,
-    DrizzleInboxRequestRepository,
-    CLOCK,
-  ]),
+  ...bindCommandHandler(
+    MarkInboxRequestReadCommand,
+    MarkInboxRequestReadHandler,
+    [InboxRequestLoader, DrizzleInboxRequestRepository, CLOCK],
+  ),
   ...bindCommandHandler(ResolveNoticeCommand, ResolveNoticeHandler, [
     NoticeLoader,
     DrizzleNoticeRepository,
     CLOCK,
   ]),
-  ...bindCommandHandler(ReadInboxItemCommand, ReadInboxItemHandler, [
+  ...bindCommandHandler(MarkInboxItemReadCommand, MarkInboxItemReadHandler, [
     ConversationLoader,
     DrizzleTaskRepository,
     CLOCK,

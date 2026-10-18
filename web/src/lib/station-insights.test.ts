@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  configVersion,
+  configFingerprint,
   countedColumnsOf,
   type FingerprintGroup,
   hasRuns,
@@ -34,7 +34,7 @@ describe('recentRuns', () => {
       })),
     }) as unknown as FingerprintGroup;
 
-  it('lists only the config in force, in the listing’s start order', () => {
+  it('lists only the live config, in the listing’s start order', () => {
     expect(
       recentRuns(
         [group('a', 'run_4', 'run_3', 'run_2'), group('b', 'run_1')],
@@ -91,7 +91,7 @@ describe('countedColumnsOf', () => {
   });
 });
 
-describe('configVersion', () => {
+describe('configFingerprint', () => {
   const group = (
     fingerprint: string | null,
     firstDay: string | null,
@@ -105,7 +105,7 @@ describe('configVersion', () => {
 
   it('names the newest config, when it started and the pull request that brought it', () => {
     expect(
-      configVersion([
+      configFingerprint([
         group(
           'a'.repeat(64),
           '2026-10-03',
@@ -123,11 +123,11 @@ describe('configVersion', () => {
 
   it('names no pull request where none brought the config', () => {
     expect(
-      configVersion([group('a'.repeat(64), '2026-10-03')])?.pullRequest,
+      configFingerprint([group('a'.repeat(64), '2026-10-03')])?.pullRequest,
     ).toBeNull();
   });
 
-  it('has no version before any run carried a config', () => {
-    expect(configVersion([group(null, null)])).toBeNull();
+  it('has no fingerprint before any run carried a config', () => {
+    expect(configFingerprint([group(null, null)])).toBeNull();
   });
 });

@@ -68,7 +68,7 @@ const createInboxRequest = async (
   return requestId;
 };
 
-const readInboxRequest = (userId: string, requestId: string) =>
+const markInboxRequestRead = (userId: string, requestId: string) =>
   served(app)
     .post(`${inbox()}/requests/${requestId}/read`)
     .set(TEST_USER_HEADER, userId);
@@ -203,7 +203,8 @@ describe('who is told which memories a run used', () => {
       memoriesRequest,
     );
     expect(
-      (await readInboxRequest(ELSEWHERE_IN_WORKSPACE, memoriesRequest)).status,
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, memoriesRequest))
+        .status,
     ).toBe(204);
   });
 });
@@ -272,7 +273,8 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       memoriesRequest,
     );
     expect(
-      (await readInboxRequest(ELSEWHERE_IN_WORKSPACE, memoriesRequest)).status,
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, memoriesRequest))
+        .status,
     ).toBe(404);
   });
 });
@@ -307,10 +309,10 @@ describe('who is asked to grade a team’s run in their inbox', () => {
     expect(inboxRequests).not.toContain(unassigned);
     expect(inboxRequests).not.toContain(assignedElsewhere);
     expect(
-      (await readInboxRequest(ELSEWHERE_IN_WORKSPACE, unassigned)).status,
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, unassigned)).status,
     ).toBe(404);
     expect(
-      (await readInboxRequest(ELSEWHERE_IN_WORKSPACE, assignedElsewhere))
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, assignedElsewhere))
         .status,
     ).toBe(404);
   });
@@ -380,7 +382,7 @@ describe('who is alerted about a team’s station in their inbox', () => {
       alertRequest,
     );
     expect(
-      (await readInboxRequest(ELSEWHERE_IN_WORKSPACE, alertRequest)).status,
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, alertRequest)).status,
     ).toBe(404);
   });
 });

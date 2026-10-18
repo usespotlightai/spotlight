@@ -1,7 +1,7 @@
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
 import { StationItemHeading } from '@/components/features/stations/StationItemHeading';
-import { Noted } from '@/components/shared/Noted';
 import { Pill } from '@/components/shared/Pill';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import {
@@ -47,11 +47,11 @@ export function ReplayHeading({
             <ReplayStatePill state={replay.state} />
           )}
           {replay.isBaseline && (
-            <Noted note={BASELINE_NOTE}>
+            <WithTooltip tooltip={BASELINE_NOTE}>
               <span className="flex">
                 <Pill>{BASELINE_LABEL}</Pill>
               </span>
-            </Noted>
+            </WithTooltip>
           )}
         </>
       }
@@ -71,9 +71,9 @@ export function ReplayHeading({
         </>
       )}
       {' · '}
-      <Noted note={formatRan(replay.startedAt, replay.endedAt)}>
+      <WithTooltip tooltip={formatRan(replay.startedAt, replay.endedAt)}>
         <span>{since(replay.endedAt ?? replay.startedAt)}</span>
-      </Noted>
+      </WithTooltip>
     </StationItemHeading>
   );
 }

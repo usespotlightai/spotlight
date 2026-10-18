@@ -1,6 +1,6 @@
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
-import { NotedWarning } from '@/components/shared/NotedWarning';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { inaccessibleOf } from '@/lib/github';
 
 type GitHubDetailsProps = {
@@ -59,10 +59,10 @@ export function GitHubDetails({
                 <li key={repository} className="flex items-center gap-1.5">
                   {repository}
                   {inaccessible.has(repository) && (
-                    <NotedWarning
+                    <WarningTooltip
                       tone="destructive"
                       label="Not accessible"
-                      note={`The App can’t access ${repository}. Agents can’t work in it. Please grant the App access on GitHub.`}
+                      tooltip={`The App can’t access ${repository}. Agents can’t work in it. Please grant the App access on GitHub.`}
                     />
                   )}
                 </li>

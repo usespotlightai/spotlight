@@ -91,7 +91,7 @@ export class InboxApprovalResponseDto {
   })
   readonly inputs: readonly InboxApprovalInputResponseDto[];
 
-  @ApiProperty({ example: 'asked', enum: [...INBOX_APPROVAL_STATUSES] })
+  @ApiProperty({ example: 'pending', enum: [...INBOX_APPROVAL_STATUSES] })
   readonly status: string;
 
   @ApiProperty({

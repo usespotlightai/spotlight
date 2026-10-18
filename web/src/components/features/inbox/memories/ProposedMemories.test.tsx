@@ -296,7 +296,7 @@ describe('ProposedMemories', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens on the memories, and folds them into one line that says what waits', async () => {
+  it('opens on the memories, and collapses them into one line that says what waits', async () => {
     reviewState.data = {
       taskId: 'task_1',
       runId: 'run_1',

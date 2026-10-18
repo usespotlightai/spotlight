@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { formatCount, formatSpend } from '@/lib/insights';
 import { formatRepeats } from '@/lib/replay-words';
-import { formatDuration, type SearchEstimate } from '@/lib/search';
+import { formatEstimatedDuration, type SearchEstimate } from '@/lib/search';
 
 type SearchEstimateSummaryProps = {
   estimate: SearchEstimate | undefined;
@@ -85,7 +85,7 @@ export function SearchEstimateSummary({
         <div className={ROW}>
           <dt className="text-muted-foreground">Takes</dt>
           <dd className="text-right text-foreground">
-            {formatDuration(estimate.estimatedDuration)}
+            {formatEstimatedDuration(estimate.estimatedDuration)}
           </dd>
         </div>
       </dl>

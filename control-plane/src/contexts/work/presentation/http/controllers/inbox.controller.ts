@@ -23,8 +23,8 @@ import {
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
-import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
-import { ReadInboxRequestCommand } from '@work/application/commands/read-inbox-request.command';
+import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
+import { MarkInboxRequestReadCommand } from '@work/application/commands/mark-inbox-request-read.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import type {
   InboxEntryDto,
@@ -180,8 +180,8 @@ export class InboxController {
         body.approve === undefined
           ? null
           : body.approve
-            ? 'granted'
-            : 'refused',
+            ? 'approved'
+            : 'dismissed',
         editsInput(body.inputs),
       ),
     );
@@ -190,36 +190,38 @@ export class InboxController {
   @Post(':itemId/read')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'readInboxItem',
+    operationId: 'markInboxItemRead',
     summary: 'Mark what was put to a person as seen',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
   @ApiNoContentResponse({ description: 'It is no longer unread' })
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
-  async read(
+  async markInboxItemRead(
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ReadInboxItemCommand(itemId, user.id));
+    await this.commandBus.execute(
+      new MarkInboxItemReadCommand(itemId, user.id),
+    );
   }
 
   @Post('requests/:requestId/read')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'readInboxRequest',
+    operationId: 'markInboxRequestRead',
     summary: 'Mark an inbox request as seen',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'requestId', type: String, example: 'request_1' })
   @ApiNoContentResponse({ description: 'It is no longer unread' })
   @ApiNotFoundResponse({ description: 'No such inbox request for this caller' })
-  async readInboxRequest(
+  async markInboxRequestRead(
     @Param('requestId') requestId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(
-      new ReadInboxRequestCommand(requestId, user.id),
+      new MarkInboxRequestReadCommand(requestId, user.id),
     );
   }
 

@@ -1,6 +1,5 @@
 import { X } from 'lucide-react';
 import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
-import { NotedWarning } from '@/components/shared/NotedWarning';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
@@ -8,6 +7,7 @@ import {
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { useRemoveReplaySetEntry } from '@/hooks/api/useRemoveReplaySetEntry';
@@ -46,10 +46,10 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
           {title}
         </TrailLink>
         {entry.unreplayableReason && (
-          <NotedWarning
+          <WarningTooltip
             tone="destructive"
             label={formatReplayable(entry.unreplayableReason)}
-            note={formatReplayable(entry.unreplayableReason)}
+            tooltip={formatReplayable(entry.unreplayableReason)}
             className="relative z-10"
           />
         )}

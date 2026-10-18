@@ -1,4 +1,4 @@
-import { NotedWarning } from '@/components/shared/NotedWarning';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import type { SearchBestResponseDto } from '@/lib/api';
 import {
   formatNoBest,
@@ -27,10 +27,10 @@ export function SearchBestName({ best, objective }: SearchBestNameProps) {
         {best.isSeed ? 'Live config' : best.name}
       </span>
       {mark && (
-        <NotedWarning
+        <WarningTooltip
           data-slot="only-on-seen-tasks"
           data-mark={mark}
-          note={`${formatOverfit(mark)}. ${overfitNote(mark)}`}
+          tooltip={`${formatOverfit(mark)}. ${overfitNote(mark)}`}
           label={formatOverfit(mark)}
           tone={mark === 'likely' ? 'warning' : 'muted'}
           className="relative z-10"

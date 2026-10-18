@@ -1,5 +1,5 @@
 import { Minus, Triangle } from 'lucide-react';
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { GainEstimate } from '@/lib/replay';
 import {
   formatGain,
@@ -25,7 +25,7 @@ export function GainValue({ gain }: { gain: GainEstimate | null }) {
   const icon = cn('size-2.5 shrink-0', TONES[gain.significance]);
 
   return (
-    <Noted note={gainSignificanceNote(gain)}>
+    <WithTooltip tooltip={gainSignificanceNote(gain)}>
       <span
         data-slot="gain-value"
         data-significance={gain.significance}
@@ -51,6 +51,6 @@ export function GainValue({ gain }: { gain: GainEstimate | null }) {
           {formatGain(gain)}
         </span>
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

@@ -1,5 +1,5 @@
-import { Noted } from '@/components/shared/Noted';
 import { Pill } from '@/components/shared/Pill';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
   formatStopReason,
   formatStopReasonMark,
@@ -18,10 +18,10 @@ export function SearchStatePill({
   }
 
   return (
-    <Noted note={`${formatStopReason(stopReason)}.`}>
+    <WithTooltip tooltip={`${formatStopReason(stopReason)}.`}>
       <span className="flex">
         <Pill>{mark}</Pill>
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

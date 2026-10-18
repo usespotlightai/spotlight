@@ -6,7 +6,7 @@ import type {
   StationRunOutcomeResponseDto,
   TallyCountedResponseDto,
 } from '@/lib/api';
-import { spentIn, took } from '@/lib/inbox';
+import { formatShortDuration, spentIn } from '@/lib/inbox';
 import { formatDay, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { changePhrase } from '@/lib/station-config';
@@ -78,14 +78,14 @@ export const runSpent = (usage: StationRunOutcome['usage']): string =>
     ? spentIn(usage.cost, usage.currency)
     : '–';
 
-export const runTook = (usage: StationRunOutcome['usage']): string =>
-  usage?.ms != null ? took(usage.ms) : '–';
+export const formatRunDuration = (usage: StationRunOutcome['usage']): string =>
+  usage?.ms != null ? formatShortDuration(usage.ms) : '–';
 
 const formatCost = (cost: MoneyResponseDto | null): string =>
   cost ? spentIn(cost.amount, cost.currency) : '–';
 
-const formatTook = (ms: number | null): string =>
-  ms === null ? '–' : took(ms);
+const formatTallyDuration = (ms: number | null): string =>
+  ms === null ? '–' : formatShortDuration(ms);
 
 type TallyCounted = TallyCountedResponseDto;
 
@@ -112,12 +112,12 @@ const TALLY_COLUMNS: readonly TallyColumn[] = [
   countColumn('Checks failed', 'checksFailed'),
   countColumn('Accepted', 'accepted'),
   countColumn('Sent back', 'sentBack'),
-  countColumn('Passed', 'passed'),
+  countColumn('Passed on', 'passed'),
   countColumn('Merged', 'merged'),
   countColumn('Cancelled', 'cancelled'),
   { label: 'Cost', render: (tally) => formatCost(tally.cost) },
-  { label: 'Median', render: (tally) => formatTook(tally.medianMs) },
-  { label: 'p90', render: (tally) => formatTook(tally.p90Ms) },
+  { label: 'Median', render: (tally) => formatTallyDuration(tally.medianMs) },
+  { label: 'p90', render: (tally) => formatTallyDuration(tally.p90Ms) },
 ];
 
 const columnNamed = (label: string): TallyColumn => {
@@ -133,37 +133,37 @@ const columnNamed = (label: string): TallyColumn => {
 export const countedColumnsOf = (counted: TallyCounted): TallyColumn[] =>
   TALLY_COLUMNS.filter((column) => !column.counted || counted[column.counted]);
 
-type GlanceVisual = 'share' | 'strip' | 'cost' | 'duration';
+type SummaryVisual = 'share' | 'strip' | 'cost' | 'duration';
 
-export type GlanceColumn = TallyColumn & { readonly visual: GlanceVisual };
+export type SummaryColumn = TallyColumn & { readonly visual: SummaryVisual };
 
-const glanced = (label: string, visual: GlanceVisual): GlanceColumn => ({
+const summarized = (label: string, visual: SummaryVisual): SummaryColumn => ({
   ...columnNamed(label),
   visual,
 });
 
-export const GLANCE_COLUMNS: readonly GlanceColumn[] = [
-  glanced('Runs', 'strip'),
-  glanced('Accepted', 'share'),
-  glanced('Sent back', 'share'),
-  glanced('Failed', 'share'),
-  glanced('Cost', 'cost'),
-  glanced('Median', 'duration'),
+export const SUMMARY_COLUMNS: readonly SummaryColumn[] = [
+  summarized('Runs', 'strip'),
+  summarized('Accepted', 'share'),
+  summarized('Sent back', 'share'),
+  summarized('Failed', 'share'),
+  summarized('Cost', 'cost'),
+  summarized('Median', 'duration'),
 ];
 
-const newestInForce = (
+const newestLive = (
   groups: readonly FingerprintGroup[],
 ): readonly StationRunOutcome[] =>
   groups.find((group) => group.fingerprint !== null)?.runs ?? [];
 
-export const runsInForce = (
+export const liveRuns = (
   groups: readonly FingerprintGroup[],
-): StationRunOutcome[] => [...newestInForce(groups)].reverse();
+): StationRunOutcome[] => [...newestLive(groups)].reverse();
 
 export const recentRuns = (
   groups: readonly FingerprintGroup[],
   count: number,
-): StationRunOutcome[] => newestInForce(groups).slice(0, count);
+): StationRunOutcome[] => newestLive(groups).slice(0, count);
 
 export const hasRuns = (groups: readonly FingerprintGroup[]): boolean =>
   groups.some((group) => group.runs.length > 0);
@@ -174,7 +174,7 @@ export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
   { label: 'Checks', size: SPREAD },
   { label: 'Human action', size: SPREAD },
   { label: 'Pull request', size: SPREAD },
-  { label: 'Took', numeric: true, size: SPREAD },
+  { label: 'Duration', numeric: true, size: SPREAD },
   { label: 'Cost', numeric: true, size: SPREAD },
   { label: 'Ended', numeric: true, size: SPREAD },
 ];
@@ -187,12 +187,12 @@ export const RECENT_RUN_HEADINGS: readonly NestedHeading[] = [
 export type GroupSummary = {
   readonly name: string;
   readonly more: readonly string[];
-  readonly note: string | null;
+  readonly tooltip: string | null;
   readonly days: string | null;
   readonly checks: string;
   readonly humanAction: string;
   readonly pullRequestState: string;
-  readonly took: string;
+  readonly duration: string;
   readonly cost: string;
 };
 
@@ -224,25 +224,25 @@ export const groupSummary = (group: FingerprintGroup): GroupSummary => {
       ? 'Before the first run with a config'
       : (first ?? hash ?? ''),
     more,
-    note: hash && phrases.length > 0 ? [...phrases, hash].join(' · ') : null,
+    tooltip: hash && phrases.length > 0 ? [...phrases, hash].join(' · ') : null,
     days: daysOf(group),
     checks: rateOf(rates.checksPassed, 'passed'),
     humanAction: rateOf(rates.accepted, 'accepted'),
     pullRequestState: rateOf(rates.merged, 'merged'),
-    took: formatTook(tally.medianMs),
+    duration: formatTallyDuration(tally.medianMs),
     cost: formatCost(tally.cost),
   };
 };
 
-export type ConfigVersion = {
+export type ConfigFingerprint = {
   readonly fingerprint: string;
   readonly since: string | null;
   readonly pullRequest: string | null;
 };
 
-export const configVersion = (
+export const configFingerprint = (
   groups: readonly FingerprintGroup[],
-): ConfigVersion | null => {
+): ConfigFingerprint | null => {
   const versioned = groups.filter(
     (group): group is FingerprintGroup & { fingerprint: string } =>
       group.fingerprint !== null,

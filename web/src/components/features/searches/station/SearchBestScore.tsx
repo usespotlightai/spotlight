@@ -1,4 +1,4 @@
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { SearchBestResponseDto } from '@/lib/api';
 import { formatPercent } from '@/lib/judge';
 import { bestScoreOf } from '@/lib/search';
@@ -16,10 +16,10 @@ export function SearchBestScore({
   const { rate, interval, heldOut } = bestScoreOf(best);
 
   return (
-    <Noted note={bestScoreNote(heldOut, interval)}>
+    <WithTooltip tooltip={bestScoreNote(heldOut, interval)}>
       <span className="relative z-10 text-foreground tabular-nums">
         {formatPercent(rate)}
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

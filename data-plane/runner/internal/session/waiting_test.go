@@ -129,7 +129,7 @@ func TestAStopWhileWaitingCompletesTheRunAsStopped(t *testing.T) {
 func TestAPermissionEscalatedToAPersonIsAskedForAgainOnceAnswered(t *testing.T) {
 	written := run(t, permitting(t), escalatesToAPerson, func(o *runOptions) {
 		o.setup = protocol.HarnessSetup{AskKinds: []string{"execute"}}
-		o.decision = protocol.PermissionEscalated
+		o.decision = protocol.PermissionPending
 		o.answers = [][]protocol.Message{{{Position: 2, Body: "go ahead"}}}
 		o.answerWait = time.Minute
 		o.heartbeat = 10 * time.Millisecond
@@ -237,7 +237,7 @@ func TestAPermissionAnsweredBeforeTheTurnEndsIsSentAtOnceWithoutWaiting(t *testi
 	written := run(t, permitting(t), func(o *runOptions) {
 		o.briefing = "push the fix"
 		o.setup = protocol.HarnessSetup{AskKinds: []string{"execute"}}
-		o.decision = protocol.PermissionEscalated
+		o.decision = protocol.PermissionPending
 		o.messages = [][]protocol.Message{{{Position: 2, Body: "go ahead"}}}
 		o.answerWait = time.Minute
 		o.heartbeat = time.Hour

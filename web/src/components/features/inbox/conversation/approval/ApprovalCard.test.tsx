@@ -12,7 +12,7 @@ const COMMENT: Approval = {
     { name: 'body', value: 'Fixed.' },
     { name: 'issue', value: 'ENG-12' },
   ],
-  status: 'asked',
+  status: 'pending',
   edited: null,
   intent: 'post the drain summary on the issue, publicly under the team’s name',
   askedOf: null,
@@ -23,7 +23,7 @@ const EXECUTE: Approval = {
   name: 'claude-code execute',
   because: 'The harness asked before doing it.',
   inputs: [{ name: 'title', value: 'kubectl logs deploy/api --since=1h' }],
-  status: 'asked',
+  status: 'pending',
   edited: null,
   intent: null,
   askedOf: null,
@@ -254,7 +254,7 @@ describe('ApprovalCard', () => {
   it('says it was approved with the person’s changes, and shows what runs', () => {
     showing({
       ...COMMENT,
-      status: 'granted',
+      status: 'approved',
       edited: [
         { name: 'body', value: 'Fixed in #41.' },
         { name: 'issue', value: 'ENG-12' },
@@ -277,7 +277,7 @@ describe('ApprovalCard', () => {
   it('titles it as approved or dismissed', () => {
     const { rerender } = render(
       <ApprovalCard
-        approval={{ ...COMMENT, status: 'granted' }}
+        approval={{ ...COMMENT, status: 'approved' }}
         pending={false}
       />,
     );
@@ -291,7 +291,7 @@ describe('ApprovalCard', () => {
 
     rerender(
       <ApprovalCard
-        approval={{ ...COMMENT, status: 'refused' }}
+        approval={{ ...COMMENT, status: 'dismissed' }}
         pending={false}
       />,
     );

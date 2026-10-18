@@ -81,7 +81,7 @@ export class HeadlineResponseDto {
   @ApiProperty({
     example: 40,
     description:
-      'What people did with the tasks worked in the period: moves, answers, approvals, refusals, sends-back',
+      'What people did with the tasks worked in the period: moves, answers, approvals, dismissals, sends-back',
   })
   readonly humanActions: number;
 
@@ -293,7 +293,7 @@ export class SignalReadingResponseDto {
   @ApiProperty({
     enum: STATION_SIGNALS,
     description:
-      'sent-back: share of runs sent back or refused; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run',
+      'sent-back: share of runs sent back or dismissed; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run',
   })
   readonly signal: string;
 

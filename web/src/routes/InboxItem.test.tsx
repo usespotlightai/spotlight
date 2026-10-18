@@ -7,7 +7,7 @@ import { InboxItem } from '@/routes/InboxItem';
 import { pressEnter, write } from '@/test/lexical';
 
 const answer = vi.fn();
-const read = vi.fn();
+const markInboxItemRead = vi.fn();
 const waiting = vi.fn();
 const viewer = vi.fn();
 const journal = vi.fn();
@@ -49,14 +49,14 @@ vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
 }));
 
-vi.mock('@/hooks/api/useReadInboxItem', () => ({
-  useReadInboxItem: () => ({ mutate: read }),
+vi.mock('@/hooks/api/useMarkInboxItemRead', () => ({
+  useMarkInboxItemRead: () => ({ mutate: markInboxItemRead }),
 }));
 
-const readInboxRequest = vi.fn();
+const markInboxRequestRead = vi.fn();
 
-vi.mock('@/hooks/api/useReadInboxRequest', () => ({
-  useReadInboxRequest: () => ({ mutate: readInboxRequest }),
+vi.mock('@/hooks/api/useMarkInboxRequestRead', () => ({
+  useMarkInboxRequestRead: () => ({ mutate: markInboxRequestRead }),
 }));
 
 vi.mock('@/components/features/inbox/memories/MemoryThread', () => ({
@@ -134,7 +134,7 @@ function Switch({ to }: { to: string }) {
 describe('InboxItem', () => {
   beforeEach(() => {
     answer.mockClear();
-    read.mockClear();
+    markInboxItemRead.mockClear();
     waiting.mockReturnValue(item([note()]));
     viewer.mockReturnValue({ user: { id: 'user_2' } });
     journal.mockReturnValue([]);
@@ -195,16 +195,16 @@ describe('InboxItem', () => {
     });
 
     it('marks it seen as an inbox request, not as a conversation', () => {
-      readInboxRequest.mockClear();
+      markInboxRequestRead.mockClear();
       waiting.mockReturnValue(inboxRequest(true));
 
       renderItem('request_1');
 
-      expect(readInboxRequest).toHaveBeenCalledWith({
+      expect(markInboxRequestRead).toHaveBeenCalledWith({
         slug: 'acme',
         requestId: 'request_1',
       });
-      expect(read).not.toHaveBeenCalled();
+      expect(markInboxItemRead).not.toHaveBeenCalled();
     });
   });
 
@@ -255,7 +255,7 @@ describe('InboxItem', () => {
     });
   });
 
-  it('folds the work away behind the note of the station', async () => {
+  it('collapses the work behind the note of the station', async () => {
     const person = userEvent.setup();
     journal.mockReturnValue([
       {
@@ -650,13 +650,16 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    expect(read).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:0' });
+    expect(markInboxItemRead).toHaveBeenCalledWith({
+      slug: 'acme',
+      itemId: 'task_1:0',
+    });
   });
 
   it('leaves what has already been read alone', () => {
     renderItem();
 
-    expect(read).not.toHaveBeenCalled();
+    expect(markInboxItemRead).not.toHaveBeenCalled();
   });
 
   it('reads the conversation it opens with, not the task', () => {
@@ -677,7 +680,10 @@ describe('InboxItem', () => {
       </QueryClientProvider>,
     );
 
-    expect(read).toHaveBeenCalledWith({ slug: 'acme', itemId: 'task_1:4' });
+    expect(markInboxItemRead).toHaveBeenCalledWith({
+      slug: 'acme',
+      itemId: 'task_1:4',
+    });
   });
 
   it('puts a failure in words and counts how often it happened', () => {

@@ -24,8 +24,8 @@ const input = (over: Partial<Enabled> = {}) =>
   render(
     <ChatInput
       slug="acme"
-      label="Say something to Triage"
-      placeholder="Say something…"
+      label="Message Triage"
+      placeholder="Write a message…"
       pending={false}
       settings={null}
       onSend={vi.fn()}
@@ -33,8 +33,7 @@ const input = (over: Partial<Enabled> = {}) =>
     />,
   );
 
-const box = () =>
-  screen.getByRole('textbox', { name: 'Say something to Triage' });
+const box = () => screen.getByRole('textbox', { name: 'Message Triage' });
 
 const send = () => screen.getByRole('button', { name: 'Send' });
 
@@ -192,8 +191,8 @@ describe('ChatInput', () => {
     render(
       <ChatInput
         slug="acme"
-        label="Say something to Triage"
-        placeholder="Say something…"
+        label="Message Triage"
+        placeholder="Write a message…"
         disabled
         settings={<button type="button">Agent</button>}
       />,
@@ -206,7 +205,7 @@ describe('ChatInput', () => {
     ).not.toBeNull();
   });
 
-  it('sits on one line, and opens out once what is written runs past it, and folds back once it fits again', async () => {
+  it('sits on one line, and opens out once what is written runs past it, and collapses back once it fits again', async () => {
     let notice: () => void = () => {};
     vi.stubGlobal(
       'ResizeObserver',

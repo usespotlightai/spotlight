@@ -4,7 +4,7 @@ import type {
   ServerCounts,
   SkillUseCount,
   ToolCounts,
-  ToolRefusals,
+  ToolDismissals,
 } from '@insights/domain/services/tool-insights';
 import {
   endedIn,
@@ -38,13 +38,13 @@ interface ServerRow extends Record<string, unknown> {
   readonly failed_calls: number;
   readonly latency: number[];
   readonly failing_runs: number;
-  readonly refused: number;
+  readonly dismissed: number;
 }
 
-interface RefusalRow extends Record<string, unknown> {
+interface DismissalRow extends Record<string, unknown> {
   readonly tool: string;
   readonly server: string | null;
-  readonly refused: number;
+  readonly dismissed: number;
 }
 
 const ranIn = (team: TeamInPeriod): SQL => {
@@ -141,11 +141,11 @@ const serversIn = async (
         with ordinality as bucket(count, position)
       group by calls.server, bucket.position
     ),
-    refused as (
-      select refusal.value->>'server' as server, count(distinct ran.run_id) as runs
+    dismissed as (
+      select dismissal.value->>'server' as server, count(distinct ran.run_id) as runs
       from ran
-      cross join lateral jsonb_array_elements(ran.refusals) as refusal(value)
-      group by refusal.value->>'server'
+      cross join lateral jsonb_array_elements(ran.dismissals) as dismissal(value)
+      group by dismissal.value->>'server'
     )
     select
       calls.server,
@@ -154,8 +154,8 @@ const serversIn = async (
       sum(calls.failed)::float8 as failed_calls,
       count(*) filter (where calls.failing)::int as failing_runs,
       coalesce((
-        select refused.runs from refused where refused.server = calls.server
-      ), 0)::int as refused,
+        select dismissed.runs from dismissed where dismissed.server = calls.server
+      ), 0)::int as dismissed,
       (
         select array_agg(buckets.count::float8 order by buckets.position)
         from buckets
@@ -169,22 +169,22 @@ const serversIn = async (
   return result.rows;
 };
 
-const refusalsIn = async (
+const dismissalsIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
-): Promise<readonly RefusalRow[]> => {
-  const result = await db.execute<RefusalRow>(sql`
-    select refused.tool, refused.server, count(distinct refused.run_id)::int as refused
+): Promise<readonly DismissalRow[]> => {
+  const result = await db.execute<DismissalRow>(sql`
+    select dismissed.tool, dismissed.server, count(distinct dismissed.run_id)::int as dismissed
     from (
       select
         ran.run_id,
-        refusal.value->>'tool' as tool,
-        refusal.value->>'server' as server
+        dismissal.value->>'tool' as tool,
+        dismissal.value->>'server' as server
       from (${ranIn(team)}) as ran
-      cross join lateral jsonb_array_elements(ran.refusals) as refusal(value)
-    ) as refused
-    group by refused.tool, refused.server
-    order by refused.tool collate "C", refused.server collate "C" nulls first
+      cross join lateral jsonb_array_elements(ran.dismissals) as dismissal(value)
+    ) as dismissed
+    group by dismissed.tool, dismissed.server
+    order by dismissed.tool collate "C", dismissed.server collate "C" nulls first
   `);
 
   return result.rows;
@@ -207,7 +207,7 @@ export const toolCountsIn = async (
   const stations = await stationsIn(db, team);
   const skills = await skillsIn(db, team);
   const servers = await serversIn(db, team);
-  const refusals = await refusalsIn(db, team);
+  const dismissals = await dismissalsIn(db, team);
 
   return {
     runs: runs.map(
@@ -238,14 +238,14 @@ export const toolCountsIn = async (
         failedCalls: row.failed_calls,
         latency: row.latency,
         failingRuns: row.failing_runs,
-        refused: row.refused,
+        dismissed: row.dismissed,
       }),
     ),
-    refusals: refusals.map(
-      (row): ToolRefusals => ({
+    dismissals: dismissals.map(
+      (row): ToolDismissals => ({
         tool: row.tool,
         server: row.server,
-        refused: row.refused,
+        dismissed: row.dismissed,
       }),
     ),
   };

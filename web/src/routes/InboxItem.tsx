@@ -7,7 +7,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { useInbox } from '@/hooks/api/useInbox';
 import { useInboxItemRefresh } from '@/hooks/api/useInboxItemRefresh';
-import { useReadOnSight } from '@/hooks/api/useReadOnSight';
+import { useMarkReadOnView } from '@/hooks/api/useMarkReadOnView';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useClearedParam } from '@/hooks/useClearedParam';
 import { useInboxItemTrail } from '@/hooks/useInboxItemTrail';
@@ -26,7 +26,7 @@ export function InboxItem() {
   );
 
   useInboxItemRefresh(slug, item);
-  useReadOnSight(slug, item);
+  useMarkReadOnView(slug, item);
 
   const { trail } = useTrail(useInboxItemTrail(slug, item));
 

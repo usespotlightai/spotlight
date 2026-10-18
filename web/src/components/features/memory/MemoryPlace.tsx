@@ -8,9 +8,9 @@ type MemoryPlaceProps = {
 };
 
 export function MemoryPlace({ tree, open }: MemoryPlaceProps) {
-  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
-  const fold = (key: string) =>
-    setFolded((was) => {
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (key: string) =>
+    setCollapsed((was) => {
       const next = new Set(was);
 
       if (!next.delete(key)) {
@@ -31,8 +31,8 @@ export function MemoryPlace({ tree, open }: MemoryPlaceProps) {
         root
         last
         open={open}
-        folded={folded}
-        onFold={fold}
+        collapsed={collapsed}
+        onToggle={toggle}
       />
     </ul>
   );

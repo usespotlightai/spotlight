@@ -5,26 +5,22 @@ const weeks = (...uses: [number, number][]) =>
   uses.map(([runs, used]) => ({ runs, used }));
 
 describe('skillTrendOf', () => {
-  it('spreads when the latest two weeks’ share of runs that used it is 20 points above the weeks before', () => {
-    expect(skillTrendOf(weeks([5, 1], [5, 1], [5, 3], [5, 3]))).toBe(
-      'spreading',
-    );
+  it('rises when the latest two weeks’ share of runs that used it is 20 points above the weeks before', () => {
+    expect(skillTrendOf(weeks([5, 1], [5, 1], [5, 3], [5, 3]))).toBe('rising');
   });
 
-  it('fades when that share falls 20 points or more', () => {
-    expect(skillTrendOf(weeks([5, 4], [5, 4], [5, 2], [5, 2]))).toBe('fading');
+  it('falls when that share falls 20 points or more', () => {
+    expect(skillTrendOf(weeks([5, 4], [5, 4], [5, 2], [5, 2]))).toBe('falling');
   });
 
-  it('stays steady when the share moves less than 20 points', () => {
+  it('stays flat when the share moves less than 20 points', () => {
     expect(skillTrendOf(weeks([10, 5], [10, 5], [10, 6], [10, 6]))).toBe(
-      'steady',
+      'flat',
     );
   });
 
   it('counts a move of exactly 20 points', () => {
-    expect(skillTrendOf(weeks([5, 2], [5, 2], [5, 3], [5, 3]))).toBe(
-      'spreading',
-    );
+    expect(skillTrendOf(weeks([5, 2], [5, 2], [5, 3], [5, 3]))).toBe('rising');
   });
 
   it('says nothing with fewer than five runs on either side', () => {

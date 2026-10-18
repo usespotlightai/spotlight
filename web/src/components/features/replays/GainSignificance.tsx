@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { GainEstimate } from '@/lib/replay';
 import {
   formatGain,
@@ -44,14 +44,14 @@ export function GainSignificance({
           {VERSUS} {against}
         </span>
       )}
-      <Noted note={gainSignificanceNote(gain)}>
+      <WithTooltip tooltip={gainSignificanceNote(gain)}>
         <span
           data-slot="gain-significance-word"
           className={cn('font-medium', TONES[gain.significance])}
         >
           · {formatGainSignificance(gain.significance)}
         </span>
-      </Noted>
+      </WithTooltip>
     </span>
   );
 }

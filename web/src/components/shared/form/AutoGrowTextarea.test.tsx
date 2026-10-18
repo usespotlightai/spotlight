@@ -41,12 +41,12 @@ describe('AutoGrowTextarea', () => {
       <AutoGrowTextarea
         value=""
         rows={2}
-        placeholder="Say something…"
+        placeholder="Write a message…"
         onChange={() => {}}
       />,
     );
 
-    const textarea = screen.getByPlaceholderText('Say something…');
+    const textarea = screen.getByPlaceholderText('Write a message…');
     expect(textarea.style.height).toBe('');
     expect(textarea).toHaveAttribute('rows', '2');
   });

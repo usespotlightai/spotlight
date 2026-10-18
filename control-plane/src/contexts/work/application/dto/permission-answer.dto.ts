@@ -1,4 +1,4 @@
-export const PERMISSION_ANSWERS = ['allow', 'reject', 'asked'] as const;
+export const PERMISSION_ANSWERS = ['allow', 'reject', 'pending'] as const;
 
 export type PermissionAnswer = (typeof PERMISSION_ANSWERS)[number];
 

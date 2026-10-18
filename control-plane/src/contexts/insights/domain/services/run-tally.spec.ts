@@ -46,7 +46,7 @@ describe('runTally', () => {
         endedRecord('run_4')
           .recordCheck('skipped', RECEIVED_AT)
           .recordAction(HumanAction.of('accepted', AT)),
-        endedRecord('run_5').recordAction(HumanAction.of('refused', AT)),
+        endedRecord('run_5').recordAction(HumanAction.of('dismissed', AT)),
       ],
       [],
     );

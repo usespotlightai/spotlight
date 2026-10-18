@@ -83,7 +83,7 @@ describe('the mock work area', () => {
     );
   });
 
-  it('reads what a run remembered', async () => {
+  it('reads the memories of a run', async () => {
     const { data } = await readRunMemories({
       path: { teamId, runId: 'run_retries_3' },
       throwOnError: true,

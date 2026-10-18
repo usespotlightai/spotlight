@@ -52,10 +52,10 @@ export class ChatRunWork implements RunWork {
   async clearFor(declared: DeclaredTool): Promise<Cleared> {
     return declared.approval
       ? {
-          kind: 'refused',
+          kind: 'dismissed',
           reason: `${declared.tool.value} has to be approved by a person on a task, and a chat has nobody to put it to.`,
         }
-      : { kind: 'granted', edited: null, returned: async () => {} };
+      : { kind: 'approved', edited: null, returned: async () => {} };
   }
 
   async askToConnect(
@@ -69,7 +69,7 @@ export class ChatRunWork implements RunWork {
   }
 
   async clearPermission(): Promise<PermissionCleared> {
-    return 'refused';
+    return 'dismissed';
   }
 
   async toolContext(): Promise<ChatToolContext> {

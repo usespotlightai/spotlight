@@ -13,8 +13,8 @@ import {
   formatEnding,
   formatHumanAction,
   formatPullRequestState,
+  formatRunDuration,
   runSpent,
-  runTook,
   type StationRunOutcome,
 } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
@@ -57,7 +57,7 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
       <NestedCell heading="Pull request" numeric={false}>
         {formatPullRequestState(run.pullRequestState)}
       </NestedCell>
-      <NestedCell heading="Took">{runTook(run.usage)}</NestedCell>
+      <NestedCell heading="Duration">{formatRunDuration(run.usage)}</NestedCell>
       <NestedCell heading="Cost" strong>
         {runSpent(run.usage)}
       </NestedCell>

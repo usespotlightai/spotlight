@@ -4,7 +4,7 @@ const HUMAN_ACTION_KINDS = [
   'accepted',
   'answered',
   'approved',
-  'refused',
+  'dismissed',
   'sent-back',
 ] as const;
 

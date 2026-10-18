@@ -690,7 +690,7 @@ describe('UseToolHandler', () => {
       { name: 'issue', value: 'ENG-12' },
     ]);
     expect(asked?.approval?.because).toBe(NEEDS_APPROVAL.because);
-    expect(asked?.approval?.status).toBe('asked');
+    expect(asked?.approval?.status).toBe('pending');
     expect(asked?.approval?.at.value).toBe('station_1');
     expect(asked?.body.value).toContain('It posts publicly');
     expect(asked?.body.value).toContain('Fixed.');
@@ -847,7 +847,7 @@ describe('UseToolHandler', () => {
             at: NOW,
             voice: Voice.person(UserId.of('user_1')),
           },
-          'granted',
+          'approved',
         ),
         currentRunId: RunId.of('run_1'),
       }),
@@ -895,7 +895,7 @@ describe('UseToolHandler', () => {
             at: NOW,
             voice: Voice.person(UserId.of('user_1')),
           },
-          'granted',
+          'approved',
           { issue: 'ENG-12', body: 'Fixed in #41.' },
         ),
         currentRunId: RunId.of('run_1'),
@@ -935,7 +935,7 @@ describe('UseToolHandler', () => {
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
       },
-      'granted',
+      'approved',
     );
 
     const { useTool, called, current, recorded } = using(
@@ -983,7 +983,7 @@ describe('UseToolHandler', () => {
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
       },
-      'granted',
+      'approved',
     );
 
     const { useTool, called, current } = using(claimed(['linear.comment']), {
@@ -1027,7 +1027,7 @@ describe('UseToolHandler', () => {
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
       },
-      'refused',
+      'dismissed',
     );
 
     const { useTool, called, current } = using(claimed(['linear.comment']), {
@@ -1109,7 +1109,7 @@ describe('UseToolHandler', () => {
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
       },
-      'granted',
+      'approved',
     );
 
     const { useTool, called } = using(claimed(['linear.comment']), {
@@ -1210,7 +1210,7 @@ describe('UseToolHandler', () => {
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
         },
-        'granted',
+        'approved',
       );
 
       const { useTool, called, hooked, current } = using(
@@ -1258,7 +1258,7 @@ describe('UseToolHandler', () => {
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
         },
-        'granted',
+        'approved',
       );
 
       const { useTool, called, current } = using(claimed(['linear.comment']), {
@@ -1318,7 +1318,7 @@ describe('UseToolHandler', () => {
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
         },
-        'granted',
+        'approved',
       );
       const { useTool, called, recorded, current } = using(
         claimed(['linear.comment']),

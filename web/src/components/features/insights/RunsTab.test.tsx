@@ -151,7 +151,7 @@ describe('the runs tab', () => {
     ).getAllByRole('listitem');
 
     expect(first).toHaveTextContent(
-      'CompletedFailure–StationImplementationPersonSam RiveraAgent configClaude Code · Harness defaultTook5m 12sCost$1.84Endedjust now',
+      'CompletedFailure–StationImplementationPersonSam RiveraAgent configClaude Code · Harness defaultDuration5m 12sCost$1.84Endedjust now',
     );
     expect(second).toHaveTextContent('FailedFailureThe agent ran out of turns');
     expect(second).toHaveTextContent('No one');

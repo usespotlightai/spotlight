@@ -58,7 +58,7 @@ export interface StoredMemories {
   readonly recalled: readonly string[];
 }
 
-export interface StoredRefusal {
+export interface StoredDismissal {
   readonly tool: string;
   readonly server: string | null;
   readonly at: string;
@@ -180,7 +180,10 @@ export const runRecord = pgTable(
     cacheReadTokens: bigint('cache_read_tokens', { mode: 'number' }),
     cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
     tools: jsonb('tools').$type<StoredTools>(),
-    refusals: jsonb('refusals').$type<StoredRefusal[]>().notNull().default([]),
+    dismissals: jsonb('dismissals')
+      .$type<StoredDismissal[]>()
+      .notNull()
+      .default([]),
     memories: jsonb('memories')
       .$type<StoredMemories>()
       .notNull()
@@ -256,7 +259,7 @@ export const runFact = pgTable(
     cacheReadTokens: bigint('cache_read_tokens', { mode: 'number' }),
     cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
     tools: jsonb('tools').$type<StoredTools>(),
-    refusals: jsonb('refusals').$type<StoredRefusal[]>().notNull(),
+    dismissals: jsonb('dismissals').$type<StoredDismissal[]>().notNull(),
     memories: jsonb('memories').$type<StoredMemories>().notNull(),
     openedBy: text('opened_by'),
     taskOpenedAt: timestamp('task_opened_at'),

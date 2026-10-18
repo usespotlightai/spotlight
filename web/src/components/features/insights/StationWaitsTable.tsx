@@ -1,4 +1,4 @@
-import { DeltaMark } from '@/components/features/insights/DeltaMark';
+import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   type InsightsColumn,
@@ -55,7 +55,7 @@ export function StationWaitsTable({
             <InsightsLink tab="runs" filter={{ stationId: station.stationId }}>
               {formatCount(station.tasks)}
             </InsightsLink>
-            {delta && <DeltaMark delta={delta} />}
+            {delta && <DeltaGlyph delta={delta} />}
           </span>
         );
       },

@@ -164,10 +164,10 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
 };
 
 const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {
-  open: 'waiting',
+  open: 'pending',
   accepted: 'approved',
   created: 'approved',
-  dismissed: 'declined',
+  dismissed: 'dismissed',
 };
 
 export const proposalStatusOf = (proposal: Proposal): ApprovalStatus =>

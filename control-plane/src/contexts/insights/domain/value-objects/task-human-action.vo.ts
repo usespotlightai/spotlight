@@ -18,8 +18,8 @@ export class TaskHumanAction {
     return new TaskHumanAction(input.kind, input.by, input.stationId, input.at);
   }
 
-  get refuses(): boolean {
-    return this.kind === 'refused';
+  get dismisses(): boolean {
+    return this.kind === 'dismissed';
   }
 
   equals(other: TaskHumanAction): boolean {

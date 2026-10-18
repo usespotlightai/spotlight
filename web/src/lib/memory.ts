@@ -17,7 +17,7 @@ export type ProposedMemory = ProposedMemoryResponseDto;
 
 export type TeamMemory = TeamMemoryResponseDto;
 
-export type RunMemories = RunMemoriesResponseDto;
+export type RunMemoriesData = RunMemoriesResponseDto;
 
 export type RunProposal = RunProposalResponseDto;
 
@@ -32,7 +32,7 @@ export const memoryPath = (
 ): string =>
   `${teamSectionPath(slug, teamId, 'memory')}?${FOCUS_PARAM}=${encodeURIComponent(memoryId)}`;
 
-export const suppliedMemories = (memories: RunMemories): TeamMemory[] => {
+export const suppliedMemories = (memories: RunMemoriesData): TeamMemory[] => {
   const briefed = new Set(memories.briefed.map((memory) => memory.id));
 
   return [
@@ -41,7 +41,7 @@ export const suppliedMemories = (memories: RunMemories): TeamMemory[] => {
   ];
 };
 
-export const rememberedNothing = (memories: RunMemories): boolean =>
+export const hasNoMemories = (memories: RunMemoriesData): boolean =>
   suppliedMemories(memories).length === 0 && memories.proposed.length === 0;
 
 export type MemoryProvenance = Pick<
@@ -142,9 +142,9 @@ export const proposalTitleOf = (memory: ProposedMemory): string => {
 };
 
 const PROPOSAL_STATUSES: Record<ProposedMemory['state'], ApprovalStatus> = {
-  proposed: 'waiting',
+  proposed: 'pending',
   approved: 'approved',
-  rejected: 'declined',
+  rejected: 'dismissed',
 };
 
 export const proposalStatusOf = (memory: ProposedMemory): ApprovalStatus =>
@@ -220,12 +220,12 @@ export const unnarrowed = (filter: MemoryFilter): MemoryFilter => ({
   path: null,
 });
 
-export interface RememberedCount {
+export interface MemoryCount {
   readonly what: string;
   readonly count: number;
 }
 
-export const rememberedCounts = (memories: RunMemories): RememberedCount[] =>
+export const memoryCounts = (memories: RunMemoriesData): MemoryCount[] =>
   [
     { what: 'Supplied', count: suppliedMemories(memories).length },
     { what: 'Proposed', count: memories.proposed.length },

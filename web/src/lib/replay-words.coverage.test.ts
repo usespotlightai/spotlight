@@ -7,8 +7,8 @@ import {
   formatGainSignificance,
   formatReason,
   formatResult,
+  formatRunOutcome,
   formatState,
-  formatTurnedOut,
   formatUncompared,
   formatUnpaired,
   formatUnreplayableReason,
@@ -109,7 +109,7 @@ describe('replay words cover every code the API can answer', () => {
 
   it('words every way a set’s run can have turned out', () => {
     for (const outcome of codesOf('ReplaySetEntryResponseDto', 'outcome')) {
-      worded(formatTurnedOut(outcome as never), outcome);
+      worded(formatRunOutcome(outcome as never), outcome);
     }
   });
 

@@ -546,7 +546,7 @@ describe('HandOver', () => {
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
         },
-        'granted',
+        'approved',
       );
     };
 

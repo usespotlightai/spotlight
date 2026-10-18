@@ -1,7 +1,7 @@
 import { ShieldCheck } from 'lucide-react';
 import { SetCaveats } from '@/components/features/insights/candidates/SetCaveats';
-import { Noted } from '@/components/shared/Noted';
 import { Pill } from '@/components/shared/Pill';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type CandidatesSet, formatTasks } from '@/lib/insights-candidates';
 import { type ReplayedStation, replaySetPath } from '@/lib/replay';
@@ -31,7 +31,7 @@ export function SetSummary({ at, set }: SetSummaryProps) {
         </span>
         <SetCaveats health={set.health} minGain={set.health.minGain} />
         {set.gatesChanges && (
-          <Noted note="Checks pull requests. If a pull request changes this station’s config, Spotlight replays it on this set. The pull request passes only if it does at least as well as the live config.">
+          <WithTooltip tooltip="Checks pull requests. If a pull request changes this station’s config, Spotlight replays it on this set. The pull request passes only if it does at least as well as the live config.">
             <span
               role="img"
               aria-label="Checks pull requests"
@@ -39,7 +39,7 @@ export function SetSummary({ at, set }: SetSummaryProps) {
             >
               <ShieldCheck aria-hidden className="size-3.5" />
             </span>
-          </Noted>
+          </WithTooltip>
         )}
         {set.stationGone && <Pill>Station gone</Pill>}
       </div>

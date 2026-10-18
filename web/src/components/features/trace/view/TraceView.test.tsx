@@ -389,12 +389,12 @@ describe('TraceView', () => {
     });
   });
 
-  it('folds a row away', async () => {
+  it('collapses a row', async () => {
     const user = userEvent.setup();
     view();
 
     await user.click(
-      screen.getByRole('button', { name: 'Fold Turn · claude-code' }),
+      screen.getByRole('button', { name: 'Collapse Turn · claude-code' }),
     );
 
     expect(rows().map((row) => row.textContent)).toEqual([

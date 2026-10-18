@@ -13,12 +13,12 @@ import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 export type Cleared =
   | {
-      readonly kind: 'granted';
+      readonly kind: 'approved';
       readonly edited: ToolInputs | null;
       returned(): Promise<void>;
     }
-  | { readonly kind: 'asked' }
-  | { readonly kind: 'refused'; readonly reason: string };
+  | { readonly kind: 'pending' }
+  | { readonly kind: 'dismissed'; readonly reason: string };
 
 export type PermissionCleared = Cleared['kind'];
 

@@ -100,9 +100,9 @@ type EnvVariable struct {
 }
 
 const (
-	PermissionAllow     = "allow"
-	PermissionReject    = "reject"
-	PermissionEscalated = "asked"
+	PermissionAllow   = "allow"
+	PermissionReject  = "reject"
+	PermissionPending = "pending"
 )
 
 type PermissionRequest struct {

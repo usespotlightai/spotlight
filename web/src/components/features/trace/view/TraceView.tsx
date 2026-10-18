@@ -6,9 +6,9 @@ import { TraceRow } from '@/components/features/trace/view/TraceRow';
 import { TraceScale } from '@/components/features/trace/view/TraceScale';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
-import { useLingering } from '@/hooks/useLingering';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
-import { took } from '@/lib/inbox';
+import { formatShortDuration } from '@/lib/inbox';
 import { NAMES_PANE, rowsOf, type Trace } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
@@ -47,7 +47,7 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
 
   const chosen = rows.find((row) => row.node.id === picked)?.node ?? null;
 
-  const lingering = useLingering(chosen, LEAVING);
+  const displayed = useDelayedValue(chosen, LEAVING);
 
   const whole = Math.max(trace.ms, 0);
 
@@ -65,10 +65,10 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
 
   return (
     <PaneScroller
-      aside={
-        lingering && (
+      sidePanel={
+        displayed && (
           <SpanDetail
-            node={lingering}
+            node={displayed}
             teamId={teamId}
             open={chosen !== null}
             duration={LEAVING}
@@ -88,7 +88,9 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
             names.resizing && 'select-none',
           )}
         >
-          <TraceScale label={(tick) => took(Math.round(whole * tick))} />
+          <TraceScale
+            label={(tick) => formatShortDuration(Math.round(whole * tick))}
+          />
 
           {rows.length === 0 ? (
             <p className="p-8 text-center text-muted-foreground text-sm">

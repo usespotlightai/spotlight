@@ -1,4 +1,4 @@
-import { RunRemembered } from '@/components/features/runs/remembered/RunRemembered';
+import { RunMemories } from '@/components/features/runs/memories/RunMemories';
 import { CopyIcon } from '@/components/shared/CopyIcon';
 import { IconAction } from '@/components/shared/IconAction';
 import { useCopied } from '@/hooks/useCopied';
@@ -34,7 +34,7 @@ export function RunActions({
         <CopyIcon copied={copied} />
       </IconAction>
 
-      <RunRemembered slug={slug} teamId={teamId} runId={runId} />
+      <RunMemories slug={slug} teamId={teamId} runId={runId} />
 
       <span className="ml-1.5 flex items-center gap-1.5 text-muted-foreground text-xs">
         <span aria-hidden>·</span>

@@ -78,7 +78,7 @@ export class TaskRunWork implements RunWork {
     const needed = declared.approval;
 
     if (!needed) {
-      return { kind: 'granted', edited: null, returned: async () => {} };
+      return { kind: 'approved', edited: null, returned: async () => {} };
     }
 
     const line = await this.lines.findByStation(this.task.stationId);
@@ -96,16 +96,16 @@ export class TaskRunWork implements RunWork {
       intent,
     );
 
-    if (check.kind === 'refused') {
+    if (check.kind === 'dismissed') {
       return check;
     }
 
     await this.tasks.save(task);
 
-    return check.kind === 'asked'
+    return check.kind === 'pending'
       ? check
       : {
-          kind: 'granted',
+          kind: 'approved',
           edited: check.edited,
           returned: () => this.returned(task, check.claimed),
         };
@@ -188,7 +188,7 @@ export class TaskRunWork implements RunWork {
       null,
     );
 
-    if (check.kind !== 'refused') {
+    if (check.kind !== 'dismissed') {
       await this.tasks.save(task);
     }
 

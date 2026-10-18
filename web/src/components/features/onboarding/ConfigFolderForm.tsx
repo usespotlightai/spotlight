@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRepositories } from '@/hooks/api/useRepositories';
 import { useStartChat } from '@/hooks/api/useStartChat';
-import { useRemembered } from '@/hooks/useRemembered';
+import { useStoredState } from '@/hooks/useStoredState';
 import { CHAT_HARNESS_KEY, chatPath } from '@/lib/chat';
 import { messageOf } from '@/lib/error';
 
@@ -24,7 +24,7 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
   const navigate = useNavigate();
   const { data: repositories } = useRepositories(slug);
   const { data: harnesses } = useHarnesses();
-  const [remembered, remember] = useRemembered(CHAT_HARNESS_KEY, '');
+  const [stored, store] = useStoredState(CHAT_HARNESS_KEY, '');
   const [repository, setRepository] = useState<string | null>(null);
   const [folder, setFolder] = useState(FOLDER);
   const [reading, setReading] = useState<string[]>([]);
@@ -32,8 +32,8 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
   const [effort, setEffort] = useState('');
   const start = useStartChat();
 
-  const harness = harnesses?.some((each) => each.id === remembered)
-    ? remembered
+  const harness = harnesses?.some((each) => each.id === stored)
+    ? stored
     : (harnesses?.[0]?.id ?? '');
   const ready = Boolean(repository && folder.trim() && harness);
 
@@ -97,7 +97,7 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
         model={model}
         effort={effort}
         onHarness={(next) => {
-          remember(next);
+          store(next);
           setModel('');
           setEffort('');
         }}

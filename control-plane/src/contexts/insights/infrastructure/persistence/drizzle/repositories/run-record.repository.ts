@@ -8,12 +8,12 @@ import {
   type ConfigIntervalBound,
   earliestBounds,
 } from '@insights/domain/services/config-intervals';
+import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import {
   HumanAction,
   TASK_ACTIONS,
   type TaskAction,
 } from '@insights/domain/value-objects/human-action.vo';
-import { Refusal } from '@insights/domain/value-objects/refusal.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -193,9 +193,13 @@ const storedToolsOf = (tools: RunTools): StoredTools => ({
   skillsRead: [...tools.skillsRead],
 });
 
-const refusalsOf = (row: RecordRow): readonly Refusal[] =>
-  row.refusals.map((each) =>
-    Refusal.of({ tool: each.tool, server: each.server, at: new Date(each.at) }),
+const dismissalsOf = (row: RecordRow): readonly Dismissal[] =>
+  row.dismissals.map((each) =>
+    Dismissal.of({
+      tool: each.tool,
+      server: each.server,
+      at: new Date(each.at),
+    }),
   );
 
 const memoriesOf = (row: RecordRow): RunMemories =>
@@ -231,7 +235,7 @@ const toRecord = (row: RecordRow): RunRecord =>
     usage: usageOf(row),
     passed: passOf(row),
     tools: toolsOf(row),
-    refusals: refusalsOf(row),
+    dismissals: dismissalsOf(row),
     memories: memoriesOf(row),
     version: row.version,
   });
@@ -280,7 +284,7 @@ const columnsOf = (record: RunRecord) => {
     cacheReadTokens: record.usage?.tokens.cacheRead ?? null,
     cacheWriteTokens: record.usage?.tokens.cacheWrite ?? null,
     tools: record.tools ? storedToolsOf(record.tools) : null,
-    refusals: record.refusals.map((each) => ({
+    dismissals: record.dismissals.map((each) => ({
       tool: each.tool,
       server: each.server,
       at: each.at.toISOString(),

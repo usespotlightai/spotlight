@@ -7,7 +7,7 @@ import { BriefingCard } from '@/components/features/runs/BriefingCard';
 import type { RunJournal } from '@/lib/inbox';
 import {
   type RunNotes as ConversationData,
-  conversingOf,
+  conversationItemOf,
 } from '@/lib/run-notes';
 
 type RunConversationProps = {
@@ -35,7 +35,7 @@ export function RunConversation({
 }: RunConversationProps) {
   return (
     <Conversation
-      item={conversingOf(conversation, teamId)}
+      item={conversationItemOf(conversation, teamId)}
       worked={worked}
       openAt={openAt}
       briefing={

@@ -10,8 +10,8 @@ import {
   type InboxItemResponseDto,
   listInbox,
   listTasks,
-  readInboxItem,
-  readInboxRequest,
+  markInboxItemRead,
+  markInboxRequestRead,
   readMemoryReview,
   readRunReview,
   readRunScores,
@@ -132,34 +132,34 @@ describe('the mock inbox', () => {
 
     const approval = (await itemIn('task_latency:0'))?.notes[0]?.approval;
 
-    expect(approval?.status).toBe('granted');
+    expect(approval?.status).toBe('approved');
     expect(approval?.edited).toEqual([{ name: 'for', value: '20m' }]);
   });
 
   it('requests approvals in every status', async () => {
     expect(await approvalIn('task_checkout:0')).toMatchObject({
       kind: 'harness-permission',
-      status: 'asked',
+      status: 'pending',
       askedOf: null,
     });
     expect(await approvalIn('task_signup_survey:0')).toMatchObject({
       kind: 'tool-call',
       name: 'linear.comment',
-      status: 'asked',
+      status: 'pending',
       askedOf: null,
     });
     expect(await approvalIn('task_pricing_toggle:0')).toMatchObject({
-      status: 'asked',
+      status: 'pending',
       askedOf: { name: 'Priya Nair' },
     });
     expect(await approvalIn('task_disk:0')).toMatchObject({
       kind: 'harness-permission',
-      status: 'refused',
+      status: 'dismissed',
     });
 
     const edited = await approvalIn('task_referral:0');
 
-    expect(edited?.status).toBe('granted');
+    expect(edited?.status).toBe('approved');
     expect(edited?.edited?.[1]?.value).not.toBe(edited?.inputs[1]?.value);
   });
 
@@ -172,11 +172,11 @@ describe('the mock inbox', () => {
   });
 
   it('marks items and inbox requests read, and resolves notices', async () => {
-    await readInboxItem({
+    await markInboxItemRead({
       path: { slug: SLUG, itemId: 'task_rate_limits:0' },
       throwOnError: true,
     });
-    await readInboxRequest({
+    await markInboxRequestRead({
       path: { slug: SLUG, requestId: MEMORIES_REQUEST_ID },
       throwOnError: true,
     });

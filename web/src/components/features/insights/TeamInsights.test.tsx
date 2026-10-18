@@ -376,7 +376,7 @@ describe('TeamInsights', () => {
     ).toBeInTheDocument();
   });
 
-  it('folds a section away and back', async () => {
+  it('collapses a section and expands it again', async () => {
     showing('?tab=tools');
 
     const memory = screen.getByRole('button', { name: 'Memory' });
@@ -609,15 +609,15 @@ describe('TeamInsights', () => {
         unanswered: 0,
         sentBack: 1,
         sentBackRate: 0.5,
-        refused: 1,
+        dismissed: 1,
         askedTaskIds: [],
-        refusedTaskIds: ['task_9'],
+        dismissedTaskIds: ['task_9'],
       },
       loadChanges: {
         asksPerTask: null,
         toAnswer: null,
         sentBackRate: null,
-        refused: null,
+        dismissed: null,
       },
       adoption: {
         activeCount: 1,

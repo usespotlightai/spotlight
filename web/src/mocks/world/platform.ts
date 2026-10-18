@@ -290,17 +290,17 @@ const run = (
     id: string;
     stationId: string;
     startedHoursAgo: number;
-    tookHours: number;
+    durationHours: number;
   },
 ): TaskRunResponseDto => {
-  const { stationId, startedHoursAgo, tookHours, ...rest } = over;
+  const { stationId, startedHoursAgo, durationHours, ...rest } = over;
 
   return {
     state: 'completed',
     attempt: 1,
     exitCode: 0,
     startedAt: hoursAgo(startedHoursAgo),
-    updatedAt: hoursAgo(startedHoursAgo - tookHours),
+    updatedAt: hoursAgo(startedHoursAgo - durationHours),
     harness: 'claude-code',
     image: null,
     station: runStationOf(stations, stationId),
@@ -317,7 +317,7 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       state: 'claimed',
       exitCode: null,
       startedHoursAgo: 0.3,
-      tookHours: 0.1,
+      durationHours: 0.1,
     }),
   ],
   task_rate_limits: [
@@ -325,14 +325,14 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       id: 'run_rate_limits_2',
       stationId: 'station_spec',
       startedHoursAgo: 3,
-      tookHours: 0.4,
+      durationHours: 0.4,
       review: { state: 'pending', conversationId: 'task_rate_limits:0' },
     }),
     run(DELIVERY, {
       id: 'run_rate_limits_1',
       stationId: 'station_triage',
       startedHoursAgo: 49,
-      tookHours: 0.2,
+      durationHours: 0.2,
     }),
   ],
   task_retries: [
@@ -342,20 +342,20 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       state: 'claimed',
       exitCode: null,
       startedHoursAgo: 0.2,
-      tookHours: 0.1,
+      durationHours: 0.1,
     }),
     run(DELIVERY, {
       id: 'run_retries_2',
       stationId: 'station_spec',
       startedHoursAgo: 4,
-      tookHours: 0.3,
+      durationHours: 0.3,
       review: { state: 'answered', conversationId: 'task_retries:0' },
     }),
     run(DELIVERY, {
       id: 'run_retries_1',
       stationId: 'station_triage',
       startedHoursAgo: 6,
-      tookHours: 0.1,
+      durationHours: 0.1,
     }),
   ],
   task_billing: [
@@ -365,7 +365,7 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       state: 'failed',
       exitCode: 1,
       startedHoursAgo: 20,
-      tookHours: 0.6,
+      durationHours: 0.6,
     }),
   ],
   task_postgres: [
@@ -374,20 +374,20 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       stationId: 'station_review',
       harness: 'codex',
       startedHoursAgo: 8,
-      tookHours: 0.3,
+      durationHours: 0.3,
       review: { state: 'pending', conversationId: 'task_postgres:0' },
     }),
     run(DELIVERY, {
       id: 'run_postgres_2',
       stationId: 'station_implementation',
       startedHoursAgo: 30,
-      tookHours: 1.2,
+      durationHours: 1.2,
     }),
     run(DELIVERY, {
       id: 'run_postgres_1',
       stationId: 'station_spec',
       startedHoursAgo: 90,
-      tookHours: 0.4,
+      durationHours: 0.4,
     }),
   ],
   task_search: [
@@ -396,13 +396,13 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       stationId: 'station_review',
       harness: 'codex',
       startedHoursAgo: 380,
-      tookHours: 0.2,
+      durationHours: 0.2,
     }),
     run(DELIVERY, {
       id: 'run_search_2',
       stationId: 'station_implementation',
       startedHoursAgo: 390,
-      tookHours: 1.5,
+      durationHours: 1.5,
     }),
   ],
   task_latency: [
@@ -412,7 +412,7 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       state: 'claimed',
       exitCode: null,
       startedHoursAgo: 0.5,
-      tookHours: 0.2,
+      durationHours: 0.2,
     }),
   ],
   task_disk: [
@@ -420,13 +420,13 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       id: 'run_disk_2',
       stationId: 'station_mitigate',
       startedHoursAgo: 76,
-      tookHours: 0.5,
+      durationHours: 0.5,
     }),
     run(INCIDENTS, {
       id: 'run_disk_1',
       stationId: 'station_investigate',
       startedHoursAgo: 79,
-      tookHours: 0.8,
+      durationHours: 0.8,
     }),
   ],
 };

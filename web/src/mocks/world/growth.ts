@@ -136,17 +136,17 @@ const run = (
     id: string;
     stationId: string;
     startedHoursAgo: number;
-    tookHours: number;
+    durationHours: number;
   },
 ): TaskRunResponseDto => {
-  const { stationId, startedHoursAgo, tookHours, ...rest } = over;
+  const { stationId, startedHoursAgo, durationHours, ...rest } = over;
 
   return {
     state: 'completed',
     attempt: 1,
     exitCode: 0,
     startedAt: hoursAgo(startedHoursAgo),
-    updatedAt: hoursAgo(startedHoursAgo - tookHours),
+    updatedAt: hoursAgo(startedHoursAgo - durationHours),
     harness: 'claude-code',
     image: null,
     station: runStationOf(STATIONS, stationId),
@@ -161,7 +161,7 @@ export const GROWTH_RUNS: Record<string, TaskRunResponseDto[]> = {
       id: 'run_onboarding_1',
       stationId: 'station_design',
       startedHoursAgo: 2,
-      tookHours: 0.3,
+      durationHours: 0.3,
       review: { state: 'pending', conversationId: 'task_onboarding_copy:0' },
     }),
   ],
@@ -172,13 +172,13 @@ export const GROWTH_RUNS: Record<string, TaskRunResponseDto[]> = {
       state: 'claimed',
       exitCode: null,
       startedHoursAgo: 0.4,
-      tookHours: 0.1,
+      durationHours: 0.1,
     }),
     run({
       id: 'run_pricing_1',
       stationId: 'station_design',
       startedHoursAgo: 38,
-      tookHours: 0.3,
+      durationHours: 0.3,
     }),
   ],
   task_signup_survey: [
@@ -188,7 +188,7 @@ export const GROWTH_RUNS: Record<string, TaskRunResponseDto[]> = {
       state: 'claimed',
       exitCode: null,
       startedHoursAgo: 0.13,
-      tookHours: 0.1,
+      durationHours: 0.1,
     }),
   ],
   task_referral: [
@@ -196,7 +196,7 @@ export const GROWTH_RUNS: Record<string, TaskRunResponseDto[]> = {
       id: 'run_referral_1',
       stationId: 'station_build',
       startedHoursAgo: 290,
-      tookHours: 1,
+      durationHours: 1,
     }),
   ],
 };

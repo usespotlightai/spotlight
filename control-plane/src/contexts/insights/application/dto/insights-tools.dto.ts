@@ -2,7 +2,7 @@ import type { PeriodDto } from '@insights/application/dto/insights.dto';
 import type {
   ServerReport,
   SkillReport,
-  ToolRefusals,
+  ToolDismissals,
 } from '@insights/domain/services/tool-insights';
 
 export interface TrendRuleDto {
@@ -15,7 +15,7 @@ export type SkillReportDto = SkillReport;
 
 export type ServerReportDto = ServerReport;
 
-export type ToolRefusalsDto = ToolRefusals;
+export type ToolDismissalsDto = ToolDismissals;
 
 export interface InsightsToolsDto {
   readonly period: PeriodDto;
@@ -25,5 +25,5 @@ export interface InsightsToolsDto {
   readonly skills: readonly SkillReportDto[];
   readonly unused: readonly string[];
   readonly servers: readonly ServerReportDto[];
-  readonly refusals: readonly ToolRefusalsDto[];
+  readonly dismissals: readonly ToolDismissalsDto[];
 }

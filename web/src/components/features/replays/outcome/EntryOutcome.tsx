@@ -39,11 +39,11 @@ export function EntryOutcome({ teamId, entry }: EntryOutcomeProps) {
     () => ({
       selected: focus?.kind === 'file' ? focus.file : null,
       lines: focus?.kind === 'file' ? focus.lines : null,
-      remembered: null,
-      aside: null,
+      memories: null,
+      sidePanel: null,
       open: (file: FileChange, lines?: LineRange) =>
         setFocus({ kind: 'file', file, lines: lines ?? null }),
-      openRemembered: () => {},
+      openMemories: () => {},
       close: () => setFocus(null),
     }),
     [focus],

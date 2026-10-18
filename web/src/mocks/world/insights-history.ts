@@ -51,7 +51,7 @@ type ServerCalls = {
   readonly calls: number;
   readonly failed: number;
   readonly ms: number;
-  readonly refused: string | null;
+  readonly dismissed: string | null;
 };
 
 export type HistoryRun = InsightsRunResponseDto & {
@@ -204,7 +204,8 @@ const callsOf = (draw: Draw, profile: Profile): ServerCalls[] =>
         calls,
         failed,
         ms: around(draw, use.p50Ms),
-        refused: use.refusable && chance(draw, 0.04) ? use.refusable : null,
+        dismissed:
+          use.dismissible && chance(draw, 0.04) ? use.dismissible : null,
       };
     });
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FoldChevron } from '@/components/shared/FoldChevron';
+import { ExpandChevron } from '@/components/shared/ExpandChevron';
 import {
   OUTER_DIVIDER,
   OUTER_GUIDE,
@@ -32,11 +32,11 @@ export function NestedGroupRow({
         <button
           type="button"
           aria-expanded={open}
-          aria-label={open ? `Fold ${label}` : `Unfold ${label}`}
+          aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
           onClick={onToggle}
           className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
         >
-          <FoldChevron open={open} />
+          <ExpandChevron open={open} />
         </button>
       ) : (
         <span aria-hidden className="size-4 shrink-0" />

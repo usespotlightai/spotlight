@@ -11,7 +11,7 @@ import {
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
-import { durationTicks, tickLasted } from '@/lib/insights-shipping';
+import { durationTicks, formatDurationTick } from '@/lib/insights-shipping';
 import { formatDay } from '@/lib/judge';
 
 type DaySeries = {
@@ -116,7 +116,7 @@ export function DayChart({
                 ticks={ticks}
                 domain={ticks ? [0, ticks[ticks.length - 1] ?? 0] : undefined}
                 allowDecimals={false}
-                tickFormatter={durations ? tickLasted : format}
+                tickFormatter={durations ? formatDurationTick : format}
               />
               <Tooltip
                 {...cursor.tooltip}

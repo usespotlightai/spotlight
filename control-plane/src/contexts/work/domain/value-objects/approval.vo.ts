@@ -6,11 +6,11 @@ import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
-export const APPROVAL_STATUSES = ['asked', 'granted', 'refused'] as const;
+export const APPROVAL_STATUSES = ['pending', 'approved', 'dismissed'] as const;
 
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 
-export type ApprovalDecision = Exclude<ApprovalStatus, 'asked'>;
+export type ApprovalDecision = Exclude<ApprovalStatus, 'pending'>;
 
 export type ApprovalEdits = Readonly<Record<string, string>>;
 
@@ -33,7 +33,7 @@ export class Approval {
     readonly askedOf: UserId | null,
   ) {}
 
-  static asked(
+  static request(
     subject: ApprovalSubject,
     at: StationId,
     because: string,
@@ -44,7 +44,7 @@ export class Approval {
       subject,
       at,
       because,
-      'asked',
+      'pending',
       null,
       false,
       null,
@@ -78,11 +78,11 @@ export class Approval {
   }
 
   get open(): boolean {
-    return this.status === 'asked';
+    return this.status === 'pending';
   }
 
   get grants(): boolean {
-    return this.status === 'granted' && !this.spent;
+    return this.status === 'approved' && !this.spent;
   }
 
   grantedFor(askedOf: UserId | null): boolean {
@@ -92,8 +92,8 @@ export class Approval {
     );
   }
 
-  get refuses(): boolean {
-    return this.status === 'refused';
+  get dismisses(): boolean {
+    return this.status === 'dismissed';
   }
 
   get goesAheadWith(): ToolInputs | null {
@@ -116,12 +116,12 @@ export class Approval {
   ): Approval {
     if (!this.open) {
       throw new InvalidApprovalAnswerError(
-        `Approval request was already ${this.status === 'granted' ? 'approved' : 'dismissed'}.`,
+        `Approval request was already ${this.status === 'approved' ? 'approved' : 'dismissed'}.`,
       );
     }
 
     if (
-      decision === 'granted' &&
+      decision === 'approved' &&
       this.askedOf &&
       !this.askedOf.equals(decided.by)
     ) {
@@ -147,7 +147,7 @@ export class Approval {
     decision: ApprovalDecision,
     edits: ApprovalEdits,
   ): ToolCall | null {
-    if (decision !== 'granted') {
+    if (decision !== 'approved') {
       throw new InvalidApprovalAnswerError(
         'A dismissed request cannot run with changes.',
       );
@@ -189,7 +189,7 @@ export class Approval {
   }
 
   returned(): Approval {
-    return this.status === 'granted' && this.spent
+    return this.status === 'approved' && this.spent
       ? this.withSpent(false)
       : this;
   }

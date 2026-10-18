@@ -14,6 +14,7 @@ import { AlertFiring } from '@insights/domain/value-objects/alert-firing.vo';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
+import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
@@ -22,7 +23,6 @@ import { JudgeCriteria } from '@insights/domain/value-objects/judge-criteria.vo'
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { JudgingFailure } from '@insights/domain/value-objects/judging-failure.vo';
 import { PairReason } from '@insights/domain/value-objects/pair-reason.vo';
-import { Refusal } from '@insights/domain/value-objects/refusal.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
@@ -50,7 +50,7 @@ export const INSIGHTS_PAYLOAD_TYPES = [
   RunLocation,
   RunTools,
   RunMemories,
-  Refusal,
+  Dismissal,
   Citation,
   JudgeReason,
   JudgingFailure,

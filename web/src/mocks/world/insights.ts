@@ -578,12 +578,12 @@ const loadOf = (teamId: string, window: Window, unanswered: number) => {
     unanswered,
     sentBack,
     sentBackRate: shareOf(sentBack, runs.length),
-    refused: runs.filter((run) => run.calls.some((call) => call.refused))
+    dismissed: runs.filter((run) => run.calls.some((call) => call.dismissed))
       .length,
     askedTaskIds: distinct(asked.map((run) => run.taskId)).slice(0, 200),
-    refusedTaskIds: distinct(
+    dismissedTaskIds: distinct(
       runs
-        .filter((run) => run.calls.some((call) => call.refused))
+        .filter((run) => run.calls.some((call) => call.dismissed))
         .map((run) => run.taskId),
     ),
   };
@@ -650,7 +650,7 @@ export const peopleOf = (
         'down',
         'points',
       ),
-      refused: changeOf(load.refused, before.refused, 'down'),
+      dismissed: changeOf(load.dismissed, before.dismissed, 'down'),
     },
     adoption: {
       activeCount: active.length,
@@ -816,9 +816,10 @@ const RUN_MATCHERS: {
   server: (run, value) => run.calls.some((call) => call.server === value),
   serverFailed: (run, value) =>
     run.calls.some((call) => call.server === value && call.failed > 0),
-  refusedServer: (run, value) =>
-    run.calls.some((call) => call.server === value && call.refused !== null),
-  refusedTool: (run, value) => run.calls.some((call) => call.refused === value),
+  dismissedServer: (run, value) =>
+    run.calls.some((call) => call.server === value && call.dismissed !== null),
+  dismissedTool: (run, value) =>
+    run.calls.some((call) => call.dismissed === value),
 };
 
 const PAGE_SIZE = 50;

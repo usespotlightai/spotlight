@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { ReviewCommentState } from '@/components/features/review/ReviewCommentState';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
+import { Collapsible } from '@/components/shared/Collapsible';
 import { Composer } from '@/components/shared/form/Composer';
 import { Logo } from '@/components/shared/icons';
-import { Unfold } from '@/components/shared/Unfold';
 import { useDeleteReviewComment } from '@/hooks/api/useDeleteReviewComment';
 import { useEditReviewComment } from '@/hooks/api/useEditReviewComment';
 import { type ReviewComment, whoWrote } from '@/lib/review';
@@ -47,7 +47,7 @@ export function ReviewCommentItem({
 
   return (
     <li>
-      <Unfold
+      <Collapsible
         open={!leaving}
         appear={false}
         className={first ? undefined : 'pt-3'}
@@ -127,7 +127,7 @@ export function ReviewCommentItem({
             )}
           </div>
         </div>
-      </Unfold>
+      </Collapsible>
     </li>
   );
 }

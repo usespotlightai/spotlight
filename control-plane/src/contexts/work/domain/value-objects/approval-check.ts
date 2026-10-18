@@ -3,9 +3,9 @@ import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 export type ApprovalCheck =
   | {
-      readonly kind: 'granted';
+      readonly kind: 'approved';
       readonly claimed: NotePosition;
       readonly edited: ToolInputs | null;
     }
-  | { readonly kind: 'asked' }
-  | { readonly kind: 'refused'; readonly reason: string };
+  | { readonly kind: 'pending' }
+  | { readonly kind: 'dismissed'; readonly reason: string };

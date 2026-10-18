@@ -1,7 +1,7 @@
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { SkillRows } from '@/components/features/insights/tools/SkillRows';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
-import { useFolds } from '@/hooks/useFolds';
+import { useCollapsibles } from '@/hooks/useCollapsibles';
 import type { StationNames } from '@/lib/insights';
 import {
   type SkillReport,
@@ -18,7 +18,7 @@ type SkillUseProps = {
 };
 
 export function SkillUse({ slug, teamId, skills, rule, names }: SkillUseProps) {
-  const folds = useFolds();
+  const collapsibles = useCollapsibles();
 
   return (
     <InsightsCard
@@ -33,7 +33,7 @@ export function SkillUse({ slug, teamId, skills, rule, names }: SkillUseProps) {
             teamId={teamId}
             skill={skill}
             names={names}
-            folds={folds}
+            collapsibles={collapsibles}
           />
         ))}
       </NestedTable>

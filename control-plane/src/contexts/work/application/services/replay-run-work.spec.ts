@@ -128,7 +128,7 @@ describe('the work of a replay', () => {
     const { work } = working();
 
     await expect(work.toolContext()).rejects.toThrow(NotAllowedInReplayError);
-    expect((await work.clearFor()).kind).toBe('refused');
+    expect((await work.clearFor()).kind).toBe('dismissed');
   });
 
   it('takes up nothing a person says', async () => {
@@ -142,7 +142,7 @@ describe('the work of a replay', () => {
   it('records a permission it would have asked a person for on the run as it is now, and ends its turn there', async () => {
     const { work, saved } = working();
 
-    expect(await work.clearPermission()).toBe('asked');
+    expect(await work.clearPermission()).toBe('pending');
     expect(saved[0]?.askedAPerson).toBe(true);
   });
 });

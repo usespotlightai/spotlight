@@ -71,8 +71,8 @@ const acting = async (...runs: Ended[]) => {
         tool: tool?.tool ?? null,
         server: tool?.server ?? null,
       }),
-    refusals: async (runId: string) =>
-      (await records.of(RunId.of(runId)))?.refusals.map((each) => ({
+    dismissals: async (runId: string) =>
+      (await records.of(RunId.of(runId)))?.dismissals.map((each) => ({
         tool: each.tool,
         server: each.server,
       })) ?? [],
@@ -84,26 +84,26 @@ const acting = async (...runs: Ended[]) => {
 };
 
 describe('recording what a person did after a run', () => {
-  it('notes the tool a person refused on the run that asked, once however often it is received', async () => {
+  it('notes the tool a person dismissed on the run that asked, once however often it is received', async () => {
     const recorder = await acting(['run_1', 9]);
     const tool = { tool: 'mcp__linear__create_issue', server: 'linear' };
 
-    await recorder.acted('refused', 10, 'run_1', tool);
-    await recorder.acted('refused', 10, 'run_1', tool);
+    await recorder.acted('dismissed', 10, 'run_1', tool);
+    await recorder.acted('dismissed', 10, 'run_1', tool);
 
-    expect(await recorder.refusals('run_1')).toEqual([tool]);
+    expect(await recorder.dismissals('run_1')).toEqual([tool]);
   });
 
-  it('notes no refusal for an approval or for a refusal that names no tool', async () => {
+  it('notes no dismissal for an approval or for a dismissal that names no tool', async () => {
     const recorder = await acting(['run_1', 9]);
 
     await recorder.acted('approved', 10, 'run_1', {
       tool: 'mcp__linear__create_issue',
       server: 'linear',
     });
-    await recorder.acted('refused', 11, 'run_1');
+    await recorder.acted('dismissed', 11, 'run_1');
 
-    expect(await recorder.refusals('run_1')).toEqual([]);
+    expect(await recorder.dismissals('run_1')).toEqual([]);
   });
 
   it('attributes the act to the run it names', async () => {
@@ -169,7 +169,7 @@ describe('recording what a person did after a run', () => {
 
   it('lets the act after a tool approval decide the run, not the approval', async () => {
     const tool = { tool: 'mcp__linear__create_issue', server: 'linear' };
-    const decided = async (approval: 'approved' | 'refused', act: string) => {
+    const decided = async (approval: 'approved' | 'dismissed', act: string) => {
       const recorder = await acting(['run_1', 9]);
 
       await recorder.acted(approval, 10, 'run_1', tool);
@@ -180,7 +180,7 @@ describe('recording what a person did after a run', () => {
 
     expect(await decided('approved', 'accepted')).toBe('accepted');
     expect(await decided('approved', 'sent-back')).toBe('sent-back');
-    expect(await decided('refused', 'accepted')).toBe('accepted');
+    expect(await decided('dismissed', 'accepted')).toBe('accepted');
   });
 
   it('reads a run a person only decided a tool approval for as asking, neither accepted nor sent back', async () => {
@@ -220,7 +220,7 @@ describe('recording what a person did after a run', () => {
     const recorder = await acting();
     await recorder.deletions.deleteTeam(WORKSPACE, TeamId.of('team_1'));
 
-    await recorder.acted('refused', 11, 'run_7', {
+    await recorder.acted('dismissed', 11, 'run_7', {
       tool: 'create_issue',
       server: 'linear',
     });

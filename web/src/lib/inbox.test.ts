@@ -109,7 +109,7 @@ describe('previewOf', () => {
     expect(previewOf(item([]))).toBe('Waiting at Planning');
   });
 
-  it('says a station crossed its alert, and that it came back within it', () => {
+  it('says a station alert fired, and that it resolved', () => {
     const alert = (resolved: boolean) =>
       ({
         ...item([]),
@@ -117,10 +117,8 @@ describe('previewOf', () => {
         inboxRequest: { form: 'alert', about: 'alert_1' },
       }) as InboxItem;
 
-    expect(previewOf(alert(false))).toBe('Station crossed an alert threshold.');
-    expect(previewOf(alert(true))).toBe(
-      'Station back within its alert threshold.',
-    );
+    expect(previewOf(alert(false))).toBe('Station alert fired.');
+    expect(previewOf(alert(true))).toBe('Station alert resolved.');
   });
 });
 

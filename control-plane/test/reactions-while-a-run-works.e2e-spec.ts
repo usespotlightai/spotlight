@@ -209,7 +209,7 @@ const answered = (task: Task, from: number, body: string, approve?: boolean) =>
     .send({ body, approve })
     .expect(204);
 
-const approvalAsked = async (task: Task, runId: RunId) => {
+const approvalRequested = async (task: Task, runId: RunId) => {
   const asking = (await found(task.id)).clearFor(
     ApprovalSubject.toolCall(
       ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
@@ -381,7 +381,7 @@ describe('a pull request merged while a run works on the task (e2e)', () => {
   it('stops a working run and asks over a pending tool approval', async () => {
     const { task, runId } = await workingAt('implementation');
     await claimed(runId);
-    await approvalAsked(task, runId);
+    await approvalRequested(task, runId);
 
     await merged(task);
 
@@ -530,11 +530,11 @@ describe('a run-chat message on a task a merge interrupted (e2e)', () => {
 });
 
 describe('a deferred move and what ends the run (e2e)', () => {
-  it('survives a tool approval asked and granted mid-run, and applies when the run ends', async () => {
+  it('survives a tool approval requested and approved mid-run, and applies when the run ends', async () => {
     const { task, runId } = await workingAt('implementation');
     await claimed(runId);
     await changesRequested(task);
-    const asking = await approvalAsked(task, runId);
+    const asking = await approvalRequested(task, runId);
 
     await answered(asking, asking.notes.length - 1, '', true);
     expect((await found(task.id)).deferredMoveTo).toEqual(

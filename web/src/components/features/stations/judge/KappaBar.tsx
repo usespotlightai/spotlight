@@ -1,4 +1,4 @@
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { type ClaimAgreement, formatStat, kappaNote } from '@/lib/judge';
 
 const percent = (value: number): string =>
@@ -12,7 +12,7 @@ type KappaBarProps = {
 
 export function KappaBar({ kappa, reading, minAgreement }: KappaBarProps) {
   return (
-    <Noted note={kappaNote(reading)}>
+    <WithTooltip tooltip={kappaNote(reading)}>
       <span className="flex min-w-0 cursor-default items-center gap-2">
         <span className="w-8 shrink-0 text-foreground tabular-nums">
           {formatStat(kappa)}
@@ -35,6 +35,6 @@ export function KappaBar({ kappa, reading, minAgreement }: KappaBarProps) {
           )}
         </span>
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

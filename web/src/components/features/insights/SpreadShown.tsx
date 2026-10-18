@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 
 type SpreadShownProps = {
   tail: string | null;
@@ -8,9 +8,9 @@ type SpreadShownProps = {
 
 export function SpreadShown({ tail, children }: SpreadShownProps) {
   return tail ? (
-    <Noted note={tail}>
+    <WithTooltip tooltip={tail}>
       <span className="cursor-default">{children}</span>
-    </Noted>
+    </WithTooltip>
   ) : (
     children
   );

@@ -45,14 +45,14 @@ export function RunComposer({
           ? `Answer ${station}`
           : restarts
             ? `Send it back to ${station}`
-            : `Say something to ${station}`
+            : `Message ${station}`
       }
       placeholder={
         answering
           ? 'Answer the question to continue the run…'
           : restarts
             ? `Say what to change. ${station} starts again…`
-            : 'Say something…'
+            : 'Write a message…'
       }
       pending={send.isPending}
       running={running}

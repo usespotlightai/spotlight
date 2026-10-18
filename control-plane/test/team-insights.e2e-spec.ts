@@ -252,14 +252,14 @@ beforeAll(async () => {
         TASK,
         workspaceId,
         station,
-        'refused',
+        'dismissed',
         team.owner,
         RUN,
         ago(150),
         CalledTool.of({ server: 'linear', tool: 'create_issue' }),
       ),
     ],
-    async () => (await record())?.refusals.length === 1,
+    async () => (await record())?.dismissals.length === 1,
   );
   await delivered(
     [
@@ -371,7 +371,7 @@ describe('what the insights context receives for a team (e2e)', () => {
       repositories: ['acme/api'],
       skills: ['grafana'],
     });
-    expect(record?.refusals.map((each) => [each.server, each.tool])).toEqual([
+    expect(record?.dismissals.map((each) => [each.server, each.tool])).toEqual([
       ['linear', 'create_issue'],
     ]);
     expect(record?.tools?.callsTo('linear')?.latency).toEqual(
@@ -640,7 +640,7 @@ describe('the team’s insights (e2e)', () => {
     expect(await status('outcome=exploded')).toBe(422);
     expect(await status('pullRequestState=shipped')).toBe(422);
     expect(await status('humanAction=shrugged')).toBe(422);
-    expect(await status('humanAction=refused')).toBe(422);
+    expect(await status('humanAction=dismissed')).toBe(422);
     expect(await status('asked=yes')).toBe(422);
     expect(await status('stationId=a&stationId=b')).toBe(422);
     expect(await status('day=2026-02-30')).toBe(422);
@@ -651,7 +651,7 @@ describe('the team’s insights (e2e)', () => {
     expect(await status('page=10001')).toBe(422);
   });
 
-  it('drills down by the skills and MCP servers a run used, and the tools a person refused', async () => {
+  it('drills down by the skills and MCP servers a run used, and the tools a person dismissed', async () => {
     const total = async (query: string) =>
       (await asOwner(insights('runs', `period=7d&${query}`))).body.total;
     const ended = new Date(NOW - 240 * MINUTE);
@@ -672,12 +672,14 @@ describe('the team’s insights (e2e)', () => {
     expect(await total('server=sentry')).toBe(0);
     expect(await total('serverFailed=linear')).toBe(1);
     expect(await total('failedAfter=linear')).toBe(0);
-    expect(await total('refusedTool=create_issue')).toBe(1);
-    expect(await total('refusedServer=linear')).toBe(1);
-    expect(await total('refusedServer=linear&refusedTool=create_issue')).toBe(
-      1,
+    expect(await total('dismissedTool=create_issue')).toBe(1);
+    expect(await total('dismissedServer=linear')).toBe(1);
+    expect(
+      await total('dismissedServer=linear&dismissedTool=create_issue'),
+    ).toBe(1);
+    expect(await total('dismissedServer=jira&dismissedTool=create_issue')).toBe(
+      0,
     );
-    expect(await total('refusedServer=jira&refusedTool=create_issue')).toBe(0);
     expect(await total(`week=${monday}`)).toBe(1);
 
     const tuesday = new Date(
@@ -729,11 +731,11 @@ describe('the team’s insights (e2e)', () => {
         failedCalls: 1,
         errorRate: 1 / 3,
         failingRuns: 0,
-        refused: 1,
+        dismissed: 1,
       },
     ]);
-    expect(answer.body.refusals).toEqual([
-      { tool: 'create_issue', server: 'linear', refused: 1 },
+    expect(answer.body.dismissals).toEqual([
+      { tool: 'create_issue', server: 'linear', dismissed: 1 },
     ]);
   });
 
@@ -948,7 +950,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
     readonly outcome: 'completed' | 'failed';
     readonly superseded?: boolean;
     readonly servers: readonly ServerCalls[];
-    readonly refused: readonly CalledTool[];
+    readonly dismissed: readonly CalledTool[];
   }) => {
     const runId = RunId.of(randomUUID());
     const task = TaskId.of(randomUUID());
@@ -1017,13 +1019,13 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
           Tokens.UNREPORTED,
           ToolUse.of({ servers: seed.servers, skills: [] }),
         ),
-        ...seed.refused.map(
+        ...seed.dismissed.map(
           (tool, at) =>
             new TaskActedOn(
               task,
               team.workspaceId,
               team.stationId,
-              'refused',
+              'dismissed',
               team.owner,
               runId,
               ago(80 - at),
@@ -1039,7 +1041,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       return (
         record?.hasEnded === true &&
         record.usage !== null &&
-        record.refusals.length === seed.refused.length &&
+        record.dismissals.length === seed.dismissed.length &&
         record.superseded === (seed.superseded ?? false)
       );
     }, 60_000);
@@ -1058,17 +1060,21 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       tool: 'create_issue',
     });
 
-    await seeded({ outcome: 'failed', servers: [jira(2, [300])], refused: [] });
+    await seeded({
+      outcome: 'failed',
+      servers: [jira(2, [300])],
+      dismissed: [],
+    });
     await seeded({
       outcome: 'failed',
       superseded: true,
       servers: [jira(1, [])],
-      refused: [],
+      dismissed: [],
     });
     await seeded({
       outcome: 'completed',
       servers: [],
-      refused: [
+      dismissed: [
         createIssue,
         createIssue,
         CalledTool.of({ server: 'linear', tool: 'comment' }),
@@ -1077,7 +1083,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
     await seeded({
       outcome: 'completed',
       servers: [],
-      refused: [CalledTool.of({ server: null, tool: 'github.merge' })],
+      dismissed: [CalledTool.of({ server: null, tool: 'github.merge' })],
     });
 
     const tools = (await asOwner(insights('tools'))).body as {
@@ -1085,24 +1091,24 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
         server: string;
         runs: number;
         failingRuns: number;
-        refused: number;
+        dismissed: number;
       }[];
       skills: { key: string; enabled: number; used: number }[];
-      refusals: { tool: string; server: string | null; refused: number }[];
+      dismissals: { tool: string; server: string | null; dismissed: number }[];
     };
 
     expect(tools.skills.length).toBeGreaterThan(0);
     expect(tools.servers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ server: 'jira', runs: 2, failingRuns: 1 }),
-        expect.objectContaining({ server: 'linear', refused: 2 }),
+        expect.objectContaining({ server: 'linear', dismissed: 2 }),
       ]),
     );
-    expect(tools.refusals).toEqual(
+    expect(tools.dismissals).toEqual(
       expect.arrayContaining([
-        { tool: 'create_issue', server: 'linear', refused: 2 },
-        { tool: 'comment', server: 'linear', refused: 1 },
-        { tool: 'github.merge', server: null, refused: 1 },
+        { tool: 'create_issue', server: 'linear', dismissed: 2 },
+        { tool: 'comment', server: 'linear', dismissed: 1 },
+        { tool: 'github.merge', server: null, dismissed: 1 },
       ]),
     );
 
@@ -1111,16 +1117,16 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       expect(await total(`failedAfter=${server.server}`)).toBe(
         server.failingRuns,
       );
-      expect(await total(`refusedServer=${server.server}`)).toBe(
-        server.refused,
+      expect(await total(`dismissedServer=${server.server}`)).toBe(
+        server.dismissed,
       );
     }
-    for (const refusal of tools.refusals) {
+    for (const dismissal of tools.dismissals) {
       expect(
         await total(
-          `refusedTool=${encodeURIComponent(refusal.tool)}&refusedServer=${refusal.server ?? 'none'}`,
+          `dismissedTool=${encodeURIComponent(dismissal.tool)}&dismissedServer=${dismissal.server ?? 'none'}`,
         ),
-      ).toBe(refusal.refused);
+      ).toBe(dismissal.dismissed);
     }
     for (const skill of tools.skills) {
       expect(await total(`skillUsed=${skill.key}`)).toBe(skill.used);

@@ -23,7 +23,7 @@ export function BestTile({ search }: { search: SearchDetail }) {
         label={formatBestTerm(objective)}
         value={NO_VALUE}
         detail={formatNoBest(objective)}
-        note={aims}
+        tooltip={aims}
       />
     );
   }
@@ -41,7 +41,7 @@ export function BestTile({ search }: { search: SearchDetail }) {
           {best.overfit && <OverfitMark mark={best.overfit} />}
         </span>
       }
-      note={formatSentences(
+      tooltip={formatSentences(
         aims,
         formatLikely(heldOut ? best.heldOutInterval : best.searchInterval),
       )}

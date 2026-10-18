@@ -1,6 +1,6 @@
 import { Check, X } from 'lucide-react';
 import { CodeBlock } from '@/components/shared/CodeBlock';
-import { took } from '@/lib/inbox';
+import { formatShortDuration } from '@/lib/inbox';
 import { type StackCheck, stepName, stepsOf } from '@/lib/replay-outcome';
 import { cn } from '@/lib/utils';
 
@@ -44,7 +44,7 @@ export function ReplayCheck({ check }: { check: StackCheck }) {
                 </span>
                 <span className="text-muted-foreground">
                   · {step.passed ? 'passed' : 'failed'} in{' '}
-                  {took(step.durationMs)}
+                  {formatShortDuration(step.durationMs)}
                 </span>
               </p>
 

@@ -18,7 +18,7 @@ import type {
   SetNoiseResponseDto,
   SuggestedRunResponseDto,
 } from '@/lib/api';
-import { spentIn, took } from '@/lib/inbox';
+import { formatShortDuration, spentIn } from '@/lib/inbox';
 import { formatClaimsMet, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
@@ -201,7 +201,9 @@ export const formatCostDelta = (
     : `${signOf(delta)}${spentIn(Math.abs(delta), currency)}`;
 
 export const formatMsDelta = (delta: number | null): string =>
-  delta === null ? '–' : `${signOf(delta)}${took(Math.abs(delta))}`;
+  delta === null
+    ? '–'
+    : `${signOf(delta)}${formatShortDuration(Math.abs(delta))}`;
 
 export const formatScoreDelta = (delta: number | null): string =>
   delta === null ? '–' : `${signOf(delta)}${Math.abs(delta).toFixed(2)}`;
@@ -422,7 +424,7 @@ export const SET_REPLAY_HEADINGS: readonly NestedHeading[] = [
 ];
 
 export const SET_HEALTH_HEADINGS: readonly NestedHeading[] = [
-  { label: 'Reading', indent: 'edge', size: 'minmax(10rem,1fr)' },
+  { label: 'Check', indent: 'edge', size: 'minmax(10rem,1fr)' },
   { label: 'Result', size: 'minmax(12rem,3fr)' },
 ];
 
@@ -485,7 +487,7 @@ export const taskHeadingsOf = (
     ? [
         {
           label: 'Closer',
-          note: `${CLOSER_TO_ACCEPTED}, as a blind judge saw it`,
+          tooltip: `${CLOSER_TO_ACCEPTED}, as a blind judge saw it`,
           size: SPREAD,
         },
       ]

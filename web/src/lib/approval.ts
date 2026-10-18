@@ -2,16 +2,13 @@ import type {
   InboxApprovalInputResponseDto,
   InboxApprovalResponseDto,
 } from '@/lib/api';
-import {
-  type ApprovalStatus,
-  WAITING_FOR_APPROVAL,
-} from '@/lib/approval-status';
+import { WAITING_FOR_APPROVAL } from '@/lib/approval-status';
 
 export type Approval = InboxApprovalResponseDto;
 
 export type ApprovalInput = InboxApprovalInputResponseDto;
 
-export type ApprovalMode = 'viewing' | 'editing' | 'refusing';
+export type ApprovalMode = 'viewing' | 'editing' | 'dismissing';
 
 export type ApprovalAnswer = {
   readonly approve: boolean;
@@ -95,25 +92,16 @@ const sentence = (words: string): string =>
   ENDED.test(words) ? words : `${words}.`;
 
 export const titleOf = (approval: Approval): string => {
-  if (approval.status === 'granted') {
+  if (approval.status === 'approved') {
     return approval.edited
       ? 'Request approved with changes'
       : 'Request approved';
   }
 
-  return approval.status === 'refused'
+  return approval.status === 'dismissed'
     ? 'Request dismissed'
     : WAITING_FOR_APPROVAL;
 };
-
-const CARD_STATUSES: Record<Approval['status'], ApprovalStatus> = {
-  asked: 'waiting',
-  granted: 'approved',
-  refused: 'declined',
-};
-
-export const cardStatusOf = (approval: Approval): ApprovalStatus =>
-  CARD_STATUSES[approval.status];
 
 export const askedFor = (approval: Approval): string => {
   const wanted = approval.intent ?? `use ${approval.name}`;

@@ -5,8 +5,8 @@ const PANELS = [
   'Prompt',
   'Skills',
   'Judge',
-  'Ships through',
-  'Version',
+  'Line',
+  'Config fingerprint',
 ] as const;
 
 export function StationConfigSkeleton() {

@@ -37,7 +37,7 @@ export class HumanLoadResponseDto {
 
   @ApiProperty({
     example: 4,
-    description: 'Runs that a person sent back or refused first',
+    description: 'Runs that a person sent back or dismissed first',
   })
   readonly sentBack: number;
 
@@ -46,15 +46,15 @@ export class HumanLoadResponseDto {
 
   @ApiProperty({
     example: 2,
-    description: 'Tool approvals and permissions people refused',
+    description: 'Tool approvals and permissions people dismissed',
   })
-  readonly refused: number;
+  readonly dismissed: number;
 
   @ApiProperty({ type: String, isArray: true })
   readonly askedTaskIds: readonly string[];
 
   @ApiProperty({ type: String, isArray: true })
-  readonly refusedTaskIds: readonly string[];
+  readonly dismissedTaskIds: readonly string[];
 
   constructor(load: HumanLoadDto) {
     this.asks = load.asks;
@@ -64,9 +64,9 @@ export class HumanLoadResponseDto {
     this.unanswered = load.unanswered;
     this.sentBack = load.sentBack;
     this.sentBackRate = load.sentBackRate;
-    this.refused = load.refused;
+    this.dismissed = load.dismissed;
     this.askedTaskIds = load.askedTaskIds;
-    this.refusedTaskIds = load.refusedTaskIds;
+    this.dismissedTaskIds = load.dismissedTaskIds;
   }
 }
 
@@ -95,15 +95,15 @@ export class HumanLoadDeltasResponseDto {
   @ApiProperty({
     type: DeltaResponseDto,
     nullable: true,
-    description: 'Refused approvals against the period before',
+    description: 'Dismissed approvals against the period before',
   })
-  readonly refused: DeltaResponseDto | null;
+  readonly dismissed: DeltaResponseDto | null;
 
   constructor(changes: HumanLoadDeltasDto) {
     this.asksPerTask = deltaResponseOf(changes.asksPerTask);
     this.toAnswer = deltaResponseOf(changes.toAnswer);
     this.sentBackRate = deltaResponseOf(changes.sentBackRate);
-    this.refused = deltaResponseOf(changes.refused);
+    this.dismissed = deltaResponseOf(changes.dismissed);
   }
 }
 
@@ -119,7 +119,7 @@ export class PersonUseResponseDto {
 
   @ApiProperty({
     example: 12,
-    description: 'Moves, answers, approvals, refusals and sends-back',
+    description: 'Moves, answers, approvals, dismissals and sends-back',
   })
   readonly actions: number;
 

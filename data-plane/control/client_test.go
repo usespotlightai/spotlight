@@ -418,7 +418,7 @@ func TestAskPermissionPostsWhatWasAskedAndReadsTheDecision(t *testing.T) {
 		body := new(bytes.Buffer)
 		_, _ = body.ReadFrom(r.Body)
 		carried = body.String()
-		_, _ = w.Write([]byte(`{"decision":"asked"}`))
+		_, _ = w.Write([]byte(`{"decision":"pending"}`))
 	})
 
 	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionRequest{
@@ -438,7 +438,7 @@ func TestAskPermissionPostsWhatWasAskedAndReadsTheDecision(t *testing.T) {
 	if carried != want {
 		t.Errorf("carried %s, want %s", carried, want)
 	}
-	if answer.Decision != protocol.PermissionEscalated {
+	if answer.Decision != protocol.PermissionPending {
 		t.Errorf("decision %q", answer.Decision)
 	}
 }

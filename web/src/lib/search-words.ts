@@ -213,7 +213,7 @@ export const formatBestOn = (heldOut: boolean): string =>
   heldOut ? 'held out' : 'searched';
 
 const OVERFIT_LABELS: Record<Overfit, string> = {
-  likely: 'Only on seen tasks',
+  likely: 'Likely overfit',
   'too-few-held-out': 'Too few held-out tasks to tell',
 };
 

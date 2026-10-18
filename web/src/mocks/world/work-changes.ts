@@ -340,7 +340,7 @@ export const addedIn = (stack: ChangeStackResponseDto) =>
 export const removedIn = (stack: ChangeStackResponseDto) =>
   linesStartingWith(stack, '-');
 
-export type DiffStat = {
+export type MockDiffStat = {
   readonly files: number;
   readonly additions: number;
   readonly deletions: number;
@@ -348,11 +348,15 @@ export type DiffStat = {
 
 export const statOf = (
   stacks: readonly ChangeStackResponseDto[],
-): DiffStat => ({
+): MockDiffStat => ({
   files: stacks.reduce((sum, stack) => sum + stack.files.length, 0),
   additions: stacks.reduce((sum, stack) => sum + addedIn(stack), 0),
   deletions: stacks.reduce((sum, stack) => sum + removedIn(stack), 0),
 });
 
-export const statLine = ({ files, additions, deletions }: DiffStat): string =>
+export const statLine = ({
+  files,
+  additions,
+  deletions,
+}: MockDiffStat): string =>
   `${files} files changed, ${additions} insertions(+), ${deletions} deletions(-)`;

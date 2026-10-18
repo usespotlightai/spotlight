@@ -51,13 +51,13 @@ export interface ServerReport {
   readonly failedCalls: number;
   readonly errorRate: number | null;
   readonly failingRuns: number;
-  readonly refused: number;
+  readonly dismissed: number;
 }
 
-export interface ToolRefusals {
+export interface ToolDismissals {
   readonly tool: string;
   readonly server: string | null;
-  readonly refused: number;
+  readonly dismissed: number;
 }
 
 export interface RunCount {
@@ -81,7 +81,7 @@ export interface ServerCounts {
   readonly failedCalls: number;
   readonly latency: readonly number[];
   readonly failingRuns: number;
-  readonly refused: number;
+  readonly dismissed: number;
 }
 
 export interface ToolCounts {
@@ -89,7 +89,7 @@ export interface ToolCounts {
   readonly stations: readonly StationLocation[];
   readonly skills: readonly SkillUseCount[];
   readonly servers: readonly ServerCounts[];
-  readonly refusals: readonly ToolRefusals[];
+  readonly dismissals: readonly ToolDismissals[];
 }
 
 export interface ToolInsights {
@@ -97,7 +97,7 @@ export interface ToolInsights {
   readonly skills: readonly SkillReport[];
   readonly unused: readonly string[];
   readonly servers: readonly ServerReport[];
-  readonly refusals: readonly ToolRefusals[];
+  readonly dismissals: readonly ToolDismissals[];
 }
 
 const enabledFor = (record: RunRecord, skill: string): boolean =>
@@ -190,22 +190,24 @@ const skillUseOf = (
   );
 };
 
-const refusalsOf = (records: readonly RunRecord[]): readonly ToolRefusals[] => {
-  const tools = new Map<string, ToolRefusals>();
+const dismissalsOf = (
+  records: readonly RunRecord[],
+): readonly ToolDismissals[] => {
+  const tools = new Map<string, ToolDismissals>();
 
   for (const record of records) {
     const named = new Map(
-      record.refusals.map((refusal) => [
-        JSON.stringify([refusal.server, refusal.tool]),
-        refusal,
+      record.dismissals.map((dismissal) => [
+        JSON.stringify([dismissal.server, dismissal.tool]),
+        dismissal,
       ]),
     );
 
-    for (const [key, refusal] of named) {
+    for (const [key, dismissal] of named) {
       tools.set(key, {
-        tool: refusal.tool,
-        server: refusal.server,
-        refused: (tools.get(key)?.refused ?? 0) + 1,
+        tool: dismissal.tool,
+        server: dismissal.server,
+        dismissed: (tools.get(key)?.dismissed ?? 0) + 1,
       });
     }
   }
@@ -216,8 +218,8 @@ const refusalsOf = (records: readonly RunRecord[]): readonly ToolRefusals[] => {
   );
 };
 
-const refusedAt = (record: RunRecord, server: string): boolean =>
-  record.refusals.some((each) => each.server === server);
+const dismissedAt = (record: RunRecord, server: string): boolean =>
+  record.dismissals.some((each) => each.server === server);
 
 const serverCountsOf = (
   records: readonly RunRecord[],
@@ -248,7 +250,7 @@ const serverCountsOf = (
         failingRuns: count(records, (each) =>
           each.failedAfterCallingTo(server),
         ),
-        refused: count(records, (each) => refusedAt(each, server)),
+        dismissed: count(records, (each) => dismissedAt(each, server)),
       };
     });
 
@@ -267,7 +269,7 @@ export const toolCountsOf = (
     stations: stationsOf(ran),
     skills: skillUseOf(ran),
     servers: serverCountsOf(ran),
-    refusals: refusalsOf(ran),
+    dismissals: dismissalsOf(ran),
   };
 };
 
@@ -361,16 +363,16 @@ export const toolInsightsFrom = (
           failedCalls: each.failedCalls,
           errorRate: rateOf(each.failedCalls, each.calls),
           failingRuns: each.failingRuns,
-          refused: each.refused,
+          dismissed: each.dismissed,
         };
       })
       .sort(
         (one, other) =>
           other.runs - one.runs || one.server.localeCompare(other.server),
       ),
-    refusals: [...counts.refusals].sort(
+    dismissals: [...counts.dismissals].sort(
       (one, other) =>
-        other.refused - one.refused ||
+        other.dismissed - one.dismissed ||
         one.tool.localeCompare(other.tool) ||
         (one.server ?? '').localeCompare(other.server ?? ''),
     ),

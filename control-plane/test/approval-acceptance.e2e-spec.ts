@@ -44,9 +44,9 @@ const RUNS = {
     ['sent-back', 90],
   ],
   onlyApproved: [['approved', 100]],
-  closedReceivedBeforeTheRefusalBeforeIt: [
+  closedReceivedBeforeTheDismissalBeforeIt: [
     ['accepted', 90],
-    ['refused', 100],
+    ['dismissed', 100],
   ],
   sentBackReceivedAfterTheCloseAfterIt: [
     ['accepted', 80],
@@ -149,7 +149,7 @@ beforeAll(async () => {
             team.owner,
             runId,
             ago(minutesAgo),
-            act === 'approved' || act === 'refused' ? TOOL : null,
+            act === 'approved' || act === 'dismissed' ? TOOL : null,
           ),
         ],
         async () => (await records.of(runId))?.version !== before?.version,
@@ -169,7 +169,9 @@ describe('a run a person decided a tool approval for (e2e)', () => {
       acceptance.acceptedAfter(runOf(name).value);
 
     expect(await accepted('approvedThenClosed')).toBe(true);
-    expect(await accepted('closedReceivedBeforeTheRefusalBeforeIt')).toBe(true);
+    expect(await accepted('closedReceivedBeforeTheDismissalBeforeIt')).toBe(
+      true,
+    );
     expect(await accepted('approvedThenSentBack')).toBe(false);
     expect(await accepted('onlyApproved')).toBe(false);
     expect(await accepted('sentBackReceivedAfterTheCloseAfterIt')).toBe(false);
@@ -191,7 +193,7 @@ describe('a run a person decided a tool approval for (e2e)', () => {
       approvedThenClosed: 'accepted',
       approvedThenSentBack: 'sent-back',
       onlyApproved: 'asked',
-      closedReceivedBeforeTheRefusalBeforeIt: 'accepted',
+      closedReceivedBeforeTheDismissalBeforeIt: 'accepted',
       sentBackReceivedAfterTheCloseAfterIt: 'sent-back',
     });
   });
@@ -210,7 +212,7 @@ describe('a run a person decided a tool approval for (e2e)', () => {
     expect(people.body.load).toMatchObject({
       sentBack: 2,
       sentBackRate: 0.4,
-      refused: 1,
+      dismissed: 1,
     });
   });
 

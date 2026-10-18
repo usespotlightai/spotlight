@@ -1,4 +1,4 @@
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { RESULT_INK, type ReplayEntry, repeatsTally } from '@/lib/replay';
 import {
   formatReason,
@@ -31,19 +31,19 @@ export function EntrySide({ repeats }: { repeats: readonly ReplayEntry[] }) {
       </span>
     );
 
-    return reasons ? <Noted note={reasons}>{word}</Noted> : word;
+    return reasons ? <WithTooltip tooltip={reasons}>{word}</WithTooltip> : word;
   }
 
   const { succeeded, scored } = repeatsTally(repeats);
 
   return (
-    <Noted note={repeats.map(repeatNote).join(' · ')}>
+    <WithTooltip tooltip={repeats.map(repeatNote).join(' · ')}>
       <span
         data-slot="entry-side"
         className="relative z-10 font-medium text-foreground tabular-nums"
       >
         {scored === 0 ? NOT_SCORED_YET : `${succeeded} of ${scored} succeeded`}
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

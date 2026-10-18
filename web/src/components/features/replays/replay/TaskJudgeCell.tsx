@@ -1,5 +1,5 @@
-import { Noted } from '@/components/shared/Noted';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
   type EntryComparison,
   formatJudgeScore,
@@ -30,15 +30,15 @@ export function TaskJudgeCell({
 
   return (
     <NestedCell heading="Judge">
-      <Noted
-        note={`This replay ${formatJudges(row.candidate)} · ${capitalised(reference)} ${formatJudges(row.baseline)}`}
+      <WithTooltip
+        tooltip={`This replay ${formatJudges(row.candidate)} · ${capitalised(reference)} ${formatJudges(row.baseline)}`}
       >
         <span className="relative z-10">
           {row.scoreUncompared
             ? formatUncompared(row.scoreUncompared)
             : formatScoreDelta(row.scoreDelta)}
         </span>
-      </Noted>
+      </WithTooltip>
     </NestedCell>
   );
 }

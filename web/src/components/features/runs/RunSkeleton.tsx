@@ -47,7 +47,7 @@ export function RunSkeleton() {
         </div>
 
         <ComposerFooter>
-          <ChatInputSkeleton placeholder="Say something…" />
+          <ChatInputSkeleton placeholder="Write a message…" />
         </ComposerFooter>
       </RunSidePanel>
     </div>

@@ -97,7 +97,7 @@ func TestAReplayWhoseArchiveIsGoneEndsFailedRatherThanStartingAfresh(t *testing.
 func TestAReplayThatAsksAPersonEndsThere(t *testing.T) {
 	written := run(t, permitting(t), replaying(nil), func(o *runOptions) {
 		o.setup = protocol.HarnessSetup{AskKinds: []string{"execute"}}
-		o.decision = protocol.PermissionEscalated
+		o.decision = protocol.PermissionPending
 		o.messages = [][]protocol.Message{{{Position: 1, Body: "Go ahead."}}}
 	})
 

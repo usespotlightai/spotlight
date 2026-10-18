@@ -153,7 +153,7 @@ describe('the Candidates tab', () => {
     );
   });
 
-  it('groups the candidates in one table by station, then replay set, saying how far to trust each set', () => {
+  it('groups the candidates in one table by station, then replay set, showing the health of each set', () => {
     showing();
 
     const groups = [
@@ -172,31 +172,29 @@ describe('the Candidates tab', () => {
       `${STATION}/station_implementation/replay-sets/set_implementation`,
     );
     expect(screen.getAllByLabelText('Checks pull requests')).toHaveLength(1);
-    expect(screen.getAllByLabelText('How far to trust this set')).toHaveLength(
-      2,
-    );
+    expect(screen.getAllByLabelText('Set health')).toHaveLength(2);
   });
 
-  it('folds a station or a replay set away and opens it again', async () => {
+  it('collapses a station or a replay set and expands it again', async () => {
     showing();
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'Fold Implementation' }),
+      screen.getByRole('button', { name: 'Collapse Implementation' }),
     );
     expect(screen.queryByText('opus-with-migrations-skill')).toBeNull();
     expect(screen.getByText('review-against-spec')).toBeInTheDocument();
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'Unfold Implementation' }),
+      screen.getByRole('button', { name: 'Expand Implementation' }),
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Fold Reviews sent back' }),
+      screen.getByRole('button', { name: 'Collapse Reviews sent back' }),
     );
     expect(screen.getByText('opus-with-migrations-skill')).toBeInTheDocument();
     expect(screen.queryByText('review-against-spec')).toBeNull();
   });
 
-  it('charts each replay set in place of its candidates, under the same folding rows', async () => {
+  it('charts each replay set in place of its candidates, under the same collapsible rows', async () => {
     showing();
 
     await userEvent.click(screen.getByRole('button', { name: 'Chart' }));
@@ -308,7 +306,7 @@ describe('the Candidates tab', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1');
   });
 
-  it('expands a candidate whose changes run past the row, and folds it back', async () => {
+  it('expands a candidate whose changes run past the row, and collapses it again', async () => {
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(80);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(48);
     showing();

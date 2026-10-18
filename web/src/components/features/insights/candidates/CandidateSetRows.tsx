@@ -2,7 +2,7 @@ import { BaselineRow } from '@/components/features/insights/candidates/BaselineR
 import { CandidateComparisonRow } from '@/components/features/insights/candidates/CandidateComparisonRow';
 import { ReplayedSetChart } from '@/components/features/insights/candidates/ReplayedSetChart';
 import { SetSummary } from '@/components/features/insights/candidates/SetSummary';
-import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import {
   INNER_DIVIDER,
@@ -44,7 +44,7 @@ export function CandidateSetRows({
         <SetSummary at={at} set={set} />
       </NestedGroupRow>
 
-      <FoldingRows open={open}>
+      <CollapsibleRows open={open}>
         {chartStatus && (
           <li
             data-slot="candidate-chart"
@@ -72,7 +72,7 @@ export function CandidateSetRows({
         {!chartStatus && set.baseline && (
           <BaselineRow at={at} baseline={set.baseline} heldOut={heldOut} />
         )}
-      </FoldingRows>
+      </CollapsibleRows>
     </>
   );
 }

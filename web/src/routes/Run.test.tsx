@@ -434,7 +434,7 @@ describe('Run', () => {
 
     expect(screen.getByText('Which queue should I drain?')).toBeInTheDocument();
     expect(
-      screen.getByRole('textbox', { name: 'Say something to Implementation' }),
+      screen.getByRole('textbox', { name: 'Message Implementation' }),
     ).toBeInTheDocument();
   });
 
@@ -566,7 +566,7 @@ describe('Run', () => {
 
       expect(
         screen.getByRole('textbox', {
-          name: 'Say something to Implementation',
+          name: 'Message Implementation',
         }),
       ).toBeInTheDocument();
     });
@@ -581,7 +581,7 @@ describe('Run', () => {
 
       expect(
         screen.getByRole('textbox', {
-          name: 'Say something to Implementation',
+          name: 'Message Implementation',
         }),
       ).toBeInTheDocument();
     });
@@ -639,7 +639,7 @@ describe('Run', () => {
           name: 'linear.comment',
           because: 'It posts publicly, under the team’s name.',
           inputs: [{ name: 'body', value: 'Fixed.' }],
-          status: 'asked' as const,
+          status: 'pending' as const,
           edited: null,
           intent: null,
         },
@@ -665,7 +665,7 @@ describe('Run', () => {
       ).toBeInTheDocument();
       expect(
         screen.getByRole('textbox', {
-          name: 'Say something to Implementation',
+          name: 'Message Implementation',
         }),
       ).toBeInTheDocument();
     });

@@ -1,7 +1,6 @@
 import { EntrySide } from '@/components/features/replays/replay/EntrySide';
 import { TaskJudgeCell } from '@/components/features/replays/replay/TaskJudgeCell';
 import { TaskSpendCells } from '@/components/features/replays/replay/TaskSpendCells';
-import { NotedWarning } from '@/components/shared/NotedWarning';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
@@ -9,6 +8,7 @@ import {
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import {
   type EntryComparison,
   formatTitle,
@@ -52,11 +52,11 @@ export function TaskRow({
           {title}
         </button>
         {row.regressed && (
-          <NotedWarning
+          <WarningTooltip
             data-slot="regressed"
             tone="destructive"
             label="Regressed"
-            note={REGRESSED_NOTE(reference)}
+            tooltip={REGRESSED_NOTE(reference)}
             className="relative z-10"
           />
         )}

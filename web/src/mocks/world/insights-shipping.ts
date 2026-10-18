@@ -63,8 +63,8 @@ const isPeople = (fact: PullRequestFact) =>
 
 const durations = (facts: readonly PullRequestFact[]): number[] =>
   facts.flatMap((fact) => {
-    const took = toMergeOf(fact);
-    return took === null ? [] : [took];
+    const toMerge = toMergeOf(fact);
+    return toMerge === null ? [] : [toMerge];
   });
 
 const byAuthor = (facts: readonly PullRequestFact[]): ByAuthorResponseDto => ({
@@ -193,7 +193,7 @@ const withBottleneckRatios = (
     at: number,
     type: PullRequestType | null,
   ): StageTimesResponseDto => {
-    const of = <T>(each: (lasted: number[]) => T) =>
+    const of = <T>(each: (stageMs: number[]) => T) =>
       Object.fromEntries(
         PERCENTILES.map((percentile) => [
           percentile,
@@ -203,11 +203,11 @@ const withBottleneckRatios = (
 
     return {
       ...times,
-      bottleneckRatio: of((lasted) => {
-        const max = Math.max(0, ...lasted);
-        return max === 0 ? 0 : (lasted[at] ?? 0) / max;
+      bottleneckRatio: of((stageMs) => {
+        const max = Math.max(0, ...stageMs);
+        return max === 0 ? 0 : (stageMs[at] ?? 0) / max;
       }),
-      worst: of((lasted) => lasted.indexOf(Math.max(...lasted)) === at),
+      worst: of((stageMs) => stageMs.indexOf(Math.max(...stageMs)) === at),
     };
   };
 

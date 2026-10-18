@@ -27,7 +27,7 @@ export function InboxStep({ step, live = false }: InboxStepProps) {
           readOnly
           initialValue={step.text}
           placeholder=""
-          ariaLabel="What the agent said"
+          ariaLabel="Agent message"
           className="border-none bg-transparent p-0"
         />
       </li>
