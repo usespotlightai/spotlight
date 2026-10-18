@@ -1,59 +1,61 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { describe, expect, it, vi } from 'vitest';
 import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
 
-const started = vi.fn();
-const starting = { isError: false, error: null as unknown };
-
-vi.mock('@/hooks/api/useHarnesses', () => ({
-  useHarnesses: () => ({
-    data: [
-      {
-        id: 'claude-code',
-        name: 'Claude Code',
-        executable: 'claude-agent-acp',
-        models: [],
-        defaultModel: '',
-        efforts: [],
-        discovery: [],
-      },
-    ],
-  }),
-}));
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({
     data: [{ fullName: 'acme/api' }, { fullName: 'acme/infra' }],
   }),
 }));
-vi.mock('@/hooks/api/useStartChat', () => ({
-  useStartChat: () => ({ mutate: started, isPending: false, ...starting }),
-}));
+
+function HandedOver() {
+  const location = useLocation();
+
+  return <pre data-testid="handed">{JSON.stringify(location.state)}</pre>;
+}
 
 const showing = () =>
   render(
-    <MemoryRouter>
-      <ConfigFolderForm slug="acme" teamId="team_1" />
+    <MemoryRouter initialEntries={['/acme/teams/team_1']}>
+      <Routes>
+        <Route
+          path="/acme/teams/team_1"
+          element={<ConfigFolderForm slug="acme" teamId="team_1" />}
+        />
+        <Route path="*" element={<HandedOver />} />
+      </Routes>
     </MemoryRouter>,
   );
 
-beforeEach(() => {
-  started.mockReset();
-  starting.isError = false;
-  starting.error = null;
-});
-
 describe('ConfigFolderForm', () => {
-  it('waits for a repository before it starts the setup chat', () => {
+  it('waits for the team’s repositories before it continues in chat', async () => {
+    const user = userEvent.setup();
     showing();
 
+    await user.click(screen.getByRole('button', { name: /^Repository:/ }));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: 'acme/infra' }),
+    );
+
     expect(
-      screen.getByRole('button', { name: 'Start setup chat' }),
+      screen.getByRole('button', { name: 'Repositories' }),
+    ).toHaveTextContent('Repositories your team works in');
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
     ).toBeDisabled();
   });
 
-  it('starts the setup chat in the folder chosen, reading the repositories chosen', async () => {
+  it('waits for a repository before it continues in chat', () => {
+    showing();
+
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toBeDisabled();
+  });
+
+  it('hands the message, the setup and the team’s repositories to a new chat', async () => {
     const user = userEvent.setup();
     showing();
 
@@ -71,28 +73,15 @@ describe('ConfigFolderForm', () => {
       await screen.findByRole('menuitemcheckbox', { name: 'acme/api' }),
     );
     await user.keyboard('{Escape}');
-    await user.click(screen.getByRole('button', { name: 'Start setup chat' }));
+    await user.click(screen.getByRole('button', { name: 'Continue in chat' }));
 
-    expect(started).toHaveBeenCalledWith(
-      expect.objectContaining({
-        teamId: 'team_1',
-        harness: 'claude-code',
-        repositories: ['acme/api'],
-        setup: { repository: 'acme/infra', folder: 'infra/spotlight' },
-      }),
-      expect.anything(),
-    );
-  });
-
-  it('says why the setup chat could not start', () => {
-    starting.isError = true;
-    starting.error = {
-      detail: 'Config folder must not contain . or .. parts.',
-    };
-    showing();
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Config folder must not contain . or .. parts.',
-    );
+    expect(
+      JSON.parse(screen.getByTestId('handed').textContent ?? 'null'),
+    ).toMatchObject({
+      prompt:
+        'Set up our configuration as code in acme/infra, under infra/spotlight/.',
+      setup: { repository: 'acme/infra', folder: 'infra/spotlight' },
+      repositories: ['acme/api'],
+    });
   });
 });

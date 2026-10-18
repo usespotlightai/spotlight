@@ -7,10 +7,12 @@ import { useStartChat } from '@/hooks/api/useStartChat';
 import { useStoredState } from '@/hooks/useStoredState';
 import {
   CHAT_HARNESS_KEY,
+  type ChatSetup,
   type SharedTrace,
   type TargetStation,
 } from '@/lib/chat';
 import { stationReference, traceReference } from '@/lib/chat-input';
+import { messageOf } from '@/lib/error';
 
 type NewChatComposerProps = {
   slug: string;
@@ -18,6 +20,8 @@ type NewChatComposerProps = {
   traces: readonly SharedTrace[];
   defaultTargetStation: TargetStation | null;
   defaultPrompt?: string | null;
+  defaultRepositories?: readonly string[];
+  setup?: ChatSetup | null;
   onStarted: (chatId: string) => void;
 };
 
@@ -27,13 +31,17 @@ export function NewChatComposer({
   traces: handed,
   defaultTargetStation,
   defaultPrompt,
+  defaultRepositories = [],
+  setup,
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();
   const [stored, store] = useStoredState(CHAT_HARNESS_KEY, '');
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
-  const [repositories, setRepositories] = useState<string[]>([]);
+  const [repositories, setRepositories] = useState<string[]>([
+    ...defaultRepositories,
+  ]);
   const start = useStartChat();
   const [references] = useState(() => [
     ...(defaultTargetStation ? [stationReference(defaultTargetStation)] : []),
@@ -69,12 +77,22 @@ export function NewChatComposer({
         />
       }
       below={
-        <RepositoriesSelect
-          slug={slug}
-          value={repositories}
-          onChange={setRepositories}
-          className="h-6 w-auto"
-        />
+        <>
+          <RepositoriesSelect
+            slug={slug}
+            value={repositories}
+            onChange={setRepositories}
+            className="h-6 w-auto"
+          />
+          {start.isError && (
+            <p
+              role="alert"
+              className="w-full text-destructive text-sm leading-6"
+            >
+              {messageOf(start.error, 'Sorry, the chat could not start.')}
+            </p>
+          )}
+        </>
       }
       onSend={({ body, attachments, traces, targetStation }, sent) =>
         start.mutate(
@@ -88,6 +106,7 @@ export function NewChatComposer({
             attachments,
             traces,
             ...(targetStation ? { targetStation } : {}),
+            ...(setup ? { setup } : {}),
           },
           {
             onSuccess: (chat) => {
