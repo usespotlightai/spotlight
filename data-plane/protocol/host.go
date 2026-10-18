@@ -5,9 +5,15 @@ const TrustHeader = "Spotlight-Trust"
 const AnswerWaitVar = "SPOTLIGHT_ANSWER_WAIT"
 
 type HostRequirements struct {
+	Host      HostRequirement   `json:"host"`
 	Runner    RunnerRequirement `json:"runner"`
 	Harnesses []HarnessProbe    `json:"harnesses"`
 	Images    []string          `json:"images"`
+}
+
+type HostRequirement struct {
+	Release string `json:"release,omitempty"`
+	Minimum string `json:"minimum"`
 }
 
 type RunnerRequirement struct {

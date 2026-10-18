@@ -1,5 +1,6 @@
 import { HostReady } from '@runners/domain/events/host-ready.event';
 import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
+import { isOlderRelease } from '@runners/domain/services/release-order';
 import type { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
@@ -112,6 +113,10 @@ export class RunnerHost extends EventRecorder {
 
   supportedImage(image: RunnerImage): HostImage | null {
     return this.state.report.supportedImage(image);
+  }
+
+  isOlderThan(minimum: string): boolean {
+    return isOlderRelease(this.state.report.release, minimum);
   }
 
   hasSource(source: CredentialSource): boolean {

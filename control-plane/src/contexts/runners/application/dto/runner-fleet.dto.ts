@@ -24,6 +24,7 @@ export interface HostDto {
   readonly name: string;
   readonly source: CredentialSourceDto;
   readonly release: string;
+  readonly unavailableReason: string | null;
   readonly containerRuntime: string;
   readonly capacity: number;
   readonly running: readonly string[];

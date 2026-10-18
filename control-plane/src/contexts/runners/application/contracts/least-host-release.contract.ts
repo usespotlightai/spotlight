@@ -1,0 +1,1 @@
+export const MIN_HOST_RELEASE = '20261002-02';

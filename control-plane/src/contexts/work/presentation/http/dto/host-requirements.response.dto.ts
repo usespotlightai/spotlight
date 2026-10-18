@@ -1,6 +1,29 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { HarnessProbeResponseDto } from '@work/presentation/http/dto/harness-probe.response.dto';
 
+export class HostReleaseResponseDto {
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '20261018-01',
+    description:
+      'The release this control plane runs; a host on another release updates to it, unless the operator turned that off. Null when the control plane does not know its release',
+  })
+  readonly release: string | null;
+
+  @ApiProperty({
+    example: '20261002-02',
+    description:
+      'The oldest host release this control plane gives work to; an older host gets no work until it updates',
+  })
+  readonly minimum: string;
+
+  constructor(release: string | null, minimum: string) {
+    this.release = release;
+    this.minimum = minimum;
+  }
+}
+
 export class RunnerReleaseResponseDto {
   @ApiProperty({
     example: '20260925-01',
@@ -15,6 +38,9 @@ export class RunnerReleaseResponseDto {
 }
 
 export class HostRequirementsResponseDto {
+  @ApiProperty({ type: HostReleaseResponseDto })
+  readonly host: HostReleaseResponseDto;
+
   @ApiProperty({ type: RunnerReleaseResponseDto })
   readonly runner: RunnerReleaseResponseDto;
 
@@ -34,10 +60,12 @@ export class HostRequirementsResponseDto {
   readonly images: readonly string[];
 
   constructor(
+    host: HostReleaseResponseDto,
     runner: RunnerReleaseResponseDto,
     harnesses: readonly HarnessProbeResponseDto[],
     images: readonly string[],
   ) {
+    this.host = host;
     this.runner = runner;
     this.harnesses = harnesses;
     this.images = images;

@@ -52,6 +52,11 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 		return err
 	}
 
+	h.follow(ctx, required.Host.Release)
+	if h.wasUpdated() {
+		return nil
+	}
+
 	wanted := h.opts.Images.Wanted(required.Images)
 
 	h.mu.Lock()

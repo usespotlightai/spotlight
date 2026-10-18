@@ -18,6 +18,11 @@ export type StartedRunner =
   | { readonly outcome: 'full' }
   | { readonly outcome: 'gone' }
   | { readonly outcome: 'host-unreported' }
+  | {
+      readonly outcome: 'host-outdated';
+      readonly release: string;
+      readonly minimum: string;
+    }
   | { readonly outcome: 'image-unreported' };
 
 export interface ProvisionRequest {

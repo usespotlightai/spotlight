@@ -51,6 +51,7 @@ const (
 	cleanupBudget   = time.Minute
 	retryFloor      = 2 * time.Second
 	retryCeiling    = 30 * time.Second
+	updateRetry     = 10 * time.Minute
 )
 
 type Pool interface {
@@ -71,6 +72,13 @@ type RunClient interface {
 	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult) error
 }
 
+type Updates interface {
+	Replaced() bool
+	To(ctx context.Context, release string) error
+}
+
+var ErrUpdated = errors.New("the host binary was replaced")
+
 type Registry interface {
 	For(image string) (string, error)
 }
@@ -81,6 +89,8 @@ type Options struct {
 	Version      string
 	Images       images.Allowed
 	Registry     Registry
+	Updates      Updates
+	AutoUpdate   bool
 	RefreshEvery time.Duration
 	LeaseEvery   time.Duration
 	EgressWait   time.Duration
@@ -127,6 +137,9 @@ type Host struct {
 	claimBackoff map[string]time.Time
 	failures     map[string]int
 	egressIs     string
+	updateAfter  time.Time
+	updated      bool
+	stopClaiming context.CancelFunc
 }
 
 func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors, log *slog.Logger) *Host {
@@ -148,6 +161,9 @@ func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors
 func (h *Host) Serve(ctx context.Context) error {
 	claiming, stopClaiming := context.WithCancel(ctx)
 	defer stopClaiming()
+	h.mu.Lock()
+	h.stopClaiming = stopClaiming
+	h.mu.Unlock()
 
 	var (
 		failure error
@@ -197,14 +213,16 @@ func (h *Host) Serve(ctx context.Context) error {
 		}
 	}
 
-	h.log.Info("serving", "name", h.opts.Name, "capacity", cap(h.slots), "default", h.opts.Images.Default)
+	if !h.wasUpdated() {
+		h.log.Info("serving", "name", h.opts.Name, "capacity", cap(h.slots), "default", h.opts.Images.Default)
 
-	reporting.Go(func() { h.watch(claiming, ctx, stop) })
-	h.loops.Go(func() {
-		if err := h.calls(claiming, ctx, stop); err != nil {
-			stop(err)
-		}
-	})
+		reporting.Go(func() { h.watch(claiming, ctx, stop) })
+		h.loops.Go(func() {
+			if err := h.calls(claiming, ctx, stop); err != nil {
+				stop(err)
+			}
+		})
+	}
 
 	<-claiming.Done()
 	reporting.Wait()
@@ -219,7 +237,60 @@ func (h *Host) Serve(ctx context.Context) error {
 		h.log.Warn("could not deregister", "error", err)
 	}
 
+	if failure == nil && h.wasUpdated() {
+		return ErrUpdated
+	}
 	return failure
+}
+
+func (h *Host) follow(ctx context.Context, release string) {
+	if h.opts.Updates == nil || h.wasUpdated() {
+		return
+	}
+
+	if h.opts.Updates.Replaced() {
+		h.restartWhenDrained("the host binary was replaced")
+		return
+	}
+
+	h.mu.Lock()
+	wait := time.Until(h.updateAfter)
+	h.mu.Unlock()
+	if !h.opts.AutoUpdate || release == "" || release == h.opts.Version || wait > 0 {
+		return
+	}
+
+	h.log.Info("the control plane is on another release, so the host updates to it", "from", h.opts.Version, "to", release)
+	if err := h.opts.Updates.To(ctx, release); err != nil {
+		if ctx.Err() == nil {
+			h.log.Warn("could not update", "release", release, "error", err, "retryIn", updateRetry)
+		}
+		h.mu.Lock()
+		h.updateAfter = time.Now().Add(updateRetry)
+		h.mu.Unlock()
+		return
+	}
+
+	h.restartWhenDrained("updated to release " + release)
+}
+
+func (h *Host) restartWhenDrained(why string) {
+	h.mu.Lock()
+	h.updated = true
+	stop := h.stopClaiming
+	running := len(h.running)
+	h.mu.Unlock()
+
+	h.log.Info(why+"; it stops claiming and restarts once its sandboxes finish", "running", running)
+	if stop != nil {
+		stop()
+	}
+}
+
+func (h *Host) wasUpdated() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.updated
 }
 
 func quiet(ctx context.Context, err error) error {

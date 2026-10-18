@@ -5,6 +5,7 @@ import {
 } from '@/components/features/runners/columns';
 import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
 import { HostImageCell } from '@/components/features/runners/HostImageCell';
+import { HostReleaseCell } from '@/components/features/runners/HostReleaseCell';
 import { HostStatus } from '@/components/features/runners/HostStatus';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import {
@@ -38,9 +39,7 @@ export function HostRow({ slug, host, harnesses }: HostRowProps) {
 
         <HarnessLogos harnesses={servedBy(host, harnesses)} />
 
-        <span className="truncate text-muted-foreground text-xs tabular-nums">
-          {host.release}
-        </span>
+        <HostReleaseCell host={host} />
 
         <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
           {heartbeatAt(host)}

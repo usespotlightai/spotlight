@@ -1,4 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type {
   HostCredentials,
   RunnerAuthenticatorPort,
@@ -98,13 +99,16 @@ describe('listing harnesses for a workspace', () => {
 
       return {
         namedIn,
-        subject: new HostRequirementsHandler(launch, authenticator, {
-          namedIn,
-        } satisfies LineImagesPort),
+        subject: new HostRequirementsHandler(
+          launch,
+          authenticator,
+          { namedIn } satisfies LineImagesPort,
+          { release: '20261018-01' },
+        ),
       };
     };
 
-    it('tells an authenticated host the least runner release, the harnesses to look for and the images its workspace’s lines name', async () => {
+    it('tells an authenticated host the control plane’s release, the least host and runner releases, the harnesses to look for and the images its workspace’s lines name', async () => {
       const { subject, namedIn } = requirements();
 
       expect(
@@ -112,6 +116,8 @@ describe('listing harnesses for a workspace', () => {
           new HostRequirementsQuery({ bearer: 'pool-token', trust: undefined }),
         ),
       ).toEqual({
+        hostRelease: '20261018-01',
+        hostMinimum: MIN_HOST_RELEASE,
         runnerMinimum: MIN_RUNNER_RELEASE,
         harnesses: [expect.objectContaining({ id: 'claude-code', models: [] })],
         images: ['ghcr.io/acme/widgets:1'],

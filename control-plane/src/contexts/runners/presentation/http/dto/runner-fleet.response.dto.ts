@@ -91,8 +91,18 @@ export class HostResponseDto {
   @ApiProperty({ type: CredentialSourceResponseDto })
   readonly source: CredentialSourceResponseDto;
 
-  @ApiProperty({ example: 'v1.4.0', description: 'The spotlight release' })
+  @ApiProperty({ example: '20261018-01', description: 'The spotlight release' })
   readonly release: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example:
+      'Host is on release 20261001-04. Minimum release required: 20261002-02. Update it with: spotlight host update',
+    description:
+      'Why the control plane gives this host no work, or null when it gives it work',
+  })
+  readonly unavailableReason: string | null;
 
   @ApiProperty({ example: 'Docker Engine - Community 27.3.1 (linux/amd64)' })
   readonly containerRuntime: string;
@@ -141,6 +151,7 @@ export class HostResponseDto {
     this.name = fields.name;
     this.source = fields.source;
     this.release = fields.release;
+    this.unavailableReason = fields.unavailableReason;
     this.containerRuntime = fields.containerRuntime;
     this.capacity = fields.capacity;
     this.running = fields.running;

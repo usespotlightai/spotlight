@@ -1,8 +1,10 @@
+import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import type { HostRequirementsDto } from '@work/application/dto/host-requirements.dto';
 import { HarnessMapper } from '@work/application/mappers/harness.mapper';
+import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { LineImagesPort } from '@work/application/ports/line-images.port';
 import type { HostRequirementsQuery } from '@work/application/queries/host.queries';
@@ -15,6 +17,7 @@ export class HostRequirementsHandler
     private readonly launch: HarnessLaunchPort,
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly images: LineImagesPort,
+    private readonly controlPlane: ControlPlaneReleasePort,
   ) {}
 
   async execute(
@@ -30,6 +33,8 @@ export class HostRequirementsHandler
       }
 
       return {
+        hostRelease: this.controlPlane.release,
+        hostMinimum: MIN_HOST_RELEASE,
         runnerMinimum: MIN_RUNNER_RELEASE,
         harnesses: this.launch
           .catalogue()

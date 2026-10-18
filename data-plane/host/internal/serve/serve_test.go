@@ -414,6 +414,7 @@ type pool struct {
 	offered      chan protocol.HostClaim
 	named        []string
 	minimum      string
+	release      string
 	unoffer      bool
 	runClient    *runClient
 	mu           sync.Mutex
@@ -447,6 +448,7 @@ func (p *pool) Requirements(context.Context) (protocol.HostRequirements, error) 
 	defer p.mu.Unlock()
 
 	return protocol.HostRequirements{
+		Host:      protocol.HostRequirement{Release: p.release},
 		Runner:    protocol.RunnerRequirement{Minimum: p.minimumOr()},
 		Harnesses: []protocol.HarnessProbe{{ID: "claude-code", Executable: "claude"}},
 		Images:    slices.Clone(p.named),
