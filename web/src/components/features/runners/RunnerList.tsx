@@ -28,7 +28,9 @@ export function RunnerList({
 }: RunnerListProps) {
   const [picked, setPicked] = useState<readonly string[]>([]);
   const deleting = useDeleteHosts();
-  const selected = picked.filter((id) => hosts.some((host) => host.id === id));
+  const shown = new Set(hosts.map((host) => host.id));
+  const selected = picked.filter((id) => shown.has(id));
+  const chosen = new Set(selected);
 
   const select = (hostId: string, taken: boolean) =>
     setPicked((current) =>
@@ -52,7 +54,7 @@ export function RunnerList({
               host={host}
               harnesses={harnesses}
               selectable={selectable}
-              selected={selected.includes(host.id)}
+              selected={chosen.has(host.id)}
               onSelectedChange={(taken) => select(host.id, taken)}
             />
           ))}
